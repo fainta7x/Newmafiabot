@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+/* Neumorphism Utility Classes for Tailwind */
+@utility shadow-neu-flat {
+  box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.4), -6px -6px 14px rgba(255, 255, 255, 0.02);
+}
+@utility shadow-neu-flat-rose {
+  box-shadow: 6px 6px 14px rgba(244, 63, 94, 0.15), -6px -6px 14px rgba(255, 255, 255, 0.02);
+}
+@utility shadow-neu-flat-amber {
+  box-shadow: 6px 6px 14px rgba(245, 158, 11, 0.15), -6px -6px 14px rgba(255, 255, 255, 0.02);
+}
+@utility shadow-neu-flat-sm {
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.015);
+}
+@utility shadow-neu-inset {
+  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.5), inset -4px -4px 10px rgba(255, 255, 255, 0.015);
+}
+@utility shadow-neu-inset-rose {
+  box-shadow: inset 4px 4px 10px rgba(244, 63, 94, 0.1), inset -4px -4px 10px rgba(255, 255, 255, 0.015);
+}
+
+/* Base custom styles if needed */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-hover {
+  background: rgba(244, 63, 94, 0.4);
+}
+

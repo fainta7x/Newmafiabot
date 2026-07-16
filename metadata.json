@@ -1,0 +1,6 @@
+{
+  "name": "Mafia Club CRM",
+  "description": "A comprehensive, full-stack CRM and Game score tracker for managing Mafia Club sessions, ELO ratings, achievements, and token shop rewards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

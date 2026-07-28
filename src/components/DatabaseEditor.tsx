@@ -1,19 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Search, Plus, Award, Shield, UserPlus, DollarSign, Coins, X, Check,
-  Edit2, Info, ChevronRight, Trash2, Database, CalendarRange, ShoppingBag,
-  History, FileText, CheckCircle2, User, RefreshCw
+  Search, Plus, UserPlus, X, CheckCircle2,
+  RefreshCw, CreditCard, CalendarRange, ShoppingBag,
+  History, User, UserCheck, Coins, TrendingUp, Send
 } from "lucide-react";
-import { Player, Booking, Game, ShopPurchase } from "../types.js";
+import { Player, Booking, Game, ShopPurchase, GameEvening } from "../types.js";
 
-type EditorTab = "players" | "bookings" | "games" | "purchases";
+import { EveningsTab } from "./database/EveningsTab.js";
+import { BookingsTab } from "./database/BookingsTab.js";
+import { DebtsTab } from "./database/DebtsTab.js";
+import { GamesTab } from "./database/GamesTab.js";
+import { PlayersTab } from "./database/PlayersTab.js";
+import { PurchasesTab } from "./database/PurchasesTab.js";
+import { AnalyticsTab } from "./database/AnalyticsTab.js";
+
+import { EveningModal } from "./database/EveningModal.js";
+import { EveningLedgerModal } from "./database/EveningLedgerModal.js";
+import { DebtModal } from "./database/DebtModal.js";
+import { BookingModal } from "./database/BookingModal.js";
+import { PlayerModal } from "./database/PlayerModal.js";
+import { GameModal } from "./database/GameModal.js";
+import { PurchaseModal } from "./database/PurchaseModal.js";
+import { PlayerDossierModal } from "./database/PlayerDossierModal.js";
+import { TelegramExportModal } from "./database/TelegramExportModal.js";
+
+type EditorTab = "evenings" | "bookings" | "debts" | "games" | "players" | "purchases" | "analytics";
 
 export default function DatabaseEditor() {
-  const [activeTab, setActiveTab] = useState<EditorTab>("players");
+  const [activeTab, setActiveTab] = useState<EditorTab>("evenings");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEveningFilter, setSelectedEveningFilter] = useState<string>("ALL");
 
   // Data states
+  const [evenings, setEvenings] = useState<GameEvening[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [games, setGames] = useState<Game[]>([]);
@@ -22,14 +42,28 @@ export default function DatabaseEditor() {
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modal / Editing states
-  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
-  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  // Evening Modal states
+  const [editingEvening, setEditingEvening] = useState<GameEvening | null>(null);
+  const [ledgerEvening, setLedgerEvening] = useState<GameEvening | null>(null);
+  const [showAddEveningModal, setShowAddEveningModal] = useState(false);
+  const [eveDate, setEveDate] = useState("");
+  const [eveTitle, setEveTitle] = useState("");
+  const [eveStatus, setEveStatus] = useState<"Запланирован" | "Идет сейчас" | "Завершен">("Запланирован");
+  const [eveLocation, setEveLocation] = useState("Зал #1");
+  const [eveNotes, setEveNotes] = useState("");
+  const [eveFormat, setEveFormat] = useState<"NOVICE" | "STANDARD" | "TOURNAMENT">("STANDARD");
+
+  // Debt adjustment Modal state
+  const [editingDebtPlayer, setEditingDebtPlayer] = useState<Player | null>(null);
+  const [debtAmountInput, setDebtAmountInput] = useState<number>(0);
 
   // Player Form states
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [pNickname, setPNickname] = useState("");
   const [pFullName, setPFullName] = useState("");
   const [pUsername, setPUsername] = useState("");
+  const [pTag, setPTag] = useState("");
   const [pElo, setPElo] = useState(1500);
   const [pGamesPlayed, setPGamesPlayed] = useState(0);
   const [pGamesWon, setPGamesWon] = useState(0);
@@ -38,13 +72,23 @@ export default function DatabaseEditor() {
   const [pAchievements, setPAchievements] = useState<string[]>([]);
   const [pError, setPError] = useState("");
 
+  // CRM Dossier & Telegram Export States
+  const [dossierPlayer, setDossierPlayer] = useState<Player | null>(null);
+  const [telegramExportModalOpen, setTelegramExportModalOpen] = useState(false);
+  const [telegramExportType, setTelegramExportType] = useState<"ANNOUNCEMENT" | "EVENINGS_REPORT" | "DEBTS_LIST">("ANNOUNCEMENT");
+  const [telegramExportEvening, setTelegramExportEvening] = useState<GameEvening | null>(null);
+
   // Booking Form states
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [bookingOldKeys, setBookingOldKeys] = useState<{ nickname: string; date: string } | null>(null);
   const [showAddBookingModal, setShowAddBookingModal] = useState(false);
+  const [bSelectedUserId, setBSelectedUserId] = useState<number>(0);
   const [bNickname, setBNickname] = useState("");
   const [bStatus, setBStatus] = useState<"Вовремя" | "Позже" | "Отмена">("Вовремя");
   const [bDate, setBDate] = useState("");
+  const [bPayment, setBPayment] = useState<number>(400);
+  const [bPaymentMode, setBPaymentMode] = useState<"preset_100" | "preset_200" | "preset_300" | "preset_400" | "manual">("preset_400");
+  const [bPaymentStatus, setBPaymentStatus] = useState<"Оплачено" | "В долг" | "Частично">("Оплачено");
 
   // Game Form states
   const [editingGame, setEditingGame] = useState<Game | null>(null);
@@ -62,25 +106,27 @@ export default function DatabaseEditor() {
   const [purTimestamp, setPurTimestamp] = useState("");
 
   // Confirmation state
-  const [deleteConfirmId, setDeleteConfirmId] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Fetch all database tables
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resPlayers, resBookings, resGames, resPurchases, resAch] = await Promise.all([
+      const [resPlayers, resBookings, resGames, resPurchases, resAch, resEvenings] = await Promise.all([
         fetch("/api/players").then(r => r.json()),
         fetch("/api/bookings").then(r => r.json()),
         fetch("/api/games").then(r => r.json()),
         fetch("/api/admin/purchases").then(r => r.json()),
-        fetch("/api/achievements-list").then(r => r.json())
+        fetch("/api/achievements-list").then(r => r.json()),
+        fetch("/api/evenings").then(r => r.json())
       ]);
 
-      setPlayers(resPlayers);
-      setBookings(resBookings);
-      setGames(resGames);
-      setPurchases(resPurchases);
-      setAchievementsList(resAch);
+      setPlayers(resPlayers || []);
+      setBookings(resBookings || []);
+      setGames(resGames || []);
+      setPurchases(resPurchases || []);
+      setAchievementsList(resAch || {});
+      setEvenings(resEvenings || []);
     } catch (err) {
       console.error("Failed to load admin editor data", err);
       showToast("Ошибка загрузки данных базы");
@@ -101,12 +147,140 @@ export default function DatabaseEditor() {
   };
 
   // ==========================================
+  // GAME EVENING CRUD OPERATIONS
+  // ==========================================
+  const handleOpenAddEvening = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + ((5 + 7 - d.getDay()) % 7));
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const defaultDate = `${day}.${month}.${year}`;
+
+    setEveDate(defaultDate);
+    setEveTitle(`Пятничный мафия-вечер (${defaultDate})`);
+    setEveStatus("Запланирован");
+    setEveLocation("Зал #1 (Главный)");
+    setEveNotes("");
+    setEveFormat("STANDARD");
+    setEditingEvening(null);
+    setShowAddEveningModal(true);
+  };
+
+  const handleOpenEditEvening = (eve: GameEvening) => {
+    setEditingEvening(eve);
+    setEveDate(eve.date);
+    setEveTitle(eve.title);
+    setEveStatus(eve.status);
+    setEveLocation(eve.location || "Зал #1");
+    setEveNotes(eve.notes || "");
+    setEveFormat(eve.format || "STANDARD");
+    setShowAddEveningModal(true);
+  };
+
+  const handleSaveEvening = async () => {
+    if (!eveTitle.trim() || !eveDate.trim()) {
+      showToast("Заполните название и дату вечера!");
+      return;
+    }
+    try {
+      const isEdit = !!editingEvening;
+      const url = isEdit ? "/api/admin/evenings" : "/api/evenings";
+      const method = isEdit ? "PUT" : "POST";
+      const body: any = {
+        date: eveDate.trim(),
+        title: eveTitle.trim(),
+        status: eveStatus,
+        location: eveLocation.trim(),
+        notes: eveNotes.trim(),
+        format: eveFormat
+      };
+      if (isEdit && editingEvening) {
+        body.id = editingEvening.id;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error("Ошибка сохранения вечера");
+      showToast(isEdit ? "Игровой вечер обновлен" : "Новый игровой вечер создан!");
+      setEditingEvening(null);
+      setShowAddEveningModal(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message || "Ошибка сервера");
+    }
+  };
+
+  const handleDeleteEvening = async (eve: GameEvening) => {
+    try {
+      const res = await fetch(`/api/admin/evenings?id=${eve.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Не удалось удалить вечер");
+      showToast("Игровой вечер удален");
+      setEditingEvening(null);
+      setDeleteConfirmId(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  // ==========================================
+  // DEBT MANAGEMENT OPERATIONS
+  // ==========================================
+  const handleClearPlayerDebt = async (player: Player) => {
+    try {
+      const debtVal = Math.abs(player.debt);
+      const res = await fetch(`/api/players/${player.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          debt: 0,
+          total_paid: player.total_paid + debtVal
+        })
+      });
+      if (!res.ok) throw new Error("Ошибка при списании долга");
+      showToast(`Долг игрока ${player.nickname} (${debtVal} ₽) полностью погашен!`);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  const handleOpenEditDebt = (p: Player) => {
+    setEditingDebtPlayer(p);
+    setDebtAmountInput(Math.abs(p.debt));
+  };
+
+  const handleSaveDebtAdjustment = async () => {
+    if (!editingDebtPlayer) return;
+    try {
+      const res = await fetch(`/api/players/${editingDebtPlayer.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          debt: debtAmountInput > 0 ? -Math.abs(debtAmountInput) : 0
+        })
+      });
+      if (!res.ok) throw new Error("Ошибка при обновлении баланса долга");
+      showToast(`Сумма долга для ${editingDebtPlayer.nickname} обновлена`);
+      setEditingDebtPlayer(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  // ==========================================
   // PLAYER CRUD OPERATIONS
   // ==========================================
   const handleOpenAddPlayer = () => {
     setPNickname("");
     setPFullName("");
     setPUsername("");
+    setPTag("");
     setPElo(1500);
     setPGamesPlayed(0);
     setPGamesWon(0);
@@ -122,6 +296,7 @@ export default function DatabaseEditor() {
     setPNickname(p.nickname);
     setPFullName(p.full_name);
     setPUsername(p.username || "");
+    setPTag(p.tag || "");
     setPElo(p.elo);
     setPGamesPlayed(p.games_played);
     setPGamesWon(p.games_won);
@@ -142,11 +317,12 @@ export default function DatabaseEditor() {
       nickname: pNickname.trim(),
       full_name: pFullName.trim(),
       username: pUsername.trim(),
+      tag: pTag,
       elo: pElo,
       games_played: pGamesPlayed,
       games_won: pGamesWon,
       tokens: pTokens,
-      debt: pDebt > 0 ? -Math.abs(pDebt) : 0, // Negative for database representation
+      debt: pDebt > 0 ? -Math.abs(pDebt) : 0,
       achievements: pAchievements
     };
 
@@ -174,6 +350,162 @@ export default function DatabaseEditor() {
     }
   };
 
+  const handleQuickTogglePaymentStatus = async (b: Booking) => {
+    const nextStatus = b.payment_status === "Оплачено" ? "В долг" : "Оплачено";
+    try {
+      const res = await fetch(`/api/admin/bookings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          old_nickname: b.nickname,
+          old_date: b.date,
+          nickname: b.nickname,
+          date: b.date,
+          status: b.status,
+          payment: b.payment || 400,
+          payment_status: nextStatus
+        })
+      });
+      if (!res.ok) throw new Error("Не удалось быстро сменить статус оплаты");
+      showToast(`Статус записи ${b.nickname} изменен на "${nextStatus}"`);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  // ==========================================
+  // EVENING LEDGER DISPATCHER HANDLERS
+  // ==========================================
+  const handleUpdateBookingLedger = async (data: {
+    oldNickname: string;
+    oldDate: string;
+    nickname: string;
+    date: string;
+    status: "Вовремя" | "Позже" | "Отмена";
+    payment: number;
+    payment_status: "Оплачено" | "В долг" | "Частично";
+  }) => {
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oldNickname: data.oldNickname,
+          oldDate: data.oldDate,
+          nickname: data.nickname,
+          date: data.date,
+          status: data.status,
+          payment: data.payment,
+          payment_status: data.payment_status,
+        }),
+      });
+      if (!res.ok) throw new Error(" Ошибка обновления бронирование");
+      await fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  const handleAddBookingLedger = async (
+    nickname: string,
+    date: string,
+    payment: number,
+    paymentStatus: "Оплачено" | "В долг" | "Частично"
+  ) => {
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nickname,
+          date,
+          status: "Вовремя",
+          payment,
+          payment_status: paymentStatus,
+        }),
+      });
+      if (!res.ok) throw new Error("Ошибка добавления игрока на вечер");
+      await fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  const handleSettleEveningDebts = async (eveningDate: string, debtMap: { [nickname: string]: number }) => {
+    try {
+      const res = await fetch("/api/evenings/settle-debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eveningDate, debtMap }),
+      });
+      if (!res.ok) throw new Error("Ошибка списания долгов");
+      showToast("Неоплаченные суммы успешно перенесены в долги игроков!");
+      await fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  const handleAddNewPlayerLedger = async (nickname: string, fullName: string) => {
+    try {
+      const res = await fetch("/api/admin/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nickname,
+          full_name: fullName,
+          elo: 1500,
+          games_played: 0,
+          games_won: 0,
+        }),
+      });
+      if (!res.ok) throw new Error("Не удалось создать игрока");
+      const created = await res.json();
+      await fetchData();
+      return created;
+    } catch (err: any) {
+      showToast(err.message);
+      return null;
+    }
+  };
+
+  const handleUpdatePlayerDebtFromDossier = async (player: Player, newDebt: number) => {
+    try {
+      const res = await fetch(`/api/players/${player.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ debt: newDebt })
+      });
+      if (!res.ok) throw new Error("Ошибка обновления долга");
+      showToast(`Баланс долга для ${player.nickname} обновлен (${newDebt} ₽)`);
+      if (dossierPlayer && dossierPlayer.id === player.id) {
+        setDossierPlayer({ ...dossierPlayer, debt: newDebt });
+      }
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
+  const handleUpdatePlayerTokensFromDossier = async (player: Player, newTokens: number) => {
+    try {
+      const res = await fetch(`/api/players/${player.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokens: newTokens })
+      });
+      if (!res.ok) throw new Error("Ошибка обновления жетонов");
+      showToast(`Баланс жетонов для ${player.nickname} изменен (${newTokens} 🪙)`);
+      if (dossierPlayer && dossierPlayer.id === player.id) {
+        setDossierPlayer({ ...dossierPlayer, tokens: newTokens });
+      }
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  };
+
   const handleDeletePlayer = async (id: number) => {
     try {
       const res = await fetch(`/api/players/${id}`, { method: "DELETE" });
@@ -193,16 +525,23 @@ export default function DatabaseEditor() {
   // ==========================================
   // BOOKING CRUD OPERATIONS
   // ==========================================
-  const handleOpenAddBooking = () => {
+  const handleOpenAddBooking = (defaultDate?: string) => {
+    setBSelectedUserId(0);
     setBNickname("");
     setBStatus("Вовремя");
-    // Default to coming Friday's date
-    const d = new Date();
-    d.setDate(d.getDate() + ((5 + 7 - d.getDay()) % 7));
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    setBDate(`${day}.${month}.${year}`);
+    if (defaultDate) {
+      setBDate(defaultDate);
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + ((5 + 7 - d.getDay()) % 7));
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      setBDate(`${day}.${month}.${year}`);
+    }
+    setBPayment(400);
+    setBPaymentMode("preset_400");
+    setBPaymentStatus("Оплачено");
     setShowAddBookingModal(true);
   };
 
@@ -210,17 +549,30 @@ export default function DatabaseEditor() {
     setEditingBooking(b);
     setBookingOldKeys({ nickname: b.nickname, date: b.date });
     setBNickname(b.nickname);
+    const matched = players.find(p => p.nickname.toLowerCase() === b.nickname.toLowerCase() || p.user_id === b.user_id);
+    setBSelectedUserId(matched ? matched.user_id : 0);
     setBStatus(b.status);
     setBDate(b.date);
+    const payVal = b.payment !== undefined ? b.payment : 400;
+    setBPayment(payVal);
+    if (payVal === 100) setBPaymentMode("preset_100");
+    else if (payVal === 200) setBPaymentMode("preset_200");
+    else if (payVal === 300) setBPaymentMode("preset_300");
+    else if (payVal === 400) setBPaymentMode("preset_400");
+    else setBPaymentMode("manual");
+    setBPaymentStatus(b.payment_status || "Оплачено");
   };
 
   const handleSaveBooking = async () => {
     if (!bNickname.trim() || !bDate.trim()) {
-      showToast("Заполните никнейм и дату!");
+      showToast("Выберите игрока и укажите дату вечера!");
       return;
     }
 
     try {
+      const matchedPlayer = players.find(p => p.user_id === bSelectedUserId) || players.find(p => p.nickname.toLowerCase() === bNickname.trim().toLowerCase());
+      const finalUserId = matchedPlayer ? matchedPlayer.user_id : (bSelectedUserId || 9999);
+
       if (editingBooking && bookingOldKeys) {
         const res = await fetch("/api/admin/bookings", {
           method: "PUT",
@@ -228,27 +580,43 @@ export default function DatabaseEditor() {
           body: JSON.stringify({
             oldNickname: bookingOldKeys.nickname,
             oldDate: bookingOldKeys.date,
+            user_id: finalUserId,
             nickname: bNickname.trim(),
             status: bStatus,
-            date: bDate.trim()
+            date: bDate.trim(),
+            payment: bPayment,
+            payment_status: bPaymentStatus
           })
         });
         if (!res.ok) throw new Error("Ошибка обновления записи");
-        showToast("Запись бронирования обновлена");
+        showToast("Запись игрового вечера обновлена");
       } else {
-        const player = players.find(p => p.nickname.toLowerCase() === bNickname.toLowerCase());
         const res = await fetch("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            user_id: player ? player.user_id : 9999,
+            user_id: finalUserId,
             nickname: bNickname.trim(),
-            status: bStatus
+            status: bStatus,
+            date: bDate.trim(),
+            payment: bPayment,
+            payment_status: bPaymentStatus
           })
         });
         if (!res.ok) throw new Error("Ошибка создания записи");
-        showToast("Новое бронирование создано");
+        showToast("Игрок успешно записан на вечер");
       }
+
+      if (bPaymentStatus === "В долг" && matchedPlayer) {
+        await fetch(`/api/players/${matchedPlayer.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            debt: Math.min(matchedPlayer.debt - bPayment, -bPayment)
+          })
+        });
+      }
+
       setEditingBooking(null);
       setShowAddBookingModal(false);
       fetchData();
@@ -262,8 +630,8 @@ export default function DatabaseEditor() {
       const res = await fetch(`/api/admin/bookings?nickname=${encodeURIComponent(b.nickname)}&date=${b.date}`, {
         method: "DELETE"
       });
-      if (!res.ok) throw new Error("Не удалось удалить бронирование");
-      showToast("Запись бронирования удалена");
+      if (!res.ok) throw new Error("Не удалось удалить запись вечера");
+      showToast("Запись игрового вечера удалена");
       setEditingBooking(null);
       setDeleteConfirmId(null);
       fetchData();
@@ -366,28 +734,47 @@ export default function DatabaseEditor() {
     }
   };
 
-  // Filter lists based on search
+  // Filters
+  const filteredEvenings = evenings.filter(e =>
+    e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    e.date.includes(searchQuery) ||
+    (e.location && e.location.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredBookings = bookings.filter(b => {
+    const matchSearch = b.nickname.toLowerCase().includes(searchQuery.toLowerCase()) || b.date.includes(searchQuery);
+    const matchEvening = selectedEveningFilter === "ALL" || b.date === selectedEveningFilter;
+    return matchSearch && matchEvening;
+  });
+
+  const debtors = players.filter(p => p.debt < 0 || p.debt > 0);
+  const filteredDebtors = debtors.filter(p =>
+    p.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const filteredPlayers = players.filter(p =>
     p.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.full_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredBookings = bookings.filter(b =>
-    b.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.date.includes(searchQuery)
-  );
-
-  const filteredGames = games.filter(g =>
-    g.judge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.winner_label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.protocol_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.game_date.includes(searchQuery)
-  );
+  const filteredGames = games.filter(g => {
+    const matchSearch = g.judge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.winner_label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.protocol_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.game_date.includes(searchQuery);
+    const matchEvening = selectedEveningFilter === "ALL" || g.game_date === selectedEveningFilter;
+    return matchSearch && matchEvening;
+  });
 
   const filteredPurchases = purchases.filter(p =>
     p.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.item_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Financial Stats
+  const totalClubDebt = debtors.reduce((acc, p) => acc + Math.abs(p.debt), 0);
+  const totalCollectedFees = bookings.reduce((acc, b) => acc + (b.payment_status === "Оплачено" ? (b.payment || 400) : 0), 0);
 
   return (
     <div className="space-y-6">
@@ -406,7 +793,7 @@ export default function DatabaseEditor() {
         )}
       </AnimatePresence>
 
-      {/* Header Banner (Neumorphic Style) */}
+      {/* Header Banner */}
       <div className="bg-slate-900 border border-slate-800/40 rounded-3xl p-6 md:p-8 shadow-neu-flat">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4.5">
@@ -415,10 +802,10 @@ export default function DatabaseEditor() {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-display font-extrabold text-white tracking-tight">
-                Панель Управления БД
+                Панель Управления БД Клуба
               </h1>
               <p className="text-xs text-slate-400 font-mono mt-1">
-                Административный CRM-пульт: прямой доступ и CRUD операции для таблиц клуба
+                Раздельное управление игровыми вечерами, составами игроков, протоколами и кассой долгов
               </p>
             </div>
           </div>
@@ -432,15 +819,50 @@ export default function DatabaseEditor() {
             ОБНОВИТЬ БАЗУ
           </button>
         </div>
+
+        {/* Quick Stats Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800/60">
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 shadow-neu-inset flex items-center gap-3">
+            <CalendarRange className="w-6 h-6 text-amber-400" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-mono block uppercase">Вечеров в базе</span>
+              <span className="text-base font-extrabold text-white font-mono">{evenings.length}</span>
+            </div>
+          </div>
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 shadow-neu-inset flex items-center gap-3">
+            <CreditCard className="w-6 h-6 text-rose-400" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-mono block uppercase">Общий долг клуба</span>
+              <span className="text-base font-extrabold text-rose-400 font-mono">{totalClubDebt} ₽</span>
+            </div>
+          </div>
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 shadow-neu-inset flex items-center gap-3">
+            <Coins className="w-6 h-6 text-emerald-400" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-mono block uppercase">Собрано оплат</span>
+              <span className="text-base font-extrabold text-emerald-400 font-mono">{totalCollectedFees} ₽</span>
+            </div>
+          </div>
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 shadow-neu-inset flex items-center gap-3">
+            <User className="w-6 h-6 text-sky-400" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-mono block uppercase">Игроков в клубе</span>
+              <span className="text-base font-extrabold text-white font-mono">{players.length}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Database Selector (Neumorphic Tabs) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Navigation Tabs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {[
-          { id: "players", label: "Игроки (Players)", count: players.length, icon: User },
-          { id: "bookings", label: "Брони (Bookings)", count: bookings.length, icon: CalendarRange },
-          { id: "games", label: "Протоколы (Games)", count: games.length, icon: History },
-          { id: "purchases", label: "Покупки (Purchases)", count: purchases.length, icon: ShoppingBag },
+          { id: "evenings", label: "Игровые вечера", count: evenings.length, icon: CalendarRange },
+          { id: "bookings", label: "Запись & Оплаты", count: bookings.length, icon: UserCheck },
+          { id: "debts", label: "Учет долгов", count: debtors.length, icon: CreditCard, highlight: debtors.length > 0 },
+          { id: "games", label: "Протоколы игр", count: games.length, icon: History },
+          { id: "players", label: "База игроков", count: players.length, icon: User },
+          { id: "purchases", label: "Магазин", count: purchases.length, icon: ShoppingBag },
+          { id: "analytics", label: "Аналитика & CSV", count: "📊", icon: TrendingUp },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -450,876 +872,338 @@ export default function DatabaseEditor() {
                 setActiveTab(tab.id as EditorTab);
                 setSearchQuery("");
               }}
-              className={`p-5 rounded-3xl border text-left transition-all relative cursor-pointer ${
+              className={`p-4 rounded-2xl border text-left transition-all relative cursor-pointer ${
                 isActive
-                  ? "bg-slate-900 border-amber-500/30 text-amber-400 shadow-neu-inset"
+                  ? "bg-slate-900 border-amber-500/40 text-amber-400 shadow-neu-inset font-bold"
                   : "bg-slate-900 border-slate-800/40 text-slate-400 hover:text-slate-200 shadow-neu-flat hover:shadow-neu-inset"
               }`}
             >
               <div className="flex items-center justify-between">
-                <tab.icon className={`w-5 h-5 ${isActive ? "text-amber-400" : "text-slate-500"}`} />
-                <span className="text-xs font-mono bg-slate-950/60 px-2 py-0.5 rounded-lg border border-slate-800/80 font-bold text-slate-400">
+                <tab.icon className={`w-4 h-4 ${isActive ? "text-amber-400" : "text-slate-500"}`} />
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-lg border font-bold ${
+                  tab.highlight && !isActive
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : "bg-slate-950/60 border-slate-800/80 text-slate-400"
+                }`}>
                   {tab.count}
                 </span>
               </div>
-              <h3 className="font-display font-bold text-sm text-white mt-4">{tab.label}</h3>
-              <p className="text-[10px] text-slate-500 mt-1 uppercase font-semibold tracking-wider font-mono">
-                {isActive ? "Просмотр и Редакт" : "Клик для перехода"}
-              </p>
+              <p className="mt-2 text-xs font-display tracking-tight leading-tight">{tab.label}</p>
             </button>
           );
         })}
       </div>
 
-      {/* Main Table Card */}
+      {/* Main Table Container */}
       <div className="bg-slate-900 border border-slate-800/40 rounded-3xl overflow-hidden shadow-neu-flat">
-        {/* Controls header */}
-        <div className="p-6 border-b border-slate-800/60 bg-slate-950/10 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          {/* Search bar inside inset neumorphic container */}
-          <div className="relative w-full sm:max-w-md bg-slate-950 border border-slate-800/80 rounded-2xl p-0.5 shadow-neu-inset">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder={`Быстрый поиск по базе (${activeTab})...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent pl-11 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none"
-            />
+        {/* Controls Bar */}
+        <div className="p-4 md:p-6 border-b border-slate-800/60 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-950/30">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по имени, дате или никнейму..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500/50 shadow-neu-inset"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {(activeTab === "bookings" || activeTab === "games") && (
+              <div className="w-full sm:w-auto bg-slate-950 border border-slate-800 rounded-2xl px-3 py-1.5 shadow-neu-inset flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 font-mono font-bold uppercase whitespace-nowrap">Вечер:</span>
+                <select
+                  value={selectedEveningFilter}
+                  onChange={(e) => setSelectedEveningFilter(e.target.value)}
+                  className="bg-transparent text-xs text-amber-400 font-mono focus:outline-none cursor-pointer w-full"
+                >
+                  <option value="ALL">Все вечера ({evenings.length})</option>
+                  {evenings.map((eve) => (
+                    <option key={eve.id} value={eve.date}>
+                      {eve.date} — {eve.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* Table actions */}
-          <div>
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+            {activeTab === "evenings" && (
+              <button
+                onClick={handleOpenAddEvening}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold uppercase px-4 py-2.5 rounded-2xl shadow-neu-flat-amber flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Создать вечер
+              </button>
+            )}
+
+            {activeTab === "bookings" && (
+              <button
+                onClick={() => handleOpenAddBooking(selectedEveningFilter !== "ALL" ? selectedEveningFilter : undefined)}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold uppercase px-4 py-2.5 rounded-2xl shadow-neu-flat-amber flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" /> Записать игрока
+              </button>
+            )}
+
             {activeTab === "players" && (
               <button
                 onClick={handleOpenAddPlayer}
-                className="w-full sm:w-auto bg-slate-900 border border-slate-800 hover:border-slate-700 text-amber-400 rounded-2xl px-5 py-3 text-xs font-bold font-mono tracking-wider flex items-center justify-center gap-2 transition-all shadow-neu-flat hover:shadow-neu-inset cursor-pointer uppercase"
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold uppercase px-4 py-2.5 rounded-2xl shadow-neu-flat-amber flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <UserPlus className="w-4 h-4" /> Добавить нового игрока
-              </button>
-            )}
-            {activeTab === "bookings" && (
-              <button
-                onClick={handleOpenAddBooking}
-                className="w-full sm:w-auto bg-slate-900 border border-slate-800 hover:border-slate-700 text-amber-400 rounded-2xl px-5 py-3 text-xs font-bold font-mono tracking-wider flex items-center justify-center gap-2 transition-all shadow-neu-flat hover:shadow-neu-inset cursor-pointer uppercase"
-              >
-                <Plus className="w-4 h-4" /> Создать бронь вручную
+                <UserPlus className="w-4 h-4" /> Добавить игрока
               </button>
             )}
           </div>
         </div>
 
-        {/* Dynamic content tables */}
+        {/* Tab content view */}
         <div className="overflow-x-auto">
-          {/* PLAYERS TABLE */}
-          {activeTab === "players" && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-950/20">
-                  <th className="px-6 py-4">ID</th>
-                  <th className="px-6 py-4">Никнейм / Имя</th>
-                  <th className="px-6 py-4">Телеграм</th>
-                  <th className="px-6 py-4 text-center">ЭЛО</th>
-                  <th className="px-6 py-4 text-center">Игр (Побед)</th>
-                  <th className="px-6 py-4 text-right">Жетоны</th>
-                  <th className="px-6 py-4 text-right">Финансы</th>
-                  <th className="px-6 py-4 text-right">Опции</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {filteredPlayers.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-950/15 transition-colors group">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{p.id}</td>
-                    <td className="px-6 py-4">
-                      <span className="font-display font-bold text-slate-200 block">{p.nickname}</span>
-                      <span className="text-xs text-slate-500 block">{p.full_name || "—"}</span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                      {p.username ? `@${p.username}` : "—"}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="font-mono font-bold text-rose-400 bg-rose-500/5 border border-rose-500/10 px-2.5 py-1 rounded-xl">
-                        {p.elo}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center font-mono text-xs text-slate-300">
-                      {p.games_played} <span className="text-emerald-500 font-bold">({p.games_won})</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="font-mono text-amber-400 font-bold flex items-center justify-end gap-1 text-sm">
-                        {p.tokens} <Coins className="w-3.5 h-3.5" />
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {p.debt < 0 ? (
-                        <span className="font-mono text-rose-400 font-bold bg-rose-500/5 px-2.5 py-1 rounded-xl text-xs border border-rose-500/10">
-                          {p.debt} ₽
-                        </span>
-                      ) : (
-                        <span className="text-emerald-500 font-semibold text-xs font-mono">0 ₽</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenEditPlayer(p)}
-                        className="bg-slate-950/60 p-2 border border-slate-800 hover:border-amber-500/30 text-slate-400 hover:text-amber-400 rounded-xl transition-all shadow-neu-flat-sm hover:shadow-neu-inset cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {activeTab === "evenings" && (
+            <EveningsTab
+              evenings={filteredEvenings}
+              bookings={bookings}
+              games={games}
+              onSelectEvening={(date) => {
+                setSelectedEveningFilter(date);
+                setActiveTab("bookings");
+              }}
+              onOpenLedger={(eve) => setLedgerEvening(eve)}
+              onEditEvening={handleOpenEditEvening}
+              onExportTelegram={(eve) => {
+                setTelegramExportEvening(eve);
+                setTelegramExportType(eve.status === "Завершен" ? "EVENINGS_REPORT" : "ANNOUNCEMENT");
+                setTelegramExportModalOpen(true);
+              }}
+            />
           )}
 
-          {/* BOOKINGS TABLE */}
           {activeTab === "bookings" && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-950/20">
-                  <th className="px-6 py-4">Игрок (Никнейм)</th>
-                  <th className="px-6 py-4">Планируемая дата</th>
-                  <th className="px-6 py-4">Статус визита</th>
-                  <th className="px-6 py-4">User ID</th>
-                  <th className="px-6 py-4 text-right">Действия</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {filteredBookings.map((b, idx) => (
-                  <tr key={idx} className="hover:bg-slate-950/15 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-display font-bold text-white block">{b.nickname}</span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-300">{b.date}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                          b.status === "Вовремя"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : b.status === "Позже"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}
-                      >
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{b.user_id}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenEditBooking(b)}
-                        className="bg-slate-950/60 p-2 border border-slate-800 hover:border-amber-500/30 text-slate-400 hover:text-amber-400 rounded-xl transition-all shadow-neu-flat-sm hover:shadow-neu-inset cursor-pointer inline-block mr-1"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <BookingsTab
+              bookings={filteredBookings}
+              players={players}
+              onEditBooking={handleOpenEditBooking}
+              onQuickTogglePaymentStatus={handleQuickTogglePaymentStatus}
+            />
           )}
 
-          {/* GAMES HISTORY TABLE */}
+          {activeTab === "debts" && (
+            <DebtsTab
+              debtors={filteredDebtors}
+              totalClubDebt={totalClubDebt}
+              onClearDebt={handleClearPlayerDebt}
+              onEditDebt={handleOpenEditDebt}
+              onExportDebtsTelegram={() => {
+                setTelegramExportEvening(null);
+                setTelegramExportType("DEBTS_LIST");
+                setTelegramExportModalOpen(true);
+              }}
+            />
+          )}
+
           {activeTab === "games" && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-950/20">
-                  <th className="px-6 py-4">Глоб №</th>
-                  <th className="px-6 py-4">Дата вечера</th>
-                  <th className="px-6 py-4">Судья вечера</th>
-                  <th className="px-6 py-4">Победитель</th>
-                  <th className="px-6 py-4">Протокол игры (Итог)</th>
-                  <th className="px-6 py-4 text-right">Опции</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {filteredGames.map((g) => (
-                  <tr key={g.id} className="hover:bg-slate-950/15 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-amber-400 font-bold">#{g.global_game_number}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-300">{g.game_date}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-slate-200 font-semibold">{g.judge_name}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                          g.winner_label === "Красные"
-                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                            : "bg-slate-950 border border-slate-800 text-slate-300"
-                        }`}
-                      >
-                        {g.winner_label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 max-w-xs truncate text-xs text-slate-400">
-                      {g.protocol_text || "Нет описания"}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenEditGame(g)}
-                        className="bg-slate-950/60 p-2 border border-slate-800 hover:border-amber-500/30 text-slate-400 hover:text-amber-400 rounded-xl transition-all shadow-neu-flat-sm hover:shadow-neu-inset cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <GamesTab
+              games={filteredGames}
+              onEditGame={handleOpenEditGame}
+            />
           )}
 
-          {/* PURCHASES TABLE */}
+          {activeTab === "players" && (
+            <PlayersTab
+              players={filteredPlayers}
+              onEditPlayer={handleOpenEditPlayer}
+              onOpenDossier={(p) => setDossierPlayer(p)}
+            />
+          )}
+
           {activeTab === "purchases" && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-950/20">
-                  <th className="px-6 py-4">Транзакция ID</th>
-                  <th className="px-6 py-4">Никнейм покупателя</th>
-                  <th className="px-6 py-4">Купленный товар</th>
-                  <th className="px-6 py-4 font-mono">Цена (Tokens)</th>
-                  <th className="px-6 py-4">Время заказа</th>
-                  <th className="px-6 py-4 text-right">Опции</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {filteredPurchases.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-950/15 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{p.id}</td>
-                    <td className="px-6 py-4 font-display font-bold text-slate-200">{p.nickname}</td>
-                    <td className="px-6 py-4 text-xs text-amber-100 font-semibold">{p.item_name}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-amber-400 font-bold">
-                      {p.price} 🪙
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-400">{p.timestamp}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenEditPurchase(p)}
-                        className="bg-slate-950/60 p-2 border border-slate-800 hover:border-amber-500/30 text-slate-400 hover:text-amber-400 rounded-xl transition-all shadow-neu-flat-sm hover:shadow-neu-inset cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <PurchasesTab
+              purchases={filteredPurchases}
+              onEditPurchase={handleOpenEditPurchase}
+            />
+          )}
+
+          {activeTab === "analytics" && (
+            <AnalyticsTab
+              players={players}
+              evenings={evenings}
+              bookings={bookings}
+              purchases={purchases}
+              games={games}
+            />
           )}
         </div>
       </div>
 
-      {/* ==========================================
-          MODALS / DRAWERS (ELEGANT INSET/NEUMORPHIC STYLE)
-          ========================================== */}
+      {/* Modals */}
       <AnimatePresence>
-        {/* PLAYER EDIT / CREATION MODAL */}
-        {(editingPlayer || showAddPlayerModal) && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-neu-flat flex flex-col max-h-[90vh]"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-800 bg-slate-950/20 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-600/10 border border-amber-500/30 flex items-center justify-center text-xl text-amber-400 shadow-neu-inset">
-                    🎭
-                  </div>
-                  <div>
-                    <h3 className="font-display font-extrabold text-white text-lg">
-                      {editingPlayer ? `Редактирование: ${editingPlayer.nickname}` : "Добавление игрока в базу"}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                      {editingPlayer ? `ID: ${editingPlayer.id} • UserID: ${editingPlayer.user_id}` : "Регистрация нового профиля"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setEditingPlayer(null); setShowAddPlayerModal(false); }}
-                  className="p-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all shadow-neu-flat cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Form Body */}
-              <div className="p-6 overflow-y-auto space-y-5">
-                {pError && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-400 font-medium">
-                    {pError}
-                  </div>
-                )}
-
-                {/* Primary Info */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Никнейм *</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="text"
-                        value={pNickname}
-                        onChange={(e) => setPNickname(e.target.value)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Полное имя</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="text"
-                        value={pFullName}
-                        onChange={(e) => setPFullName(e.target.value)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Telegram (без @)</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="text"
-                        value={pUsername}
-                        onChange={(e) => setPUsername(e.target.value)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Numeric Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Рейтинг Эло</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="number"
-                        value={pElo}
-                        onChange={(e) => setPElo(parseInt(e.target.value) || 0)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-rose-400 font-mono font-bold text-center focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Всего игр</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="number"
-                        value={pGamesPlayed}
-                        onChange={(e) => setPGamesPlayed(parseInt(e.target.value) || 0)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono text-center focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Побед</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="number"
-                        value={pGamesWon}
-                        onChange={(e) => setPGamesWon(parseInt(e.target.value) || 0)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-emerald-400 font-mono text-center focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Жетоны 🪙</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="number"
-                        value={pTokens}
-                        onChange={(e) => setPTokens(parseInt(e.target.value) || 0)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-amber-400 font-mono text-center focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Долг (₽)</label>
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                      <input
-                        type="number"
-                        value={pDebt}
-                        onChange={(e) => setPDebt(parseInt(e.target.value) || 0)}
-                        className="w-full bg-transparent px-3 py-2 text-xs text-rose-400 font-mono text-center focus:outline-none"
-                        placeholder="0 - нет долга"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Achievements list toggles */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-display font-extrabold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Award className="w-4 h-4 text-amber-500 animate-pulse" /> Награды / Достижения игрока
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {Object.entries(achievementsList).map(([id, ach]: any) => {
-                      const isEarned = pAchievements.includes(id);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => {
-                            if (isEarned) {
-                              setPAchievements(prev => prev.filter(aid => aid !== id));
-                            } else {
-                              setPAchievements(prev => [...prev, id]);
-                            }
-                          }}
-                          className={`p-3 rounded-2xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
-                            isEarned
-                              ? "bg-slate-900 border-amber-500/40 text-amber-100 shadow-neu-inset"
-                              : "bg-slate-900 border-slate-800/40 text-slate-500 hover:border-slate-700 hover:text-slate-300 shadow-neu-flat"
-                          }`}
-                        >
-                          <span className="text-2xl">{ach.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold block truncate">{ach.name}</span>
-                              {isEarned && <Check className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />}
-                            </div>
-                            <span className="text-[9px] leading-tight block text-slate-400 truncate">{ach.description}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Dangerous Delete Zone */}
-                {editingPlayer && (
-                  <div className="p-4 bg-rose-950/10 border border-rose-900/35 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-neu-inset">
-                    <div>
-                      <span className="text-xs font-bold text-rose-400 block font-display">Опасная зона базы данных</span>
-                      <span className="text-[10px] text-slate-400">Удаление профиля необратимо стирает всю статистику игрока.</span>
-                    </div>
-
-                    {deleteConfirmId === editingPlayer.id ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleDeletePlayer(editingPlayer.id)}
-                          className="bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl uppercase transition-all shadow-neu-flat cursor-pointer"
-                        >
-                          Подтвердить удаление
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                        >
-                          Отмена
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirmId(editingPlayer.id)}
-                        className="bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 text-xs font-semibold px-4 py-2 rounded-xl border border-rose-900/30 transition-all cursor-pointer"
-                      >
-                        Удалить игрока
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/10">
-                <button
-                  type="button"
-                  onClick={() => { setEditingPlayer(null); setShowAddPlayerModal(false); }}
-                  className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-bold px-5 py-3 rounded-2xl shadow-neu-flat cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSavePlayer}
-                  className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-amber-400 text-xs font-bold px-6 py-3 rounded-2xl shadow-neu-flat hover:text-white cursor-pointer"
-                >
-                  Сохранить в БД
-                </button>
-              </div>
-            </motion.div>
-          </div>
+        {ledgerEvening && (
+          <EveningLedgerModal
+            evening={ledgerEvening}
+            bookings={bookings}
+            games={games}
+            players={players}
+            onClose={() => setLedgerEvening(null)}
+            onUpdateBooking={handleUpdateBookingLedger}
+            onAddBooking={handleAddBookingLedger}
+            onSettleEveningDebts={handleSettleEveningDebts}
+            onAddNewPlayer={handleAddNewPlayerLedger}
+          />
         )}
 
-        {/* BOOKING EDIT / CREATION MODAL */}
+        {(editingEvening || showAddEveningModal) && (
+          <EveningModal
+            editingEvening={editingEvening}
+            eveDate={eveDate}
+            setEveDate={setEveDate}
+            eveTitle={eveTitle}
+            setEveTitle={setEveTitle}
+            eveStatus={eveStatus}
+            setEveStatus={setEveStatus}
+            eveLocation={eveLocation}
+            setEveLocation={setEveLocation}
+            eveNotes={eveNotes}
+            setEveNotes={setEveNotes}
+            eveFormat={eveFormat}
+            setEveFormat={setEveFormat}
+            deleteConfirmId={deleteConfirmId}
+            setDeleteConfirmId={setDeleteConfirmId}
+            onClose={() => { setEditingEvening(null); setShowAddEveningModal(false); }}
+            onSave={handleSaveEvening}
+            onDelete={handleDeleteEvening}
+          />
+        )}
+
+        {editingDebtPlayer && (
+          <DebtModal
+            editingDebtPlayer={editingDebtPlayer}
+            debtAmountInput={debtAmountInput}
+            setDebtAmountInput={setDebtAmountInput}
+            onClose={() => setEditingDebtPlayer(null)}
+            onSave={handleSaveDebtAdjustment}
+          />
+        )}
+
         {(editingBooking || showAddBookingModal) && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-neu-flat flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-800 bg-slate-950/20 flex justify-between items-center">
-                <h3 className="font-display font-extrabold text-white text-md uppercase">
-                  {editingBooking ? "Редактировать запись брони" : "Создать запись брони вручную"}
-                </h3>
-                <button
-                  onClick={() => { setEditingBooking(null); setShowAddBookingModal(false); }}
-                  className="p-1 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Никнейм игрока *</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={bNickname}
-                      onChange={(e) => setBNickname(e.target.value)}
-                      placeholder="Например: Алоэ"
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Статус прибытия</label>
-                  <div className="grid grid-cols-3 gap-2 bg-slate-950 border border-slate-850 p-1 rounded-2xl shadow-neu-inset">
-                    {["Вовремя", "Позже", "Отмена"].map((status) => {
-                      const isSel = bStatus === status;
-                      return (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => setBStatus(status as any)}
-                          className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                            isSel
-                              ? "bg-amber-500 text-slate-950 shadow-neu-flat"
-                              : "text-slate-400 hover:text-white"
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Дата визита (ДД.ММ.ГГГГ) *</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={bDate}
-                      onChange={(e) => setBDate(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {editingBooking && (
-                  <div className="pt-2">
-                    {deleteConfirmId === "booking" ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleDeleteBooking(editingBooking)}
-                          className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl uppercase cursor-pointer"
-                        >
-                          Подтвердить удаление
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="bg-slate-800 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                        >
-                          Отмена
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirmId("booking")}
-                        className="bg-rose-950/40 text-rose-400 border border-rose-900/30 text-xs font-bold px-3 py-2 rounded-xl w-full cursor-pointer hover:bg-rose-900/40"
-                      >
-                        Удалить бронирование из базы
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/10">
-                <button
-                  onClick={() => { setEditingBooking(null); setShowAddBookingModal(false); }}
-                  className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-2xl shadow-neu-flat cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleSaveBooking}
-                  className="bg-slate-900 border border-slate-800 text-amber-400 text-xs font-bold px-5 py-2.5 rounded-2xl shadow-neu-flat hover:text-white cursor-pointer"
-                >
-                  Сохранить
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          <BookingModal
+            editingBooking={editingBooking}
+            players={players}
+            bSelectedUserId={bSelectedUserId}
+            setBSelectedUserId={setBSelectedUserId}
+            bNickname={bNickname}
+            setBNickname={setBNickname}
+            bDate={bDate}
+            setBDate={setBDate}
+            bStatus={bStatus}
+            setBStatus={setBStatus}
+            bPayment={bPayment}
+            setBPayment={setBPayment}
+            bPaymentMode={bPaymentMode}
+            setBPaymentMode={setBPaymentMode}
+            bPaymentStatus={bPaymentStatus}
+            setBPaymentStatus={setBPaymentStatus}
+            deleteConfirmId={deleteConfirmId}
+            setDeleteConfirmId={setDeleteConfirmId}
+            onClose={() => { setEditingBooking(null); setShowAddBookingModal(false); }}
+            onSave={handleSaveBooking}
+            onDelete={handleDeleteBooking}
+          />
         )}
 
-        {/* GAME EDIT MODAL */}
+        {(editingPlayer || showAddPlayerModal) && (
+          <PlayerModal
+            editingPlayer={editingPlayer}
+            pNickname={pNickname}
+            setPNickname={setPNickname}
+            pFullName={pFullName}
+            setPFullName={setPFullName}
+            pUsername={pUsername}
+            setPUsername={setPUsername}
+            pTag={pTag}
+            setPTag={setPTag}
+            pElo={pElo}
+            setPElo={setPElo}
+            pGamesPlayed={pGamesPlayed}
+            setPGamesPlayed={setPGamesPlayed}
+            pGamesWon={pGamesWon}
+            setPGamesWon={setPGamesWon}
+            pTokens={pTokens}
+            setPTokens={setPTokens}
+            pError={pError}
+            deleteConfirmId={deleteConfirmId}
+            setDeleteConfirmId={setDeleteConfirmId}
+            onClose={() => { setEditingPlayer(null); setShowAddPlayerModal(false); }}
+            onSave={handleSavePlayer}
+            onDelete={handleDeletePlayer}
+          />
+        )}
+
+        {dossierPlayer && (
+          <PlayerDossierModal
+            player={dossierPlayer}
+            bookings={bookings}
+            purchases={purchases}
+            games={games}
+            onClose={() => setDossierPlayer(null)}
+            onUpdateDebt={(newDebt) => handleUpdatePlayerDebtFromDossier(dossierPlayer, newDebt)}
+            onUpdateTokens={(newTokens) => handleUpdatePlayerTokensFromDossier(dossierPlayer, newTokens)}
+          />
+        )}
+
+        {telegramExportModalOpen && (
+          <TelegramExportModal
+            type={telegramExportType}
+            evening={telegramExportEvening}
+            bookings={bookings}
+            debtors={debtors}
+            onClose={() => setTelegramExportModalOpen(false)}
+          />
+        )}
+
         {editingGame && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-neu-flat flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-800 bg-slate-950/20 flex justify-between items-center">
-                <h3 className="font-display font-extrabold text-white text-md uppercase">
-                  Протокол игры #{editingGame.global_game_number}
-                </h3>
-                <button
-                  onClick={() => setEditingGame(null)}
-                  className="p-1 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Дата игры</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={gDate}
-                      onChange={(e) => setGDate(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Глобальный номер игры</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="number"
-                      value={gGlobalNumber}
-                      onChange={(e) => setGGlobalNumber(parseInt(e.target.value) || 0)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Судья игры</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={gJudge}
-                      onChange={(e) => setGJudge(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Команда-победитель</label>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-950 border border-slate-850 p-1 rounded-2xl shadow-neu-inset">
-                    {["Красные", "Чёрные"].map((win) => {
-                      const isSel = gWinner === win;
-                      return (
-                        <button
-                          key={win}
-                          type="button"
-                          onClick={() => setGWinner(win as any)}
-                          className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                            isSel
-                              ? "bg-amber-500 text-slate-950 shadow-neu-flat"
-                              : "text-slate-400 hover:text-white"
-                          }`}
-                        >
-                          {win}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Текст протокола / Описание</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <textarea
-                      value={gProtocol}
-                      onChange={(e) => setGProtocol(e.target.value)}
-                      rows={3}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white resize-none focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  {deleteConfirmId === "game" ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteGame(editingGame.id)}
-                        className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl uppercase cursor-pointer"
-                      >
-                        Подтвердить удаление
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(null)}
-                        className="bg-slate-800 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeleteConfirmId("game")}
-                      className="bg-rose-950/40 text-rose-400 border border-rose-900/30 text-xs font-bold px-3 py-2 rounded-xl w-full cursor-pointer hover:bg-rose-900/40"
-                    >
-                      Удалить протокол игры из истории
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/10">
-                <button
-                  onClick={() => setEditingGame(null)}
-                  className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-2xl shadow-neu-flat cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleSaveGame}
-                  className="bg-slate-900 border border-slate-800 text-amber-400 text-xs font-bold px-5 py-2.5 rounded-2xl shadow-neu-flat hover:text-white cursor-pointer"
-                >
-                  Сохранить
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          <GameModal
+            editingGame={editingGame}
+            gDate={gDate}
+            setGDate={setGDate}
+            gWinner={gWinner}
+            setGWinner={setGWinner}
+            gJudge={gJudge}
+            setGJudge={setGJudge}
+            gProtocol={gProtocol}
+            setGProtocol={setGProtocol}
+            deleteConfirmId={deleteConfirmId}
+            setDeleteConfirmId={setDeleteConfirmId}
+            onClose={() => setEditingGame(null)}
+            onSave={handleSaveGame}
+            onDelete={handleDeleteGame}
+          />
         )}
 
-        {/* PURCHASE EDIT MODAL */}
         {editingPurchase && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-neu-flat flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-800 bg-slate-950/20 flex justify-between items-center">
-                <h3 className="font-display font-extrabold text-white text-md uppercase">
-                  Транзакция #{editingPurchase.id}
-                </h3>
-                <button
-                  onClick={() => setEditingPurchase(null)}
-                  className="p-1 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Никнейм покупателя</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={purNickname}
-                      onChange={(e) => setPurNickname(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Купленный товар</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={purItemName}
-                      onChange={(e) => setPurItemName(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Списанные жетоны</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="number"
-                      value={purPrice}
-                      onChange={(e) => setPurPrice(parseInt(e.target.value) || 0)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase block">Метка времени</label>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-neu-inset">
-                    <input
-                      type="text"
-                      value={purTimestamp}
-                      onChange={(e) => setPurTimestamp(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-xs text-white font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  {deleteConfirmId === "purchase" ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeletePurchase(editingPurchase.id)}
-                        className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl uppercase cursor-pointer"
-                      >
-                        Подтвердить удаление
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(null)}
-                        className="bg-slate-800 text-slate-300 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeleteConfirmId("purchase")}
-                      className="bg-rose-950/40 text-rose-400 border border-rose-900/30 text-xs font-bold px-3 py-2 rounded-xl w-full cursor-pointer hover:bg-rose-900/40"
-                    >
-                      Аннулировать транзакцию
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/10">
-                <button
-                  onClick={() => setEditingPurchase(null)}
-                  className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-2xl shadow-neu-flat cursor-pointer"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleSavePurchase}
-                  className="bg-slate-900 border border-slate-800 text-amber-400 text-xs font-bold px-5 py-2.5 rounded-2xl shadow-neu-flat hover:text-white cursor-pointer"
-                >
-                  Сохранить
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          <PurchaseModal
+            editingPurchase={editingPurchase}
+            purNickname={purNickname}
+            setPurNickname={setPurNickname}
+            purItemName={purItemName}
+            setPurItemName={setPurItemName}
+            purPrice={purPrice}
+            setPurPrice={setPurPrice}
+            deleteConfirmId={deleteConfirmId}
+            setDeleteConfirmId={setDeleteConfirmId}
+            onClose={() => setEditingPurchase(null)}
+            onSave={handleSavePurchase}
+            onDelete={handleDeletePurchase}
+          />
         )}
       </AnimatePresence>
     </div>

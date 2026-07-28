@@ -193,6 +193,9 @@ export default function Players() {
       });
   };
 
+  // League Ecosystem Tab state
+  const [leagueTab, setLeagueTab] = useState<"STANDARD" | "NOVICE" | "TOURNAMENT">("STANDARD");
+
   // Filter players by search
   const filteredPlayers = players.filter(
     (p) =>
@@ -200,8 +203,14 @@ export default function Players() {
       p.full_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Leaderboard sorting (highest ELO first)
-  const leaderboard = [...filteredPlayers].sort((a, b) => b.elo - a.elo);
+  // Leaderboard sorting (standard ELO or win rate)
+  const leaderboard = [...filteredPlayers].sort((a, b) => {
+    if (leagueTab === "NOVICE") {
+      // Sort by games played / activity for novices
+      return b.games_played - a.games_played;
+    }
+    return b.elo - a.elo;
+  });
 
   return (
     <div className="space-y-6">
@@ -238,6 +247,69 @@ export default function Players() {
             <UserPlus className="w-4 h-4" /> Добавить игрока
           </button>
         </div>
+      </div>
+
+      {/* League Ecosystem Switcher */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button
+          onClick={() => setLeagueTab("STANDARD")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+            leagueTab === "STANDARD"
+              ? "bg-amber-950/60 border-amber-500/80 text-amber-300 shadow-neu-flat"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-400" />
+              <span className="font-bold text-sm">🎩 Классический зачет</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Клубный общий ELO рейтинг</p>
+          </div>
+          <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+            Основной
+          </span>
+        </button>
+
+        <button
+          onClick={() => setLeagueTab("NOVICE")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+            leagueTab === "NOVICE"
+              ? "bg-sky-950/60 border-sky-500/80 text-sky-300 shadow-neu-flat"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-sky-400" />
+              <span className="font-bold text-sm">🔰 Лига Новичков</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Обучающие вечера и активность</p>
+          </div>
+          <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-lg">
+            Обучение
+          </span>
+        </button>
+
+        <button
+          onClick={() => setLeagueTab("TOURNAMENT")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+            leagueTab === "TOURNAMENT"
+              ? "bg-rose-950/60 border-rose-500/80 text-rose-300 shadow-neu-flat"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-rose-400" />
+              <span className="font-bold text-sm">🏆 Турнирный зачет</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Кубковые игры и соревнование</p>
+          </div>
+          <span className="text-xs font-mono font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg">
+            Турниры
+          </span>
+        </button>
       </div>
 
       {/* Leaderboard Table Card */}

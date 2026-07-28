@@ -22,6 +22,7 @@ export interface ActivePlayerState {
   dc_points: number;
   eliminated_phase: string;
   has_foul_penalty?: boolean;
+  note?: string;
 }
 
 export type Phase = "setup" | "zero_night" | "day_speeches" | "day_voting" | "shootout" | "night";

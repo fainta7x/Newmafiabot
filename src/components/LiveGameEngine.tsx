@@ -65,6 +65,18 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [viewMode, setViewMode] = useState<"table" | "list">("table");
   const [showRolesOnTable, setShowRolesOnTable] = useState<boolean>(true);
 
+  const [selectedMobileSlot, setSelectedMobileSlot] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const [bestMovePlayerSlot, setBestMovePlayerSlot] = useState<number | null>(null);
   const [bestMoveGuesses, setBestMoveGuesses] = useState<number[]>([]);
   const [protocolNotes, setProtocolNotes] = useState("");
@@ -81,6 +93,104 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [shootoutSubPhase, setShootoutSubPhase] = useState<"shootout_intro" | "shootout_speeches" | "shootout_revote_intro" | "shootout_revote_active" | "shootout_revote_results" | "shootout_both_results">("shootout_intro");
   const [bothLeaveVotes, setBothLeaveVotes] = useState<number[]>([]);
 
+  // History stack for Undo action functionality
+  const [historyStack, setHistoryStack] = useState<{
+    activePlayers: ActivePlayerState[];
+    nominations: number[];
+    phase: Phase;
+    roundNumber: number;
+    nightSubPhase: "intro" | "shooting" | "don" | "sheriff" | "best_move" | "morning";
+  }[]>([]);
+
+  const saveSnapshot = () => {
+    setHistoryStack((prev) => [
+      ...prev.slice(-15),
+      {
+        activePlayers: JSON.parse(JSON.stringify(activePlayers)),
+        nominations: [...nominations],
+        phase,
+        roundNumber,
+        nightSubPhase,
+      }
+    ]);
+  };
+
+  const handleUndoAction = () => {
+    if (historyStack.length === 0) {
+      showToast("История действий пуста", "warning");
+      return;
+    }
+    const last = historyStack[historyStack.length - 1];
+    setActivePlayers(last.activePlayers);
+    setNominations(last.nominations);
+    setPhase(last.phase);
+    setRoundNumber(last.roundNumber);
+    setNightSubPhase(last.nightSubPhase);
+    setHistoryStack((prev) => prev.slice(0, -1));
+    showToast("Последнее действие ведущего отменено ↺", "info");
+  };
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [restorableSession, setRestorableSession] = useState<any | null>(null);
+
+  // Check for saved session on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mafia_live_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.phase && parsed.phase !== "setup" && parsed.activePlayers?.length === 10) {
+          setRestorableSession(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Autosave live game state whenever key state updates during active game
+  useEffect(() => {
+    if (phase !== "setup") {
+      try {
+        const sessionData = {
+          activePlayers,
+          nominations,
+          phase,
+          roundNumber,
+          nightSubPhase,
+          nightLogs,
+          votes,
+          shootoutNominees,
+          savedAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+        };
+        localStorage.setItem("mafia_live_session", JSON.stringify(sessionData));
+      } catch {}
+    } else {
+      localStorage.removeItem("mafia_live_session");
+    }
+  }, [activePlayers, nominations, phase, roundNumber, nightSubPhase, nightLogs, votes, shootoutNominees]);
+
+  const handleRestoreSession = () => {
+    if (!restorableSession) return;
+    try {
+      setActivePlayers(restorableSession.activePlayers || activePlayers);
+      setNominations(restorableSession.nominations || []);
+      setPhase(restorableSession.phase);
+      setRoundNumber(restorableSession.roundNumber || 1);
+      setNightSubPhase(restorableSession.nightSubPhase || "intro");
+      setNightLogs(restorableSession.nightLogs || []);
+      setVotes(restorableSession.votes || {});
+      setShootoutNominees(restorableSession.shootoutNominees || []);
+      setRestorableSession(null);
+      showToast("Прерванная игра успешно восстановлена! 🔄", "success");
+    } catch {
+      showToast("Ошибка при восстановлении сессии", "warning");
+    }
+  };
+
+  const handleDiscardSavedSession = () => {
+    localStorage.removeItem("mafia_live_session");
+    setRestorableSession(null);
+    showToast("Сохраненная сессия сброшена", "info");
+  };
   const [shootoutSeconds, setShootoutSeconds] = useState(30);
   const [shootoutSpeakerIndex, setShootoutSpeakerIndex] = useState(0);
   const [isShootoutTimerActive, setIsShootoutTimerActive] = useState(false);
@@ -157,6 +267,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const playBeep = (freq: number, dur: number) => {
+    if (isMuted) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -166,8 +277,42 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + dur);
       osc.start(); osc.stop(audioCtx.currentTime + dur);
+      if ("vibrate" in navigator) {
+        try { navigator.vibrate(30); } catch {}
+      }
     } catch { }
   };
+
+  // Keyboard shortcuts listener for PC / judge controls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        setIsTimerRunning((prev) => !prev);
+      } else if (e.code === "KeyR" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setTimeLeft(timerMax);
+        playBeep(523, 0.05);
+      } else if (e.code === "KeyM" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setIsMuted((prev) => !prev);
+      } else if (e.code === "KeyN" && !e.ctrlKey && !e.metaKey) {
+        const step = getNextStepInfo();
+        if (step) {
+          e.preventDefault();
+          step.onClick();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [timerMax]);
 
   useEffect(() => {
     if (isTimerRunning) {
@@ -176,9 +321,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           if (p <= 1) {
             setIsTimerRunning(false);
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            playBeep(880, 0.4); return 0;
+            playBeep(1000, 0.5); return 0;
           }
-          if (p === 11) playBeep(440, 0.15);
+          if (p === 11) {
+            playBeep(600, 0.25);
+          } else if (p <= 6 && p >= 2) {
+            playBeep(750, 0.1);
+          }
           return p - 1;
         });
       }, 1000);
@@ -201,9 +350,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return;
     }
     let finalDuration = duration;
-    if (player?.has_foul_penalty) {
+    if (player?.has_foul_penalty || player?.fouls === 3) {
       finalDuration = 30;
-      showToast(`Игрок #${slotNum} использует штраф 30 секунд за 3 фола!`, "info");
+      showToast(`Игрок #${slotNum} выступает 30 секунд (3-й фол)!`, "info");
       setActivePlayers(prev => prev.map(p => p.slot_num === slotNum ? { ...p, has_foul_penalty: false } : p));
     }
     if (phase === "day_speeches" && slotNum === 2) {
@@ -260,25 +409,25 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (phase === "zero_night") {
       if (zeroNightSubPhase === null) {
         return {
-          label: "Запуск: Договорка (75с)",
+          label: "Договорка (75с) 🕵️",
           onClick: () => handleStartZeroNightTimer("agreement")
         };
       }
       if (zeroNightSubPhase === "agreement") {
         return {
-          label: "Запуск: Вызов Шерифа (10с)",
+          label: "Вызов Шерифа (10с) 🌟",
           onClick: () => handleStartZeroNightTimer("sheriff")
         };
       }
       if (zeroNightSubPhase === "sheriff") {
         return {
-          label: "Запуск: Свободная посадка (40с)",
+          label: "Посадка (40с) 🪑",
           onClick: () => handleStartZeroNightTimer("seating")
         };
       }
       if (zeroNightSubPhase === "seating") {
         return {
-          label: "Разбудить Город",
+          label: "Разбудить город 🌅",
           onClick: () => {
             setPhase("day_speeches");
             setCustomTimerLabel(null);
@@ -291,18 +440,18 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (phase === "day_speeches") {
       if (activeSpeakerSlot !== null) {
         return {
-          label: `Закончить речь #${activeSpeakerSlot}`,
+          label: `Завершить речь #${activeSpeakerSlot}`,
           onClick: () => markPlayerSpoken(activeSpeakerSlot)
         };
       }
       if (nextSpeaker) {
         return {
-          label: `Речь #${nextSpeaker.slot_num} (${nextSpeaker.nickname})`,
+          label: `Речь #${nextSpeaker.slot_num} (${nextSpeaker.nickname || ""})`,
           onClick: handleStartNextSpeaker
         };
       }
       return {
-        label: "Перейти к голосованию",
+        label: "К голосованию 🗳️",
         onClick: handleTransitionToVoting
       };
     }
@@ -315,12 +464,115 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     
     if (phase === "shootout") {
-      return {
-        label: "Решение перестрелки",
-        onClick: () => {
-          showToast("Выберите исход перестрелки кнопками ниже", "info");
+      if (shootoutSubPhase === "shootout_intro") {
+        return {
+          label: "Запустить речи (30с) 🎙️",
+          onClick: () => {
+            setShootoutSubPhase("shootout_speeches");
+            setShootoutSpeakerIndex(0);
+            if (shootoutNominees.length > 0) {
+              handleStartTimer(shootoutNominees[0], 30);
+            }
+          }
+        };
+      }
+      if (shootoutSubPhase === "shootout_speeches") {
+        const currentSlot = shootoutNominees[shootoutSpeakerIndex];
+        const currentP = activePlayers.find(p => p.slot_num === currentSlot);
+        const isSpeaking = activeSpeakerSlot === currentSlot;
+
+        if (!isSpeaking) {
+          return {
+            label: `Речь 30с: #${currentSlot} ${currentP?.nickname || ""}`,
+            onClick: () => handleStartTimer(currentSlot, 30)
+          };
         }
-      };
+
+        if (shootoutSpeakerIndex < shootoutNominees.length - 1) {
+          const nextSlot = shootoutNominees[shootoutSpeakerIndex + 1];
+          const nextP = activePlayers.find(p => p.slot_num === nextSlot);
+          return {
+            label: `След. речи 30с: #${nextSlot} ${nextP?.nickname || ""} →`,
+            onClick: () => {
+              setShootoutSpeakerIndex(i => i + 1);
+              handleStartTimer(nextSlot, 30);
+            }
+          };
+        } else {
+          return {
+            label: "Завершить речи → Переголосование 🗳️",
+            onClick: () => {
+              setActiveSpeakerSlot(null);
+              setIsTimerRunning(false);
+              setShootoutSubPhase("shootout_revote_intro");
+            }
+          };
+        }
+      }
+      if (shootoutSubPhase === "shootout_revote_intro") {
+        return {
+          label: "Запустить переголосование 📊",
+          onClick: () => {
+            handleStartReVoting();
+          }
+        };
+      }
+      if (shootoutSubPhase === "shootout_revote_active") {
+        return {
+          label: "Итоги переголосования 🗳️",
+          onClick: () => {
+            const activeNomineeSlot = shootoutNominees[currentVotingNomineeIndex];
+            const totalAlive = activePlayers.filter((p) => p.alive).length;
+            const votesSoFar = shootoutNominees.reduce((sum, s) => sum + (votes[s] || 0), 0);
+            const unusedVotes = totalAlive - votesSoFar;
+            const currentNomineeVotes = Object.values(votesByPlayer).filter((v) => v === activeNomineeSlot).length;
+            let finalVotes = { ...votes };
+            if (unusedVotes > 0) {
+              handleAllocateVotes(activeNomineeSlot, currentNomineeVotes + unusedVotes);
+              finalVotes[activeNomineeSlot] = currentNomineeVotes + unusedVotes;
+            }
+            setShootoutSubPhase("shootout_revote_results");
+          }
+        };
+      }
+      if (shootoutSubPhase === "shootout_revote_results") {
+        const pairs = shootoutNominees.map(s => ({ slot: s, count: votes[s] || 0 }));
+        const maxVotes = Math.max(...pairs.map((p) => p.count), 0);
+        const highest = pairs.filter((p) => p.count === maxVotes);
+
+        if (highest.length === 1) {
+          const candidateToLeave = highest[0].slot;
+          return {
+            label: `Подтвердить выбывание #${candidateToLeave} ⏹️`,
+            onClick: () => handleResolveShootoutVotes("eliminate_one", candidateToLeave)
+          };
+        } else {
+          return {
+            label: "Опрос: Удалить обоих? 🤝",
+            onClick: () => {
+              setShootoutSubPhase("shootout_both_results");
+              setBothLeaveVotes([]);
+            }
+          };
+        }
+      }
+      if (shootoutSubPhase === "shootout_both_results") {
+        const alivePlayers = activePlayers.filter((p) => p.alive);
+        const majority = Math.floor(alivePlayers.length / 2) + 1;
+        const votedYes = bothLeaveVotes.length;
+        const majorityMet = votedYes >= majority;
+
+        return {
+          label: majorityMet ? "Удалить обоих игроков 🔨" : "Оставить всех за столом 🛡️",
+          onClick: () => {
+            if (majorityMet) {
+              handleResolveShootoutVotes("eliminate_all");
+            } else {
+              handleResolveShootoutVotes("no_one_leaves");
+            }
+          }
+        };
+      }
     }
     
     if (phase === "night") {
@@ -474,11 +726,39 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     
     if (phase === "shootout") {
+      if (shootoutSubPhase === "shootout_both_results") {
+        return {
+          label: "К итогам перестрелки",
+          onClick: () => setShootoutSubPhase("shootout_revote_results")
+        };
+      }
+      if (shootoutSubPhase === "shootout_revote_results" || shootoutSubPhase === "shootout_revote_active") {
+        return {
+          label: "К речам 30с",
+          onClick: () => {
+            setShootoutSubPhase("shootout_speeches");
+            setShootoutSpeakerIndex(0);
+          }
+        };
+      }
+      if (shootoutSubPhase === "shootout_speeches") {
+        if (shootoutSpeakerIndex > 0) {
+          return {
+            label: `К речи #${shootoutNominees[shootoutSpeakerIndex - 1]}`,
+            onClick: () => {
+              setShootoutSpeakerIndex(i => i - 1);
+              handleStartTimer(shootoutNominees[shootoutSpeakerIndex - 1], 30);
+            }
+          };
+        }
+        return {
+          label: "Вводная автокатастрофы",
+          onClick: () => setShootoutSubPhase("shootout_intro")
+        };
+      }
       return {
         label: "Голосование",
-        onClick: () => {
-          setPhase("day_voting");
-        }
+        onClick: () => setPhase("day_voting")
       };
     }
     
@@ -657,6 +937,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const handleFoulChange = (slotNum: number, direction: "up" | "down") => {
+    saveSnapshot();
     setActivePlayers((prev) => prev.map((p) => {
       if (p.slot_num === slotNum) {
         let current = p.fouls;
@@ -685,6 +966,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const handleNominateCandidate = (slotNum: number, manualNominatorSlot?: number) => {
+    saveSnapshot();
     if (nominations.includes(slotNum)) {
       setNominations((prev) => prev.filter((n) => n !== slotNum));
       setNominationsMap((prev) => {
@@ -822,14 +1104,23 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       const highest = pairs.filter((p) => p.count === maxVotes);
       if (highest.length === 1) {
         eliminatePlayer(highest[0].slot, `Голосование (День ${roundNumber})`);
+        setNightLogs(prev => [...prev, {
+          round: roundNumber,
+          log: `Д${roundNumber}: Голосование. Стол покинул игрок #${highest[0].slot} (${highest[0].count} голосов).`
+        }]);
         startNightPhase();
       } else {
         const tied = highest.map((p) => p.slot);
         setShootoutNominees(tied);
         setPhase("shootout");
+        setShootoutSubPhase("shootout_intro");
         setShootoutSpeakerIndex(0);
         setShootoutSeconds(30);
         setIsShootoutTimerActive(false);
+        setNightLogs(prev => [...prev, {
+          round: roundNumber,
+          log: `Д${roundNumber}: Голосование. Ничья между игроками: ${tied.join(", ")} (${maxVotes} голосов). Объявлена автокатастрофа.`
+        }]);
         if (votingAttempt === 1) {
           showToast(`Ничья! Перестрелка: ${tied.join(", ")}`, "warning");
         } else {
@@ -852,17 +1143,30 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       shootoutNominees.forEach((s) => {
         eliminatePlayer(s, `Автокатастрофа (День ${roundNumber})`);
       });
+      setNightLogs(prev => [...prev, {
+        round: roundNumber,
+        log: `Д${roundNumber}: Автокатастрофа. По решению стола ВСЕ кандидаты (${shootoutNominees.map(n => `#${n}`).join(", ")}) покинули стол. Город уходит в ночь.`
+      }]);
       startNightPhase();
     } else if (action === "leave_one" && singleSlot) {
       eliminatePlayer(singleSlot, `Автокатастрофа (День ${roundNumber})`);
+      setNightLogs(prev => [...prev, {
+        round: roundNumber,
+        log: `Д${roundNumber}: Автокатастрофа. По результатам переголосования стол покинул игрок #${singleSlot}.`
+      }]);
       startNightPhase();
     } else {
       showToast("Все игроки остались за столом", "success");
+      setNightLogs(prev => [...prev, {
+        round: roundNumber,
+        log: `Д${roundNumber}: Автокатастрофа. Решением стола все перестрелочники остались за столом. Город уходит в ночь.`
+      }]);
       startNightPhase();
     }
   };
 
   const eliminatePlayer = (slotNum: number, reason: string) => {
+    saveSnapshot();
     const player = activePlayers.find((p) => p.slot_num === slotNum);
     if (!player) return;
     let isFirst = false;
@@ -918,7 +1222,40 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       } else {
         showToast("Ночные действия сейчас недоступны", "info");
       }
-    } else if (phase === "day_speeches") {
+      return;
+    }
+
+    if (isMobile) {
+      // In active voting/shootout, keep direct click, otherwise open bottom actions sheet
+      const isVotingPhase = phase === "day_voting";
+      const isShootoutVoting = phase === "shootout" && (shootoutSubPhase === "shootout_revote_active" || shootoutSubPhase === "shootout_both_results");
+      
+      if (isVotingPhase || isShootoutVoting) {
+        if (!player.alive) return;
+        if (phase === "shootout" && shootoutSubPhase === "shootout_both_results") {
+          setBothLeaveVotes((prev) =>
+            prev.includes(slotNum) ? prev.filter((s) => s !== slotNum) : [...prev, slotNum]
+          );
+          playBeep(659, 0.1);
+          return;
+        }
+        if (isInteractiveVoting) {
+          handleInteractiveVoteToggle(slotNum);
+        } else {
+          if (nominations.includes(slotNum)) {
+            const count = votes[slotNum] || 0;
+            handleAllocateVotes(slotNum, count + 1);
+            playBeep(659, 0.1);
+          }
+        }
+      } else {
+        setSelectedMobileSlot(slotNum);
+      }
+      return;
+    }
+
+    // Default desktop flow
+    if (phase === "day_speeches") {
       if (!player.alive) {
         showToast("Этот игрок мертв и не может выступать!", "warning");
         return;
@@ -940,6 +1277,26 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         } else {
           showToast(`Игрок #${slotNum} не выставлен на голосование!`, "info");
         }
+      }
+    } else if (phase === "shootout") {
+      if (!player.alive) return;
+      if (shootoutSubPhase === "shootout_intro" || shootoutSubPhase === "shootout_speeches") {
+        if (shootoutNominees.includes(slotNum)) {
+          setShootoutSubPhase("shootout_speeches");
+          const idx = shootoutNominees.indexOf(slotNum);
+          if (idx !== -1) setShootoutSpeakerIndex(idx);
+          handleStartTimer(slotNum, 30);
+          playBeep(523, 0.1);
+        } else {
+          showToast(`Игрок #${slotNum} не находится в перестрелке!`, "info");
+        }
+      } else if (shootoutSubPhase === "shootout_revote_active") {
+        handleInteractiveVoteToggle(slotNum);
+      } else if (shootoutSubPhase === "shootout_both_results") {
+        setBothLeaveVotes((prev) =>
+          prev.includes(slotNum) ? prev.filter((s) => s !== slotNum) : [...prev, slotNum]
+        );
+        playBeep(659, 0.1);
       }
     }
   };
@@ -1024,7 +1381,42 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast("Наступило утро! Город просыпается.", "success");
   };
 
+  const handleUndoLastLog = () => {
+    if (nightLogs.length === 0) return;
+    setNightLogs((prev) => prev.slice(0, -1));
+    showToast("Последняя запись протокола отменена", "info");
+  };
+
   const handleEndGameWithWinner = (winner: "Красные" | "Чёрные") => {
+    // Validation Guardrails
+    if (judgeId <= 0) {
+      showToast("Укажите ведущего/судью вечера перед сохранением!", "warning");
+      return;
+    }
+
+    const emptySlots = activePlayers.filter(p => !p.nickname || p.user_id === 0);
+    if (emptySlots.length > 0) {
+      if (!confirm(`Внимание! ${emptySlots.length} мест за столом незаполнены. Все равно завершить игру и сохранить протокол?`)) {
+        return;
+      }
+    }
+
+    const assignedUserIds = activePlayers.map(p => p.user_id).filter(id => id > 0);
+    const hasDuplicates = new Set(assignedUserIds).size !== assignedUserIds.length;
+    if (hasDuplicates) {
+      showToast("Ошибка: один и тот же игрок посажен на несколько мест!", "error");
+      return;
+    }
+
+    const sheriffs = activePlayers.filter(p => p.role === "Шериф").length;
+    const dons = activePlayers.filter(p => p.role === "Дон").length;
+    const mafs = activePlayers.filter(p => p.role === "Мафия").length;
+    if (sheriffs !== 1 || dons !== 1 || mafs !== 2) {
+      if (!confirm(`Внимание: распределение ролей отличается от стандарта ФСМ (1 Шериф, 1 Дон, 2 Мафии). Текущее: ${sheriffs} Шер, ${dons} Дон, ${mafs} Маф. Завершить?`)) {
+        return;
+      }
+    }
+
     const slotsToSubmit: GameSlot[] = activePlayers.map((p) => {
       return {
         slot_num: p.slot_num, user_id: p.user_id, nickname: p.nickname, role: p.role, team: p.team,
@@ -1084,7 +1476,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const renderVirtualTable = () => {
     return (
-      <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4 max-w-7xl mx-auto w-full px-1 py-1" id="virtual-table-grid">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 max-w-7xl mx-auto w-full px-1 py-1" id="virtual-table-grid">
         {Array.from({ length: 10 }, (_, i) => i + 1).map((slotNum) => (
           <SeatCard
             key={slotNum}
@@ -1178,6 +1570,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           setShootoutSubPhase={setShootoutSubPhase}
           bothLeaveVotes={bothLeaveVotes}
           setBothLeaveVotes={setBothLeaveVotes}
+          addLogEntry={(logText: string) => setNightLogs(prev => [...prev, { round: roundNumber, log: logText }])}
+          onCancel={onCancel}
+          handleAdvanceNightSubPhase={handleAdvanceNightSubPhase}
         />
       </div>
     );
@@ -1190,6 +1585,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           <Shield className="w-3.5 h-3.5 text-rose-500 animate-pulse" /> Панель судейского пульта ФСМ
         </span>
         <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
+          <button
+            type="button"
+            onClick={handleUndoAction}
+            disabled={historyStack.length === 0}
+            className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-amber-950/60 hover:bg-amber-900 border border-amber-800/60 text-amber-300 disabled:opacity-40 transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Отменить последнее действие ведущего (фол, выставление, удаление)"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Отмена ({historyStack.length})</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowRolesOnTable(!showRolesOnTable)}
@@ -1253,65 +1659,409 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const muteMultiplierApplied = activeSpeakerSlot !== null && activePlayers.find(p => p.slot_num === activeSpeakerSlot)?.mute_this_round;
 
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 pb-12 select-none" id="live-game-root">
-      {/* HEADER / NAVIGATION OVERVIEW */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/80 shadow-2xl backdrop-blur-md" id="game-header-panel">
-        <div className="flex items-center gap-3">
-          <div className="bg-rose-600/10 p-2.5 rounded-2xl border border-rose-500/25">
-            <Shield className="w-6 h-6 text-rose-500 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-lg font-black text-white tracking-tight">Панель судейства игры</h1>
-            <p className="text-[10px] text-slate-500 font-mono font-bold uppercase tracking-wider">
-              {phase === "setup" ? "Настройка состава и ролей" : `Раунд ${roundNumber} • Фаза: ${phase}`}
-            </p>
-          </div>
-        </div>
+  const renderMobileActionSheet = () => {
+    if (selectedMobileSlot === null) return null;
+    const slotNum = selectedMobileSlot;
+    const p = activePlayers.find(pl => pl.slot_num === slotNum);
+    if (!p) return null;
 
-        {phase !== "setup" && (
-          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto" id="phase-navigation-bar">
-            {/* Prev step action */}
-            {(() => {
-              const prev = getPrevStepAction();
-              return prev ? (
-                <button
-                  onClick={prev.onClick}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-700/60"
-                >
-                  ← Назад ({prev.label})
-                </button>
-              ) : null;
-            })()}
+    const isSpeaking = activeSpeakerSlot === slotNum;
+    const isNominated = nominations.includes(slotNum);
+    const hasSpoken = p.has_spoken_this_round;
 
-            {/* Next step action */}
-            {(() => {
-              const next = getNextStepInfo();
-              return next ? (
-                <button
-                  onClick={next.onClick}
-                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-rose-500/50 shadow-lg shadow-rose-600/15"
-                >
-                  {next.label} →
-                </button>
-              ) : null;
-            })()}
+    // Role colors and borders for styling the sheet header
+    const roleThemeColors = {
+      "Мирный": { text: "text-rose-500", bg: "bg-rose-950/20", border: "border-rose-900/30", label: "Красный (Мирный)", icon: "❤️" },
+      "Шериф": { text: "text-emerald-500", bg: "bg-emerald-950/20", border: "border-emerald-900/30", label: "Шериф", icon: "⭐" },
+      "Мафия": { text: "text-slate-300", bg: "bg-slate-900/30", border: "border-slate-800/60", label: "Мафия", icon: "🎩" },
+      "Дон": { text: "text-purple-500", bg: "bg-purple-950/20", border: "border-purple-900/30", label: "Дон", icon: "🕵️" },
+    };
+    const theme = roleThemeColors[p.role] || roleThemeColors["Мирный"];
 
-            <div className="h-6 w-[1px] bg-slate-800 hidden md:block" />
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300">
+        <div 
+          className="absolute inset-0 cursor-pointer" 
+          onClick={() => setSelectedMobileSlot(null)} 
+        />
+        <div className="relative w-full max-w-lg bg-slate-900 border-t border-slate-800 rounded-t-3xl p-6 shadow-2xl flex flex-col gap-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+          {/* Draggable indicator looking bar */}
+          <div className="w-12 h-1.5 bg-slate-800 rounded-full mx-auto -mt-2 mb-2 shrink-0" />
 
-            <button
-              onClick={() => {
-                if (confirm("Вы уверены, что хотите завершить игру без результатов? Все несохраненные данные будут утеряны.")) {
-                  onCancel();
-                }
-              }}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-rose-900/20 text-slate-400 hover:text-rose-400 border border-slate-850 hover:border-rose-900/50 rounded-xl text-xs transition-all cursor-pointer font-bold ml-auto md:ml-0"
+          {/* Header section with current info */}
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl font-mono font-black text-lg flex items-center justify-center border-2 ${getSeatColor(slotNum)}`}>
+                {slotNum}
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">{p.nickname || `Игрок ${slotNum}`}</h3>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${theme.text} ${theme.bg} ${theme.border}`}>
+                    {theme.icon} {theme.label}
+                  </span>
+                  {!p.alive && (
+                    <span className="text-[10px] bg-rose-950 text-rose-500 font-bold px-2 py-0.5 rounded border border-rose-900/40">
+                      Убит ({p.eliminated_phase || "Игра"})
+                    </span>
+                  )}
+                  {p.mute_this_round && (
+                    <span className="text-[10px] bg-amber-950 text-amber-500 font-bold px-2 py-0.5 rounded border border-amber-900/40">
+                      🔇 Молчит
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setSelectedMobileSlot(null)}
+              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm cursor-pointer"
             >
-              Выйти
+              ✕
             </button>
           </div>
-        )}
+
+          {/* Player statistics grid summary */}
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px] shrink-0">
+            <div className="bg-slate-950/40 p-2 rounded-xl border border-slate-800/40">
+              <span className="text-slate-500 font-bold block uppercase">Фолы</span>
+              <strong className="text-sm font-bold text-rose-500 font-mono mt-0.5 block">{p.fouls} / 4</strong>
+            </div>
+            <div className="bg-slate-950/40 p-2 rounded-xl border border-slate-800/40">
+              <span className="text-slate-500 font-bold block uppercase">Статус речи</span>
+              <strong className={`text-xs font-bold mt-0.5 block uppercase ${isSpeaking ? "text-amber-400" : hasSpoken ? "text-emerald-500" : "text-slate-400"}`}>
+                {isSpeaking ? "🎙️ Говорит" : hasSpoken ? "✓ Выступил" : "Ожидает"}
+              </strong>
+            </div>
+            <div className="bg-slate-950/40 p-2 rounded-xl border border-slate-800/40">
+              <span className="text-slate-500 font-bold block uppercase">Номинация</span>
+              <strong className={`text-xs font-bold mt-0.5 block uppercase ${isNominated ? "text-rose-400" : "text-slate-500"}`}>
+                {isNominated ? "🎯 Выставлен" : "Пас"}
+              </strong>
+            </div>
+          </div>
+
+          {/* ACTION BUTTONS GROUP */}
+          <div className="space-y-4">
+            <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest pl-1">Быстрые команды</h4>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* SPEECH TIMER CONTROLLER */}
+              {p.alive && (
+                isSpeaking ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markPlayerSpoken(slotNum);
+                    }}
+                    className="col-span-2 h-12 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-600/10"
+                  >
+                    ⏹️ Остановить речь ({timeLeft}с)
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStartTimer(slotNum, p.mute_this_round ? 0 : 60);
+                    }}
+                    className="col-span-2 h-12 bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-xl font-black flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/10"
+                  >
+                    🎙️ Запустить Речь (60с)
+                  </button>
+                )
+              )}
+
+              {/* NOMINATION CONTROLLER */}
+              {p.alive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNominateCandidate(slotNum);
+                  }}
+                  className={`h-11 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer border ${
+                    isNominated
+                      ? "bg-rose-950/60 border-rose-500 text-rose-400 hover:bg-rose-950"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
+                  }`}
+                >
+                  {isNominated ? "❌ Снять с гол." : "🎯 Выставить на гол."}
+                </button>
+              )}
+
+              {/* FOUL PENALTY TIME CONTROLLER */}
+              {p.alive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePlayers((prev) =>
+                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, has_foul_penalty: !pl.has_foul_penalty } : pl))
+                    );
+                    showToast(`Штраф 30с для игрока #${slotNum} ${!p.has_foul_penalty ? "выдан" : "снят"}`, "info");
+                  }}
+                  className={`h-11 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer border ${
+                    p.has_foul_penalty
+                      ? "bg-amber-950/60 border-amber-500 text-amber-400 hover:bg-amber-950"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
+                  }`}
+                >
+                  ⏱️ {p.has_foul_penalty ? "Снять штраф" : "Штраф 30 сек"}
+                </button>
+              )}
+
+              {/* FOULS INCREMENT */}
+              {p.alive && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFoulChange(slotNum, "up");
+                    }}
+                    className="h-11 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    ➕ Добавить фол
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFoulChange(slotNum, "down");
+                    }}
+                    disabled={p.fouls === 0}
+                    className="h-11 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    ➖ Убрать фол
+                  </button>
+                </>
+              )}
+
+              {/* MUTE CONTROLLER */}
+              {p.alive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePlayers((prev) =>
+                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, mute_this_round: !pl.mute_this_round } : pl))
+                    );
+                    showToast(`Игрок #${slotNum} ${p.mute_this_round ? "размучен" : "заглушен на этот раунд"}`, "info");
+                  }}
+                  className={`h-11 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer border col-span-2 ${
+                    p.mute_this_round
+                      ? "bg-amber-950/60 border-amber-500 text-amber-400 hover:bg-amber-950"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
+                  }`}
+                >
+                  🔇 {p.mute_this_round ? "Размутить" : "Фол молчания"}
+                </button>
+              )}
+
+              {/* SHOOTOUT BOTH VOTE TOGGLE FOR MOBILE SHEET */}
+              {phase === "shootout" && shootoutSubPhase === "shootout_both_results" && p.alive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBothLeaveVotes((prev) =>
+                      prev.includes(slotNum) ? prev.filter((s) => s !== slotNum) : [...prev, slotNum]
+                    );
+                    playBeep(659, 0.1);
+                    setSelectedMobileSlot(null);
+                  }}
+                  className={`h-11 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer border col-span-2 ${
+                    bothLeaveVotes.includes(slotNum)
+                      ? "bg-rose-950 border-rose-500 text-rose-400 font-black"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
+                  }`}
+                >
+                  ✋ {bothLeaveVotes.includes(slotNum) ? "Снять голос (Удалить обоих)" : "Проголосовать за удаление обоих"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ADVANCED ADMIN CONTROL: ROLES AND ALIVE/DEAD */}
+          <div className="space-y-4 pt-4 border-t border-slate-800/50">
+            <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest pl-1">Администрирование ролей и статуса</h4>
+            
+            {/* ROLE SELECTOR ROW */}
+            <div className="space-y-2">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block pl-1">Роль игрока:</span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["Мирный", "Шериф", "Мафия", "Дон"] as const).map((role) => {
+                  const isActive = p.role === role;
+                  const colors = {
+                    "Мирный": "border-rose-500 text-rose-500 bg-rose-500/10",
+                    "Шериф": "border-emerald-500 text-emerald-500 bg-emerald-500/10",
+                    "Мафия": "border-slate-400 text-slate-300 bg-slate-500/10",
+                    "Дон": "border-purple-500 text-purple-400 bg-purple-500/10",
+                  };
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => {
+                        const team = (role === "Мафия" || role === "Дон") ? "Чёрные" : "Красные";
+                        setActivePlayers((prev) =>
+                          prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, role, team } : pl))
+                        );
+                        showToast(`Роль игрока #${slotNum} изменена на ${role}`, "success");
+                      }}
+                      className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase border cursor-pointer text-center transition-all ${
+                        isActive ? colors[role] : "border-slate-800 text-slate-500 hover:text-slate-400"
+                      }`}
+                    >
+                      {role === "Мирный" ? "Мирный" : role}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* KILL/RESTORE PANEL */}
+            <div className="pt-2">
+              {p.alive ? (
+                <div className="space-y-2">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block pl-1">Вывести игрока со стола:</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminatePlayer(slotNum, `Голосование (День ${roundNumber})`);
+                        setSelectedMobileSlot(null);
+                      }}
+                      className="py-2.5 bg-rose-950 hover:bg-rose-900/60 border border-rose-550/40 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                    >
+                      ☠️ Выгнан по голосу
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminatePlayer(slotNum, `Дисквалификация (День ${roundNumber})`);
+                        setSelectedMobileSlot(null);
+                      }}
+                      className="py-2.5 bg-rose-950 hover:bg-rose-900/60 border border-rose-550/40 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                    >
+                      ☠️ Дисквалификация
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        eliminatePlayer(slotNum, `ППК (День ${roundNumber})`);
+                        setSelectedMobileSlot(null);
+                      }}
+                      className="py-2.5 bg-rose-950 hover:bg-rose-900/60 border border-rose-550/40 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                    >
+                      ☠️ Сломал руку (ППК)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const reason = prompt("Укажите причину удаления игрока:", `Решение судьи (День ${roundNumber})`);
+                        if (reason !== null) {
+                          eliminatePlayer(slotNum, reason || `Удален (День ${roundNumber})`);
+                          setSelectedMobileSlot(null);
+                        }
+                      }}
+                      className="py-2.5 bg-rose-950 hover:bg-rose-900/60 border border-rose-550/40 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                    >
+                      ☠️ Другая причина
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePlayers((prev) =>
+                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, alive: true, eliminated_phase: "", is_pu: false } : pl))
+                    );
+                    showToast(`Игрок #${slotNum} возвращен за стол!`, "success");
+                    setSelectedMobileSlot(null);
+                  }}
+                  className="w-full py-3 bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer"
+                >
+                  💖 Оживить / Вернуть за стол
+                </button>
+              )}
+            </div>
+
+            {/* BEST MOVE (ЛХ) SELECTOR FOR RECENTLY KILLED ON DAY/NIGHT 1 */}
+            {!p.alive && p.best_move_guesses && (
+              <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-850 space-y-2 mt-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block leading-none">Лучший Ход (ЛХ) убитого игрока:</span>
+                <span className="text-[8px] text-slate-500 block leading-tight">Выберите 3 номера игроков, которых покинувший стол считает мафией:</span>
+                <div className="flex gap-1.5 justify-center py-1">
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => {
+                    const isSelected = p.best_move_guesses?.includes(num);
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => {
+                          const currentGuesses = p.best_move_guesses || [];
+                          let nextGuesses = [...currentGuesses];
+                          if (currentGuesses.includes(num)) {
+                            nextGuesses = currentGuesses.filter(n => n !== num);
+                          } else if (currentGuesses.length < 3) {
+                            nextGuesses = [...currentGuesses, num];
+                          }
+                          setActivePlayers((prev) =>
+                            prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, best_move_guesses: nextGuesses } : pl))
+                          );
+                        }}
+                        className={`w-7 h-7 rounded-lg font-mono font-black text-[11px] flex items-center justify-center border transition-all cursor-pointer ${
+                          isSelected
+                            ? getSeatColor(num)
+                            : "border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedMobileSlot(null)}
+            className="mt-4 w-full h-11 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wide cursor-pointer flex items-center justify-center border border-slate-700/50 shrink-0"
+          >
+            Закрыть Пульт
+          </button>
+        </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none" id="live-game-root">
+      {/* HEADER / NAVIGATION OVERVIEW (Shown only during Setup) */}
+      {phase === "setup" && (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/80 shadow-2xl backdrop-blur-md" id="game-header-panel">
+          <div className="flex items-center gap-3">
+            <div className="bg-rose-600/10 p-2.5 rounded-2xl border border-rose-500/25">
+              <Shield className="w-6 h-6 text-rose-500 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-lg font-black text-white tracking-tight">Панель судейства игры</h1>
+              <p className="text-[10px] text-slate-500 font-mono font-bold uppercase tracking-wider">
+                Настройка состава и ролей
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Вы уверены, что хотите завершить настройку и выйти?")) {
+                onCancel();
+              }
+            }}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-rose-900/20 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-900/50 rounded-xl text-xs transition-all cursor-pointer font-bold ml-auto"
+          >
+            Выйти
+          </button>
+        </div>
+      )}
 
       {toast && (
         <div className={`fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-xl border shadow-2xl flex items-center gap-2.5 text-xs font-bold ${
@@ -1337,6 +2087,33 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       )}
 
       {/* PHASE-SPECIFIC VIEWS */}
+      {phase === "setup" && restorableSession && (
+        <div className="bg-amber-950/80 border-2 border-amber-500/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl text-amber-200 text-xs my-2">
+          <div className="space-y-0.5 text-center sm:text-left">
+            <div className="font-extrabold text-sm text-amber-300 flex items-center justify-center sm:justify-start gap-1.5">
+              <span>🔄 Обнаружена несохраненная живая игра!</span>
+            </div>
+            <p className="text-[11px] text-amber-200/80">
+              Сохранено: <strong className="text-white">{restorableSession.savedAt || "недавно"}</strong> • Раунд: <strong className="text-amber-300">День #{restorableSession.roundNumber || 1}</strong> • Игроков: {restorableSession.activePlayers?.length || 10}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleRestoreSession}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow border border-emerald-400/40 cursor-pointer active:scale-95 transition-all"
+            >
+              Восстановить сессию 🔄
+            </button>
+            <button
+              onClick={handleDiscardSavedSession}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase rounded-xl border border-slate-700 cursor-pointer active:scale-95 transition-all"
+            >
+              Сбросить
+            </button>
+          </div>
+        </div>
+      )}
+
       {phase === "setup" && (
         <SetupPhase
           players={players}
@@ -1354,272 +2131,69 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
       {/* RENDER VIEW MODE TOGGLE AND TABLE IF NOT IN SETUP */}
       {phase !== "setup" && (
-        <div className="space-y-6">
-          {/* Main Status Grid (Speech Active Timer or General Controls) */}
-          <div className="hidden grid-cols-1 lg:grid-cols-3 gap-6" id="game-status-controls-grid">
-            {/* Active Speaker Timer / Audio Deck */}
-            <div className="lg:col-span-2 bg-slate-900/45 border border-slate-800/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-4" id="audio-deck-panel">
-              <div className="flex justify-between items-center border-b border-slate-800/60 pb-3">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-rose-500" />
-                  <span className="text-xs text-slate-300 font-extrabold uppercase tracking-widest">Аудиопульт судейства</span>
-                </div>
-                {activeSpeakerSlot !== null && (
-                  <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2.5 py-1 rounded-full font-black animate-pulse flex items-center gap-1.5">
-                    🎙️ Говорит #{activeSpeakerSlot} ({activePlayers.find(pl => pl.slot_num === activeSpeakerSlot)?.nickname})
-                  </span>
-                )}
-              </div>
+        <div className="space-y-4">
+          {renderViewToggle()}
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 py-2">
-                <div className="text-center sm:text-left space-y-1">
-                  <span className="text-[10px] text-slate-500 font-mono font-bold uppercase tracking-widest block">Текущий Таймер</span>
-                  <h2 className="text-3xl font-black text-white font-mono tracking-tight">{customTimerLabel || "Речь спикера"}</h2>
-                  {muteMultiplierApplied && (
-                    <span className="text-[9px] bg-rose-500/15 border border-rose-500/35 text-rose-400 px-2 py-0.5 rounded-md font-bold uppercase block w-max mx-auto sm:mx-0 animate-pulse mt-1">Фолы молчания: 0 сек!</span>
-                  )}
-                </div>
-
-                {/* Gigantic Timer Clock Display */}
-                <div className="relative w-32 h-32 flex items-center justify-center shrink-0" id="timer-clock-display">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="64" cy="64" r="54" strokeWidth="6" stroke="#1e293b" fill="transparent" />
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="54"
-                      strokeWidth="6"
-                      stroke={timeLeft <= 5 ? "#ef4444" : timeLeft <= 15 ? "#f59e0b" : "#e11d48"}
-                      fill="transparent"
-                      strokeDasharray={339.292}
-                      strokeDashoffset={339.292 - (339.292 * (timeLeft / (timerMax || 60)))}
-                      strokeLinecap="round"
-                      className="transition-all duration-1000 ease-linear"
-                    />
-                  </svg>
-                  <div className="absolute flex flex-col items-center">
-                    <span className={`text-4xl font-black font-mono tracking-tighter ${timeLeft <= 5 ? "text-rose-500 animate-ping" : "text-white"}`}>{timeLeft}</span>
-                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">секунд</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Clock Controllers */}
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-850/60 justify-center sm:justify-start" id="timer-controls-bar">
-                <button
-                  onClick={toggleTimer}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer border transition-all ${
-                    isTimerRunning
-                      ? "bg-amber-600/15 border-amber-500/35 text-amber-400 hover:bg-amber-600/30"
-                      : "bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-600/15"
-                  }`}
-                >
-                  {isTimerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  <span>{isTimerRunning ? "Пауза" : "Запуск"}</span>
-                </button>
-
-                <button
-                  onClick={resetTimer}
-                  className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-700/60"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Сброс</span>
-                </button>
-
-                <div className="h-8 w-[1px] bg-slate-800 self-center mx-1 hidden sm:block" />
-
-                <div className="flex gap-1">
-                  <button onClick={() => setTimerLabelAndDuration("Речь", 60)} className="px-2.5 py-2.5 bg-slate-950 border border-slate-850 text-slate-400 hover:text-white rounded-xl text-[10px] font-bold cursor-pointer hover:border-slate-750 transition-all">🎙️ 60с</button>
-                  <button onClick={() => setTimerLabelAndDuration("Штраф 30с", 30)} className="px-2.5 py-2.5 bg-slate-950 border border-slate-850 text-slate-400 hover:text-white rounded-xl text-[10px] font-bold cursor-pointer hover:border-slate-750 transition-all">⚠️ 30с</button>
-                  <button onClick={() => setTimerLabelAndDuration("Речь 10с", 10)} className="px-2.5 py-2.5 bg-slate-950 border border-slate-850 text-slate-400 hover:text-white rounded-xl text-[10px] font-bold cursor-pointer hover:border-slate-750 transition-all">⏱️ 10с</button>
-                </div>
-
-                <div className="flex items-center gap-1.5 ml-auto text-xs bg-slate-950 border border-slate-850/60 px-3 py-1.5 rounded-xl font-mono text-slate-400">
-                  <button onClick={() => handleModifyTime("down")} className="w-6 h-6 hover:bg-slate-850 hover:text-white rounded flex items-center justify-center font-bold font-sans">-5с</button>
-                  <span className="font-bold text-slate-300">Коррекция</span>
-                  <button onClick={() => handleModifyTime("up")} className="w-6 h-6 hover:bg-slate-850 hover:text-white rounded flex items-center justify-center font-bold font-sans">+5с</button>
-                </div>
-              </div>
-            </div>
-
-            {/* GAME STATS & PROTOCOL BRIEF CARD */}
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/20 border border-slate-800/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-4" id="game-stats-dashboard-panel">
-              <div className="flex items-center gap-2 border-b border-slate-800/60 pb-3">
-                <Award className="w-4 h-4 text-amber-500" />
-                <span className="text-xs text-slate-300 font-extrabold uppercase tracking-widest">Протокол Стола</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3.5 flex-1 justify-center content-center py-2">
-                <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-850/80 space-y-1 shadow-inner text-center">
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Живых игроков</span>
-                  <strong className="text-xl font-black text-rose-500 font-mono tracking-tight">{activePlayers.filter(pl => pl.alive).length} <span className="text-xs text-slate-500 font-sans font-bold">/ 10</span></strong>
-                </div>
-
-                <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-850/80 space-y-1 shadow-inner text-center">
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Круг Обсуждений</span>
-                  <strong className="text-xl font-black text-white font-mono tracking-tight">#{roundNumber} <span className="text-xs text-slate-500 font-sans font-bold">день</span></strong>
-                </div>
-
-                <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-850/80 space-y-1 shadow-inner text-center">
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Выставлено целей</span>
-                  <strong className="text-xl font-black text-amber-400 font-mono tracking-tight">{nominations.length} <span className="text-xs text-slate-500 font-sans font-bold">иг.</span></strong>
-                </div>
-
-                <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-850/80 space-y-1 shadow-inner text-center">
-                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Проверок шерифа</span>
-                  <strong className="text-xl font-black text-emerald-400 font-mono tracking-tight">{nightLogs.filter(l => l.log.includes("Шериф")).length} <span className="text-xs text-slate-500 font-sans font-bold">крат.</span></strong>
-                </div>
-              </div>
-
-              {/* Subphase indicator footer */}
-              <div className="p-2.5 bg-slate-950/60 border border-slate-850 rounded-2xl text-center flex items-center justify-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  {phase === "zero_night" && "Фаза: Нулевая ночь (Договорка)"}
-                  {phase === "day_speeches" && "Фаза: Выступления игроков"}
-                  {phase === "day_voting" && "Фаза: Голосование"}
-                  {phase === "shootout" && "Фаза: Автокатастрофа (Перестрелка)"}
-                  {phase === "night" && `Фаза: Ночные действия (${nightSubPhase})`}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ACTIVE CONTENT */}
-          <div className="space-y-4">
-            {/* Phase Subheader Banner / Info Bar */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/40 border border-slate-800 rounded-xl p-4">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  {phase === "zero_night" && "🌙 Нулевая ночь (Договорка)"}
-                  {phase === "day_speeches" && `☀️ Выступления игроков (День ${roundNumber})`}
-                  {phase === "day_voting" && `🗳️ Голосование (День ${roundNumber})`}
-                  {phase === "shootout" && `🛑 Автокатастрофа / Перестрелка (День ${roundNumber})`}
-                  {phase === "night" && `🌙 Ночные действия (Ночь ${roundNumber} • ${nightSubPhase === "intro" ? "Начало" : nightSubPhase === "shooting" ? "Стрельба" : nightSubPhase === "don" ? "Проверка Дона" : nightSubPhase === "sheriff" ? "Проверка Шерифа" : nightSubPhase === "best_move" ? "Лучший ход" : "Утро"})`}
-                </h2>
-                <p className="text-[10px] text-slate-500">
-                  {phase === "zero_night" && "Договорка мафии. Запустите таймеры подготовки."}
-                  {phase === "day_speeches" && "Выступления игроков по очереди. Выставляйте кандидатов."}
-                  {phase === "day_voting" && "Опрос игроков по выставленным кандидатам. Используйте пульт судейства."}
-                  {phase === "shootout" && "Равное количество голосов. Речь 30 секунд для каждого номинанта."}
-                  {phase === "night" && "Ночь в городе. Зафиксируйте выстрелы и проверки на виртуальном столе."}
-                </p>
-              </div>
-
-              {/* Dynamic Header Action Buttons */}
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto text-xs">
-                {phase === "day_speeches" && (
-                  <>
-                    {nextSpeaker ? (
-                      <button
-                        onClick={handleStartNextSpeaker}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                      >
-                        🎙️ Речь #{nextSpeaker.slot_num} {nextSpeaker.nickname}
-                      </button>
-                    ) : (
-                      <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg font-bold">
-                        Все выступили ✓
-                      </span>
-                    )}
-                    {nominations.length > 0 && (
-                      <button
-                        onClick={handleTransitionToVoting}
-                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Перейти к голосованию ({nominations.length})
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {phase === "day_voting" && (
-                  <button
-                    onClick={handleResolveVoting}
-                    className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Подсчитать голоса 🗳️
-                  </button>
-                )}
-
-                {phase === "night" && (
-                  <div className="flex flex-wrap gap-1 bg-slate-950 p-1 rounded-xl border border-slate-850">
-                    {(["intro", "shooting", "don", "sheriff", "best_move", "morning"] as const).map((sub) => {
-                      if (sub === "best_move" && roundNumber > 1) return null;
-
-                      const labels: Record<string, string> = {
-                        intro: "Старт",
-                        shooting: "Стрельба 🔫",
-                        don: "Дон 🎩",
-                        sheriff: "Шериф 🌟",
-                        best_move: "ЛХ 🏆",
-                        morning: "Утро 🌅",
-                      };
-
-                      const active = nightSubPhase === sub;
-                      return (
-                        <button
-                          key={sub}
-                          onClick={() => handleAdvanceNightSubPhase(sub)}
-                          className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all cursor-pointer ${
-                            active
-                              ? "bg-purple-600 text-white shadow-md shadow-purple-600/15"
-                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                          }`}
-                        >
-                          {labels[sub]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Sub-banners (like nominations list or night guides) */}
-            {nominations.length > 0 && (phase === "day_speeches" || phase === "day_voting") && (
-              <div className="bg-rose-500/5 border border-rose-500/15 rounded-xl p-2.5 flex flex-wrap gap-1.5 items-center text-[10px]">
-                <span className="font-bold uppercase text-rose-400 mr-1.5">Номинанты:</span>
-                {nominations.map((s) => (
-                  <span
-                    key={s}
-                    className="bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded text-white font-mono flex items-center gap-1"
-                  >
-                    #{s} {activePlayers.find((p) => p.slot_num === s)?.nickname}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {phase === "night" && (
-              <div className="p-3 bg-slate-900/40 border border-slate-850 rounded-xl text-center">
-                <span className="text-[10px] font-bold uppercase text-slate-300 flex items-center justify-center gap-1.5">
-                  {nightSubPhase === "intro" && (
-                    <>🌙 Оденьте маски. Город засыпает. Нажмите кнопку <strong className="text-purple-400">"Далее: Стрельба"</strong> в центре стола или степпер</>
-                  )}
-                  {nightSubPhase === "shooting" && (
-                    <>🎯 Нажмите на цель на <strong className="text-rose-400">Столе</strong> для фиксации выстрела мафии</>
-                  )}
-                  {nightSubPhase === "don" && (
-                    <>🎯 Нажмите на игрока на <strong className="text-purple-400">Столе</strong> для проверки Дона</>
-                  )}
-                  {nightSubPhase === "sheriff" && (
-                    <>🎯 Нажмите на игрока на <strong className="text-emerald-400">Столе</strong> для проверки Шерифа</>
-                  )}
-                  {nightSubPhase === "best_move" && (
-                    <>🏆 Нажмите на 3 номера мафии на <strong className="text-amber-400">Столе</strong> (версия убитого игрока)</>
-                  )}
-                  {nightSubPhase === "morning" && (
-                    <>🌅 Проверьте итоги ночи в центре стола и нажмите <strong className="text-rose-400">"Утро! Начать новый день"</strong></>
-                  )}
-                </span>
-              </div>
-            )}
-
-            {/* Core Table / List Content */}
-            {viewMode === "table" ? (
-              renderVirtualTable()
-            ) : (
+          {/* Core Table / List Content */}
+          {viewMode === "table" ? (
+            renderVirtualTable()
+          ) : (
+            <div className="space-y-4">
+              <CenterPanel
+                phase={phase}
+                roundNumber={roundNumber}
+                nominations={nominations}
+                activePlayers={activePlayers}
+                nextSpeaker={nextSpeaker}
+                handleStartNextSpeaker={handleStartNextSpeaker}
+                handleTransitionToVoting={handleTransitionToVoting}
+                activeSpeakerSlot={activeSpeakerSlot}
+                timeLeft={timeLeft}
+                setTimeLeft={setTimeLeft}
+                zeroNightSubPhase={zeroNightSubPhase}
+                customTimerLabel={customTimerLabel}
+                isTimerRunning={isTimerRunning}
+                setIsTimerRunning={setIsTimerRunning}
+                setActiveSpeakerSlot={setActiveSpeakerSlot}
+                markPlayerSpoken={markPlayerSpoken}
+                votes={votes}
+                votesByPlayer={votesByPlayer}
+                isInteractiveVoting={isInteractiveVoting}
+                setIsInteractiveVoting={setIsInteractiveVoting}
+                currentVotingNomineeIndex={currentVotingNomineeIndex}
+                selectVotingNomineeIndex={selectVotingNomineeIndex}
+                handleInteractiveAutoRemainder={handleInteractiveAutoRemainder}
+                handleAllocateVotes={handleAllocateVotes}
+                handleResolveVoting={handleResolveVoting}
+                shootoutNominees={shootoutNominees}
+                votingAttempt={votingAttempt}
+                handleStartReVoting={handleStartReVoting}
+                handleResolveShootoutVotes={handleResolveShootoutVotes}
+                nightSubPhase={nightSubPhase}
+                shotPlayerSlot={shotPlayerSlot}
+                donCheckSlot={donCheckSlot}
+                donCheckResult={donCheckResult}
+                sheriffCheckSlot={sheriffCheckSlot}
+                sheriffCheckResult={sheriffCheckResult}
+                bestMoveGuesses={bestMoveGuesses}
+                getPrevStepAction={getPrevStepAction}
+                getNextStepInfo={getNextStepInfo}
+                timerMax={timerMax}
+                handleAdjustTime={handleAdjustTime}
+                handleStartZeroNightTimer={handleStartZeroNightTimer}
+                votingSubPhase={votingSubPhase}
+                setVotingSubPhase={setVotingSubPhase}
+                shootoutSubPhase={shootoutSubPhase}
+                setShootoutSubPhase={setShootoutSubPhase}
+                bothLeaveVotes={bothLeaveVotes}
+                setBothLeaveVotes={setBothLeaveVotes}
+                addLogEntry={(logText: string) => setNightLogs(prev => [...prev, { round: roundNumber, log: logText }])}
+                onCancel={onCancel}
+                handleAdvanceNightSubPhase={handleAdvanceNightSubPhase}
+                handleResolveNight={handleResolveNight}
+                isMuted={isMuted}
+                setIsMuted={setIsMuted}
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {activePlayers.map((p) => (
                   <div
@@ -1664,8 +2238,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* EVENTS LOGGER PANEL AND END-GAME SCREEN */}
           <EventsPanel
@@ -1675,9 +2249,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             activePlayers={activePlayers}
             winTeam={winTeam}
             handleEndGameWithWinner={handleEndGameWithWinner}
+            onUndoLastLog={handleUndoLastLog}
           />
         </div>
       )}
+      {renderMobileActionSheet()}
     </div>
   );
 }

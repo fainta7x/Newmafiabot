@@ -1,49 +1,80 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { LayoutDashboard, Users, Play, CalendarRange, Coins, ShieldCheck, HelpCircle, Database } from "lucide-react";
+import { User, Kanban, Play, Database, LayoutDashboard, ShieldCheck } from "lucide-react";
 import Dashboard from "./components/Dashboard.tsx";
-import Players from "./components/Players.tsx";
+import PlayerWorkspace from "./components/PlayerWorkspace.tsx";
+import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import GameWizard from "./components/GameWizard.tsx";
-import Bookings from "./components/Bookings.tsx";
-import Shop from "./components/Shop.tsx";
 import DatabaseEditor from "./components/DatabaseEditor.tsx";
 
-type Tab = "dashboard" | "players" | "game" | "bookings" | "shop" | "db_editor";
+type Tab = "dashboard" | "player_workspace" | "organizer_crm" | "game_referee" | "admin_db";
+type UserRoleMode = "PLAYER" | "ORGANIZER";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [roleMode, setRoleMode] = useState<UserRoleMode>("ORGANIZER");
+  const [activeTab, setActiveTab] = useState<Tab>("organizer_crm");
 
-  const navigationItems = [
-    { id: "dashboard", label: "Обзор Клуба", icon: LayoutDashboard },
-    { id: "players", label: "Игроки & Рейтинги", icon: Users },
-    { id: "game", label: "Судейский пульт", icon: Play },
-    { id: "bookings", label: "Запись на игры", icon: CalendarRange },
-    { id: "shop", label: "Магазин 🪙", icon: Coins },
-    { id: "db_editor", label: "Редактор БД ⚙️", icon: Database },
+  // Navigation Items
+  const allNavigationItems = [
+    { id: "player_workspace", label: "1. Личный Кабинет & Протоколы", short: "Игрок", icon: User, roles: ["PLAYER", "ORGANIZER"] },
+    { id: "organizer_crm", label: "2. CRM Организатора", short: "CRM", icon: Kanban, badge: "DND", roles: ["ORGANIZER"] },
+    { id: "game_referee", label: "3. Проведение Игр", short: "Пульт", icon: Play, roles: ["ORGANIZER"] },
+    { id: "admin_db", label: "4. Админ & БД", short: "Админ", icon: Database, roles: ["ORGANIZER"] },
+    { id: "dashboard", label: "0. Обзор Клуба", short: "Обзор", icon: LayoutDashboard, roles: ["PLAYER", "ORGANIZER"] },
   ];
+
+  const navigationItems = allNavigationItems.filter(item => item.roles.includes(roleMode));
+
+  const handleRoleSwitch = (newRole: UserRoleMode) => {
+    setRoleMode(newRole);
+    if (newRole === "PLAYER" && !["player_workspace", "dashboard"].includes(activeTab)) {
+      setActiveTab("player_workspace");
+    } else if (newRole === "ORGANIZER" && activeTab === "player_workspace") {
+      setActiveTab("organizer_crm");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col md:flex-row pb-20 md:pb-0">
       {/* Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between bg-slate-900/90 border-b border-slate-800/60 p-4 sticky top-0 z-30 backdrop-blur-md shadow-lg">
-        <div className="flex items-center gap-3">
+      <header className="md:hidden flex items-center justify-between bg-slate-900/90 border-b border-slate-800/60 p-3 sticky top-0 z-30 backdrop-blur-md shadow-lg">
+        <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-rose-600 flex items-center justify-center text-sm font-bold shadow-neu-flat text-white shrink-0">
             M
           </div>
-          <span className="font-display font-black text-xs text-white block uppercase tracking-wider">
-            MAFIA CLUB CRM
-          </span>
+          <div>
+            <span className="font-display font-black text-xs text-white block uppercase tracking-wider">
+              MAFIA CRM
+            </span>
+          </div>
         </div>
-        <span className="text-[10px] text-rose-400 font-mono font-bold uppercase tracking-wider bg-slate-950 border border-slate-850 px-2.5 py-1 rounded">
-          {navigationItems.find((item) => item.id === activeTab)?.label}
-        </span>
+
+        {/* Mobile Role Switcher Pill */}
+        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button
+            onClick={() => handleRoleSwitch("PLAYER")}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+              roleMode === "PLAYER" ? "bg-rose-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            👤 Игрок
+          </button>
+          <button
+            onClick={() => handleRoleSwitch("ORGANIZER")}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+              roleMode === "ORGANIZER" ? "bg-rose-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            👑 Ведущий
+          </button>
+        </div>
       </header>
 
       {/* Sidebar Navigation (Desktop only) */}
       <aside className="hidden md:flex w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800/40 flex-col justify-between shrink-0 p-5 shadow-neu-flat z-10">
         <div>
           {/* Logo / Club Brand */}
-          <div className="p-4 mb-6 bg-slate-950/40 border border-slate-800/60 rounded-3xl flex items-center gap-3.5 shadow-neu-inset">
+          <div className="p-4 mb-4 bg-slate-950/40 border border-slate-800/60 rounded-3xl flex items-center gap-3.5 shadow-neu-inset">
             <div className="w-10 h-10 rounded-2xl bg-rose-600 flex items-center justify-center text-xl font-bold shadow-neu-flat text-white shrink-0">
               M
             </div>
@@ -52,40 +83,75 @@ export default function App() {
                 MAFIA CLUB CRM
               </span>
               <span className="text-[9px] text-rose-500 font-mono font-bold uppercase tracking-wider block mt-0.5">
-                Neumorph Portal
+                Pro Manager v2.5
               </span>
             </div>
           </div>
 
-          {/* Nav List with Neumorphic interaction */}
-          <nav className="space-y-3">
+          {/* Role Switcher Box */}
+          <div className="mb-5 bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 space-y-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block px-1">
+              Режим Интерфейса:
+            </span>
+            <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => handleRoleSwitch("PLAYER")}
+                className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  roleMode === "PLAYER"
+                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                👤 Игрок
+              </button>              <button
+                onClick={() => handleRoleSwitch("ORGANIZER")}
+                className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  roleMode === "ORGANIZER"
+                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                👑 Ведущий
+              </button>
+            </div>
+          </div>
+
+          {/* Nav List with 4 Main Panels */}
+          <nav className="space-y-2.5">
             {navigationItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id as Tab)}
-                  className={`w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-xs font-bold transition-all relative cursor-pointer uppercase tracking-wider ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all relative cursor-pointer uppercase tracking-wider ${
                     isActive
-                      ? "text-rose-400 bg-slate-900 border border-rose-500/10 shadow-neu-inset"
+                      ? "text-rose-400 bg-slate-950 border border-rose-500/20 shadow-neu-inset"
                       : "text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-900 shadow-neu-flat hover:shadow-neu-inset"
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 transition-colors ${isActive ? "text-rose-500" : "text-slate-500"}`} />
-                  {item.label}
+                  <div className="flex items-center gap-3">
+                    <item.icon className={`w-4 h-4 transition-colors ${isActive ? "text-rose-500" : "text-slate-500"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-md">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Footer/Developer info */}
+        {/* Footer info */}
         <div className="mt-8 md:mt-0 hidden md:block">
           <div className="bg-slate-950/40 p-4 rounded-3xl border border-slate-800/60 flex items-center gap-3 shadow-neu-inset">
             <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
             <div className="min-w-0">
-              <span className="text-[10px] font-bold text-slate-300 block uppercase tracking-wider">Система CRM</span>
-              <span className="text-[9px] font-mono text-slate-500 block truncate mt-0.5">NEUMORPH v1.5.0</span>
+              <span className="text-[10px] font-bold text-slate-300 block uppercase tracking-wider">4-Panel Workspace</span>
+              <span className="text-[9px] font-mono text-slate-500 block truncate mt-0.5">Interactive CRM v2.0</span>
             </div>
           </div>
         </div>
@@ -105,7 +171,7 @@ export default function App() {
             >
               <item.icon className={`w-4 h-4 transition-all ${isActive ? "text-rose-500 scale-110" : "text-slate-500 hover:text-slate-400"}`} />
               <span className="text-[8px] tracking-tight truncate max-w-[62px] uppercase font-bold font-mono">
-                {item.id === "dashboard" ? "Обзор" : item.id === "players" ? "Игроки" : item.id === "game" ? "Пульт" : item.id === "bookings" ? "Запись" : item.id === "shop" ? "Магазин" : "БД"}
+                {item.short}
               </span>
             </button>
           );
@@ -122,12 +188,11 @@ export default function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.15 }}
           >
+            {activeTab === "organizer_crm" && <OrganizerCRM />}
+            {activeTab === "player_workspace" && <PlayerWorkspace />}
+            {activeTab === "game_referee" && <GameWizard />}
+            {activeTab === "admin_db" && <DatabaseEditor />}
             {activeTab === "dashboard" && <Dashboard />}
-            {activeTab === "players" && <Players />}
-            {activeTab === "game" && <GameWizard />}
-            {activeTab === "bookings" && <Bookings />}
-            {activeTab === "shop" && <Shop />}
-            {activeTab === "db_editor" && <DatabaseEditor />}
           </motion.div>
         </AnimatePresence>
       </main>

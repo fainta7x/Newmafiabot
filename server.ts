@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { Player, Booking, Game, GameSlot, ShopItem, ShopPurchase } from "./src/types.js";
+import { Player, Booking, Game, GameSlot, ShopItem, ShopPurchase, FinancialTransaction, OrganizerTask } from "./src/types.js";
 
 const DB_FILE = path.join(process.cwd(), "mafia_db.json");
 
@@ -55,10 +55,14 @@ const ACHIEVEMENTS = {
 
 interface DB {
   players: Player[];
+  evenings?: GameEvening[];
   bookings: Booking[];
   games: Game[];
   shop_purchases: ShopPurchase[];
+  transactions?: FinancialTransaction[];
+  tasks?: OrganizerTask[];
 }
+
 
 const INITIAL_PLAYERS_SEED = [
   { nickname: "Алоэ", full_name: "Александр Козлов", username: "aloe_maf", games_played: 45, games_won: 23, elo: 1580, debt: -200, total_paid: 1200, tokens: 4500, achievements: ["first_game", "ten_games", "twenty_games", "thirty_games", "first_win", "five_wins", "ten_wins", "twenty_wins", "elo_1500", "elo_1550", "sheriff_win", "mafia_win", "pu_once"] },
@@ -108,18 +112,18 @@ function loadDB(): DB {
     }));
 
     const bookings: Booking[] = [
-      { user_id: 2000, nickname: "Алоэ", status: "Вовремя", date: nextFriday },
-      { user_id: 2001, nickname: "Аннушка", status: "Вовремя", date: nextFriday },
-      { user_id: 2002, nickname: "Богданчик", status: "Позже", date: nextFriday },
-      { user_id: 2003, nickname: "Денди", status: "Вовремя", date: nextFriday },
-      { user_id: 2004, nickname: "Джава", status: "Вовремя", date: nextFriday },
-      { user_id: 2005, nickname: "Джокер", status: "Вовремя", date: nextFriday },
-      { user_id: 2006, nickname: "Добряк", status: "Вовремя", date: nextFriday },
-      { user_id: 2008, nickname: "Матроскина", status: "Вовремя", date: nextFriday },
-      { user_id: 2009, nickname: "Перец", status: "Позже", date: nextFriday },
-      { user_id: 2010, nickname: "Серый", status: "Вовремя", date: nextFriday },
-      { user_id: 2011, nickname: "Стаут", status: "Вовремя", date: nextFriday },
-      { user_id: 2015, nickname: "Истина", status: "Вовремя", date: nextFriday }
+      { user_id: 2000, nickname: "Алоэ", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2001, nickname: "Аннушка", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2002, nickname: "Богданчик", status: "Позже", date: nextFriday, payment: 300, payment_status: "Оплачено" },
+      { user_id: 2003, nickname: "Денди", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2004, nickname: "Джава", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "В долг" },
+      { user_id: 2005, nickname: "Джокер", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2006, nickname: "Добряк", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2008, nickname: "Матроскина", status: "Вовремя", date: nextFriday, payment: 200, payment_status: "Оплачено" },
+      { user_id: 2009, nickname: "Перец", status: "Позже", date: nextFriday, payment: 300, payment_status: "Оплачено" },
+      { user_id: 2010, nickname: "Серый", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2011, nickname: "Стаут", status: "Вовремя", date: nextFriday, payment: 400, payment_status: "Оплачено" },
+      { user_id: 2015, nickname: "Истина", status: "Вовремя", date: nextFriday, payment: 100, payment_status: "Оплачено" }
     ];
 
     const prevDate = "26.06.2026";
@@ -170,8 +174,28 @@ function loadDB(): DB {
       }
     ];
 
+    const evenings: GameEvening[] = [
+      {
+        id: "eve_1",
+        date: nextFriday,
+        title: `Пятничный мафия-вечер (${nextFriday})`,
+        status: "Идет сейчас",
+        location: "Зал #1 (Главный)",
+        notes: "Сбор гостей в 19:00, старт первой игры в 19:30"
+      },
+      {
+        id: "eve_2",
+        date: "26.06.2026",
+        title: "Игровой вечер 26 июня",
+        status: "Завершен",
+        location: "Зал #1",
+        notes: "Сыграно 2 рейтинговые игры"
+      }
+    ];
+
     const initialDB: DB = {
       players,
+      evenings,
       bookings,
       games,
       shop_purchases: []
@@ -180,7 +204,111 @@ function loadDB(): DB {
     fs.writeFileSync(DB_FILE, JSON.stringify(initialDB, null, 2), "utf8");
     return initialDB;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  const loadedData: DB = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  if (!loadedData.evenings) {
+    const nextFriday = getNextFridayDateStr();
+    loadedData.evenings = [
+      {
+        id: "eve_1",
+        date: nextFriday,
+        title: `Пятничный мафия-вечер (${nextFriday})`,
+        status: "Идет сейчас",
+        location: "Зал #1 (Главный)",
+        notes: "Сбор гостей в 19:00, старт первой игры в 19:30"
+      },
+      {
+        id: "eve_2",
+        date: "26.06.2026",
+        title: "Игровой вечер 26 июня",
+        status: "Завершен",
+        location: "Зал #1",
+        notes: "Сыграно 2 рейтинговые игры"
+      }
+    ];
+    saveDB(loadedData);
+  }
+
+  if (!loadedData.transactions) {
+    loadedData.transactions = [
+      {
+        id: "tx_101",
+        type: "income",
+        amount: 4800,
+        category: "Взнос за вечер",
+        description: "Игровой вечер 26.06 (12 игроков x 400 ₽)",
+        timestamp: "26.06.2026 22:30",
+        payment_method: "Наличные"
+      },
+      {
+        id: "tx_102",
+        type: "expense",
+        amount: 1500,
+        category: "Аренда помещения",
+        description: "Аренда главного зала #1 за вечер 26.06",
+        timestamp: "26.06.2026 23:00",
+        payment_method: "Перевод / Карта"
+      },
+      {
+        id: "tx_103",
+        type: "income",
+        amount: 800,
+        category: "Оплата долга",
+        description: "Погашение долга за прошлые игры",
+        nickname: "Аннушка",
+        timestamp: "27.06.2026 15:10",
+        payment_method: "Перевод / Карта"
+      },
+      {
+        id: "tx_104",
+        type: "expense",
+        amount: 1200,
+        category: "Закупка инвентаря",
+        description: "Закупка 10 игровых масок и фирменных колод карт ФСМ",
+        timestamp: "20.06.2026 12:00",
+        payment_method: "Перевод / Карта"
+      }
+    ];
+    saveDB(loadedData);
+  }
+
+  if (!loadedData.tasks) {
+    loadedData.tasks = [
+      {
+        id: "task_1",
+        title: "Подготовить зал и маски",
+        description: "Проверить 10 игровых масок и бейджи к пятничному вечеру",
+        category: "Реквизит",
+        status: "in_progress",
+        priority: "high",
+        due_date: "Пятница 18:30",
+        assigned_to: "Организатор"
+      },
+      {
+        id: "task_2",
+        title: "Заказать минеральную воду и кофе",
+        description: "2 блока воды и капсулы для кофемашины",
+        category: "Закупки",
+        status: "todo",
+        priority: "medium",
+        due_date: "Пятница 15:00",
+        assigned_to: "Организатор"
+      },
+      {
+        id: "task_3",
+        title: "Сверить счета и взносы прошлых вечеров",
+        description: "Проверить оплату долгов от игроков в Кассе",
+        category: "Оплата/Касса",
+        status: "done",
+        priority: "low",
+        due_date: "Четверг 20:00",
+        assigned_to: "Кассир"
+      }
+    ];
+    saveDB(loadedData);
+  }
+
+  return loadedData;
+
 }
 
 function saveDB(data: DB) {
@@ -222,6 +350,144 @@ async function startServer() {
       totalDebt,
       topElo
     });
+  });
+
+  // ==========================================
+  // FINANCIAL TRANSACTIONS & TREASURY APIS
+  // ==========================================
+
+  // GET Financial Transactions
+  app.get("/api/transactions", (req, res) => {
+    dbData = loadDB();
+    res.json(dbData.transactions || []);
+  });
+
+  // POST Create Financial Transaction
+  app.post("/api/transactions", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.transactions) dbData.transactions = [];
+    const { type, amount, category, description, player_id, nickname, payment_method } = req.body;
+
+    if (!type || !amount || !category) {
+      return res.status(400).json({ error: "Заполните тип, сумму и категорию транзакции" });
+    }
+
+    const numAmount = Math.abs(parseInt(amount) || 0);
+    if (numAmount === 0) {
+      return res.status(400).json({ error: "Сумма транзакции должна быть больше 0" });
+    }
+
+    const now = new Date();
+    const formattedTimestamp = now.toLocaleDateString("ru-RU") + " " + now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+    const newTx: FinancialTransaction = {
+      id: "tx_" + Date.now(),
+      type: type === "expense" ? "expense" : "income",
+      amount: numAmount,
+      category,
+      description: description ? description.trim() : "",
+      player_id: player_id ? parseInt(player_id) : undefined,
+      nickname: nickname ? nickname.trim() : undefined,
+      timestamp: formattedTimestamp,
+      payment_method: payment_method || "Наличные"
+    };
+
+    // If paying debt or receiving money for a player
+    if (player_id || nickname) {
+      const player = dbData.players.find(p =>
+        (player_id && p.id === parseInt(player_id)) ||
+        (nickname && p.nickname.toLowerCase() === nickname.toLowerCase())
+      );
+      if (player) {
+        if (category === "Оплата долга" && type === "income") {
+          // Reduce negative debt towards 0
+          player.debt = Math.min(0, player.debt + numAmount);
+          player.total_paid = (player.total_paid || 0) + numAmount;
+        }
+      }
+    }
+
+    dbData.transactions.unshift(newTx);
+    saveDB(dbData);
+    res.status(201).json(newTx);
+  });
+
+  // DELETE Financial Transaction
+  app.delete("/api/transactions/:id", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.transactions) dbData.transactions = [];
+    const id = req.params.id;
+    const index = dbData.transactions.findIndex(t => t.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Транзакция не найдена" });
+    }
+    const deleted = dbData.transactions.splice(index, 1)[0];
+    saveDB(dbData);
+    res.json({ success: true, deleted });
+  });
+
+  // ==========================================
+  // ORGANIZER TASKS APIS
+  // ==========================================
+  app.get("/api/tasks", (req, res) => {
+    dbData = loadDB();
+    res.json(dbData.tasks || []);
+  });
+
+  app.post("/api/tasks", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.tasks) dbData.tasks = [];
+    const { title, description, category, priority, due_date, assigned_to } = req.body;
+    if (!title) {
+      return res.status(400).json({ error: "Название задачи обязательно" });
+    }
+    const newTask: OrganizerTask = {
+      id: "task_" + Date.now(),
+      title: title.trim(),
+      description: description ? description.trim() : "",
+      category: category || "Подготовка",
+      status: "todo",
+      priority: priority || "medium",
+      due_date: due_date || "",
+      assigned_to: assigned_to || "Организатор"
+    };
+    dbData.tasks.unshift(newTask);
+    saveDB(dbData);
+    res.status(201).json(newTask);
+  });
+
+  app.put("/api/tasks/:id", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.tasks) dbData.tasks = [];
+    const id = req.params.id;
+    const task = dbData.tasks.find(t => t.id === id);
+    if (!task) {
+      return res.status(404).json({ error: "Задача не найдена" });
+    }
+    const { title, description, category, status, priority, due_date, assigned_to } = req.body;
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (category !== undefined) task.category = category;
+    if (status !== undefined) task.status = status;
+    if (priority !== undefined) task.priority = priority;
+    if (due_date !== undefined) task.due_date = due_date;
+    if (assigned_to !== undefined) task.assigned_to = assigned_to;
+
+    saveDB(dbData);
+    res.json(task);
+  });
+
+  app.delete("/api/tasks/:id", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.tasks) dbData.tasks = [];
+    const id = req.params.id;
+    const index = dbData.tasks.findIndex(t => t.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Задача не найдена" });
+    }
+    const deleted = dbData.tasks.splice(index, 1)[0];
+    saveDB(dbData);
+    res.json({ success: true, deleted });
   });
 
   // GET Players
@@ -334,6 +600,10 @@ async function startServer() {
     if (tokens !== undefined) player.tokens = parseInt(tokens) || 0;
     if (achievements !== undefined) player.achievements = achievements;
     if (last_visit !== undefined) player.last_visit = last_visit;
+    if (req.body.tag !== undefined) player.tag = req.body.tag;
+    if (req.body.notes !== undefined) player.notes = req.body.notes;
+    if (req.body.rookie_elo !== undefined) player.rookie_elo = parseInt(req.body.rookie_elo) || 1200;
+    if (req.body.tournament_points !== undefined) player.tournament_points = parseFloat(req.body.tournament_points) || 0;
 
     saveDB(dbData);
     res.json(player);
@@ -356,6 +626,143 @@ async function startServer() {
   // ==========================================
   // ADMINISTRATIVE DATABASE EDITOR APIS (REST CRUD)
   // ==========================================
+
+  // ==========================================
+  // GAME EVENINGS (Игровые вечера) APIS
+  // ==========================================
+  app.get("/api/evenings", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.evenings) dbData.evenings = [];
+    const { format } = req.query;
+    let result = dbData.evenings;
+    if (format) {
+      result = result.filter(e => (e.format || "STANDARD") === format);
+    }
+    res.json(result);
+  });
+
+  app.post("/api/evenings", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.evenings) dbData.evenings = [];
+    const { date, title, status, location, notes, format, format_rules, elo_multiplier } = req.body;
+    const id = "eve_" + Date.now();
+    const newEvening: GameEvening = {
+      id,
+      date: date ? date.trim() : getNextFridayDateStr(),
+      title: title ? title.trim() : `Игровой вечер ${date || getNextFridayDateStr()}`,
+      status: status || "Запланирован",
+      location: location ? location.trim() : "Зал #1",
+      notes: notes ? notes.trim() : "",
+      format: format || "STANDARD",
+      format_rules: format_rules || "",
+      elo_multiplier: elo_multiplier || (format === "TOURNAMENT" ? 1.5 : format === "NOVICE" ? 0.5 : 1.0)
+    };
+    dbData.evenings.push(newEvening);
+    saveDB(dbData);
+    res.json(newEvening);
+  });
+
+  app.put("/api/admin/evenings", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.evenings) dbData.evenings = [];
+    const { id, date, title, status, location, notes, format, format_rules, elo_multiplier } = req.body;
+    const index = dbData.evenings.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Игровой вечер не найден" });
+    }
+    const eve = dbData.evenings[index];
+    if (date !== undefined) eve.date = date;
+    if (title !== undefined) eve.title = title;
+    if (status !== undefined) eve.status = status;
+    if (location !== undefined) eve.location = location;
+    if (notes !== undefined) eve.notes = notes;
+    if (format !== undefined) eve.format = format;
+    if (format_rules !== undefined) eve.format_rules = format_rules;
+    if (elo_multiplier !== undefined) eve.elo_multiplier = parseFloat(elo_multiplier) || 1.0;
+
+    saveDB(dbData);
+    res.json(eve);
+  });
+
+  // POST Settle Evening Debts to Player Profiles
+  app.post("/api/evenings/settle-debts", (req, res) => {
+    dbData = loadDB();
+    const { debtMap } = req.body; // { nickname: amount }
+    if (!debtMap || typeof debtMap !== "object") {
+      return res.status(400).json({ error: "Invalid debt map" });
+    }
+
+    let updatedCount = 0;
+    Object.entries(debtMap).forEach(([nick, amount]) => {
+      const p = dbData.players.find(pl => pl.nickname.toLowerCase() === nick.toLowerCase());
+      if (p && typeof amount === "number" && amount > 0) {
+        p.debt = (p.debt || 0) - Math.abs(amount); // Record debt as negative amount
+        updatedCount++;
+      }
+    });
+
+    saveDB(dbData);
+    res.json({ success: true, updatedCount });
+  });
+
+  // TELEGRAM BOT ECOSYSTEM API ENDPOINTS
+  app.get("/api/bot/evenings", (req, res) => {
+    dbData = loadDB();
+    const activeEvenings = (dbData.evenings || []).map(e => {
+      const bookedCount = dbData.bookings.filter(b => b.date === e.date && b.status !== "Отмена").length;
+      return {
+        id: e.id,
+        date: e.date,
+        title: e.title,
+        status: e.status,
+        format: e.format || "STANDARD",
+        location: e.location || "Главный зал",
+        notes: e.notes || "",
+        booked_count: bookedCount,
+        max_players: 20
+      };
+    });
+    res.json({ success: true, evenings: activeEvenings });
+  });
+
+  app.post("/api/bot/register", (req, res) => {
+    dbData = loadDB();
+    const { user_id, nickname, date, status } = req.body;
+    if (!nickname || !date) {
+      return res.status(400).json({ error: "Укажите никнейм и дату вечера" });
+    }
+    const existingIndex = dbData.bookings.findIndex(b => b.date === date && (b.nickname.toLowerCase() === nickname.toLowerCase() || (user_id && b.user_id === parseInt(user_id))));
+    if (existingIndex !== -1) {
+      dbData.bookings[existingIndex].status = status || "Вовремя";
+    } else {
+      dbData.bookings.push({
+        user_id: user_id ? parseInt(user_id) : Date.now(),
+        nickname: nickname.trim(),
+        date: date.trim(),
+        status: status || "Вовремя",
+        payment: 400,
+        payment_status: "Оплачено"
+      });
+    }
+    saveDB(dbData);
+    res.json({ success: true, message: `Игрок ${nickname} успешно записан на ${date}` });
+  });
+
+  app.delete("/api/admin/evenings", (req, res) => {
+    dbData = loadDB();
+    if (!dbData.evenings) dbData.evenings = [];
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: "ID обязателен" });
+    }
+    const index = dbData.evenings.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Игровой вечер не найден" });
+    }
+    const deleted = dbData.evenings.splice(index, 1)[0];
+    saveDB(dbData);
+    res.json({ success: true, deleted });
+  });
 
   // GET All Shop Purchases
   app.get("/api/admin/purchases", (req, res) => {
@@ -397,21 +804,23 @@ async function startServer() {
     res.json(purchase);
   });
 
-  // PUT Edit Booking (Admin)
+  // PUT Edit Booking / Game Evening (Admin)
   app.put("/api/admin/bookings", (req, res) => {
     dbData = loadDB();
-    const { oldNickname, oldDate, user_id, nickname, status, date } = req.body;
+    const { oldNickname, oldDate, user_id, nickname, status, date, payment, payment_status } = req.body;
     const index = dbData.bookings.findIndex(
       b => b.nickname.toLowerCase() === oldNickname.toLowerCase() && b.date === oldDate
     );
     if (index === -1) {
-      return res.status(404).json({ error: "Запись бронирования не найдена" });
+      return res.status(404).json({ error: "Запись игрового вечера не найдена" });
     }
     const booking = dbData.bookings[index];
     if (user_id !== undefined) booking.user_id = parseInt(user_id) || booking.user_id;
     if (nickname !== undefined) booking.nickname = nickname;
     if (status !== undefined) booking.status = status;
     if (date !== undefined) booking.date = date;
+    if (payment !== undefined) booking.payment = typeof payment === "number" ? payment : parseInt(payment) || 0;
+    if (payment_status !== undefined) booking.payment_status = payment_status;
 
     saveDB(dbData);
     res.json(booking);
@@ -510,18 +919,22 @@ async function startServer() {
     res.json(dbData.bookings);
   });
 
-  // POST Create/Update Booking
+  // POST Create/Update Booking / Game Evening
   app.post("/api/bookings", (req, res) => {
     dbData = loadDB();
-    const { user_id, nickname, status } = req.body;
+    const { user_id, nickname, status, date, payment, payment_status } = req.body;
     if (!nickname) {
       return res.status(400).json({ error: "Nickname is required" });
     }
 
-    const dateStr = getNextFridayDateStr();
-    const existingIndex = dbData.bookings.findIndex(b => b.nickname.toLowerCase() === nickname.toLowerCase());
+    const dateStr = date ? date.trim() : getNextFridayDateStr();
+    const existingIndex = dbData.bookings.findIndex(
+      b => b.nickname.toLowerCase() === nickname.toLowerCase() && b.date === dateStr
+    );
 
     const finalUserId = user_id || (dbData.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())?.user_id || 9999);
+    const finalPayment = payment !== undefined ? (typeof payment === "number" ? payment : parseInt(payment) || 0) : 400;
+    const finalPaymentStatus = payment_status || "Оплачено";
 
     if (existingIndex !== -1) {
       if (status === "Отмена") {
@@ -529,6 +942,8 @@ async function startServer() {
       } else {
         dbData.bookings[existingIndex].status = status;
         dbData.bookings[existingIndex].date = dateStr;
+        dbData.bookings[existingIndex].payment = finalPayment;
+        dbData.bookings[existingIndex].payment_status = finalPaymentStatus;
       }
     } else {
       if (status !== "Отмена") {
@@ -536,7 +951,9 @@ async function startServer() {
           user_id: finalUserId,
           nickname,
           status,
-          date: dateStr
+          date: dateStr,
+          payment: finalPayment,
+          payment_status: finalPaymentStatus
         });
       }
     }

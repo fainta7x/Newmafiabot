@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { Users, Calendar, Trophy, DollarSign, Activity, Award, Crown, Zap } from "lucide-react";
 import { Player, Game } from "../types.js";
+import GameProtocolsView from "./GameProtocolsView.tsx";
 
 interface DashboardStats {
   totalPlayers: number;
@@ -244,61 +245,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Latest Games List */}
+      {/* Game Protocols View */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5"
       >
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-lg font-display font-bold text-white">Последние сыгранные игры</h2>
-            <p className="text-xs text-slate-500">Результаты и судейские протоколы недавних сражений</p>
-          </div>
-        </div>
-        
-        {games.length === 0 ? (
-          <div className="text-center py-6 text-slate-500 text-sm">
-            Игры еще не записаны. Используйте вкладку "Новая Игра" для начала!
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {[...games].reverse().slice(0, 3).map((game) => (
-              <div
-                key={game.id}
-                className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 flex flex-col md:flex-row justify-between gap-4"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono font-bold text-slate-500">
-                      Игра #{game.global_game_number}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      Дата: {game.game_date}
-                    </span>
-                    <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full">
-                      Судья: {game.judge_name}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-300 italic">"{game.protocol_text}"</p>
-                </div>
-                <div className="flex items-center gap-4 self-end md:self-center">
-                  <span className="text-xs text-slate-500">Победители:</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide border uppercase ${
-                      game.winner_label === "Красные"
-                        ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                        : "bg-slate-800 text-slate-300 border-slate-700"
-                    }`}
-                  >
-                    {game.winner_label}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <GameProtocolsView />
       </motion.div>
     </div>
   );

@@ -743,7 +743,7 @@ export default function GameWizard() {
                     </div>
 
                     {/* Additional detailed scores (fouls, best move etc.) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       {/* Fouls count */}
                       <div className="space-y-0.5">
                         <span className="text-[10px] text-slate-500 font-bold block uppercase">Фолы</span>
@@ -785,6 +785,21 @@ export default function GameWizard() {
                           max="1"
                           value={s.lh_points}
                           onChange={(e) => handlePointsChange(s.slot_num, "lh_points", parseFloat(e.target.value) || 0)}
+                          className="bg-slate-950 border border-slate-850 rounded-lg w-full px-2 py-1 text-xs text-slate-300 focus:outline-none font-mono"
+                          placeholder="0.0"
+                        />
+                      </div>
+
+                      {/* Prophetic Protocol / ПП */}
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-slate-500 font-bold block uppercase">Балл ПП</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="1"
+                          value={s.will_protocol_points}
+                          onChange={(e) => handlePointsChange(s.slot_num, "will_protocol_points", parseFloat(e.target.value) || 0)}
                           className="bg-slate-950 border border-slate-850 rounded-lg w-full px-2 py-1 text-xs text-slate-300 focus:outline-none font-mono"
                           placeholder="0.0"
                         />

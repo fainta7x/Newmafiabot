@@ -1,8 +1,7 @@
 import React from "react";
-import { Minus, Plus, Pause, Play, RotateCcw, Mic, BarChart2 } from "lucide-react";
+import { Minus, Plus, Pause, Play, RotateCcw, Mic, Shield, LogOut, ArrowLeft, ArrowRight, Star, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
-import { Star } from "lucide-react";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -26,6 +25,7 @@ interface CenterPanelProps {
   bestMoveGuesses: number[];
   nextSpeaker: ActivePlayerState | null;
   handleStartNextSpeaker: () => void;
+  handleTransitionToVoting?: () => void;
   isInteractiveVoting: boolean;
   setIsInteractiveVoting: (isInteractive: boolean) => void;
   nominations: number[];
@@ -50,6 +50,12 @@ interface CenterPanelProps {
   setShootoutSubPhase: React.Dispatch<React.SetStateAction<"shootout_intro" | "shootout_speeches" | "shootout_revote_intro" | "shootout_revote_active" | "shootout_revote_results" | "shootout_both_results" | any>>;
   bothLeaveVotes: number[];
   setBothLeaveVotes: React.Dispatch<React.SetStateAction<number[]>>;
+  addLogEntry?: (logText: string) => void;
+  onCancel?: () => void;
+  handleAdvanceNightSubPhase?: (sub: NightSubPhase) => void;
+  handleResolveNight?: () => void;
+  isMuted?: boolean;
+  setIsMuted?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function CenterPanel({
@@ -74,6 +80,7 @@ export default function CenterPanel({
   bestMoveGuesses,
   nextSpeaker,
   handleStartNextSpeaker,
+  handleTransitionToVoting,
   isInteractiveVoting,
   setIsInteractiveVoting,
   nominations,
@@ -98,49 +105,59 @@ export default function CenterPanel({
   setShootoutSubPhase,
   bothLeaveVotes,
   setBothLeaveVotes,
+  addLogEntry,
+  onCancel,
+  handleAdvanceNightSubPhase,
+  handleResolveNight,
+  isMuted = false,
+  setIsMuted,
 }: CenterPanelProps) {
   const [shootoutSpeakerIndex, setShootoutSpeakerIndex] = React.useState(0);
-  const [currentVotingNomineeIndexLocal, setCurrentVotingNomineeIndexLocal] = React.useState(0);
 
   const handleStartTimer = (slot: number, duration: number) => {
     setActiveSpeakerSlot(slot);
     setTimeLeft(duration);
     setIsTimerRunning(true);
+    if (phase === "shootout" && shootoutSubPhase === "shootout_speeches") {
+      addLogEntry?.(`Д${roundNumber}: Перестрелка. Речь игрока #${slot} (30 сек)`);
+    }
   };
 
   const activeSpeaker = activePlayers.find((p) => p.slot_num === activeSpeakerSlot);
   const donPlayer = activePlayers.find((p) => p.role === "Дон");
   const mafiaPlayers = activePlayers.filter((p) => p.role === "Мафия");
   const sheriffPlayer = activePlayers.find((p) => p.role === "Шериф");
+  const prevStep = getPrevStepAction();
+  const nextStep = getNextStepInfo();
 
   // Dynamic title/badge depending on phase
   const getPhaseTitleAndStyle = () => {
     switch (phase) {
       case "zero_night":
         return {
-          label: "🌙 Ночь 0",
-          style: "bg-rose-950/50 border-rose-800/60 text-rose-400",
+          label: "🌙 Нулевая Ночь",
+          style: "bg-rose-950/60 border-rose-800/80 text-rose-300",
         };
       case "night":
         return {
           label: `🌙 Ночь ${roundNumber}`,
-          style: "bg-purple-950/50 border-purple-800/60 text-purple-400",
+          style: "bg-purple-950/60 border-purple-800/80 text-purple-300",
         };
       case "day_voting":
         return {
           label: `🗳️ Голосование (День ${roundNumber})`,
-          style: "bg-rose-950/50 border-rose-800/60 text-rose-400 animate-pulse",
+          style: "bg-rose-950/70 border-rose-600/80 text-rose-300 animate-pulse",
         };
       case "shootout":
         return {
           label: `🛑 Перестрелка (День ${roundNumber})`,
-          style: "bg-amber-950/50 border-amber-800/60 text-amber-400",
+          style: "bg-amber-950/70 border-amber-600/80 text-amber-300 animate-pulse",
         };
       case "day_speeches":
       default:
         return {
           label: `☀️ День ${roundNumber}`,
-          style: "bg-amber-950/50 border-amber-800/60 text-amber-400",
+          style: "bg-amber-950/60 border-amber-800/80 text-amber-300",
         };
     }
   };
@@ -148,27 +165,110 @@ export default function CenterPanel({
   const phaseInfo = getPhaseTitleAndStyle();
 
   return (
-    <div className="col-start-2 col-span-3 row-start-2 h-full min-h-[300px] bg-slate-900 border-2 border-slate-800 rounded-2xl p-3 flex flex-col justify-between text-center relative overflow-hidden shadow-2xl transition-all">
+    <div className="col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none h-full min-h-0 md:min-h-[300px] bg-slate-900/95 border-2 border-slate-800 rounded-2xl sm:rounded-3xl p-2.5 sm:p-3 flex flex-col justify-between text-center relative overflow-hidden shadow-2xl transition-all">
       {/* Subtle background decoration */}
-      <div className="absolute inset-0 bg-radial-gradient from-rose-500/5 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-radial-gradient from-rose-500/5 via-transparent to-transparent pointer-events-none" />
 
-      {/* Phase Badge */}
-      <div className="flex justify-between items-center border-b border-slate-900 pb-1.5 z-10">
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono">Центр стола</span>
-        <span
-          className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${phaseInfo.style}`}
-        >
-          {phaseInfo.label}
-        </span>
+      {/* HEADER BAR INSIDE CENTER PANEL */}
+      <div className="flex justify-between items-center border-b border-slate-800/80 pb-1.5 z-10 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Центр Стола</span>
+          <span className={`text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded-full border flex items-center gap-1 ${phaseInfo.style}`}>
+            {phaseInfo.label}
+          </span>
+        </div>
+
+        {/* Exit Game Button */}
+        {onCancel && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Вы уверены, что хотите завершить игру без результатов? Все несохраненные данные будут утеряны.")) {
+                onCancel();
+              }
+            }}
+            className="text-[9px] sm:text-[10px] font-bold text-slate-400 hover:text-rose-400 bg-slate-950 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900/60 px-2 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+          >
+            <LogOut className="w-3 h-3" />
+            <span>Выйти</span>
+          </button>
+        )}
       </div>
 
-      {/* Core HUD content */}
-      <div className="flex-1 flex flex-col items-center justify-center py-2 z-10 w-full">
-        {/* If any general timer is running or active */}
+      {/* JUDGE ROLE CHEAT SHEET MATRIX BAR */}
+      {phase !== "setup" && (
+        <div className="w-full bg-slate-950/90 border border-slate-850 rounded-xl px-2 py-1 shrink-0 flex items-center justify-between gap-1 text-[9px] sm:text-[10px] z-10 shadow-sm mt-1">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+            <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[8px] sm:text-[9px] shrink-0">Шпаргалка:</span>
+            <span className="bg-amber-950/70 border border-amber-600/50 text-amber-300 font-extrabold px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm text-[9px]">
+              🌟 Ш: #{activePlayers.find(p => p.role === "Шериф")?.slot_num || "—"}
+            </span>
+            <span className="bg-purple-950/70 border border-purple-600/50 text-purple-300 font-extrabold px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm text-[9px]">
+              🎩 Дон: #{activePlayers.find(p => p.role === "Дон")?.slot_num || "—"}
+            </span>
+            <span className="bg-rose-950/70 border border-rose-600/50 text-rose-300 font-extrabold px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm text-[9px]">
+              🕶️ Маф: #{activePlayers.filter(p => p.role === "Мафия").map(p => `#${p.slot_num}`).join(", ") || "—"}
+            </span>
+          </div>
+          <span className="text-[9px] text-slate-500 font-mono font-bold shrink-0">
+            Живых: {activePlayers.filter(p => p.alive).length}/10
+          </span>
+        </div>
+      )}
+
+      {/* NIGHT SUB-PHASES SELECTOR BAR (rendered right below header during night) */}
+      {phase === "night" && handleAdvanceNightSubPhase && (
+        <div className="flex flex-wrap gap-1 justify-center bg-slate-950 p-1 rounded-xl border border-slate-850 z-10 shrink-0 mt-1">
+          {(["intro", "shooting", "don", "sheriff", "best_move", "morning"] as const).map((sub) => {
+            if (sub === "best_move" && roundNumber > 1) return null;
+
+            const labels: Record<string, string> = {
+              intro: "Старт",
+              shooting: "Стрельба 🔫",
+              don: "Дон 🎩",
+              sheriff: "Шериф 🌟",
+              best_move: "ЛХ 🏆",
+              morning: "Утро 🌅",
+            };
+
+            const active = nightSubPhase === sub;
+            return (
+              <button
+                key={sub}
+                type="button"
+                onClick={() => handleAdvanceNightSubPhase(sub)}
+                className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black uppercase transition-all cursor-pointer ${
+                  active
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                }`}
+              >
+                {labels[sub]}
+              </button>
+            )}
+          )}
+        </div>
+      )}
+
+      {/* 1-TAP FAST NIGHT BUTTON */}
+      {phase === "night" && handleResolveNight && (
+        <button
+          type="button"
+          onClick={handleResolveNight}
+          className="w-full my-1 py-1.5 px-2 bg-gradient-to-r from-purple-700 via-indigo-600 to-amber-600 hover:brightness-110 active:scale-[0.98] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider rounded-xl shadow-lg border border-purple-400/40 flex items-center justify-center gap-1.5 cursor-pointer transition-all z-10 shrink-0"
+          title="Мгновенно подвести итоги ночи и разбудить город"
+        >
+          <span>⚡ Быстрая ночь & Встретить утро 🌅</span>
+        </button>
+      )}
+
+      {/* CORE STABLE HUD BODY (fixed min-height prevents layout jump!) */}
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[110px] sm:min-h-[140px] max-h-[220px] my-auto py-1 px-1 w-full overflow-y-auto z-10">
+        {/* IF TIMER IS RUNNING / ACTIVE SPEAKER */}
         {timeLeft !== null && (activeSpeakerSlot !== null || zeroNightSubPhase !== null || customTimerLabel !== null) ? (
-          <div className="space-y-2 w-full">
+          <div className="space-y-1.5 w-full max-w-[240px] mx-auto">
             {/* Timer label */}
-            <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block animate-pulse">
+            <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block animate-pulse">
               {customTimerLabel
                 ? customTimerLabel
                 : activeSpeakerSlot
@@ -176,70 +276,133 @@ export default function CenterPanel({
                 : "Таймер"}
             </span>
 
-            {/* Speaker Nickname if applicable */}
+            {/* Speaker Nickname */}
             {activeSpeakerSlot !== null && activeSpeaker && (
-              <span className="text-xs sm:text-sm font-black text-white truncate max-w-[150px] block mx-auto -mt-1 bg-slate-900/60 py-0.5 px-2 rounded-lg border border-slate-800/45">
+              <span className="text-xs font-black text-white truncate block mx-auto -mt-0.5 bg-slate-900/80 py-0.5 px-2 rounded-lg border border-slate-800">
                 {activeSpeaker.nickname || `Игрок ${activeSpeakerSlot}`}
               </span>
             )}
 
-            {/* Massive Timer display */}
-            <div className="text-3xl sm:text-4xl font-mono font-black text-rose-500 flex items-center justify-center gap-1.5">
-              <Mic className="w-5 h-5 text-amber-400 animate-pulse" />
-              {timeLeft}с
+            {/* Timer Clock Display */}
+            <div
+              className={`text-2xl sm:text-3xl font-mono font-black flex items-center justify-center gap-1.5 py-1 px-3 rounded-xl border transition-all shadow-md ${
+                timeLeft <= 10
+                  ? "text-rose-400 bg-rose-950/70 border-rose-500/60 animate-pulse shadow-rose-600/30"
+                  : timeLeft <= 20
+                  ? "text-amber-400 bg-amber-950/50 border-amber-500/50 shadow-amber-500/20"
+                  : "text-emerald-400 bg-slate-950/90 border-slate-800/80 shadow-slate-950/50"
+              }`}
+            >
+              <Mic
+                className={`w-4 h-4 ${
+                  timeLeft <= 10 ? "text-rose-400 animate-ping" : "text-amber-400 animate-pulse"
+                }`}
+              />
+              <span>{timeLeft}с</span>
             </div>
 
-            {/* Elegant Compact Timer Controllers */}
-            <div className="flex items-center justify-center gap-1 bg-slate-900/80 border border-slate-800 p-1 rounded-xl max-w-[180px] mx-auto shadow-inner">
+            {/* Visual Countdown Progress Bar */}
+            {timerMax > 0 && (
+              <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800/80 shadow-inner">
+                <div
+                  className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+                    timeLeft <= 10
+                      ? "bg-gradient-to-r from-rose-500 to-rose-600"
+                      : timeLeft <= 20
+                      ? "bg-gradient-to-r from-amber-500 to-amber-600"
+                      : "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, (timeLeft / timerMax) * 100))}%` }}
+                />
+              </div>
+            )}
+
+            {/* Thumb-Friendly Timer Control Bar */}
+            <div className="flex items-center justify-between gap-1.5 bg-slate-950 border border-slate-800 p-1.5 rounded-2xl max-w-[250px] mx-auto shadow-inner">
               <button
+                type="button"
                 onClick={() => handleAdjustTime(-10)}
                 disabled={timeLeft <= 10}
-                className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
-                title="-10s"
+                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 active:scale-95 text-slate-300 font-mono font-bold text-xs flex items-center justify-center disabled:opacity-30 transition-all cursor-pointer shadow"
+                title="-10 секунд"
               >
-                <Minus className="w-3.5 h-3.5" />
+                -10с
               </button>
-              <span className="text-[8px] text-slate-500 font-bold px-0.5 font-mono font-sans">10s</span>
+
               <button
+                type="button"
                 onClick={() => handleAdjustTime(10)}
-                className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                title="+10s"
+                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 active:scale-95 text-slate-300 font-mono font-bold text-xs flex items-center justify-center transition-all cursor-pointer shadow"
+                title="+10 секунд"
               >
-                <Plus className="w-3.5 h-3.5" />
+                +10с
               </button>
-              <div className="w-px h-3.5 bg-slate-800 mx-1" />
+
               {isTimerRunning ? (
                 <button
+                  type="button"
                   onClick={() => setIsTimerRunning(false)}
-                  className="w-6 h-6 flex items-center justify-center text-rose-400 hover:text-rose-300 transition-colors"
+                  className="flex-1 h-10 px-3 bg-amber-600 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs uppercase rounded-xl border border-amber-400/50 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
                   title="Пауза"
                 >
-                  <Pause className="w-3.5 h-3.5 fill-current" />
+                  <Pause className="w-4 h-4 fill-current" />
+                  <span>Пауза</span>
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => setIsTimerRunning(true)}
-                  className="w-6 h-6 flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition-colors"
+                  className="flex-1 h-10 px-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs uppercase rounded-xl border border-emerald-400/50 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
                   title="Старт"
                 >
-                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Старт</span>
                 </button>
               )}
+
               <button
+                type="button"
                 onClick={() => {
                   setIsTimerRunning(false);
                   setTimeLeft(timerMax);
                 }}
-                className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                title="Сбросить"
+                className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 active:scale-95 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow"
+                title="Сбросить время"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4" />
               </button>
+
+              {setIsMuted && (
+                <button
+                  type="button"
+                  onClick={() => setIsMuted((prev) => !prev)}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow active:scale-95 ${
+                    isMuted
+                      ? "bg-rose-950/80 border-rose-800 text-rose-400 hover:bg-rose-900"
+                      : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`}
+                  title={isMuted ? "Включить звук" : "Выключить звук"}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                </button>
+              )}
             </div>
+
+            {/* Quick PAS / End Speech Button during active speeches */}
+            {activeSpeakerSlot !== null && nextStep && (
+              <button
+                type="button"
+                onClick={nextStep.onClick}
+                className="w-full mt-1.5 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg shadow-rose-600/30 border border-rose-400/40 flex items-center justify-center gap-2 transition-all cursor-pointer animate-pulse"
+              >
+                <span>ПАС / Завершить речь #{activeSpeakerSlot}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Role helpers during Zero Night timers */}
             {phase === "zero_night" && zeroNightSubPhase === "agreement" && (
-              <div className="p-1.5 bg-slate-900/40 rounded-lg border border-slate-900 max-w-[200px] mx-auto text-left text-[9px] space-y-1 my-1">
+              <div className="p-2 bg-slate-950/80 rounded-xl border border-slate-850 max-w-[210px] mx-auto text-left text-[9px] space-y-1 my-1">
                 <div className="flex justify-between items-center text-purple-400">
                   <span className="flex items-center gap-1">
                     <MafiaHatIcon className="w-3.5 h-3.5 text-purple-400" />
@@ -260,7 +423,7 @@ export default function CenterPanel({
             )}
           </div>
         ) : (
-          /* If timer is NOT active, display phase-specific dashboards */
+          /* IF TIMER IS NOT RUNNING, DISPLAY PHASE DASHBOARDS */
           <div className="w-full space-y-2">
             {phase === "zero_night" && (
               <div className="space-y-2">
@@ -268,74 +431,46 @@ export default function CenterPanel({
                   <span className="text-xs font-black uppercase text-slate-200 tracking-wider block">
                     Договорка / Знакомство
                   </span>
-                  <span className="text-[9px] text-slate-500 block">Запустите таймеры подготовки:</span>
+                  <span className="text-[9px] text-slate-400 block">Запустите таймеры подготовки:</span>
                 </div>
 
-                <div className="flex flex-col gap-1 max-w-[180px] mx-auto">
+                <div className="flex flex-col gap-1.5 max-w-[200px] mx-auto">
                   <button
+                    type="button"
                     onClick={() => handleStartZeroNightTimer("agreement")}
-                    className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
                       zeroNightSubPhase === "agreement"
                         ? "bg-rose-900/40 border-rose-500 text-rose-300"
-                        : "bg-slate-900 border-slate-850 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <span>1. Договорка</span>
-                    <span className="font-mono text-[8px] bg-slate-950 px-1 py-0.2 rounded">75с</span>
+                    <span className="font-mono text-[8px] bg-slate-900 px-1.5 py-0.5 rounded">75с</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleStartZeroNightTimer("sheriff")}
-                    className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
                       zeroNightSubPhase === "sheriff"
                         ? "bg-amber-900/40 border-amber-500 text-amber-300"
-                        : "bg-slate-900 border-slate-850 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <span>2. Вызов шерифа</span>
-                    <span className="font-mono text-[8px] bg-slate-950 px-1 py-0.2 rounded">10с</span>
+                    <span className="font-mono text-[8px] bg-slate-900 px-1.5 py-0.5 rounded">10с</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleStartZeroNightTimer("seating")}
-                    className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl border text-[9px] font-bold uppercase transition-all flex items-center justify-between cursor-pointer ${
                       zeroNightSubPhase === "seating"
                         ? "bg-emerald-900/40 border-emerald-500 text-emerald-300"
-                        : "bg-slate-900 border-slate-850 text-slate-450 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <span>3. Посадка</span>
-                    <span className="font-mono text-[8px] bg-slate-950 px-1 py-0.2 rounded">40с</span>
+                    <span className="font-mono text-[8px] bg-slate-900 px-1.5 py-0.5 rounded">40с</span>
                   </button>
-                </div>
-
-                {/* Roles summary during preparation phase */}
-                <div className="pt-1.5 border-t border-slate-900 max-w-[200px] mx-auto text-left text-[9px] space-y-1 text-slate-450">
-                  <div className="flex justify-between items-center">
-                    <span className="text-purple-400 flex items-center gap-1">
-                      <MafiaHatIcon className="w-3 h-3 text-purple-400" />
-                      <span>Дон:</span>
-                    </span>
-                    <span className="font-mono font-bold text-slate-300">
-                      #{donPlayer?.slot_num || "—"} {donPlayer?.nickname || ""}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400 flex items-center gap-1">
-                      <PistolIcon className="w-3 h-3 text-slate-400" />
-                      <span>Мафия:</span>
-                    </span>
-                    <span className="font-mono font-bold text-slate-300 font-sans">
-                      {mafiaPlayers.map((p) => `#${p.slot_num}`).join(", ") || "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <Star className="w-3 h-3 text-emerald-400 fill-current" />
-                      <span>Шериф:</span>
-                    </span>
-                    <span className="font-mono font-bold text-slate-300">
-                      #{sheriffPlayer?.slot_num || "—"} {sheriffPlayer?.nickname || ""}
-                    </span>
-                  </div>
                 </div>
               </div>
             )}
@@ -347,25 +482,22 @@ export default function CenterPanel({
                 </div>
 
                 {nextSpeaker ? (
-                  <div className="space-y-1.5">
-                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Очередь выступать:</span>
+                  <div className="space-y-2">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold block">Очередь выступать:</span>
                     <button
+                      type="button"
                       onClick={handleStartNextSpeaker}
-                      className="w-full max-w-[200px] mx-auto bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-600/10 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full max-w-[220px] mx-auto bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Mic className="w-3.5 h-3.5" /> Слот #{nextSpeaker.slot_num} ({nextSpeaker.nickname})
+                      <Mic className="w-4 h-4" /> Слот #{nextSpeaker.slot_num} ({nextSpeaker.nickname})
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-1 text-center py-1 bg-emerald-950/20 border border-emerald-900/30 rounded-xl max-w-[200px] mx-auto">
+                  <div className="space-y-1 text-center py-2 bg-emerald-950/30 border border-emerald-900/40 rounded-xl max-w-[210px] mx-auto">
                     <span className="text-[10px] text-emerald-400 font-bold block">Все игроки выступили ✓</span>
-                    <span className="text-[8px] text-slate-500 block">Переходите к голосованию</span>
+                    <span className="text-[8px] text-slate-400 block">Переходите к голосованию</span>
                   </div>
                 )}
-
-                <span className="text-[9px] text-slate-500 block max-w-[180px] mx-auto leading-tight">
-                  Или наведите курсор на любого игрока для индивидуального управления.
-                </span>
               </div>
             )}
 
@@ -377,8 +509,9 @@ export default function CenterPanel({
                 <p className="text-[10px] text-slate-300 leading-relaxed max-w-[220px] mx-auto">
                   На голосование выставлены игроки: <strong className="text-rose-400 font-mono">{nominations.map(n => `#${n}`).join(", ")}</strong>.
                 </p>
-                <div className="pt-2 border-t border-slate-900 max-w-[210px] mx-auto">
+                <div className="pt-2 border-t border-slate-950 max-w-[210px] mx-auto">
                   <button
+                    type="button"
                     onClick={() => {
                       setVotingSubPhase("voting_active");
                       selectVotingNomineeIndex(0, nominations);
@@ -392,7 +525,7 @@ export default function CenterPanel({
             )}
 
             {phase === "day_voting" && votingSubPhase === "voting_active" && (
-              <div className="space-y-3 w-full text-center">
+              <div className="space-y-2.5 w-full text-center">
                 {(() => {
                   const activeNomineeSlot = nominations[currentVotingNomineeIndex];
                   const activeNomineePlayer = activePlayers.find((p) => p.slot_num === activeNomineeSlot);
@@ -410,13 +543,8 @@ export default function CenterPanel({
                         Кто против <span className="text-rose-400 font-mono text-xs">#{activeNomineeSlot}</span> ({activeNomineePlayer?.nickname || "—"})?
                       </div>
 
-                      {/* Instructions */}
-                      <span className="text-[8px] text-slate-500 block leading-tight max-w-[225px] mx-auto">
-                        Кликните на карточки игроков на столе, чтобы зафиксировать их голос.
-                      </span>
-
                       {/* Live Counter */}
-                      <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-900 max-w-[190px] mx-auto flex items-center justify-between text-[10px] font-bold">
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-850 max-w-[190px] mx-auto flex items-center justify-between text-[10px] font-bold">
                         <span className="text-slate-400">Голосов ЗА:</span>
                         <span className="text-rose-400 font-mono text-sm font-black">{currentNomineeVotes}</span>
                       </div>
@@ -424,14 +552,16 @@ export default function CenterPanel({
                       {/* Manual Adjusters override */}
                       <div className="flex items-center justify-center gap-1.5 max-w-[190px] mx-auto">
                         <button
+                          type="button"
                           onClick={() => handleAllocateVotes(activeNomineeSlot, currentNomineeVotes - 1)}
-                          className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:bg-slate-800 text-[10px]"
+                          className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-slate-400 rounded-lg hover:bg-slate-900 text-[10px] font-bold cursor-pointer"
                         >
                           -1
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleAllocateVotes(activeNomineeSlot, currentNomineeVotes + 1)}
-                          className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-rose-400 rounded-lg hover:bg-slate-800 text-[10px]"
+                          className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-rose-400 rounded-lg hover:bg-slate-900 text-[10px] font-bold cursor-pointer"
                         >
                           +1
                         </button>
@@ -439,39 +569,42 @@ export default function CenterPanel({
 
                       {/* Autovote remnant block for last nominee */}
                       {currentVotingNomineeIndex === nominations.length - 1 && unusedVotes > 0 && (
-                        <div className="bg-rose-950/20 border border-rose-500/20 p-1.5 rounded-lg max-w-[210px] mx-auto text-[8px] text-rose-300 font-bold leading-tight">
+                        <div className="bg-rose-950/30 border border-rose-500/20 p-1.5 rounded-lg max-w-[210px] mx-auto text-[8px] text-rose-300 font-bold leading-tight">
                           ✋ Автомат: #{activeNomineeSlot} получает все оставшиеся голоса ({unusedVotes} гол.)
                         </div>
                       )}
 
                       {/* Progress summary bar */}
-                      <div className="pt-2 border-t border-slate-900 max-w-[210px] mx-auto flex justify-between items-center text-[9px] font-bold text-slate-400">
+                      <div className="pt-2 border-t border-slate-950 max-w-[210px] mx-auto flex justify-between items-center text-[9px] font-bold text-slate-400">
                         <span>Собрано: {votesSoFar} / {totalAlive}</span>
                         <div className="flex gap-1.5">
                           {currentVotingNomineeIndex > 0 && (
                             <button
+                              type="button"
                               onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)}
-                              className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 px-2 py-0.5 rounded text-[8px]"
+                              className="bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 px-2 py-1 rounded-lg text-[8px] font-bold cursor-pointer"
                             >
                               ← Назад
                             </button>
                           )}
                           {currentVotingNomineeIndex < nominations.length - 1 ? (
                             <button
+                              type="button"
                               onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)}
-                              className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded text-[8px]"
+                              className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-1 rounded-lg text-[8px] font-bold cursor-pointer"
                             >
                               Далее →
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => {
                                 if (unusedVotes > 0) {
                                   handleInteractiveAutoRemainder();
                                 }
                                 setVotingSubPhase("voting_results");
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-0.5 rounded text-[8px] uppercase tracking-wider animate-pulse"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-1 rounded-lg text-[8px] uppercase tracking-wider animate-pulse cursor-pointer"
                             >
                               Итог 🗳️
                             </button>
@@ -495,7 +628,7 @@ export default function CenterPanel({
                   {nominations.map((num) => {
                     const count = votes[num] || 0;
                     return (
-                      <div key={num} className="bg-slate-900/40 border border-slate-900/60 p-1.5 rounded-lg flex items-center justify-between text-[10px] font-bold font-mono">
+                      <div key={num} className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center justify-between text-[10px] font-bold font-mono">
                         <span className="text-slate-300">Игрок #{num}</span>
                         <span className="text-rose-400 font-black">{count} гол.</span>
                       </div>
@@ -514,10 +647,11 @@ export default function CenterPanel({
                     const winnerPlayer = activePlayers.find(p => p.slot_num === winner);
                     return (
                       <div className="space-y-2">
-                        <p className="text-[9px] text-rose-300 bg-rose-900/20 border border-rose-500/15 p-1.5 rounded-lg max-w-[210px] mx-auto leading-tight">
+                        <p className="text-[9px] text-rose-300 bg-rose-950/30 border border-rose-500/20 p-1.5 rounded-xl max-w-[210px] mx-auto leading-tight">
                           ВЕРДИКТ: Игрок <strong className="text-rose-400">#{winner} ({winnerPlayer?.nickname})</strong> покидает стол с {maxVotes} голосами.
                         </p>
                         <button
+                          type="button"
                           onClick={handleResolveVoting}
                           className="w-full max-w-[210px] mx-auto bg-rose-600 hover:bg-rose-500 text-white font-black py-1.5 rounded-xl text-[10px] uppercase tracking-wider shadow shadow-rose-600/20 cursor-pointer"
                         >
@@ -529,10 +663,11 @@ export default function CenterPanel({
                     const tied = highest.map((p) => p.slot);
                     return (
                       <div className="space-y-2">
-                        <p className="text-[9px] text-amber-300 bg-amber-900/20 border border-amber-500/15 p-1.5 rounded-lg max-w-[210px] mx-auto leading-tight">
+                        <p className="text-[9px] text-amber-300 bg-amber-950/30 border border-amber-500/20 p-1.5 rounded-xl max-w-[210px] mx-auto leading-tight">
                           ВЕРДИКТ: Ничья между <strong className="text-amber-400 font-mono">{tied.map(t => `#${t}`).join(", ")}</strong>! Назначается автокатастрофа.
                         </p>
                         <button
+                          type="button"
                           onClick={handleResolveVoting}
                           className="w-full max-w-[210px] mx-auto bg-amber-600 hover:bg-amber-500 text-white font-black py-1.5 rounded-xl text-[10px] uppercase tracking-wider shadow shadow-amber-600/20 cursor-pointer"
                         >
@@ -553,8 +688,9 @@ export default function CenterPanel({
                 <p className="text-[10px] text-slate-300 leading-relaxed max-w-[220px] mx-auto">
                   Ничья на голосовании! Кандидаты: <strong className="text-amber-400 font-mono">{shootoutNominees.map(n => `#${n}`).join(", ")}</strong> имеют право высказаться по 30 секунд.
                 </p>
-                <div className="pt-2 border-t border-slate-900 max-w-[210px] mx-auto">
+                <div className="pt-2 border-t border-slate-950 max-w-[210px] mx-auto">
                   <button
+                    type="button"
                     onClick={() => {
                       setShootoutSubPhase("shootout_speeches");
                       setShootoutSpeakerIndex(0);
@@ -584,22 +720,11 @@ export default function CenterPanel({
                         Выступает <span className="text-amber-400 font-mono">#{speakerSlot}</span> ({speakerPlayer?.nickname})
                       </p>
 
-                      {/* Speech Timer Feedback inside Center */}
-                      <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-900 max-w-[190px] mx-auto flex flex-col items-center justify-center">
-                        <span className="text-[8px] text-slate-500 font-bold uppercase">Оставшееся время:</span>
-                        {isSpeaking ? (
-                          <div className="text-rose-500 font-mono text-xl font-black animate-pulse mt-0.5">
-                            {timeLeft}с
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 italic text-[10px] mt-0.5">Таймер остановлен</span>
-                        )}
-                      </div>
-
                       {/* Controls */}
-                      <div className="flex flex-col gap-1.5 max-w-[210px] mx-auto pt-1.5 border-t border-slate-900/60">
+                      <div className="flex flex-col gap-1.5 max-w-[210px] mx-auto pt-1.5 border-t border-slate-950">
                         {!isSpeaking ? (
                           <button
+                            type="button"
                             onClick={() => handleStartTimer(speakerSlot, 30)}
                             className="w-full bg-amber-600 hover:bg-amber-500 text-white text-[9px] uppercase font-bold py-1.5 rounded-lg cursor-pointer flex items-center justify-center gap-1"
                           >
@@ -607,6 +732,7 @@ export default function CenterPanel({
                           </button>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => {
                               setActiveSpeakerSlot(null);
                               setIsTimerRunning(false);
@@ -620,33 +746,36 @@ export default function CenterPanel({
                         <div className="flex gap-1.5 mt-0.5">
                           {shootoutSpeakerIndex > 0 && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setShootoutSpeakerIndex(shootoutSpeakerIndex - 1);
                                 handleStartTimer(shootoutNominees[shootoutSpeakerIndex - 1], 30);
                               }}
-                              className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800 py-1 rounded text-[8px]"
+                              className="flex-1 bg-slate-950 hover:bg-slate-900 text-slate-400 border border-slate-800 py-1 rounded-lg text-[8px]"
                             >
                               ← Назад
                             </button>
                           )}
                           {shootoutSpeakerIndex < shootoutNominees.length - 1 ? (
                             <button
+                              type="button"
                               onClick={() => {
                                 setShootoutSpeakerIndex(shootoutSpeakerIndex + 1);
                                 handleStartTimer(shootoutNominees[shootoutSpeakerIndex + 1], 30);
                               }}
-                              className="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-1 rounded text-[8px] font-black"
+                              className="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-1 rounded-lg text-[8px] font-black"
                             >
                               Далее →
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => {
                                 setActiveSpeakerSlot(null);
                                 setIsTimerRunning(false);
                                 setShootoutSubPhase("shootout_revote_intro");
                               }}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-1 rounded text-[8px] font-black uppercase tracking-wider"
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-1 rounded-lg text-[8px] font-black uppercase tracking-wider cursor-pointer"
                             >
                               Переголосование 🗳️
                             </button>
@@ -667,15 +796,17 @@ export default function CenterPanel({
                 <p className="text-[10px] text-slate-300 leading-relaxed max-w-[220px] mx-auto">
                   Все кандидаты высказались. Начинается повторное голосование по игрокам: <strong className="text-amber-500 font-mono">{shootoutNominees.map(n => `#${n}`).join(", ")}</strong>.
                 </p>
-                <div className="pt-2 border-t border-slate-900 max-w-[210px] mx-auto">
+                <div className="pt-2 border-t border-slate-950 max-w-[210px] mx-auto">
                   <button
+                    type="button"
                     onClick={() => {
                       setShootoutSubPhase("shootout_revote_active");
                       const iv: { [s: number]: number } = {};
                       shootoutNominees.forEach((n) => { iv[n] = 0; });
                       handleAllocateVotes(shootoutNominees[0], 0);
-                      setCurrentVotingNomineeIndex(0);
+                      selectVotingNomineeIndex(0);
                       setIsInteractiveVoting(true);
+                      addLogEntry?.(`Д${roundNumber}: Перестрелка. Запущено повторное голосование между ${shootoutNominees.map(n => `#${n}`).join(", ")}`);
                     }}
                     className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-2 rounded-xl text-[10px] uppercase tracking-wider shadow-lg shadow-rose-600/20 cursor-pointer"
                   >
@@ -704,13 +835,8 @@ export default function CenterPanel({
                         Кто против <span className="text-rose-400 font-mono text-xs">#{activeNomineeSlot}</span> ({activeNomineePlayer?.nickname || "—"})?
                       </div>
 
-                      {/* Instructions */}
-                      <span className="text-[8px] text-slate-500 block leading-tight max-w-[225px] mx-auto">
-                        Кликните на карточки игроков на столе, чтобы зафиксировать их голос.
-                      </span>
-
                       {/* Live Counter */}
-                      <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-900 max-w-[190px] mx-auto flex items-center justify-between text-[10px] font-bold">
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-850 max-w-[190px] mx-auto flex items-center justify-between text-[10px] font-bold">
                         <span className="text-slate-400">Голосов ЗА:</span>
                         <span className="text-rose-400 font-mono text-sm font-black">{currentNomineeVotes}</span>
                       </div>
@@ -718,40 +844,37 @@ export default function CenterPanel({
                       {/* Manual adjusters */}
                       <div className="flex items-center justify-center gap-1.5 max-w-[190px] mx-auto">
                         <button
+                          type="button"
                           onClick={() => handleAllocateVotes(activeNomineeSlot, currentNomineeVotes - 1)}
-                          className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:bg-slate-800 text-[10px]"
+                          className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-slate-400 rounded-lg hover:bg-slate-900 text-[10px] cursor-pointer"
                         >
                           -1
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleAllocateVotes(activeNomineeSlot, currentNomineeVotes + 1)}
-                          className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-rose-400 rounded-lg hover:bg-slate-800 text-[10px]"
+                          className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-rose-400 rounded-lg hover:bg-slate-900 text-[10px] cursor-pointer"
                         >
                           +1
                         </button>
                       </div>
 
-                      {/* Autovote remnant block for last nominee */}
-                      {currentVotingNomineeIndex === shootoutNominees.length - 1 && unusedVotes > 0 && (
-                        <div className="bg-rose-900/20 border border-rose-500/20 p-1.5 rounded-lg max-w-[210px] mx-auto text-[8px] text-rose-300 font-bold leading-tight">
-                          ✋ Автомат: #{activeNomineeSlot} получает все оставшиеся голоса ({unusedVotes} гол.)
-                        </div>
-                      )}
-
                       {/* Progress summary bar */}
-                      <div className="pt-2 border-t border-slate-900 max-w-[210px] mx-auto flex justify-between items-center text-[9px] font-bold text-slate-400">
+                      <div className="pt-2 border-t border-slate-950 max-w-[210px] mx-auto flex justify-between items-center text-[9px] font-bold text-slate-400">
                         <span>Собрано: {votesSoFar} / {totalAlive}</span>
                         <div className="flex gap-1.5">
                           {currentVotingNomineeIndex > 0 && (
                             <button
+                              type="button"
                               onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1, shootoutNominees)}
-                              className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 px-2 py-0.5 rounded text-[8px]"
+                              className="bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 px-2 py-0.5 rounded text-[8px]"
                             >
                               ← Назад
                             </button>
                           )}
                           {currentVotingNomineeIndex < shootoutNominees.length - 1 ? (
                             <button
+                              type="button"
                               onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1, shootoutNominees)}
                               className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded text-[8px]"
                             >
@@ -759,13 +882,18 @@ export default function CenterPanel({
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => {
+                                let finalVotes = { ...votes };
                                 if (unusedVotes > 0) {
                                   handleAllocateVotes(activeNomineeSlot, currentNomineeVotes + unusedVotes);
+                                  finalVotes[activeNomineeSlot] = currentNomineeVotes + unusedVotes;
                                 }
                                 setShootoutSubPhase("shootout_revote_results");
+                                const talliesText = shootoutNominees.map(s => `#${s} (${finalVotes[s] || 0} гол.)`).join(", ");
+                                addLogEntry?.(`Д${roundNumber}: Перестрелка. Результаты повторного голосования: ${talliesText}`);
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-0.5 rounded text-[8px] uppercase tracking-wider animate-pulse"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-0.5 rounded text-[8px] uppercase tracking-wider animate-pulse cursor-pointer"
                             >
                               Итог 🗳️
                             </button>
@@ -789,7 +917,7 @@ export default function CenterPanel({
                   {shootoutNominees.map((s) => {
                     const count = votes[s] || 0;
                     return (
-                      <div key={s} className="bg-slate-900/40 border border-slate-900/60 p-1.5 rounded-lg flex items-center justify-between text-[10px] font-bold font-mono">
+                      <div key={s} className="bg-slate-950 border border-slate-850 p-1.5 rounded-lg flex items-center justify-between text-[10px] font-bold font-mono">
                         <span className="text-slate-300">Игрок #{s}</span>
                         <span className="text-amber-400 font-black">{count} гол.</span>
                       </div>
@@ -807,13 +935,12 @@ export default function CenterPanel({
                     const candidatePlayer = activePlayers.find(p => p.slot_num === candidateToLeave);
                     return (
                       <div className="space-y-2">
-                        <p className="text-[9px] text-rose-300 bg-rose-900/20 border border-rose-500/15 p-1.5 rounded-lg max-w-[210px] mx-auto leading-tight">
+                        <p className="text-[9px] text-rose-300 bg-rose-950/30 border border-rose-500/20 p-1.5 rounded-xl max-w-[210px] mx-auto leading-tight">
                           ВЕРДИКТ: Ничья разорвана! Игрок <strong className="text-rose-400">#{candidateToLeave} ({candidatePlayer?.nickname})</strong> покидает стол.
                         </p>
                         <button
-                          onClick={() => {
-                            handleResolveShootoutVotes("eliminate_one", candidateToLeave);
-                          }}
+                          type="button"
+                          onClick={() => handleResolveShootoutVotes("eliminate_one", candidateToLeave)}
                           className="w-full max-w-[210px] mx-auto bg-rose-600 hover:bg-rose-500 text-white font-black py-1.5 rounded-xl text-[10px] uppercase tracking-wider shadow shadow-rose-600/20 cursor-pointer"
                         >
                           Подтвердить выбывание ⏹️
@@ -823,10 +950,11 @@ export default function CenterPanel({
                   } else {
                     return (
                       <div className="space-y-2">
-                        <p className="text-[9px] text-amber-300 bg-amber-900/20 border border-amber-500/15 p-1.5 rounded-lg max-w-[210px] mx-auto leading-tight">
+                        <p className="text-[9px] text-amber-300 bg-amber-950/30 border border-amber-500/20 p-1.5 rounded-xl max-w-[210px] mx-auto leading-tight">
                           ВЕРДИКТ: Снова ничья! Проводится опрос: Кто за то, чтобы ОБА кандидата покинули стол?
                         </p>
                         <button
+                          type="button"
                           onClick={() => {
                             setShootoutSubPhase("shootout_both_results");
                             setBothLeaveVotes([]);
@@ -843,13 +971,10 @@ export default function CenterPanel({
             )}
 
             {phase === "shootout" && shootoutSubPhase === "shootout_both_results" && (
-              <div className="space-y-3 w-full text-center">
+              <div className="space-y-2 w-full text-center">
                 <span className="text-xs font-black text-rose-500 uppercase tracking-widest block animate-pulse">
                   🤝 Выбывание Обоих Игроков?
                 </span>
-                <p className="text-[10px] text-slate-300 leading-tight max-w-[220px] mx-auto">
-                  Выберите на столе тех, кто проголосовал за то, чтобы игроки <strong className="text-rose-400 font-mono">{shootoutNominees.map(n => `#${n}`).join(", ")}</strong> ОБА покинули стол.
-                </p>
 
                 {/* Poll results visual box */}
                 {(() => {
@@ -859,15 +984,47 @@ export default function CenterPanel({
                   const majorityMet = votedYes >= majority;
 
                   return (
-                    <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-900 max-w-[195px] mx-auto space-y-1">
+                    <div className="space-y-1.5">
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-850 max-w-[210px] mx-auto space-y-1">
                         <div className="flex justify-between items-center text-[10px] font-bold">
                           <span className="text-slate-400">Голосов ЗА удаление:</span>
                           <span className="text-rose-400 font-mono font-black text-sm">{votedYes} / {alivePlayers.length}</span>
                         </div>
-                        <div className="flex justify-between items-center text-[8px] text-slate-500 border-t border-slate-950 pt-1 font-bold">
-                          <span>Требуется большинство:</span>
+                        <div className="flex justify-between items-center text-[8px] text-slate-500 border-t border-slate-900 pt-1 font-bold">
+                          <span>Большинство:</span>
                           <span>&gt;= {majority} гол.</span>
+                        </div>
+                      </div>
+
+                      {/* Interactive player voting selector grid */}
+                      <div className="bg-slate-950 p-1.5 rounded-xl border border-slate-850 max-w-[210px] mx-auto space-y-1">
+                        <span className="text-[8px] text-slate-400 font-bold uppercase block text-center">
+                          Кто проголосовал ЗА:
+                        </span>
+                        <div className="grid grid-cols-5 gap-1 pt-0.5">
+                          {alivePlayers.map((p) => {
+                            const isVoted = bothLeaveVotes.includes(p.slot_num);
+                            return (
+                              <button
+                                key={p.slot_num}
+                                type="button"
+                                onClick={() => {
+                                  setBothLeaveVotes((prev) =>
+                                    prev.includes(p.slot_num)
+                                      ? prev.filter((s) => s !== p.slot_num)
+                                      : [...prev, p.slot_num]
+                                  );
+                                }}
+                                className={`py-1 rounded-lg text-[9px] font-mono font-black border transition-all cursor-pointer flex items-center justify-center ${
+                                  isVoted
+                                    ? "bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-600/30 scale-[1.04]"
+                                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                                }`}
+                              >
+                                #{p.slot_num}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -884,6 +1041,7 @@ export default function CenterPanel({
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => {
                           if (majorityMet) {
                             handleResolveShootoutVotes("eliminate_all");
@@ -906,7 +1064,7 @@ export default function CenterPanel({
                 {nightSubPhase === "intro" && (
                   <>
                     <span className="text-xs font-black text-purple-400 uppercase tracking-widest block animate-pulse font-sans">
-                      Запуск ночи (15с)
+                      Запуск ночи
                     </span>
                     <span className="text-[10px] text-slate-400 block mt-1">Оденьте маски. Город засыпает.</span>
                   </>
@@ -914,14 +1072,14 @@ export default function CenterPanel({
                 {nightSubPhase === "shooting" && (
                   <>
                     <span className="text-xs font-black text-rose-500 uppercase tracking-widest block animate-pulse font-sans">
-                      Стрельба Мафии (15с)
+                      Стрельба Мафии 🔫
                     </span>
-                    <div className="p-2 bg-slate-900/60 border border-slate-900 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
+                    <div className="p-2 bg-slate-950 border border-slate-850 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
                       <span className="text-[8px] uppercase text-slate-400 font-bold block">Цель мафии:</span>
-                      <span className="text-sm font-black text-rose-400">
+                      <span className="text-xs font-black text-rose-400">
                         {shotPlayerSlot
                           ? `#${shotPlayerSlot} (${activePlayers.find((pl) => pl.slot_num === shotPlayerSlot)?.nickname})`
-                          : "Промах (нажмите на стол)"}
+                          : "Нажмите на слот на столе"}
                       </span>
                     </div>
                   </>
@@ -929,14 +1087,14 @@ export default function CenterPanel({
                 {nightSubPhase === "don" && (
                   <>
                     <span className="text-xs font-black text-purple-400 uppercase tracking-widest block animate-pulse font-sans">
-                      Проверка Дона (15с)
+                      Проверка Дона 🎩
                     </span>
-                    <div className="p-2 bg-slate-900/60 border border-slate-900 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
+                    <div className="p-2 bg-slate-950 border border-slate-850 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
                       <span className="text-[8px] uppercase text-slate-400 font-bold block">Проверить игрока:</span>
-                      <span className="text-sm font-black text-purple-400">
+                      <span className="text-xs font-black text-purple-400">
                         {donCheckSlot
                           ? `#${donCheckSlot} (${donCheckResult ? "ШЕРИФ! ✓" : "Не шериф"})`
-                          : "Нет (нажмите на стол)"}
+                          : "Нажмите на слот на столе"}
                       </span>
                     </div>
                   </>
@@ -944,16 +1102,16 @@ export default function CenterPanel({
                 {nightSubPhase === "sheriff" && (
                   <>
                     <span className="text-xs font-black text-emerald-400 uppercase tracking-widest block animate-pulse font-sans">
-                      Проверка Шерифа (15с)
+                      Проверка Шерифа 🌟
                     </span>
-                    <div className="p-2 bg-slate-900/60 border border-slate-900 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
+                    <div className="p-2 bg-slate-950 border border-slate-850 rounded-xl text-center max-w-[215px] mx-auto space-y-1">
                       <span className="text-[8px] uppercase text-slate-400 font-bold block">Проверить игрока:</span>
-                      <span className="text-sm font-black text-emerald-400">
+                      <span className="text-xs font-black text-emerald-400">
                         {sheriffCheckSlot
                           ? `#${sheriffCheckSlot} (${
                               sheriffCheckResult?.includes("ЧЁРНЫЙ") ? "ЧЁРНЫЙ!" : "Красный"
                             })`
-                          : "Нет (нажмите на стол)"}
+                          : "Нажмите на слот на столе"}
                       </span>
                     </div>
                   </>
@@ -961,9 +1119,9 @@ export default function CenterPanel({
                 {nightSubPhase === "best_move" && (
                   <>
                     <span className="text-xs font-black text-amber-400 uppercase tracking-widest block animate-pulse font-sans">
-                      Лучший ход (20с)
+                      Лучший ход (ЛХ) 🏆
                     </span>
-                    <div className="p-2 bg-slate-900/60 border border-slate-900 rounded-xl text-center max-w-[215px] mx-auto space-y-1.5">
+                    <div className="p-2 bg-slate-950 border border-slate-850 rounded-xl text-center max-w-[215px] mx-auto space-y-1.5">
                       <span className="text-[8px] uppercase text-slate-400 font-bold block">
                         Версия убитого игрока (3 мафии):
                       </span>
@@ -977,7 +1135,7 @@ export default function CenterPanel({
                           </span>
                         ))}
                         {bestMoveGuesses.length === 0 && (
-                          <span className="text-[10px] text-slate-500 italic">Нажмите на 3 игроков</span>
+                          <span className="text-[10px] text-slate-500 italic">Выберите 3 номера</span>
                         )}
                       </div>
                     </div>
@@ -985,20 +1143,20 @@ export default function CenterPanel({
                 )}
                 {nightSubPhase === "morning" && (
                   <>
-                    <span className="text-xs font-black text-rose-500 uppercase tracking-widest block">Итоги Ночи</span>
-                    <div className="p-1.5 bg-slate-900/60 border border-slate-900 rounded-xl text-left text-[9px] space-y-1 max-w-[210px] mx-auto">
+                    <span className="text-xs font-black text-rose-500 uppercase tracking-widest block">Итоги Ночи 🌅</span>
+                    <div className="p-1.5 bg-slate-950 border border-slate-850 rounded-xl text-left text-[9px] space-y-1 max-w-[210px] mx-auto">
                       <div className="flex justify-between items-center text-rose-400">
                         <span>Выстрел:</span>
                         <span className="font-mono font-bold">#{shotPlayerSlot || "Промах"}</span>
                       </div>
                       <div className="flex justify-between items-center text-purple-400">
-                        <span>Проверка Дона:</span>
+                        <span>Дон:</span>
                         <span className="font-mono font-bold">
                           {donCheckSlot ? `#${donCheckSlot} (${donCheckResult ? "Шериф" : "Нет"})` : "—"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-emerald-400">
-                        <span>Проверка Шерифа:</span>
+                        <span>Шериф:</span>
                         <span className="font-mono font-bold">
                           {sheriffCheckSlot ? `#${sheriffCheckSlot} (${sheriffCheckResult || ""})` : "—"}
                         </span>
@@ -1012,40 +1170,51 @@ export default function CenterPanel({
         )}
       </div>
 
-      {/* Quick HUD Footer Navigation & Info */}
-      <div className="border-t border-slate-900 pt-1.5 z-10 space-y-1.5">
+      {/* FOOTER BAR: STATUS & MAIN STEPPER ACTIONS */}
+      <div className="border-t border-slate-800/80 pt-2 z-10 shrink-0 space-y-2">
         {/* Status indicators */}
-        <div className="flex justify-between items-center text-[9px] text-slate-500 font-semibold px-0.5 font-sans">
+        <div className="flex justify-between items-center text-[9px] text-slate-400 font-semibold px-1 font-sans">
           {nominations.length > 0 ? (
-            <span className="truncate max-w-[130px]">
+            <span className="truncate max-w-[140px]">
               Выставлены:{" "}
-              <span className="text-rose-500 font-mono font-bold">{nominations.map((n) => `#${n}`).join(", ")}</span>
+              <strong className="text-rose-400 font-mono font-bold">{nominations.map((n) => `#${n}`).join(", ")}</strong>
             </span>
           ) : (
             <span className="italic text-slate-500">Выставленных нет</span>
           )}
           <span>
-            Живых: <span className="text-emerald-400 font-bold">{activePlayers.filter((p) => p.alive).length}/10</span>
+            Живых: <strong className="text-emerald-400 font-bold">{activePlayers.filter((p) => p.alive).length}/10</strong>
           </span>
         </div>
 
-        {/* Workflow buttons */}
-        <div className="flex gap-1.5">
-          {getPrevStepAction() && (
+        {/* Unified Stepper Action Buttons */}
+        <div className="grid grid-cols-12 gap-1 sm:gap-1.5 min-h-[42px] sm:min-h-[44px] w-full">
+          {prevStep ? (
             <button
-              onClick={getPrevStepAction()!.onClick}
-              className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 rounded-lg py-1 text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center justify-center font-sans"
+              type="button"
+              onClick={prevStep.onClick}
+              className="col-span-4 h-full min-h-[42px] bg-slate-950 hover:bg-slate-900 active:bg-slate-900 text-slate-300 border border-slate-800 rounded-lg px-1 text-[8.5px] xs:text-[9.5px] sm:text-xs font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-0.5 font-sans shadow-md py-1"
             >
-              ← Назад
+              <ArrowLeft className="w-3 h-3 shrink-0" />
+              <span className="leading-tight text-center whitespace-normal break-words line-clamp-2">{prevStep.label}</span>
             </button>
+          ) : (
+            <div className="col-span-4" />
           )}
-          {getNextStepInfo() && (
+
+          {nextStep ? (
             <button
-              onClick={getNextStepInfo()!.onClick}
-              className="flex-2 bg-rose-600 hover:bg-rose-500 text-white border border-rose-500 rounded-lg py-1 text-[10px] font-black uppercase tracking-wide transition-all shadow-md shadow-rose-600/10 cursor-pointer flex items-center justify-center font-sans"
+              type="button"
+              onClick={nextStep.onClick}
+              className="col-span-8 h-full min-h-[42px] bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white border border-rose-500/80 rounded-lg px-1.5 text-[10px] xs:text-[11px] sm:text-xs font-black uppercase tracking-wide transition-all shadow-lg shadow-rose-600/25 cursor-pointer flex items-center justify-center gap-1 font-sans py-1"
             >
-              {getNextStepInfo()!.label} ➔
+              <span className="leading-tight text-center whitespace-normal break-words line-clamp-2">{nextStep.label}</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </button>
+          ) : (
+            <div className="col-span-8 bg-slate-950/40 border border-slate-850 rounded-lg flex items-center justify-center text-slate-600 text-[10px] sm:text-xs font-bold uppercase min-h-[42px]">
+              Ожидание
+            </div>
           )}
         </div>
       </div>

@@ -47,16 +47,16 @@ interface SeatCardProps {
 
 const getGridPositionClass = (slot: number) => {
   const positions: { [key: number]: string } = {
-    1: "col-start-1 row-start-3",
-    2: "col-start-2 row-start-3",
-    3: "col-start-3 row-start-3",
-    4: "col-start-4 row-start-3",
-    5: "col-start-5 row-start-3",
-    6: "col-start-5 row-start-1",
-    7: "col-start-4 row-start-1",
-    8: "col-start-3 row-start-1",
-    9: "col-start-2 row-start-1",
-    10: "col-start-1 row-start-1",
+    1: "md:col-start-1 md:row-start-3",
+    2: "md:col-start-2 md:row-start-3",
+    3: "md:col-start-3 md:row-start-3",
+    4: "md:col-start-4 md:row-start-3",
+    5: "md:col-start-5 md:row-start-3",
+    6: "md:col-start-5 md:row-start-1",
+    7: "md:col-start-4 md:row-start-1",
+    8: "md:col-start-3 md:row-start-1",
+    9: "md:col-start-2 md:row-start-1",
+    10: "md:col-start-1 md:row-start-1",
   };
   return positions[slot] || "";
 };
@@ -135,7 +135,18 @@ export default function SeatCard({
     const activeNomineeSlot = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : null;
     const isCurrentNominee = phase === "day_voting" && activeNomineeSlot === slotNum;
 
-    if (isCurrentNominee) {
+    if (phase === "shootout" && shootoutSubPhase === "shootout_both_results") {
+      const votedYes = bothLeaveVotes.includes(slotNum);
+      if (votedYes) {
+        containerBorder = "border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)] bg-rose-500/20 ring-2 ring-rose-500/40 scale-[1.02]";
+      } else if (shootoutNominees.includes(slotNum)) {
+        containerBorder = "border-amber-500/80 bg-amber-500/10 ring-1 ring-amber-500/30";
+      } else {
+        containerBorder = "border-slate-800 bg-slate-900/50 hover:border-slate-600";
+      }
+    } else if (phase === "shootout" && shootoutNominees.includes(slotNum)) {
+      containerBorder = "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.45)] bg-amber-500/15 ring-2 ring-amber-400/40 scale-[1.02]";
+    } else if (isCurrentNominee) {
       containerBorder = "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.5)] scale-[1.02] animate-pulse";
     } else if (isSpeaking) {
       containerBorder =
@@ -168,48 +179,128 @@ export default function SeatCard({
   return (
     <div
       onClick={() => handleSeatClick(slotNum)}
-      className={`relative aspect-[16/11.5] min-h-[125px] sm:min-h-[160px] rounded-2xl border-2 transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-lg self-center w-full ${getGridPositionClass(slotNum)} ${containerBorder}`}
+      className={`relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] pt-7 pb-1 px-1 rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-md md:shadow-lg self-center w-full ${getGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {/* If player is ALIVE */}
       {p.alive ? (
         <>
-          {/* Top-Right corner: Fouls badge exactly like Polemica stream */}
-          {p.fouls > 0 && (
-            <div className="absolute top-2.5 right-2.5 z-10 bg-slate-950/95 text-rose-400 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black flex items-center gap-1 border border-slate-800 shadow-md">
-              <span className="w-4.5 h-4.5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[9px] font-extrabold font-sans shadow-inner">
-                !
-              </span>
-              <span>{p.fouls}</span>
-            </div>
-          )}
+          {/* Quick 1-Tap Actions Header Bar (Fouls & Nomination) */}
+          <div className="absolute top-1.5 inset-x-1.5 z-20 flex justify-between items-center pointer-events-auto">
+            {/* Quick Nomination Button during speeches or general view */}
+            {phase === "day_speeches" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNominateCandidate(slotNum);
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-md ${
+                  isNominated
+                    ? "bg-rose-600 text-white border border-rose-400"
+                    : "bg-slate-950/80 hover:bg-slate-900 text-slate-300 border border-slate-700/60"
+                }`}
+                title={isNominated ? "Снять с голосования" : "Выставить на голосование"}
+              >
+                <Crosshair className={`w-3 h-3 ${isNominated ? "text-white" : "text-rose-400"}`} />
+                <span>{isNominated ? "Выставлен" : "Выставить"}</span>
+              </button>
+            ) : phase === "shootout" && shootoutSubPhase === "shootout_both_results" && bothLeaveVotes.includes(slotNum) ? (
+              <div className="bg-rose-950/95 text-rose-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-rose-500/50 shadow-lg animate-pulse">
+                <span>✋ ЗА УДАЛЕНИЕ</span>
+              </div>
+            ) : phase === "shootout" && shootoutNominees.includes(slotNum) ? (
+              <div className="bg-amber-950/95 text-amber-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-amber-500/50 shadow-lg animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span>🛑 В перестрелке</span>
+              </div>
+            ) : isNominated ? (
+              <div className="bg-rose-950/95 text-rose-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-rose-500/35 shadow-lg animate-pulse">
+                <Crosshair className="w-3 h-3 text-rose-500" />
+                <span>Выставлен</span>
+              </div>
+            ) : <div />}
 
-          {/* Left corner: Nominated crosshair badge */}
-          {isNominated && (
-            <div className="absolute top-2.5 left-2.5 z-10 bg-rose-950/95 text-rose-200 px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-black tracking-wider flex items-center gap-1.5 uppercase border border-rose-500/35 shadow-lg animate-pulse">
-              <Crosshair className="w-3 h-3 text-rose-500" />
-              <span>
-                Выставлен{" "}
-                {nominationsMap[slotNum] !== undefined
-                  ? nominationsMap[slotNum] === 0
-                    ? "Ведущим"
-                    : `иг. #${nominationsMap[slotNum]}`
-                  : ""}
-              </span>
+            {/* Quick Foul Management Buttons (- / +) */}
+            <div className="flex items-center gap-0.5">
+              {p.fouls > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFoulChange(slotNum, "down");
+                  }}
+                  className="bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 w-4 h-4 rounded text-[9px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all"
+                  title="Снять фол (-1)"
+                >
+                  -
+                </button>
+              )}
+              <div
+                className={`px-1 py-0.5 rounded text-[9px] font-black flex items-center border shadow-md ${
+                  p.fouls >= 3
+                    ? "bg-rose-950 text-rose-300 border-rose-500/80 animate-pulse"
+                    : p.fouls > 0
+                    ? "bg-slate-950 text-amber-400 border-amber-500/50"
+                    : "bg-slate-950/80 text-slate-500 border-slate-800"
+                }`}
+              >
+                <span>{p.fouls}Ф</span>
+              </div>
+              {p.fouls < 4 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFoulChange(slotNum, "up");
+                  }}
+                  className="bg-slate-950/90 hover:bg-rose-950 text-rose-400 hover:text-rose-300 border border-slate-800 hover:border-rose-600/60 px-1 py-0.5 rounded text-[8px] font-black uppercase transition-all cursor-pointer shadow flex items-center gap-0.5 active:scale-95"
+                  title="Добавить фол (+1)"
+                >
+                  <span>+Ф</span>
+                </button>
+              )}
+              {p.alive && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Дисквалифицировать игрока #${slotNum} (${p.nickname})?`)) {
+                      setActivePlayers((prev) =>
+                        prev.map((pl) =>
+                          pl.slot_num === slotNum
+                            ? {
+                                ...pl,
+                                fouls: 4,
+                                alive: false,
+                                eliminated_phase: `Удален (Д${roundNumber})`,
+                              }
+                            : pl
+                        )
+                      );
+                      showToast(`Игрок #${slotNum} (${p.nickname}) дисквалифицирован!`, "warning");
+                    }
+                  }}
+                  className="bg-slate-950/90 hover:bg-rose-900 text-rose-400 hover:text-white border border-slate-800 hover:border-rose-600/60 w-4 h-4 rounded text-[8px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all ml-0.5"
+                  title="Дисквалификация / Удалить из игры"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Speech status (if speaking, show waving/pulsing audio state) */}
           {isSpeaking && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-amber-500/10 pointer-events-none rounded-2xl">
-              <Mic className="w-6 h-6 text-amber-400 animate-bounce mb-1" />
-              <span className="text-[9px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-amber-500/10 pointer-events-none rounded-2xl z-0">
+              <Mic className="w-5 h-5 text-amber-400 animate-bounce mb-0.5" />
+              <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">
                 Идет речь...
               </span>
             </div>
           )}
 
           {/* Normal player card body */}
-          <div className="flex-1 flex flex-col items-center justify-center p-3">
+          <div className="flex-1 flex flex-col items-center justify-center p-1.5">
             {phase === "day_voting" ? (
               isInteractiveVoting ? (
                 (() => {
@@ -322,11 +413,36 @@ export default function SeatCard({
                   );
                 } else {
                   const isTiedCandidate = shootoutNominees.includes(slotNum);
+                  if (isTiedCandidate) {
+                    return (
+                      <div className="text-center space-y-1 p-2 rounded-xl bg-amber-950/30 border border-amber-500/40 w-full max-w-[95%] mx-auto">
+                        <span className="text-[9px] text-amber-400 font-bold uppercase block tracking-wider leading-none">
+                          🛑 В перестрелке
+                        </span>
+                        {isSpeaking ? (
+                          <span className="text-[10px] sm:text-xs font-black text-amber-300 block uppercase animate-pulse">
+                            🎙️ Речь ({timeLeft}с)
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTimer(slotNum, 30);
+                            }}
+                            className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase rounded-lg shadow transition-all cursor-pointer block w-full mt-1"
+                          >
+                            🎙️ Речь 30с
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
                   return (
                     <div className="text-center space-y-1 bg-slate-950/40 p-2 rounded-xl border border-slate-900 w-full max-w-[95%] mx-auto">
-                      <span className="text-[9px] text-amber-500 font-bold uppercase block tracking-wider leading-none">Автокатастрофа</span>
-                      <span className={`text-[10px] sm:text-xs font-black block uppercase tracking-wide leading-none ${isTiedCandidate ? "text-rose-500 animate-pulse" : "text-slate-500"}`}>
-                        {isTiedCandidate ? "🎯 Кандидат" : "Ожидает"}
+                      <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Автокатастрофа</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-slate-500 block uppercase tracking-wide leading-none">
+                        Не в перестрелке
                       </span>
                     </div>
                   );
@@ -355,13 +471,13 @@ export default function SeatCard({
             ) : (
               !isSpeaking &&
               !isNominated && (
-                <div className="text-center space-y-1.5">
-                  <User className="w-6 h-6 text-slate-400 mx-auto" />
+                <div className="text-center space-y-0.5">
+                  <User className="w-4 h-4 text-slate-500 mx-auto opacity-75" />
                   <span className="text-[10px] sm:text-xs text-slate-400 font-mono font-bold block">
                     {p.mute_this_round
                       ? "🔇 Молчит"
-                      : p.has_foul_penalty
-                      ? "⚠️ Штраф 30с"
+                      : p.has_foul_penalty || p.fouls === 3
+                      ? "⚠️ 3 фола (30с)"
                       : hasSpoken
                       ? "Выступил ✓"
                       : "Ожидает речи"}
@@ -430,32 +546,57 @@ export default function SeatCard({
       )}
 
       {/* Bottom Tag Overlay (Slot #, Nickname, Role) */}
-      <div className="h-11 sm:h-14 bg-slate-950/95 border-t-2 border-slate-900 px-3 flex items-center justify-between mt-auto z-10">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="min-h-[36px] py-1 bg-slate-950/95 border-t border-slate-900 px-1.5 md:px-3 flex items-center justify-between mt-auto z-10 gap-1">
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 min-w-0 flex-1">
           <div
-            className={`relative w-6 h-6 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-xs sm:text-sm flex items-center justify-center border-2 shrink-0 shadow-md ${getSeatColor(
+            className={`relative w-5.5 h-5.5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg font-mono font-black text-[10px] md:text-sm flex items-center justify-center border shrink-0 shadow-md ${getSeatColor(
               slotNum
             )} ${isChosenInBestMove ? "ring-2 ring-amber-400 shadow-amber-500/50" : ""}`}
           >
             {slotNum}
             {isChosenInBestMove && (
               <div
-                className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black border border-amber-300 shadow-lg animate-pulse"
+                className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 w-3.5 h-3.5 md:w-4.5 md:h-4.5 rounded-full flex items-center justify-center text-[7px] md:text-[9px] font-black border border-amber-300 shadow-lg animate-pulse"
                 title={`Выбор ЛХ #${bestMoveIndex + 1}`}
               >
                 🏆
               </div>
             )}
           </div>
-          <span className="text-xs sm:text-sm font-black text-slate-100 truncate">
-            {p.nickname || `Игрок ${slotNum}`}
-          </span>
+          <div className="flex flex-col min-w-0 flex-1 justify-center">
+            <div className="flex items-center gap-0.5 min-w-0">
+              <span className="text-[11px] sm:text-xs md:text-sm font-black text-slate-100 truncate leading-tight">
+                {p.nickname || `Игрок ${slotNum}`}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const note = window.prompt(`Заметка ведущего для #${slotNum} (${p.nickname}):`, p.note || "");
+                  if (note !== null) {
+                    setActivePlayers((prev) =>
+                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, note: note.trim() } : pl))
+                    );
+                  }
+                }}
+                className="text-slate-500 hover:text-amber-400 text-[9px] px-0.5 py-0 rounded hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                title="Добавить заметку ведущего"
+              >
+                ✎
+              </button>
+            </div>
+            {p.note && (
+              <span className="text-[7.5px] md:text-[9px] text-amber-300/90 font-medium truncate italic bg-amber-950/50 px-1 py-0 rounded border border-amber-500/30 max-w-[80px] sm:max-w-[130px] shadow-sm leading-none mt-0.5">
+                📌 {p.note}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center shrink-0 ml-1.5">
+        <div className="flex items-center shrink-0 ml-0.5 gap-1">
           {showRolesOnTable ? (
             <div
-              className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-transform hover:scale-110 shadow-md ${
+              className={`flex items-center justify-center w-5.5 h-5.5 md:w-8 md:h-8 rounded-full border transition-transform hover:scale-110 shadow-md ${
                 p.role === "Дон"
                   ? "bg-purple-500/10 border-purple-500/40 text-purple-400"
                   : p.role === "Мафия"
@@ -466,14 +607,14 @@ export default function SeatCard({
               }`}
               title={p.role === "Мирный" ? "Красный" : p.role}
             >
-              {p.role === "Мирный" && <Heart className="w-4 h-4 fill-current text-rose-500" />}
-              {p.role === "Дон" && <MafiaHatIcon className="w-4 h-4 text-purple-400" />}
-              {p.role === "Мафия" && <PistolIcon className="w-4 h-4 text-slate-950" />}
-              {p.role === "Шериф" && <Star className="w-4 h-4 fill-current text-emerald-400" />}
+              {p.role === "Мирный" && <Heart className="w-3 h-3 md:w-4 md:h-4 fill-current text-rose-500" />}
+              {p.role === "Дон" && <MafiaHatIcon className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />}
+              {p.role === "Мафия" && <PistolIcon className="w-3 h-3 md:w-4 md:h-4 text-slate-950" />}
+              {p.role === "Шериф" && <Star className="w-3 h-3 md:w-4 md:h-4 fill-current text-emerald-400" />}
             </div>
           ) : (
             <div
-              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-900/80 border-2 border-slate-800 text-slate-500 font-mono font-black text-xs shadow-inner"
+              className="w-5.5 h-5.5 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-slate-900/80 border border-slate-800 text-slate-500 font-mono font-black text-[10px] md:text-xs shadow-inner"
               title="Скрыто"
             >
               P
@@ -492,7 +633,7 @@ export default function SeatCard({
               shootoutSubPhase === "shootout_both_results"));
         return phase !== "night" && phase !== "zero_night" && !disableHover;
       })() && (
-        <div className="absolute inset-0 bg-slate-950 flex flex-col justify-between p-2.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+        <div className="absolute inset-0 bg-slate-950 hidden md:flex flex-col justify-between p-2.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
             <span className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">
               Управление #{slotNum}
@@ -657,7 +798,7 @@ export default function SeatCard({
 
           {p.alive && (
             <div className="flex items-center justify-between bg-slate-900/60 p-1 rounded-xl border border-slate-800/60 text-[10px] font-bold">
-              <span className="text-slate-400 pl-1">Фолы: {p.fouls}{p.has_foul_penalty && " (Штраф 30с)"}</span>
+              <span className="text-slate-400 pl-1">Фолы: {p.fouls}{(p.has_foul_penalty || p.fouls === 3) && " (30с)"}</span>
               <div className="flex gap-1">
                 <button
                   type="button"

@@ -15,7 +15,7 @@ interface EveningsTabProps {
 export const EveningsTab: React.FC<EveningsTabProps> = ({
   evenings,
   bookings,
-  games,
+  games: _games,
   onSelectEvening,
   onOpenLedger,
   onEditEvening,

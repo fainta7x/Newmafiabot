@@ -9,7 +9,7 @@ const router = Router();
 router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateParticipantSchema.parse(req.body);
-    const db = await getDb();
+    const db = (req as any).db || (await getDb());
 
     const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!part) {
@@ -68,7 +68,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 // DELETE /api/evening-participants/:id - Remove participant from evening
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = await getDb();
+    const db = (req as any).db || (await getDb());
     await db.run('DELETE FROM evening_participants WHERE id = ?', [req.params.id]);
     res.json({ success: true, message: 'Участник удален из вечера' });
   } catch (err: any) {

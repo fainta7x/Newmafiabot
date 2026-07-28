@@ -2,29 +2,23 @@ import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Users,
-  DollarSign,
-  UserCheck,
-  UserX,
   AlertTriangle,
-  BarChart3,
-  PieChart,
-  Calendar,
-  Layers,
 } from 'lucide-react';
 import { api, AnalyticsData } from '../../lib/api.ts';
 
 export const AnalyticsCRM: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<string>('all');
 
   useEffect(() => {
-    loadAnalytics();
-  }, []);
+    loadAnalytics(period);
+  }, [period]);
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = async (selectedPeriod: string) => {
     setLoading(true);
     try {
-      const res = await api.getAnalytics();
+      const res = await api.getAnalytics({ period: selectedPeriod });
       setData(res);
     } catch (err: any) {
       console.error('Error loading analytics:', err);
@@ -39,10 +33,25 @@ export const AnalyticsCRM: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-        <h2 className="text-xl font-black text-white uppercase tracking-tight">Сквозная Аналитика Клуба</h2>
-        <p className="text-xs text-slate-400 mt-0.5">Удержание игроков (Retention 30/60/90), конверсии, No-show и экономика вечеров</p>
+      {/* Top Banner with Period Selector */}
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tight">Сквозная Аналитика Клуба</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Когортный Retention, начисления, долги и финансы по транзакциям</p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs">
+          {['7d', '30d', '90d', 'all'].map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1.5 rounded-xl font-bold font-mono transition-colors ${
+                period === p ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {p === 'all' ? 'Всё время' : p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Grid 1: Player Acquisition & Conversion */}
@@ -53,30 +62,30 @@ export const AnalyticsCRM: React.FC = () => {
             <Users className="w-4 h-4 text-rose-400" />
           </div>
           <div className="text-3xl font-black text-white font-mono">{data.totalPlayers}</div>
-          <p className="text-xs text-slate-400">{data.newPlayersCount} новичков за всё время</p>
+          <p className="text-xs text-slate-400">Первых визитов в периоде: {data.cohortFirstVisits}</p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Конверсия 1-го во 2-й визит</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Когортный Retention 30д</span>
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-3xl font-black text-emerald-400 font-mono">{data.conversion1to2}%</div>
+          <div className="text-3xl font-black text-emerald-400 font-mono">{data.cohortRetention30dRate}%</div>
           <p className="text-xs text-slate-400">
-            {data.multiVisitPlayers} из {data.oneVisitPlayers + data.multiVisitPlayers} игроков пришли 2+ раза
+            {data.cohortReturnedIn30Days} из {data.cohortFirstVisits} новичков вернулись в течение 30 дней
           </p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Неактивные игроки</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Неактивные (Накопительно)</span>
             <AlertTriangle className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-3xl font-black text-amber-400 font-mono">
-            {data.inactive30 + data.inactive60 + data.inactive90}
+            {data.inactive30}
           </div>
           <p className="text-xs text-slate-400">
-            30 дн: {data.inactive30} • 60 дн: {data.inactive60} • 90+ дн: {data.inactive90}
+            30+ дн: {data.inactive30} • 60+ дн: {data.inactive60} • 90+ дн: {data.inactive90}
           </p>
         </div>
       </div>
@@ -85,26 +94,31 @@ export const AnalyticsCRM: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Attendance conversion */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Конверсия Записи и Явки</h3>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Записи и Дисциплина (Завершённые вечера)</h3>
 
           <div className="space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Всего записей на вечера:</span>
+              <span className="text-slate-400">Завершено вечеров:</span>
+              <span className="font-bold text-white">{data.completedEvenings}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
+              <span className="text-slate-400">Всего записей:</span>
               <span className="font-bold text-white">{data.totalRegistrations}</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Реально пришло:</span>
+              <span className="text-slate-400">Посещений (Attended):</span>
               <span className="font-bold text-emerald-400">{data.totalAttended}</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Отменили запись:</span>
+              <span className="text-slate-400">Отмены записей:</span>
               <span className="font-bold text-slate-400">{data.totalCancelled} ({data.cancellationRate}%)</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Не пришли без предупреждения (No-show):</span>
+              <span className="text-slate-400">Пропуски (No-show):</span>
               <span className="font-bold text-rose-400">{data.totalNoShow} ({data.noShowRate}%)</span>
             </div>
           </div>
@@ -112,32 +126,27 @@ export const AnalyticsCRM: React.FC = () => {
 
         {/* Financial Economy */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Экономика Мероприятий</h3>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Финансы Клуба (по Транзакциям)</h3>
 
           <div className="space-y-3 font-mono text-xs">
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Проведено вечеров:</span>
-              <span className="font-bold text-white">{data.totalEvenings}</span>
+              <span className="text-slate-400">Начислено (Accrued):</span>
+              <span className="font-bold text-white">{data.financials.accrued} ₽</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Средняя явка на вечер:</span>
-              <span className="font-bold text-amber-400">{data.avgAttendance} чел.</span>
+              <span className="text-slate-400">Оплачено (Income Paid):</span>
+              <span className="font-bold text-emerald-400">{data.financials.incomePaid} ₽</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Общая выручка клуба:</span>
-              <span className="font-bold text-emerald-400">{data.totalRevenue} ₽</span>
+              <span className="text-slate-400">Открытые долги (Outstanding):</span>
+              <span className="font-bold text-rose-400">{data.financials.outstandingDebt} ₽</span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Средний чек за вечер:</span>
-              <span className="font-bold text-emerald-400">{data.avgRevenue} ₽</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-850">
-              <span className="text-slate-400">Текущий открытый долг:</span>
-              <span className="font-bold text-rose-400">{data.totalOutstandingDebt} ₽</span>
+              <span className="text-slate-400">Средний доход за вечер:</span>
+              <span className="font-bold text-emerald-400">{data.financials.avgRevenuePerEvening} ₽</span>
             </div>
           </div>
         </div>

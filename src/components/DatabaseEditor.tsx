@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Plus, UserPlus, X, CheckCircle2,
   RefreshCw, CreditCard, CalendarRange, ShoppingBag,
-  History, User, UserCheck, Coins, TrendingUp, Send
+  History, User, UserCheck, Coins, TrendingUp
 } from "lucide-react";
 import { Player, Booking, Game, ShopPurchase, GameEvening } from "../types.js";
 
@@ -38,7 +38,7 @@ export default function DatabaseEditor() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [purchases, setPurchases] = useState<ShopPurchase[]>([]);
-  const [achievementsList, setAchievementsList] = useState<any>({});
+  const [_achievementsList, setAchievementsList] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -551,7 +551,7 @@ export default function DatabaseEditor() {
     setBNickname(b.nickname);
     const matched = players.find(p => p.nickname.toLowerCase() === b.nickname.toLowerCase() || p.user_id === b.user_id);
     setBSelectedUserId(matched ? matched.user_id : 0);
-    setBStatus(b.status);
+    setBStatus((b.status === "Не пришел" ? "Отмена" : b.status) as any);
     setBDate(b.date);
     const payVal = b.payment !== undefined ? b.payment : 400;
     setBPayment(payVal);
@@ -560,7 +560,7 @@ export default function DatabaseEditor() {
     else if (payVal === 300) setBPaymentMode("preset_300");
     else if (payVal === 400) setBPaymentMode("preset_400");
     else setBPaymentMode("manual");
-    setBPaymentStatus(b.payment_status || "Оплачено");
+    setBPaymentStatus((b.payment_status === "Не пришел" ? "В долг" : (b.payment_status || "Оплачено")) as any);
   };
 
   const handleSaveBooking = async () => {
@@ -1155,15 +1155,16 @@ export default function DatabaseEditor() {
             purchases={purchases}
             games={games}
             onClose={() => setDossierPlayer(null)}
-            onUpdateDebt={(newDebt) => handleUpdatePlayerDebtFromDossier(dossierPlayer, newDebt)}
-            onUpdateTokens={(newTokens) => handleUpdatePlayerTokensFromDossier(dossierPlayer, newTokens)}
+            onUpdateDebt={handleUpdatePlayerDebtFromDossier}
+            onUpdateTokens={handleUpdatePlayerTokensFromDossier}
+            onEditProfile={(player) => handleOpenEditPlayer(player)}
           />
         )}
 
         {telegramExportModalOpen && (
           <TelegramExportModal
-            type={telegramExportType}
-            evening={telegramExportEvening}
+            type={telegramExportType.toLowerCase() as any}
+            evening={telegramExportEvening || undefined}
             bookings={bookings}
             debtors={debtors}
             onClose={() => setTelegramExportModalOpen(false)}
@@ -1202,7 +1203,7 @@ export default function DatabaseEditor() {
             setDeleteConfirmId={setDeleteConfirmId}
             onClose={() => setEditingPurchase(null)}
             onSave={handleSavePurchase}
-            onDelete={handleDeletePurchase}
+            onDelete={(id) => handleDeletePurchase(String(id))}
           />
         )}
       </AnimatePresence>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import {
   X, User, ShieldAlert, Award, Calendar, Coins, CreditCard,
-  History, ShoppingBag, CheckCircle, Plus, Minus, Tag
+  History, ShoppingBag, CheckCircle, Plus, Minus
 } from "lucide-react";
 import { Player, Booking, Game, ShopPurchase } from "../../types.js";
 

@@ -82,7 +82,7 @@ export default function SeatCard({
   handleAllocateVotes,
   showRolesOnTable,
   shootoutNominees,
-  isTimerRunning,
+  isTimerRunning: _isTimerRunning,
   setIsTimerRunning,
   timeLeft,
   handleStartTimer,
@@ -277,7 +277,7 @@ export default function SeatCard({
                             : pl
                         )
                       );
-                      showToast(`Игрок #${slotNum} (${p.nickname}) дисквалифицирован!`, "warning");
+                      showToast(`Игрок #${slotNum} (${p.nickname}) дисквалифицирован!`, "error");
                     }
                   }}
                   className="bg-slate-950/90 hover:bg-rose-900 text-rose-400 hover:text-white border border-slate-800 hover:border-rose-600/60 w-4 h-4 rounded text-[8px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all ml-0.5"

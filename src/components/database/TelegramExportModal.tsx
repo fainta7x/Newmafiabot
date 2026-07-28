@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { X, Copy, Check, Send, Sparkles, AlertCircle } from "lucide-react";
+import { X, Copy, Check, Send, Sparkles } from "lucide-react";
 import { GameEvening, Booking, Player } from "../../types.js";
 
 interface TelegramExportModalProps {

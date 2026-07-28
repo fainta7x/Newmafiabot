@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { Users, Calendar, Trophy, DollarSign, Activity, Award, Crown, Zap } from "lucide-react";
-import { Player, Game } from "../types.js";
+import { Player } from "../types.js";
 import GameProtocolsView from "./GameProtocolsView.tsx";
 
 interface DashboardStats {
@@ -16,19 +16,16 @@ interface DashboardStats {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/dashboard-stats").then((res) => res.json()),
       fetch("/api/players").then((res) => res.json()),
-      fetch("/api/games").then((res) => res.json()),
     ])
-      .then(([statsData, playersData, gamesData]) => {
+      .then(([statsData, playersData]) => {
         setStats(statsData);
         setPlayers(playersData);
-        setGames(gamesData);
         setLoading(false);
       })
       .catch((err) => {

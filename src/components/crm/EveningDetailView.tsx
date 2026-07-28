@@ -1,24 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  Users,
   UserPlus,
   Search,
   CheckCircle2,
-  XCircle,
-  Clock,
-  DollarSign,
   Plus,
   Trash2,
   FileText,
-  AlertTriangle,
   Lock,
-  Sparkles,
   X,
   CheckSquare,
   Square,
   ShieldCheck,
-  Send,
 } from 'lucide-react';
 import { api, GameEvening, EveningParticipant, Player } from '../../lib/api.ts';
 

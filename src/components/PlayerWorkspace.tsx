@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { User, Trophy, CalendarCheck, Coins, Award, Flame, CheckCircle, Clock, X, Shield, Star, Users, FileText } from "lucide-react";
+import { User, Trophy, CalendarCheck, Coins, Award, CheckCircle, Clock, Users, FileText } from "lucide-react";
 import { Player, Booking } from "../types.ts";
 import Players from "./Players.tsx";
 import Shop from "./Shop.tsx";
@@ -12,7 +12,6 @@ export default function PlayerWorkspace() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [myPlayerId, setMyPlayerId] = useState<number>(0);
-  const [rsvpStatus, setRsvpStatus] = useState<"Вовремя" | "Позже">("Вовремя");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {

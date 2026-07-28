@@ -41,6 +41,7 @@ export interface GameEvening {
   attended_count?: number;
   no_show_count?: number;
   total_revenue?: number;
+  available_spots?: number;
 }
 
 export interface EveningParticipant {
@@ -84,76 +85,113 @@ export interface OrganizerTask {
 }
 
 export interface AnalyticsData {
+  period: string;
   totalPlayers: number;
-  newPlayersCount: number;
-  conversion1to2: number;
-  oneVisitPlayers: number;
-  multiVisitPlayers: number;
   inactive30: number;
   inactive60: number;
   inactive90: number;
+  cohortFirstVisits: number;
+  cohortReturnedIn30Days: number;
+  cohortRetention30dRate: number;
+  completedEvenings: number;
   totalRegistrations: number;
   totalAttended: number;
   totalCancelled: number;
   totalNoShow: number;
   cancellationRate: number;
   noShowRate: number;
-  totalEvenings: number;
   avgAttendance: string | number;
-  totalRevenue: number;
-  avgRevenue: number;
-  totalOutstandingDebt: number;
+  financials: {
+    accrued: number;
+    incomePaid: number;
+    outstandingDebt: number;
+    refunds: number;
+    expenses: number;
+    avgRevenuePerEvening: number;
+  };
   sourceBreakdown: Record<string, number>;
 }
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('organizer_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const res = await fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include', // Automatically send HttpOnly cookies
+  });
 
-  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     let errorMsg = 'Ошибка запроса';
+    let details = null;
     try {
       const json = await res.json();
       errorMsg = json.error || json.message || errorMsg;
+      details = json.details || json.pendingParticipants || null;
     } catch (e) {}
-    throw new Error(errorMsg);
+    const err = new Error(errorMsg) as any;
+    err.details = details;
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
 
 export const api = {
   // Auth
-  login: (password: string) => request<{ success: boolean; token: string; role: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  login: (password: string) =>
+    request<{ success: boolean; role: string; message: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
   getMe: () => request<{ role: string; isOrganizer: boolean }>('/api/auth/me'),
   logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
 
   // Evenings
   getEvenings: () => request<GameEvening[]>('/api/evenings'),
-  getEvening: (id: string) => request<GameEvening & { participants: EveningParticipant[] }>(`/api/evenings/${id}`),
-  createEvening: (data: Partial<GameEvening>) => request<GameEvening>('/api/evenings', { method: 'POST', body: JSON.stringify(data) }),
-  updateEvening: (id: string, data: Partial<GameEvening>) => request<GameEvening>(`/api/evenings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getEvening: (id: string) =>
+    request<GameEvening & { participants: EveningParticipant[]; games?: any[] }>(`/api/evenings/${id}`),
+  createEvening: (data: Partial<GameEvening>) =>
+    request<GameEvening>('/api/evenings', { method: 'POST', body: JSON.stringify(data) }),
+  updateEvening: (id: string, data: Partial<GameEvening>) =>
+    request<GameEvening>(`/api/evenings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEvening: (id: string) => request<{ success: boolean }>(`/api/evenings/${id}`, { method: 'DELETE' }),
-  settleEvening: (id: string) => request<{ success: boolean; alreadySettled: boolean; evening: GameEvening }>(`/api/evenings/${id}/settle`, { method: 'POST' }),
+  settleEvening: (id: string) =>
+    request<{ success: boolean; alreadySettled: boolean; evening: GameEvening; message?: string }>(
+      `/api/evenings/${id}/settle`,
+      { method: 'POST' }
+    ),
 
   // Participants
   bulkAddParticipants: (eveningId: string, playerIds: string[], amountDue?: number) =>
-    request<{ success: boolean; addedCount: number; skippedCount: number; participants: EveningParticipant[] }>(
+    request<{ success: boolean; addedCount: number; waitlistCount: number; skippedCount: number; participants: EveningParticipant[] }>(
       `/api/evenings/${eveningId}/participants/bulk`,
       { method: 'POST', body: JSON.stringify({ player_ids: playerIds, registration_status: 'registered', amount_due: amountDue }) }
     ),
-  addParticipant: (eveningId: string, data: { player_id?: string; nickname?: string; phone?: string; amount_due?: number; amount_paid?: number }) =>
-    request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, { method: 'POST', body: JSON.stringify(data) }),
+  bulkUpdateParticipants: (eveningId: string, updates: Partial<EveningParticipant>[]) =>
+    request<{ success: boolean; participants: EveningParticipant[] }>(
+      `/api/evenings/${eveningId}/participants/bulk`,
+      { method: 'PATCH', body: JSON.stringify({ updates }) }
+    ),
+  addParticipant: (
+    eveningId: string,
+    data: { player_id?: string; nickname?: string; phone?: string; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+  ) =>
+    request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getParticipants: (eveningId: string) => request<EveningParticipant[]>(`/api/evenings/${eveningId}/participants`),
   updateParticipant: (participantId: string, data: Partial<EveningParticipant>) =>
-    request<EveningParticipant>(`/api/evening-participants/${participantId}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteParticipant: (participantId: string) => request<{ success: boolean }>(`/api/evening-participants/${participantId}`, { method: 'DELETE' }),
+    request<EveningParticipant>(`/api/evening-participants/${participantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deleteParticipant: (participantId: string) =>
+    request<{ success: boolean }>(`/api/evening-participants/${participantId}`, { method: 'DELETE' }),
 
   // Players
   getPlayers: (params: Record<string, string | number | boolean> = {}) => {
@@ -163,10 +201,28 @@ export const api = {
     });
     return request<Player[]>(`/api/players?${query.toString()}`);
   },
-  getPlayer: (id: string) => request<Player & { stats: any; eveningHistory: any[]; tasks: OrganizerTask[]; nextTask: OrganizerTask | null; transactions: any[] }>(`/api/players/${id}`),
+  getPlayer: (id: string) =>
+    request<
+      Player & {
+        stats: any;
+        futureBookings: EveningParticipant[];
+        attendedEvenings: EveningParticipant[];
+        cancelledEvenings: EveningParticipant[];
+        noShowEvenings: EveningParticipant[];
+        eveningHistory: EveningParticipant[];
+        tasks: OrganizerTask[];
+        nextTask: OrganizerTask | null;
+        transactions: any[];
+      }
+    >(`/api/players/${id}`),
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
+  invitePlayer: (playerId: string, eveningId: string, createFollowupTask: boolean = true) =>
+    request<{ success: boolean; participant: EveningParticipant; task?: OrganizerTask; telegramLink?: string }>(
+      `/api/players/${playerId}/invite`,
+      { method: 'POST', body: JSON.stringify({ evening_id: eveningId, create_followup_task: createFollowupTask }) }
+    ),
 
   // Tasks
   getTasks: (params: Record<string, string | boolean> = {}) => {
@@ -177,9 +233,19 @@ export const api = {
     return request<OrganizerTask[]>(`/api/tasks?${query.toString()}`);
   },
   createTask: (data: Partial<OrganizerTask>) => request<OrganizerTask>('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
+  completeTask: (id: string) => request<OrganizerTask>(`/api/tasks/${id}/complete`, { method: 'POST' }),
   updateTask: (id: string, data: Partial<OrganizerTask>) => request<OrganizerTask>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteTask: (id: string) => request<{ success: boolean }>(`/api/tasks/${id}`, { method: 'DELETE' }),
 
+  // Games
+  getGames: (eveningId?: string) =>
+    request<any[]>(`/api/games${eveningId ? `?evening_id=${eveningId}` : ''}`),
+  saveGameProtocol: (data: any) =>
+    request<any>('/api/games', { method: 'POST', body: JSON.stringify(data) }),
+
   // Analytics
-  getAnalytics: () => request<AnalyticsData>('/api/analytics'),
+  getAnalytics: (params: Record<string, string> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request<AnalyticsData>(`/api/analytics${query ? `?${query}` : ''}`);
+  },
 };

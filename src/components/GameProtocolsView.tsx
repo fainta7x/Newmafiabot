@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { FileText, Search, Calendar, User, Trophy, Shield, Award, ChevronDown, ChevronUp, Eye, CheckCircle2, XCircle, AlertCircle, Sparkles, Filter, Copy, Check, Share2, Image, X } from "lucide-react";
-import { Game, GameSlot } from "../types.ts";
+import { FileText, Search, Calendar, User, Trophy, Shield, ChevronDown, ChevronUp, Sparkles, Filter, Copy, Check, Image, X } from "lucide-react";
+import { Game } from "../types.ts";
 
 interface GameProtocolsViewProps {
   filterPlayerNickname?: string;
@@ -106,9 +106,6 @@ export default function GameProtocolsView({ filterPlayerNickname }: GameProtocol
 
   // Calculate personal stats if searching for a specific player
   const searchedPlayer = search.trim().toLowerCase();
-  const playerGames = searchedPlayer
-    ? games.filter(g => g.slots?.some(s => s.nickname?.toLowerCase().includes(searchedPlayer)))
-    : [];
 
   const playerSlotEntries = searchedPlayer
     ? games.flatMap(g => (g.slots || []).map(s => ({ ...s, winner_label: g.winner_label }))).filter(s => s.nickname?.toLowerCase().includes(searchedPlayer))
@@ -559,7 +556,6 @@ export default function GameProtocolsView({ filterPlayerNickname }: GameProtocol
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
                   {(selectedPosterGame.slots || []).map((s) => {
-                    const isWin = s.team === selectedPosterGame.winner_label;
                     const totalPts = (parseFloat(s.base_points as any) || 0) + 
                                      (parseFloat(s.bonus_points as any) || 0) + 
                                      (parseFloat(s.lh_points as any) || 0) + 

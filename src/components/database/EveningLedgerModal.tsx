@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import {
   X, CheckCircle2, AlertCircle, UserPlus, Search,
-  DollarSign, CreditCard, Sparkles, Plus, Wallet, RotateCcw, Send
+  DollarSign, Wallet
 } from "lucide-react";
 import { GameEvening, Booking, Game, Player } from "../../types.js";
 
@@ -39,8 +39,8 @@ export const EveningLedgerModal: React.FC<EveningLedgerModalProps> = ({
 }) => {
   // Tariff mode: 'FLAT_400' or 'PER_GAME_100' or 'CUSTOM'
   const [tariffMode, setTariffMode] = useState<"FLAT_400" | "PER_GAME_100">("FLAT_400");
-  const [perGameRate, setPerGameRate] = useState<number>(100);
-  const [flatRate, setFlatRate] = useState<number>(400);
+  const [perGameRate] = useState<number>(100);
+  const [flatRate] = useState<number>(400);
 
   // Search & add player state
   const [playerSearch, setPlayerSearch] = useState("");

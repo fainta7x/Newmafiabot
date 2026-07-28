@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  TrendingUp, Coins, CreditCard, Users, Download, Calendar, DollarSign, Award, CheckCircle2
+  TrendingUp, Coins, CreditCard, Users, Download, DollarSign, Award, CheckCircle2
 } from "lucide-react";
 import { Player, GameEvening, Booking, ShopPurchase, Game } from "../../types.js";
 

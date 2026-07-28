@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Coins, Flame, X, Check, Award, Music, Ticket, Sparkles, UserCheck } from "lucide-react";
+import { Coins, X, Sparkles } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Player, ShopItem } from "../types.js";
 

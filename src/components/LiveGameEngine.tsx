@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Shield, Volume2, Award, EyeOff, Eye, Play, Pause, RotateCcw } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Shield, EyeOff, Eye, RotateCcw } from "lucide-react";
 import { Player, GameSlot } from "../types.js";
 
 // Modularized subcomponents
@@ -77,7 +77,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [bestMovePlayerSlot, setBestMovePlayerSlot] = useState<number | null>(null);
+  const [, setBestMovePlayerSlot] = useState<number | null>(null);
   const [bestMoveGuesses, setBestMoveGuesses] = useState<number[]>([]);
   const [protocolNotes, setProtocolNotes] = useState("");
   const [hideBestMoveGlow, setHideBestMoveGlow] = useState<boolean>(false);
@@ -191,15 +191,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setRestorableSession(null);
     showToast("Сохраненная сессия сброшена", "info");
   };
-  const [shootoutSeconds, setShootoutSeconds] = useState(30);
   const [shootoutSpeakerIndex, setShootoutSpeakerIndex] = useState(0);
-  const [isShootoutTimerActive, setIsShootoutTimerActive] = useState(false);
-  const [shootoutTimerLeft, setShootoutTimerLeft] = useState(30);
-
-  const handleStartShootoutTimer = (duration: number) => {
-    setShootoutTimerLeft(duration);
-    setIsShootoutTimerActive(true);
-  };
 
   const recalculateVotesAndSet = (voterMap: { [voterSlot: number]: number }, customNominations?: number[]) => {
     const nomis = customNominations || nominations;
@@ -833,20 +825,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast("Оставшиеся голоса распределены за последнего кандидата!", "success");
   };
 
-  const handleAutoVoteRemainder = (nominee: number) => {
-    const totalAlive = activePlayers.filter((p) => p.alive).length;
-    setVotes((prev) => {
-      const copy = { ...prev };
-      const currentAllocated = Object.entries(copy)
-        .filter(([s]) => parseInt(s) !== nominee)
-        .reduce((a, [, v]) => a + v, 0);
-      const remainder = Math.max(0, totalAlive - currentAllocated);
-      copy[nominee] = remainder;
-      return copy;
-    });
-    playBeep(523, 0.05);
-  };
-
   const handleResolveShootoutVotes = (act: "eliminate_one" | "eliminate_all" | "no_one_leaves", slot?: number) => {
     if (act === "no_one_leaves") {
       handleCompleteShootout("leave_none");
@@ -1115,8 +1093,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         setPhase("shootout");
         setShootoutSubPhase("shootout_intro");
         setShootoutSpeakerIndex(0);
-        setShootoutSeconds(30);
-        setIsShootoutTimerActive(false);
         setNightLogs(prev => [...prev, {
           round: roundNumber,
           log: `Д${roundNumber}: Голосование. Ничья между игроками: ${tied.join(", ")} (${maxVotes} голосов). Объявлена автокатастрофа.`
@@ -1132,10 +1108,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (totalAlloc < totalAlive) {
       setConfirmDialog({ message: `Распределено ${totalAlloc} голосов из ${totalAlive}. Подтвердить подсчет?`, onConfirm: goResolve });
     } else goResolve();
-  };
-
-  const handleCompleteVoting = () => {
-    handleResolveVoting();
   };
 
   const handleCompleteShootout = (action: "leave_all" | "leave_none" | "leave_one", singleSlot?: number) => {
@@ -1423,7 +1395,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         bonus_points: p.bonus_points, lh_points: p.lh_points, will_protocol_points: p.will_protocol_points,
         will_opinion_points: p.will_opinion_points, dc_points: p.dc_points, kick: p.kick || p.eliminated_phase.includes("Фолы"),
         ppk: p.ppk || p.eliminated_phase.includes("ППК"), fouls: p.fouls, pu: p.is_pu, alive: p.alive,
-        status_reason: p.alive ? "Жив" : p.eliminated_phase || "Убит", elo_change: 0
+        status_reason: p.alive ? "Жив" : p.eliminated_phase || "Убит", base_points: 0, elo_change: 0
       };
     });
 
@@ -1449,29 +1421,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       10: "bg-lime-600 text-slate-950 border-lime-500",
     };
     return colors[slotNum] || "bg-slate-700 text-white border-slate-600";
-  };
-
-  const toggleTimer = () => {
-    setIsTimerRunning(!isTimerRunning);
-    playBeep(523, 0.05);
-  };
-
-  const resetTimer = () => {
-    setIsTimerRunning(false);
-    setTimeLeft(timerMax);
-    playBeep(523, 0.05);
-  };
-
-  const setTimerLabelAndDuration = (label: string, duration: number) => {
-    setCustomTimerLabel(label);
-    setTimerMax(duration);
-    setTimeLeft(duration);
-    setIsTimerRunning(false);
-    playBeep(523, 0.05);
-  };
-
-  const handleModifyTime = (dir: "up" | "down") => {
-    handleAdjustTime(dir === "up" ? 5 : -5);
   };
 
   const renderVirtualTable = () => {
@@ -1558,7 +1507,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           sheriffCheckSlot={sheriffCheckSlot}
           sheriffCheckResult={sheriffCheckResult}
           bestMoveGuesses={bestMoveGuesses}
-          getSeatColor={getSeatColor}
+          getSeatColor={(p) => getSeatColor(p.slot_num)}
           getPrevStepAction={getPrevStepAction}
           getNextStepInfo={getNextStepInfo}
           timerMax={timerMax}
@@ -1656,8 +1605,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       showToast(`Игра автоматически завершена! Победили: ${winTeam}`, "success");
     }
   }, [activePlayers, phase]);
-
-  const muteMultiplierApplied = activeSpeakerSlot !== null && activePlayers.find(p => p.slot_num === activeSpeakerSlot)?.mute_this_round;
 
   const renderMobileActionSheet = () => {
     if (selectedMobileSlot === null) return null;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { User, Kanban, Play, Database, LayoutDashboard, ShieldCheck } from "lucide-react";
 import Dashboard from "./components/Dashboard.tsx";

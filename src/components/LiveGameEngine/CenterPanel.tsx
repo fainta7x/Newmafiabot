@@ -1,5 +1,5 @@
 import React from "react";
-import { Minus, Plus, Pause, Play, RotateCcw, Mic, Shield, LogOut, ArrowLeft, ArrowRight, Star, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, RotateCcw, Mic, LogOut, ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
 
@@ -23,7 +23,9 @@ interface CenterPanelProps {
   sheriffCheckSlot: number | null;
   sheriffCheckResult: string | null;
   bestMoveGuesses: number[];
+  getSeatColor?: (player: ActivePlayerState) => string;
   nextSpeaker: ActivePlayerState | null;
+  markPlayerSpoken?: (slot: number) => void;
   handleStartNextSpeaker: () => void;
   handleTransitionToVoting?: () => void;
   isInteractiveVoting: boolean;
@@ -80,8 +82,8 @@ export default function CenterPanel({
   bestMoveGuesses,
   nextSpeaker,
   handleStartNextSpeaker,
-  handleTransitionToVoting,
-  isInteractiveVoting,
+  handleTransitionToVoting: _handleTransitionToVoting,
+  isInteractiveVoting: _isInteractiveVoting,
   setIsInteractiveVoting,
   nominations,
   currentVotingNomineeIndex,
@@ -92,8 +94,8 @@ export default function CenterPanel({
   handleAllocateVotes,
   handleResolveVoting,
   shootoutNominees,
-  votingAttempt,
-  handleStartReVoting,
+  votingAttempt: _votingAttempt,
+  handleStartReVoting: _handleStartReVoting,
   handleResolveShootoutVotes,
   nightSubPhase,
   shotPlayerSlot,
@@ -126,7 +128,6 @@ export default function CenterPanel({
   const activeSpeaker = activePlayers.find((p) => p.slot_num === activeSpeakerSlot);
   const donPlayer = activePlayers.find((p) => p.role === "Дон");
   const mafiaPlayers = activePlayers.filter((p) => p.role === "Мафия");
-  const sheriffPlayer = activePlayers.find((p) => p.role === "Шериф");
   const prevStep = getPrevStepAction();
   const nextStep = getNextStepInfo();
 

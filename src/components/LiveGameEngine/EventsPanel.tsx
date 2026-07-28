@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { Copy, Check, ShieldCheck, Share2 } from "lucide-react";
+import { useState } from "react";
+import { Copy, Check } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
 
 interface EventsPanelProps {
-  phase: Phase;
+  phase?: Phase;
   activePlayers: ActivePlayerState[];
   nightLogs: { round: number; log: string }[];
   protocolNotes: string;
@@ -81,7 +81,6 @@ export default function EventsPanel({
 
     text += `👥 *ИТОГОВАЯ ТАБЛИЦА И БАЛЛЫ:*\n`;
     activePlayers.forEach((s) => {
-      const status = s.alive ? "🟢 Жив" : "🔴 Выбыл";
       const pts = winTeam ? calculatePlayerScore(s) : "—";
       const mvpBadge = mvpSlot === s.slot_num ? " ⭐ [MVP]" : "";
       const bmText = s.best_move_guesses && s.best_move_guesses.length > 0 ? ` | ЛХ: [${s.best_move_guesses.join(", ")}]` : "";

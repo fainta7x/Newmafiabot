@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Clock,
   Plus,
-  CheckCircle2,
-  AlertCircle,
-  Calendar,
-  User,
   X,
-  Filter,
   CheckSquare,
   Square,
   Trash2,
@@ -254,6 +248,39 @@ export const TasksCRM: React.FC<TasksCRMProps> = ({ players, evenings, onOpenPla
                   placeholder="Позвонить игроку / Подготовить столы"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Тип задачи</label>
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="call">Звонок</option>
+                    <option value="invite">Приглашение</option>
+                    <option value="reminder">Напоминание</option>
+                    <option value="feedback">Обратная связь</option>
+                    <option value="preparation">Подготовка</option>
+                    <option value="payment">Оплата</option>
+                    <option value="other">Другое</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Связанный вечер</label>
+                  <select
+                    value={eveningId}
+                    onChange={(e) => setEveningId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">-- Без вечера --</option>
+                    {evenings.map((ev) => (
+                      <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Play, Shield, Award, CheckCircle, User, AlertCircle, Sparkles, AlertTriangle, Eye, Heart, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { motion } from "motion/react";
+import { Play, Award, Heart, Star } from "lucide-react";
 import confetti from "canvas-confetti";
 
 const PistolIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -638,7 +638,6 @@ export default function GameWizard() {
                 const isMir = s.role === "Мирный";
                 const isSheriff = s.role === "Шериф";
                 const isMafia = s.role === "Мафия";
-                const isDon = s.role === "Дон";
 
                 return (
                   <div

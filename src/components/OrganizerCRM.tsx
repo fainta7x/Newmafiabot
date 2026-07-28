@@ -7,8 +7,6 @@ import {
   BarChart3,
   Lock,
   LogOut,
-  ShieldAlert,
-  Sparkles,
 } from 'lucide-react';
 import { api, GameEvening, OrganizerTask, Player } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
@@ -79,8 +77,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     e.preventDefault();
     setLoginError('');
     try {
-      const res = await api.login(passwordInput);
-      localStorage.setItem('organizer_token', res.token);
+      await api.login(passwordInput);
       setIsOrganizer(true);
       setShowLoginModal(false);
       loadAllData();
@@ -91,7 +88,6 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   const handleLogout = async () => {
     await api.logout();
-    localStorage.removeItem('organizer_token');
     setIsOrganizer(false);
     setShowLoginModal(true);
   };

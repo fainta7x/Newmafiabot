@@ -1,5 +1,3 @@
-import React from "react";
-
 export const PistolIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg
     viewBox="0 0 24 24"

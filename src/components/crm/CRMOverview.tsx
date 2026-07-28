@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Users, AlertCircle, DollarSign, Clock, CheckCircle2, UserPlus, ArrowRight, PhoneCall } from 'lucide-react';
+import { Calendar, Users, AlertCircle, DollarSign, Clock, UserPlus, ArrowRight, PhoneCall } from 'lucide-react';
 import { GameEvening, OrganizerTask, Player } from '../../lib/api.ts';
 
 interface CRMOverviewProps {
@@ -27,7 +27,6 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
   const nearestEvening = activeOrUpcoming[0] || evenings[0];
 
   // 2. Tasks for today or overdue
-  const nowIso = new Date().toISOString().slice(0, 10);
   const todayTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
 
   // 3. Newcomers who haven't returned (1 visit)

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Plus, Users, DollarSign, CheckCircle2, ArrowRight, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { Plus, ArrowRight, X } from 'lucide-react';
 import { GameEvening } from '../../lib/api.ts';
 
 interface EveningsListProps {

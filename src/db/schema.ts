@@ -70,16 +70,18 @@ export const organizerTasks = sqliteTable('organizer_tasks', {
 
 export const financialTransactions = sqliteTable('financial_transactions', {
   id: text('id').primaryKey(), // UUID
-  type: text('type').notNull(), // income, expense, debt_created, debt_paid, refund
+  type: text('type').notNull(), // income, expense, debt_created, debt_paid, refund, adjustment
   amount: integer('amount').notNull(),
   category: text('category'),
   description: text('description'),
   player_id: text('player_id').references(() => players.id, { onDelete: 'set null' }),
   evening_id: text('evening_id').references(() => gameEvenings.id, { onDelete: 'set null' }),
-  source_type: text('source_type'), // e.g. evening_settle, manual, deposit
+  source_type: text('source_type'), // e.g. evening_settle, manual, deposit, adjustment
   source_id: text('source_id'), // e.g. participant_id or evening_id
   created_at: text('created_at').notNull(),
-});
+}, (table) => ({
+  transactionSourceUnique: uniqueIndex('idx_financial_tx_source_unique').on(table.source_type, table.source_id, table.type),
+}));
 
 export const games = sqliteTable('games', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -92,4 +94,12 @@ export const games = sqliteTable('games', {
   protocol_text: text('protocol_text'),
   slots_json: text('slots_json').notNull(),
   created_at: text('created_at').notNull(),
+});
+
+export const migrationHistory = sqliteTable('migration_history', {
+  id: text('id').primaryKey(),
+  migration_name: text('migration_name').notNull().unique(),
+  status: text('status').notNull(), // success, error
+  details_json: text('details_json'),
+  executed_at: text('executed_at').notNull(),
 });

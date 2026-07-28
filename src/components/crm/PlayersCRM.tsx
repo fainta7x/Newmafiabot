@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Users,
   Search,
   Plus,
-  Filter,
   Phone,
   Send,
-  Calendar,
-  Clock,
-  AlertCircle,
   FileText,
   X,
   ChevronRight,
-  TrendingUp,
-  DollarSign,
-  UserCheck,
-  UserX,
-  ShieldAlert,
 } from 'lucide-react';
 import { api, Player, GameEvening, OrganizerTask } from '../../lib/api.ts';
 
@@ -28,8 +18,6 @@ interface PlayersCRMProps {
 }
 
 export const PlayersCRM: React.FC<PlayersCRMProps> = ({
-  evenings,
-  onOpenEvening,
   selectedPlayerId,
   onClosePlayerCard,
 }) => {
@@ -526,6 +514,28 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                     onChange={(e) => setNewTgUsername(e.target.value)}
                     placeholder="nickname"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Источник прихода</label>
+                  <input
+                    type="text"
+                    value={newSource}
+                    onChange={(e) => setNewSource(e.target.value)}
+                    placeholder="Авито / По рекомендации / VK"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Заметки / Пожелания</label>
+                  <textarea
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    placeholder="Предпочтения по играм, контактное лицо..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 text-xs"
+                    rows={2}
                   />
                 </div>
               </div>

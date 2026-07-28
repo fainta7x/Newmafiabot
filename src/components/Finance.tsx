@@ -4,7 +4,6 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  CreditCard,
   PlusCircle,
   Trash2,
   Users,

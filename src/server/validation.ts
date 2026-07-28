@@ -68,3 +68,24 @@ export const createTaskSchema = z.object({
 });
 
 export const updateTaskSchema = createTaskSchema.partial();
+
+export const gameSlotSchema = z.object({
+  slot: z.number().int().min(1).max(10),
+  player_id: z.string().min(1).optional(),
+  nickname: z.string().min(1, 'Укажите никнейм игрока'),
+  role: z.enum(['Мирный', 'Шериф', 'Мафия', 'Дон']),
+  fouls: z.number().int().min(0).default(0),
+  is_alive: z.boolean().optional(),
+  notes: z.string().optional(),
+});
+
+export const createGameSchema = z.object({
+  evening_id: z.string().min(1).nullable().optional(),
+  global_game_number: z.number().int().positive('Номер игры должен быть положительным числом'),
+  game_date: z.string().min(1, 'Укажите дату игры'),
+  winner_team: z.string().min(1, 'Укажите победившую команду'),
+  winner_label: z.string().min(1, 'Укажите название победителей'),
+  judge_name: z.string().min(1, 'Укажите имя ведущего/судьи'),
+  protocol_text: z.string().nullable().optional(),
+  slots: z.array(gameSlotSchema).min(1, 'В протоколе игры должен быть хотя бы один игрок'),
+});

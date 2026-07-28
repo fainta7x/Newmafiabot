@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Plus, Award, Shield, UserPlus, DollarSign, Coins, X, Check, Edit2, Info, ChevronRight, Trash2, Database } from "lucide-react";
+import { Search, Award, Shield, UserPlus, DollarSign, X, Check, Edit2, ChevronRight, Trash2, Database } from "lucide-react";
 import { Player } from "../types.js";
 
 export default function Players() {
@@ -37,8 +37,7 @@ export default function Players() {
   // Edit Debt / Token states
   const [editDebtVal, setEditDebtVal] = useState("");
   const [isEditingDebt, setIsEditingDebt] = useState(false);
-  const [editTokenVal, setEditTokenVal] = useState("");
-  const [isEditingTokens, setIsEditingTokens] = useState(false);
+  const [_isEditingTokens, setIsEditingTokens] = useState(false);
 
   useEffect(() => {
     fetchPlayers();

@@ -246,6 +246,17 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => {
+                const joinUrl = `${window.location.origin}/join/${evening.id}`;
+                navigator.clipboard.writeText(joinUrl);
+                alert(`Ссылка для записи скопирована:\n${joinUrl}`);
+              }}
+              className="bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>🔗 Ссылка для игроков</span>
+            </button>
+
+            <button
               onClick={() => setShowBulkAddModal(true)}
               className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
             >

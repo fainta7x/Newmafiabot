@@ -6,6 +6,11 @@ export interface Player {
   telegram_username?: string | null;
   phone?: string | null;
   lifecycle_status: 'lead' | 'newcomer' | 'returning' | 'regular' | 'inactive' | 'blocked';
+  calculated_stage?: string;
+  preferred_format?: string | null;
+  referred_by?: string | null;
+  do_not_invite_until?: string | null;
+  pause_reason?: string | null;
   source?: string | null;
   notes?: string | null;
   elo: number;
@@ -19,6 +24,61 @@ export interface Player {
   days_since_last_visit?: number | null;
   open_tasks_count?: number;
   outstanding_debt?: number;
+}
+
+export interface EveningTable {
+  id: string;
+  evening_id: string;
+  name: string;
+  format: string;
+  capacity: number;
+  host_name?: string | null;
+  starts_at?: string | null;
+  default_price?: number | null;
+  notes?: string | null;
+  sort_order?: number;
+  participant_count?: number;
+  free_spots?: number;
+}
+
+export interface PlayerActivity {
+  id: string;
+  player_id: string;
+  evening_id?: string | null;
+  task_id?: string | null;
+  type: string;
+  outcome?: string | null;
+  description?: string | null;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface CrmOverview {
+  nextEvening: (GameEvening & {
+    tables: EveningTable[];
+    invitedCount: number;
+    registeredCount: number;
+    confirmedCount: number;
+    waitlistCount: number;
+    newcomersCount: number;
+  }) | null;
+  actionLists: {
+    unansweredInvites: any[];
+    unconfirmedRegistered: any[];
+    newcomersAfterFirst: any[];
+    lapsedPlayers: any[];
+    overdueTasks: OrganizerTask[];
+    todayTasks: OrganizerTask[];
+    unpaidParticipants: any[];
+  };
+  summary: {
+    overdueTasksCount: number;
+    todayTasksCount: number;
+    newcomersWithoutFollowupCount: number;
+    lapsedPlayersCount: number;
+    unpaidParticipantsCount: number;
+    totalUnpaidAmount: number;
+  };
 }
 
 export interface GameEvening {
@@ -150,12 +210,19 @@ export const api = {
   getMe: () => request<{ role: string; isOrganizer: boolean }>('/api/auth/me'),
   logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
 
+  // CRM & Overview
+  getCrmOverview: () => request<CrmOverview>('/api/crm/overview'),
+
   // Evenings
   getEvenings: () => request<GameEvening[]>('/api/evenings'),
   getEvening: (id: string) =>
-    request<GameEvening & { participants: EveningParticipant[]; games?: any[] }>(`/api/evenings/${id}`),
+    request<GameEvening & { tables: EveningTable[]; participants: EveningParticipant[]; games?: any[] }>(`/api/evenings/${id}`),
   createEvening: (data: Partial<GameEvening>) =>
     request<GameEvening>('/api/evenings', { method: 'POST', body: JSON.stringify(data) }),
+  createNextFriday: () =>
+    request<GameEvening & { tables: EveningTable[] }>('/api/evenings/create-next-friday', { method: 'POST' }),
+  duplicateLastEvening: () =>
+    request<GameEvening & { tables: EveningTable[] }>('/api/evenings/duplicate-last', { method: 'POST' }),
   updateEvening: (id: string, data: Partial<GameEvening>) =>
     request<GameEvening>(`/api/evenings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEvening: (id: string) => request<{ success: boolean }>(`/api/evenings/${id}`, { method: 'DELETE' }),
@@ -164,6 +231,20 @@ export const api = {
       `/api/evenings/${id}/settle`,
       { method: 'POST' }
     ),
+
+  // Evening Tables
+  getEveningTables: (eveningId: string) => request<EveningTable[]>(`/api/evenings/${eveningId}/tables`),
+  createEveningTable: (eveningId: string, data: Partial<EveningTable>) =>
+    request<EveningTable>(`/api/evenings/${eveningId}/tables`, { method: 'POST', body: JSON.stringify(data) }),
+  updateEveningTable: (tableId: string, data: Partial<EveningTable>) =>
+    request<EveningTable>(`/api/evenings/tables/${tableId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteEveningTable: (tableId: string) =>
+    request<{ success: boolean }>(`/api/evenings/tables/${tableId}`, { method: 'DELETE' }),
+  moveParticipantTable: (participantId: string, tableId: string | null) =>
+    request<EveningParticipant>(`/api/evenings/participants/${participantId}/move-table`, {
+      method: 'PATCH',
+      body: JSON.stringify({ table_id: tableId }),
+    }),
 
   // Participants
   bulkAddParticipants: (eveningId: string, playerIds: string[], amountDue?: number) =>
@@ -222,6 +303,36 @@ export const api = {
     request<{ success: boolean; participant: EveningParticipant; task?: OrganizerTask; telegramLink?: string }>(
       `/api/players/${playerId}/invite`,
       { method: 'POST', body: JSON.stringify({ evening_id: eveningId, create_followup_task: createFollowupTask }) }
+    ),
+  getPlayerActivities: (playerId: string) => request<PlayerActivity[]>(`/api/players/${playerId}/activities`),
+  addPlayerActivity: (playerId: string, data: Partial<PlayerActivity>) =>
+    request<PlayerActivity>(`/api/players/${playerId}/activities`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Public Join
+  getPublicEvening: (eveningId: string) =>
+    request<{
+      id: string;
+      title: string;
+      starts_at: string;
+      ends_at?: string;
+      venue?: string;
+      format: string;
+      status: string;
+      capacity: number;
+      default_price: number;
+      notes?: string;
+      tables: EveningTable[];
+    }>(`/api/public/evenings/${eveningId}`),
+  joinPublicEvening: (
+    eveningId: string,
+    data: { nickname: string; telegram_username?: string; phone?: string; table_id?: string; source?: string }
+  ) =>
+    request<{ success: boolean; registration_status: string; tableName: string; message: string; alreadyRegistered?: boolean }>(
+      `/api/public/evenings/${eveningId}/join`,
+      { method: 'POST', body: JSON.stringify(data) }
     ),
 
   // Tasks

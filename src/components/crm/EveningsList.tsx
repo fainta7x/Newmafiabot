@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, ArrowRight, X } from 'lucide-react';
-import { GameEvening } from '../../lib/api.ts';
+import { api, GameEvening } from '../../lib/api.ts';
 
 interface EveningsListProps {
   evenings: GameEvening[];
@@ -52,20 +52,38 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header with Create Button */}
+      {/* Header with Create Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-3xl">
         <div>
           <h2 className="text-xl font-black text-white uppercase tracking-tight">Игровые Вечера Клуба</h2>
           <p className="text-xs text-slate-400 mt-0.5">Управление мероприятиями, записями игроков и финансовым расчётом</p>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Запланировать Вечер</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.createNextFriday();
+                alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')}) с двумя столами!`);
+                onOpenEvening(res.id);
+              } catch (err: any) {
+                alert(err.message || 'Ошибка создания вечера на пятницу');
+              }
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Следующая пятница</span>
+          </button>
+
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-rose-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Новый Вечер</span>
+          </button>
+        </div>
       </div>
 
       {/* Evenings Grid / Cards */}

@@ -11,6 +11,200 @@ import {
 
 const router = Router();
 
+// POST /api/evenings/create-next-friday - Quick action to create next Friday evening with 2 tables
+router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const now = new Date();
+
+    let dayOffset = (5 - now.getDay() + 7) % 7;
+    if (dayOffset === 0) {
+      if (now.getHours() >= 20) {
+        dayOffset = 7;
+      }
+    }
+    const nextFriday = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+    const day = nextFriday.getDate();
+    const monthsRu = [
+      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    const monthName = monthsRu[nextFriday.getMonth()];
+
+    const yearStr = nextFriday.getFullYear();
+    const monthStr = String(nextFriday.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const startsAtIso = `${yearStr}-${monthStr}-${dayStr}T20:00:00+03:00`;
+    const title = `Игровой вечер — ${day} ${monthName}`;
+
+    const lastEvening = await db.get('SELECT default_price FROM game_evenings ORDER BY starts_at DESC LIMIT 1');
+    const defaultPrice = lastEvening?.default_price || 500;
+
+    const eveningId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES (?, ?, ?, 'Europe/Moscow', 'Суп с Котом', 'STANDARD', 'draft', 20, ?, ?, ?)`,
+      [eveningId, title, startsAtIso, defaultPrice, nowIso, nowIso]
+    );
+
+    const table1Id = `tbl_${Date.now()}_1`;
+    const table2Id = `tbl_${Date.now()}_2`;
+
+    await db.run(
+      `INSERT INTO evening_tables (id, evening_id, name, format, capacity, sort_order, created_at, updated_at)
+       VALUES (?, ?, 'Основной стол', 'STANDARD', 10, 1, ?, ?),
+              (?, ?, 'Стол новичков', 'NOVICE', 10, 2, ?, ?)`,
+      [table1Id, eveningId, nowIso, nowIso, table2Id, eveningId, nowIso, nowIso]
+    );
+
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
+    const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [eveningId]);
+
+    res.status(201).json({ ...evening, tables });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// POST /api/evenings/duplicate-last - Duplicate previous evening and its tables
+router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const lastEvening = await db.get('SELECT * FROM game_evenings ORDER BY starts_at DESC LIMIT 1');
+    if (!lastEvening) {
+      return res.status(404).json({ error: 'Предыдущий вечер не найден' });
+    }
+
+    const lastTables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [lastEvening.id]);
+
+    const newEveningId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const title = `${lastEvening.title} (копия)`;
+
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`,
+      [
+        newEveningId,
+        title,
+        lastEvening.starts_at,
+        lastEvening.timezone || 'Europe/Moscow',
+        lastEvening.venue || 'Суп с Котом',
+        lastEvening.format || 'STANDARD',
+        lastEvening.capacity || 20,
+        lastEvening.default_price || 500,
+        lastEvening.notes || null,
+        nowIso,
+        nowIso,
+      ]
+    );
+
+    const newTables = [];
+    for (const t of lastTables) {
+      const newTblId = `tbl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await db.run(
+        `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [newTblId, newEveningId, t.name, t.format, t.capacity, t.host_name, t.default_price, t.notes, t.sort_order, nowIso, nowIso]
+      );
+      newTables.push(await db.get('SELECT * FROM evening_tables WHERE id = ?', [newTblId]));
+    }
+
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [newEveningId]);
+    res.status(201).json({ ...evening, tables: newTables });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// Table CRUD static helper endpoints
+router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const { name, format, capacity, host_name, starts_at, default_price, notes } = req.body;
+    const nowIso = new Date().toISOString();
+
+    await db.run(
+      `UPDATE evening_tables
+       SET name = COALESCE(?, name),
+           format = COALESCE(?, format),
+           capacity = COALESCE(?, capacity),
+           host_name = ?,
+           starts_at = ?,
+           default_price = ?,
+           notes = ?,
+           updated_at = ?
+       WHERE id = ?`,
+      [name, format, capacity, host_name || null, starts_at || null, default_price || null, notes || null, nowIso, req.params.tableId]
+    );
+
+    const updated = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    await db.run('UPDATE evening_participants SET table_id = NULL WHERE table_id = ?', [req.params.tableId]);
+    await db.run('DELETE FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+router.patch('/participants/:participantId/move-table', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const { table_id } = req.body;
+    const participantId = req.params.participantId;
+
+    const participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [participantId]);
+    if (!participant) {
+      return res.status(404).json({ error: 'Участник не найден' });
+    }
+
+    let targetRegStatus = participant.registration_status;
+
+    if (table_id) {
+      const targetTable = await db.get('SELECT * FROM evening_tables WHERE id = ?', [table_id]);
+      if (targetTable) {
+        const countRow = await db.get(
+          `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND id != ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+          [table_id, participantId]
+        );
+        if ((countRow?.cnt || 0) >= targetTable.capacity && targetRegStatus !== 'cancelled') {
+          targetRegStatus = 'waitlist';
+        } else if (targetRegStatus === 'waitlist') {
+          targetRegStatus = 'registered';
+        }
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    await db.run(
+      'UPDATE evening_participants SET table_id = ?, registration_status = ?, updated_at = ? WHERE id = ?',
+      [table_id || null, targetRegStatus, nowIso, participantId]
+    );
+
+    const updated = await db.get(`
+      SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
+      FROM evening_participants ep
+      JOIN players p ON ep.player_id = p.id
+      WHERE ep.id = ?
+    `, [participantId]);
+
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
 // GET /api/evenings - List game evenings (Public gets published/active, Organizer gets all)
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -96,6 +290,18 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Organizer detailed view
+    let tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [req.params.id]);
+    if (tables.length === 0) {
+      const nowIso = new Date().toISOString();
+      const defaultTableId = `tbl_${Date.now()}_def`;
+      await db.run(
+        `INSERT INTO evening_tables (id, evening_id, name, format, capacity, sort_order, created_at, updated_at)
+         VALUES (?, ?, 'Основной стол', ?, ?, 1, ?, ?)`,
+        [defaultTableId, evening.id, evening.format || 'STANDARD', evening.capacity || 10, nowIso, nowIso]
+      );
+      tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [req.params.id]);
+    }
+
     const participants = await db.all(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
       FROM evening_participants ep
@@ -106,7 +312,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     const games = await db.all('SELECT * FROM games WHERE evening_id = ? ORDER BY global_game_number ASC', [req.params.id]);
 
-    res.json({ ...evening, participants, games });
+    res.json({ ...evening, tables, participants, games });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

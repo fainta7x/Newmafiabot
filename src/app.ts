@@ -13,6 +13,8 @@ import playersRoutes from './server/routes/playersRoutes.ts';
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
+import crmRoutes from './server/routes/crmRoutes.ts';
+import publicRoutes from './server/routes/publicRoutes.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -39,6 +41,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   // Registered Routes
   app.use('/api/auth', authRoutes);
+  app.use('/api/crm', crmRoutes);
+  app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);
   app.use('/api/evening-participants', participantRoutes);

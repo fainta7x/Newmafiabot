@@ -7,8 +7,12 @@ export const players = sqliteTable('players', {
   full_name: text('full_name'),
   telegram_username: text('telegram_username'),
   phone: text('phone'),
-  lifecycle_status: text('lifecycle_status').notNull().default('newcomer'), // lead, newcomer, returning, regular, inactive, blocked
+  lifecycle_status: text('lifecycle_status').notNull().default('normal'), // normal, paused, blocked
   source: text('source'),
+  preferred_format: text('preferred_format'), // novice, standard, any
+  referred_by: text('referred_by'),
+  do_not_invite_until: text('do_not_invite_until'),
+  pause_reason: text('pause_reason'),
   notes: text('notes'),
   elo: integer('elo').notNull().default(1000),
   tokens: integer('tokens').notNull().default(0),
@@ -33,10 +37,26 @@ export const gameEvenings = sqliteTable('game_evenings', {
   updated_at: text('updated_at').notNull(),
 });
 
+export const eveningTables = sqliteTable('evening_tables', {
+  id: text('id').primaryKey(), // UUID
+  evening_id: text('evening_id').notNull().references(() => gameEvenings.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  format: text('format').notNull().default('STANDARD'), // NOVICE, STANDARD, TOURNAMENT
+  capacity: integer('capacity').notNull(),
+  host_name: text('host_name'),
+  starts_at: text('starts_at'),
+  default_price: integer('default_price'),
+  notes: text('notes'),
+  sort_order: integer('sort_order').default(0),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
 export const eveningParticipants = sqliteTable('evening_participants', {
   id: text('id').primaryKey(), // UUID
   evening_id: text('evening_id').notNull().references(() => gameEvenings.id, { onDelete: 'cascade' }),
   player_id: text('player_id').notNull().references(() => players.id, { onDelete: 'cascade' }),
+  table_id: text('table_id').references(() => eveningTables.id, { onDelete: 'set null' }),
   registration_status: text('registration_status').notNull().default('registered'), // invited, registered, confirmed, waitlist, cancelled
   attendance_status: text('attendance_status').notNull().default('pending'), // pending, attended, no_show
   arrival_status: text('arrival_status').notNull().default('unknown'), // unknown, on_time, late
@@ -62,10 +82,23 @@ export const organizerTasks = sqliteTable('organizer_tasks', {
   priority: text('priority').notNull().default('medium'), // low, medium, high
   due_at: text('due_at'),
   completed_at: text('completed_at'),
+  automation_key: text('automation_key').unique(),
   player_id: text('player_id').references(() => players.id, { onDelete: 'set null' }),
   evening_id: text('evening_id').references(() => gameEvenings.id, { onDelete: 'set null' }),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
+});
+
+export const playerActivities = sqliteTable('player_activities', {
+  id: text('id').primaryKey(), // UUID
+  player_id: text('player_id').notNull().references(() => players.id, { onDelete: 'cascade' }),
+  evening_id: text('evening_id').references(() => gameEvenings.id, { onDelete: 'set null' }),
+  task_id: text('task_id').references(() => organizerTasks.id, { onDelete: 'set null' }),
+  type: text('type').notNull(), // invite, contact, response, feedback, note, status_change
+  outcome: text('outcome'), // sent, confirmed, declined, no_response, busy, interested_later, completed, other
+  description: text('description'),
+  occurred_at: text('occurred_at').notNull(),
+  created_at: text('created_at').notNull(),
 });
 
 export const financialTransactions = sqliteTable('financial_transactions', {

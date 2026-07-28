@@ -128,6 +128,13 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       ORDER BY created_at DESC
     `, [req.params.id]);
 
+    // Player Activities
+    const activities = await db.all(`
+      SELECT * FROM player_activities
+      WHERE player_id = ?
+      ORDER BY occurred_at DESC
+    `, [req.params.id]);
+
     const futureBookings = eveningHistory.filter(
       (h: any) => h.evening_status !== 'completed' && h.registration_status !== 'cancelled'
     );
@@ -153,10 +160,31 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       daysSinceLastVisit = Math.floor((Date.now() - lastMs) / (1000 * 60 * 60 * 24));
     }
 
+    // Auto calculate lifecycle stage
+    let calculated_stage = player.lifecycle_status;
+    if (player.lifecycle_status !== 'blocked') {
+      if (player.do_not_invite_until && new Date(player.do_not_invite_until).getTime() > Date.now()) {
+        calculated_stage = 'inactive';
+      } else if (attendanceCount === 0) {
+        calculated_stage = 'lead';
+      } else if (attendanceCount === 1) {
+        calculated_stage = 'newcomer';
+      } else if (attendanceCount >= 2 && attendanceCount <= 4) {
+        calculated_stage = 'returning';
+      } else if (attendanceCount >= 5) {
+        if (daysSinceLastVisit !== null && daysSinceLastVisit > 45) {
+          calculated_stage = 'inactive';
+        } else {
+          calculated_stage = 'regular';
+        }
+      }
+    }
+
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
 
     res.json({
       ...player,
+      calculated_stage,
       stats: {
         attendanceCount,
         noShowCount,
@@ -174,7 +202,58 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       tasks,
       nextTask,
       transactions,
+      activities,
     });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// GET /api/players/:id/activities - Get player activities (Auth required)
+router.get('/:id/activities', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const activities = await db.all(
+      'SELECT * FROM player_activities WHERE player_id = ? ORDER BY occurred_at DESC',
+      [req.params.id]
+    );
+    res.json(activities);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// POST /api/players/:id/activities - Record new activity (Auth required)
+router.post('/:id/activities', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const { type, outcome, description, evening_id, task_id, occurred_at } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ error: 'Тип активности обязателен' });
+    }
+
+    const activityId = `act_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const nowIso = new Date().toISOString();
+
+    await db.run(
+      `INSERT INTO player_activities (id, player_id, evening_id, task_id, type, outcome, description, occurred_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        activityId,
+        req.params.id,
+        evening_id || null,
+        task_id || null,
+        type,
+        outcome || null,
+        description || null,
+        occurred_at || nowIso,
+        nowIso,
+      ]
+    );
+
+    const created = await db.get('SELECT * FROM player_activities WHERE id = ?', [activityId]);
+    res.status(201).json(created);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

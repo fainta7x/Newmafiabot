@@ -126,7 +126,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
           {/* Navigation Tabs */}
           {isOrganizer && (
-            <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold overflow-x-auto max-w-full">
+            <nav className="hidden sm:flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold overflow-x-auto max-w-full">
               <button
                 onClick={() => {
                   setActiveEveningId(null);
@@ -137,7 +137,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Дашборд</span>
+                <span>Пульс</span>
               </button>
 
               <button
@@ -286,6 +286,67 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
           </>
         )}
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {isOrganizer && (
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 flex justify-around p-2 z-40 pb-safe backdrop-blur-md shadow-2xl">
+          <button
+            onClick={() => {
+              setActiveEveningId(null);
+              setActiveTab('overview');
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+              activeTab === 'overview' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Пульс</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveEveningId(null);
+              setActiveTab('evenings');
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+              activeTab === 'evenings' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Вечера</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('players')}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+              activeTab === 'players' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Игроки</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tasks')}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+              activeTab === 'tasks' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Задачи</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+              activeTab === 'analytics' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Анализ</span>
+          </button>
+        </nav>
+      )}
 
       {/* LOGIN MODAL */}
       {showLoginModal && (

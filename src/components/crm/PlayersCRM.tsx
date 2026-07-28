@@ -388,6 +388,71 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                   </div>
                 </div>
 
+                {/* Operational CRM Fields */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider">Операционные настройки CRM</h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Предпочитаемый формат</label>
+                      <select
+                        value={playerDetails.preferred_format || ''}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          await api.updatePlayer(playerDetails.id, { preferred_format: val });
+                          loadPlayerDetails(playerDetails.id);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-medium focus:outline-none"
+                      >
+                        <option value="">Не указан (Любой)</option>
+                        <option value="NOVICE">Новичковый стол</option>
+                        <option value="STANDARD">Классическая Мафия</option>
+                        <option value="TOURNAMENT">Турнирный стол</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Кто привёл (Реферал)</label>
+                      <input
+                        type="text"
+                        defaultValue={playerDetails.referred_by || ''}
+                        onBlur={async (e) => {
+                          await api.updatePlayer(playerDetails.id, { referred_by: e.target.value });
+                        }}
+                        placeholder="Никнейм или имя"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Не беспокоить до</label>
+                      <input
+                        type="date"
+                        defaultValue={playerDetails.do_not_invite_until ? playerDetails.do_not_invite_until.split('T')[0] : ''}
+                        onChange={async (e) => {
+                          const val = e.target.value ? new Date(e.target.value).toISOString() : null;
+                          await api.updatePlayer(playerDetails.id, { do_not_invite_until: val });
+                          loadPlayerDetails(playerDetails.id);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Причина паузы</label>
+                      <input
+                        type="text"
+                        defaultValue={playerDetails.pause_reason || ''}
+                        onBlur={async (e) => {
+                          await api.updatePlayer(playerDetails.id, { pause_reason: e.target.value });
+                        }}
+                        placeholder="Отпуск, работа, учёба..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Aggregated Stats Row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono">
                   <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">

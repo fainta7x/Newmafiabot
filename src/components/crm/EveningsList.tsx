@@ -1,0 +1,262 @@
+import React, { useState } from 'react';
+import { Calendar, Plus, Users, DollarSign, CheckCircle2, ArrowRight, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { GameEvening } from '../../lib/api.ts';
+
+interface EveningsListProps {
+  evenings: GameEvening[];
+  onOpenEvening: (id: string) => void;
+  onCreateEvening: (data: Partial<GameEvening>) => Promise<void>;
+}
+
+export const EveningsList: React.FC<EveningsListProps> = ({
+  evenings,
+  onOpenEvening,
+  onCreateEvening,
+}) => {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [title, setTitle] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [format, setFormat] = useState<'NOVICE' | 'STANDARD' | 'TOURNAMENT'>('STANDARD');
+  const [capacity, setCapacity] = useState(20);
+  const [defaultPrice, setDefaultPrice] = useState(400);
+  const [venue, setVenue] = useState('Зал #1 (Главный)');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !startsAt) return;
+
+    setSaving(true);
+    try {
+      await onCreateEvening({
+        title,
+        starts_at: new Date(startsAt).toISOString(),
+        format,
+        capacity,
+        default_price: defaultPrice,
+        venue,
+        notes,
+        status: 'published',
+      });
+      setShowCreateModal(false);
+      setTitle('');
+      setStartsAt('');
+      setNotes('');
+    } catch (err: any) {
+      alert(err.message || 'Ошибка создания вечера');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Create Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tight">Игровые Вечера Клуба</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Управление мероприятиями, записями игроков и финансовым расчётом</p>
+        </div>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20 shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Запланировать Вечер</span>
+        </button>
+      </div>
+
+      {/* Evenings Grid / Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {evenings.map((e) => {
+          const isCompleted = e.status === 'completed' || !!e.settled_at;
+          const isActive = e.status === 'active';
+
+          return (
+            <div
+              key={e.id}
+              className={`bg-slate-900 border rounded-3xl p-5 space-y-4 flex flex-col justify-between transition-all hover:border-rose-500/40 relative overflow-hidden ${
+                isActive
+                  ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
+                  : isCompleted
+                  ? 'border-slate-800/80 opacity-90'
+                  : 'border-slate-800'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
+                      : isCompleted
+                      ? 'bg-slate-800 text-slate-400 border-slate-700'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : 'Запланирован'}
+                  </span>
+
+                  <span className="text-[11px] font-mono text-slate-400 font-bold uppercase">
+                    {e.format}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-white leading-snug">{e.title}</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    📅 {new Date(e.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                  {e.venue && <p className="text-[11px] text-slate-400">📍 {e.venue}</p>}
+                </div>
+
+                {/* Numbers Row */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-2xl border border-slate-850 text-center font-mono">
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Запись</span>
+                    <span className="text-sm font-bold text-white">{e.registered_count || 0}/{e.capacity}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Пришло</span>
+                    <span className="text-sm font-bold text-emerald-400">{e.attended_count || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Выручка</span>
+                    <span className="text-sm font-bold text-amber-400">{e.total_revenue || 0} ₽</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => onOpenEvening(e.id)}
+                className="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              >
+                <span>Управление вечерa</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Create Evening Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 relative text-white">
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black uppercase tracking-tight">Запланировать новый вечер</h3>
+              <p className="text-xs text-slate-400">Создание нового игрового мероприятия для клуба</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-400 font-bold uppercase mb-1">Название вечера</label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Пятничный мафия-вечер (07.08.2026)"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Дата и время начала</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={startsAt}
+                    onChange={(e) => setStartsAt(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Формат</label>
+                  <select
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="STANDARD">STANDARD (Классика)</option>
+                    <option value="NOVICE">NOVICE (Для новичков)</option>
+                    <option value="TOURNAMENT">TOURNAMENT (Турнир)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Вместимость</label>
+                  <input
+                    type="number"
+                    value={capacity}
+                    onChange={(e) => setCapacity(parseInt(e.target.value) || 20)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Цена по умолч. (₽)</label>
+                  <input
+                    type="number"
+                    value={defaultPrice}
+                    onChange={(e) => setDefaultPrice(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Локация</label>
+                  <input
+                    type="text"
+                    value={venue}
+                    onChange={(e) => setVenue(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold uppercase mb-1">Заметки / Описание</label>
+                <textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Сбор гостей в 19:00, старт первой игры в 19:30"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {saving ? 'Сохранение...' : 'Запланировать вечер'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

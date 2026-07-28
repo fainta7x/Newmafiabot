@@ -94,7 +94,7 @@ export const PurchaseModal: React.FC<PurchaseModalProps> = ({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => onDelete(editingPurchase.id)}
+                  onClick={() => onDelete(Number(editingPurchase.id) || 0)}
                   className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl uppercase cursor-pointer flex-1"
                 >
                   Подтвердить удаление

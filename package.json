@@ -7,30 +7,49 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs"
+    "start": "node dist/server.cjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run"
   },
   "dependencies": {
+    "@types/sql.js": "^1.4.11",
+    "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.395.0",
     "motion": "^11.2.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "sql.js": "^1.14.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",
+    "@types/bcryptjs": "^3.0.0",
     "@types/canvas-confetti": "^1.6.4",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "esbuild": "^0.21.5",
     "postcss": "^8.4.38",
+    "supertest": "^7.2.2",
     "tailwindcss": "^4.0.0-alpha.18",
     "tsx": "^4.15.6",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "vite": "^5.2.11",
+    "vitest": "^4.1.10"
   }
 }

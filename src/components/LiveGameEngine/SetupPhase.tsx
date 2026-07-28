@@ -73,8 +73,8 @@ export default function SetupPhase({
         <div className="space-y-1">
           <label className="text-[9px] text-slate-500 font-bold uppercase block">Судья Вечера / Ведущий</label>
           <select
-            value={judgeId}
-            onChange={(e) => setJudgeId(parseInt(e.target.value))}
+            value={isNaN(judgeId) || judgeId == null ? 0 : judgeId}
+            onChange={(e) => setJudgeId(parseInt(e.target.value) || 0)}
             className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-xs text-slate-200"
           >
             <option value={0}>-- Выбрать судью --</option>
@@ -136,8 +136,8 @@ export default function SetupPhase({
               <div className="space-y-1.5">
                 <label className="text-[9px] text-slate-500 font-bold uppercase block">Никнейм игрока</label>
                 <select
-                  value={s.user_id}
-                  onChange={(e) => handleSelectSetupPlayer(s.slot_num, parseInt(e.target.value))}
+                  value={isNaN(s.user_id) || s.user_id == null ? 0 : s.user_id}
+                  onChange={(e) => handleSelectSetupPlayer(s.slot_num, parseInt(e.target.value) || 0)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
                 >
                   <option value={0}>-- Выбрать игрока --</option>

@@ -1,0 +1,70 @@
+import { z } from 'zod';
+
+export const createEveningSchema = z.object({
+  title: z.string().min(2, 'Заголовок должен содержать минимум 2 символа'),
+  starts_at: z.string().min(10, 'Укажите дату и время начала'),
+  ends_at: z.string().nullable().optional(),
+  timezone: z.string().default('Europe/Moscow'),
+  venue: z.string().nullable().optional(),
+  format: z.enum(['NOVICE', 'STANDARD', 'TOURNAMENT']).default('STANDARD'),
+  status: z.enum(['draft', 'published', 'active', 'completed', 'cancelled']).default('published'),
+  capacity: z.number().int().positive().default(20),
+  default_price: z.number().int().min(0).default(400),
+  notes: z.string().nullable().optional(),
+});
+
+export const updateEveningSchema = createEveningSchema.partial();
+
+export const bulkAddParticipantsSchema = z.object({
+  player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
+  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
+  amount_due: z.number().int().min(0).optional(),
+});
+
+export const addSingleParticipantSchema = z.object({
+  player_id: z.string().min(1).optional(),
+  nickname: z.string().optional(),
+  phone: z.string().optional(),
+  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
+  amount_due: z.number().int().min(0).default(400),
+  amount_paid: z.number().int().min(0).default(0),
+  notes: z.string().nullable().optional(),
+});
+
+export const updateParticipantSchema = z.object({
+  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).optional(),
+  attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(),
+  arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(),
+  payment_status: z.enum(['unpaid', 'partial', 'paid', 'waived']).optional(),
+  amount_due: z.number().int().min(0).optional(),
+  amount_paid: z.number().int().min(0).optional(),
+  notes: z.string().nullable().optional(),
+});
+
+export const createPlayerSchema = z.object({
+  nickname: z.string().min(1, 'Введите никнейм игрока'),
+  full_name: z.string().nullable().optional(),
+  telegram_user_id: z.string().nullable().optional(),
+  telegram_username: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  lifecycle_status: z.enum(['lead', 'newcomer', 'returning', 'regular', 'inactive', 'blocked']).default('newcomer'),
+  source: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  elo: z.number().int().default(1000),
+  tokens: z.number().int().default(0),
+});
+
+export const updatePlayerSchema = createPlayerSchema.partial();
+
+export const createTaskSchema = z.object({
+  title: z.string().min(2, 'Введите название задачи'),
+  description: z.string().nullable().optional(),
+  type: z.enum(['call', 'invite', 'reminder', 'feedback', 'preparation', 'payment', 'other']).default('other'),
+  status: z.enum(['todo', 'in_progress', 'done', 'cancelled']).default('todo'),
+  priority: z.enum(['low', 'medium', 'high']).default('medium'),
+  due_at: z.string().nullable().optional(),
+  player_id: z.string().min(1).nullable().optional(),
+  evening_id: z.string().min(1).nullable().optional(),
+});
+
+export const updateTaskSchema = createTaskSchema.partial();

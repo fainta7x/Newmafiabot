@@ -1,0 +1,36 @@
+# Secrets and environment
+.env
+.env.*
+!.env.example
+
+# Node dependencies and build
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# SQLite databases & runtime storage
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+backups/
+temp/
+mafia_db.json
+
+# Python cache & temp files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# IDE & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Generated images & local media artifacts
+generated_images/

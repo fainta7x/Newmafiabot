@@ -134,7 +134,7 @@ export const EveningLedgerModal: React.FC<EveningLedgerModalProps> = ({
         oldDate: existing.date,
         nickname: existing.nickname,
         date: existing.date,
-        status: existing.status,
+        status: (existing.status === "Не пришел" ? "Отмена" : existing.status) as "Вовремя" | "Позже" | "Отмена",
         payment: amount,
         payment_status: status,
       });

@@ -17,6 +17,7 @@ export const updateEveningSchema = createEveningSchema.partial();
 
 export const bulkAddParticipantsSchema = z.object({
   player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
+  table_id: z.string().nullable().optional(),
   registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
   amount_due: z.number().int().min(0).optional(),
 });
@@ -25,6 +26,7 @@ export const addSingleParticipantSchema = z.object({
   player_id: z.string().min(1).optional(),
   nickname: z.string().optional(),
   phone: z.string().optional(),
+  table_id: z.string().nullable().optional(),
   registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
   amount_due: z.number().int().min(0).default(400),
   amount_paid: z.number().int().min(0).default(0),
@@ -32,6 +34,7 @@ export const addSingleParticipantSchema = z.object({
 });
 
 export const updateParticipantSchema = z.object({
+  table_id: z.string().nullable().optional(),
   registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).optional(),
   attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(),
   arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(),
@@ -47,7 +50,7 @@ export const createPlayerSchema = z.object({
   telegram_user_id: z.string().nullable().optional(),
   telegram_username: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  lifecycle_status: z.enum(['lead', 'newcomer', 'returning', 'regular', 'inactive', 'blocked']).default('newcomer'),
+  lifecycle_status: z.enum(['normal', 'paused', 'blocked']).default('normal'),
   source: z.string().nullable().optional(),
   preferred_format: z.string().nullable().optional(),
   referred_by: z.string().nullable().optional(),

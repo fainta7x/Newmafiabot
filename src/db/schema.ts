@@ -119,6 +119,7 @@ export const financialTransactions = sqliteTable('financial_transactions', {
 export const games = sqliteTable('games', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   evening_id: text('evening_id').references(() => gameEvenings.id, { onDelete: 'set null' }),
+  evening_table_id: text('evening_table_id').references(() => eveningTables.id, { onDelete: 'set null' }),
   global_game_number: integer('global_game_number').notNull(),
   game_date: text('game_date').notNull(),
   winner_team: text('winner_team').notNull(),

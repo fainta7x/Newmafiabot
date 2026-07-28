@@ -38,6 +38,7 @@ router.post('/login', (req, res) => {
     return res.json({
       success: true,
       role: 'ORGANIZER',
+      token,
       message: 'Успешная авторизация организатора',
     });
   }

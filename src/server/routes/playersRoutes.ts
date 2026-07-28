@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
+import { runCrmAutomations } from '../services/crmAutomationService.ts';
 
 const router = Router();
 
@@ -322,6 +323,9 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
 
     const tgUsername = player.telegram_username ? player.telegram_username.replace('@', '') : null;
     const telegramLink = tgUsername ? `https://t.me/${tgUsername}` : null;
+
+    // Run automations after invitation
+    await runCrmAutomations(db);
 
     res.json({
       success: true,

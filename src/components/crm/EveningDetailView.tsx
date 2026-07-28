@@ -76,7 +76,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   const handleBulkAdd = async () => {
     if (selectedPlayerIds.length === 0) return;
     try {
-      const res = await api.bulkAddParticipants(eveningId, selectedPlayerIds, bulkAmountDue);
+      const res = await api.bulkAddParticipants(eveningId, selectedPlayerIds, null, 'registered', bulkAmountDue);
       alert(`Успешно добавлено: ${res.addedCount} игрок(ов). Пропущено дублей: ${res.skippedCount}`);
       setShowBulkAddModal(false);
       setSelectedPlayerIds([]);

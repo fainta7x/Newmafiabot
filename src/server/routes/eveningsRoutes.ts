@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import {
   createEveningSchema,
   updateEveningSchema,
@@ -431,12 +432,16 @@ router.get('/:id/participants', requireOrganizerAuth, async (req, res) => {
 // POST /api/evenings/:id/participants/bulk - Bulk add players (Auth required)
 router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => {
   try {
-    const { player_ids, registration_status, amount_due } = bulkAddParticipantsSchema.parse(req.body);
+    const { player_ids, table_id, registration_status, amount_due } = bulkAddParticipantsSchema.parse(req.body);
     const db = (req as any).db || (await getDb());
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
+    }
+
+    if (evening.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено добавлять игроков в завершённые вечера' });
     }
 
     const defaultPrice = amount_due !== undefined ? amount_due : evening.default_price;
@@ -445,11 +450,26 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     let skippedCount = 0;
     let waitlistCount = 0;
 
-    const currentRegRow = await db.get(
-      `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
-      [req.params.id]
-    );
-    let currentRegCount = currentRegRow?.cnt || 0;
+    // Table capacity check preparation
+    let currentRegCount = 0;
+    let table: any = null;
+    if (table_id) {
+      table = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [table_id, req.params.id]);
+      if (!table) {
+        return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
+      }
+      const countRow = await db.get(
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        [table_id]
+      );
+      currentRegCount = countRow?.cnt || 0;
+    } else {
+      const currentRegRow = await db.get(
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        [req.params.id]
+      );
+      currentRegCount = currentRegRow?.cnt || 0;
+    }
 
     await db.exec('BEGIN TRANSACTION');
     try {
@@ -463,7 +483,8 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
           skippedCount++;
         } else {
           let regStatus = registration_status;
-          if (currentRegCount >= evening.capacity && regStatus !== 'cancelled') {
+          const limit = table ? table.capacity : evening.capacity;
+          if (currentRegCount >= limit && regStatus !== 'cancelled') {
             regStatus = 'waitlist';
             waitlistCount++;
           } else {
@@ -473,12 +494,13 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
 
           const partId = crypto.randomUUID();
           await db.run(
-            `INSERT INTO evening_participants (id, evening_id, player_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, confirmed_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, confirmed_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               partId,
               req.params.id,
               playerId,
+              table_id || null,
               regStatus,
               'pending',
               'unknown',
@@ -498,6 +520,9 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
       try { await db.exec('ROLLBACK'); } catch (_) {}
       throw e;
     }
+
+    // Run CRM automations
+    await runCrmAutomations(db);
 
     const updatedParticipants = await db.all(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
@@ -521,12 +546,21 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
 // PATCH /api/evenings/:id/participants/bulk - Bulk update participant statuses in single transaction (Auth required)
 router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => {
   try {
-    const { updates } = req.body; // Array of { id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes }
+    const { updates } = req.body; // Array of { id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes }
     if (!Array.isArray(updates) || updates.length === 0) {
       return res.status(400).json({ error: 'Список обновлений участников пуст или некорректен' });
     }
 
     const db = (req as any).db || (await getDb());
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    if (!evening) {
+      return res.status(404).json({ error: 'Игровой вечер не найден' });
+    }
+
+    if (evening.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять столы или статусы участников на завершённых вечерах' });
+    }
+
     const now = new Date().toISOString();
 
     await db.exec('BEGIN TRANSACTION');
@@ -537,7 +571,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
         const fields: string[] = [];
         const values: any[] = [];
 
-        ['registration_status', 'attendance_status', 'arrival_status', 'payment_status', 'amount_due', 'amount_paid', 'notes'].forEach((key) => {
+        ['table_id', 'registration_status', 'attendance_status', 'arrival_status', 'payment_status', 'amount_due', 'amount_paid', 'notes'].forEach((key) => {
           if (item[key] !== undefined) {
             fields.push(`${key} = ?`);
             values.push(item[key]);
@@ -557,6 +591,9 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
       try { await db.exec('ROLLBACK'); } catch (_) {}
       throw err;
     }
+
+    // Run CRM automations
+    await runCrmAutomations(db);
 
     const updatedParticipants = await db.all(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
@@ -582,6 +619,10 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
 
+    if (evening.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено записывать игроков на завершённые вечера' });
+    }
+
     let playerId = data.player_id;
 
     // Quick guest creation
@@ -595,7 +636,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
         await db.run(
           `INSERT INTO players (id, nickname, phone, lifecycle_status, source, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [playerId, data.nickname, data.phone || null, 'newcomer', 'quick_guest', now, now]
+          [playerId, data.nickname, data.phone || null, 'normal', 'quick_guest', now, now]
         );
       }
     }
@@ -614,15 +655,29 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     }
 
     // Capacity Check
-    const regCountRow = await db.get(
-      `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
-      [req.params.id]
-    );
-    const regCount = regCountRow?.cnt || 0;
-
     let finalRegStatus = data.registration_status;
-    if (regCount >= evening.capacity && finalRegStatus !== 'cancelled' && !(req.body as any).force_over_capacity) {
-      finalRegStatus = 'waitlist';
+    if (data.table_id) {
+      const table = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [data.table_id, req.params.id]);
+      if (!table) {
+        return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
+      }
+      const countRow = await db.get(
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        [data.table_id]
+      );
+      const currentCount = countRow?.cnt || 0;
+      if (currentCount >= table.capacity && finalRegStatus !== 'cancelled' && !(req.body as any).force_over_capacity) {
+        finalRegStatus = 'waitlist';
+      }
+    } else {
+      const regCountRow = await db.get(
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        [req.params.id]
+      );
+      const regCount = regCountRow?.cnt || 0;
+      if (regCount >= evening.capacity && finalRegStatus !== 'cancelled' && !(req.body as any).force_over_capacity) {
+        finalRegStatus = 'waitlist';
+      }
     }
 
     const partId = crypto.randomUUID();
@@ -630,12 +685,13 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     const paymentStatus = data.amount_paid >= data.amount_due ? 'paid' : data.amount_paid > 0 ? 'partial' : 'unpaid';
 
     await db.run(
-      `INSERT INTO evening_participants (id, evening_id, player_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes, registered_at, confirmed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes, registered_at, confirmed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         partId,
         req.params.id,
         playerId,
+        data.table_id || null,
         finalRegStatus,
         'pending',
         'unknown',
@@ -649,6 +705,9 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
         now,
       ]
     );
+
+    // Run CRM automations
+    await runCrmAutomations(db);
 
     const participant = await db.get(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
@@ -767,6 +826,9 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
       throw e;
     }
 
+    // Run CRM automations after closing the evening
+    await runCrmAutomations(db);
+
     const settledEvening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     res.json({
       success: true,
@@ -817,6 +879,184 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
       transaction: createdTx,
       message: 'Корректировка успешно сохранена в финансовом журнале',
     });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// GET /api/evenings/:id/tables - Get tables of an evening
+router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [req.params.id]);
+    res.json(tables);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// POST /api/evenings/:id/tables - Create a table for an evening
+router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    if (!evening) {
+      return res.status(404).json({ error: 'Игровой вечер не найден' });
+    }
+    if (evening.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
+    }
+
+    const tableId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tableId,
+        req.params.id,
+        req.body.name || 'Новый стол',
+        req.body.format || 'STANDARD',
+        req.body.capacity || 10,
+        req.body.host_name || null,
+        req.body.default_price || evening.default_price || 500,
+        req.body.notes || null,
+        req.body.sort_order || 0,
+        now,
+        now,
+      ]
+    );
+
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [tableId]);
+    res.status(201).json(table);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// PUT /api/evenings/tables/:tableId - Update a table
+router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    if (!table) {
+      return res.status(404).json({ error: 'Стол не найден' });
+    }
+
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [table.evening_id]);
+    if (evening?.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
+    }
+
+    const now = new Date().toISOString();
+    await db.run(
+      `UPDATE evening_tables 
+       SET name = ?, format = ?, capacity = ?, host_name = ?, default_price = ?, notes = ?, sort_order = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        req.body.name !== undefined ? req.body.name : table.name,
+        req.body.format !== undefined ? req.body.format : table.format,
+        req.body.capacity !== undefined ? req.body.capacity : table.capacity,
+        req.body.host_name !== undefined ? req.body.host_name : table.host_name,
+        req.body.default_price !== undefined ? req.body.default_price : table.default_price,
+        req.body.notes !== undefined ? req.body.notes : table.notes,
+        req.body.sort_order !== undefined ? req.body.sort_order : table.sort_order,
+        now,
+        req.params.tableId,
+      ]
+    );
+
+    const updated = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// DELETE /api/evenings/tables/:tableId - Delete a table
+router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    if (!table) {
+      return res.status(404).json({ error: 'Стол не найден' });
+    }
+
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [table.evening_id]);
+    if (evening?.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
+    }
+
+    // Set all players currently assigned to this table to "Стол не назначен" (table_id = NULL)
+    await db.run('UPDATE evening_participants SET table_id = NULL WHERE table_id = ?', [req.params.tableId]);
+
+    // Delete table
+    await db.run('DELETE FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// PATCH /api/evenings/participants/:participantId/move-table - Move participant to another table
+router.patch('/participants/:participantId/move-table', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.participantId]);
+    if (!participant) {
+      return res.status(404).json({ error: 'Участник не найден' });
+    }
+
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [participant.evening_id]);
+    if (evening?.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
+    }
+
+    const { table_id } = req.body;
+    let targetRegStatus = participant.registration_status;
+
+    if (table_id) {
+      const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [table_id]);
+      if (!table) {
+        return res.status(404).json({ error: 'Стол не найден' });
+      }
+      if (table.evening_id !== participant.evening_id) {
+        return res.status(400).json({ error: 'Стол принадлежит другому вечеру' });
+      }
+
+      // Capacity check
+      const countRow = await db.get(
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist') AND id != ?`,
+        [table_id, req.params.participantId]
+      );
+      const currentCount = countRow?.cnt || 0;
+      if (currentCount >= table.capacity && targetRegStatus !== 'cancelled') {
+        targetRegStatus = 'waitlist';
+      } else if (targetRegStatus === 'waitlist') {
+        // Move from waitlist to registered since there's room on the new table
+        targetRegStatus = 'registered';
+      }
+    }
+
+    const now = new Date().toISOString();
+    await db.run(
+      `UPDATE evening_participants 
+       SET table_id = ?, registration_status = ?, updated_at = ? 
+       WHERE id = ?`,
+      [table_id || null, targetRegStatus, now, req.params.participantId]
+    );
+
+    // Run CRM automations
+    await runCrmAutomations(db);
+
+    const updated = await db.get(`
+      SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
+      FROM evening_participants ep
+      JOIN players p ON ep.player_id = p.id
+      WHERE ep.id = ?
+    `, [req.params.participantId]);
+
+    res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

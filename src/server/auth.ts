@@ -51,7 +51,16 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
-  const token = req.cookies?.organizer_token;
+  let token = req.cookies?.organizer_token;
+
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (req.headers['x-organizer-token']) {
+      token = req.headers['x-organizer-token'] as string;
+    }
+  }
 
   if (token) {
     try {

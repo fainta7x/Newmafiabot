@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { runCrmAutomations } from '../services/crmAutomationService.ts';
 
 const router = Router();
 
@@ -9,10 +10,14 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
   try {
     const db = (req as any).db || (await getDb());
 
+    // Run automations before returning the overview
+    await runCrmAutomations(db);
+
     const nowIso = new Date().toISOString();
 
-    // 1. Closest future evening (starts_at >= now or closest future evening that is not cancelled or completed)
-    let nextEvening = await db.get(
+    // 1. Closest future evening (starts_at >= now_date AND not cancelled or completed)
+    const todayDateStr = nowIso.substring(0, 10);
+    const nextEvening = await db.get(
       `SELECT e.*,
         (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status != 'cancelled') as registered_count,
         (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'confirmed') as confirmed_count,
@@ -22,23 +27,8 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
        WHERE e.status NOT IN ('cancelled', 'completed') AND e.starts_at >= ?
        ORDER BY e.starts_at ASC
        LIMIT 1`,
-      [nowIso.substring(0, 10)] // Compare date or full timestamp
+      [todayDateStr]
     );
-
-    // Fallback: if no future evening, take any upcoming draft/published
-    if (!nextEvening) {
-      nextEvening = await db.get(
-        `SELECT e.*,
-          (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status != 'cancelled') as registered_count,
-          (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'confirmed') as confirmed_count,
-          (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'waitlist') as waitlist_count,
-          (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'invited') as invited_count
-         FROM game_evenings e
-         WHERE e.status IN ('draft', 'published', 'active')
-         ORDER BY e.starts_at DESC
-         LIMIT 1`
-      );
-    }
 
     let tables: any[] = [];
     let eveningParticipants: any[] = [];
@@ -97,7 +87,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       newcomersOnEvening = eveningParticipants.filter((p: any) => p.total_attended <= 1);
     }
 
-    // 2. Overdue tasks
+    // 2. Overdue tasks (status != done, due_at in past)
     const overdueTasks = await db.all(
       `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
        FROM organizer_tasks t
@@ -107,18 +97,27 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       [nowIso]
     );
 
-    // 3. Today's tasks
+    // 3. Today's tasks (due_at contains today date, not NULL, status != done)
     const todayStr = nowIso.substring(0, 10);
     const todayTasks = await db.all(
       `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
        FROM organizer_tasks t
        LEFT JOIN players p ON p.id = t.player_id
-       WHERE t.status != 'done' AND (t.due_at LIKE ? OR t.due_at IS NULL)
-       ORDER BY t.created_at DESC`,
+       WHERE t.status != 'done' AND t.due_at IS NOT NULL AND t.due_at LIKE ?
+       ORDER BY t.due_at ASC`,
       [`${todayStr}%`]
     );
 
-    // 4. Newcomers after 1st visit with no open follow-up feedback task
+    // 4. Tasks without deadline
+    const noDeadlineTasks = await db.all(
+      `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
+       FROM organizer_tasks t
+       LEFT JOIN players p ON p.id = t.player_id
+       WHERE t.status != 'done' AND t.due_at IS NULL
+       ORDER BY t.created_at DESC`
+    );
+
+    // 5. Newcomers after 1st visit with no open follow-up feedback task
     const newcomersAfterFirst = await db.all(
       `SELECT p.*,
         (SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id = p.id AND ep.attendance_status = 'attended') as attendance_count,
@@ -131,7 +130,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
        LIMIT 10`
     );
 
-    // 5. Inactive/Lapsed players (no visit in 30+ days and no open task)
+    // 6. Inactive/Lapsed players (no visit in 30+ days and no open task)
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const lapsedPlayers = await db.all(
       `SELECT p.*,
@@ -151,7 +150,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       [thirtyDaysAgoIso]
     );
 
-    // 6. Unpaid participants / debtors
+    // 7. Unpaid participants / debtors
     const unpaidParticipants = await db.all(
       `SELECT ep.*, p.nickname, p.phone, p.telegram_username, ge.title as evening_title, ge.starts_at as evening_date
        FROM evening_participants ep
@@ -185,11 +184,13 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
         lapsedPlayers,
         overdueTasks,
         todayTasks,
+        noDeadlineTasks,
         unpaidParticipants,
       },
       summary: {
         overdueTasksCount: overdueTasks.length,
         todayTasksCount: todayTasks.length,
+        noDeadlineTasksCount: noDeadlineTasks.length,
         newcomersWithoutFollowupCount: newcomersAfterFirst.length,
         lapsedPlayersCount: lapsedPlayers.length,
         unpaidParticipantsCount: unpaidParticipants.length,

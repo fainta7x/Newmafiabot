@@ -108,6 +108,7 @@ export interface EveningParticipant {
   id: string;
   evening_id: string;
   player_id: string;
+  table_id?: string | null;
   nickname: string;
   phone?: string | null;
   telegram_username?: string | null;
@@ -178,6 +179,13 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string>),
   };
 
+  if (typeof window !== 'undefined') {
+    const storedToken = localStorage.getItem('organizer_token');
+    if (storedToken) {
+      headers['Authorization'] = `Bearer ${storedToken}`;
+    }
+  }
+
   const res = await fetch(url, {
     ...options,
     headers,
@@ -202,13 +210,23 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   // Auth
-  login: (password: string) =>
-    request<{ success: boolean; role: string; message: string }>('/api/auth/login', {
+  login: async (password: string) => {
+    const res = await request<{ success: boolean; role: string; token?: string; message: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ password }),
-    }),
+    });
+    if (res.token && typeof window !== 'undefined') {
+      localStorage.setItem('organizer_token', res.token);
+    }
+    return res;
+  },
   getMe: () => request<{ role: string; isOrganizer: boolean }>('/api/auth/me'),
-  logout: () => request<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
+  logout: async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('organizer_token');
+    }
+    return request<{ success: boolean }>('/api/auth/logout', { method: 'POST' });
+  },
 
   // CRM & Overview
   getCrmOverview: () => request<CrmOverview>('/api/crm/overview'),
@@ -247,10 +265,10 @@ export const api = {
     }),
 
   // Participants
-  bulkAddParticipants: (eveningId: string, playerIds: string[], amountDue?: number) =>
+  bulkAddParticipants: (eveningId: string, playerIds: string[], tableId?: string | null, registrationStatus: string = 'registered', amountDue?: number) =>
     request<{ success: boolean; addedCount: number; waitlistCount: number; skippedCount: number; participants: EveningParticipant[] }>(
       `/api/evenings/${eveningId}/participants/bulk`,
-      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, registration_status: 'registered', amount_due: amountDue }) }
+      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, table_id: tableId, registration_status: registrationStatus, amount_due: amountDue }) }
     ),
   bulkUpdateParticipants: (eveningId: string, updates: Partial<EveningParticipant>[]) =>
     request<{ success: boolean; participants: EveningParticipant[] }>(
@@ -259,7 +277,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',
@@ -299,10 +317,10 @@ export const api = {
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
-  invitePlayer: (playerId: string, eveningId: string, createFollowupTask: boolean = true) =>
+  invitePlayer: (playerId: string, eveningId: string, tableId?: string | null, createFollowupTask: boolean = true) =>
     request<{ success: boolean; participant: EveningParticipant; task?: OrganizerTask; telegramLink?: string }>(
       `/api/players/${playerId}/invite`,
-      { method: 'POST', body: JSON.stringify({ evening_id: eveningId, create_followup_task: createFollowupTask }) }
+      { method: 'POST', body: JSON.stringify({ evening_id: eveningId, table_id: tableId, create_followup_task: createFollowupTask }) }
     ),
   getPlayerActivities: (playerId: string) => request<PlayerActivity[]>(`/api/players/${playerId}/activities`),
   addPlayerActivity: (playerId: string, data: Partial<PlayerActivity>) =>

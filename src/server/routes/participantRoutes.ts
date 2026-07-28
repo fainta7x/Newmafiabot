@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { updateParticipantSchema } from '../validation.ts';
+import { runCrmAutomations } from '../services/crmAutomationService.ts';
 
 const router = Router();
 
@@ -14,6 +15,11 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!part) {
       return res.status(404).json({ error: 'Запись участника не найдена' });
+    }
+
+    const evening = await db.get('SELECT status FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено изменять участников на завершённых вечерах' });
     }
 
     const fields: string[] = [];
@@ -52,6 +58,9 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     values.push(req.params.id);
     await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
 
+    // Run CRM automations
+    await runCrmAutomations(db);
+
     const updated = await db.get(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
       FROM evening_participants ep
@@ -69,7 +78,21 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
+    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
+    if (!part) {
+      return res.status(404).json({ error: 'Запись участника не найдена' });
+    }
+
+    const evening = await db.get('SELECT status FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'completed') {
+      return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
+    }
+
     await db.run('DELETE FROM evening_participants WHERE id = ?', [req.params.id]);
+
+    // Run CRM automations
+    await runCrmAutomations(db);
+
     res.json({ success: true, message: 'Участник удален из вечера' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

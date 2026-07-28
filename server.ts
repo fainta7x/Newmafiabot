@@ -7,7 +7,7 @@ dotenv.config();
 async function startServer() {
   const db = await getDb();
   const app = await createApp(db);
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Mafia CRM Server running on http://0.0.0.0:${PORT}`);

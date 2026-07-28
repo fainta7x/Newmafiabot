@@ -115,15 +115,21 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
         dbWrapper.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${colDef}`);
       }
     } catch (e) {
-      // Ignore if table or column issue
+      console.error(`Failed to add column ${columnName} to table ${tableName}:`, e);
     }
   };
 
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
-  addColumnIfNotExists('organizer_tasks', 'automation_key', 'TEXT UNIQUE');
+  addColumnIfNotExists('organizer_tasks', 'automation_key', 'TEXT');
   addColumnIfNotExists('players', 'preferred_format', 'TEXT');
   addColumnIfNotExists('players', 'referred_by', 'TEXT');
   addColumnIfNotExists('players', 'do_not_invite_until', 'TEXT');
   addColumnIfNotExists('players', 'pause_reason', 'TEXT');
+
+  const migration1SqlPath = path.join(process.cwd(), 'drizzle', '0001_complete_club_workflow.sql');
+  if (fs.existsSync(migration1SqlPath)) {
+    const migration1Sql = fs.readFileSync(migration1SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration1Sql);
+  }
 }

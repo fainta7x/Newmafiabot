@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, DatabaseWrapper } from '../db/index.ts';
@@ -1029,6 +1029,189 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       const tasksAfter = (await request(app).get('/api/tasks').set('Cookie', organizerCookie)).body.length;
       expect(tasksAfter).toBe(tasksBefore);
       expect(res2.body).toEqual(res1.body);
+    });
+  });
+
+  describe('Player Invitation Endpoint POST /api/players/:id/invite', () => {
+    let testPlayerId: string;
+    let testEveningId: string;
+    let testTableId: string;
+    let otherEveningId: string;
+    let otherTableId: string;
+
+    beforeEach(async () => {
+      // Create player with unique nickname
+      const uniqueNick = `InvitePlayer_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const pRes = await request(app)
+        .post('/api/players')
+        .set('Cookie', organizerCookie)
+        .send({ nickname: uniqueNick, phone: '+79001112233' });
+      testPlayerId = pRes.body.id;
+
+      // Create main future evening
+      const futureDate = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+      const eRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Future Evening for Invite Test', starts_at: futureDate, status: 'published', default_price: 1000 });
+      testEveningId = eRes.body.id;
+
+      // Create table for main evening
+      const tRes = await request(app)
+        .post(`/api/evenings/${testEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'VIP Table', default_price: 1500, capacity: 10 });
+      testTableId = tRes.body.id;
+
+      // Create secondary future evening and its table
+      const eRes2 = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Other Evening', starts_at: futureDate, status: 'published', default_price: 1000 });
+      otherEveningId = eRes2.body.id;
+
+      const tRes2 = await request(app)
+        .post(`/api/evenings/${otherEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Other Table', default_price: 1200, capacity: 10 });
+      otherTableId = tRes2.body.id;
+    });
+
+    it('1. Invitation saves evening_id and table_id', async () => {
+      const res = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, table_id: testTableId, create_followup_task: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.participant.evening_id).toBe(testEveningId);
+      expect(res.body.participant.table_id).toBe(testTableId);
+      expect(res.body.participant.registration_status).toBe('invited');
+      expect(res.body.participant.amount_due).toBe(1500);
+    });
+
+    it('2. Table from another evening is rejected', async () => {
+      const res = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, table_id: otherTableId });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/не принадлежит/);
+    });
+
+    it('3. Duplicate invitation does not create a second participant', async () => {
+      const res1 = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, table_id: testTableId });
+
+      expect(res1.status).toBe(200);
+
+      const res2 = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, table_id: testTableId });
+
+      expect(res2.status).toBe(200);
+
+      const evRes = await request(app)
+        .get(`/api/evenings/${testEveningId}`)
+        .set('Cookie', organizerCookie);
+
+      const count = evRes.body.participants.filter((p: any) => p.player_id === testPlayerId).length;
+      expect(count).toBe(1);
+    });
+
+    it('4. Duplicate invitation does not create a second task or activity', async () => {
+      await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, create_followup_task: true });
+
+      await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, create_followup_task: true });
+
+      const playerRes = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      const tasks = playerRes.body.tasks.filter((t: any) => t.automation_key === `invite-followup:${testEveningId}:${testPlayerId}`);
+      expect(tasks.length).toBe(1);
+
+      const activitiesRes = await request(app)
+        .get(`/api/players/${testPlayerId}/activities`)
+        .set('Cookie', organizerCookie);
+
+      const inviteActivities = activitiesRes.body.filter((a: any) => a.evening_id === testEveningId && a.type === 'invite');
+      expect(inviteActivities.length).toBe(1);
+    });
+
+    it('5. Table price 0 saves as waived', async () => {
+      const freeTableRes = await request(app)
+        .post(`/api/evenings/${testEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Free Table', default_price: 0, capacity: 10 });
+
+      const res = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, table_id: freeTableRes.body.id });
+
+      expect(res.status).toBe(200);
+      expect(res.body.participant.amount_due).toBe(0);
+      expect(res.body.participant.payment_status).toBe('waived');
+    });
+
+    it('6. Blocked player or player with do_not_invite_until in future cannot be invited', async () => {
+      // 6a. Blocked player
+      const blockedP = await request(app)
+        .post('/api/players')
+        .set('Cookie', organizerCookie)
+        .send({ nickname: 'BlockedPlayer', lifecycle_status: 'blocked' });
+
+      const resBlocked = await request(app)
+        .post(`/api/players/${blockedP.body.id}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId });
+
+      expect(resBlocked.status).toBe(400);
+
+      // 6b. Player with do_not_invite_until in future
+      const futurePause = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+      const pausedP = await request(app)
+        .post('/api/players')
+        .set('Cookie', organizerCookie)
+        .send({ nickname: 'PausedPlayer' });
+
+      await request(app)
+        .patch(`/api/players/${pausedP.body.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ do_not_invite_until: futurePause });
+
+      const resPaused = await request(app)
+        .post(`/api/players/${pausedP.body.id}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId });
+
+      expect(resPaused.status).toBe(400);
+
+      // 6c. Player with do_not_invite_until in past can be invited
+      const pastPause = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      await request(app)
+        .patch(`/api/players/${pausedP.body.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ do_not_invite_until: pastPause });
+
+      const resUnpaused = await request(app)
+        .post(`/api/players/${pausedP.body.id}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId });
+
+      expect(resUnpaused.status).toBe(200);
     });
   });
 });

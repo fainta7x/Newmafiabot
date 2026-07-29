@@ -264,7 +264,7 @@ router.post('/:id/activities', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
-    const { evening_id, create_followup_task, task_due_days } = req.body;
+    const { evening_id, table_id, create_followup_task, task_due_days } = req.body;
 
     if (!evening_id) {
       return res.status(400).json({ error: 'Не указан evening_id' });
@@ -275,10 +275,44 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
 
+    if (player.is_blocked === 1 || player.is_blocked === true || player.lifecycle_status === 'blocked') {
+      return res.status(400).json({ error: 'Заблокированного игрока нельзя пригласить' });
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (player.do_not_invite_until && player.do_not_invite_until.trim() !== '') {
+      if (new Date(player.do_not_invite_until).getTime() > Date.now()) {
+        return res.status(400).json({ error: 'Игроку установлена задержка приглашений (do_not_invite_until)' });
+      }
+    }
+
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [evening_id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
+
+    if (evening.status === 'completed' || evening.status === 'cancelled' || new Date(evening.starts_at).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Приглашать можно только на будущие и не завершенные вечера' });
+    }
+
+    let selectedTable: any = null;
+    if (table_id) {
+      selectedTable = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [table_id, evening_id]);
+      if (!selectedTable) {
+        return res.status(400).json({ error: 'Выбранный стол не принадлежит этому вечеру' });
+      }
+    }
+
+    // Determine price: table price if defined, otherwise evening price
+    let price = evening.default_price || 0;
+    if (selectedTable && selectedTable.default_price !== null && selectedTable.default_price !== undefined) {
+      price = selectedTable.default_price;
+    } else if (selectedTable && selectedTable.price !== null && selectedTable.price !== undefined) {
+      price = selectedTable.price;
+    }
+
+    const paymentStatus = price === 0 ? 'waived' : 'unpaid';
 
     // Check if participant already exists
     let participant = await db.get(
@@ -286,39 +320,69 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       [evening_id, req.params.id]
     );
 
-    const now = new Date().toISOString();
-
     if (!participant) {
       const partId = crypto.randomUUID();
       await db.run(
-        `INSERT INTO evening_participants (id, evening_id, player_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-         VALUES (?, ?, ?, 'invited', 'pending', 'unknown', 'unpaid', ?, 0, ?, ?, ?)`,
-        [partId, evening_id, req.params.id, evening.default_price || 0, now, now, now]
+        `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+        [partId, evening_id, req.params.id, selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
       );
       participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);
     }
 
-    let followupTask = null;
-    if (create_followup_task) {
-      const taskId = crypto.randomUUID();
-      const days = typeof task_due_days === 'number' ? task_due_days : 2;
-      const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    // Create player_activity (type=invite, outcome=sent, evening_id) if not exists
+    const existingActivity = await db.get(
+      `SELECT * FROM player_activities WHERE player_id = ? AND evening_id = ? AND type = 'invite'`,
+      [req.params.id, evening_id]
+    );
+
+    if (!existingActivity) {
+      const actId = `act_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+      const descTable = selectedTable ? ` (стол "${selectedTable.name}")` : '';
+      const description = `Приглашение на вечер "${evening.title}"${descTable}`;
 
       await db.run(
-        `INSERT INTO organizer_tasks (id, title, description, type, status, priority, due_at, player_id, evening_id, created_at, updated_at)
-         VALUES (?, ?, ?, 'invite', 'todo', 'medium', ?, ?, ?, ?, ?)`,
-        [
-          taskId,
-          `Подтвердить запись: ${player.nickname} на ${evening.title}`,
-          `Напомнить про игровой вечер ${evening.title} (${evening.starts_at})`,
-          dueAt,
-          player.id,
-          evening.id,
-          now,
-          now,
-        ]
+        `INSERT INTO player_activities (id, player_id, evening_id, type, outcome, description, occurred_at, created_at)
+         VALUES (?, ?, ?, 'invite', 'sent', ?, ?, ?)`,
+        [actId, req.params.id, evening_id, description, nowIso, nowIso]
       );
-      followupTask = await db.get('SELECT * FROM organizer_tasks WHERE id = ?', [taskId]);
+    }
+
+    // Create followup reminder task with key: invite-followup:{eveningId}:{playerId}
+    const automationKey = `invite-followup:${evening_id}:${player.id}`;
+    let followupTask = await db.get('SELECT * FROM organizer_tasks WHERE automation_key = ?', [automationKey]);
+
+    if (create_followup_task) {
+      const existingOpenTask = await db.get(
+        `SELECT * FROM organizer_tasks WHERE automation_key = ? AND status NOT IN ('done', 'cancelled')`,
+        [automationKey]
+      );
+
+      if (!existingOpenTask) {
+        const taskId = `tsk_${crypto.randomUUID()}`;
+        const days = typeof task_due_days === 'number' ? task_due_days : 2;
+        const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+        const descTable = selectedTable ? ` (${selectedTable.name})` : '';
+
+        await db.run(
+          `INSERT OR IGNORE INTO organizer_tasks (id, title, description, type, status, priority, due_at, automation_key, player_id, evening_id, created_at, updated_at)
+           VALUES (?, ?, ?, 'invite', 'todo', 'medium', ?, ?, ?, ?, ?, ?)`,
+          [
+            taskId,
+            `Подтвердить запись: ${player.nickname} на ${evening.title}`,
+            `Напомнить про игровой вечер ${evening.title}${descTable} (${evening.starts_at})`,
+            dueAt,
+            automationKey,
+            player.id,
+            evening.id,
+            nowIso,
+            nowIso,
+          ]
+        );
+        followupTask = await db.get('SELECT * FROM organizer_tasks WHERE automation_key = ?', [automationKey]);
+      } else {
+        followupTask = existingOpenTask;
+      }
     }
 
     const tgUsername = player.telegram_username ? player.telegram_username.replace('@', '') : null;

@@ -7,8 +7,11 @@ import {
   FileText,
   X,
   ChevronRight,
+  Copy,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
-import { api, Player, GameEvening, OrganizerTask } from '../../lib/api.ts';
+import { api, Player, GameEvening, EveningTable, OrganizerTask } from '../../lib/api.ts';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -46,6 +49,18 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   // New task modal from player card
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
+
+  // Invite Modal State
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [futureEvenings, setFutureEvenings] = useState<GameEvening[]>([]);
+  const [selectedEveningId, setSelectedEveningId] = useState<string>('');
+  const [eveningTables, setEveningTables] = useState<EveningTable[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>('');
+  const [createFollowupTask, setCreateFollowupTask] = useState(true);
+  const [inviteMessageText, setInviteMessageText] = useState('');
+  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlayers();
@@ -153,6 +168,196 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       loadPlayerDetails(playerDetails.id);
     } catch (err: any) {
       alert(err.message || 'Ошибка создания задачи');
+    }
+  };
+
+  const updateInviteMessage = (player: any, evening: GameEvening, table: EveningTable | null) => {
+    const dateObj = new Date(evening.starts_at);
+    const dateFormatted =
+      dateObj.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        weekday: 'short',
+      }) +
+      ' в ' +
+      dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+    const tableName = table ? table.name : 'Без стола';
+    const price = table?.default_price ?? evening.default_price ?? 0;
+    const priceStr = price > 0 ? `${price} ₽` : 'Бесплатно';
+    const venueStr = evening.venue || 'Клуб';
+
+    setInviteMessageText(
+      `Привет, ${player.nickname}! 👋\n` +
+        `Приглашаем тебя на игровой вечер "${evening.title}"!\n\n` +
+        `📅 Дата и время: ${dateFormatted}\n` +
+        `📍 Место: ${venueStr}\n` +
+        `🪑 Стол: ${tableName}\n` +
+        `💰 Стоимость: ${priceStr}\n\n` +
+        `Ждём тебя на игре!`
+    );
+  };
+
+  const handleOpenInviteModal = async () => {
+    if (!playerDetails) return;
+    setInviteError(null);
+    setCopySuccess(false);
+    try {
+      const allEvenings = await api.getEvenings();
+      const nowIso = new Date().toISOString();
+      const future = allEvenings.filter(
+        (e) => e.status !== 'completed' && e.status !== 'cancelled' && e.starts_at >= nowIso
+      );
+      setFutureEvenings(future);
+
+      if (future.length > 0) {
+        const initialEveningId = future[0].id;
+        setSelectedEveningId(initialEveningId);
+        const tables = await api.getEveningTables(initialEveningId);
+        setEveningTables(tables);
+        setSelectedTableId('');
+        updateInviteMessage(playerDetails, future[0], null);
+      } else {
+        setSelectedEveningId('');
+        setEveningTables([]);
+        setSelectedTableId('');
+        setInviteMessageText('');
+      }
+      setShowInviteModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Ошибка загрузки вечеров');
+    }
+  };
+
+  const handleSelectEvening = async (eveningId: string) => {
+    setSelectedEveningId(eveningId);
+    setSelectedTableId('');
+    const ev = futureEvenings.find((e) => e.id === eveningId);
+    if (eveningId) {
+      try {
+        const tables = await api.getEveningTables(eveningId);
+        setEveningTables(tables);
+        if (ev && playerDetails) {
+          updateInviteMessage(playerDetails, ev, null);
+        }
+      } catch (err: any) {
+        console.error('Error fetching tables', err);
+      }
+    } else {
+      setEveningTables([]);
+      setInviteMessageText('');
+    }
+  };
+
+  const handleSelectTable = (tableId: string) => {
+    setSelectedTableId(tableId);
+    const ev = futureEvenings.find((e) => e.id === selectedEveningId);
+    const tbl = eveningTables.find((t) => t.id === tableId) || null;
+    if (ev && playerDetails) {
+      updateInviteMessage(playerDetails, ev, tbl);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!playerDetails || !selectedEveningId) return;
+    setIsSubmittingInvite(true);
+    setInviteError(null);
+    try {
+      await api.invitePlayer(
+        playerDetails.id,
+        selectedEveningId,
+        selectedTableId || null,
+        createFollowupTask
+      );
+      setShowInviteModal(false);
+      await loadPlayerDetails(playerDetails.id);
+      await loadPlayers();
+    } catch (err: any) {
+      setInviteError(err.message || 'Ошибка при создании приглашения');
+    } finally {
+      setIsSubmittingInvite(false);
+    }
+  };
+
+  const handleCopyMessage = () => {
+    if (!inviteMessageText) return;
+    navigator.clipboard.writeText(inviteMessageText);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const renderHistoryBadge = (h: any) => {
+    const isCompleted = h.evening_status === 'completed';
+
+    if (isCompleted) {
+      if (h.attendance_status === 'attended') {
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            Был
+          </span>
+        );
+      }
+      if (h.attendance_status === 'no_show') {
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+            Не пришёл
+          </span>
+        );
+      }
+      if (h.registration_status === 'cancelled') {
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">
+            Отменил
+          </span>
+        );
+      }
+    }
+
+    // Future or uncompleted evenings (draft, published, active), or fallback
+    switch (h.registration_status) {
+      case 'invited':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            Приглашён
+          </span>
+        );
+      case 'registered':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-500/20 text-sky-400 border border-sky-500/30">
+            Записан
+          </span>
+        );
+      case 'confirmed':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            Подтверждён
+          </span>
+        );
+      case 'waitlist':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            Резерв
+          </span>
+        );
+      case 'cancelled':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">
+            Отменил
+          </span>
+        );
+      default:
+        if (h.attendance_status === 'no_show') {
+          return (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+              Не пришёл
+            </span>
+          );
+        }
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-500/20 text-slate-400 border border-slate-500/30">
+            {h.registration_status}
+          </span>
+        );
     }
   };
 
@@ -356,6 +561,14 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
                   {/* Quick Contacts Row & TG Button */}
                   <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <button
+                      onClick={handleOpenInviteModal}
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Пригласить на игру</span>
+                    </button>
+
                     {playerDetails.telegram_username && (
                       <a
                         href={`https://t.me/${playerDetails.telegram_username.replace('@', '')}`}
@@ -487,11 +700,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                             <span className="font-bold text-white block">{h.evening_title}</span>
                             <span className="text-[10px] text-slate-400">📅 {new Date(h.evening_date).toLocaleDateString('ru-RU')}</span>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            h.attendance_status === 'attended' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                          }`}>
-                            {h.attendance_status === 'attended' ? 'Был' : 'Пропустил'}
-                          </span>
+                          {renderHistoryBadge(h)}
                         </div>
                       ))
                     ) : (
@@ -666,6 +875,130 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Invite Player to Evening */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg max-h-[90vh] rounded-3xl p-5 sm:p-6 space-y-4 overflow-y-auto relative text-white">
+            <button
+              onClick={() => setShowInviteModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-full bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-rose-500" />
+              <h3 className="text-lg font-black uppercase tracking-tight">Пригласить на игру</h3>
+            </div>
+
+            {inviteError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-400 text-xs font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{inviteError}</span>
+              </div>
+            )}
+
+            {futureEvenings.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Нет доступных будущих вечеров для приглашения. Создайте или опубликуйте вечер.
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Select Evening */}
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Будущий вечер *</label>
+                  <select
+                    value={selectedEveningId}
+                    onChange={(e) => handleSelectEvening(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500"
+                  >
+                    {futureEvenings.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} — {new Date(ev.starts_at).toLocaleDateString('ru-RU')} ({ev.venue || 'Клуб'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Select Table */}
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Игровой стол</label>
+                  <select
+                    value={selectedTableId}
+                    onChange={(e) => handleSelectTable(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="">Без стола (По умолчанию)</option>
+                    {eveningTables.map((tbl) => (
+                      <option key={tbl.id} value={tbl.id}>
+                        {tbl.name} {tbl.default_price ? `(${tbl.default_price} ₽)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Task Checkbox */}
+                <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                  <input
+                    type="checkbox"
+                    id="createTaskChk"
+                    checked={createFollowupTask}
+                    onChange={(e) => setCreateFollowupTask(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 text-rose-600 focus:ring-rose-500 bg-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="createTaskChk" className="text-slate-300 font-medium cursor-pointer select-none">
+                    Создать напоминание в задачах CRM
+                  </label>
+                </div>
+
+                {/* Message Textarea */}
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Предварительный текст сообщения</label>
+                  <textarea
+                    value={inviteMessageText}
+                    onChange={(e) => setInviteMessageText(e.target.value)}
+                    rows={6}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-sans text-xs focus:outline-none focus:border-rose-500 leading-relaxed"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                  <button
+                    onClick={handleSendInvite}
+                    disabled={isSubmittingInvite || !selectedEveningId}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSubmittingInvite ? 'Отправка...' : 'Создать приглашение'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleCopyMessage}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shrink-0"
+                  >
+                    {copySuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copySuccess ? 'Скопировано' : 'Скопировать'}</span>
+                  </button>
+
+                  {playerDetails?.telegram_username && (
+                    <a
+                      href={`https://t.me/${playerDetails.telegram_username.replace('@', '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Открыть Telegram</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

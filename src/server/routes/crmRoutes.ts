@@ -1,7 +1,6 @@
 import { Router, Response } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
-import { runCrmAutomations } from '../services/crmAutomationService.ts';
 
 const router = Router();
 
@@ -30,9 +29,6 @@ function getMoscowDateStr(isoOrDateStr: string | null | undefined): string | nul
 router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = (req as any).db || (await getDb());
-
-    // Run automations before returning the overview
-    await runCrmAutomations(db);
 
     const nowIso = new Date().toISOString();
 

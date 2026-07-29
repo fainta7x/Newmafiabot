@@ -889,4 +889,146 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(patchRes.body.payment_status).toBe('waived');
     });
   });
+
+  describe('P5 Read-Only Overview & Debt Filter Tests', () => {
+    let p5Player1: string;
+    let p5Player2: string;
+    let p5Player3: string;
+    let p5Player4: string;
+
+    beforeAll(async () => {
+      // Create test players for P5
+      const p1 = await request(app).post('/api/players').set('Cookie', organizerCookie).send({ nickname: 'P5_Reservist', phone: '+79995550001' });
+      const p2 = await request(app).post('/api/players').set('Cookie', organizerCookie).send({ nickname: 'P5_FutureUnpaid', phone: '+79995550002' });
+      const p3 = await request(app).post('/api/players').set('Cookie', organizerCookie).send({ nickname: 'P5_CompletedDebtor', phone: '+79995550003' });
+      const p4 = await request(app).post('/api/players').set('Cookie', organizerCookie).send({ nickname: 'P5_CancelledPlayer', phone: '+79995550004' });
+      p5Player1 = p1.body.id;
+      p5Player2 = p2.body.id;
+      p5Player3 = p3.body.id;
+      p5Player4 = p4.body.id;
+    });
+
+    it('1. waitlistParticipants returns waitlisted participants', async () => {
+      // Find or create next evening
+      let overview = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      let targetEveningId = overview.body.nextEvening?.id;
+
+      if (!targetEveningId) {
+        const futureDate = new Date(Date.now() + 10 * 3600 * 1000).toISOString();
+        const evRes = await request(app)
+          .post('/api/evenings')
+          .set('Cookie', organizerCookie)
+          .send({ title: 'Next Evening For P5 Waitlist', starts_at: futureDate, status: 'published' });
+        targetEveningId = evRes.body.id;
+      }
+
+      await request(app)
+        .post(`/api/evenings/${targetEveningId}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({ player_id: p5Player1, registration_status: 'waitlist' });
+
+      const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+      const waitlist = res.body.actionLists.waitlistParticipants;
+      expect(waitlist.some((p: any) => p.player_id === p5Player1)).toBe(true);
+    });
+
+    it('2. Future unpaid participant is NOT counted as debtor in unpaidParticipants', async () => {
+      const futureDate = new Date(Date.now() + 200 * 3600 * 1000).toISOString();
+      const evRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Future Unpaid Evening P5', starts_at: futureDate, status: 'published', default_price: 1500 });
+
+      await request(app)
+        .post(`/api/evenings/${evRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({ player_id: p5Player2, registration_status: 'confirmed', amount_due: 1500, amount_paid: 0 });
+
+      const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+      const debtors = res.body.actionLists.unpaidParticipants;
+      expect(debtors.some((p: any) => p.player_id === p5Player2)).toBe(false);
+    });
+
+    it('3. Waitlisted and cancelled participants of completed evening are NOT counted as debtors', async () => {
+      const pastDate = new Date(Date.now() - 50 * 3600 * 1000).toISOString();
+      const compEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Draft Evening for Wait/Cancel P5', starts_at: pastDate, status: 'draft', default_price: 1000 });
+
+      await request(app)
+        .post(`/api/evenings/${compEvRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({ player_id: p5Player1, registration_status: 'waitlist', amount_due: 1000, amount_paid: 0 });
+
+      await request(app)
+        .post(`/api/evenings/${compEvRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({ player_id: p5Player4, registration_status: 'cancelled', amount_due: 1000, amount_paid: 0 });
+
+      await request(app)
+        .patch(`/api/evenings/${compEvRes.body.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ status: 'completed' });
+
+      const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+      const debtors = res.body.actionLists.unpaidParticipants;
+      expect(debtors.some((p: any) => p.player_id === p5Player1)).toBe(false);
+      expect(debtors.some((p: any) => p.player_id === p5Player4)).toBe(false);
+    });
+
+    it('4. Debt from completed evening is displayed', async () => {
+      const pastDate = new Date(Date.now() - 40 * 3600 * 1000).toISOString();
+      const compEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Draft Evening for Debt P5', starts_at: pastDate, status: 'draft', default_price: 2000 });
+
+      await request(app)
+        .post(`/api/evenings/${compEvRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({ player_id: p5Player3, registration_status: 'registered', amount_due: 2000, amount_paid: 0 });
+
+      await request(app)
+        .patch(`/api/evenings/${compEvRes.body.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ status: 'completed' });
+
+      const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+      const debtors = res.body.actionLists.unpaidParticipants;
+      expect(debtors.some((p: any) => p.player_id === p5Player3)).toBe(true);
+    });
+
+    it('5. Cancelled task does not appear in overview', async () => {
+      const taskRes = await request(app)
+        .post('/api/tasks')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Отмененная задача P5', status: 'cancelled' });
+
+      const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res.status).toBe(200);
+      const { overdueTasks, todayTasks, noDeadlineTasks } = res.body.actionLists;
+      expect(overdueTasks.some((t: any) => t.id === taskRes.body.id)).toBe(false);
+      expect(todayTasks.some((t: any) => t.id === taskRes.body.id)).toBe(false);
+      expect(noDeadlineTasks.some((t: any) => t.id === taskRes.body.id)).toBe(false);
+    });
+
+    it('6. Two consecutive GET /api/crm/overview calls do NOT change table/task/participant counts', async () => {
+      const res1 = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res1.status).toBe(200);
+
+      const tasksBefore = (await request(app).get('/api/tasks').set('Cookie', organizerCookie)).body.length;
+
+      const res2 = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
+      expect(res2.status).toBe(200);
+
+      const tasksAfter = (await request(app).get('/api/tasks').set('Cookie', organizerCookie)).body.length;
+      expect(tasksAfter).toBe(tasksBefore);
+      expect(res2.body).toEqual(res1.body);
+    });
+  });
 });

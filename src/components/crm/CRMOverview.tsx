@@ -433,10 +433,10 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
               Участники и статус записи на следующий игровой вечер
             </p>
           </div>
-          <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+          <div className="flex flex-wrap sm:flex-nowrap gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold max-w-full overflow-x-auto">
             <button
               onClick={() => setParticipantTab('unanswered')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 participantTab === 'unanswered'
                   ? 'bg-amber-600 text-white shadow'
                   : 'text-slate-400 hover:text-white'
@@ -446,7 +446,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
             </button>
             <button
               onClick={() => setParticipantTab('unconfirmed')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 participantTab === 'unconfirmed'
                   ? 'bg-sky-600 text-white shadow'
                   : 'text-slate-400 hover:text-white'
@@ -456,7 +456,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
             </button>
             <button
               onClick={() => setParticipantTab('waitlist')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 participantTab === 'waitlist'
                   ? 'bg-rose-600 text-white shadow'
                   : 'text-slate-400 hover:text-white'

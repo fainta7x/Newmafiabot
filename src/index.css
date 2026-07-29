@@ -1,36 +1,201 @@
 @import "tailwindcss";
 
+/* 1. Noir Cherry (Default) */
+:root, [data-theme="noir-cherry"] {
+  --app-bg: #0A0A0C;
+  --surface-1: #121215;
+  --surface-2: #19191E;
+  --surface-hover: #212127;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text-primary: #F5F1EA;
+  --text-secondary: #9E9A93;
+  --text-muted: #66635E;
+
+  --accent-rgb: 220, 50, 85;
+  --accent: #E13458;
+  --accent-hover: #F04569;
+  --accent-soft: rgba(225, 52, 88, 0.15);
+  --accent-glow: rgba(225, 52, 88, 0.35);
+
+  --success: #42C293;
+  --success-soft: rgba(66, 194, 147, 0.15);
+
+  --warning: #E0AB49;
+  --warning-soft: rgba(224, 171, 73, 0.15);
+
+  --danger: #E85555;
+  --danger-soft: rgba(232, 85, 85, 0.15);
+}
+
+/* 2. Noir Cyan */
+[data-theme="noir-cyan"] {
+  --app-bg: #070D10;
+  --surface-1: #0D161B;
+  --surface-2: #142028;
+  --surface-hover: #1C2B35;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #E6F3F5;
+  --text-secondary: #8EABB3;
+  --text-muted: #56727A;
+
+  --accent-rgb: 0, 180, 216;
+  --accent: #00B4D8;
+  --accent-hover: #38C7E4;
+  --accent-soft: rgba(0, 180, 216, 0.15);
+  --accent-glow: rgba(0, 180, 216, 0.35);
+
+  --success: #48CAE4;
+  --success-soft: rgba(72, 202, 228, 0.15);
+
+  --warning: #E9C46A;
+  --warning-soft: rgba(233, 196, 106, 0.15);
+
+  --danger: #E76F51;
+  --danger-soft: rgba(231, 111, 81, 0.15);
+}
+
+/* 3. Noir Violet */
+[data-theme="noir-violet"] {
+  --app-bg: #0C0812;
+  --surface-1: #140E1D;
+  --surface-2: #1E162A;
+  --surface-hover: #281D38;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #F3EEF8;
+  --text-secondary: #A798BC;
+  --text-muted: #6E5E83;
+
+  --accent-rgb: 168, 85, 247;
+  --accent: #A855F7;
+  --accent-hover: #B86EFA;
+  --accent-soft: rgba(168, 85, 247, 0.15);
+  --accent-glow: rgba(168, 85, 247, 0.35);
+
+  --success: #34D399;
+  --success-soft: rgba(52, 211, 153, 0.15);
+
+  --warning: #FBBF24;
+  --warning-soft: rgba(251, 191, 36, 0.15);
+
+  --danger: #F43F5E;
+  --danger-soft: rgba(244, 63, 94, 0.15);
+}
+
+/* 4. Noir Emerald */
+[data-theme="noir-emerald"] {
+  --app-bg: #080D0B;
+  --surface-1: #101A16;
+  --surface-2: #172420;
+  --surface-hover: #20312B;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #F7F4EB;
+  --text-secondary: #A39B8B;
+  --text-muted: #666052;
+
+  --accent-rgb: 42, 157, 143;
+  --accent: #2A9D8F;
+  --accent-hover: #3CB1A2;
+  --accent-soft: rgba(42, 157, 143, 0.15);
+  --accent-glow: rgba(42, 157, 143, 0.35);
+
+  --success: #52B788;
+  --success-soft: rgba(82, 183, 136, 0.15);
+
+  --warning: #E9C46A;
+  --warning-soft: rgba(233, 196, 106, 0.15);
+
+  --danger: #E63946;
+  --danger-soft: rgba(230, 57, 70, 0.15);
+}
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-app-bg: var(--app-bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-border-soft: var(--border-soft);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
 }
 
-/* Neumorphism Utility Classes for Tailwind */
-@utility shadow-neu-flat {
-  box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.4), -6px -6px 14px rgba(255, 255, 255, 0.02);
-}
-@utility shadow-neu-flat-rose {
-  box-shadow: 6px 6px 14px rgba(244, 63, 94, 0.15), -6px -6px 14px rgba(255, 255, 255, 0.02);
-}
-@utility shadow-neu-flat-amber {
-  box-shadow: 6px 6px 14px rgba(245, 158, 11, 0.15), -6px -6px 14px rgba(255, 255, 255, 0.02);
-}
-@utility shadow-neu-flat-sm {
-  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.015);
-}
-@utility shadow-neu-inset {
-  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.5), inset -4px -4px 10px rgba(255, 255, 255, 0.015);
-}
-@utility shadow-neu-inset-rose {
-  box-shadow: inset 4px 4px 10px rgba(244, 63, 94, 0.1), inset -4px -4px 10px rgba(255, 255, 255, 0.015);
-}
-
-/* Base custom styles if needed */
+/* Base custom styles */
 html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Glass & Surface helper utilities */
+.glass-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+}
+
+.glass-nav {
+  background: rgba(10, 10, 12, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* Neon hero card glow */
+.card-neon-hero {
+  background: linear-gradient(180deg, var(--surface-1) 0%, rgba(10, 10, 12, 0.95) 100%);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 20px -3px var(--accent-glow), inset 0 0 15px -8px var(--accent-glow);
+}
+
+/* Neon button style */
+.btn-neon-accent {
+  background: linear-gradient(180deg, var(--accent) 0%, rgba(var(--accent-rgb), 0.75) 100%);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 16px -2px var(--accent-glow);
+  color: #FFFFFF;
+}
+
+.btn-neon-accent:hover {
+  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
+  box-shadow: 0 0 22px 0px var(--accent-glow);
+}
+
+/* Safe area padding for mobile bottom bar */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 /* Custom scrollbars */
@@ -39,18 +204,18 @@ html, body, #root {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.3);
+  background: var(--surface-1);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(244, 63, 94, 0.2);
+  background: var(--accent-soft);
   border-radius: 4px;
 }
-::-webkit-scrollbar-hover {
-  background: rgba(244, 63, 94, 0.4);
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 /* Mobile Bottom Sheet Slide Up Animation */
-@utility animate-slide-up {
+.animate-slide-up {
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

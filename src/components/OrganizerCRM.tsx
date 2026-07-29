@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Users,
   Clock,
   BarChart3,
   Lock,
   LogOut,
+  Palette,
 } from 'lucide-react';
 import { api, GameEvening, Player, CrmOverview } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
@@ -15,13 +16,14 @@ import { EveningDetailView } from './crm/EveningDetailView.tsx';
 import { PlayersCRM } from './crm/PlayersCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
+import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
+import { initTheme, ThemeId } from '../lib/theme.ts';
 
 interface OrganizerCRMProps {
   onReturnToGameEngine?: () => void;
 }
 
 export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine }) => {
-
   const [activeTab, setActiveTab] = useState<'overview' | 'evenings' | 'players' | 'tasks' | 'analytics'>('overview');
   const [activeEveningId, setActiveEveningId] = useState<string | null>(null);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -31,6 +33,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
+  // Theme state
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>('noir-cherry');
+  const [showThemeModal, setShowThemeModal] = useState(false);
+
   // Global State for CRM
   const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
   const [evenings, setEvenings] = useState<GameEvening[]>([]);
@@ -38,6 +44,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loaded = initTheme();
+    setCurrentTheme(loaded);
     checkAuthAndLoad();
   }, []);
 
@@ -108,35 +116,39 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12">
+    <div className="h-[100dvh] w-full max-w-md mx-auto sm:max-w-7xl flex flex-col bg-app-bg text-text-primary font-sans transition-colors duration-200 overflow-hidden">
       {/* Top Header Nav */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-rose-600 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-lg shadow-rose-600/30">
+      <header className="sticky top-0 z-40 bg-app-bg/95 backdrop-blur-xl border-b border-border-soft h-[56px] sm:h-[60px] flex items-center shrink-0 px-3.5 sm:px-4">
+        <div className="w-full flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 bg-accent rounded-[10px] flex items-center justify-center font-black text-white text-base shrink-0 shadow-sm">
               M
             </div>
-            <div>
-              <h1 className="text-base font-black text-white uppercase tracking-wider leading-none">
-                Newmafia CRM
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-text-primary tracking-wide leading-tight truncate">
+                NEWMAFIA
               </h1>
-              <span className="text-[10px] text-rose-400 font-mono font-bold">Организатор Клуба Мафии</span>
+              <span className="text-[11px] text-text-secondary font-medium block truncate">
+                CRM организатора
+              </span>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (Desktop) */}
           {isOrganizer && (
-            <nav className="hidden sm:flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold overflow-x-auto max-w-full">
+            <nav className="hidden md:flex items-center gap-1 bg-surface-1 p-1 rounded-[12px] border border-border-soft text-xs font-semibold">
               <button
                 onClick={() => {
                   setActiveEveningId(null);
                   setActiveTab('overview');
                 }}
-                className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'overview' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-[10px] flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'overview'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                 }`}
               >
-                <LayoutDashboard className="w-3.5 h-3.5" />
+                <LayoutGrid className="w-3.5 h-3.5 stroke-[2]" />
                 <span>Пульс</span>
               </button>
 
@@ -145,11 +157,13 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                   setActiveEveningId(null);
                   setActiveTab('evenings');
                 }}
-                className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'evenings' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-[10px] flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'evenings'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                 }`}
               >
-                <Calendar className="w-3.5 h-3.5" />
+                <Calendar className="w-3.5 h-3.5 stroke-[1.8]" />
                 <span>Вечера</span>
               </button>
 
@@ -157,11 +171,13 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onClick={() => {
                   setActiveTab('players');
                 }}
-                className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'players' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-[10px] flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'players'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
+                <Users className="w-3.5 h-3.5 stroke-[1.8]" />
                 <span>Игроки</span>
               </button>
 
@@ -169,11 +185,13 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onClick={() => {
                   setActiveTab('tasks');
                 }}
-                className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'tasks' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-[10px] flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'tasks'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                 }`}
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3.5 h-3.5 stroke-[1.8]" />
                 <span>Задачи</span>
               </button>
 
@@ -181,34 +199,45 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onClick={() => {
                   setActiveTab('analytics');
                 }}
-                className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'analytics' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-[10px] flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'analytics'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                 }`}
               >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>Аналитика</span>
+                <BarChart3 className="w-3.5 h-3.5 stroke-[1.8]" />
+                <span>Анализ</span>
               </button>
             </nav>
           )}
 
-          {/* Quick Actions & Logout */}
-          <div className="flex items-center gap-2">
+          {/* Quick Actions & Controls */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Theme selector trigger button */}
+            <button
+              onClick={() => setShowThemeModal(true)}
+              className="w-9 h-9 bg-surface-1 border border-border-soft hover:border-accent/50 rounded-[10px] text-text-secondary hover:text-accent flex items-center justify-center cursor-pointer transition-all shrink-0"
+              title="Тема интерфейса"
+            >
+              <Palette className="w-4 h-4 stroke-[1.8]" />
+            </button>
+
             {onReturnToGameEngine && (
               <button
                 onClick={onReturnToGameEngine}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                className="hidden sm:inline-flex bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-1.5 rounded-[10px] text-xs transition-all cursor-pointer"
               >
-                Игровой Движок
+                Игровой движок
               </button>
             )}
 
             {isOrganizer && (
               <button
                 onClick={handleLogout}
-                className="p-2 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-400 hover:text-rose-400 cursor-pointer"
+                className="w-9 h-9 bg-surface-1 border border-border-soft hover:border-border-strong rounded-[10px] text-text-secondary hover:text-danger flex items-center justify-center cursor-pointer transition-all shrink-0"
                 title="Выйти из режима организатора"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 stroke-[1.8]" />
               </button>
             )}
           </div>
@@ -216,23 +245,23 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       </header>
 
       {/* Main Content Workspace */}
-      <main className="max-w-7xl mx-auto px-4 pt-6">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden px-3.5 sm:px-4 py-2 sm:py-3 w-full max-w-3xl mx-auto">
         {loading ? (
-          <div className="py-20 text-center text-slate-500 text-xs font-mono">Загрузка данных системы...</div>
+          <div className="py-20 text-center text-text-secondary text-xs">Загрузка данных системы...</div>
         ) : !isOrganizer ? (
           <div className="max-w-md mx-auto py-20 text-center space-y-4">
-            <Lock className="w-12 h-12 text-rose-500 mx-auto animate-pulse" />
-            <h2 className="text-xl font-black text-white uppercase">Доступ ограничен</h2>
-            <p className="text-xs text-slate-400">Панель управления CRM доступна только авторизованному организатору клуба.</p>
+            <Lock className="w-12 h-12 text-accent mx-auto" />
+            <h2 className="text-xl font-bold text-text-primary">Доступ ограничен</h2>
+            <p className="text-xs text-text-secondary">Панель управления CRM доступна только авторизованному организатору клуба.</p>
             <button
               onClick={() => setShowLoginModal(true)}
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-3 rounded-2xl text-xs uppercase tracking-wider cursor-pointer shadow-lg shadow-rose-600/20"
+              className="bg-accent hover:bg-accent-hover text-white font-semibold px-6 py-3 rounded-[12px] text-xs transition-all cursor-pointer"
             >
-              Войти как Организатор
+              Войти как организатор
             </button>
           </div>
         ) : (
-          <>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <CRMOverview
@@ -250,146 +279,147 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
             {/* Evenings Tab */}
             {activeTab === 'evenings' && (
-              activeEveningId ? (
-                <EveningDetailView
-                  eveningId={activeEveningId}
-                  onBack={() => setActiveEveningId(null)}
-                  onOpenPlayerCard={handleOpenPlayer}
-                />
-              ) : (
-                <EveningsList
-                  evenings={evenings}
-                  onOpenEvening={handleOpenEvening}
-                  onCreateEvening={handleCreateEvening}
-                />
-              )
+              <div className="flex-1 overflow-y-auto pb-16">
+                {activeEveningId ? (
+                  <EveningDetailView
+                    eveningId={activeEveningId}
+                    onBack={() => setActiveEveningId(null)}
+                    onOpenPlayerCard={handleOpenPlayer}
+                  />
+                ) : (
+                  <EveningsList
+                    evenings={evenings}
+                    onOpenEvening={handleOpenEvening}
+                    onCreateEvening={handleCreateEvening}
+                  />
+                )}
+              </div>
             )}
 
             {/* Players Tab */}
             {activeTab === 'players' && (
-              <PlayersCRM
-                evenings={evenings}
-                onOpenEvening={handleOpenEvening}
-                selectedPlayerId={activePlayerId}
-                onClosePlayerCard={() => setActivePlayerId(null)}
-                onCrmChanged={loadAllData}
-              />
+              <div className="flex-1 overflow-y-auto pb-16">
+                <PlayersCRM
+                  evenings={evenings}
+                  onOpenEvening={handleOpenEvening}
+                  selectedPlayerId={activePlayerId}
+                  onClosePlayerCard={() => setActivePlayerId(null)}
+                  onCrmChanged={loadAllData}
+                />
+              </div>
             )}
 
             {/* Tasks Tab */}
             {activeTab === 'tasks' && (
-              <TasksCRM
-                players={players}
-                evenings={evenings}
-                onOpenPlayer={handleOpenPlayer}
-              />
+              <div className="flex-1 overflow-y-auto pb-16">
+                <TasksCRM
+                  players={players}
+                  evenings={evenings}
+                  onOpenPlayer={handleOpenPlayer}
+                />
+              </div>
             )}
 
             {/* Analytics Tab */}
-            {activeTab === 'analytics' && <AnalyticsCRM />}
-          </>
+            {activeTab === 'analytics' && (
+              <div className="flex-1 overflow-y-auto pb-16">
+                <AnalyticsCRM
+                  onOpenThemeModal={() => setShowThemeModal(true)}
+                />
+              </div>
+            )}
+          </div>
         )}
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
       {isOrganizer && (
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 flex justify-around p-2 z-40 pb-safe backdrop-blur-md shadow-2xl">
-          <button
-            onClick={() => {
-              setActiveEveningId(null);
-              setActiveTab('overview');
-            }}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'overview' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Пульс</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveEveningId(null);
-              setActiveTab('evenings');
-            }}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'evenings' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Вечера</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('players')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'players' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Игроки</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('tasks')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'tasks' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Задачи</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'analytics' ? 'text-rose-400 font-bold' : 'text-slate-500 font-medium'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span className="text-[9px] uppercase tracking-tight mt-0.5 font-mono">Анализ</span>
-          </button>
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav flex items-center justify-around px-2 z-40 pb-safe h-[60px] border-t border-border-soft shrink-0">
+          {[
+            { id: 'overview', label: 'Пульс', icon: LayoutGrid },
+            { id: 'evenings', label: 'Вечера', icon: Calendar },
+            { id: 'players', label: 'Игроки', icon: Users },
+            { id: 'tasks', label: 'Задачи', icon: Clock },
+            { id: 'analytics', label: 'Анализ', icon: BarChart3 },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveEveningId(null);
+                  setActiveTab(tab.id as any);
+                }}
+                className="flex flex-col items-center justify-center flex-1 h-full cursor-pointer transition-all relative group"
+              >
+                <div
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                    isActive ? 'text-accent' : 'text-text-muted group-hover:text-text-secondary'
+                  }`}
+                >
+                  <Icon className="w-[20px] h-[20px] stroke-[2]" />
+                </div>
+                <span
+                  className={`text-[10px] mt-0.5 transition-colors ${
+                    isActive ? 'text-text-primary font-bold' : 'text-text-muted font-medium'
+                  }`}
+                >
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent absolute bottom-1 shadow-[0_0_8px_var(--accent)]" />
+                )}
+              </button>
+            );
+          })}
         </nav>
       )}
 
       {/* LOGIN MODAL */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-5 text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-surface-1 border border-border-soft rounded-[20px] max-w-sm w-full p-6 space-y-5 text-text-primary">
             <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-rose-600/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
-                <Lock className="w-6 h-6" />
+              <div className="w-12 h-12 bg-accent-soft border border-accent/30 rounded-[12px] flex items-center justify-center mx-auto text-accent">
+                <Lock className="w-6 h-6 stroke-[1.8]" />
               </div>
-              <h3 className="text-lg font-black uppercase tracking-tight">Вход для Организатора</h3>
-              <p className="text-xs text-slate-400">Введите пароль для доступа к управлению клубом</p>
+              <h3 className="text-lg font-bold">Вход для организатора</h3>
+              <p className="text-xs text-text-secondary">Введите пароль для доступа к управлению клубом</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <input
                   type="password"
-                  required
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="Пароль организатора"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-rose-500 font-mono text-center"
+                  className="w-full bg-surface-2 border border-border-soft rounded-[12px] px-4 py-3 text-xs text-text-primary focus:outline-none focus:border-accent text-center"
                 />
-                {loginError && <p className="text-[11px] text-rose-400 font-bold mt-1 text-center">{loginError}</p>}
+                {loginError && <p className="text-[11px] text-danger font-semibold mt-1 text-center">{loginError}</p>}
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-rose-600/20"
+                className="w-full bg-accent hover:bg-accent-hover text-white font-semibold py-3 rounded-[12px] text-xs transition-all cursor-pointer"
               >
-                Авторизоваться
+                Войти как организатор
               </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* THEME SELECTOR MODAL */}
+      <ThemeSelectorModal
+        isOpen={showThemeModal}
+        onClose={() => setShowThemeModal(false)}
+        currentTheme={currentTheme}
+        onSelectTheme={(themeId) => setCurrentTheme(themeId)}
+      />
     </div>
   );
 };
 
 export default OrganizerCRM;
-

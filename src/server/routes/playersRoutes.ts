@@ -320,15 +320,27 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       [evening_id, req.params.id]
     );
 
-    if (!participant) {
-      const partId = crypto.randomUUID();
-      await db.run(
-        `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
-        [partId, evening_id, req.params.id, selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
-      );
-      participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);
+    const tgUsername = player.telegram_username ? player.telegram_username.replace('@', '') : null;
+    const telegramLink = tgUsername ? `https://t.me/${tgUsername}` : null;
+
+    if (participant) {
+      return res.json({
+        success: true,
+        alreadyParticipant: true,
+        participant,
+        registration_status: participant.registration_status,
+        telegramLink,
+        message: 'Игрок уже добавлен на этот вечер',
+      });
     }
+
+    const partId = crypto.randomUUID();
+    await db.run(
+      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+      [partId, evening_id, req.params.id, selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
+    );
+    participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);
 
     // Create player_activity (type=invite, outcome=sent, evening_id) if not exists
     const existingActivity = await db.get(
@@ -384,9 +396,6 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
         followupTask = existingOpenTask;
       }
     }
-
-    const tgUsername = player.telegram_username ? player.telegram_username.replace('@', '') : null;
-    const telegramLink = tgUsername ? `https://t.me/${tgUsername}` : null;
 
     // Run automations after invitation
     await runCrmAutomations(db);

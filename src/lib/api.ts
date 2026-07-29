@@ -326,7 +326,15 @@ export const api = {
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
   invitePlayer: (playerId: string, eveningId: string, tableId?: string | null, createFollowupTask: boolean = true) =>
-    request<{ success: boolean; participant: EveningParticipant; task?: OrganizerTask; telegramLink?: string }>(
+    request<{
+      success: boolean;
+      alreadyParticipant?: boolean;
+      participant: EveningParticipant;
+      registration_status?: string;
+      task?: OrganizerTask;
+      telegramLink?: string;
+      message?: string;
+    }>(
       `/api/players/${playerId}/invite`,
       { method: 'POST', body: JSON.stringify({ evening_id: eveningId, table_id: tableId, create_followup_task: createFollowupTask }) }
     ),

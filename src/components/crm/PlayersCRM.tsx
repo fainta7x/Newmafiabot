@@ -12,17 +12,22 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api, Player, GameEvening, EveningTable, OrganizerTask } from '../../lib/api.ts';
+import { formatEveningDateTime, getSortedFutureEvenings } from '../../lib/dateUtils.ts';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
   onOpenEvening: (id: string) => void;
   selectedPlayerId?: string | null;
   onClosePlayerCard?: () => void;
+  onCrmChanged?: () => void;
 }
 
 export const PlayersCRM: React.FC<PlayersCRMProps> = ({
+  evenings: _evenings,
+  onOpenEvening: _onOpenEvening,
   selectedPlayerId,
   onClosePlayerCard,
+  onCrmChanged,
 }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +66,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlayers();
@@ -172,18 +178,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   };
 
   const updateInviteMessage = (player: any, evening: GameEvening, table: EveningTable | null) => {
-    const dateObj = new Date(evening.starts_at);
-    const dateFormatted =
-      dateObj.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        weekday: 'short',
-      }) +
-      ' в ' +
-      dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = formatEveningDateTime(evening.starts_at, evening.timezone);
 
     const tableName = table ? table.name : 'Без стола';
-    const price = table?.default_price ?? evening.default_price ?? 0;
+    const price = table?.default_price ?? (table as any)?.price ?? evening.default_price ?? 0;
     const priceStr = price > 0 ? `${price} ₽` : 'Бесплатно';
     const venueStr = evening.venue || 'Клуб';
 
@@ -201,13 +199,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const handleOpenInviteModal = async () => {
     if (!playerDetails) return;
     setInviteError(null);
+    setInviteSuccessMessage(null);
     setCopySuccess(false);
     try {
       const allEvenings = await api.getEvenings();
-      const nowIso = new Date().toISOString();
-      const future = allEvenings.filter(
-        (e) => e.status !== 'completed' && e.status !== 'cancelled' && e.starts_at >= nowIso
-      );
+      const future = getSortedFutureEvenings(allEvenings);
       setFutureEvenings(future);
 
       if (future.length > 0) {
@@ -232,6 +228,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const handleSelectEvening = async (eveningId: string) => {
     setSelectedEveningId(eveningId);
     setSelectedTableId('');
+    setInviteSuccessMessage(null);
+    setInviteError(null);
     const ev = futureEvenings.find((e) => e.id === eveningId);
     if (eveningId) {
       try {
@@ -251,6 +249,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
   const handleSelectTable = (tableId: string) => {
     setSelectedTableId(tableId);
+    setInviteSuccessMessage(null);
+    setInviteError(null);
     const ev = futureEvenings.find((e) => e.id === selectedEveningId);
     const tbl = eveningTables.find((t) => t.id === tableId) || null;
     if (ev && playerDetails) {
@@ -262,14 +262,25 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     if (!playerDetails || !selectedEveningId) return;
     setIsSubmittingInvite(true);
     setInviteError(null);
+    setInviteSuccessMessage(null);
     try {
-      await api.invitePlayer(
+      const res = await api.invitePlayer(
         playerDetails.id,
         selectedEveningId,
         selectedTableId || null,
         createFollowupTask
       );
-      setShowInviteModal(false);
+
+      if (res.alreadyParticipant) {
+        setInviteSuccessMessage(res.message || 'Игрок уже добавлен на этот вечер');
+      } else {
+        setInviteSuccessMessage('Приглашение сохранено в CRM');
+      }
+
+      if (onCrmChanged) {
+        onCrmChanged();
+      }
+
       await loadPlayerDetails(playerDetails.id);
       await loadPlayers();
     } catch (err: any) {
@@ -895,6 +906,13 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               <h3 className="text-lg font-black uppercase tracking-tight">Пригласить на игру</h3>
             </div>
 
+            {inviteSuccessMessage && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-emerald-400 text-xs font-medium">
+                <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{inviteSuccessMessage}</span>
+              </div>
+            )}
+
             {inviteError && (
               <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-400 text-xs font-medium">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -918,7 +936,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                   >
                     {futureEvenings.map((ev) => (
                       <option key={ev.id} value={ev.id}>
-                        {ev.title} — {new Date(ev.starts_at).toLocaleDateString('ru-RU')} ({ev.venue || 'Клуб'})
+                        {ev.title} — {formatEveningDateTime(ev.starts_at, ev.timezone)} ({ev.venue || 'Клуб'})
                       </option>
                     ))}
                   </select>
@@ -933,11 +951,15 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500"
                   >
                     <option value="">Без стола (По умолчанию)</option>
-                    {eveningTables.map((tbl) => (
-                      <option key={tbl.id} value={tbl.id}>
-                        {tbl.name} {tbl.default_price ? `(${tbl.default_price} ₽)` : ''}
-                      </option>
-                    ))}
+                    {eveningTables.map((tbl) => {
+                      const price = tbl.default_price ?? (tbl as any).price;
+                      const priceText = price === 0 ? 'Бесплатно' : price ? `${price} ₽` : 'Бесплатно';
+                      return (
+                        <option key={tbl.id} value={tbl.id}>
+                          {tbl.name} ({priceText})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -974,7 +996,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                     className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmittingInvite ? 'Отправка...' : 'Создать приглашение'}</span>
+                    <span>{isSubmittingInvite ? 'Создание...' : 'Создать приглашение'}</span>
                   </button>
 
                   <button

@@ -76,6 +76,15 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
     const inviteDate = new Date(ua.participation_created || nowIso);
     const diffDays = (now.getTime() - inviteDate.getTime()) / (1000 * 60 * 60 * 24);
     if (diffDays >= 2) {
+      const inviteFollowupKey = `invite-followup:${ua.evening_id}:${ua.player_id}`;
+      const existingFollowupTask = await db.get(
+        `SELECT id FROM organizer_tasks WHERE automation_key IN (?, ?) AND status NOT IN ('done', 'cancelled')`,
+        [inviteFollowupKey, `clarify-participation:${ua.evening_id}:${ua.player_id}`]
+      );
+      if (existingFollowupTask) {
+        continue;
+      }
+
       const taskId = `tsk_${uuid()}`;
       const automationKey = `clarify-participation:${ua.evening_id}:${ua.player_id}`;
       // Since it's already overdue or due, set due_at to now

@@ -3,6 +3,8 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken } from '../server/auth.ts';
+import { runCrmAutomations } from '../server/services/crmAutomationService.ts';
+import { formatEveningDateTime, getSortedFutureEvenings } from '../lib/dateUtils.ts';
 
 describe('Newmafia CRM In-Memory Integration Tests', () => {
   let app: any;
@@ -1212,6 +1214,123 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         .send({ evening_id: testEveningId });
 
       expect(resUnpaused.status).toBe(200);
+    });
+  });
+
+  describe('Final Invite Patch Requirements', () => {
+    let testPlayerId: string;
+    let testEveningId: string;
+
+    beforeEach(async () => {
+      const pRes = await request(app)
+        .post('/api/players')
+        .set('Cookie', organizerCookie)
+        .send({ nickname: `PatchPlayer_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, phone: '+79009998877' });
+      testPlayerId = pRes.body.id;
+
+      const futureDate = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
+      const eRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Patch Test Evening', starts_at: futureDate, status: 'published' });
+      testEveningId = eRes.body.id;
+    });
+
+    it('1. & 2. Existing participant does not get new activity or task, response contains alreadyParticipant and status', async () => {
+      // First invitation creates participant, activity, task
+      const firstRes = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, create_followup_task: true });
+
+      expect(firstRes.status).toBe(200);
+      expect(firstRes.body.alreadyParticipant).toBeUndefined();
+
+      // Second invitation for same evening
+      const secondRes = await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, create_followup_task: true });
+
+      expect(secondRes.status).toBe(200);
+      expect(secondRes.body.alreadyParticipant).toBe(true);
+      expect(secondRes.body.registration_status).toBe('invited');
+      expect(secondRes.body.participant).toBeDefined();
+      expect(secondRes.body.participant.evening_id).toBe(testEveningId);
+      expect(secondRes.body.message).toBe('Игрок уже добавлен на этот вечер');
+
+      // Check activities count remains 1
+      const actRes = await request(app)
+        .get(`/api/players/${testPlayerId}/activities`)
+        .set('Cookie', organizerCookie);
+      const inviteActivities = actRes.body.filter((a: any) => a.evening_id === testEveningId && a.type === 'invite');
+      expect(inviteActivities.length).toBe(1);
+
+      // Check tasks count remains 1
+      const playerRes = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+      const inviteTasks = playerRes.body.tasks.filter((t: any) => t.automation_key === `invite-followup:${testEveningId}:${testPlayerId}`);
+      expect(inviteTasks.length).toBe(1);
+    });
+
+    it('3. Open invite-followup task is not duplicated by automation', async () => {
+      // 1. Invite player to evening (creates invite-followup task and participant)
+      await request(app)
+        .post(`/api/players/${testPlayerId}/invite`)
+        .set('Cookie', organizerCookie)
+        .send({ evening_id: testEveningId, create_followup_task: true });
+
+      // 2. Set participant created_at to 3 days ago so diffDays >= 2
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+      await db.run(
+        'UPDATE evening_participants SET created_at = ? WHERE evening_id = ? AND player_id = ?',
+        [threeDaysAgo, testEveningId, testPlayerId]
+      );
+
+      // 3. Run CRM automations
+      await runCrmAutomations(db);
+
+      // 4. Verify no clarify-participation task was created because open invite-followup already exists
+      const tasks = await db.all(
+        'SELECT * FROM organizer_tasks WHERE player_id = ? AND evening_id = ?',
+        [testPlayerId, testEveningId]
+      );
+      
+      const clarifyTasks = tasks.filter((t: any) => t.automation_key === `clarify-participation:${testEveningId}:${testPlayerId}`);
+      expect(clarifyTasks.length).toBe(0);
+      expect(tasks.length).toBe(1);
+    });
+
+    it('4. Nearest evening is selected first in UI-helper', () => {
+      const nowMs = Date.now();
+      const mockEvenings: any[] = [
+        { id: '1', title: 'Far Evening', starts_at: new Date(nowMs + 10 * 24 * 3600 * 1000).toISOString(), status: 'published' },
+        { id: '2', title: 'Nearest Evening', starts_at: new Date(nowMs + 1 * 24 * 3600 * 1000).toISOString(), status: 'published' },
+        { id: '3', title: 'Middle Evening', starts_at: new Date(nowMs + 5 * 24 * 3600 * 1000).toISOString(), status: 'published' },
+        { id: '4', title: 'Past Evening', starts_at: new Date(nowMs - 1 * 24 * 3600 * 1000).toISOString(), status: 'published' },
+        { id: '5', title: 'Completed Evening', starts_at: new Date(nowMs + 2 * 24 * 3600 * 1000).toISOString(), status: 'completed' },
+      ];
+
+      const sorted = getSortedFutureEvenings(mockEvenings, nowMs);
+      expect(sorted.length).toBe(3);
+      expect(sorted[0].id).toBe('2');
+      expect(sorted[0].title).toBe('Nearest Evening');
+      expect(sorted[1].id).toBe('3');
+      expect(sorted[2].id).toBe('1');
+    });
+
+    it('5. Time formatting uses Europe/Moscow', () => {
+      // 2026-08-01T12:00:00.000Z in Europe/Moscow (UTC+3) is 15:00
+      const isoDate = '2026-08-01T12:00:00.000Z';
+      
+      // Fallback/Default timezone is Europe/Moscow
+      const formattedDefault = formatEveningDateTime(isoDate);
+      expect(formattedDefault).toContain('15:00');
+
+      // Explicit Europe/Moscow timezone
+      const formattedMoscow = formatEveningDateTime(isoDate, 'Europe/Moscow');
+      expect(formattedMoscow).toContain('15:00');
     });
   });
 });

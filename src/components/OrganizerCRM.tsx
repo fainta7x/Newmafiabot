@@ -272,6 +272,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onOpenEvening={handleOpenEvening}
                 selectedPlayerId={activePlayerId}
                 onClosePlayerCard={() => setActivePlayerId(null)}
+                onCrmChanged={loadAllData}
               />
             )}
 

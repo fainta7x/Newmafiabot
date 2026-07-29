@@ -151,7 +151,12 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
         SELECT 1 
         FROM evening_participants ep2
         JOIN game_evenings ge2 ON ge2.id = ep2.evening_id
-        WHERE ep2.player_id = p.id AND ge2.starts_at > MAX(ge.starts_at)
+        WHERE ep2.player_id = p.id AND ge2.starts_at > (
+          SELECT MAX(ge3.starts_at)
+          FROM evening_participants ep3
+          JOIN game_evenings ge3 ON ge3.id = ep3.evening_id
+          WHERE ep3.player_id = p.id AND ep3.attendance_status = 'attended' AND ge3.status = 'completed'
+        )
           AND ep2.registration_status != 'cancelled'
       )
   `);

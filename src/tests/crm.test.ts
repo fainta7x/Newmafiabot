@@ -28,7 +28,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         .send({
           nickname: `Игрок_${i}`,
           phone: `+7999000000${i}`,
-          lifecycle_status: 'newcomer',
+          lifecycle_status: 'normal',
         });
       testPlayer10.push(pRes.body.id);
     }
@@ -191,6 +191,256 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(res.body.totalPlayers).toBe(10);
       expect(res.body.completedEvenings).toBe(1);
       expect(res.body.financials).toBeDefined();
+    });
+  });
+
+  describe('P2 Tables Management Integration Tests', () => {
+    let activeEveningId: string;
+    let completedEveningId: string;
+    let table1Id: string;
+    let table2Id: string;
+    let testPlayerId1: string;
+    let testPlayerId2: string;
+
+    beforeAll(async () => {
+      // Create a fresh active evening for testing
+      const evRes1 = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Активный вечер',
+          starts_at: '2026-08-10T19:00:00.000Z',
+          format: 'STANDARD',
+          capacity: 20,
+          default_price: 500,
+        });
+      activeEveningId = evRes1.body.id;
+
+      // Create a completed evening for completed evening protection testing
+      const evRes2 = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Завершенный вечер',
+          starts_at: '2026-08-05T19:00:00.000Z',
+          format: 'STANDARD',
+          capacity: 20,
+          default_price: 500,
+          status: 'completed',
+        });
+      completedEveningId = evRes2.body.id;
+
+      // Get some player IDs from previous setups
+      testPlayerId1 = testPlayer10[0];
+      testPlayerId2 = testPlayer10[1];
+    });
+
+    it('1. should create a table successfully', async () => {
+      const res = await request(app)
+        .post(`/api/evenings/${activeEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Основной стол 1',
+          format: 'STANDARD',
+          capacity: 10,
+          host_name: 'Ведущий 1',
+          default_price: 500,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBeDefined();
+      expect(res.body.name).toBe('Основной стол 1');
+      table1Id = res.body.id;
+    });
+
+    it('2. should edit a table successfully', async () => {
+      const res = await request(app)
+        .put(`/api/evenings/tables/${table1Id}`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Обновленный стол 1',
+          format: 'STANDARD',
+          capacity: 12,
+          host_name: 'Обновленный Ведущий',
+          default_price: 600,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Обновленный стол 1');
+      expect(res.body.capacity).toBe(12);
+    });
+
+    it('3. should bulk add and preserve table_id', async () => {
+      // Register test player 1 and 2 directly to table 1
+      const res = await request(app)
+        .post(`/api/evenings/${activeEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [testPlayerId1, testPlayerId2],
+          table_id: table1Id,
+          registration_status: 'confirmed',
+          amount_due: 500,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      
+      // Load participant and verify they have the table_id set
+      const partsRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+
+      const p1 = partsRes.body.find((p: any) => p.player_id === testPlayerId1);
+      expect(p1).toBeDefined();
+      expect(p1.table_id).toBe(table1Id);
+    });
+
+    it('4. should block cross-evening table assignment', async () => {
+      // Create another active evening
+      const otherEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Другой вечер',
+          starts_at: '2026-08-15T19:00:00.000Z',
+          format: 'STANDARD',
+          capacity: 20,
+          default_price: 500,
+        });
+      const otherEveningId = otherEvRes.body.id;
+
+      // Create a table on that other evening
+      const tblRes = await request(app)
+        .post(`/api/evenings/${otherEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Второй вечер стол',
+          format: 'STANDARD',
+          capacity: 10,
+        });
+      const otherTableId = tblRes.body.id;
+
+      // Try assigning table of otherEveningId to participant on activeEveningId
+      const partsRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const activePart1 = partsRes.body.find((p: any) => p.player_id === testPlayerId1);
+
+      const moveRes = await request(app)
+        .patch(`/api/evenings/participants/${activePart1.id}/move-table`)
+        .set('Cookie', organizerCookie)
+        .send({ table_id: otherTableId });
+
+      expect(moveRes.status).toBe(400);
+      expect(moveRes.body.error).toContain('принадлежит другому вечеру');
+    });
+
+    it('5. & 6. should enforce capacity limits and move overflow to waitlist', async () => {
+      // Create table with capacity of 1
+      const resTbl = await request(app)
+        .post(`/api/evenings/${activeEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Крошечный стол',
+          format: 'STANDARD',
+          capacity: 1,
+        });
+      const tinyTableId = resTbl.body.id;
+
+      // Find participants
+      const partsRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const activePart1 = partsRes.body.find((p: any) => p.player_id === testPlayerId1);
+      const activePart2 = partsRes.body.find((p: any) => p.player_id === testPlayerId2);
+
+      // Move player 1 to tiny table (capacity 1). This should succeed.
+      const move1 = await request(app)
+        .patch(`/api/evenings/participants/${activePart1.id}/move-table`)
+        .set('Cookie', organizerCookie)
+        .send({ table_id: tinyTableId });
+      expect(move1.status).toBe(200);
+      expect(move1.body.registration_status).toBe('confirmed'); // stays confirmed because capacity has space
+
+      // Move player 2 to tiny table (already occupied). This should move player 2 to waitlist.
+      const move2 = await request(app)
+        .patch(`/api/evenings/participants/${activePart2.id}/move-table`)
+        .set('Cookie', organizerCookie)
+        .send({ table_id: tinyTableId });
+      expect(move2.status).toBe(200);
+      expect(move2.body.registration_status).toBe('waitlist'); // moved to waitlist due to capacity overflow
+    });
+
+    it('7. & 8. should bulk move players via single bulk PATCH endpoint', async () => {
+      // Create a new target table
+      const resTbl = await request(app)
+        .post(`/api/evenings/${activeEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Новый стол для перемещения',
+          format: 'STANDARD',
+          capacity: 10,
+        });
+      table2Id = resTbl.body.id;
+
+      const partsRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const activePart1 = partsRes.body.find((p: any) => p.player_id === testPlayerId1);
+      const activePart2 = partsRes.body.find((p: any) => p.player_id === testPlayerId2);
+
+      // Bulk move both participants to table2Id
+      const bulkRes = await request(app)
+        .patch(`/api/evenings/${activeEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          updates: [
+            { id: activePart1.id, table_id: table2Id },
+            { id: activePart2.id, table_id: table2Id }
+          ]
+        });
+
+      expect(bulkRes.status).toBe(200);
+      expect(bulkRes.body.success).toBe(true);
+
+      const verifyRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const p1 = verifyRes.body.find((p: any) => p.player_id === testPlayerId1);
+      const p2 = verifyRes.body.find((p: any) => p.player_id === testPlayerId2);
+      expect(p1.table_id).toBe(table2Id);
+      expect(p2.table_id).toBe(table2Id);
+    });
+
+    it('9. should protect completed evening from edits', async () => {
+      // Attempting to create table on completed evening
+      const resCreate = await request(app)
+        .post(`/api/evenings/${completedEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Попытка создания', capacity: 10 });
+      expect(resCreate.status).toBe(400);
+
+      // Attempting to bulk add to completed evening
+      const resAdd = await request(app)
+        .post(`/api/evenings/${completedEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({ player_ids: [testPlayerId1], registration_status: 'confirmed' });
+      expect(resAdd.status).toBe(400);
+    });
+
+    it('10. should clear table_id on delete table and keep participants', async () => {
+      // Delete table2Id
+      const deleteRes = await request(app)
+        .delete(`/api/evenings/tables/${table2Id}`)
+        .set('Cookie', organizerCookie);
+      expect(deleteRes.status).toBe(200);
+
+      // Verify players table_id is set to null
+      const verifyRes = await request(app)
+        .get(`/api/evenings/${activeEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const p1 = verifyRes.body.find((p: any) => p.player_id === testPlayerId1);
+      expect(p1.table_id).toBeNull();
     });
   });
 });

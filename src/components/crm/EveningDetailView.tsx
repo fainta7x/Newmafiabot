@@ -12,8 +12,12 @@ import {
   CheckSquare,
   Square,
   ShieldCheck,
+  Edit,
+  Sliders,
+  Check,
+  Clock
 } from 'lucide-react';
-import { api, GameEvening, EveningParticipant, Player } from '../../lib/api.ts';
+import { api, GameEvening, EveningParticipant, Player, EveningTable } from '../../lib/api.ts';
 
 interface EveningDetailViewProps {
   eveningId: string;
@@ -28,14 +32,33 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 }) => {
   const [evening, setEvening] = useState<GameEvening | null>(null);
   const [participants, setParticipants] = useState<EveningParticipant[]>([]);
+  const [tables, setTables] = useState<EveningTable[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters & Modes
+  const [mode, setMode] = useState<'rsvp' | 'active'>('rsvp');
+  const [tableFilter, setTableFilter] = useState<string>('all');
 
   // Bulk add modal states
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-  const [bulkAmountDue, setBulkAmountDue] = useState(400);
+  const [bulkAmountDue, setBulkAmountDue] = useState(500);
+  const [bulkTableId, setBulkTableId] = useState<string>('');
+  const [bulkRegStatus, setBulkRegStatus] = useState<string>('registered');
+
+  // Table modal states
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [editingTable, setEditingTable] = useState<EveningTable | null>(null);
+  const [tableForm, setTableForm] = useState({
+    name: '',
+    format: 'STANDARD',
+    capacity: 10,
+    host_name: '',
+    default_price: 500,
+    notes: '',
+  });
 
   // Quick guest modal
   const [showQuickGuestModal, setShowQuickGuestModal] = useState(false);
@@ -52,6 +75,10 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   const [taskTargetParticipant, setTaskTargetParticipant] = useState<EveningParticipant | null>(null);
   const [taskTitle, setTaskTitle] = useState('');
 
+  // Local editing states for notes, custom amounts, etc.
+  const [editStates, setEditStates] = useState<Record<string, { amountPaid: string; amountDue: string; notes: string; status: 'idle' | 'saving' | 'saved' | 'error' }>>({});
+  const [expandedEdits, setExpandedEdits] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     loadData();
   }, [eveningId]);
@@ -62,6 +89,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       const data = await api.getEvening(eveningId);
       setEvening(data);
       setParticipants(data.participants || []);
+      setTables(data.tables || []);
 
       const players = await api.getPlayers();
       setAllPlayers(players);
@@ -76,10 +104,18 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   const handleBulkAdd = async () => {
     if (selectedPlayerIds.length === 0) return;
     try {
-      const res = await api.bulkAddParticipants(eveningId, selectedPlayerIds, null, 'registered', bulkAmountDue);
+      const res = await api.bulkAddParticipants(
+        eveningId,
+        selectedPlayerIds,
+        bulkTableId || null,
+        bulkRegStatus,
+        bulkAmountDue
+      );
       alert(`Успешно добавлено: ${res.addedCount} игрок(ов). Пропущено дублей: ${res.skippedCount}`);
       setShowBulkAddModal(false);
       setSelectedPlayerIds([]);
+      setBulkTableId('');
+      setBulkRegStatus('registered');
       loadData();
     } catch (err: any) {
       alert(err.message || 'Ошибка массового добавления');
@@ -93,7 +129,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       await api.addParticipant(eveningId, {
         nickname: guestNickname,
         phone: guestPhone,
-        amount_due: evening?.default_price || 400,
+        amount_due: evening?.default_price || 500,
       });
       setShowQuickGuestModal(false);
       setGuestNickname('');
@@ -104,7 +140,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
     }
   };
 
-  // 3. Update Participant Field
+  // 3. Update Participant Field (Single)
   const handleUpdateParticipant = async (id: string, data: Partial<EveningParticipant>) => {
     try {
       const updated = await api.updateParticipant(id, data);
@@ -116,6 +152,10 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   // 4. Delete Participant
   const handleDeleteParticipant = async (id: string) => {
+    if (evening?.status === 'completed') {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     if (!confirm('Удалить участника из вечера?')) return;
     try {
       await api.deleteParticipant(id);
@@ -157,10 +197,11 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   // Bulk actions on selected participants
   const toggleSelectAllParticipants = () => {
-    if (selectedParticipantIds.length === participants.length) {
+    const filtered = getFilteredParticipants();
+    if (selectedParticipantIds.length === filtered.length) {
       setSelectedParticipantIds([]);
     } else {
-      setSelectedParticipantIds(participants.map((p) => p.id));
+      setSelectedParticipantIds(filtered.map((p) => p.id));
     }
   };
 
@@ -170,22 +211,176 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
     );
   };
 
-  const applyBulkActionToParticipants = async (action: 'confirm' | 'attend' | 'unpaid') => {
+  const applyBulkActionToParticipants = async (action: 'confirm' | 'attend' | 'assign_table' | 'unassign_table', targetTableId?: string) => {
     if (selectedParticipantIds.length === 0) return;
+    if (evening?.status === 'completed') {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     try {
-      for (const id of selectedParticipantIds) {
+      const updates = selectedParticipantIds.map((id) => {
+        const update: any = { id };
         if (action === 'confirm') {
-          await api.updateParticipant(id, { registration_status: 'confirmed' });
+          update.registration_status = 'confirmed';
         } else if (action === 'attend') {
-          await api.updateParticipant(id, { attendance_status: 'attended' });
-        } else if (action === 'unpaid') {
-          await api.updateParticipant(id, { payment_status: 'unpaid', amount_paid: 0 });
+          update.attendance_status = 'attended';
+        } else if (action === 'assign_table') {
+          update.table_id = targetTableId || null;
+        } else if (action === 'unassign_table') {
+          update.table_id = null;
         }
-      }
+        return update;
+      });
+
+      await api.bulkUpdateParticipants(eveningId, updates);
       setSelectedParticipantIds([]);
       loadData();
     } catch (err: any) {
-      alert('Ошибка применения массового действия');
+      alert(err.message || 'Ошибка применения массового действия');
+    }
+  };
+
+  // Table Management Helpers
+  const handleOpenCreateTable = () => {
+    if (evening?.status === 'completed') return;
+    setEditingTable(null);
+    setTableForm({
+      name: 'Новый стол',
+      format: 'STANDARD',
+      capacity: 10,
+      host_name: '',
+      default_price: evening?.default_price || 500,
+      notes: '',
+    });
+    setShowTableModal(true);
+  };
+
+  const handleOpenEditTable = (table: EveningTable) => {
+    if (evening?.status === 'completed') return;
+    setEditingTable(table);
+    setTableForm({
+      name: table.name,
+      format: table.format,
+      capacity: table.capacity,
+      host_name: table.host_name || '',
+      default_price: table.default_price || evening?.default_price || 500,
+      notes: table.notes || '',
+    });
+    setShowTableModal(true);
+  };
+
+  const handleSaveTable = async () => {
+    try {
+      if (editingTable) {
+        await api.updateEveningTable(editingTable.id, {
+          name: tableForm.name,
+          format: tableForm.format,
+          capacity: tableForm.capacity,
+          host_name: tableForm.host_name || null,
+          default_price: tableForm.default_price,
+          notes: tableForm.notes || null,
+        });
+      } else {
+        await api.createEveningTable(eveningId, {
+          name: tableForm.name,
+          format: tableForm.format,
+          capacity: tableForm.capacity,
+          host_name: tableForm.host_name || null,
+          default_price: tableForm.default_price,
+          notes: tableForm.notes || null,
+        });
+      }
+      setShowTableModal(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка сохранения стола');
+    }
+  };
+
+  const handleDeleteTable = async (tableId: string) => {
+    if (evening?.status === 'completed') {
+      alert('Запрещено удалять столы завершённого вечера');
+      return;
+    }
+    if (!confirm('Вы действительно хотите удалить этот стол? Все назначенные игроки будут переведены в статус "Стол не назначен".')) return;
+    try {
+      await api.deleteEveningTable(tableId);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка удаления стола');
+    }
+  };
+
+  // Local editing inputs state
+  const getEditState = (p: EveningParticipant) => {
+    return editStates[p.id] || {
+      amountPaid: String(p.amount_paid || 0),
+      amountDue: String(p.amount_due || 0),
+      notes: p.notes || '',
+      status: 'idle'
+    };
+  };
+
+  const updateLocalEditField = (pId: string, field: 'amountPaid' | 'amountDue' | 'notes', value: string) => {
+    setEditStates(prev => {
+      const current = prev[pId] || {
+        amountPaid: '',
+        amountDue: '',
+        notes: '',
+        status: 'idle'
+      };
+      return {
+        ...prev,
+        [pId]: {
+          ...current,
+          [field]: value,
+          status: 'idle'
+        }
+      };
+    });
+  };
+
+  const handleSaveLocalEdits = async (p: EveningParticipant) => {
+    const state = getEditState(p);
+    setEditStates(prev => ({
+      ...prev,
+      [p.id]: { ...prev[p.id] || state, status: 'saving' }
+    }));
+
+    try {
+      const updated = await api.updateParticipant(p.id, {
+        amount_paid: parseInt(state.amountPaid, 10) || 0,
+        amount_due: parseInt(state.amountDue, 10) || 0,
+        notes: state.notes
+      });
+
+      setParticipants((prev) => prev.map((item) => (item.id === p.id ? updated : item)));
+
+      setEditStates(prev => ({
+        ...prev,
+        [p.id]: {
+          amountPaid: String(updated.amount_paid),
+          amountDue: String(updated.amount_due),
+          notes: updated.notes || '',
+          status: 'saved'
+        }
+      }));
+
+      setTimeout(() => {
+        setEditStates(prev => {
+          if (!prev[p.id]) return prev;
+          return {
+            ...prev,
+            [p.id]: { ...prev[p.id], status: 'idle' }
+          };
+        });
+      }, 2000);
+
+    } catch (err) {
+      setEditStates(prev => ({
+        ...prev,
+        [p.id]: { ...prev[p.id] || state, status: 'error' }
+      }));
     }
   };
 
@@ -193,6 +388,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
     return <div className="p-8 text-center text-slate-400 text-sm">Загрузка данных вечера...</div>;
   }
 
+  // Counters
   const registeredCount = participants.filter((p) => p.registration_status !== 'cancelled').length;
   const confirmedCount = participants.filter((p) => p.registration_status === 'confirmed').length;
   const attendedCount = participants.filter((p) => p.attendance_status === 'attended').length;
@@ -214,9 +410,20 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
     return true;
   });
 
+  // Filter participants based on selected tab filter
+  const getFilteredParticipants = () => {
+    return participants.filter((p) => {
+      if (tableFilter === 'all') return true;
+      if (tableFilter === 'none') return !p.table_id;
+      return p.table_id === tableFilter;
+    });
+  };
+
+  const filteredParticipants = getFilteredParticipants();
+
   return (
     <div className="space-y-6">
-      {/* Top Header & Actions */}
+      {/* Top Header & Core Evening Information */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -243,7 +450,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Core Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
@@ -251,7 +458,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                 navigator.clipboard.writeText(joinUrl);
                 alert(`Ссылка для записи скопирована:\n${joinUrl}`);
               }}
-              className="bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-slate-850 hover:bg-slate-800 text-rose-300 border border-slate-750 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span>🔗 Ссылка для игроков</span>
             </button>
@@ -261,7 +468,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
               className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Добавить игроков (Массово)</span>
+              <span>Добавить игроков</span>
             </button>
 
             <button
@@ -278,17 +485,17 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Закрыть и Рассчитать Вечер</span>
+                <span>Рассчитать вечер</span>
               </button>
             ) : (
-              <div className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-slate-400 font-mono">
+              <div className="px-3 py-2 bg-slate-950 border border-slate-850 rounded-2xl text-xs text-slate-400 font-mono">
                 Расчёт закрыт: {new Date(evening.settled_at).toLocaleDateString('ru-RU')}
               </div>
             )}
           </div>
         </div>
 
-        {/* Counters Header */}
+        {/* Dashboard Counters */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center font-mono pt-2 border-t border-slate-800/80">
           <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
             <span className="text-[10px] text-slate-500 font-bold uppercase block">Запись</span>
@@ -313,67 +520,238 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Bulk Actions Bar if items selected */}
-      {selectedParticipantIds.length > 0 && (
-        <div className="bg-rose-950/40 border border-rose-500/30 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 font-bold text-rose-300">
-            <span>Выбрано участников: {selectedParticipantIds.length}</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => applyBulkActionToParticipants('confirm')}
-              className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-bold cursor-pointer hover:bg-emerald-500"
-            >
-              Подтвердить выбранных
-            </button>
-            <button
-              onClick={() => applyBulkActionToParticipants('attend')}
-              className="px-3 py-1.5 bg-amber-600 text-white rounded-xl font-bold cursor-pointer hover:bg-amber-500"
-            >
-              Отметить пришедшими
-            </button>
-            <button
-              onClick={() => setSelectedParticipantIds([])}
-              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-xl font-bold cursor-pointer hover:bg-slate-700"
-            >
-              Сбросить выбор
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 2. Management Mode Switcher (Registration vs Active Evening in progress) */}
+      <div className="bg-slate-950 p-1.5 border border-slate-850 rounded-2xl flex gap-1">
+        <button
+          onClick={() => setMode('rsvp')}
+          className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
+            mode === 'rsvp'
+              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/15'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          📝 Набор участников (RSVP)
+        </button>
+        <button
+          onClick={() => setMode('active')}
+          className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
+            mode === 'active'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/15'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          📱 Вечер идет (Управление явкой и кассой)
+        </button>
+      </div>
 
-      {/* Main Table of Participants (Mobile optimized cards & list) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+      {/* 3. Table UI: Display cards for each table */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+            <Sliders className="w-4 h-4 text-rose-400" /> Игровые Столы вечера
+          </h3>
+          {evening.status !== 'completed' && (
+            <button
+              onClick={handleOpenCreateTable}
+              className="text-xs font-bold bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" /> Создать стол
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {tables.map((table) => {
+            const tableParticipants = participants.filter((p) => p.table_id === table.id && p.registration_status !== 'cancelled');
+            const waitlistInTable = participants.filter((p) => p.table_id === table.id && p.registration_status === 'waitlist').length;
+
+            return (
+              <div key={table.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 relative overflow-hidden">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-white flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      {table.name}
+                    </h4>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-850 border border-slate-800 text-slate-300 font-mono shrink-0">
+                      {table.format}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 pt-1">
+                    <div>Ведущий: <strong className="text-white">{table.host_name || 'Не назначен'}</strong></div>
+                    <div>Тариф: <strong className="text-emerald-400">{table.default_price || evening.default_price} ₽</strong></div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-850 text-xs font-mono flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Свободно мест</span>
+                    <span className="font-bold text-white">
+                      {tableParticipants.length} / {table.capacity}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Резерв (waitlist)</span>
+                    <span className="font-bold text-amber-500">
+                      {waitlistInTable}
+                    </span>
+                  </div>
+                </div>
+
+                {evening.status !== 'completed' && (
+                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-850/80">
+                    <button
+                      onClick={() => handleOpenEditTable(table)}
+                      className="p-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-white cursor-pointer transition-all"
+                      title="Редактировать параметры стола"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTable(table.id)}
+                      className="p-1.5 bg-slate-950 border border-slate-800 hover:border-rose-900/50 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer transition-all"
+                      title="Удалить стол"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {tables.length === 0 && (
+            <div className="md:col-span-3 bg-slate-900/30 border border-dashed border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
+              На этот вечер столы пока не добавлены. Будут автоматически развернуты стандартные столы.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Filter Tabs per Table & Participant List Selection */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Table Filters tabs */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setTableFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                tableFilter === 'all'
+                  ? 'bg-slate-950 border border-slate-800 text-rose-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Все ({participants.length})
+            </button>
+            <button
+              onClick={() => setTableFilter('none')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                tableFilter === 'none'
+                  ? 'bg-slate-950 border border-slate-800 text-rose-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Без стола ({participants.filter((p) => !p.table_id).length})
+            </button>
+            {tables.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTableFilter(t.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  tableFilter === t.id
+                    ? 'bg-slate-950 border border-slate-800 text-rose-400'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t.name} ({participants.filter((p) => p.table_id === t.id).length})
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2">
-            <button onClick={toggleSelectAllParticipants} className="text-slate-400 hover:text-white cursor-pointer">
-              {selectedParticipantIds.length === participants.length && participants.length > 0 ? (
+            <button
+              onClick={toggleSelectAllParticipants}
+              className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 shrink-0"
+              title="Выбрать всех на текущем фильтре"
+            >
+              {selectedParticipantIds.length === filteredParticipants.length && filteredParticipants.length > 0 ? (
                 <CheckSquare className="w-5 h-5 text-rose-400" />
               ) : (
                 <Square className="w-5 h-5" />
               )}
             </button>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Список Участников ({participants.length})
-            </h3>
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              Выбрать все
+            </span>
           </div>
         </div>
 
-        {/* List Items */}
-        <div className="space-y-3">
-          {participants.length > 0 ? (
-            participants.map((p, idx) => {
+        {/* 5. Mass Actions Toolbar when items are selected */}
+        {selectedParticipantIds.length > 0 && (
+          <div className="bg-slate-950 border border-rose-500/25 p-3.5 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-300">
+                👉 Массовое действие для выбраных игроков ({selectedParticipantIds.length}):
+              </span>
+              <button
+                onClick={() => setSelectedParticipantIds([])}
+                className="text-[10px] uppercase font-bold text-slate-500 hover:text-slate-300 cursor-pointer"
+              >
+                Сбросить
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => applyBulkActionToParticipants('confirm')}
+                className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 text-xs font-bold rounded-xl cursor-pointer transition-all"
+              >
+                ✅ Подтвердить запись
+              </button>
+              <button
+                onClick={() => applyBulkActionToParticipants('attend')}
+                className="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white border border-amber-500/20 text-xs font-bold rounded-xl cursor-pointer transition-all"
+              >
+                🏃 Отметить «Пришёл»
+              </button>
+              <button
+                onClick={() => applyBulkActionToParticipants('unassign_table')}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-bold rounded-xl cursor-pointer transition-all"
+              >
+                🚫 Убрать со стола
+              </button>
+
+              {tables.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => applyBulkActionToParticipants('assign_table', t.id)}
+                  className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                >
+                  📥 На стол: {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 6. Participant Cards (Interactive view states) */}
+        <div className="space-y-3.5">
+          {filteredParticipants.length > 0 ? (
+            filteredParticipants.map((p, idx) => {
               const isSelected = selectedParticipantIds.includes(p.id);
+              const editState = getEditState(p);
+              const isExpanded = !!expandedEdits[p.id];
 
               return (
                 <div
                   key={p.id}
-                  className={`p-4 bg-slate-950 border rounded-2xl space-y-3 transition-all ${
-                    isSelected ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-850 hover:border-slate-700'
+                  className={`p-4 bg-slate-950 border rounded-2xl space-y-3.5 transition-all relative ${
+                    isSelected ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-850 hover:border-slate-800'
                   }`}
                 >
-                  {/* Participant Header & Info */}
-                  <div className="flex items-start justify-between gap-2">
+                  {/* Card Header & Metadata */}
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <button
                         onClick={() => toggleSelectParticipant(p.id)}
@@ -392,137 +770,282 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                           >
                             {p.nickname}
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 font-mono">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-900 border border-slate-850 text-slate-300 font-mono">
                             ELO {p.elo}
                           </span>
+
+                          {p.table_id && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-900 text-rose-400 border border-rose-500/10 font-sans">
+                              {tables.find((t) => t.id === p.table_id)?.name || 'Стол'}
+                            </span>
+                          )}
                         </div>
                         {p.phone && <p className="text-[11px] text-slate-400 font-mono mt-0.5">📱 {p.phone}</p>}
                       </div>
                     </div>
 
+                    {/* Quick helper buttons for tasks/deletes */}
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => setTaskTargetParticipant(p)}
-                        className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-amber-400 cursor-pointer"
-                        title="Создать задачу по участнику"
+                        className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-amber-400 cursor-pointer"
+                        title="Создать задачу"
                       >
                         <FileText className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteParticipant(p.id)}
-                        className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer"
-                        title="Удалить из вечера"
+                        className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer"
+                        title="Удалить участника"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Touch-friendly Status Controls Row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2 border-t border-slate-850">
-                    {/* 1. Registration Status */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Запись</span>
-                      <select
-                        value={p.registration_status}
-                        onChange={(e) => handleUpdateParticipant(p.id, { registration_status: e.target.value as any })}
-                        className={`w-full bg-slate-900 border rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none ${
-                          p.registration_status === 'confirmed'
-                            ? 'border-emerald-500/50 text-emerald-400'
-                            : p.registration_status === 'cancelled'
-                            ? 'border-rose-500/50 text-rose-400'
-                            : 'border-slate-800 text-slate-300'
-                        }`}
-                      >
-                        <option value="registered">Записан</option>
-                        <option value="confirmed">Подтвержден</option>
-                        <option value="invited">Приглашен</option>
-                        <option value="waitlist">Резерв</option>
-                        <option value="cancelled">Отменил</option>
-                      </select>
-                    </div>
+                  {/* MODE A: RSVP Mode Controls */}
+                  {mode === 'rsvp' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-850">
+                      {/* Table assignment selector */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Игровой стол</span>
+                        <select
+                          value={p.table_id || ''}
+                          onChange={(e) => handleUpdateParticipant(p.id, { table_id: e.target.value || null })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-200 focus:outline-none"
+                        >
+                          <option value="">Без стола (Свободный слот)</option>
+                          {tables.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} ({t.format})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {/* 2. Attendance Status */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Явка</span>
-                      <select
-                        value={p.attendance_status}
-                        onChange={(e) => handleUpdateParticipant(p.id, { attendance_status: e.target.value as any })}
-                        className={`w-full bg-slate-900 border rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none ${
-                          p.attendance_status === 'attended'
-                            ? 'border-amber-500/50 text-amber-400'
-                            : p.attendance_status === 'no_show'
-                            ? 'border-rose-500/50 text-rose-400'
-                            : 'border-slate-800 text-slate-300'
-                        }`}
-                      >
-                        <option value="pending">Ожидается</option>
-                        <option value="attended">Пришёл</option>
-                        <option value="no_show">Не пришёл (No-show)</option>
-                      </select>
-                    </div>
-
-                    {/* 3. Arrival Status */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Прибытие</span>
-                      <select
-                        value={p.arrival_status}
-                        onChange={(e) => handleUpdateParticipant(p.id, { arrival_status: e.target.value as any })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-300 focus:outline-none"
-                      >
-                        <option value="unknown">Неизвестно</option>
-                        <option value="on_time">Вовремя</option>
-                        <option value="late">Опоздал</option>
-                      </select>
-                    </div>
-
-                    {/* 4. Payment Status & Amounts */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Оплата (К оплате / Оплачено)</span>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={p.amount_due}
-                          onChange={(e) => handleUpdateParticipant(p.id, { amount_due: parseInt(e.target.value) || 0 })}
-                          className="w-1/2 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1 text-xs text-white font-mono text-center"
-                          title="Сумма к оплате"
-                        />
-                        <span className="text-slate-500 font-mono">/</span>
-                        <input
-                          type="number"
-                          value={p.amount_paid}
-                          onChange={(e) => handleUpdateParticipant(p.id, { amount_paid: parseInt(e.target.value) || 0 })}
-                          className={`w-1/2 bg-slate-900 border rounded-xl px-2 py-1 text-xs font-mono text-center font-bold ${
-                            p.amount_paid >= p.amount_due && p.amount_due > 0 ? 'text-emerald-400 border-emerald-500/30' : 'text-rose-400 border-rose-500/30'
-                          }`}
-                          title="Фактически оплачено"
-                        />
+                      {/* Registration status switcher */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Запись</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { registration_status: 'confirmed' })}
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                              p.registration_status === 'confirmed'
+                                ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Подтвердить
+                          </button>
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { registration_status: 'waitlist' })}
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                              p.registration_status === 'waitlist'
+                                ? 'bg-amber-600/20 border-amber-500 text-amber-400 font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Резерв
+                          </button>
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { registration_status: 'cancelled' })}
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                              p.registration_status === 'cancelled'
+                                ? 'bg-rose-600/20 border-rose-500 text-rose-400 font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Отменил
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    /* MODE B: "Active Evening" Mobile-First Touch Controls Panel (No nested cards, high contrast) */
+                    <div className="space-y-3 pt-2.5 border-t border-slate-850">
+                      {/* Attendance Buttons Grid (min-height: 44px for targets) */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Присутствие (Явка)</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'attended', arrival_status: 'on_time' })}
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                              p.attendance_status === 'attended' && p.arrival_status === 'on_time'
+                                ? 'bg-emerald-600 border-emerald-500 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Check className="w-4 h-4" /> Пришёл вовремя
+                          </button>
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'attended', arrival_status: 'late' })}
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                              p.attendance_status === 'attended' && p.arrival_status === 'late'
+                                ? 'bg-amber-600 border-amber-500 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Clock className="w-4 h-4" /> Опоздал
+                          </button>
+                          <button
+                            onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'no_show', arrival_status: 'unknown' })}
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                              p.attendance_status === 'no_show'
+                                ? 'bg-rose-600 border-rose-500 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <X className="w-4 h-4" /> Пропуск (No-show)
+                          </button>
+                        </div>
+                      </div>
 
-                  {/* Notes input */}
-                  <div>
-                    <input
-                      type="text"
-                      value={p.notes || ''}
-                      onChange={(e) => handleUpdateParticipant(p.id, { notes: e.target.value })}
-                      placeholder="Заметка по участнику (например, оплатит на месте / со своим чаем)..."
-                      className="w-full bg-slate-900 border border-slate-800/80 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-slate-700"
-                    />
-                  </div>
+                      {/* Payment Shortcuts Grid (min-height: 44px for targets) */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Кассовая операция</span>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <button
+                            onClick={() => {
+                              handleUpdateParticipant(p.id, { payment_status: 'paid', amount_paid: p.amount_due || 500 });
+                              // Pre-populate edit states so they keep synced if opened
+                              updateLocalEditField(p.id, 'amountPaid', String(p.amount_due || 500));
+                            }}
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                              p.payment_status === 'paid' && p.amount_paid >= p.amount_due && p.amount_due > 0
+                                ? 'bg-emerald-600 border-emerald-500 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-bold">100% Оплата</span>
+                            <span className="text-[9px] font-mono opacity-80">{p.amount_due || 500} ₽</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const half = Math.round((p.amount_due || 500) / 2);
+                              handleUpdateParticipant(p.id, { payment_status: 'partial', amount_paid: half });
+                              updateLocalEditField(p.id, 'amountPaid', String(half));
+                            }}
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                              p.payment_status === 'partial'
+                                ? 'bg-amber-600 border-amber-500 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-bold">Половина</span>
+                            <span className="text-[9px] font-mono opacity-80">{Math.round((p.amount_due || 500) / 2)} ₽</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleUpdateParticipant(p.id, { payment_status: 'waived', amount_paid: 0 });
+                              updateLocalEditField(p.id, 'amountPaid', '0');
+                            }}
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                              p.payment_status === 'waived'
+                                ? 'bg-slate-700 border-slate-600 text-white font-black'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-bold">Бесплатно</span>
+                            <span className="text-[9px] font-mono opacity-80">0 ₽</span>
+                          </button>
+                          <button
+                            onClick={() => setExpandedEdits(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                              isExpanded
+                                ? 'bg-rose-600/20 border-rose-500 text-rose-400'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-bold">Калькулятор</span>
+                            <span className="text-[9px] opacity-80">Ред. сумы</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expanded Custom editing panel for billing parameters */}
+                  {(isExpanded || mode === 'rsvp') && (
+                    <div className="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-850 space-y-3 pt-3 mt-1.5">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        {/* Cost Input */}
+                        <div className="space-y-1">
+                          <label className="block text-[10px] text-slate-400 font-bold uppercase">Цена вечера (₽)</label>
+                          <input
+                            type="number"
+                            value={editState.amountDue}
+                            onChange={(e) => updateLocalEditField(p.id, 'amountDue', e.target.value)}
+                            placeholder="500"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono"
+                          />
+                        </div>
+
+                        {/* Paid Input */}
+                        <div className="space-y-1">
+                          <label className="block text-[10px] text-slate-400 font-bold uppercase">Фактически внесено (₽)</label>
+                          <input
+                            type="number"
+                            value={editState.amountPaid}
+                            onChange={(e) => updateLocalEditField(p.id, 'amountPaid', e.target.value)}
+                            placeholder="0"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Participant Notes */}
+                      <div className="space-y-1 text-xs">
+                        <label className="block text-[10px] text-slate-400 font-bold uppercase">Заметки организатора</label>
+                        <input
+                          type="text"
+                          value={editState.notes}
+                          onChange={(e) => updateLocalEditField(p.id, 'notes', e.target.value)}
+                          placeholder="Пример: оплатит переводом после игры..."
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white focus:outline-none focus:border-slate-700"
+                        />
+                      </div>
+
+                      {/* Save Status buttons */}
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {p.payment_status === 'paid' ? '✅ Оплачено' : p.payment_status === 'partial' ? '⚠️ Частично' : '❌ Долг'}
+                        </span>
+                        <button
+                          onClick={() => handleSaveLocalEdits(p)}
+                          disabled={editState.status === 'saving'}
+                          className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer text-white transition-all ${
+                            editState.status === 'saving'
+                              ? 'bg-slate-800 text-slate-500 cursor-wait'
+                              : editState.status === 'saved'
+                              ? 'bg-emerald-600'
+                              : editState.status === 'error'
+                              ? 'bg-rose-600'
+                              : 'bg-rose-600 hover:bg-rose-500 shadow shadow-rose-600/10'
+                          }`}
+                        >
+                          {editState.status === 'saving'
+                            ? 'Сохранение...'
+                            : editState.status === 'saved'
+                            ? '✓ Успешно'
+                            : editState.status === 'error'
+                            ? '⚠ Ошибка'
+                            : 'Сохранить кассу'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
           ) : (
             <div className="text-center py-10 text-slate-500 text-xs">
-              В этот вечер пока нет записанных участников. Нажмите «Добавить игроков» выше.
+              На выбранном фильтре стола записанных участников не обнаружено.
             </div>
           )}
         </div>
       </div>
 
-      {/* MODAL 1: Bulk Add Players Modal */}
+      {/* MODAL 1: Bulk Add Players Modal (with table preservation support) */}
       {showBulkAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 relative text-white max-h-[90vh] flex flex-col">
@@ -549,6 +1072,23 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                   placeholder="Поиск игрока по нику или телефону..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                 />
+              </div>
+
+              {/* Table assignment selector inside bulk modal */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-bold whitespace-nowrap">Стол:</span>
+                <select
+                  value={bulkTableId}
+                  onChange={(e) => setBulkTableId(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white font-bold focus:outline-none"
+                >
+                  <option value="">Без стола</option>
+                  {tables.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.format})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-2">
@@ -621,7 +1161,115 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: Quick Guest Modal */}
+      {/* MODAL 2: Create / Edit Table Modal */}
+      {showTableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
+            <button
+              onClick={() => setShowTableModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-black uppercase tracking-tight">
+              {editingTable ? 'Редактировать стол' : 'Создать новый игровой стол'}
+            </h3>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-400 font-bold uppercase mb-1">Название стола</label>
+                <input
+                  type="text"
+                  required
+                  value={tableForm.name}
+                  onChange={(e) => setTableForm({ ...tableForm, name: e.target.value })}
+                  placeholder="Например: Новичковый стол"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Формат игр</label>
+                  <select
+                    value={tableForm.format}
+                    onChange={(e) => setTableForm({ ...tableForm, format: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="STANDARD">Классическая</option>
+                    <option value="NOVICE">Любительская (Новички)</option>
+                    <option value="TOURNAMENT">Турнирная</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Вместимость (чел.)</label>
+                  <input
+                    type="number"
+                    value={tableForm.capacity}
+                    onChange={(e) => setTableForm({ ...tableForm, capacity: parseInt(e.target.value) || 10 })}
+                    placeholder="10"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Имя Ведущего</label>
+                  <input
+                    type="text"
+                    value={tableForm.host_name}
+                    onChange={(e) => setTableForm({ ...tableForm, host_name: e.target.value })}
+                    placeholder="Например: Богдан"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Цена за участие (₽)</label>
+                  <input
+                    type="number"
+                    value={tableForm.default_price}
+                    onChange={(e) => setTableForm({ ...tableForm, default_price: parseInt(e.target.value) || 500 })}
+                    placeholder="500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold uppercase mb-1">Заметки по столу</label>
+                <input
+                  type="text"
+                  value={tableForm.notes}
+                  onChange={(e) => setTableForm({ ...tableForm, notes: e.target.value })}
+                  placeholder="Дополнительная информация..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleSaveTable}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  {editingTable ? 'Сохранить изменения' : 'Создать стол'}
+                </button>
+                <button
+                  onClick={() => setShowTableModal(false)}
+                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Quick Guest Modal */}
       {showQuickGuestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
@@ -677,7 +1325,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       )}
 
-      {/* MODAL 3: Settlement Confirmation Modal */}
+      {/* MODAL 4: Settlement Confirmation Modal */}
       {showSettleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 relative text-white">
@@ -722,7 +1370,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       )}
 
-      {/* MODAL 4: Create Task for Participant Modal */}
+      {/* MODAL 5: Create Task for Participant Modal */}
       {taskTargetParticipant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">

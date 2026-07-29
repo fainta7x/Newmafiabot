@@ -31,6 +31,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
   onRefresh,
 }) => {
   const [taskFilter, setTaskFilter] = useState<'overdue' | 'today' | 'noDeadline'>('overdue');
+  const [participantTab, setParticipantTab] = useState<'unanswered' | 'unconfirmed' | 'waitlist'>('unanswered');
 
   if (!overview) {
     return (
@@ -41,6 +42,30 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
   }
 
   const { nextEvening, actionLists, summary } = overview;
+
+  const formatTableType = (format?: string) => {
+    switch (format) {
+      case 'NOVICE':
+        return 'Стол для новичков';
+      case 'TOURNAMENT':
+        return 'Турнирный стол';
+      case 'STANDARD':
+      default:
+        return 'Обычный стол';
+    }
+  };
+
+  const formatPriority = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'Высокий';
+      case 'low':
+        return 'Низкий';
+      case 'medium':
+      default:
+        return 'Обычный';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -218,7 +243,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
                           <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                           <span className="font-bold text-white">{t.name}</span>
                           <span className="text-[10px] font-mono text-slate-400">
-                            ({t.format || 'STANDARD'})
+                            ({formatTableType(t.format)})
                           </span>
                         </div>
                         <div className="flex items-center gap-3 font-mono text-[11px]">
@@ -235,10 +260,10 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
                             </strong>
                           </span>
                           {t.invited_count ? (
-                            <span className="text-amber-400">Inv: {t.invited_count}</span>
+                            <span className="text-amber-400">Приглашены: {t.invited_count}</span>
                           ) : null}
                           {t.waitlist_count ? (
-                            <span className="text-rose-400">Wait: {t.waitlist_count}</span>
+                            <span className="text-rose-400">Резерв: {t.waitlist_count}</span>
                           ) : null}
                         </div>
                       </div>
@@ -246,6 +271,19 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Expected payment for nearest evening */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                  Ожидается к оплате
+                </span>
+                <span className="font-mono font-bold text-amber-400">
+                  {nextEvening.expectedToPayAmount || 0} ₽{' '}
+                  <span className="text-[11px] text-slate-400 font-sans font-normal">
+                    ({nextEvening.expectedToPayCount || 0} чел.)
+                  </span>
+                </span>
+              </div>
 
               <button
                 onClick={() => onOpenEvening(nextEvening.id)}
@@ -364,7 +402,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
                             : 'bg-slate-800 text-slate-300'
                         }`}
                       >
-                        {t.priority}
+                        {formatPriority(t.priority)}
                       </span>
                       {onCompleteTask && (
                         <button
@@ -381,6 +419,137 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({
               })()}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Switchable Action Lists for Nearest Evening */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-white uppercase tracking-wider">
+              Списки действий по ближайшему вечеру
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Участники и статус записи на следующий игровой вечер
+            </p>
+          </div>
+          <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+            <button
+              onClick={() => setParticipantTab('unanswered')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                participantTab === 'unanswered'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Не ответили ({actionLists?.unansweredInvites?.length || 0})
+            </button>
+            <button
+              onClick={() => setParticipantTab('unconfirmed')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                participantTab === 'unconfirmed'
+                  ? 'bg-sky-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Записаны, не подтвердили ({actionLists?.unconfirmedRegistered?.length || 0})
+            </button>
+            <button
+              onClick={() => setParticipantTab('waitlist')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                participantTab === 'waitlist'
+                  ? 'bg-rose-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Резерв ({actionLists?.waitlistParticipants?.length || 0})
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {(() => {
+            const list =
+              participantTab === 'unanswered'
+                ? actionLists?.unansweredInvites
+                : participantTab === 'unconfirmed'
+                ? actionLists?.unconfirmedRegistered
+                : actionLists?.waitlistParticipants;
+
+            if (!list || list.length === 0) {
+              return (
+                <div className="text-center py-8 text-slate-500 text-xs">
+                  В данном списке пока нет участников 🙌
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {list.map((p: any) => {
+                  const statusLabel =
+                    p.registration_status === 'invited'
+                      ? 'Приглашён'
+                      : p.registration_status === 'registered'
+                      ? 'Записан'
+                      : p.registration_status === 'waitlist'
+                      ? 'Резерв'
+                      : p.registration_status;
+
+                  const statusColor =
+                    p.registration_status === 'invited'
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                      : p.registration_status === 'registered'
+                      ? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+                      : 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+
+                  const tgUsername = p.telegram_username
+                    ? p.telegram_username.startsWith('@')
+                      ? p.telegram_username
+                      : `@${p.telegram_username}`
+                    : '—';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-3.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl space-y-2.5 text-xs transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-white text-sm truncate">{p.nickname}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-slate-400 text-[11px]">
+                        <div>
+                          Telegram: <span className="font-mono text-slate-200">{tgUsername}</span>
+                        </div>
+                        <div>
+                          Стол: <span className="font-bold text-slate-200">{p.table_name || 'Без стола'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-900">
+                        <button
+                          onClick={() => onOpenPlayer(p.player_id)}
+                          className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-[11px] font-bold cursor-pointer transition-all text-center"
+                        >
+                          Игрок
+                        </button>
+                        <button
+                          onClick={() => onOpenEvening(p.evening_id || nextEvening?.id || '')}
+                          className="flex-1 py-1.5 px-2 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 hover:text-rose-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all text-center"
+                        >
+                          Вечер
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

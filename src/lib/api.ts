@@ -64,10 +64,13 @@ export interface CrmOverview {
     confirmedCount: number;
     waitlistCount: number;
     newcomersCount: number;
+    expectedToPayAmount?: number;
+    expectedToPayCount?: number;
   }) | null;
   actionLists: {
     unansweredInvites: any[];
     unconfirmedRegistered: any[];
+    waitlistParticipants: any[];
     newcomersAfterFirst: any[];
     lapsedPlayers: any[];
     overdueTasks: OrganizerTask[];

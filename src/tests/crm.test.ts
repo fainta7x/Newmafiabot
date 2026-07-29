@@ -669,4 +669,224 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(bulkRes.status).toBe(400);
     });
   });
+
+  describe('P4 CRM Overview & Final Patch Tests', () => {
+    let pastEveningId: string;
+    let futureEveningId: string;
+    let overviewTableId: string;
+    let testPIds: string[] = [];
+
+    beforeAll(async () => {
+      // Create players
+      for (let i = 201; i <= 205; i++) {
+        const res = await request(app)
+          .post('/api/players')
+          .set('Cookie', organizerCookie)
+          .send({ nickname: `P4_Игрок_${i}`, phone: `+799922233${i}` });
+        testPIds.push(res.body.id);
+      }
+
+      // 1. Create a published evening in the past (e.g., 2 days ago)
+      const pastDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      const pastEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Прошедший вечер P4',
+          starts_at: pastDate,
+          status: 'published',
+          capacity: 10,
+        });
+      pastEveningId = pastEvRes.body.id;
+
+      // 2. Create a future evening (e.g., tomorrow)
+      const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const futureEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Будущий вечер P4',
+          starts_at: futureDate,
+          status: 'published',
+          capacity: 10,
+        });
+      futureEveningId = futureEvRes.body.id;
+
+      // Create a table on future evening with capacity 3
+      const tblRes = await request(app)
+        .post(`/api/evenings/${futureEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Стол Overview',
+          capacity: 3,
+        });
+      overviewTableId = tblRes.body.id;
+    });
+
+    it('1. Past published evening is NOT selected as nextEvening', async () => {
+      const res = await request(app)
+        .get('/api/crm/overview')
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.nextEvening).toBeDefined();
+      expect(res.body.nextEvening.id).toBe(futureEveningId);
+      expect(res.body.nextEvening.id).not.toBe(pastEveningId);
+    });
+
+    it('2. & 3. Invited players do not occupy seats, table returns correct occupied, free_spots, and waitlist', async () => {
+      // Add 1 invited, 2 confirmed, 1 waitlist player to future evening table (capacity 3)
+      await request(app)
+        .post(`/api/evenings/${futureEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [testPIds[0]],
+          table_id: overviewTableId,
+          registration_status: 'invited',
+        });
+
+      await request(app)
+        .post(`/api/evenings/${futureEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [testPIds[1], testPIds[2]],
+          table_id: overviewTableId,
+          registration_status: 'confirmed',
+        });
+
+      await request(app)
+        .post(`/api/evenings/${futureEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [testPIds[3]],
+          table_id: overviewTableId,
+          registration_status: 'waitlist',
+        });
+
+      const res = await request(app)
+        .get('/api/crm/overview')
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      const nextEv = res.body.nextEvening;
+      expect(nextEv.id).toBe(futureEveningId);
+      expect(nextEv.tables).toBeDefined();
+
+      const table = nextEv.tables.find((t: any) => t.id === overviewTableId);
+      expect(table).toBeDefined();
+      // Occupied should count ONLY confirmed and registered (2), NOT invited (1) or waitlist (1)
+      expect(table.occupied).toBe(2);
+      expect(table.free_spots).toBe(1); // 3 capacity - 2 occupied = 1
+      expect(table.invited_count).toBe(1);
+      expect(table.waitlist_count).toBe(1);
+    });
+
+    it('4. Overdue, today, and no-deadline tasks are correctly separated', async () => {
+      const todayStr = new Date().toISOString().substring(0, 10);
+      const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+
+      // Create an overdue task
+      await request(app)
+        .post('/api/tasks')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Просроченная задача P4',
+          due_at: `${yesterdayStr}T12:00:00.000Z`,
+          status: 'todo',
+        });
+
+      // Create a task for today
+      await request(app)
+        .post('/api/tasks')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Задача на сегодня P4',
+          due_at: `${todayStr}T15:00:00.000Z`,
+          status: 'todo',
+        });
+
+      // Create a task without deadline
+      await request(app)
+        .post('/api/tasks')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Задача без срока P4',
+          due_at: null,
+          status: 'todo',
+        });
+
+      const res = await request(app)
+        .get('/api/crm/overview')
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      const { overdueTasks, todayTasks, noDeadlineTasks } = res.body.actionLists;
+
+      expect(overdueTasks.some((t: any) => t.title === 'Просроченная задача P4')).toBe(true);
+      expect(todayTasks.some((t: any) => t.title === 'Задача на сегодня P4')).toBe(true);
+      expect(noDeadlineTasks.some((t: any) => t.title === 'Задача без срока P4')).toBe(true);
+
+      // Cross checks: ensure no overlap
+      expect(overdueTasks.some((t: any) => t.title === 'Задача на сегодня P4')).toBe(false);
+      expect(todayTasks.some((t: any) => t.title === 'Просроченная задача P4')).toBe(false);
+    });
+
+    it('5. Free participation (amount_due=0) results in waived payment_status', async () => {
+      const freeEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Бесплатный вечер P4',
+          starts_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          default_price: 0,
+        });
+
+      const addRes = await request(app)
+        .post(`/api/evenings/${freeEvRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_id: testPIds[4],
+          registration_status: 'registered',
+          amount_due: 0,
+        });
+
+      expect(addRes.status).toBe(201);
+      expect(addRes.body.payment_status).toBe('waived');
+    });
+
+    it('6. Updating registration_status does not overwrite waived to unpaid', async () => {
+      const freeEvRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Бесплатный вечер P4 для апдейта',
+          starts_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          default_price: 0,
+        });
+
+      const addRes = await request(app)
+        .post(`/api/evenings/${freeEvRes.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_id: testPIds[0],
+          registration_status: 'registered',
+          amount_due: 0,
+        });
+
+      const participantId = addRes.body.id;
+      expect(addRes.body.payment_status).toBe('waived');
+
+      // Update registration_status to confirmed without passing payment_status or amount_due
+      const patchRes = await request(app)
+        .patch(`/api/evening-participants/${participantId}`)
+        .set('Cookie', organizerCookie)
+        .send({
+          registration_status: 'confirmed',
+        });
+
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.registration_status).toBe('confirmed');
+      expect(patchRes.body.payment_status).toBe('waived');
+    });
+  });
 });

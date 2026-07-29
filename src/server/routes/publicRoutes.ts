@@ -167,7 +167,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
       if (tbl) {
         selectedTableName = tbl.name;
         const countRow = await db.get(
-          `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+          `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
           [targetTableId]
         );
         if ((countRow?.cnt || 0) >= tbl.capacity) {
@@ -177,7 +177,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
     } else {
       // Check total evening capacity
       const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
         [eveningId]
       );
       if ((countRow?.cnt || 0) >= (evening.capacity || 20)) {
@@ -187,6 +187,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
 
     const regStatus = isFull ? 'waitlist' : 'registered';
     const amountDue = evening.default_price || 0;
+    const paymentStatus = amountDue === 0 ? 'waived' : 'unpaid';
     const participantId = existingParticipation
       ? existingParticipation.id
       : `part_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
@@ -201,8 +202,8 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
     } else {
       await db.run(
         `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', 'unpaid', ?, 0, ?, ?, ?)`,
-        [participantId, eveningId, player.id, targetTableId, regStatus, amountDue, nowIso, nowIso, nowIso]
+         VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+        [participantId, eveningId, player.id, targetTableId, regStatus, paymentStatus, amountDue, nowIso, nowIso, nowIso]
       );
     }
 

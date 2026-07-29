@@ -14,12 +14,13 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     await runCrmAutomations(db);
 
     const nowIso = new Date().toISOString();
+    const todayStr = nowIso.substring(0, 10);
+    const todayStartIso = `${todayStr}T00:00:00.000Z`;
 
-    // 1. Closest future evening (starts_at >= now_date AND not cancelled or completed)
-    const todayDateStr = nowIso.substring(0, 10);
+    // 1. Closest future evening (starts_at >= nowIso AND not cancelled or completed)
     const nextEvening = await db.get(
       `SELECT e.*,
-        (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status != 'cancelled') as registered_count,
+        (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status IN ('registered', 'confirmed')) as registered_count,
         (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'confirmed') as confirmed_count,
         (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'waitlist') as waitlist_count,
         (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id = e.id AND p.registration_status = 'invited') as invited_count
@@ -27,7 +28,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
        WHERE e.status NOT IN ('cancelled', 'completed') AND e.starts_at >= ?
        ORDER BY e.starts_at ASC
        LIMIT 1`,
-      [todayDateStr]
+      [nowIso]
     );
 
     let tables: any[] = [];
@@ -37,10 +38,22 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     let newcomersOnEvening: any[] = [];
 
     if (nextEvening) {
+      // Fetch participants on next evening first
+      eveningParticipants = await db.all(
+        `SELECT ep.*, p.nickname, p.telegram_username, p.phone, p.lifecycle_status,
+          (SELECT COUNT(*) FROM evening_participants p2 WHERE p2.player_id = ep.player_id AND p2.attendance_status = 'attended') as total_attended
+         FROM evening_participants ep
+         JOIN players p ON p.id = ep.player_id
+         WHERE ep.evening_id = ?`,
+        [nextEvening.id]
+      );
+
       // Fetch tables
       tables = await db.all(
         `SELECT t.*,
-          (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.registration_status NOT IN ('cancelled', 'waitlist')) as participant_count
+          (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.registration_status IN ('registered', 'confirmed')) as occupied,
+          (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.registration_status = 'invited') as invited_count,
+          (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.registration_status = 'waitlist') as waitlist_count
          FROM evening_tables t
          WHERE t.evening_id = ?
          ORDER BY t.sort_order ASC, t.created_at ASC`,
@@ -55,6 +68,11 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [tableId, nextEvening.id, 'Основной стол', nextEvening.format || 'STANDARD', nextEvening.capacity || 10, nowIso, nowIso]
         );
+        const occupiedCount = eveningParticipants.filter(
+          (p: any) => p.registration_status === 'registered' || p.registration_status === 'confirmed'
+        ).length;
+        const invitedCount = eveningParticipants.filter((p: any) => p.registration_status === 'invited').length;
+        const waitlistCount = eveningParticipants.filter((p: any) => p.registration_status === 'waitlist').length;
         tables = [
           {
             id: tableId,
@@ -62,43 +80,43 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
             name: 'Основной стол',
             format: nextEvening.format || 'STANDARD',
             capacity: nextEvening.capacity || 10,
-            participant_count: nextEvening.registered_count || 0,
+            occupied: occupiedCount,
+            participant_count: occupiedCount,
+            invited_count: invitedCount,
+            waitlist_count: waitlistCount,
+            free_spots: Math.max(0, (nextEvening.capacity || 10) - occupiedCount),
           },
         ];
+      } else {
+        tables = tables.map((t: any) => {
+          const occupied = t.occupied || 0;
+          return {
+            ...t,
+            occupied,
+            participant_count: occupied,
+            invited_count: t.invited_count || 0,
+            waitlist_count: t.waitlist_count || 0,
+            free_spots: Math.max(0, t.capacity - occupied),
+          };
+        });
       }
-
-      tables = tables.map((t: any) => ({
-        ...t,
-        free_spots: Math.max(0, t.capacity - (t.participant_count || 0)),
-      }));
-
-      // Fetch participants on next evening
-      eveningParticipants = await db.all(
-        `SELECT ep.*, p.nickname, p.telegram_username, p.phone, p.lifecycle_status,
-          (SELECT COUNT(*) FROM evening_participants p2 WHERE p2.player_id = ep.player_id AND p2.attendance_status = 'attended') as total_attended
-         FROM evening_participants ep
-         JOIN players p ON p.id = ep.player_id
-         WHERE ep.evening_id = ?`,
-        [nextEvening.id]
-      );
 
       unansweredInvites = eveningParticipants.filter((p: any) => p.registration_status === 'invited');
       unconfirmedRegistered = eveningParticipants.filter((p: any) => p.registration_status === 'registered');
       newcomersOnEvening = eveningParticipants.filter((p: any) => p.total_attended <= 1);
     }
 
-    // 2. Overdue tasks (status != done, due_at in past)
+    // 2. Overdue tasks (status != done, due_at strictly before todayStartIso)
     const overdueTasks = await db.all(
       `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
        FROM organizer_tasks t
        LEFT JOIN players p ON p.id = t.player_id
-       WHERE t.status != 'done' AND t.due_at IS NOT NULL AND t.due_at < ?
+       WHERE t.status != 'done' AND t.due_at IS NOT NULL AND t.due_at != '' AND t.due_at < ?
        ORDER BY t.due_at ASC`,
-      [nowIso]
+      [todayStartIso]
     );
 
-    // 3. Today's tasks (due_at contains today date, not NULL, status != done)
-    const todayStr = nowIso.substring(0, 10);
+    // 3. Today's tasks (due_at starts with todayStr)
     const todayTasks = await db.all(
       `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
        FROM organizer_tasks t
@@ -113,7 +131,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       `SELECT t.*, p.nickname as player_nickname, p.telegram_username, p.phone
        FROM organizer_tasks t
        LEFT JOIN players p ON p.id = t.player_id
-       WHERE t.status != 'done' AND t.due_at IS NULL
+       WHERE t.status != 'done' AND (t.due_at IS NULL OR t.due_at = '')
        ORDER BY t.created_at DESC`
     );
 

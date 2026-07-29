@@ -8,7 +8,7 @@ import {
   Lock,
   LogOut,
 } from 'lucide-react';
-import { api, GameEvening, OrganizerTask, Player } from '../lib/api.ts';
+import { api, GameEvening, Player, CrmOverview } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningDetailView } from './crm/EveningDetailView.tsx';
@@ -32,8 +32,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [loginError, setLoginError] = useState('');
 
   // Global State for CRM
+  const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
   const [evenings, setEvenings] = useState<GameEvening[]>([]);
-  const [tasks, setTasks] = useState<OrganizerTask[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,13 +60,13 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   const loadAllData = async () => {
     try {
-      const [evList, tList, pList] = await Promise.all([
+      const [ov, evList, pList] = await Promise.all([
+        api.getCrmOverview(),
         api.getEvenings(),
-        api.getTasks({ today: true }),
         api.getPlayers(),
       ]);
+      setCrmOverview(ov);
       setEvenings(evList);
-      setTasks(tList);
       setPlayers(pList);
     } catch (err: any) {
       console.error('Error loading CRM data:', err);
@@ -236,12 +236,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <CRMOverview
-                evenings={evenings}
-                tasks={tasks}
-                players={players}
+                overview={crmOverview}
                 onOpenEvening={handleOpenEvening}
                 onOpenPlayer={handleOpenPlayer}
                 onNavigateTab={(tab) => setActiveTab(tab as any)}
+                onRefresh={loadAllData}
+                onCompleteTask={async (taskId) => {
+                  await api.completeTask(taskId);
+                  loadAllData();
+                }}
               />
             )}
 

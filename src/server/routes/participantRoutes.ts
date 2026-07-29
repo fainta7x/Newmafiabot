@@ -31,18 +31,24 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const fields: string[] = [];
     const values: any[] = [];
 
-    // Recalculate payment status if amount_due or amount_paid changed
+    // Recalculate payment status if amount_due or amount_paid changed or explicitly provided
     const newAmountDue = data.amount_due !== undefined ? data.amount_due : part.amount_due;
     const newAmountPaid = data.amount_paid !== undefined ? data.amount_paid : part.amount_paid;
     let computedPaymentStatus = data.payment_status;
 
     if (!computedPaymentStatus) {
-      if (newAmountPaid >= newAmountDue && newAmountDue > 0) {
-        computedPaymentStatus = 'paid';
-      } else if (newAmountPaid > 0) {
-        computedPaymentStatus = 'partial';
+      if (data.amount_due !== undefined || data.amount_paid !== undefined) {
+        if (newAmountDue === 0) {
+          computedPaymentStatus = 'waived';
+        } else if (newAmountPaid >= newAmountDue && newAmountDue > 0) {
+          computedPaymentStatus = 'paid';
+        } else if (newAmountPaid > 0) {
+          computedPaymentStatus = 'partial';
+        } else {
+          computedPaymentStatus = 'unpaid';
+        }
       } else {
-        computedPaymentStatus = 'unpaid';
+        computedPaymentStatus = part.payment_status;
       }
     }
 

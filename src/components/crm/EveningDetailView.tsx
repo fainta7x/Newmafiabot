@@ -647,7 +647,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {tables.map((table) => {
-            const occupiedCount = participants.filter((p) => p.table_id === table.id && p.registration_status !== 'cancelled' && p.registration_status !== 'waitlist').length;
+            const occupiedCount = participants.filter((p) => p.table_id === table.id && (p.registration_status === 'registered' || p.registration_status === 'confirmed')).length;
             const freeSeats = Math.max(0, table.capacity - occupiedCount);
             const waitlistInTable = participants.filter((p) => p.table_id === table.id && p.registration_status === 'waitlist').length;
 

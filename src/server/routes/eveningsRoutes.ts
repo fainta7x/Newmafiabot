@@ -435,7 +435,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
               regStatus,
               'pending',
               'unknown',
-              'unpaid',
+              defaultPrice === 0 ? 'waived' : 'unpaid',
               defaultPrice,
               0,
               now,
@@ -609,7 +609,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     let finalRegStatus = data.registration_status;
     if (targetTable) {
       const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
         [data.table_id]
       );
       const currentCount = countRow?.cnt || 0;
@@ -618,7 +618,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
       }
     } else {
       const regCountRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
         [req.params.id]
       );
       const regCount = regCountRow?.cnt || 0;
@@ -630,7 +630,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     const partId = crypto.randomUUID();
     const now = new Date().toISOString();
     const amountPaid = data.amount_paid ?? 0;
-    const paymentStatus = amountPaid >= calculatedAmountDue ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid';
+    const paymentStatus = (data as any).payment_status ?? (calculatedAmountDue === 0 ? 'waived' : (amountPaid >= calculatedAmountDue && calculatedAmountDue > 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid'));
 
     await db.run(
       `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes, registered_at, confirmed_at, created_at, updated_at)

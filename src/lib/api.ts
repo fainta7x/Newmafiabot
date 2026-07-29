@@ -38,7 +38,10 @@ export interface EveningTable {
   notes?: string | null;
   sort_order?: number;
   participant_count?: number;
+  occupied?: number;
   free_spots?: number;
+  invited_count?: number;
+  waitlist_count?: number;
 }
 
 export interface PlayerActivity {
@@ -69,11 +72,13 @@ export interface CrmOverview {
     lapsedPlayers: any[];
     overdueTasks: OrganizerTask[];
     todayTasks: OrganizerTask[];
+    noDeadlineTasks: OrganizerTask[];
     unpaidParticipants: any[];
   };
   summary: {
     overdueTasksCount: number;
     todayTasksCount: number;
+    noDeadlineTasksCount: number;
     newcomersWithoutFollowupCount: number;
     lapsedPlayersCount: number;
     unpaidParticipantsCount: number;

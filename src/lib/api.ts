@@ -277,7 +277,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',

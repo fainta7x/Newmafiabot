@@ -28,7 +28,7 @@ export const addSingleParticipantSchema = z.object({
   phone: z.string().optional(),
   table_id: z.string().nullable().optional(),
   registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
-  amount_due: z.number().int().min(0).default(400),
+  amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).default(0),
   notes: z.string().nullable().optional(),
 });

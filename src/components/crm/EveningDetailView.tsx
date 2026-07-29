@@ -44,7 +44,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-  const [bulkAmountDue, setBulkAmountDue] = useState(500);
+  const [bulkAmountDue, setBulkAmountDue] = useState<number>(500);
   const [bulkTableId, setBulkTableId] = useState<string>('');
   const [bulkRegStatus, setBulkRegStatus] = useState<string>('registered');
 
@@ -64,6 +64,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   const [showQuickGuestModal, setShowQuickGuestModal] = useState(false);
   const [guestNickname, setGuestNickname] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  const [guestTableId, setGuestTableId] = useState<string>('');
+  const [guestRegStatus, setGuestRegStatus] = useState<string>('registered');
+  const [guestAmountDue, setGuestAmountDue] = useState<number>(500);
 
   // Settlement modal
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -91,6 +94,10 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       setParticipants(data.participants || []);
       setTables(data.tables || []);
 
+      const defaultPrice = data.default_price ?? 500;
+      setBulkAmountDue(defaultPrice);
+      setGuestAmountDue(defaultPrice);
+
       const players = await api.getPlayers();
       setAllPlayers(players);
     } catch (err: any) {
@@ -100,9 +107,27 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
     }
   };
 
+  const isReadonly = evening?.status === 'completed' || !!evening?.settled_at;
+
+  const formatTableFormat = (format: string) => {
+    switch (format) {
+      case 'NOVICE':
+        return 'Стол для новичков';
+      case 'TOURNAMENT':
+        return 'Турнирный стол';
+      case 'STANDARD':
+      default:
+        return 'Обычный стол';
+    }
+  };
+
   // 1. Bulk Add Players Execution
   const handleBulkAdd = async () => {
     if (selectedPlayerIds.length === 0) return;
+    if (isReadonly) {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     try {
       const res = await api.bulkAddParticipants(
         eveningId,
@@ -125,23 +150,71 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   // 2. Add Quick Guest Execution
   const handleAddQuickGuest = async () => {
     if (!guestNickname) return;
+    if (isReadonly) {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     try {
       await api.addParticipant(eveningId, {
         nickname: guestNickname,
         phone: guestPhone,
-        amount_due: evening?.default_price || 500,
+        table_id: guestTableId || null,
+        registration_status: guestRegStatus as any,
+        amount_due: guestAmountDue ?? evening?.default_price ?? 500,
       });
       setShowQuickGuestModal(false);
       setGuestNickname('');
       setGuestPhone('');
+      setGuestTableId('');
+      setGuestRegStatus('registered');
+      setGuestAmountDue(evening?.default_price ?? 500);
       loadData();
     } catch (err: any) {
       alert(err.message || 'Ошибка добавления гостя');
     }
   };
 
-  // 3. Update Participant Field (Single)
+  const handleGuestTableChange = (tId: string) => {
+    setGuestTableId(tId);
+    if (tId) {
+      const selectedTable = tables.find((t) => t.id === tId);
+      setGuestAmountDue(selectedTable?.default_price ?? evening?.default_price ?? 500);
+    } else {
+      setGuestAmountDue(evening?.default_price ?? 500);
+    }
+  };
+
+  const handleBulkTableChange = (tId: string) => {
+    setBulkTableId(tId);
+    if (tId) {
+      const selectedTable = tables.find((t) => t.id === tId);
+      setBulkAmountDue(selectedTable?.default_price ?? evening?.default_price ?? 500);
+    } else {
+      setBulkAmountDue(evening?.default_price ?? 500);
+    }
+  };
+
+  // 3. Move Participant Table (Unified Assignment Logic)
+  const handleMoveParticipantTable = async (participantId: string, targetTableId: string | null) => {
+    if (isReadonly) {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
+    try {
+      const updated = await api.moveParticipantTable(participantId, targetTableId);
+      setParticipants((prev) => prev.map((p) => (p.id === participantId ? updated : p)));
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка смены стола');
+    }
+  };
+
+  // Update Participant Field
   const handleUpdateParticipant = async (id: string, data: Partial<EveningParticipant>) => {
+    if (isReadonly) {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     try {
       const updated = await api.updateParticipant(id, data);
       setParticipants((prev) => prev.map((p) => (p.id === id ? updated : p)));
@@ -152,7 +225,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   // 4. Delete Participant
   const handleDeleteParticipant = async (id: string) => {
-    if (evening?.status === 'completed') {
+    if (isReadonly) {
       alert('Запрещено изменять завершённые вечера');
       return;
     }
@@ -213,7 +286,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   const applyBulkActionToParticipants = async (action: 'confirm' | 'attend' | 'assign_table' | 'unassign_table', targetTableId?: string) => {
     if (selectedParticipantIds.length === 0) return;
-    if (evening?.status === 'completed') {
+    if (isReadonly) {
       alert('Запрещено изменять завершённые вечера');
       return;
     }
@@ -242,28 +315,28 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   // Table Management Helpers
   const handleOpenCreateTable = () => {
-    if (evening?.status === 'completed') return;
+    if (isReadonly) return;
     setEditingTable(null);
     setTableForm({
       name: 'Новый стол',
       format: 'STANDARD',
       capacity: 10,
       host_name: '',
-      default_price: evening?.default_price || 500,
+      default_price: evening?.default_price ?? 500,
       notes: '',
     });
     setShowTableModal(true);
   };
 
   const handleOpenEditTable = (table: EveningTable) => {
-    if (evening?.status === 'completed') return;
+    if (isReadonly) return;
     setEditingTable(table);
     setTableForm({
       name: table.name,
       format: table.format,
       capacity: table.capacity,
       host_name: table.host_name || '',
-      default_price: table.default_price || evening?.default_price || 500,
+      default_price: table.default_price ?? evening?.default_price ?? 500,
       notes: table.notes || '',
     });
     setShowTableModal(true);
@@ -298,7 +371,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   };
 
   const handleDeleteTable = async (tableId: string) => {
-    if (evening?.status === 'completed') {
+    if (isReadonly) {
       alert('Запрещено удалять столы завершённого вечера');
       return;
     }
@@ -314,8 +387,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   // Local editing inputs state
   const getEditState = (p: EveningParticipant) => {
     return editStates[p.id] || {
-      amountPaid: String(p.amount_paid || 0),
-      amountDue: String(p.amount_due || 0),
+      amountPaid: String(p.amount_paid ?? 0),
+      amountDue: String(p.amount_due ?? evening?.default_price ?? 500),
       notes: p.notes || '',
       status: 'idle'
     };
@@ -341,6 +414,10 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   };
 
   const handleSaveLocalEdits = async (p: EveningParticipant) => {
+    if (isReadonly) {
+      alert('Запрещено изменять завершённые вечера');
+      return;
+    }
     const state = getEditState(p);
     setEditStates(prev => ({
       ...prev,
@@ -389,11 +466,11 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   }
 
   // Counters
-  const registeredCount = participants.filter((p) => p.registration_status !== 'cancelled').length;
+  const registeredCount = participants.filter((p) => p.registration_status !== 'cancelled' && p.registration_status !== 'waitlist').length;
   const confirmedCount = participants.filter((p) => p.registration_status === 'confirmed').length;
   const attendedCount = participants.filter((p) => p.attendance_status === 'attended').length;
-  const totalRevenue = participants.reduce((sum, p) => sum + (p.amount_paid || 0), 0);
-  const totalDue = participants.reduce((sum, p) => sum + (p.amount_due || 0), 0);
+  const totalRevenue = participants.reduce((sum, p) => sum + (p.amount_paid ?? 0), 0);
+  const totalDue = participants.reduce((sum, p) => sum + (p.amount_due ?? 0), 0);
 
   // Available players for bulk adding (excluding already registered)
   const existingPlayerIds = new Set(participants.map((p) => p.player_id));
@@ -437,9 +514,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-black text-white">{evening.title}</h2>
-                {evening.settled_at && (
+                {isReadonly && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-slate-400" /> Рассчитан
+                    <Lock className="w-3 h-3 text-slate-400" /> Завершён / Рассчитан
                   </span>
                 )}
               </div>
@@ -463,31 +540,37 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
               <span>🔗 Ссылка для игроков</span>
             </button>
 
-            <button
-              onClick={() => setShowBulkAddModal(true)}
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Добавить игроков</span>
-            </button>
+            {!isReadonly && (
+              <>
+                <button
+                  onClick={() => setShowBulkAddModal(true)}
+                  className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Добавить игроков</span>
+                </button>
 
-            <button
-              onClick={() => setShowQuickGuestModal(true)}
-              className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-emerald-400" />
-              <span>Быстрый Гость</span>
-            </button>
+                <button
+                  onClick={() => setShowQuickGuestModal(true)}
+                  className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-emerald-400" />
+                  <span>Быстрый Гость</span>
+                </button>
 
-            {!evening.settled_at ? (
-              <button
-                onClick={() => setShowSettleModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Рассчитать вечер</span>
-              </button>
-            ) : (
+                {!evening.settled_at && (
+                  <button
+                    onClick={() => setShowSettleModal(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Рассчитать вечер</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {evening.settled_at && (
               <div className="px-3 py-2 bg-slate-950 border border-slate-850 rounded-2xl text-xs text-slate-400 font-mono">
                 Расчёт закрыт: {new Date(evening.settled_at).toLocaleDateString('ru-RU')}
               </div>
@@ -520,29 +603,31 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Management Mode Switcher (Registration vs Active Evening in progress) */}
-      <div className="bg-slate-950 p-1.5 border border-slate-850 rounded-2xl flex gap-1">
-        <button
-          onClick={() => setMode('rsvp')}
-          className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
-            mode === 'rsvp'
-              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/15'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          📝 Набор участников (RSVP)
-        </button>
-        <button
-          onClick={() => setMode('active')}
-          className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
-            mode === 'active'
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/15'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          📱 Вечер идет (Управление явкой и кассой)
-        </button>
-      </div>
+      {/* 2. Management Mode Switcher */}
+      {!isReadonly && (
+        <div className="bg-slate-950 p-1.5 border border-slate-850 rounded-2xl flex gap-1">
+          <button
+            onClick={() => setMode('rsvp')}
+            className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
+              mode === 'rsvp'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/15'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📝 Набор участников
+          </button>
+          <button
+            onClick={() => setMode('active')}
+            className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
+              mode === 'active'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/15'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📱 Вечер идет (Управление явкой и кассой)
+          </button>
+        </div>
+      )}
 
       {/* 3. Table UI: Display cards for each table */}
       <div className="space-y-4">
@@ -550,7 +635,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
             <Sliders className="w-4 h-4 text-rose-400" /> Игровые Столы вечера
           </h3>
-          {evening.status !== 'completed' && (
+          {!isReadonly && (
             <button
               onClick={handleOpenCreateTable}
               className="text-xs font-bold bg-slate-900 border border-slate-800 hover:border-slate-700 text-rose-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1"
@@ -562,7 +647,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {tables.map((table) => {
-            const tableParticipants = participants.filter((p) => p.table_id === table.id && p.registration_status !== 'cancelled');
+            const occupiedCount = participants.filter((p) => p.table_id === table.id && p.registration_status !== 'cancelled' && p.registration_status !== 'waitlist').length;
+            const freeSeats = Math.max(0, table.capacity - occupiedCount);
             const waitlistInTable = participants.filter((p) => p.table_id === table.id && p.registration_status === 'waitlist').length;
 
             return (
@@ -574,32 +660,32 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                       {table.name}
                     </h4>
                     <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-850 border border-slate-800 text-slate-300 font-mono shrink-0">
-                      {table.format}
+                      {formatTableFormat(table.format)}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 pt-1">
                     <div>Ведущий: <strong className="text-white">{table.host_name || 'Не назначен'}</strong></div>
-                    <div>Тариф: <strong className="text-emerald-400">{table.default_price || evening.default_price} ₽</strong></div>
+                    <div>Тариф: <strong className="text-emerald-400">{table.default_price ?? evening.default_price} ₽</strong></div>
                   </div>
                 </div>
 
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-850 text-xs font-mono flex items-center justify-between">
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-850 text-xs font-mono grid grid-cols-3 gap-1 text-center">
                   <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Свободно мест</span>
-                    <span className="font-bold text-white">
-                      {tableParticipants.length} / {table.capacity}
-                    </span>
+                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Занято</span>
+                    <span className="font-bold text-white">{occupiedCount} / {table.capacity}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Резерв (waitlist)</span>
-                    <span className="font-bold text-amber-500">
-                      {waitlistInTable}
-                    </span>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Свободно</span>
+                    <span className="font-bold text-emerald-400">{freeSeats}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-sans font-bold">Резерв</span>
+                    <span className="font-bold text-amber-500">{waitlistInTable}</span>
                   </div>
                 </div>
 
-                {evening.status !== 'completed' && (
+                {!isReadonly && (
                   <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-850/80">
                     <button
                       onClick={() => handleOpenEditTable(table)}
@@ -669,30 +755,32 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleSelectAllParticipants}
-              className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 shrink-0"
-              title="Выбрать всех на текущем фильтре"
-            >
-              {selectedParticipantIds.length === filteredParticipants.length && filteredParticipants.length > 0 ? (
-                <CheckSquare className="w-5 h-5 text-rose-400" />
-              ) : (
-                <Square className="w-5 h-5" />
-              )}
-            </button>
-            <span className="text-xs font-bold text-white uppercase tracking-wider">
-              Выбрать все
-            </span>
-          </div>
+          {!isReadonly && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleSelectAllParticipants}
+                className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 shrink-0"
+                title="Выбрать всех на текущем фильтре"
+              >
+                {selectedParticipantIds.length === filteredParticipants.length && filteredParticipants.length > 0 ? (
+                  <CheckSquare className="w-5 h-5 text-rose-400" />
+                ) : (
+                  <Square className="w-5 h-5" />
+                )}
+              </button>
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                Выбрать все
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 5. Mass Actions Toolbar when items are selected */}
-        {selectedParticipantIds.length > 0 && (
+        {!isReadonly && selectedParticipantIds.length > 0 && (
           <div className="bg-slate-950 border border-rose-500/25 p-3.5 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-300">
-                👉 Массовое действие для выбраных игроков ({selectedParticipantIds.length}):
+                👉 Массовое действие для выбранных игроков ({selectedParticipantIds.length}):
               </span>
               <button
                 onClick={() => setSelectedParticipantIds([])}
@@ -753,12 +841,14 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                   {/* Card Header & Metadata */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={() => toggleSelectParticipant(p.id)}
-                        className="text-slate-500 hover:text-white cursor-pointer shrink-0"
-                      >
-                        {isSelected ? <CheckSquare className="w-4 h-4 text-rose-400" /> : <Square className="w-4 h-4" />}
-                      </button>
+                      {!isReadonly && (
+                        <button
+                          onClick={() => toggleSelectParticipant(p.id)}
+                          className="text-slate-500 hover:text-white cursor-pointer shrink-0"
+                        >
+                          {isSelected ? <CheckSquare className="w-4 h-4 text-rose-400" /> : <Square className="w-4 h-4" />}
+                        </button>
+                      )}
 
                       <span className="font-mono text-xs font-bold text-slate-500 shrink-0">#{idx + 1}</span>
 
@@ -779,45 +869,54 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                               {tables.find((t) => t.id === p.table_id)?.name || 'Стол'}
                             </span>
                           )}
+
+                          {p.registration_status === 'waitlist' && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              Резерв
+                            </span>
+                          )}
                         </div>
                         {p.phone && <p className="text-[11px] text-slate-400 font-mono mt-0.5">📱 {p.phone}</p>}
                       </div>
                     </div>
 
                     {/* Quick helper buttons for tasks/deletes */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => setTaskTargetParticipant(p)}
-                        className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-amber-400 cursor-pointer"
-                        title="Создать задачу"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteParticipant(p.id)}
-                        className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer"
-                        title="Удалить участника"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {!isReadonly && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setTaskTargetParticipant(p)}
+                          className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-amber-400 cursor-pointer"
+                          title="Создать задачу"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteParticipant(p.id)}
+                          className="p-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer"
+                          title="Удалить участника"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* MODE A: RSVP Mode Controls */}
-                  {mode === 'rsvp' ? (
+                  {/* MODE A: Registration Controls */}
+                  {mode === 'rsvp' || isReadonly ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-850">
                       {/* Table assignment selector */}
                       <div className="space-y-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Игровой стол</span>
                         <select
+                          disabled={isReadonly}
                           value={p.table_id || ''}
-                          onChange={(e) => handleUpdateParticipant(p.id, { table_id: e.target.value || null })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-200 focus:outline-none"
+                          onChange={(e) => handleMoveParticipantTable(p.id, e.target.value || null)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-200 focus:outline-none disabled:opacity-60"
                         >
                           <option value="">Без стола (Свободный слот)</option>
                           {tables.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name} ({t.format})
+                              {t.name} ({formatTableFormat(t.format)})
                             </option>
                           ))}
                         </select>
@@ -828,8 +927,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Запись</span>
                         <div className="grid grid-cols-3 gap-1">
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'confirmed' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
                               p.registration_status === 'confirmed'
                                 ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -838,8 +938,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             Подтвердить
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'waitlist' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
                               p.registration_status === 'waitlist'
                                 ? 'bg-amber-600/20 border-amber-500 text-amber-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -848,8 +949,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             Резерв
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'cancelled' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
                               p.registration_status === 'cancelled'
                                 ? 'bg-rose-600/20 border-rose-500 text-rose-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -861,15 +963,16 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                       </div>
                     </div>
                   ) : (
-                    /* MODE B: "Active Evening" Mobile-First Touch Controls Panel (No nested cards, high contrast) */
+                    /* MODE B: Active Evening Controls */
                     <div className="space-y-3 pt-2.5 border-t border-slate-850">
-                      {/* Attendance Buttons Grid (min-height: 44px for targets) */}
+                      {/* Attendance Buttons Grid */}
                       <div className="space-y-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Присутствие (Явка)</span>
                         <div className="grid grid-cols-3 gap-1.5">
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'attended', arrival_status: 'on_time' })}
-                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all disabled:opacity-60 ${
                               p.attendance_status === 'attended' && p.arrival_status === 'on_time'
                                 ? 'bg-emerald-600 border-emerald-500 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -878,8 +981,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             <Check className="w-4 h-4" /> Пришёл вовремя
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'attended', arrival_status: 'late' })}
-                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all disabled:opacity-60 ${
                               p.attendance_status === 'attended' && p.arrival_status === 'late'
                                 ? 'bg-amber-600 border-amber-500 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -888,58 +992,63 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             <Clock className="w-4 h-4" /> Опоздал
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { attendance_status: 'no_show', arrival_status: 'unknown' })}
-                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-1 cursor-pointer border transition-all disabled:opacity-60 ${
                               p.attendance_status === 'no_show'
                                 ? 'bg-rose-600 border-rose-500 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                             }`}
                           >
-                            <X className="w-4 h-4" /> Пропуск (No-show)
+                            <X className="w-4 h-4" /> Не пришёл
                           </button>
                         </div>
                       </div>
 
-                      {/* Payment Shortcuts Grid (min-height: 44px for targets) */}
+                      {/* Payment Shortcuts Grid */}
                       <div className="space-y-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Кассовая операция</span>
                         <div className="grid grid-cols-4 gap-1.5">
                           <button
+                            disabled={isReadonly}
                             onClick={() => {
-                              handleUpdateParticipant(p.id, { payment_status: 'paid', amount_paid: p.amount_due || 500 });
-                              // Pre-populate edit states so they keep synced if opened
-                              updateLocalEditField(p.id, 'amountPaid', String(p.amount_due || 500));
+                              const targetPrice = p.amount_due ?? evening.default_price;
+                              handleUpdateParticipant(p.id, { payment_status: 'paid', amount_paid: targetPrice });
+                              updateLocalEditField(p.id, 'amountPaid', String(targetPrice));
                             }}
-                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all disabled:opacity-60 ${
                               p.payment_status === 'paid' && p.amount_paid >= p.amount_due && p.amount_due > 0
                                 ? 'bg-emerald-600 border-emerald-500 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                             }`}
                           >
                             <span className="font-bold">100% Оплата</span>
-                            <span className="text-[9px] font-mono opacity-80">{p.amount_due || 500} ₽</span>
+                            <span className="text-[9px] font-mono opacity-80">{p.amount_due ?? evening.default_price} ₽</span>
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => {
-                              const half = Math.round((p.amount_due || 500) / 2);
+                              const targetPrice = p.amount_due ?? evening.default_price;
+                              const half = Math.round(targetPrice / 2);
                               handleUpdateParticipant(p.id, { payment_status: 'partial', amount_paid: half });
                               updateLocalEditField(p.id, 'amountPaid', String(half));
                             }}
-                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all disabled:opacity-60 ${
                               p.payment_status === 'partial'
                                 ? 'bg-amber-600 border-amber-500 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                             }`}
                           >
                             <span className="font-bold">Половина</span>
-                            <span className="text-[9px] font-mono opacity-80">{Math.round((p.amount_due || 500) / 2)} ₽</span>
+                            <span className="text-[9px] font-mono opacity-80">{Math.round((p.amount_due ?? evening.default_price) / 2)} ₽</span>
                           </button>
                           <button
+                            disabled={isReadonly}
                             onClick={() => {
                               handleUpdateParticipant(p.id, { payment_status: 'waived', amount_paid: 0 });
                               updateLocalEditField(p.id, 'amountPaid', '0');
                             }}
-                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all ${
+                            className={`min-h-[44px] rounded-xl text-[10px] uppercase font-bold tracking-wider flex flex-col items-center justify-center cursor-pointer border transition-all disabled:opacity-60 ${
                               p.payment_status === 'waived'
                                 ? 'bg-slate-700 border-slate-600 text-white font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -957,7 +1066,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             }`}
                           >
                             <span className="font-bold">Калькулятор</span>
-                            <span className="text-[9px] opacity-80">Ред. сумы</span>
+                            <span className="text-[9px] opacity-80">Изменить сумму</span>
                           </button>
                         </div>
                       </div>
@@ -965,18 +1074,19 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                   )}
 
                   {/* Expanded Custom editing panel for billing parameters */}
-                  {(isExpanded || mode === 'rsvp') && (
+                  {(isExpanded || (mode === 'rsvp' && !isReadonly)) && (
                     <div className="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-850 space-y-3 pt-3 mt-1.5">
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         {/* Cost Input */}
                         <div className="space-y-1">
                           <label className="block text-[10px] text-slate-400 font-bold uppercase">Цена вечера (₽)</label>
                           <input
+                            disabled={isReadonly}
                             type="number"
                             value={editState.amountDue}
                             onChange={(e) => updateLocalEditField(p.id, 'amountDue', e.target.value)}
                             placeholder="500"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono disabled:opacity-60"
                           />
                         </div>
 
@@ -984,11 +1094,12 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                         <div className="space-y-1">
                           <label className="block text-[10px] text-slate-400 font-bold uppercase">Фактически внесено (₽)</label>
                           <input
+                            disabled={isReadonly}
                             type="number"
                             value={editState.amountPaid}
                             onChange={(e) => updateLocalEditField(p.id, 'amountPaid', e.target.value)}
                             placeholder="0"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono disabled:opacity-60"
                           />
                         </div>
                       </div>
@@ -997,41 +1108,44 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                       <div className="space-y-1 text-xs">
                         <label className="block text-[10px] text-slate-400 font-bold uppercase">Заметки организатора</label>
                         <input
+                          disabled={isReadonly}
                           type="text"
                           value={editState.notes}
                           onChange={(e) => updateLocalEditField(p.id, 'notes', e.target.value)}
                           placeholder="Пример: оплатит переводом после игры..."
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white focus:outline-none focus:border-slate-700"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white focus:outline-none focus:border-slate-700 disabled:opacity-60"
                         />
                       </div>
 
                       {/* Save Status buttons */}
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {p.payment_status === 'paid' ? '✅ Оплачено' : p.payment_status === 'partial' ? '⚠️ Частично' : '❌ Долг'}
-                        </span>
-                        <button
-                          onClick={() => handleSaveLocalEdits(p)}
-                          disabled={editState.status === 'saving'}
-                          className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer text-white transition-all ${
-                            editState.status === 'saving'
-                              ? 'bg-slate-800 text-slate-500 cursor-wait'
+                      {!isReadonly && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {p.payment_status === 'paid' ? '✅ Оплачено' : p.payment_status === 'partial' ? '⚠️ Частично' : '❌ Долг'}
+                          </span>
+                          <button
+                            onClick={() => handleSaveLocalEdits(p)}
+                            disabled={editState.status === 'saving'}
+                            className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer text-white transition-all ${
+                              editState.status === 'saving'
+                                ? 'bg-slate-800 text-slate-500 cursor-wait'
+                                : editState.status === 'saved'
+                                ? 'bg-emerald-600'
+                                : editState.status === 'error'
+                                ? 'bg-rose-600'
+                                : 'bg-rose-600 hover:bg-rose-500 shadow shadow-rose-600/10'
+                            }`}
+                          >
+                            {editState.status === 'saving'
+                              ? 'Сохранение...'
                               : editState.status === 'saved'
-                              ? 'bg-emerald-600'
+                              ? '✓ Успешно'
                               : editState.status === 'error'
-                              ? 'bg-rose-600'
-                              : 'bg-rose-600 hover:bg-rose-500 shadow shadow-rose-600/10'
-                          }`}
-                        >
-                          {editState.status === 'saving'
-                            ? 'Сохранение...'
-                            : editState.status === 'saved'
-                            ? '✓ Успешно'
-                            : editState.status === 'error'
-                            ? '⚠ Ошибка'
-                            : 'Сохранить кассу'}
-                        </button>
-                      </div>
+                              ? '⚠ Ошибка'
+                              : 'Сохранить кассу'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1045,8 +1159,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       </div>
 
-      {/* MODAL 1: Bulk Add Players Modal (with table preservation support) */}
-      {showBulkAddModal && (
+      {/* MODAL 1: Bulk Add Players Modal */}
+      {showBulkAddModal && !isReadonly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 relative text-white max-h-[90vh] flex flex-col">
             <button
@@ -1062,42 +1176,57 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             </div>
 
             {/* Controls Row */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="relative col-span-1 sm:col-span-2 lg:col-span-1">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   value={playerSearchQuery}
                   onChange={(e) => setPlayerSearchQuery(e.target.value)}
-                  placeholder="Поиск игрока по нику или телефону..."
+                  placeholder="Поиск игрока..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
               {/* Table assignment selector inside bulk modal */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-bold whitespace-nowrap">Стол:</span>
+              <div className="flex flex-col space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Стол:</label>
                 <select
                   value={bulkTableId}
-                  onChange={(e) => setBulkTableId(e.target.value)}
+                  onChange={(e) => handleBulkTableChange(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white font-bold focus:outline-none"
                 >
                   <option value="">Без стола</option>
                   {tables.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.format})
+                      {t.name} ({formatTableFormat(t.format)})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-bold whitespace-nowrap">Цена к оплате:</span>
+              {/* Registration status selector inside bulk modal */}
+              <div className="flex flex-col space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Статус:</label>
+                <select
+                  value={bulkRegStatus}
+                  onChange={(e) => setBulkRegStatus(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-xs text-white font-bold focus:outline-none"
+                >
+                  <option value="registered">Записан</option>
+                  <option value="confirmed">Подтверждён</option>
+                  <option value="waitlist">Резерв</option>
+                  <option value="invited">Приглашён</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Цена к оплате:</label>
                 <input
                   type="number"
                   value={bulkAmountDue}
                   onChange={(e) => setBulkAmountDue(parseInt(e.target.value) || 0)}
-                  className="w-24 bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white font-mono text-center"
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-xs text-white font-mono text-center"
                 />
               </div>
             </div>
@@ -1162,7 +1291,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       )}
 
       {/* MODAL 2: Create / Edit Table Modal */}
-      {showTableModal && (
+      {showTableModal && !isReadonly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
             <button
@@ -1197,9 +1326,9 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                     onChange={(e) => setTableForm({ ...tableForm, format: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
                   >
-                    <option value="STANDARD">Классическая</option>
-                    <option value="NOVICE">Любительская (Новички)</option>
-                    <option value="TOURNAMENT">Турнирная</option>
+                    <option value="STANDARD">Обычный стол</option>
+                    <option value="NOVICE">Стол для новичков</option>
+                    <option value="TOURNAMENT">Турнирный стол</option>
                   </select>
                 </div>
 
@@ -1232,7 +1361,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                   <input
                     type="number"
                     value={tableForm.default_price}
-                    onChange={(e) => setTableForm({ ...tableForm, default_price: parseInt(e.target.value) || 500 })}
+                    onChange={(e) => setTableForm({ ...tableForm, default_price: parseInt(e.target.value) || 0 })}
                     placeholder="500"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
                   />
@@ -1270,7 +1399,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       )}
 
       {/* MODAL 3: Quick Guest Modal */}
-      {showQuickGuestModal && (
+      {showQuickGuestModal && !isReadonly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
             <button
@@ -1306,6 +1435,48 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Игровой стол</label>
+                  <select
+                    value={guestTableId}
+                    onChange={(e) => handleGuestTableChange(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="">Без стола</option>
+                    {tables.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({formatTableFormat(t.format)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Статус записи</label>
+                  <select
+                    value={guestRegStatus}
+                    onChange={(e) => setGuestRegStatus(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="registered">Записан</option>
+                    <option value="confirmed">Подтверждён</option>
+                    <option value="waitlist">Резерв</option>
+                    <option value="invited">Приглашён</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-bold uppercase mb-1">Тариф / К оплате (₽)</label>
+                <input
+                  type="number"
+                  value={guestAmountDue}
+                  onChange={(e) => setGuestAmountDue(parseInt(e.target.value) || 0)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleAddQuickGuest}
@@ -1326,7 +1497,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       )}
 
       {/* MODAL 4: Settlement Confirmation Modal */}
-      {showSettleModal && (
+      {showSettleModal && !isReadonly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 relative text-white">
             <button
@@ -1371,7 +1542,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
       )}
 
       {/* MODAL 5: Create Task for Participant Modal */}
-      {taskTargetParticipant && (
+      {taskTargetParticipant && !isReadonly && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
             <button

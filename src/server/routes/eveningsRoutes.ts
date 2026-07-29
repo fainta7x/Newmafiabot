@@ -373,17 +373,17 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     let skippedCount = 0;
     let waitlistCount = 0;
 
-    // Table capacity check preparation
+    // Table capacity check preparation: count only registered and confirmed participants
     let currentRegCount = 0;
     if (table_id) {
       const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
         [table_id]
       );
       currentRegCount = countRow?.cnt || 0;
     } else {
       const currentRegRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
         [req.params.id]
       );
       currentRegCount = currentRegRow?.cnt || 0;
@@ -402,12 +402,25 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
         } else {
           let regStatus = registration_status;
           const limit = table ? table.capacity : evening.capacity;
-          if (currentRegCount >= limit && regStatus !== 'cancelled') {
+
+          if (registration_status === 'invited' || registration_status === 'cancelled') {
+            regStatus = registration_status;
+            addedCount++;
+          } else if (registration_status === 'waitlist') {
             regStatus = 'waitlist';
             waitlistCount++;
-          } else {
-            currentRegCount++;
             addedCount++;
+          } else {
+            // registered or confirmed
+            if (currentRegCount >= limit) {
+              regStatus = 'waitlist';
+              waitlistCount++;
+              addedCount++;
+            } else {
+              regStatus = registration_status;
+              currentRegCount++;
+              addedCount++;
+            }
           }
 
           const partId = crypto.randomUUID();
@@ -486,19 +499,16 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
       for (const item of updates) {
         if (!item.id) continue;
 
-        // If table_id is explicitly passed in the update item, route through assignParticipantToTable service
-        if ('table_id' in item) {
-          await assignParticipantToTable(db, item.id, item.table_id, req.params.id);
+        // Route table_id and registration_status updates through assignParticipantToTable service
+        if ('table_id' in item || 'registration_status' in item) {
+          await assignParticipantToTable(db, item.id, item.table_id, item.registration_status, req.params.id);
         }
 
         const fields: string[] = [];
         const values: any[] = [];
 
-        // Apply any other field updates
+        // Apply non-table non-status field updates
         const allowedKeys = ['attendance_status', 'arrival_status', 'payment_status', 'amount_due', 'amount_paid', 'notes'];
-        if (!('table_id' in item) && 'registration_status' in item) {
-          allowedKeys.push('registration_status');
-        }
 
         allowedKeys.forEach((key) => {
           if (item[key] !== undefined) {
@@ -841,12 +851,13 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
-    if (evening.status === 'completed') {
+    if (evening.status === 'completed' || evening.settled_at) {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
     }
 
     const tableId = crypto.randomUUID();
     const now = new Date().toISOString();
+    const defaultPrice = req.body.default_price ?? evening.default_price ?? 500;
     await db.run(
       `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -857,7 +868,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
         req.body.format || 'STANDARD',
         req.body.capacity || 10,
         req.body.host_name || null,
-        req.body.default_price || evening.default_price || 500,
+        defaultPrice,
         req.body.notes || null,
         req.body.sort_order || 0,
         now,
@@ -882,7 +893,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     }
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [table.evening_id]);
-    if (evening?.status === 'completed') {
+    if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
     }
 
@@ -921,7 +932,7 @@ router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     }
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [table.evening_id]);
-    if (evening?.status === 'completed') {
+    if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено изменять столы завершённых вечеров' });
     }
 
@@ -940,9 +951,9 @@ router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
 router.patch('/participants/:participantId/move-table', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
-    const { table_id } = req.body;
+    const { table_id, registration_status } = req.body;
 
-    await assignParticipantToTable(db, req.params.participantId, table_id);
+    await assignParticipantToTable(db, req.params.participantId, table_id, registration_status);
     await runCrmAutomations(db);
 
     const updated = await db.get(`

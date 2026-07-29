@@ -443,4 +443,230 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(p1.table_id).toBeNull();
     });
   });
+
+  describe('P3 Final Patch Status & Capacity Rules', () => {
+    let testEveningId: string;
+    let testTableId: string;
+    let pIds: string[] = [];
+
+    beforeAll(async () => {
+      // Create 5 extra players
+      for (let i = 101; i <= 105; i++) {
+        const res = await request(app)
+          .post('/api/players')
+          .set('Cookie', organizerCookie)
+          .send({ nickname: `ПатчИгрок_${i}`, phone: `+799911122${i}` });
+        pIds.push(res.body.id);
+      }
+
+      // Create an evening
+      const evRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Тестовый вечер P3',
+          starts_at: '2026-09-01T19:00:00.000Z',
+          format: 'STANDARD',
+          capacity: 10,
+          default_price: 500,
+        });
+      testEveningId = evRes.body.id;
+
+      // Create a table with capacity 2
+      const tblRes = await request(app)
+        .post(`/api/evenings/${testEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Стол P3',
+          capacity: 2,
+        });
+      testTableId = tblRes.body.id;
+    });
+
+    it('1. invited does not occupy seat', async () => {
+      await request(app)
+        .post(`/api/evenings/${testEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[0]],
+          table_id: testTableId,
+          registration_status: 'invited',
+        });
+
+      const partsRes = await request(app)
+        .get(`/api/evenings/${testEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const part0 = partsRes.body.find((p: any) => p.player_id === pIds[0]);
+      expect(part0.registration_status).toBe('invited');
+      expect(part0.table_id).toBe(testTableId);
+    });
+
+    it('2. confirming invited on full table sets status to waitlist', async () => {
+      // Fill table with 2 confirmed players
+      await request(app)
+        .post(`/api/evenings/${testEveningId}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[1], pIds[2]],
+          table_id: testTableId,
+          registration_status: 'confirmed',
+        });
+
+      const partsRes = await request(app)
+        .get(`/api/evenings/${testEveningId}/participants`)
+        .set('Cookie', organizerCookie);
+      const part0 = partsRes.body.find((p: any) => p.player_id === pIds[0]);
+
+      // Try confirming invited player part0
+      const patchRes = await request(app)
+        .patch(`/api/evening-participants/${part0.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ registration_status: 'confirmed' });
+
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.registration_status).toBe('waitlist');
+    });
+
+    it('3. bulk registration overflow: 2 capacity, 5 registered -> 2 occupied, 3 waitlist', async () => {
+      const freshEv = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Вечер оверфлоу', starts_at: '2026-09-02T19:00:00.000Z' });
+      const freshTable = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Стол 2 места', capacity: 2 });
+
+      const bulkRes = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: pIds,
+          table_id: freshTable.body.id,
+          registration_status: 'registered',
+        });
+
+      expect(bulkRes.body.addedCount).toBe(5);
+      expect(bulkRes.body.waitlistCount).toBe(3);
+
+      const parts = await request(app)
+        .get(`/api/evenings/${freshEv.body.id}/participants`)
+        .set('Cookie', organizerCookie);
+      const registered = parts.body.filter((p: any) => p.registration_status === 'registered');
+      const waitlist = parts.body.filter((p: any) => p.registration_status === 'waitlist');
+      expect(registered.length).toBe(2);
+      expect(waitlist.length).toBe(3);
+    });
+
+    it('4. bulk invited does NOT fill table capacity', async () => {
+      const freshEv = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Вечер invited', starts_at: '2026-09-03T19:00:00.000Z' });
+      const freshTable = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Стол 1 место', capacity: 1 });
+
+      await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[0], pIds[1], pIds[2]],
+          table_id: freshTable.body.id,
+          registration_status: 'invited',
+        });
+
+      const addConf = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[3]],
+          table_id: freshTable.body.id,
+          registration_status: 'confirmed',
+        });
+
+      expect(addConf.body.waitlistCount).toBe(0);
+      const parts = await request(app)
+        .get(`/api/evenings/${freshEv.body.id}/participants`)
+        .set('Cookie', organizerCookie);
+      const conf = parts.body.find((p: any) => p.player_id === pIds[3]);
+      expect(conf.registration_status).toBe('confirmed');
+    });
+
+    it('5. PATCH capacity check enforcement', async () => {
+      const freshEv = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Вечер PATCH check', starts_at: '2026-09-04T19:00:00.000Z' });
+      const freshTable = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Стол 1 место', capacity: 1 });
+
+      await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[0]],
+          table_id: freshTable.body.id,
+          registration_status: 'confirmed',
+        });
+      await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [pIds[1]],
+          table_id: freshTable.body.id,
+          registration_status: 'invited',
+        });
+
+      const parts = await request(app)
+        .get(`/api/evenings/${freshEv.body.id}/participants`)
+        .set('Cookie', organizerCookie);
+      const part2 = parts.body.find((p: any) => p.player_id === pIds[1]);
+
+      const patchRes = await request(app)
+        .patch(`/api/evening-participants/${part2.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ registration_status: 'confirmed' });
+
+      expect(patchRes.body.registration_status).toBe('waitlist');
+    });
+
+    it('6. price 0 preservation', async () => {
+      const res = await request(app)
+        .post(`/api/evenings/${testEveningId}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({
+          name: 'Бесплатный стол',
+          capacity: 10,
+          default_price: 0,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.default_price).toBe(0);
+    });
+
+    it('7. settled_at blocks changes', async () => {
+      const freshEv = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({ title: 'Расчитанный вечер', starts_at: '2026-09-05T19:00:00.000Z' });
+
+      await db.run('UPDATE game_evenings SET settled_at = ? WHERE id = ?', [new Date().toISOString(), freshEv.body.id]);
+
+      const tblRes = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/tables`)
+        .set('Cookie', organizerCookie)
+        .send({ name: 'Стол', capacity: 10 });
+      expect(tblRes.status).toBe(400);
+
+      const bulkRes = await request(app)
+        .post(`/api/evenings/${freshEv.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({ player_ids: [pIds[0]], registration_status: 'confirmed' });
+      expect(bulkRes.status).toBe(400);
+    });
+  });
 });

@@ -27,9 +27,20 @@ export class TableAssignmentError extends Error {
 export async function assignParticipantToTable(
   db: DatabaseWrapper,
   participantId: string,
-  targetTableId: string | null | undefined,
+  targetTableId?: string | null,
+  targetRegistrationStatus?: string | null,
   eveningIdParam?: string
 ) {
+  // Handle flexible signature where 4th argument might be eveningIdParam if not a valid status
+  const VALID_STATUSES = ['invited', 'registered', 'confirmed', 'waitlist', 'cancelled'];
+  let finalRegistrationStatusParam = targetRegistrationStatus;
+  let finalEveningIdParam = eveningIdParam;
+
+  if (targetRegistrationStatus && !VALID_STATUSES.includes(targetRegistrationStatus)) {
+    finalEveningIdParam = targetRegistrationStatus;
+    finalRegistrationStatusParam = undefined;
+  }
+
   // 1. Verify participant exists
   const participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [participantId]);
   if (!participant) {
@@ -43,60 +54,80 @@ export async function assignParticipantToTable(
   }
 
   // 3. Verify participant belongs to eveningIdParam if provided
-  if (eveningIdParam && participant.evening_id !== eveningIdParam) {
+  if (finalEveningIdParam && participant.evening_id !== finalEveningIdParam) {
     throw new TableAssignmentError('Участник не принадлежит этому вечеру', 400);
   }
 
-  // 4. Verify evening is not completed
+  // 4. Verify evening is not completed or settled
   if (evening.status === 'completed' || evening.settled_at) {
-    throw new TableAssignmentError('Запрещено изменять столы завершённых вечеров', 400);
+    throw new TableAssignmentError('Запрещено изменять столы или статусы участников на завершённых вечерах', 400);
   }
 
   const now = new Date().toISOString();
 
-  // 5. If targetTableId is null/empty -> unassign table
-  if (!targetTableId) {
-    await db.run(
-      `UPDATE evening_participants SET table_id = NULL, updated_at = ? WHERE id = ?`,
-      [now, participantId]
+  // Determine finalTableId:
+  // - undefined: keep current table_id
+  // - null or '': unassign (set to null)
+  // - string: target table_id
+  let finalTableId: string | null;
+  if (targetTableId === undefined) {
+    finalTableId = participant.table_id;
+  } else if (targetTableId === null || targetTableId === '') {
+    finalTableId = null;
+  } else {
+    finalTableId = targetTableId;
+  }
+
+  // Requested status
+  const requestedStatus = finalRegistrationStatusParam ?? participant.registration_status;
+
+  if (finalTableId !== null) {
+    // 5. Verify table exists and belongs to participant's evening
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [finalTableId]);
+    if (!table) {
+      throw new TableAssignmentError('Стол не найден', 404);
+    }
+    if (table.evening_id !== participant.evening_id) {
+      throw new TableAssignmentError('Стол принадлежит другому вечеру', 400);
+    }
+
+    // 6. Calculate occupied seats (only registered and confirmed occupy seats!)
+    const countRow = await db.get(
+      `SELECT COUNT(*) as cnt FROM evening_participants 
+       WHERE table_id = ? AND registration_status IN ('registered', 'confirmed') AND id != ?`,
+      [finalTableId, participantId]
     );
-    return await db.get('SELECT * FROM evening_participants WHERE id = ?', [participantId]);
+    const occupied = countRow?.cnt || 0;
+
+    let newStatus = requestedStatus;
+
+    if (requestedStatus === 'invited' || requestedStatus === 'cancelled') {
+      newStatus = requestedStatus;
+    } else if (requestedStatus === 'registered' || requestedStatus === 'confirmed') {
+      if (occupied >= table.capacity) {
+        newStatus = 'waitlist';
+      } else {
+        newStatus = requestedStatus;
+      }
+    } else if (requestedStatus === 'waitlist') {
+      if (occupied < table.capacity && participant.registration_status === 'waitlist' && !finalRegistrationStatusParam) {
+        newStatus = 'registered';
+      } else {
+        newStatus = 'waitlist';
+      }
+    }
+
+    await db.run(
+      `UPDATE evening_participants SET table_id = ?, registration_status = ?, updated_at = ? WHERE id = ?`,
+      [finalTableId, newStatus, now, participantId]
+    );
+  } else {
+    // Unassign table
+    await db.run(
+      `UPDATE evening_participants SET table_id = NULL, registration_status = ?, updated_at = ? WHERE id = ?`,
+      [requestedStatus, now, participantId]
+    );
   }
-
-  // 6. Verify table exists
-  const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [targetTableId]);
-  if (!table) {
-    throw new TableAssignmentError('Стол не найден', 404);
-  }
-
-  // 7. Verify table belongs to participant's evening
-  if (table.evening_id !== participant.evening_id) {
-    throw new TableAssignmentError('Стол принадлежит другому вечеру', 400);
-  }
-
-  // 8. Calculate occupied seats (excluding cancelled and waitlist, and excluding current participant)
-  const countRow = await db.get(
-    `SELECT COUNT(*) as cnt FROM evening_participants 
-     WHERE table_id = ? AND registration_status NOT IN ('cancelled', 'waitlist') AND id != ?`,
-    [targetTableId, participantId]
-  );
-  const occupied = countRow?.cnt || 0;
-
-  let newRegistrationStatus = participant.registration_status;
-
-  if (occupied >= table.capacity && participant.registration_status !== 'cancelled') {
-    newRegistrationStatus = 'waitlist';
-  } else if (occupied < table.capacity && participant.registration_status === 'waitlist') {
-    newRegistrationStatus = 'registered';
-  }
-
-  // 9. Update participant
-  await db.run(
-    `UPDATE evening_participants 
-     SET table_id = ?, registration_status = ?, updated_at = ? 
-     WHERE id = ?`,
-    [targetTableId, newRegistrationStatus, now, participantId]
-  );
 
   return await db.get('SELECT * FROM evening_participants WHERE id = ?', [participantId]);
 }

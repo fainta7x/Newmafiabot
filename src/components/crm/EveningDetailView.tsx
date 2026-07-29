@@ -901,17 +901,59 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                     )}
                   </div>
 
-                  {/* MODE A: Registration Controls */}
-                  {mode === 'rsvp' || isReadonly ? (
+                  {/* Text status badges for completed/read-only evenings vs interactive controls */}
+                  {isReadonly ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2.5 border-t border-slate-850 font-mono text-xs">
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-sans font-bold uppercase block">Стол</span>
+                        <span className="font-bold text-slate-200 truncate block">
+                          {tables.find((t) => t.id === p.table_id)?.name || 'Без стола'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-sans font-bold uppercase block">Запись</span>
+                        <span className="font-bold text-slate-200">
+                          {p.registration_status === 'confirmed' ? 'Подтверждён' :
+                           p.registration_status === 'registered' ? 'Зарегистрирован' :
+                           p.registration_status === 'waitlist' ? 'Резерв' :
+                           p.registration_status === 'cancelled' ? 'Отменён' :
+                           p.registration_status === 'invited' ? 'Приглашён' : p.registration_status}
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-sans font-bold uppercase block">Явка</span>
+                        <span className="font-bold text-slate-200">
+                          {p.attendance_status === 'attended'
+                            ? (p.arrival_status === 'late' ? 'Опоздал' : 'Пришел вовремя')
+                            : p.attendance_status === 'no_show'
+                            ? 'Не пришел'
+                            : 'Не указана'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-sans font-bold uppercase block">Оплата</span>
+                        <span className="font-bold text-slate-200">
+                          {p.payment_status === 'paid' ? 'Оплачено' :
+                           p.payment_status === 'partial' ? 'Частично' :
+                           p.payment_status === 'waived' ? 'Бесплатно' : 'Не оплачено'}
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-sans font-bold uppercase block">Сумма</span>
+                        <span className="font-bold text-emerald-400">
+                          {p.amount_paid ?? 0} / {p.amount_due ?? evening.default_price} ₽
+                        </span>
+                      </div>
+                    </div>
+                  ) : mode === 'rsvp' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-850">
                       {/* Table assignment selector */}
                       <div className="space-y-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Игровой стол</span>
                         <select
-                          disabled={isReadonly}
                           value={p.table_id || ''}
                           onChange={(e) => handleMoveParticipantTable(p.id, e.target.value || null)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-200 focus:outline-none disabled:opacity-60"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-200 focus:outline-none"
                         >
                           <option value="">Без стола (Свободный слот)</option>
                           {tables.map((t) => (
@@ -927,9 +969,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Запись</span>
                         <div className="grid grid-cols-3 gap-1">
                           <button
-                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'confirmed' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
                               p.registration_status === 'confirmed'
                                 ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -938,9 +979,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             Подтвердить
                           </button>
                           <button
-                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'waitlist' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
                               p.registration_status === 'waitlist'
                                 ? 'bg-amber-600/20 border-amber-500 text-amber-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -949,9 +989,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                             Резерв
                           </button>
                           <button
-                            disabled={isReadonly}
                             onClick={() => handleUpdateParticipant(p.id, { registration_status: 'cancelled' })}
-                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all disabled:opacity-60 ${
+                            className={`py-1.5 rounded-xl text-[10px] uppercase font-bold tracking-wider cursor-pointer border transition-all ${
                               p.registration_status === 'cancelled'
                                 ? 'bg-rose-600/20 border-rose-500 text-rose-400 font-black'
                                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -1074,7 +1113,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
                   )}
 
                   {/* Expanded Custom editing panel for billing parameters */}
-                  {(isExpanded || (mode === 'rsvp' && !isReadonly)) && (
+                  {!isReadonly && (isExpanded || mode === 'rsvp') && (
                     <div className="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-850 space-y-3 pt-3 mt-1.5">
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         {/* Cost Input */}

@@ -3,6 +3,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { updateParticipantSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
+import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
 
 const router = Router();
 
@@ -12,14 +13,19 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const data = updateParticipantSchema.parse(req.body);
     const db = (req as any).db || (await getDb());
 
-    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
+    let part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!part) {
       return res.status(404).json({ error: 'Запись участника не найдена' });
     }
 
-    const evening = await db.get('SELECT status FROM game_evenings WHERE id = ?', [part.evening_id]);
-    if (evening?.status === 'completed') {
+    const evening = await db.get('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено изменять участников на завершённых вечерах' });
+    }
+
+    if (data.table_id !== undefined || data.registration_status !== undefined) {
+      await assignParticipantToTable(db, req.params.id, data.table_id, data.registration_status);
+      part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     }
 
     const fields: string[] = [];
@@ -40,11 +46,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       }
     }
 
-    const updateData = {
-      ...data,
+    const updateData: any = {
+      attendance_status: data.attendance_status,
+      arrival_status: data.arrival_status,
       payment_status: computedPaymentStatus,
       amount_due: newAmountDue,
       amount_paid: newAmountPaid,
+      notes: data.notes,
       updated_at: new Date().toISOString(),
     };
 
@@ -55,8 +63,10 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       }
     });
 
-    values.push(req.params.id);
-    await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
+    if (fields.length > 0) {
+      values.push(req.params.id);
+      await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
+    }
 
     // Run CRM automations
     await runCrmAutomations(db);
@@ -70,7 +80,8 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 
     res.json(updated);
   } catch (err: any) {
-    res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
+    const status = err.status || 400;
+    res.status(status).json({ error: err.message || 'Validation error', details: err.errors || err.message });
   }
 });
 
@@ -83,8 +94,8 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
       return res.status(404).json({ error: 'Запись участника не найдена' });
     }
 
-    const evening = await db.get('SELECT status FROM game_evenings WHERE id = ?', [part.evening_id]);
-    if (evening?.status === 'completed') {
+    const evening = await db.get('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
     }
 

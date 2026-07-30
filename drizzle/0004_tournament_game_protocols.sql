@@ -1,0 +1,34 @@
+CREATE TABLE IF NOT EXISTS tournament_game_protocols (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL UNIQUE REFERENCES tournament_games(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'draft',
+  winner_team TEXT,
+  first_killed_participant_id TEXT,
+  zero_round_voted_participant_id TEXT,
+  best_move_participant_id TEXT,
+  best_move_source TEXT,
+  best_move_seats_json TEXT NOT NULL DEFAULT '[]',
+  votes_json TEXT NOT NULL DEFAULT '[]',
+  shots_json TEXT NOT NULL DEFAULT '[]',
+  replacement_json TEXT,
+  judge_notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS tournament_game_player_results (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL REFERENCES tournament_games(id) ON DELETE CASCADE,
+  participant_id TEXT NOT NULL REFERENCES tournament_participants(id) ON DELETE CASCADE,
+  exit_type TEXT NOT NULL DEFAULT 'alive',
+  exit_order INTEGER,
+  regular_fouls INTEGER NOT NULL DEFAULT 0,
+  technical_fouls INTEGER NOT NULL DEFAULT 0,
+  judge_bonus REAL NOT NULL DEFAULT 0,
+  protocol_bonus REAL NOT NULL DEFAULT 0,
+  penalty_points REAL NOT NULL DEFAULT 0,
+  color_protocol_json TEXT NOT NULL DEFAULT '[]',
+  notes TEXT,
+  UNIQUE(game_id, participant_id)
+);

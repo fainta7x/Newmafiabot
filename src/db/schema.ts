@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const players = sqliteTable('players', {
   id: text('id').primaryKey(), // UUID
@@ -202,4 +202,41 @@ export const tournamentProtocolImports = sqliteTable('tournament_protocol_import
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 });
+
+export const tournamentGameProtocols = sqliteTable('tournament_game_protocols', {
+  id: text('id').primaryKey(),
+  game_id: text('game_id').notNull().unique().references(() => tournamentGames.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('draft'), // draft, completed
+  winner_team: text('winner_team'), // red, black
+  first_killed_participant_id: text('first_killed_participant_id'),
+  zero_round_voted_participant_id: text('zero_round_voted_participant_id'),
+  best_move_participant_id: text('best_move_participant_id'),
+  best_move_source: text('best_move_source'), // first_killed, zero_round_voted
+  best_move_seats_json: text('best_move_seats_json').notNull().default('[]'),
+  votes_json: text('votes_json').notNull().default('[]'),
+  shots_json: text('shots_json').notNull().default('[]'),
+  replacement_json: text('replacement_json'),
+  judge_notes: text('judge_notes'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+  completed_at: text('completed_at'),
+});
+
+export const tournamentGamePlayerResults = sqliteTable('tournament_game_player_results', {
+  id: text('id').primaryKey(),
+  game_id: text('game_id').notNull().references(() => tournamentGames.id, { onDelete: 'cascade' }),
+  participant_id: text('participant_id').notNull().references(() => tournamentParticipants.id, { onDelete: 'cascade' }),
+  exit_type: text('exit_type').notNull().default('alive'), // alive, killed, voted_zero_round, voted_day, removed
+  exit_order: integer('exit_order'),
+  regular_fouls: integer('regular_fouls').notNull().default(0),
+  technical_fouls: integer('technical_fouls').notNull().default(0),
+  judge_bonus: real('judge_bonus').notNull().default(0),
+  protocol_bonus: real('protocol_bonus').notNull().default(0),
+  penalty_points: real('penalty_points').notNull().default(0),
+  color_protocol_json: text('color_protocol_json').notNull().default('[]'),
+  notes: text('notes'),
+}, (table) => ({
+  gameParticipantUnique: uniqueIndex('idx_tgpr_game_participant_unique').on(table.game_id, table.participant_id),
+}));
+
 

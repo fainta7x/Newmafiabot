@@ -233,6 +233,79 @@ export interface ProtocolImportRecord {
   updated_at: string;
 }
 
+export interface ColorProtocolMark {
+  seat_numbers: number[];
+  mark: 'red' | 'black' | 'sheriff';
+}
+
+export interface PlayerResultInput {
+  participant_id: string;
+  exit_type: 'alive' | 'killed' | 'voted_zero_round' | 'voted_day' | 'removed';
+  exit_order?: number | null;
+  regular_fouls: number;
+  technical_fouls: number;
+  judge_bonus: number;
+  protocol_bonus: number;
+  penalty_points: number;
+  color_protocol: ColorProtocolMark[];
+  notes?: string | null;
+}
+
+export interface PlayerResultData extends PlayerResultInput {
+  id?: string;
+  game_id?: string;
+  seat_number: number;
+  display_name: string;
+  player_id: string;
+  role: string | null;
+}
+
+export interface VotingRound {
+  round_number: number;
+  is_revote?: boolean;
+  nominated_seats: number[];
+  vote_counts: Record<number, number>;
+}
+
+export interface ShotEntry {
+  night_number: number;
+  target_seat: number;
+  result: 'killed' | 'miss' | 'agreement_failed';
+}
+
+export interface ReplacementData {
+  replaced_seat: number;
+  replaced_participant_id: string;
+  new_participant_id: string;
+  reason?: string | null;
+}
+
+export interface TournamentGameProtocolData {
+  id?: string;
+  game_id: string;
+  status: 'draft' | 'completed';
+  winner_team: 'red' | 'black' | null;
+  first_killed_participant_id: string | null;
+  zero_round_voted_participant_id: string | null;
+  best_move_participant_id: string | null;
+  best_move_source: 'first_killed' | 'zero_round_voted' | null;
+  best_move_seats: number[];
+  votes: VotingRound[];
+  shots: ShotEntry[];
+  replacement: ReplacementData | null;
+  judge_notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string | null;
+  best_move_score?: number;
+}
+
+export interface FullGameProtocolResponse {
+  protocol: TournamentGameProtocolData;
+  player_results: PlayerResultData[];
+  game: TournamentGame;
+}
+
 export interface TournamentStartReadiness {
   ready: boolean;
   participants_count: number;
@@ -482,7 +555,7 @@ export const api = {
   // Games
   getGames: (eveningId?: string) =>
     request<any[]>(`/api/games${eveningId ? `?evening_id=${eveningId}` : ''}`),
-  saveGameProtocol: (data: any) =>
+  saveClubGameProtocol: (data: any) =>
     request<any>('/api/games', { method: 'POST', body: JSON.stringify(data) }),
 
   // Analytics
@@ -595,4 +668,38 @@ export const api = {
 
   getGameProtocolDraft: (tournamentId: string, gameId: string) =>
     request<{ game: TournamentGame; draft_protocol: any }>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol-draft`),
+
+  getGameProtocol: (tournamentId: string, gameId: string) =>
+    request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`),
+
+  saveGameProtocol: (
+    tournamentId: string,
+    gameId: string,
+    payload: {
+      protocol: Partial<TournamentGameProtocolData>;
+      player_results: PlayerResultInput[];
+    }
+  ) =>
+    request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  completeGameProtocol: (
+    tournamentId: string,
+    gameId: string,
+    payload: {
+      protocol: Partial<TournamentGameProtocolData>;
+      player_results: PlayerResultInput[];
+    }
+  ) =>
+    request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  revertGameProtocolToDraft: (tournamentId: string, gameId: string) =>
+    request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/revert-to-draft`, {
+      method: 'POST',
+    }),
 };

@@ -160,6 +160,12 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     dbWrapper.sqlite.exec(migration3Sql);
   }
 
+  const migration4SqlPath = path.join(process.cwd(), 'drizzle', '0004_tournament_game_protocols.sql');
+  if (fs.existsSync(migration4SqlPath)) {
+    const migration4Sql = fs.readFileSync(migration4SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration4Sql);
+  }
+
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
 }

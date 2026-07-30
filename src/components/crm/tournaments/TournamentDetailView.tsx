@@ -23,7 +23,8 @@ import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
-import { FileSpreadsheet } from 'lucide-react';
+import { GameProtocolModal } from './GameProtocolModal.tsx';
+import { FileSpreadsheet, FileCheck } from 'lucide-react';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -60,6 +61,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Protocol blank import modal state
   const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
   const [selectedImportGameId, setSelectedImportGameId] = useState<string | undefined>(undefined);
+
+  // Manual Mobile Protocol modal state
+  const [showGameProtocolModal, setShowGameProtocolModal] = useState(false);
+  const [protocolGameId, setProtocolGameId] = useState<string | null>(null);
 
   // Swap modal state
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -575,6 +580,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    setProtocolGameId(currentGame.id);
+                    setShowGameProtocolModal(true);
+                  }}
+                  className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] shadow-sm"
+                >
+                  <FileCheck className="w-4 h-4 text-amber-400" />
+                  <span>Протокол игры</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
                     setSelectedImportGameId(currentGame.id);
                     setShowProtocolImportModal(true);
                   }}
@@ -812,6 +829,22 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           onSuccess={() => {
             setShowProtocolImportModal(false);
             setFeedbackMsg({ type: 'success', text: 'Протокол игры успешно сохранён в черновик!' });
+            loadDetail();
+          }}
+        />
+      )}
+
+      {/* Manual Mobile Protocol Modal */}
+      {showGameProtocolModal && protocolGameId && (
+        <GameProtocolModal
+          tournamentId={tournamentId}
+          gameId={protocolGameId}
+          isOpen={showGameProtocolModal}
+          onClose={() => {
+            setShowGameProtocolModal(false);
+            setProtocolGameId(null);
+          }}
+          onProtocolUpdated={() => {
             loadDetail();
           }}
         />

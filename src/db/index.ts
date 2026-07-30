@@ -153,4 +153,13 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     const migration2Sql = fs.readFileSync(migration2SqlPath, 'utf8');
     dbWrapper.sqlite.exec(migration2Sql);
   }
+
+  const migration3SqlPath = path.join(process.cwd(), 'drizzle', '0003_protocol_imports.sql');
+  if (fs.existsSync(migration3SqlPath)) {
+    const migration3Sql = fs.readFileSync(migration3SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration3Sql);
+  }
+
+  addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
+  addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
 }

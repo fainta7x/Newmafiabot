@@ -22,6 +22,8 @@ import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
+import { ProtocolImportModal } from './ProtocolImportModal.tsx';
+import { FileSpreadsheet } from 'lucide-react';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -54,6 +56,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
   // Seating PNG export modal state
   const [showSeatingExportModal, setShowSeatingExportModal] = useState(false);
+
+  // Protocol blank import modal state
+  const [showProtocolImportModal, setShowProtocolImportModal] = useState(false);
+  const [selectedImportGameId, setSelectedImportGameId] = useState<string | undefined>(undefined);
 
   // Swap modal state
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -341,6 +347,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
+                onClick={() => {
+                  setSelectedImportGameId(undefined);
+                  setShowProtocolImportModal(true);
+                }}
+                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Загрузить бланк игры</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowEditDataModal(true)}
                 className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
               >
@@ -554,6 +572,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
               {/* Game Action Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedImportGameId(currentGame.id);
+                    setShowProtocolImportModal(true);
+                  }}
+                  className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Загрузить бланк игры</span>
+                </button>
+
                 {/* Swap seats allowed ONLY in draft & planned game */}
                 {isDraft && currentGame.status === 'planned' && (
                   <button
@@ -771,6 +801,21 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         onClose={() => setShowSeatingExportModal(false)}
         tournament={tournament}
       />
+
+      {/* Protocol Blank Import Modal */}
+      {showProtocolImportModal && (
+        <ProtocolImportModal
+          tournamentId={tournamentId}
+          games={tournament.games || []}
+          preselectedGameId={selectedImportGameId}
+          onClose={() => setShowProtocolImportModal(false)}
+          onSuccess={() => {
+            setShowProtocolImportModal(false);
+            setFeedbackMsg({ type: 'success', text: 'Протокол игры успешно сохранён в черновик!' });
+            loadDetail();
+          }}
+        />
+      )}
     </div>
   );
 };

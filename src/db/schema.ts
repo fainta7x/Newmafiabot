@@ -172,6 +172,8 @@ export const tournamentGames = sqliteTable('tournament_games', {
   winner_team: text('winner_team'),
   started_at: text('started_at'),
   completed_at: text('completed_at'),
+  draft_protocol_json: text('draft_protocol_json'),
+  protocol_import_id: text('protocol_import_id'),
 }, (table) => ({
   tournamentGameNumberUnique: uniqueIndex('idx_tg_tournament_number_unique').on(table.tournament_id, table.game_number),
 }));
@@ -186,4 +188,18 @@ export const tournamentGameSeats = sqliteTable('tournament_game_seats', {
   gameSeatNumberUnique: uniqueIndex('idx_tgs_game_seat_unique').on(table.game_id, table.seat_number),
   gameParticipantUnique: uniqueIndex('idx_tgs_game_participant_unique').on(table.game_id, table.participant_id),
 }));
+
+export const tournamentProtocolImports = sqliteTable('tournament_protocol_imports', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),
+  uploaded_by: text('uploaded_by').notNull(),
+  original_filename: text('original_filename').notNull(),
+  mime_type: text('mime_type').notNull(),
+  storage_path: text('storage_path').notNull(),
+  status: text('status').notNull().default('uploaded'), // uploaded, processing, review, applied, failed
+  recognition_json: text('recognition_json'),
+  error_message: text('error_message'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
 

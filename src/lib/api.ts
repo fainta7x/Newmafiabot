@@ -213,7 +213,24 @@ export interface TournamentGame {
   winner_team: string | null;
   started_at: string | null;
   completed_at: string | null;
+  draft_protocol_json?: string | null;
+  protocol_import_id?: string | null;
   seats?: TournamentGameSeat[];
+}
+
+export interface ProtocolImportRecord {
+  id: string;
+  tournament_id: string;
+  uploaded_by: string;
+  original_filename: string;
+  mime_type: string;
+  storage_path: string;
+  status: 'uploaded' | 'processing' | 'review' | 'applied' | 'failed';
+  recognition_json?: any;
+  error_message?: string;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TournamentStartReadiness {
@@ -523,4 +540,59 @@ export const api = {
     request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/start`, {
       method: 'POST',
     }),
+
+  // Protocol Blank Imports
+  uploadProtocolBlank: async (tournamentId: string, file: File): Promise<{
+    success?: boolean;
+    import_id: string;
+    status: string;
+    recognition_json?: any;
+    detected_games?: any[];
+    image_url: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('organizer_token');
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+
+    const res = await fetch(`/api/tournaments/${tournamentId}/protocol-imports`, {
+      method: 'POST',
+      body: formData,
+      headers,
+      credentials: 'include',
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      const err = new Error(json.error || json.message || 'Ошибка загрузки бланка') as any;
+      err.import_id = json.import_id;
+      err.status = res.status;
+      throw err;
+    }
+    return json;
+  },
+
+  getProtocolImports: (tournamentId: string) =>
+    request<ProtocolImportRecord[]>(`/api/tournaments/${tournamentId}/protocol-imports`),
+
+  getProtocolImport: (tournamentId: string, importId: string) =>
+    request<ProtocolImportRecord>(`/api/tournaments/${tournamentId}/protocol-imports/${importId}`),
+
+  applyProtocolImport: (tournamentId: string, importId: string, gameMappings: any[]) =>
+    request<{ success: boolean; applied_count: number; updated_games: TournamentGame[]; errors?: string[] }>(
+      `/api/tournaments/${tournamentId}/protocol-imports/${importId}/apply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ game_mappings: gameMappings }),
+      }
+    ),
+
+  getGameProtocolDraft: (tournamentId: string, gameId: string) =>
+    request<{ game: TournamentGame; draft_protocol: any }>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol-draft`),
 };

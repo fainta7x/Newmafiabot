@@ -2,7 +2,6 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import React from 'react';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { GameProtocolModal, formatColorMark } from '../components/crm/tournaments/GameProtocolModal';
 import { api } from '../lib/api';
@@ -86,6 +85,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     });
 
     const saveSpy = vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({
+      game: mockGame as any,
       protocol: { ...mockProtocol, winner_team: 'red' } as any,
       player_results: mockPlayerResults as any
     });

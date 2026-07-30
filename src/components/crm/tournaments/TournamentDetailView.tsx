@@ -26,7 +26,8 @@ import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
-import { FileSpreadsheet, FileCheck } from 'lucide-react';
+import { TournamentNominationsView } from './TournamentNominationsView.tsx';
+import { FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -47,7 +48,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
-  const [activeTab, setActiveTab] = useState<'games' | 'standings'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'standings' | 'nominations'>('games');
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
@@ -95,6 +96,24 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка загрузки турнира' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCompleteTournament = async () => {
+    if (!confirm('Вы уверены, что хотите официально завершить турнир? Все протоколы будут окончательно зафиксированы, а номинации получат официальный статус.')) return;
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      await api.completeTournament(tournamentId);
+      setFeedbackMsg({
+        type: 'success',
+        text: 'Турнир успешно официально завершён! Все результаты зафиксированы.',
+      });
+      loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка завершения турнира' });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -410,15 +429,62 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 pt-2 border-t border-border-soft">
-            <button
-              type="button"
-              onClick={() => setShowSeatingExportModal(true)}
-              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-            >
-              <ImageIcon className="w-3.5 h-3.5 text-accent" />
-              <span>Рассадка для игроков (PNG)</span>
-            </button>
+          <div className="space-y-3 pt-3 border-t border-border-soft">
+            {/* Completion Readiness & Controls for Active Tournament */}
+            {tournament.status === 'active' && (
+              <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-text-primary">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Прогресс турнира:</span>
+                    <span className="font-mono text-accent text-sm font-black">
+                      {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
+                    </span>
+                  </div>
+
+                  {games.filter((g) => g.status === 'completed').length === games.length ? (
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleCompleteTournament}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+                    >
+                      {actionLoading ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trophy className="w-3.5 h-3.5" />
+                      )}
+                      <span>Завершить турнир</span>
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-text-muted italic">
+                      Для завершения турнира сыграйте все запланированные игры
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tournament.status === 'completed' && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-400 flex items-center gap-2.5">
+                <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-bold block text-text-primary">Турнир официально завершён</span>
+                  <p className="text-[11px] text-text-muted mt-0.5">Все игры, баллы и номинации окончательно зафиксированы и защищены от изменений.</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowSeatingExportModal(true)}
+                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <ImageIcon className="w-3.5 h-3.5 text-accent" />
+                <span>Рассадка для игроков (PNG)</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -442,7 +508,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         </div>
       )}
 
-      {/* Navigation Tabs (Игры и рассадка / Таблица) */}
+      {/* Navigation Tabs (Игры и рассадка / Таблица / Номинации) */}
       <div className="flex items-center gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft">
         <button
           type="button"
@@ -469,10 +535,25 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           <Trophy className="w-4 h-4 text-amber-400" />
           <span>Таблица</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('nominations')}
+          className={`flex-1 py-2 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'nominations'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Award className="w-4 h-4 text-cyan-400" />
+          <span>Номинации</span>
+        </button>
       </div>
 
       {activeTab === 'standings' ? (
         <TournamentStandingsView tournamentId={tournamentId} />
+      ) : activeTab === 'nominations' ? (
+        <TournamentNominationsView tournamentId={tournamentId} />
       ) : (
         <>
           {/* Roster / Participants Accordion */}

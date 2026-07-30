@@ -747,4 +747,21 @@ export const api = {
 
   getTournamentStandings: (tournamentId: string) =>
     request<TournamentStandingsResponse>(`/api/tournaments/${tournamentId}/standings`),
+
+  completeTournament: (id: string) =>
+    request<{ success: boolean; tournament_id: string; status: string }>(`/api/tournaments/${id}/complete`, {
+      method: 'POST',
+    }),
+
+  getTournamentNominations: (tournamentId: string) =>
+    request<{
+      tournament_id: string;
+      provisional: boolean;
+      nominations: Array<{
+        category: string;
+        title: string;
+        has_tie: boolean;
+        candidates: any[];
+      }>;
+    }>(`/api/tournaments/${tournamentId}/nominations`),
 };

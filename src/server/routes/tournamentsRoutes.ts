@@ -117,6 +117,48 @@ function computeStartReadiness(participants: any[], games: any[]) {
   };
 }
 
+export async function computeCompleteReadiness(db: DatabaseWrapper, tournamentId: string) {
+  const errors: string[] = [];
+
+  const games = await db.all<any>(
+    'SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC',
+    [tournamentId]
+  );
+
+  if (games.length !== 10) {
+    errors.push(`Необходимо ровно 10 игр (найдено: ${games.length})`);
+  }
+
+  const activeGames = games.filter((g) => g.status === 'active');
+  if (activeGames.length > 0) {
+    errors.push(`В турнире есть активная игра №${activeGames[0].game_number}. Сначала завершите её.`);
+  }
+
+  const uncompletedGames = games.filter((g) => g.status !== 'completed');
+  if (uncompletedGames.length > 0) {
+    errors.push(`Не все игры завершены (${games.length - uncompletedGames.length} из ${games.length})`);
+  }
+
+  for (const g of games) {
+    const proto = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [g.id]);
+    if (!proto || proto.status !== 'completed') {
+      errors.push(`Игра №${g.game_number}: протокол не завершён`);
+    } else if (!proto.winner_team) {
+      errors.push(`Игра №${g.game_number}: не указана победившая команда`);
+    }
+
+    const resultsCount = await db.get<any>(
+      'SELECT COUNT(*) as count FROM tournament_game_player_results WHERE game_id = ?',
+      [g.id]
+    );
+    if (!resultsCount || Number(resultsCount.count) !== 10) {
+      errors.push(`Игра №${g.game_number}: не найдены 10 результатов игроков`);
+    }
+  }
+
+  return { isReady: errors.length === 0, errors };
+}
+
 // 1. GET /api/tournaments - Get list of tournaments
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
@@ -174,12 +216,14 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const start_readiness = computeStartReadiness(participants, games);
+    const complete_readiness = await computeCompleteReadiness(db, tournamentId);
 
     res.json({
       ...tournament,
       participants,
       games,
       start_readiness,
+      complete_readiness,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка сервера' });
@@ -746,10 +790,45 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       return res.json({
         tournament_id: tournamentId,
         completed_games_count: 0,
+        tie_requires_draw: false,
         standings: [],
       });
     }
 
+    // Pass 1: Compute red-role first-killed count (i) for each participant across all completed games
+    const redFirstKilledCounts = new Map<string, number>();
+    for (const p of participants) {
+      redFirstKilledCounts.set(p.participant_id, 0);
+    }
+
+    for (const g of completedGames) {
+      if (g.first_killed_participant_id) {
+        const seats = await db.all<any>(
+          `SELECT participant_id, role FROM tournament_game_seats WHERE game_id = ?`,
+          [g.game_id]
+        );
+        const fkSeat = seats.find((s) => s.participant_id === g.first_killed_participant_id);
+        if (fkSeat) {
+          const normR = normalizeRole(fkSeat.role);
+          if (normR === 'citizen' || normR === 'sheriff') {
+            const cur = redFirstKilledCounts.get(g.first_killed_participant_id) || 0;
+            redFirstKilledCounts.set(g.first_killed_participant_id, cur + 1);
+          }
+        }
+      }
+    }
+
+    // Compute ci_rate for each participant (B = 4 for 10 games)
+    const ciRatesMap = new Map<string, number>();
+    for (const [partId, count] of redFirstKilledCounts.entries()) {
+      let rate = 0;
+      if (count <= 0) rate = 0;
+      else if (count >= 4) rate = 0.4;
+      else rate = roundToTwo((count * 0.4) / 4);
+      ciRatesMap.set(partId, rate);
+    }
+
+    // Pass 2: Calculate per-game results & total standings
     for (const g of completedGames) {
       const seats = await db.all<any>(
         `SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?`,
@@ -765,10 +844,24 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       try {
         bestMoveSeats = JSON.parse(g.best_move_seats_json || '[]');
       } catch (_) {}
+
       const { bonusPoints: gameLhBonus } = calculateBestMovePoints(bestMoveSeats, seatsListForLh);
 
+      // Check if best_move_seats contains at least one mafia or don in this game
+      let hasBlackInBestMove = false;
+      for (const seatNum of bestMoveSeats) {
+        const targetSeat = seats.find((s) => s.seat_number === seatNum);
+        if (targetSeat) {
+          const targetRole = normalizeRole(targetSeat.role);
+          if (targetRole === 'mafia' || targetRole === 'don') {
+            hasBlackInBestMove = true;
+            break;
+          }
+        }
+      }
+
       const results = await db.all<any>(
-        `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points, ci_points
+        `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points
          FROM tournament_game_player_results WHERE game_id = ?`,
         [g.game_id]
       );
@@ -788,7 +881,6 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
         const judgeBonus = Number(resRow?.judge_bonus || 0);
         const protocolBonus = Number(resRow?.protocol_bonus || 0);
         const penalty = Number(resRow?.penalty_points || 0);
-        const ci = (s.participant_id === g.first_killed_participant_id) ? Number(resRow?.ci_points || 0) : 0;
 
         let winPoint = 0;
         if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
@@ -800,10 +892,26 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
         const posPoints = roundToTwo(judgeBonus + protocolBonus);
         const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
         const penPoints = roundToTwo(penalty);
-        const ciVal = roundToTwo(ci);
+
+        // FSM 2022 Ci calculation for this game
+        const playerRate = ciRatesMap.get(s.participant_id) || 0;
+        let gameCi = 0;
+        let ciReason: 'red_loss_full' | 'red_win_half_with_black_lh' | 'not_eligible' = 'not_eligible';
+
+        if (g.first_killed_participant_id === s.participant_id && (normRole === 'citizen' || normRole === 'sheriff')) {
+          if (g.winner_team === 'black') {
+            gameCi = playerRate;
+            ciReason = 'red_loss_full';
+          } else if (g.winner_team === 'red') {
+            if (g.best_move_participant_id === s.participant_id && hasBlackInBestMove) {
+              gameCi = roundToTwo(0.5 * playerRate);
+              ciReason = 'red_win_half_with_black_lh';
+            }
+          }
+        }
 
         const addTotalGame = roundToTwo(posPoints + bmPoints - penPoints);
-        const gameTotal = roundToTwo(winPoint + addTotalGame + ciVal);
+        const gameTotal = roundToTwo(winPoint + addTotalGame + gameCi);
 
         pStats.games_played += 1;
         pStats.wins += winPoint;
@@ -816,7 +924,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
         pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
         pStats.best_move_points = roundToTwo(pStats.best_move_points + bmPoints);
         pStats.penalty_points = roundToTwo(pStats.penalty_points + penPoints);
-        pStats.ci_points = roundToTwo(pStats.ci_points + ciVal);
+        pStats.ci_points = roundToTwo(pStats.ci_points + gameCi);
         pStats.additional_total = roundToTwo(pStats.additional_total + addTotalGame);
         pStats.total_points = roundToTwo(pStats.total_points + gameTotal);
 
@@ -829,7 +937,9 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
           positive_points: posPoints,
           best_move_points: bmPoints,
           penalty_points: penPoints,
-          ci_points: ciVal,
+          ci_points: gameCi,
+          ci_rate: playerRate,
+          ci_reason: ciReason,
           game_total: gameTotal,
         });
       }
@@ -837,7 +947,19 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 
     const standingsList = Array.from(statsMap.values());
 
-    // Sort: total_points desc, additional_total desc, wins desc, participant_number asc
+    for (const item of standingsList) {
+      const redCount = redFirstKilledCounts.get(item.participant_id) || 0;
+      const rate = ciRatesMap.get(item.participant_id) || 0;
+      item.ci_calculation = {
+        distance_games: 10,
+        threshold_b: 4,
+        first_killed_count: redCount,
+        ci_rate: rate,
+        provisional: tournament.status !== 'completed',
+      };
+    }
+
+    // Sort: total_points desc, additional_total desc, wins desc, don_wins+sheriff_wins desc, first_killed_count desc, participant_number asc
     standingsList.sort((a, b) => {
       if (Math.abs(b.total_points - a.total_points) > 0.0001) {
         return b.total_points - a.total_points;
@@ -848,21 +970,34 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       if (b.wins !== a.wins) {
         return b.wins - a.wins;
       }
+      const sumDS_b = b.don_wins + b.sheriff_wins;
+      const sumDS_a = a.don_wins + a.sheriff_wins;
+      if (sumDS_b !== sumDS_a) {
+        return sumDS_b - sumDS_a;
+      }
+      if (b.first_killed_count !== a.first_killed_count) {
+        return b.first_killed_count - a.first_killed_count;
+      }
       return a.participant_number - b.participant_number;
     });
 
+    let tieRequiresDraw = false;
     for (let i = 0; i < standingsList.length; i++) {
       if (i === 0) {
         standingsList[i].place = 1;
       } else {
         const prev = standingsList[i - 1];
         const curr = standingsList[i];
-        if (
+        const isEqual =
           Math.abs(curr.total_points - prev.total_points) < 0.0001 &&
           Math.abs(curr.additional_total - prev.additional_total) < 0.0001 &&
-          curr.wins === prev.wins
-        ) {
+          curr.wins === prev.wins &&
+          (curr.don_wins + curr.sheriff_wins) === (prev.don_wins + prev.sheriff_wins) &&
+          curr.first_killed_count === prev.first_killed_count;
+
+        if (isEqual) {
           curr.place = prev.place;
+          tieRequiresDraw = true;
         } else {
           curr.place = i + 1;
         }
@@ -872,10 +1007,226 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
     res.json({
       tournament_id: tournamentId,
       completed_games_count,
+      tie_requires_draw: tieRequiresDraw,
       standings: standingsList,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка вычисления турнирной таблицы' });
+  }
+});
+
+// POST /api/tournaments/:id/complete
+router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Турнир уже завершён' });
+    }
+
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Завершить можно только активный турнир' });
+    }
+
+    const readiness = await computeCompleteReadiness(db, tournamentId);
+    if (!readiness.isReady) {
+      return res.status(400).json({
+        error: 'Турнир не готов к завершению',
+        reasons: readiness.errors,
+      });
+    }
+
+    const now = new Date().toISOString();
+    await db.run(
+      "UPDATE tournaments SET status = 'completed', updated_at = ? WHERE id = ?",
+      [now, tournamentId]
+    );
+
+    res.json({
+      success: true,
+      tournament_id: tournamentId,
+      status: 'completed',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка завершения турнира' });
+  }
+});
+
+// GET /api/tournaments/:tournamentId/nominations
+router.get('/:tournamentId/nominations', async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    const participants = await db.all<any>(
+      `SELECT tp.id as participant_id, tp.participant_number,
+              COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+       FROM tournament_participants tp
+       LEFT JOIN players p ON tp.player_id = p.id
+       WHERE tp.tournament_id = ?
+       ORDER BY tp.participant_number ASC`,
+      [tournamentId]
+    );
+
+    const completedGames = await db.all<any>(
+      `SELECT g.id as game_id, g.game_number, p.best_move_participant_id, p.best_move_seats_json
+       FROM tournament_games g
+       INNER JOIN tournament_game_protocols p ON p.game_id = g.id
+       WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
+       ORDER BY g.game_number ASC`,
+      [tournamentId]
+    );
+
+    const gameDataList: Array<{
+      game_id: string;
+      game_number: number;
+      best_move_participant_id: string | null;
+      best_move_seats: number[];
+      seats: Array<{ participant_id: string; seat_number: number; role: string | null }>;
+      resultsMap: Map<string, any>;
+    }> = [];
+
+    for (const g of completedGames) {
+      const seats = await db.all<any>(
+        'SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?',
+        [g.game_id]
+      );
+      const results = await db.all<any>(
+        'SELECT participant_id, judge_bonus, protocol_bonus, penalty_points FROM tournament_game_player_results WHERE game_id = ?',
+        [g.game_id]
+      );
+      const resultMap = new Map<string, any>();
+      for (const r of results) {
+        resultMap.set(r.participant_id, r);
+      }
+
+      let best_move_seats: number[] = [];
+      try {
+        best_move_seats = JSON.parse(g.best_move_seats_json || '[]');
+      } catch (_) {}
+
+      gameDataList.push({
+        game_id: g.game_id,
+        game_number: g.game_number,
+        best_move_participant_id: g.best_move_participant_id,
+        best_move_seats,
+        seats,
+        resultsMap: resultMap,
+      });
+    }
+
+    const categoriesDef = [
+      { category: 'best_citizen', title: 'Лучший мирный', targetRoles: ['citizen'] },
+      { category: 'best_mafia', title: 'Лучшая мафия', targetRoles: ['mafia'] },
+      { category: 'best_sheriff', title: 'Лучший Шериф', targetRoles: ['sheriff'] },
+      { category: 'best_don', title: 'Лучший Дон', targetRoles: ['don'] },
+      { category: 'mvp', title: 'MVP', targetRoles: ['citizen', 'sheriff', 'mafia', 'don'] },
+    ];
+
+    const nominationsResult = [];
+
+    for (const cat of categoriesDef) {
+      const candidateList = [];
+
+      for (const p of participants) {
+        let gamesInRole = 0;
+        let sumJudge = 0;
+        let sumProtocol = 0;
+        let sumBestMove = 0;
+        let sumPenalty = 0;
+        const breakdown = [];
+
+        for (const gData of gameDataList) {
+          const seat = gData.seats.find((s) => s.participant_id === p.participant_id);
+          if (!seat) continue;
+
+          const normRole = normalizeRole(seat.role);
+          if (!normRole || !cat.targetRoles.includes(normRole)) continue;
+
+          gamesInRole++;
+
+          const resRow = gData.resultsMap.get(p.participant_id);
+          const jb = Number(resRow?.judge_bonus || 0);
+          const pb = Number(resRow?.protocol_bonus || 0);
+          const pen = Number(resRow?.penalty_points || 0);
+
+          let bm = 0;
+          if (gData.best_move_participant_id === p.participant_id) {
+            const seatsListForLh = gData.seats.map((s) => ({ seat_number: s.seat_number, role: s.role }));
+            bm = calculateBestMovePoints(gData.best_move_seats, seatsListForLh).bonusPoints;
+          }
+
+          const gameNomPoints = roundToTwo(jb + pb + bm - pen);
+
+          sumJudge = roundToTwo(sumJudge + jb);
+          sumProtocol = roundToTwo(sumProtocol + pb);
+          sumBestMove = roundToTwo(sumBestMove + bm);
+          sumPenalty = roundToTwo(sumPenalty + pen);
+
+          breakdown.push({
+            game_number: gData.game_number,
+            role: seat.role,
+            judge_bonus: jb,
+            protocol_bonus: pb,
+            best_move_points: bm,
+            penalty_points: pen,
+            nomination_points: gameNomPoints,
+          });
+        }
+
+        if (gamesInRole >= 1) {
+          const totalNomPoints = roundToTwo(sumJudge + sumProtocol + sumBestMove - sumPenalty);
+          candidateList.push({
+            participant_id: p.participant_id,
+            display_name: p.display_name,
+            nomination_points: totalNomPoints,
+            games_in_role: gamesInRole,
+            judge_bonus: sumJudge,
+            protocol_bonus: sumProtocol,
+            best_move_points: sumBestMove,
+            penalty_points: sumPenalty,
+            breakdown,
+          });
+        }
+      }
+
+      candidateList.sort((a, b) => b.nomination_points - a.nomination_points);
+
+      let hasTie = false;
+      if (candidateList.length > 1) {
+        const topPoints = candidateList[0].nomination_points;
+        const secondPoints = candidateList[1].nomination_points;
+        if (Math.abs(topPoints - secondPoints) < 0.0001) {
+          hasTie = true;
+        }
+      }
+
+      nominationsResult.push({
+        category: cat.category,
+        title: cat.title,
+        has_tie: hasTie,
+        candidates: candidateList,
+      });
+    }
+
+    res.json({
+      tournament_id: tournamentId,
+      provisional: tournament.status !== 'completed',
+      nominations: nominationsResult,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка вычисления номинаций' });
   }
 });
 

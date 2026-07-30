@@ -84,11 +84,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
         {/* Ci note badge */}
         <div className="bg-surface-2 border border-border-soft rounded-2xl p-3 text-xs text-text-secondary flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-text-primary">Автоматический пересчёт баллов</p>
+            <p className="font-semibold text-text-primary">Формула ФСМ 2022 (Авторасчёт Ci)</p>
             <p className="text-[11px] text-text-muted mt-0.5">
-              Ci пока вводится вручную. Автоматический расчёт будет добавлен после настройки формулы турнира.
+              Коэффициент коэффициента интеллекта (Ci) и итоговые баллы рассчитываются автоматически по правилам ФСМ 2022 на основе турнирной дистанции (10 игр).
             </p>
           </div>
         </div>

@@ -457,6 +457,10 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(404).json({ error: 'Турнир не найден' });
     }
 
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
+    }
+
     if (tournament.status !== 'active') {
       return res.status(400).json({ error: 'Сохранить протокол можно только в активном турнире' });
     }
@@ -569,7 +573,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
-              (pr.participant_id === protocol?.first_killed_participant_id ? (pr.ci_points ?? 0) : 0),
+              0,
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,
             ]
@@ -670,6 +674,10 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
       return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
     }
 
     if (tournament.status !== 'active') {
@@ -867,7 +875,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
-              (pr.participant_id === protocol?.first_killed_participant_id ? (pr.ci_points ?? 0) : 0),
+              0,
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,
             ]
@@ -969,6 +977,10 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
       return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
     }
 
     if (tournament.status !== 'active') {

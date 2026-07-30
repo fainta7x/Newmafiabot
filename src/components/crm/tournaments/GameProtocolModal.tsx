@@ -1010,16 +1010,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                             {player.participant_id === protocol.first_killed_participant_id && (
                               <div className="bg-slate-900/60 p-2 rounded-lg border border-cyan-500/40 col-span-2 sm:col-span-1 space-y-1">
-                                <span className="text-cyan-400 font-bold block">Ci (ручной)</span>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  disabled={protocol.status === 'completed'}
-                                  value={getDecimalInputValue(player.participant_id, 'ci_points', player.ci_points ?? 0)}
-                                  onChange={(e) => handleDecimalChange(player.participant_id, 'ci_points', e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-cyan-500 focus:outline-none disabled:opacity-50 font-bold text-cyan-300"
-                                />
-                                <p className="text-[10px] text-slate-400">Ci пока вводится вручную</p>
+                                <span className="text-cyan-400 font-bold block">Коэффициент Ci</span>
+                                <p className="text-[10px] text-slate-300 font-medium">
+                                  Ci рассчитывается автоматически по дистанции турнира
+                                </p>
                               </div>
                             )}
                           </div>

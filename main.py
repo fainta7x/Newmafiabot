@@ -155,6 +155,18 @@ async def start_webhook():
 
     setup_handlers()
 
+    # Проверка связи с бэкендом
+    try:
+        from bot_api import check_backend_connection
+        res = await check_backend_connection()
+    except Exception as e:
+        res = {"success": False, "message": str(e)}
+
+    if res.get("success"):
+        logger.info(f"🔌 [Backend API] Связь с бэкендом успешно установлена! Service: {res.get('service')}, API Version: {res.get('api_version')}")
+    else:
+        logger.warning(f"⚠️ [Backend API] Не удалось установить связь с бэкендом: {res.get('message')}. Бот продолжает работу в автономном режиме.")
+
     asyncio.create_task(daily_backup_task())
     logger.info("✅ Задача ежедневного бэкапа запущена")
 
@@ -182,6 +194,18 @@ async def start_polling(): #запуск в режиме polling (для лок�
     bot = Bot(token=config.TOKEN)
     dp = Dispatcher(storage=storage)
     setup_handlers()
+
+    # Проверка связи с бэкендом
+    try:
+        from bot_api import check_backend_connection
+        res = await check_backend_connection()
+    except Exception as e:
+        res = {"success": False, "message": str(e)}
+
+    if res.get("success"):
+        logger.info(f"🔌 [Backend API] Связь с бэкендом успешно установлена! Service: {res.get('service')}, API Version: {res.get('api_version')}")
+    else:
+        logger.warning(f"⚠️ [Backend API] Не удалось установить связь с бэкендом: {res.get('message')}. Бот продолжает работу в автономном режиме.")
 
     await init_db()
     logger.info("✅ БД инициализирована")

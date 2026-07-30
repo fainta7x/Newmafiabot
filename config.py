@@ -20,3 +20,8 @@ ANNOUNCE_TOPIC_ID = int(os.getenv('ANNOUNCE_TOPIC_ID', '5912'))
 
 USE_WEBHOOK = os.getenv('USE_WEBHOOK', 'False').lower() in ('true', '1', 't')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
+
+# Bot API Configuration
+BOT_API_BASE_URL = os.getenv('BOT_API_BASE_URL', 'http://127.0.0.1:3000')
+BOT_API_SECRET = os.getenv('BOT_API_SECRET', '')
+

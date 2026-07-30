@@ -198,9 +198,9 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(p0Standing.wins).toBe(1);
     expect(p0Standing.positive_points).toBe(0.5);
     expect(p0Standing.penalty_points).toBe(0.1);
-    expect(p0Standing.ci_points).toBe(0.5);
+    expect(p0Standing.ci_points).toBe(0);
     expect(p0Standing.additional_total).toBe(0.4); // 0.5 - 0.1
-    expect(p0Standing.total_points).toBe(1.9); // 1 + 0.4 + 0.5 = 1.9
+    expect(p0Standing.total_points).toBe(1.4); // 1 + 0.4 + 0 = 1.4
   });
 
   it('only adds ci_points to first_killed_participant_id and ignores ci_points sent for other players', async () => {
@@ -243,7 +243,7 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
       (s: any) => s.participant_id === p1Id
     );
 
-    expect(p0Standing.ci_points).toBe(0.8);
+    expect(p0Standing.ci_points).toBe(0); // client-sent ci_points are ignored, and autocalc yields 0 for 1 game distance
     expect(p1Standing.ci_points).toBe(0);
   });
 

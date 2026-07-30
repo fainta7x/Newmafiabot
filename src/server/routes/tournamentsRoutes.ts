@@ -3,6 +3,13 @@ import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { calculateBestMovePoints } from './tournamentProtocolRoutes.ts';
+import {
+  normalizeRole,
+  roundToTwo,
+  calculateCiThreshold,
+  calculateCiRate,
+  calculateGameCi
+} from '../utils/ciHelper.ts';
 
 const router = Router();
 
@@ -13,16 +20,6 @@ function shuffleArray<T>(arr: T[]): T[] {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
-}
-
-function normalizeRole(r: string | null | undefined): string | null {
-  if (!r) return null;
-  const lower = r.trim().toLowerCase();
-  if (['citizen', 'мирный', 'мирный житель', 'red', 'красный'].includes(lower)) return 'citizen';
-  if (['sheriff', 'шериф'].includes(lower)) return 'sheriff';
-  if (['mafia', 'мафия', 'black', 'черный'].includes(lower)) return 'mafia';
-  if (['don', 'дон'].includes(lower)) return 'don';
-  return lower;
 }
 
 // Helper to generate 10 games and random seating chart
@@ -125,7 +122,9 @@ export async function computeCompleteReadiness(db: DatabaseWrapper, tournamentId
     [tournamentId]
   );
 
-  if (games.length !== 10) {
+  if (games.length === 0) {
+    errors.push('В турнире ещё нет запланированных игр');
+  } else if (games.length !== 10) {
     errors.push(`Необходимо ровно 10 игр (найдено: ${games.length})`);
   }
 
@@ -136,7 +135,7 @@ export async function computeCompleteReadiness(db: DatabaseWrapper, tournamentId
 
   const uncompletedGames = games.filter((g) => g.status !== 'completed');
   if (uncompletedGames.length > 0) {
-    errors.push(`Не все игры завершены (${games.length - uncompletedGames.length} из ${games.length})`);
+    errors.push(`Не все игры завершены (${games.length - uncompletedGames.length} из ${games.length}), некоторые игры не сыграно`);
   }
 
   for (const g of games) {
@@ -239,16 +238,14 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
     return res.status(400).json({ error: 'Название и дата обязательны' });
   }
 
-  if (!Array.isArray(participants) || participants.length !== 10) {
-    return res.status(400).json({ error: 'Турнир должен содержать ровно 10 участников' });
-  }
+  const parts = Array.isArray(participants) ? participants : [];
 
   // Extract player_ids
-  const playerIds = participants.map((p: any) => typeof p === 'string' ? p : p.player_id);
-  const uniquePlayerIds = Array.from(new Set(playerIds.filter(Boolean)));
+  const playerIds = parts.map((p: any) => typeof p === 'string' ? p : p?.player_id).filter(Boolean);
+  const uniquePlayerIds = Array.from(new Set(playerIds));
 
-  if (uniquePlayerIds.length !== 10) {
-    return res.status(400).json({ error: 'Участники не могут повторяться. Требуется ровно 10 уникальных игроков.' });
+  if (uniquePlayerIds.length !== parts.length) {
+    return res.status(400).json({ error: 'Участники не могут повторяться. Все игроки должны быть уникальными.' });
   }
 
   // Verify all players exist
@@ -280,10 +277,10 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
         ]
       );
 
-      // Save 10 participants
+      // Save participants
       const participantRecords = [];
-      for (let i = 0; i < 10; i++) {
-        const rawPart = participants[i];
+      for (let i = 0; i < parts.length; i++) {
+        const rawPart = parts[i];
         const pid = typeof rawPart === 'string' ? rawPart : rawPart.player_id;
         const customName = typeof rawPart === 'object' && rawPart.display_name ? rawPart.display_name.trim() : null;
 
@@ -299,8 +296,10 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
         participantRecords.push({ id: participantId, player_id: pid, display_name: displayName, participant_number: i + 1 });
       }
 
-      // Generate 10 games & seating
-      await generateGamesAndSeating(tx, tournamentId, chief_judge_name || null, participantRecords);
+      if (parts.length === 10) {
+        // Generate 10 games & seating
+        await generateGamesAndSeating(tx, tournamentId, chief_judge_name || null, participantRecords);
+      }
 
       // Fetch created objects
       const tournament = await tx.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -614,8 +613,8 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
       return res.status(404).json({ error: 'Турнир не найден' });
     }
 
-    if (tournament.status === 'active') {
-      return res.status(400).json({ error: 'Турнир уже запущен' });
+    if (tournament.status !== 'draft') {
+      return res.status(400).json({ error: 'Турнир не может быть запущен из текущего статуса' });
     }
 
     const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
@@ -724,10 +723,6 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
   }
 });
 
-function roundToTwo(num: number): number {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
-}
-
 // GET /api/tournaments/:tournamentId/standings
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
@@ -775,7 +770,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 
     // 3. Get completed games with completed protocols
     const completedGames = await db.all<any>(
-      `SELECT g.id as game_id, g.game_number, p.winner_team, p.first_killed_participant_id,
+      `SELECT g.id as game_id, g.game_number, COALESCE(p.winner_team, g.winner_team) as winner_team, p.first_killed_participant_id,
               p.best_move_participant_id, p.best_move_seats_json
        FROM tournament_games g
        INNER JOIN tournament_game_protocols p ON p.game_id = g.id
@@ -818,13 +813,12 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       }
     }
 
-    // Compute ci_rate for each participant (B = 4 for 10 games)
+    // Compute ci_rate for each participant using clean helper function
+    const distanceGames = 10;
+    const thresholdB = calculateCiThreshold(distanceGames);
     const ciRatesMap = new Map<string, number>();
     for (const [partId, count] of redFirstKilledCounts.entries()) {
-      let rate = 0;
-      if (count <= 0) rate = 0;
-      else if (count >= 4) rate = 0.4;
-      else rate = roundToTwo((count * 0.4) / 4);
+      const rate = calculateCiRate(count, thresholdB);
       ciRatesMap.set(partId, rate);
     }
 
@@ -893,22 +887,19 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
         const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
         const penPoints = roundToTwo(penalty);
 
-        // FSM 2022 Ci calculation for this game
+        // FSM 2022 Ci calculation for this game via helper
         const playerRate = ciRatesMap.get(s.participant_id) || 0;
-        let gameCi = 0;
-        let ciReason: 'red_loss_full' | 'red_win_half_with_black_lh' | 'not_eligible' = 'not_eligible';
-
-        if (g.first_killed_participant_id === s.participant_id && (normRole === 'citizen' || normRole === 'sheriff')) {
-          if (g.winner_team === 'black') {
-            gameCi = playerRate;
-            ciReason = 'red_loss_full';
-          } else if (g.winner_team === 'red') {
-            if (g.best_move_participant_id === s.participant_id && hasBlackInBestMove) {
-              gameCi = roundToTwo(0.5 * playerRate);
-              ciReason = 'red_win_half_with_black_lh';
-            }
-          }
-        }
+        const ciResult = calculateGameCi({
+          isFirstKilled: g.first_killed_participant_id === s.participant_id,
+          role: s.role,
+          winnerTeam: g.winner_team,
+          bestMoveParticipantId: g.best_move_participant_id,
+          participantId: s.participant_id,
+          hasBlackInBestMove,
+          playerRate,
+        });
+        const gameCi = ciResult.gameCi;
+        const ciReason = ciResult.ciReason;
 
         const addTotalGame = roundToTwo(posPoints + bmPoints - penPoints);
         const gameTotal = roundToTwo(winPoint + addTotalGame + gameCi);
@@ -951,24 +942,24 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       const redCount = redFirstKilledCounts.get(item.participant_id) || 0;
       const rate = ciRatesMap.get(item.participant_id) || 0;
       item.ci_calculation = {
-        distance_games: 10,
-        threshold_b: 4,
+        distance_games: distanceGames,
+        threshold_b: calculateCiThreshold(distanceGames),
         first_killed_count: redCount,
         ci_rate: rate,
         provisional: tournament.status !== 'completed',
       };
     }
 
-    // Sort: total_points desc, additional_total desc, wins desc, don_wins+sheriff_wins desc, first_killed_count desc, participant_number asc
+    // Sort: total_points desc, wins desc, additional_total desc, don_wins+sheriff_wins desc, first_killed_count desc, participant_number asc
     standingsList.sort((a, b) => {
       if (Math.abs(b.total_points - a.total_points) > 0.0001) {
         return b.total_points - a.total_points;
       }
-      if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
-        return b.additional_total - a.additional_total;
-      }
       if (b.wins !== a.wins) {
         return b.wins - a.wins;
+      }
+      if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
+        return b.additional_total - a.additional_total;
       }
       const sumDS_b = b.don_wins + b.sheriff_wins;
       const sumDS_a = a.don_wins + a.sheriff_wins;
@@ -997,7 +988,9 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 
         if (isEqual) {
           curr.place = prev.place;
-          tieRequiresDraw = true;
+          if (curr.games_played > 0 && prev.games_played > 0) {
+            tieRequiresDraw = true;
+          }
         } else {
           curr.place = i + 1;
         }
@@ -1059,7 +1052,7 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
 });
 
 // GET /api/tournaments/:tournamentId/nominations
-router.get('/:tournamentId/nominations', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const { tournamentId } = req.params;
 

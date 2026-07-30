@@ -50,7 +50,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
     return (
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-8 text-center text-text-muted text-xs space-y-2">
         <RefreshCw className="w-5 h-5 animate-spin mx-auto text-accent" />
-        <p>Вычисление номинаций по формулам ФСМ 2022...</p>
+        <p>Вычисление номинаций турнира...</p>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
             <div>
               <p className="font-bold">Официальные итоги зафиксированы</p>
               <p className="text-[11px] opacity-90 mt-0.5">
-                Турнир успешно завершён. Номинации рассчитаны на основе финальных протоколов всех 10 игр по регламенту ФСМ 2022.
+                Турнир успешно завершён. Номинации рассчитаны на основе финальных протоколов всех 10 игр по внутреннему регламенту турнира.
               </p>
             </div>
           </div>
@@ -157,8 +157,8 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                   <h4 className="text-sm font-black tracking-tight">{nom.title}</h4>
                 </div>
                 {nom.has_tie && (
-                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    Разделённая победа
+                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider text-center">
+                    Равенство — требуется решение Главного судьи
                   </span>
                 )}
               </div>
@@ -166,7 +166,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
               {/* Winners Spotlight */}
               <div className="space-y-2">
                 <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider block">
-                  {winners.length > 1 ? 'Победители номинации:' : 'Победитель номинации:'}
+                  {winners.length > 1 ? 'Претенденты с равными баллами (решение за Главным судьёй):' : 'Победитель номинации:'}
                 </span>
 
                 <div className="grid grid-cols-1 gap-2">
@@ -176,8 +176,14 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                       className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                          <Trophy className="w-4.5 h-4.5 fill-amber-500/10" />
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          winners.length > 1 ? 'bg-accent/10 text-accent' : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {winners.length > 1 ? (
+                            <Award className="w-4.5 h-4.5" />
+                          ) : (
+                            <Trophy className="w-4.5 h-4.5 fill-amber-500/10" />
+                          )}
                         </span>
                         <div className="min-w-0">
                           <span className="text-sm font-black text-text-primary block truncate">
@@ -220,7 +226,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-soft/40 text-[11px]">
-                      {nom.candidates.slice(0, 5).map((candidate: any, idx: number) => {
+                      {nom.candidates.map((candidate: any, idx: number) => {
                         const isExpanded = expandedCandidates[`${nom.category}-${candidate.participant_id}`];
                         const isWinner = winners.some((w: any) => w.participant_id === candidate.participant_id);
 

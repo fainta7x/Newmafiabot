@@ -320,6 +320,8 @@ export interface TournamentStandingGame {
   best_move_points: number;
   penalty_points: number;
   ci_points: number;
+  ci_rate: number;
+  ci_reason: 'red_loss_full' | 'red_win_half_with_black_lh' | 'not_eligible';
   game_total: number;
 }
 
@@ -340,11 +342,19 @@ export interface TournamentStandingItem {
   first_killed_count: number;
   games_played: number;
   games: TournamentStandingGame[];
+  ci_calculation?: {
+    distance_games: number;
+    threshold_b: number;
+    first_killed_count: number;
+    ci_rate: number;
+    provisional: boolean;
+  };
 }
 
 export interface TournamentStandingsResponse {
   tournament_id: string;
   completed_games_count: number;
+  tie_requires_draw: boolean;
   standings: TournamentStandingItem[];
 }
 
@@ -371,6 +381,10 @@ export interface Tournament {
   total_games_count?: number;
   completed_games_count?: number;
   start_readiness?: TournamentStartReadiness;
+  complete_readiness?: {
+    isReady: boolean;
+    errors: string[];
+  };
   participants?: TournamentParticipant[];
   games?: TournamentGame[];
 }

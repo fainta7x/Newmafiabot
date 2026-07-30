@@ -48,6 +48,55 @@ export function calculateBestMovePoints(
 const VALID_EXIT_TYPES = ['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed'];
 const VALID_COLOR_MARKS = ['red', 'black', 'sheriff'];
 
+function validateFirstKilled(
+  firstKilledParticipantId: string | null | undefined,
+  seats: any[],
+  playerResults: any[],
+  shots: any[]
+): string | null {
+  if (!firstKilledParticipantId) {
+    if (Array.isArray(shots)) {
+      const night1 = shots.find((s) => s && Number(s.night_number) === 1);
+      if (night1 && night1.result === 'killed') {
+        return 'В первую ночь был убит игрок, но первоубиенный не выбран в протоколе';
+      }
+    }
+    return null;
+  }
+
+  const fkSeat = seats.find((s) => s.participant_id === firstKilledParticipantId);
+  if (!fkSeat) {
+    return 'Первоубиенный игрок не найден среди участников этой игры';
+  }
+
+  const normRole = normalizeRole(fkSeat.role);
+  if (normRole !== 'citizen' && normRole !== 'sheriff') {
+    return `Первоубиенным может быть только мирный житель или Шериф (роль выбранного игрока: ${fkSeat.role || 'не указана'})`;
+  }
+
+  if (playerResults && Array.isArray(playerResults)) {
+    const fkResult = playerResults.find((pr) => pr.participant_id === firstKilledParticipantId);
+    if (fkResult && fkResult.exit_type !== 'killed') {
+      return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
+    }
+  }
+
+  if (Array.isArray(shots)) {
+    const night1 = shots.find((s) => s && Number(s.night_number) === 1);
+    if (night1) {
+      if (night1.result === 'killed') {
+        if (Number(night1.target_seat) !== Number(fkSeat.seat_number)) {
+          return `Выбранный первоубиенный игрок (слот ${fkSeat.seat_number}) не совпадает с целью убийства в первую ночь (слот ${night1.target_seat})`;
+        }
+      } else if (night1.result === 'miss' || night1.result === 'agreement_failed') {
+        return `В первую ночь был промах или нестрел, первоубиенного быть не должно`;
+      }
+    }
+  }
+
+  return null;
+}
+
 function validateBestMove(
   bestMoveSeats: any,
   bestMoveParticipantId: string | null | undefined,
@@ -508,6 +557,16 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: bestMoveErr });
     }
 
+    const fkErr = validateFirstKilled(
+      protocol?.first_killed_participant_id,
+      seats,
+      player_results,
+      protocol?.shots
+    );
+    if (fkErr) {
+      return res.status(400).json({ error: fkErr });
+    }
+
     // Determine best_move_source
     let bestMoveSource: string | null = null;
     if (protocol?.best_move_participant_id) {
@@ -808,6 +867,16 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     );
     if (bestMoveErr) {
       return res.status(400).json({ error: bestMoveErr });
+    }
+
+    const fkErr = validateFirstKilled(
+      protocol?.first_killed_participant_id,
+      seats,
+      player_results,
+      protocol?.shots
+    );
+    if (fkErr) {
+      return res.status(400).json({ error: fkErr });
     }
 
     let bestMoveSource: string | null = null;

@@ -12,6 +12,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tieRequiresDraw, setTieRequiresDraw] = useState<boolean>(false);
 
   // Expanded row state for main stats (< 640px)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
       const res = await api.getTournamentStandings(tournamentId);
       setCompletedGamesCount(res.completed_games_count ?? 0);
       setStandings(res.standings || []);
+      setTieRequiresDraw(res.tie_requires_draw ?? false);
     } catch (err: any) {
       setError(err.message || 'Не удалось загрузить турнирную таблицу');
     } finally {
@@ -86,13 +88,27 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
         <div className="bg-surface-2 border border-border-soft rounded-2xl p-3 text-xs text-text-secondary flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-text-primary">Формула ФСМ 2022 (Авторасчёт Ci)</p>
+            <p className="font-semibold text-text-primary">Компенсация Ci по правилам ФСМ 2022</p>
             <p className="text-[11px] text-text-muted mt-0.5">
-              Коэффициент коэффициента интеллекта (Ci) и итоговые баллы рассчитываются автоматически по правилам ФСМ 2022 на основе турнирной дистанции (10 игр).
+              {standings[0]?.ci_calculation?.provisional
+                ? 'Ci предварительный и может измениться после следующих игр.'
+                : 'Ci рассчитан по полной дистанции турнира.'}
             </p>
           </div>
         </div>
       </div>
+
+      {tieRequiresDraw && (
+        <div className="bg-amber-500/15 border border-amber-500/40 rounded-3xl p-4 text-xs text-amber-400 space-y-1.5 shadow-md">
+          <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wide">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 animate-pulse" />
+            <span>Внимание! Требуется проведение жребия</span>
+          </div>
+          <p className="text-[11px] opacity-90 leading-relaxed font-sans">
+            У двух или более участников полностью совпадают все основные и дополнительные показатели (очки, доп. баллы, победы, победы за Дона/Шерифа, количество первых убийств). Для определения точных финальных мест требуется проведение официального жребия Главным судьей.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-danger/10 border border-danger/30 text-danger p-4 rounded-2xl text-xs font-semibold">
@@ -300,11 +316,25 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                       <div>
                                         ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
                                       </div>
-                                      <div>
+                                      <div className="col-span-2">
                                         Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
                                       </div>
-                                      <div>
-                                        Ci: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
+                                      <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
+                                        <div className="flex justify-between">
+                                          <span className="text-text-muted">Ставка Ci:</span>
+                                          <span className="font-mono text-text-primary">{g.ci_rate}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-text-muted">Начисленный Ci:</span>
+                                          <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                        </div>
+                                        <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                          {g.ci_reason === 'red_loss_full'
+                                            ? 'полная компенсация за поражение красных'
+                                            : g.ci_reason === 'red_win_half_with_black_lh'
+                                            ? 'половина компенсации за победу красных с чёрным в ЛХ'
+                                            : 'компенсация не начислена'}
+                                        </div>
                                       </div>
                                     </div>
                                     <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
@@ -494,11 +524,25 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                       <div>
                                         ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
                                       </div>
-                                      <div>
+                                      <div className="col-span-2">
                                         Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
                                       </div>
-                                      <div>
-                                        Ci: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
+                                      <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
+                                        <div className="flex justify-between">
+                                          <span className="text-text-muted">Ставка Ci:</span>
+                                          <span className="font-mono text-text-primary">{g.ci_rate}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-text-muted">Начисленный Ci:</span>
+                                          <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                        </div>
+                                        <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                          {g.ci_reason === 'red_loss_full'
+                                            ? 'полная компенсация за поражение красных'
+                                            : g.ci_reason === 'red_win_half_with_black_lh'
+                                            ? 'половина компенсации за победу красных с чёрным в ЛХ'
+                                            : 'компенсация не начислена'}
+                                        </div>
                                       </div>
                                     </div>
                                     <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
@@ -706,8 +750,22 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                           <div>
                                             Штрафы: <span className="font-mono text-danger">-{g.penalty_points}</span>
                                           </div>
-                                          <div>
-                                            Ci очки: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
+                                          <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
+                                            <div className="flex justify-between">
+                                              <span className="text-text-muted">Ставка Ci:</span>
+                                              <span className="font-mono text-text-primary">{g.ci_rate}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-text-muted">Начисленный Ci:</span>
+                                              <span className="font-mono text-cyan-400 font-extrabold">+{g.ci_points}</span>
+                                            </div>
+                                            <div className="text-[9px] text-text-muted italic leading-tight mt-0.5">
+                                              {g.ci_reason === 'red_loss_full'
+                                                ? 'полная компенсация за поражение красных'
+                                                : g.ci_reason === 'red_win_half_with_black_lh'
+                                                ? 'половина компенсации за победу красных с чёрным в ЛХ'
+                                                : 'компенсация не начислена'}
+                                            </div>
                                           </div>
                                         </div>
 

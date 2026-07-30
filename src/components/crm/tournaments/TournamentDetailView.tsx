@@ -28,6 +28,7 @@ import { GameProtocolModal } from './GameProtocolModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { FileSpreadsheet, FileCheck, Award } from 'lucide-react';
+import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -78,6 +79,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Feedback state
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   // Judge edit state
   const [editingJudge, setEditingJudge] = useState(false);
@@ -100,21 +102,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleCompleteTournament = async () => {
-    if (!confirm('Вы уверены, что хотите официально завершить турнир? Все протоколы будут окончательно зафиксированы, а номинации получат официальный статус.')) return;
-    setActionLoading(true);
-    setFeedbackMsg(null);
-    try {
-      await api.completeTournament(tournamentId);
-      setFeedbackMsg({
-        type: 'success',
-        text: 'Турнир успешно официально завершён! Все результаты зафиксированы.',
-      });
-      loadDetail();
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка завершения турнира' });
-    } finally {
-      setActionLoading(false);
-    }
+    // This is passed as onConfirm to ConfirmCompleteTournamentModal
+    await api.completeTournament(tournamentId);
+    setFeedbackMsg({
+      type: 'success',
+      text: 'Турнир успешно официально завершён! Все результаты зафиксированы.',
+    });
+    loadDetail();
   };
 
   if (loading) {
@@ -431,39 +425,51 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         ) : (
           <div className="space-y-3 pt-3 border-t border-border-soft">
             {/* Completion Readiness & Controls for Active Tournament */}
-            {tournament.status === 'active' && (
-              <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-text-primary">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Прогресс турнира:</span>
-                    <span className="font-mono text-accent text-sm font-black">
-                      {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
-                    </span>
-                  </div>
+            {tournament.status === 'active' && (() => {
+              const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
+              return (
+                <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 font-bold text-text-primary">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Прогресс турнира:</span>
+                      <span className="font-mono text-accent text-sm font-black">
+                        {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
+                      </span>
+                    </div>
 
-                  {games.filter((g) => g.status === 'completed').length === games.length ? (
                     <button
                       type="button"
-                      disabled={actionLoading}
-                      onClick={handleCompleteTournament}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+                      disabled={!readiness.isReady || actionLoading}
+                      onClick={() => setShowCompleteModal(true)}
+                      className={`font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer min-h-[38px] ${
+                        readiness.isReady
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                          : 'bg-surface-3 text-text-muted cursor-not-allowed border border-border-soft/60 shadow-none'
+                      }`}
                     >
-                      {actionLoading ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Trophy className="w-3.5 h-3.5" />
-                      )}
+                      <Trophy className="w-3.5 h-3.5" />
                       <span>Завершить турнир</span>
                     </button>
-                  ) : (
-                    <span className="text-[11px] text-text-muted italic">
-                      Для завершения турнира сыграйте все запланированные игры
-                    </span>
+                  </div>
+
+                  {/* Errors List if not ready */}
+                  {!readiness.isReady && readiness.errors && readiness.errors.length > 0 && (
+                    <div className="border-t border-border-soft/60 pt-3 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-danger font-bold text-[11px] uppercase tracking-wider">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Необходимо исправить для завершения:</span>
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] text-text-secondary leading-relaxed pl-1">
+                        {readiness.errors.map((err: string, idx: number) => (
+                          <li key={idx} className="font-sans">{err}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {tournament.status === 'completed' && (
               <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-400 flex items-center gap-2.5">
@@ -976,6 +982,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           }}
         />
       )}
+
+      <ConfirmCompleteTournamentModal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onConfirm={handleCompleteTournament}
+        tournamentId={tournamentId}
+      />
     </div>
   );
 };

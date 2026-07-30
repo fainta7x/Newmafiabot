@@ -255,9 +255,23 @@ function validatePlayerResults(
       return 'Баллы протокола должны быть числом';
     }
 
-    if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points))) {
-      return 'Штрафные баллы должны быть числом';
+    if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points) || pr.penalty_points < 0)) {
+      return 'Штрафные баллы должны быть конечным неотрицательным числом';
     }
+    
+    if (pr.removal_reason && !['4th_foul', '2nd_tech', 'direct'].includes(pr.removal_reason)) {
+      return 'Указана неверная причина удаления';
+    }
+    if (pr.removal_reason === '4th_foul' && (pr.exit_type !== 'removed' || pr.regular_fouls !== 4)) {
+      return 'Причина 4th_foul требует 4 обычных фола и статус removed';
+    }
+    if (pr.removal_reason === '2nd_tech' && (pr.exit_type !== 'removed' || (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0) < 2)) {
+      return 'Причина 2nd_tech требует статус removed и 2 техфола';
+    }
+    if (pr.removal_reason === 'direct' && pr.exit_type !== 'removed') {
+      return 'Причина direct требует статус removed';
+    }
+
 
     if (pr.ci_points !== undefined && pr.ci_points !== null) {
       if (typeof pr.ci_points !== 'number' || !Number.isFinite(pr.ci_points)) {
@@ -611,6 +625,28 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     }
 
     // Validations
+    if (protocol?.end_reason === 'ppk') {
+      if (!protocol.ppk_culprit_participant_id) {
+        return res.status(400).json({ error: 'При ППК виновник обязателен' });
+      }
+      const culprit = seats.find((s: any) => s.participant_id === protocol.ppk_culprit_participant_id);
+      if (!culprit) {
+        return res.status(400).json({ error: 'Виновник ППК не участвует в игре' });
+      }
+      // Automate winner assignment for ppk
+      const culpritRole = ['мафия', 'mafia', 'black', 'черный', 'дон', 'don'].includes((culprit.role || '').toLowerCase()) ? 'black' : 'red';
+      protocol.winner_team = culpritRole === 'red' ? 'black' : 'red';
+    }
+
+    if (player_results && Array.isArray(player_results)) {
+      player_results.forEach(pr => {
+        let disc = (pr.minor_technical_fouls || 0) * 0.3 + (pr.major_technical_fouls || 0) * 0.6;
+        if (pr.exit_type === 'removed') disc += 1.0;
+        if (protocol?.end_reason === 'ppk' && protocol?.ppk_culprit_participant_id === pr.participant_id) disc += 1.0;
+        pr.disciplinary_penalty_points = Number(disc.toFixed(1));
+      });
+    }
+
     if (!player_results || !Array.isArray(player_results)) {
       return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
     }
@@ -672,9 +708,9 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           id, game_id, status, winner_team,
           first_killed_participant_id, zero_round_voted_participant_id,
           best_move_participant_id, best_move_source, best_move_seats_json,
-          votes_json, shots_json, replacement_json, judge_notes,
+          votes_json, shots_json, replacement_json, judge_notes, end_reason, ppk_culprit_participant_id,
           created_at, updated_at, completed_at
-        ) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        ) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
         [
           protocolId,
           gameId,
@@ -688,6 +724,8 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
           protocol?.judge_notes || null,
+          protocol?.end_reason || 'normal',
+          protocol?.ppk_culprit_participant_id || null,
           existingProtocol?.created_at || now,
           now,
         ]
@@ -709,9 +747,9 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           await tx.run(
             `INSERT INTO tournament_game_player_results (
               id, game_id, participant_id, exit_type, exit_order,
-              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, ci_points,
+              regular_fouls, minor_technical_fouls, major_technical_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, disciplinary_penalty_points, removal_reason, ci_points,
               color_protocol_json, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               resId,
               gameId,
@@ -719,10 +757,14 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
               pr.exit_type || 'alive',
               pr.exit_order ?? null,
               pr.regular_fouls ?? 0,
+              pr.minor_technical_fouls ?? 0,
+              pr.major_technical_fouls ?? 0,
               pr.technical_fouls ?? 0,
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
+              pr.disciplinary_penalty_points ?? 0,
+              pr.removal_reason || null,
               0,
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,
@@ -965,6 +1007,28 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)' });
     }
 
+    if (protocol?.end_reason === 'ppk') {
+      if (!protocol.ppk_culprit_participant_id) {
+        return res.status(400).json({ error: 'При ППК виновник обязателен' });
+      }
+      const culprit = seats.find((s: any) => s.participant_id === protocol.ppk_culprit_participant_id);
+      if (!culprit) {
+        return res.status(400).json({ error: 'Виновник ППК не участвует в игре' });
+      }
+      // Automate winner assignment for ppk
+      const culpritRole = ['мафия', 'mafia', 'black', 'черный', 'дон', 'don'].includes((culprit.role || '').toLowerCase()) ? 'black' : 'red';
+      protocol.winner_team = culpritRole === 'red' ? 'black' : 'red';
+    }
+
+    if (player_results && Array.isArray(player_results)) {
+      player_results.forEach(pr => {
+        let disc = (pr.minor_technical_fouls || 0) * 0.3 + (pr.major_technical_fouls || 0) * 0.6;
+        if (pr.exit_type === 'removed') disc += 1.0;
+        if (protocol?.end_reason === 'ppk' && protocol?.ppk_culprit_participant_id === pr.participant_id) disc += 1.0;
+        pr.disciplinary_penalty_points = Number(disc.toFixed(1));
+      });
+    }
+
     if (!player_results || !Array.isArray(player_results)) {
       return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
     }
@@ -1026,9 +1090,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           id, game_id, status, winner_team,
           first_killed_participant_id, zero_round_voted_participant_id,
           best_move_participant_id, best_move_source, best_move_seats_json,
-          votes_json, shots_json, replacement_json, judge_notes,
+          votes_json, shots_json, replacement_json, judge_notes, end_reason, ppk_culprit_participant_id,
           created_at, updated_at, completed_at
-        ) VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           protocolId,
           gameId,
@@ -1042,6 +1106,8 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
           protocol?.judge_notes || null,
+          protocol?.end_reason || 'normal',
+          protocol?.ppk_culprit_participant_id || null,
           existingProtocol?.created_at || now,
           now,
           now,
@@ -1064,9 +1130,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           await tx.run(
             `INSERT INTO tournament_game_player_results (
               id, game_id, participant_id, exit_type, exit_order,
-              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, ci_points,
+              regular_fouls, minor_technical_fouls, major_technical_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, disciplinary_penalty_points, removal_reason, ci_points,
               color_protocol_json, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               resId,
               gameId,
@@ -1074,10 +1140,14 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
               pr.exit_type || 'alive',
               pr.exit_order ?? null,
               pr.regular_fouls ?? 0,
+              pr.minor_technical_fouls ?? 0,
+              pr.major_technical_fouls ?? 0,
               pr.technical_fouls ?? 0,
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
+              pr.disciplinary_penalty_points ?? 0,
+              pr.removal_reason || null,
               0,
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,

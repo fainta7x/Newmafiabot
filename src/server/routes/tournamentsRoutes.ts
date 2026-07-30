@@ -752,6 +752,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       total_points: 0,
       additional_total: 0,
       positive_points: 0,
+      game_penalty_points: 0,
+      disciplinary_penalty_points: 0,
       penalty_points: 0,
       best_move_points: 0,
       ci_points: 0,
@@ -881,7 +883,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
     }
 
     const results = await db.all<any>(
-      `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points
+      `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points, disciplinary_penalty_points
        FROM tournament_game_player_results WHERE game_id = ?`,
       [g.game_id]
     );
@@ -900,7 +902,9 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
 
       const judgeBonus = Number(resRow?.judge_bonus || 0);
       const protocolBonus = Number(resRow?.protocol_bonus || 0);
-      const penalty = Number(resRow?.penalty_points || 0);
+      const gamePenalty = Number(resRow?.penalty_points || 0);
+      const discPenalty = Number(resRow?.disciplinary_penalty_points || 0);
+      const penalty = roundToTwo(gamePenalty + discPenalty);
 
       let winPoint = 0;
       if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
@@ -912,6 +916,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       const posPoints = roundToTwo(judgeBonus + protocolBonus);
       const bmPoints = roundToTwo(bmPointsMap.get(s.participant_id) || 0);
       const penPoints = roundToTwo(penalty);
+      const gamePenPoints = roundToTwo(gamePenalty);
+      const discPenPoints = roundToTwo(discPenalty);
 
       const playerRate = ciRatesMap.get(s.participant_id) || 0;
       const ciResult = calculateGameCi({
@@ -939,6 +945,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
 
       pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
       pStats.best_move_points = roundToTwo(pStats.best_move_points + bmPoints);
+      pStats.game_penalty_points = roundToTwo(pStats.game_penalty_points + gamePenPoints);
+      pStats.disciplinary_penalty_points = roundToTwo(pStats.disciplinary_penalty_points + discPenPoints);
       pStats.penalty_points = roundToTwo(pStats.penalty_points + penPoints);
       pStats.ci_points = roundToTwo(pStats.ci_points + gameCi);
       pStats.additional_total = roundToTwo(pStats.additional_total + addTotalGame);
@@ -952,6 +960,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         win_point: winPoint,
         positive_points: posPoints,
         best_move_points: bmPoints,
+        game_penalty_points: gamePenPoints,
+        disciplinary_penalty_points: discPenPoints,
         penalty_points: penPoints,
         ci_points: gameCi,
         ci_rate: playerRate,

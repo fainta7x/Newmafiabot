@@ -243,10 +243,14 @@ export interface PlayerResultInput {
   exit_type: 'alive' | 'killed' | 'voted_zero_round' | 'voted_day' | 'removed';
   exit_order?: number | null;
   regular_fouls: number;
+  minor_technical_fouls?: number;
+  major_technical_fouls?: number;
   technical_fouls: number;
   judge_bonus: number;
   protocol_bonus: number;
   penalty_points: number;
+  disciplinary_penalty_points?: number;
+  removal_reason?: '4th_foul' | '2nd_tech' | 'direct' | null;
   ci_points?: number;
   color_protocol: ColorProtocolMark[];
   notes?: string | null;
@@ -297,6 +301,8 @@ export interface TournamentGameProtocolData {
   game_id: string;
   status: 'draft' | 'completed';
   winner_team: 'red' | 'black' | null;
+  end_reason?: 'normal' | 'ppk';
+  ppk_culprit_participant_id?: string | null;
   first_killed_participant_id: string | null;
   zero_round_voted_participant_id: string | null;
   /** @deprecated */

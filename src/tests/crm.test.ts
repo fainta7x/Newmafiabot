@@ -1333,4 +1333,376 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(formattedMoscow).toContain('15:00');
     });
   });
+
+  describe('P0 Player Card & Engagement Lifecycle Refactor Tests (12 Requirements)', () => {
+    let testPlayerId: string;
+
+    beforeEach(async () => {
+      const pRes = await request(app)
+        .post('/api/players')
+        .set('Cookie', organizerCookie)
+        .send({
+          nickname: `RefactorPlayer_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          phone: '+79991112233',
+          contact_status: 'normal',
+        });
+      testPlayerId = pRes.body.id;
+    });
+
+    it('1. 0 visits -> lead', async () => {
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.attendanceCount).toBe(0);
+      expect(res.body.engagement_stage).toBe('lead');
+    });
+
+    it('2. 1 visit -> newcomer', async () => {
+      // Create an evening in the past
+      const evRes = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Past Evening 1 Visit',
+          starts_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+          status: 'published',
+        });
+      
+      await request(app)
+        .post(`/api/evenings/${evRes.body.id}/participants/bulk`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_ids: [testPlayerId],
+          registration_status: 'confirmed',
+        });
+
+      await db.run(
+        "UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = ? AND player_id = ?",
+        [evRes.body.id, testPlayerId]
+      );
+
+      await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = ?", [evRes.body.id]);
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.attendanceCount).toBe(1);
+      expect(res.body.engagement_stage).toBe('newcomer');
+    });
+
+    it('3. 2–3 visits -> returning', async () => {
+      for (let i = 1; i <= 3; i++) {
+        const evRes = await request(app)
+          .post('/api/evenings')
+          .set('Cookie', organizerCookie)
+          .send({
+            title: `Past Evening Returning ${i}`,
+            starts_at: new Date(Date.now() - i * 3 * 24 * 3600 * 1000).toISOString(),
+            status: 'published',
+          });
+
+        await request(app)
+          .post(`/api/evenings/${evRes.body.id}/participants/bulk`)
+          .set('Cookie', organizerCookie)
+          .send({ player_ids: [testPlayerId], registration_status: 'confirmed' });
+
+        await db.run(
+          "UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = ? AND player_id = ?",
+          [evRes.body.id, testPlayerId]
+        );
+
+        await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = ?", [evRes.body.id]);
+      }
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.attendanceCount).toBe(3);
+      expect(res.body.engagement_stage).toBe('returning');
+    });
+
+    it('4. 4 visits in the last 45 days -> regular', async () => {
+      for (let i = 1; i <= 4; i++) {
+        const evRes = await request(app)
+          .post('/api/evenings')
+          .set('Cookie', organizerCookie)
+          .send({
+            title: `Regular Evening ${i}`,
+            starts_at: new Date(Date.now() - i * 5 * 24 * 3600 * 1000).toISOString(),
+            status: 'published',
+          });
+
+        await request(app)
+          .post(`/api/evenings/${evRes.body.id}/participants/bulk`)
+          .set('Cookie', organizerCookie)
+          .send({ player_ids: [testPlayerId], registration_status: 'confirmed' });
+
+        await db.run(
+          "UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = ? AND player_id = ?",
+          [evRes.body.id, testPlayerId]
+        );
+
+        await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = ?", [evRes.body.id]);
+      }
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.attendanceCount).toBe(4);
+      expect(res.body.engagement_stage).toBe('regular');
+    });
+
+    it('5. Player with any number of visits and break > 45 days -> inactive', async () => {
+      for (let i = 1; i <= 5; i++) {
+        const evRes = await request(app)
+          .post('/api/evenings')
+          .set('Cookie', organizerCookie)
+          .send({
+            title: `Old Evening ${i}`,
+            starts_at: new Date(Date.now() - (50 + i) * 24 * 3600 * 1000).toISOString(),
+            status: 'published',
+          });
+
+        await request(app)
+          .post(`/api/evenings/${evRes.body.id}/participants/bulk`)
+          .set('Cookie', organizerCookie)
+          .send({ player_ids: [testPlayerId], registration_status: 'confirmed' });
+
+        await db.run(
+          "UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = ? AND player_id = ?",
+          [evRes.body.id, testPlayerId]
+        );
+
+        await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = ?", [evRes.body.id]);
+      }
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.attendanceCount).toBe(5);
+      expect(res.body.engagement_stage).toBe('inactive');
+    });
+
+    it('6. do_not_invite_until does not change engagement_stage', async () => {
+      // Create 4 recent visits
+      for (let i = 1; i <= 4; i++) {
+        const evRes = await request(app)
+          .post('/api/evenings')
+          .set('Cookie', organizerCookie)
+          .send({
+            title: `Recent Evening ${i}`,
+            starts_at: new Date(Date.now() - i * 2 * 24 * 3600 * 1000).toISOString(),
+            status: 'published',
+          });
+
+        await request(app)
+          .post(`/api/evenings/${evRes.body.id}/participants/bulk`)
+          .set('Cookie', organizerCookie)
+          .send({ player_ids: [testPlayerId], registration_status: 'confirmed' });
+
+        await db.run(
+          "UPDATE evening_participants SET attendance_status = 'attended' WHERE evening_id = ? AND player_id = ?",
+          [evRes.body.id, testPlayerId]
+        );
+
+        await db.run("UPDATE game_evenings SET status = 'completed' WHERE id = ?", [evRes.body.id]);
+      }
+
+      // Set do_not_invite_until in the future
+      const futurePause = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+      await request(app)
+        .patch(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie)
+        .send({ do_not_invite_until: futurePause });
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.engagement_stage).toBe('regular');
+    });
+
+    it('7. Editing saves contacts, notes, and contact_status', async () => {
+      const patchRes = await request(app)
+        .patch(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie)
+        .send({
+          nickname: 'NewNicknameVal',
+          full_name: 'Иван Сергеев',
+          phone: '+79998887766',
+          telegram_username: '@sergeev_tg',
+          contact_status: 'paused',
+          pause_reason: 'Отпуск',
+          notes: 'Важный VIP игрок',
+        });
+
+      expect(patchRes.status).toBe(200);
+
+      const getRes = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(getRes.body.nickname).toBe('NewNicknameVal');
+      expect(getRes.body.full_name).toBe('Иван Сергеев');
+      expect(getRes.body.phone).toBe('+79998887766');
+      expect(getRes.body.telegram_username).toBe('sergeev_tg');
+      expect(getRes.body.contact_status).toBe('paused');
+      expect(getRes.body.pause_reason).toBe('Отпуск');
+      expect(getRes.body.notes).toBe('Важный VIP игрок');
+    });
+
+    it('8. Communication result creates exactly one activity', async () => {
+      const commRes = await request(app)
+        .post(`/api/players/${testPlayerId}/communication-log`)
+        .set('Cookie', organizerCookie)
+        .send({
+          channel: 'telegram',
+          outcome: 'answered',
+          comment: 'Поговорили, планирует прийти в субботу',
+        });
+
+      expect(commRes.status).toBe(201);
+      expect(commRes.body.success).toBe(true);
+      expect(commRes.body.activity).toBeDefined();
+      expect(commRes.body.activity.type).toBe('contact');
+      expect(commRes.body.activity.outcome).toBe('answered');
+
+      const activitiesRes = await request(app)
+        .get(`/api/players/${testPlayerId}/activities`)
+        .set('Cookie', organizerCookie);
+
+      expect(activitiesRes.body.length).toBe(1);
+    });
+
+    it('9. Next task is created once and linked to player', async () => {
+      const commRes = await request(app)
+        .post(`/api/players/${testPlayerId}/communication-log`)
+        .set('Cookie', organizerCookie)
+        .send({
+          channel: 'phone',
+          outcome: 'call_later',
+          comment: 'Просил перезвонить в среду',
+          create_next_task: true,
+          task_title: 'Перезвонить по записи на субботу',
+        });
+
+      expect(commRes.status).toBe(201);
+      expect(commRes.body.task).toBeDefined();
+      expect(commRes.body.task.player_id).toBe(testPlayerId);
+      expect(commRes.body.task.title).toBe('Перезвонить по записи на субботу');
+
+      const playerRes = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(playerRes.body.tasks.length).toBe(1);
+      expect(playerRes.body.tasks[0].id).toBe(commRes.body.task.id);
+    });
+
+    it('10. Empty due_at is saved as null', async () => {
+      const commRes = await request(app)
+        .post(`/api/players/${testPlayerId}/communication-log`)
+        .set('Cookie', organizerCookie)
+        .send({
+          channel: 'in_person',
+          outcome: 'interested',
+          comment: 'Хочет прийти без даты',
+          create_next_task: true,
+          task_due_at: '',
+          task_title: 'Держим на связи',
+        });
+
+      expect(commRes.status).toBe(201);
+      expect(commRes.body.task).toBeDefined();
+      expect(commRes.body.task.due_at).toBeNull();
+    });
+
+    it('11. Future booking is not counted as no-show', async () => {
+      const futureEv = await request(app)
+        .post('/api/evenings')
+        .set('Cookie', organizerCookie)
+        .send({
+          title: 'Future Evening In 5 Days',
+          starts_at: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
+          status: 'published',
+        });
+
+      await request(app)
+        .post(`/api/evenings/${futureEv.body.id}/participants`)
+        .set('Cookie', organizerCookie)
+        .send({
+          player_id: testPlayerId,
+          registration_status: 'registered',
+        });
+
+      const res = await request(app)
+        .get(`/api/players/${testPlayerId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.stats.noShowCount).toBe(0);
+      expect(res.body.futureBookings.length).toBe(1);
+      expect(res.body.futureBookings[0].evening_id).toBe(futureEv.body.id);
+    });
+
+    it('12. Legacy lifecycle_status migration does not lose players', async () => {
+      // Create legacy players with legacy status values
+      const pBlockedId = `p_legacy_${Date.now()}_1`;
+      const pPausedId = `p_legacy_${Date.now()}_2`;
+      const pRegularId = `p_legacy_${Date.now()}_3`;
+
+      const nowIso = new Date().toISOString();
+
+      await db.run(
+        `INSERT INTO players (id, nickname, lifecycle_status, contact_status, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, ?, 'normal', 1000, 0, ?, ?)`,
+        [pBlockedId, 'LegacyBlocked', 'blocked', nowIso, nowIso]
+      );
+      await db.run(
+        `INSERT INTO players (id, nickname, lifecycle_status, contact_status, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, ?, 'normal', 1000, 0, ?, ?)`,
+        [pPausedId, 'LegacyPaused', 'paused', nowIso, nowIso]
+      );
+      await db.run(
+        `INSERT INTO players (id, nickname, lifecycle_status, contact_status, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, ?, 'normal', 1000, 0, ?, ?)`,
+        [pRegularId, 'LegacyRegular', 'regular', nowIso, nowIso]
+      );
+
+      // Execute migration logic
+      await db.run(`
+        UPDATE players SET contact_status = CASE
+          WHEN lifecycle_status = 'blocked' THEN 'blocked'
+          WHEN lifecycle_status = 'paused' THEN 'paused'
+          ELSE 'normal'
+        END
+        WHERE id IN (?, ?, ?)
+      `, [pBlockedId, pPausedId, pRegularId]);
+
+      const blockedRes = await request(app)
+        .get(`/api/players/${pBlockedId}`)
+        .set('Cookie', organizerCookie);
+      const pausedRes = await request(app)
+        .get(`/api/players/${pPausedId}`)
+        .set('Cookie', organizerCookie);
+      const regularRes = await request(app)
+        .get(`/api/players/${pRegularId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(blockedRes.body.contact_status).toBe('blocked');
+      expect(pausedRes.body.contact_status).toBe('paused');
+      expect(regularRes.body.contact_status).toBe('normal');
+    });
+  });
 });

@@ -5,7 +5,9 @@ export interface Player {
   full_name?: string | null;
   telegram_username?: string | null;
   phone?: string | null;
-  lifecycle_status: 'lead' | 'newcomer' | 'returning' | 'regular' | 'inactive' | 'blocked';
+  contact_status: 'normal' | 'paused' | 'blocked';
+  engagement_stage: 'lead' | 'newcomer' | 'returning' | 'regular' | 'inactive';
+  lifecycle_status?: string;
   calculated_stage?: string;
   preferred_format?: string | null;
   referred_by?: string | null;
@@ -344,6 +346,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  recordCommunicationOutcome: (
+    playerId: string,
+    data: {
+      channel: 'telegram' | 'phone' | 'in_person' | 'other';
+      outcome: 'answered' | 'no_answer' | 'interested' | 'declined' | 'call_later';
+      comment?: string;
+      create_next_task?: boolean;
+      task_due_at?: string | null;
+      task_title?: string;
+    }
+  ) =>
+    request<{ success: boolean; activity: PlayerActivity; task?: OrganizerTask }>(
+      `/api/players/${playerId}/communication-log`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 
   // Public Join
   getPublicEvening: (eveningId: string) =>

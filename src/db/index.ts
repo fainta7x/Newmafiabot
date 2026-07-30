@@ -126,6 +126,21 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('players', 'referred_by', 'TEXT');
   addColumnIfNotExists('players', 'do_not_invite_until', 'TEXT');
   addColumnIfNotExists('players', 'pause_reason', 'TEXT');
+  addColumnIfNotExists('players', 'contact_status', "TEXT NOT NULL DEFAULT 'normal'");
+
+  // Migrate legacy lifecycle_status values to contact_status without losing players
+  try {
+    dbWrapper.sqlite.exec(`
+      UPDATE players SET contact_status = CASE
+        WHEN lifecycle_status = 'blocked' THEN 'blocked'
+        WHEN lifecycle_status = 'paused' THEN 'paused'
+        ELSE 'normal'
+      END
+      WHERE contact_status IS NULL OR contact_status = '' OR contact_status = 'normal';
+    `);
+  } catch (e) {
+    console.error('Failed to migrate contact_status:', e);
+  }
 
   const migration1SqlPath = path.join(process.cwd(), 'drizzle', '0001_complete_club_workflow.sql');
   if (fs.existsSync(migration1SqlPath)) {

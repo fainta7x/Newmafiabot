@@ -7,7 +7,8 @@ export const players = sqliteTable('players', {
   full_name: text('full_name'),
   telegram_username: text('telegram_username'),
   phone: text('phone'),
-  lifecycle_status: text('lifecycle_status').notNull().default('normal'), // normal, paused, blocked
+  contact_status: text('contact_status').notNull().default('normal'), // normal, paused, blocked
+  lifecycle_status: text('lifecycle_status').notNull().default('normal'), // legacy / compatibility
   source: text('source'),
   preferred_format: text('preferred_format'), // novice, standard, any
   referred_by: text('referred_by'),

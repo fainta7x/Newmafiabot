@@ -4,6 +4,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
+import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 
 const router = Router();
 
@@ -12,6 +13,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
     const {
       lifecycle_status,
+      contact_status,
+      engagement_stage,
       never_attended,
       first_visit_only,
       inactive_days,
@@ -36,8 +39,28 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
     const nowMs = Date.now();
 
+    const mapped = players.map((p: any) => {
+      const cStatus = p.contact_status || (p.lifecycle_status === 'blocked' ? 'blocked' : p.lifecycle_status === 'paused' ? 'paused' : 'normal');
+      const eStage = calculateEngagementStage(p.attendance_count || 0, p.last_visit);
+
+      let days_since_last_visit: number | null = null;
+      if (p.last_visit) {
+        const lastMs = new Date(p.last_visit).getTime();
+        days_since_last_visit = Math.floor((nowMs - lastMs) / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        ...p,
+        contact_status: cStatus,
+        engagement_stage: eStage,
+        calculated_stage: eStage,
+        lifecycle_status: cStatus === 'blocked' ? 'blocked' : eStage,
+        days_since_last_visit,
+      };
+    });
+
     // Apply post-aggregation filters
-    const filtered = players.filter((p: any) => {
+    const filtered = mapped.filter((p: any) => {
       // 1. Search filter
       if (search && typeof search === 'string' && search.trim()) {
         const q = search.toLowerCase().trim();
@@ -49,46 +72,47 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         if (!matches) return false;
       }
 
-      // 2. Lifecycle status filter
-      if (lifecycle_status && p.lifecycle_status !== lifecycle_status) {
+      // 2. Explicit contact status filter
+      if (contact_status && p.contact_status !== contact_status) {
         return false;
       }
 
-      // 3. Never attended filter
+      // 3. Explicit engagement stage filter
+      if (engagement_stage && p.engagement_stage !== engagement_stage) {
+        return false;
+      }
+
+      // 4. Legacy / unified status filter
+      if (lifecycle_status) {
+        if (['normal', 'paused', 'blocked'].includes(lifecycle_status as string)) {
+          if (p.contact_status !== lifecycle_status) return false;
+        } else {
+          if (p.engagement_stage !== lifecycle_status) return false;
+        }
+      }
+
+      // 5. Never attended filter
       if (never_attended === 'true' || never_attended === '1') {
         if (p.attendance_count > 0) return false;
       }
 
-      // 4. First visit only filter (newcomers who haven't returned)
+      // 6. First visit only filter (newcomers who haven't returned)
       if (first_visit_only === 'true' || first_visit_only === '1') {
         if (p.attendance_count !== 1) return false;
       }
 
-      // 5. Inactive days filter (30 / 60 / 90 days since last visit)
+      // 7. Inactive days filter
       if (inactive_days && !isNaN(Number(inactive_days))) {
         const daysLimit = Number(inactive_days);
-        if (!p.last_visit) return false;
-        const lastVisitMs = new Date(p.last_visit).getTime();
-        const daysSinceLastVisit = (nowMs - lastVisitMs) / (1000 * 60 * 60 * 24);
-        if (daysSinceLastVisit < daysLimit) return false;
+        if (p.days_since_last_visit === null || p.days_since_last_visit < daysLimit) return false;
       }
 
-      // 6. Has open tasks filter
+      // 8. Has open tasks filter
       if (has_open_tasks === 'true' || has_open_tasks === '1') {
         if (p.open_tasks_count === 0) return false;
       }
 
       return true;
-    }).map((p: any) => {
-      let days_since_last_visit: number | null = null;
-      if (p.last_visit) {
-        const lastMs = new Date(p.last_visit).getTime();
-        days_since_last_visit = Math.floor((nowMs - lastMs) / (1000 * 60 * 60 * 24));
-      }
-      return {
-        ...p,
-        days_since_last_visit,
-      };
     });
 
     res.json(filtered);
@@ -161,31 +185,17 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       daysSinceLastVisit = Math.floor((Date.now() - lastMs) / (1000 * 60 * 60 * 24));
     }
 
-    // Auto calculate lifecycle stage
-    let calculated_stage = player.lifecycle_status;
-    if (player.lifecycle_status !== 'blocked') {
-      if (player.do_not_invite_until && new Date(player.do_not_invite_until).getTime() > Date.now()) {
-        calculated_stage = 'inactive';
-      } else if (attendanceCount === 0) {
-        calculated_stage = 'lead';
-      } else if (attendanceCount === 1) {
-        calculated_stage = 'newcomer';
-      } else if (attendanceCount >= 2 && attendanceCount <= 4) {
-        calculated_stage = 'returning';
-      } else if (attendanceCount >= 5) {
-        if (daysSinceLastVisit !== null && daysSinceLastVisit > 45) {
-          calculated_stage = 'inactive';
-        } else {
-          calculated_stage = 'regular';
-        }
-      }
-    }
+    const contact_status = player.contact_status || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
+    const engagement_stage = calculateEngagementStage(attendanceCount, lastVisit);
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
 
     res.json({
       ...player,
-      calculated_stage,
+      contact_status,
+      engagement_stage,
+      calculated_stage: engagement_stage,
+      lifecycle_status: contact_status === 'blocked' ? 'blocked' : engagement_stage,
       stats: {
         attendanceCount,
         noShowCount,
@@ -275,8 +285,9 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
 
-    if (player.is_blocked === 1 || player.is_blocked === true || player.lifecycle_status === 'blocked') {
-      return res.status(400).json({ error: 'Заблокированного игрока нельзя пригласить' });
+    const contactStatus = player.contact_status || (player.lifecycle_status === 'blocked' ? 'blocked' : player.lifecycle_status === 'paused' ? 'paused' : 'normal');
+    if (player.is_blocked === 1 || player.is_blocked === true || contactStatus === 'blocked' || contactStatus === 'paused') {
+      return res.status(400).json({ error: 'Заблокированного или поставленного на паузу игрока нельзя пригласить' });
     }
 
     const nowIso = new Date().toISOString();
@@ -427,17 +438,21 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
+    const normalizedTg = data.telegram_username ? data.telegram_username.replace('@', '').trim() || null : null;
+    const contactStatus = data.contact_status || (data.lifecycle_status === 'blocked' ? 'blocked' : data.lifecycle_status === 'paused' ? 'paused' : 'normal');
+
     await db.run(
-      `INSERT INTO players (id, telegram_user_id, nickname, full_name, telegram_username, phone, lifecycle_status, source, notes, elo, tokens, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO players (id, telegram_user_id, nickname, full_name, telegram_username, phone, contact_status, lifecycle_status, source, notes, elo, tokens, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.telegram_user_id || null,
         data.nickname,
-        data.full_name || '',
-        data.telegram_username || '',
+        data.full_name || null,
+        normalizedTg,
         data.phone || null,
-        data.lifecycle_status,
+        contactStatus,
+        contactStatus,
         data.source || 'crm_manual',
         data.notes || null,
         data.elo,
@@ -451,6 +466,88 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
     res.status(201).json(created);
   } catch (err: any) {
     res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
+  }
+});
+
+// POST /api/players/:id/communication-log - Record communication outcome (Auth required)
+router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    if (!player) {
+      return res.status(404).json({ error: 'Игрок не найден' });
+    }
+
+    const { channel, outcome, comment, create_next_task, task_due_at, task_title } = req.body;
+
+    if (!channel || !outcome) {
+      return res.status(400).json({ error: 'Канал и результат общения обязательны' });
+    }
+
+    const channelLabels: Record<string, string> = {
+      telegram: 'Telegram',
+      phone: 'Телефон',
+      in_person: 'Лично',
+      other: 'Другое',
+    };
+
+    const outcomeLabels: Record<string, string> = {
+      answered: 'Ответил',
+      no_answer: 'Не ответил',
+      interested: 'Заинтересован',
+      declined: 'Отказался',
+      call_later: 'Связаться позже',
+    };
+
+    const channelLabel = channelLabels[channel] || channel;
+    const outcomeLabel = outcomeLabels[outcome] || outcome;
+
+    const desc = `[${channelLabel}] ${outcomeLabel}${comment ? '. ' + comment.trim() : ''}`;
+    const actId = `act_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const nowIso = new Date().toISOString();
+
+    await db.run(
+      `INSERT INTO player_activities (id, player_id, evening_id, task_id, type, outcome, description, occurred_at, created_at)
+       VALUES (?, ?, null, null, 'contact', ?, ?, ?, ?)`,
+      [actId, req.params.id, outcome, desc, nowIso, nowIso]
+    );
+
+    const activity = await db.get('SELECT * FROM player_activities WHERE id = ?', [actId]);
+
+    let createdTask = null;
+    if (create_next_task) {
+      let dueAt: string | null = null;
+      if (task_due_at && typeof task_due_at === 'string' && task_due_at.trim() !== '') {
+        const parsed = new Date(task_due_at);
+        if (!isNaN(parsed.getTime())) {
+          dueAt = parsed.toISOString();
+        }
+      }
+
+      const taskId = `task_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+      await db.run(
+        `INSERT INTO organizer_tasks (id, title, description, type, status, priority, due_at, player_id, created_at, updated_at)
+         VALUES (?, ?, ?, 'call', 'todo', 'medium', ?, ?, ?, ?)`,
+        [
+          taskId,
+          task_title || `Следующий контакт: ${player.nickname}`,
+          comment || null,
+          dueAt,
+          player.id,
+          nowIso,
+          nowIso,
+        ]
+      );
+      createdTask = await db.get('SELECT * FROM organizer_tasks WHERE id = ?', [taskId]);
+    }
+
+    res.status(201).json({
+      success: true,
+      activity,
+      task: createdTask,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
 
@@ -468,7 +565,29 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const fields: string[] = [];
     const values: any[] = [];
 
-    Object.entries(data).forEach(([key, val]) => {
+    const patchObj: Record<string, any> = { ...data };
+
+    if (patchObj.telegram_username !== undefined) {
+      if (typeof patchObj.telegram_username === 'string') {
+        const cleaned = patchObj.telegram_username.replace('@', '').trim();
+        patchObj.telegram_username = cleaned === '' ? null : cleaned;
+      }
+    }
+
+    // Convert empty string optional fields to null
+    ['full_name', 'phone', 'source', 'preferred_format', 'referred_by', 'do_not_invite_until', 'pause_reason', 'notes'].forEach((key) => {
+      if (patchObj[key] === '') {
+        patchObj[key] = null;
+      }
+    });
+
+    if (patchObj.contact_status !== undefined) {
+      patchObj.lifecycle_status = patchObj.contact_status;
+    } else if (patchObj.lifecycle_status !== undefined && ['normal', 'paused', 'blocked'].includes(patchObj.lifecycle_status)) {
+      patchObj.contact_status = patchObj.lifecycle_status;
+    }
+
+    Object.entries(patchObj).forEach(([key, val]) => {
       if (val !== undefined) {
         fields.push(`${key} = ?`);
         values.push(val);
@@ -494,7 +613,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
-    await db.run('UPDATE players SET lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', new Date().toISOString(), req.params.id]);
+    await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), req.params.id]);
     res.json({ success: true, message: 'Игрок переведен в архив/заблокирован' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

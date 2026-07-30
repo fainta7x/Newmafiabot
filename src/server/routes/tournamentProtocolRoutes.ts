@@ -78,6 +78,41 @@ function validateBestMove(
     }
   }
 
+  // first_killed and zero_round_voted cannot be the same player
+  if (
+    firstKilledParticipantId &&
+    zeroRoundVotedParticipantId &&
+    firstKilledParticipantId === zeroRoundVotedParticipantId
+  ) {
+    return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
+  }
+
+  // Validate first_killed_participant_id independently
+  if (firstKilledParticipantId) {
+    if (!allParticipantIds.includes(firstKilledParticipantId)) {
+      return 'Первоубиенный игрок не является участником этой игры';
+    }
+    if (playerResults && Array.isArray(playerResults)) {
+      const fkResult = playerResults.find((pr) => pr.participant_id === firstKilledParticipantId);
+      if (fkResult && fkResult.exit_type !== 'killed') {
+        return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
+      }
+    }
+  }
+
+  // Validate zero_round_voted_participant_id independently
+  if (zeroRoundVotedParticipantId) {
+    if (!allParticipantIds.includes(zeroRoundVotedParticipantId)) {
+      return 'Заголосованный в нулевой круг игрок не является участником этой игры';
+    }
+    if (playerResults && Array.isArray(playerResults)) {
+      const zrResult = playerResults.find((pr) => pr.participant_id === zeroRoundVotedParticipantId);
+      if (zrResult && zrResult.exit_type !== 'voted_zero_round') {
+        return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
+      }
+    }
+  }
+
   // Check relationship between seats and recipient
   if (seatsArr.length > 0 && !bestMoveParticipantId) {
     return 'Если указаны номера лучшего хода, необходимо выбрать получателя ЛХ';
@@ -98,19 +133,6 @@ function validateBestMove(
 
     if (!isFirstKilled && !isZeroRoundVoted) {
       return 'Получателем лучшего хода может быть только первоубиенный игрок или игрок, заголосованный в нулевой круг';
-    }
-
-    // Check exit_type of recipient in playerResults if provided
-    if (playerResults && Array.isArray(playerResults)) {
-      const recipientResult = playerResults.find((pr) => pr.participant_id === bestMoveParticipantId);
-      if (recipientResult) {
-        if (isFirstKilled && recipientResult.exit_type !== 'killed') {
-          return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
-        }
-        if (isZeroRoundVoted && recipientResult.exit_type !== 'voted_zero_round') {
-          return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
-        }
-      }
     }
   }
 
@@ -366,11 +388,12 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     }
 
     // Validations
-    if (player_results) {
-      const playerErr = validatePlayerResults(player_results, seats);
-      if (playerErr) {
-        return res.status(400).json({ error: playerErr });
-      }
+    if (!player_results || !Array.isArray(player_results)) {
+      return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
+    }
+    const playerErr = validatePlayerResults(player_results, seats);
+    if (playerErr) {
+      return res.status(400).json({ error: playerErr });
     }
 
     const bestMoveErr = validateBestMove(
@@ -655,11 +678,12 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)' });
     }
 
-    if (player_results) {
-      const playerErr = validatePlayerResults(player_results, seats);
-      if (playerErr) {
-        return res.status(400).json({ error: playerErr });
-      }
+    if (!player_results || !Array.isArray(player_results)) {
+      return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
+    }
+    const playerErr = validatePlayerResults(player_results, seats);
+    if (playerErr) {
+      return res.status(400).json({ error: playerErr });
     }
 
     const bestMoveErr = validateBestMove(

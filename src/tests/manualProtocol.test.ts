@@ -293,11 +293,14 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: randomPlayerId, // INVALID
           best_move_seats: [8, 9],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+        })),
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('первоубиенный');
+    expect(res.body.error.toLowerCase()).toContain('первоубиенный');
   });
 
   // Test 9, 10, 11: Best move scores calculation (1 black -> 0.1, 2 black -> 0.3, 3 black -> 0.6)
@@ -561,5 +564,92 @@ describe('Manual Mobile Protocol Test Suite', () => {
 
     expect(aliveLHRes.status).toBe(400);
     expect(aliveLHRes.body.error).toContain('должен иметь тип ухода');
+  });
+
+  // Test 20: Missing player_results on PUT or POST complete returns 400
+  it('20. Rejects PUT and POST complete without player_results with 400', async () => {
+    const putRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+      });
+
+    expect(putRes.status).toBe(400);
+    expect(putRes.body.error).toContain('player_results');
+
+    const completeRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+      });
+
+    expect(completeRes.status).toBe(400);
+    expect(completeRes.body.error).toContain('player_results');
+  });
+
+  // Test 21: Rejects first killed player with exit_type != 'killed' even without Best Move
+  it('21. Rejects first killed player with exit_type != killed even without Best Move', async () => {
+    const p1Id = game1Seats[0].participant_id;
+
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          first_killed_participant_id: p1Id,
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: 'alive',
+        })),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Первоубиенный игрок должен иметь тип ухода "killed"');
+  });
+
+  // Test 22: Rejects zero-round voted player with exit_type != 'voted_zero_round'
+  it('22. Rejects zero-round voted player with incorrect exit_type', async () => {
+    const p2Id = game1Seats[1].participant_id;
+
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          zero_round_voted_participant_id: p2Id,
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === p2Id ? 'voted_day' : 'alive',
+        })),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"');
+  });
+
+  // Test 23: Rejects same player for first killed and zero-round voted
+  it('23. Rejects same player for first killed and zero-round voted', async () => {
+    const p1Id = game1Seats[0].participant_id;
+
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          first_killed_participant_id: p1Id,
+          zero_round_voted_participant_id: p1Id,
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === p1Id ? 'killed' : 'alive',
+        })),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('не могут быть одним и тем же игроком');
   });
 });

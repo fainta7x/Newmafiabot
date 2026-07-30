@@ -68,9 +68,22 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const isFirstRender = useRef(true);
   const isUpdatingFromServer = useRef(false);
   const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
+  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const dirtyRevision = useRef(0);
   const lastSavedRevision = useRef(0);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const protocolRef = useRef(protocol);
+  const playerResultsRef = useRef(playerResults);
+
+  useEffect(() => {
+    protocolRef.current = protocol;
+  }, [protocol]);
+
+  useEffect(() => {
+    playerResultsRef.current = playerResults;
+  }, [playerResults]);
 
   // Modals for confirmation
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -105,6 +118,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             if (parsed.updatedAt && new Date(parsed.updatedAt).getTime() > new Date(res.protocol.updated_at || 0).getTime()) {
               if (parsed.protocol) setProtocol(parsed.protocol);
               if (parsed.playerResults) setPlayerResults(parsed.playerResults);
+              setSaveStatus('unsaved');
+              dirtyRevision.current++;
+              setTimeout(() => {
+                performSave();
+              }, 100);
             }
           } catch (_) {}
         }
@@ -158,69 +176,99 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     };
   }, [protocol, playerResults]);
 
-  const performSave = async (isManual = false) => {
-    if (protocol.status === 'completed' || loading) return;
-
-    if (isSavingRef.current) {
-      return;
+  const performSave = (isManual = false): Promise<boolean> => {
+    if (protocolRef.current.status === 'completed' || loading) {
+      return Promise.resolve(true);
     }
 
-    if (!isManual && dirtyRevision.current <= lastSavedRevision.current && saveStatus === 'saved') {
-      return;
+    if (activeSavePromiseRef.current) {
+      pendingSaveRef.current = true;
+      return activeSavePromiseRef.current;
     }
 
-    const revisionToSave = dirtyRevision.current;
-    isSavingRef.current = true;
-    setSaveStatus('saving');
-    setSaveErrorMessage(null);
+    if (!isManual && dirtyRevision.current <= lastSavedRevision.current && saveStatus === 'saved' && !pendingSaveRef.current) {
+      return Promise.resolve(true);
+    }
 
-    try {
-      const payload = {
-        protocol,
-        player_results: playerResults.map((pr) => ({
-          participant_id: pr.participant_id,
-          exit_type: pr.exit_type,
-          exit_order: pr.exit_order,
-          regular_fouls: pr.regular_fouls,
-          technical_fouls: pr.technical_fouls,
-          judge_bonus: pr.judge_bonus,
-          protocol_bonus: pr.protocol_bonus,
-          penalty_points: pr.penalty_points,
-          color_protocol: pr.color_protocol,
-          notes: pr.notes
-        }))
-      };
+    const doSave = async (): Promise<boolean> => {
+      isSavingRef.current = true;
+      setSaveStatus('saving');
+      setSaveErrorMessage(null);
 
-      const res = await api.saveGameProtocol(tournamentId, gameId, payload);
-      lastSavedRevision.current = Math.max(lastSavedRevision.current, revisionToSave);
+      let success = true;
 
-      if (dirtyRevision.current === revisionToSave) {
-        isUpdatingFromServer.current = true;
-        setProtocol(res.protocol);
-        setPlayerResults(res.player_results);
-        setSaveStatus('saved');
-      } else {
-        setSaveStatus('unsaved');
-        if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-        autoSaveTimeout.current = setTimeout(() => {
-          performSave();
-        }, 500);
+      while (dirtyRevision.current > lastSavedRevision.current || pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        const revisionToSave = dirtyRevision.current;
+
+        try {
+          const currentProto = protocolRef.current;
+          const currentResults = playerResultsRef.current;
+
+          const payload = {
+            protocol: currentProto,
+            player_results: currentResults.map((pr) => ({
+              participant_id: pr.participant_id,
+              exit_type: pr.exit_type,
+              exit_order: pr.exit_order,
+              regular_fouls: pr.regular_fouls,
+              technical_fouls: pr.technical_fouls,
+              judge_bonus: pr.judge_bonus,
+              protocol_bonus: pr.protocol_bonus,
+              penalty_points: pr.penalty_points,
+              color_protocol: pr.color_protocol,
+              notes: pr.notes
+            }))
+          };
+
+          const res = await api.saveGameProtocol(tournamentId, gameId, payload);
+          lastSavedRevision.current = Math.max(lastSavedRevision.current, revisionToSave);
+
+          if (dirtyRevision.current === revisionToSave) {
+            isUpdatingFromServer.current = true;
+            setProtocol(res.protocol);
+            setPlayerResults(res.player_results);
+            setSaveStatus('saved');
+            const backupKey = `tournament_protocol_backup_${gameId}`;
+            localStorage.removeItem(backupKey);
+          } else {
+            setSaveStatus('unsaved');
+          }
+
+          if (onProtocolUpdated) onProtocolUpdated();
+        } catch (err: any) {
+          setSaveStatus('error');
+          const errMsg = err.message || 'Ошибка сохранения';
+          setSaveErrorMessage(errMsg);
+          success = false;
+          break;
+        }
       }
 
-      if (onProtocolUpdated) onProtocolUpdated();
-    } catch (err: any) {
-      setSaveStatus('error');
-      setSaveErrorMessage(err.message || 'Ошибка сохранения');
-    } finally {
       isSavingRef.current = false;
-    }
+      activeSavePromiseRef.current = null;
+      return success;
+    };
+
+    const promise = doSave();
+    activeSavePromiseRef.current = promise;
+    return promise;
   };
 
   const handleModalClose = async () => {
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-    if (dirtyRevision.current > lastSavedRevision.current && protocol.status !== 'completed') {
-      await performSave(true);
+
+    if (protocolRef.current.status !== 'completed') {
+      if (dirtyRevision.current > lastSavedRevision.current || activeSavePromiseRef.current || pendingSaveRef.current || saveStatus === 'unsaved') {
+        const ok = await performSave(true);
+        if (!ok || dirtyRevision.current > lastSavedRevision.current) {
+          setSaveErrorMessage('Последние изменения не сохранены');
+          setSaveStatus('error');
+          return;
+        }
+      }
     }
+
     onClose();
   };
 
@@ -291,6 +339,24 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     }
     if (roleCounts.citizen !== 6 || roleCounts.sheriff !== 1 || roleCounts.mafia !== 2 || roleCounts.don !== 1) {
       return 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)';
+    }
+
+    if (protocol.first_killed_participant_id) {
+      const fkPlayer = playerResults.find((p) => p.participant_id === protocol.first_killed_participant_id);
+      if (fkPlayer && fkPlayer.exit_type !== 'killed') {
+        return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
+      }
+    }
+
+    if (protocol.zero_round_voted_participant_id) {
+      const zrPlayer = playerResults.find((p) => p.participant_id === protocol.zero_round_voted_participant_id);
+      if (zrPlayer && zrPlayer.exit_type !== 'voted_zero_round') {
+        return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
+      }
+    }
+
+    if (protocol.first_killed_participant_id && protocol.zero_round_voted_participant_id && protocol.first_killed_participant_id === protocol.zero_round_voted_participant_id) {
+      return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
     }
 
     if (protocol.best_move_seats && protocol.best_move_seats.length > 0) {

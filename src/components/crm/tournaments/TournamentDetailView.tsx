@@ -16,6 +16,7 @@ import {
   X,
   FileText,
   Image as ImageIcon,
+  Trophy,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
@@ -24,6 +25,7 @@ import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
+import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { FileSpreadsheet, FileCheck } from 'lucide-react';
 
 interface TournamentDetailViewProps {
@@ -45,6 +47,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
+  const [activeTab, setActiveTab] = useState<'games' | 'standings'>('games');
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
@@ -439,37 +442,70 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         </div>
       )}
 
-      {/* Roster / Participants Accordion */}
-      <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-accent" />
-            <h3 className="text-sm font-bold text-text-primary">Состав участников (10 человек)</h3>
-          </div>
-          {isDraft && (
-            <button
-              onClick={() => setShowEditRosterModal(true)}
-              className="text-xs text-accent hover:underline font-bold"
-            >
-              Изменить состав
-            </button>
-          )}
-        </div>
+      {/* Navigation Tabs (Игры и рассадка / Таблица) */}
+      <div className="flex items-center gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft">
+        <button
+          type="button"
+          onClick={() => setActiveTab('games')}
+          className={`flex-1 py-2 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'games'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Игры и рассадка</span>
+        </button>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {tournament.participants?.map((p) => (
-            <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
-              <span className="w-5 h-5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold inline-flex items-center justify-center mb-1">
-                {p.participant_number}
-              </span>
-              <span className="text-xs font-bold text-text-primary block truncate">{p.display_name}</span>
-              {p.player_nickname && p.player_nickname !== p.display_name && (
-                <span className="text-[10px] text-text-muted block truncate">({p.player_nickname})</span>
+        <button
+          type="button"
+          onClick={() => setActiveTab('standings')}
+          className={`flex-1 py-2 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'standings'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Таблица</span>
+        </button>
+      </div>
+
+      {activeTab === 'standings' ? (
+        <TournamentStandingsView tournamentId={tournamentId} />
+      ) : (
+        <>
+          {/* Roster / Participants Accordion */}
+          <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-accent" />
+                <h3 className="text-sm font-bold text-text-primary">Состав участников (10 человек)</h3>
+              </div>
+              {isDraft && (
+                <button
+                  onClick={() => setShowEditRosterModal(true)}
+                  className="text-xs text-accent hover:underline font-bold"
+                >
+                  Изменить состав
+                </button>
               )}
             </div>
-          ))}
-        </div>
-      </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {tournament.participants?.map((p) => (
+                <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
+                  <span className="w-5 h-5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold inline-flex items-center justify-center mb-1">
+                    {p.participant_number}
+                  </span>
+                  <span className="text-xs font-bold text-text-primary block truncate">{p.display_name}</span>
+                  {p.player_nickname && p.player_nickname !== p.display_name && (
+                    <span className="text-[10px] text-text-muted block truncate">({p.player_nickname})</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
       {/* Selected Game Selector & Navigator */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
@@ -726,6 +762,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* EDIT TOURNAMENT DATA MODAL */}
       <EditTournamentDataModal

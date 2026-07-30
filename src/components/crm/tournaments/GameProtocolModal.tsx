@@ -123,7 +123,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const handleDecimalChange = (
     participantId: string,
-    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points',
+    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points' | 'ci_points',
     rawStr: string
   ) => {
     const key = `${participantId}_${field}`;
@@ -134,7 +134,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const getDecimalInputValue = (
     participantId: string,
-    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points',
+    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points' | 'ci_points',
     numVal: number
   ): string => {
     const key = `${participantId}_${field}`;
@@ -944,6 +944,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
                               />
                             </div>
+
+                            {player.participant_id === protocol.first_killed_participant_id && (
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-cyan-500/40 col-span-2 sm:col-span-1">
+                                <span className="text-cyan-400 font-bold block mb-1">Ci (ручной)</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={protocol.status === 'completed'}
+                                  value={getDecimalInputValue(player.participant_id, 'ci_points', player.ci_points ?? 0)}
+                                  onChange={(e) => handleDecimalChange(player.participant_id, 'ci_points', e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-cyan-500 focus:outline-none disabled:opacity-50 font-bold text-cyan-300"
+                                />
+                              </div>
+                            )}
                           </div>
 
                           {/* Notes */}

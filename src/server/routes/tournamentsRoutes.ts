@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { calculateBestMovePoints } from './tournamentProtocolRoutes.ts';
 
 const router = Router();
 
@@ -676,6 +677,194 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
     res.json({ success: true, game: updatedGame });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка запуска игры' });
+  }
+});
+
+function roundToTwo(num: number): number {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
+// GET /api/tournaments/:tournamentId/standings
+router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    // 1. Get all participants
+    const participants = await db.all<any>(
+      `SELECT tp.id as participant_id, tp.participant_number,
+              COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+       FROM tournament_participants tp
+       LEFT JOIN players p ON tp.player_id = p.id
+       WHERE tp.tournament_id = ?
+       ORDER BY tp.participant_number ASC`,
+      [tournamentId]
+    );
+
+    // 2. Map of stats per participant_id
+    const statsMap = new Map<string, any>();
+    for (const p of participants) {
+      statsMap.set(p.participant_id, {
+        place: 0,
+        participant_id: p.participant_id,
+        participant_number: p.participant_number,
+        display_name: p.display_name,
+        total_points: 0,
+        additional_total: 0,
+        positive_points: 0,
+        penalty_points: 0,
+        best_move_points: 0,
+        ci_points: 0,
+        wins: 0,
+        don_wins: 0,
+        sheriff_wins: 0,
+        first_killed_count: 0,
+        games_played: 0,
+        games: [],
+      });
+    }
+
+    // 3. Get completed games with completed protocols
+    const completedGames = await db.all<any>(
+      `SELECT g.id as game_id, g.game_number, p.winner_team, p.first_killed_participant_id,
+              p.best_move_participant_id, p.best_move_seats_json
+       FROM tournament_games g
+       INNER JOIN tournament_game_protocols p ON p.game_id = g.id
+       WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
+       ORDER BY g.game_number ASC`,
+      [tournamentId]
+    );
+
+    for (const g of completedGames) {
+      const seats = await db.all<any>(
+        `SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?`,
+        [g.game_id]
+      );
+
+      const seatsListForLh: Array<{ seat_number: number; role: string | null }> = [];
+      for (const s of seats) {
+        seatsListForLh.push({ seat_number: s.seat_number, role: s.role });
+      }
+
+      let bestMoveSeats: number[] = [];
+      try {
+        bestMoveSeats = JSON.parse(g.best_move_seats_json || '[]');
+      } catch (_) {}
+      const { bonusPoints: gameLhBonus } = calculateBestMovePoints(bestMoveSeats, seatsListForLh);
+
+      const results = await db.all<any>(
+        `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points, ci_points
+         FROM tournament_game_player_results WHERE game_id = ?`,
+        [g.game_id]
+      );
+
+      const resultMap = new Map<string, any>();
+      for (const r of results) {
+        resultMap.set(r.participant_id, r);
+      }
+
+      for (const s of seats) {
+        const pStats = statsMap.get(s.participant_id);
+        if (!pStats) continue;
+
+        const normRole = normalizeRole(s.role);
+        const resRow = resultMap.get(s.participant_id);
+
+        const judgeBonus = Number(resRow?.judge_bonus || 0);
+        const protocolBonus = Number(resRow?.protocol_bonus || 0);
+        const penalty = Number(resRow?.penalty_points || 0);
+        const ci = (s.participant_id === g.first_killed_participant_id) ? Number(resRow?.ci_points || 0) : 0;
+
+        let winPoint = 0;
+        if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
+          winPoint = 1;
+        } else if (g.winner_team === 'black' && (normRole === 'mafia' || normRole === 'don')) {
+          winPoint = 1;
+        }
+
+        const posPoints = roundToTwo(judgeBonus + protocolBonus);
+        const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
+        const penPoints = roundToTwo(penalty);
+        const ciVal = roundToTwo(ci);
+
+        const addTotalGame = roundToTwo(posPoints + bmPoints - penPoints);
+        const gameTotal = roundToTwo(winPoint + addTotalGame + ciVal);
+
+        pStats.games_played += 1;
+        pStats.wins += winPoint;
+        if (winPoint === 1 && normRole === 'don') pStats.don_wins += 1;
+        if (winPoint === 1 && normRole === 'sheriff') pStats.sheriff_wins += 1;
+        if (g.first_killed_participant_id && s.participant_id === g.first_killed_participant_id) {
+          pStats.first_killed_count += 1;
+        }
+
+        pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
+        pStats.best_move_points = roundToTwo(pStats.best_move_points + bmPoints);
+        pStats.penalty_points = roundToTwo(pStats.penalty_points + penPoints);
+        pStats.ci_points = roundToTwo(pStats.ci_points + ciVal);
+        pStats.additional_total = roundToTwo(pStats.additional_total + addTotalGame);
+        pStats.total_points = roundToTwo(pStats.total_points + gameTotal);
+
+        pStats.games.push({
+          game_number: g.game_number,
+          seat_number: s.seat_number,
+          role: s.role,
+          winner_team: g.winner_team,
+          win_point: winPoint,
+          positive_points: posPoints,
+          best_move_points: bmPoints,
+          penalty_points: penPoints,
+          ci_points: ciVal,
+          game_total: gameTotal,
+        });
+      }
+    }
+
+    const standingsList = Array.from(statsMap.values());
+
+    // Sort: total_points desc, additional_total desc, wins desc, participant_number asc
+    standingsList.sort((a, b) => {
+      if (Math.abs(b.total_points - a.total_points) > 0.0001) {
+        return b.total_points - a.total_points;
+      }
+      if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
+        return b.additional_total - a.additional_total;
+      }
+      if (b.wins !== a.wins) {
+        return b.wins - a.wins;
+      }
+      return a.participant_number - b.participant_number;
+    });
+
+    for (let i = 0; i < standingsList.length; i++) {
+      if (i === 0) {
+        standingsList[i].place = 1;
+      } else {
+        const prev = standingsList[i - 1];
+        const curr = standingsList[i];
+        if (
+          Math.abs(curr.total_points - prev.total_points) < 0.0001 &&
+          Math.abs(curr.additional_total - prev.additional_total) < 0.0001 &&
+          curr.wins === prev.wins
+        ) {
+          curr.place = prev.place;
+        } else {
+          curr.place = i + 1;
+        }
+      }
+    }
+
+    res.json({
+      tournament_id: tournamentId,
+      standings: standingsList,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка вычисления турнирной таблицы' });
   }
 });
 

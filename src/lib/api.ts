@@ -247,6 +247,7 @@ export interface PlayerResultInput {
   judge_bonus: number;
   protocol_bonus: number;
   penalty_points: number;
+  ci_points?: number;
   color_protocol: ColorProtocolMark[];
   notes?: string | null;
 }
@@ -307,6 +308,43 @@ export interface FullGameProtocolResponse {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
   game: TournamentGame;
+}
+
+export interface TournamentStandingGame {
+  game_number: number;
+  seat_number: number;
+  role: string | null;
+  winner_team: 'red' | 'black' | null;
+  win_point: number;
+  positive_points: number;
+  best_move_points: number;
+  penalty_points: number;
+  ci_points: number;
+  game_total: number;
+}
+
+export interface TournamentStandingItem {
+  place: number;
+  participant_id: string;
+  participant_number: number;
+  display_name: string;
+  total_points: number;
+  additional_total: number;
+  positive_points: number;
+  penalty_points: number;
+  best_move_points: number;
+  ci_points: number;
+  wins: number;
+  don_wins: number;
+  sheriff_wins: number;
+  first_killed_count: number;
+  games_played: number;
+  games: TournamentStandingGame[];
+}
+
+export interface TournamentStandingsResponse {
+  tournament_id: string;
+  standings: TournamentStandingItem[];
 }
 
 export interface TournamentStartReadiness {
@@ -705,4 +743,7 @@ export const api = {
     request<FullGameProtocolResponse>(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/revert-to-draft`, {
       method: 'POST',
     }),
+
+  getTournamentStandings: (tournamentId: string) =>
+    request<TournamentStandingsResponse>(`/api/tournaments/${tournamentId}/standings`),
 };

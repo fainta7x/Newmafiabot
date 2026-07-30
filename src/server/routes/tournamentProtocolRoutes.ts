@@ -141,7 +141,8 @@ function validateBestMove(
 
 function validatePlayerResults(
   playerResults: any[],
-  gameSeats: any[]
+  gameSeats: any[],
+  firstKilledParticipantId?: string | null
 ): string | null {
   if (!Array.isArray(playerResults)) {
     return 'Результаты игроков должны быть массивом';
@@ -198,6 +199,15 @@ function validatePlayerResults(
       return 'Штрафные баллы должны быть числом';
     }
 
+    if (pr.ci_points !== undefined && pr.ci_points !== null) {
+      if (typeof pr.ci_points !== 'number' || !Number.isFinite(pr.ci_points)) {
+        return 'Баллы Ci должны быть числом';
+      }
+      if (pr.ci_points !== 0 && pr.participant_id !== firstKilledParticipantId) {
+        return 'Ci баллы разрешены только для первоубиенного игрока';
+      }
+    }
+
     if (pr.color_protocol !== undefined && pr.color_protocol !== null) {
       if (!Array.isArray(pr.color_protocol)) {
         return 'Цветовой протокол должен быть массивом';
@@ -241,24 +251,61 @@ function validateVotes(votes: any): string | null {
   if (!Array.isArray(votes)) {
     return 'Протокол голосований должен быть массивом';
   }
+
+  const seenRounds = new Set<number>();
+
   for (const r of votes) {
     if (!r || typeof r !== 'object') {
       return 'Неверный формат круга голосования';
     }
+
+    if (r.round_number !== undefined && r.round_number !== null) {
+      const rn = Number(r.round_number);
+      if (!Number.isInteger(rn) || rn <= 0) {
+        return 'Номер круга голосования должен быть положительным целым числом';
+      }
+      if (seenRounds.has(rn)) {
+        return 'Номера кругов голосования не могут повторяться';
+      }
+      seenRounds.add(rn);
+    }
+
+    if (r.is_revote !== undefined && r.is_revote !== null && typeof r.is_revote !== 'boolean') {
+      return 'Поле переголосования (is_revote) должно быть булевым значением';
+    }
+
+    const nominatedSet = new Set<number>();
     if (r.nominated_seats !== undefined && r.nominated_seats !== null) {
       if (!Array.isArray(r.nominated_seats)) {
         return 'Выставленные игроки в круге голосования должны быть массивом';
       }
-      const seen = new Set<number>();
       for (const seat of r.nominated_seats) {
         const num = Number(seat);
         if (!Number.isInteger(num) || num < 1 || num > 10) {
           return 'Номера кандидатов должны быть целыми числами от 1 до 10';
         }
-        if (seen.has(num)) {
+        if (nominatedSet.has(num)) {
           return 'Кандидаты на голосование не могут повторяться в одном круге';
         }
-        seen.add(num);
+        nominatedSet.add(num);
+      }
+    }
+
+    if (r.vote_counts !== undefined && r.vote_counts !== null) {
+      if (typeof r.vote_counts !== 'object' || Array.isArray(r.vote_counts)) {
+        return 'Счётчик голосов должен быть объектом';
+      }
+
+      for (const [key, val] of Object.entries(r.vote_counts)) {
+        const seatKey = Number(key);
+        if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > 10 || !nominatedSet.has(seatKey)) {
+          return 'Лишние кандидаты в vote_counts запрещены';
+        }
+
+        const count = Number(val);
+        if (!Number.isInteger(count) || count < 0 || count > 10) {
+          return 'Количество голосов должно быть целым числом от 0 до 10';
+        }
       }
     }
   }
@@ -317,6 +364,7 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         judge_bonus: existing?.judge_bonus ?? 0,
         protocol_bonus: existing?.protocol_bonus ?? 0,
         penalty_points: existing?.penalty_points ?? 0,
+        ci_points: existing?.ci_points ?? 0,
         color_protocol: colorProto,
         notes: existing?.notes || null,
       };
@@ -423,7 +471,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     if (!player_results || !Array.isArray(player_results)) {
       return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
     }
-    const playerErr = validatePlayerResults(player_results, seats);
+    const playerErr = validatePlayerResults(player_results, seats, protocol?.first_killed_participant_id);
     if (playerErr) {
       return res.status(400).json({ error: playerErr });
     }
@@ -496,9 +544,9 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           await tx.run(
             `INSERT INTO tournament_game_player_results (
               id, game_id, participant_id, exit_type, exit_order,
-              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points,
+              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, ci_points,
               color_protocol_json, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               resId,
               gameId,
@@ -510,6 +558,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
+              (pr.participant_id === protocol?.first_killed_participant_id ? (pr.ci_points ?? 0) : 0),
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,
             ]
@@ -562,6 +611,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         judge_bonus: existing?.judge_bonus ?? 0,
         protocol_bonus: existing?.protocol_bonus ?? 0,
         penalty_points: existing?.penalty_points ?? 0,
+        ci_points: existing?.ci_points ?? 0,
         color_protocol: colorProto,
         notes: existing?.notes || null,
       };
@@ -666,6 +716,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           judge_bonus: existing?.judge_bonus ?? 0,
           protocol_bonus: existing?.protocol_bonus ?? 0,
           penalty_points: existing?.penalty_points ?? 0,
+          ci_points: existing?.ci_points ?? 0,
           color_protocol: colorProto,
           notes: existing?.notes || null,
         };
@@ -718,7 +769,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     if (!player_results || !Array.isArray(player_results)) {
       return res.status(400).json({ error: 'Результаты участников (player_results) обязательны и должны быть массивом' });
     }
-    const playerErr = validatePlayerResults(player_results, seats);
+    const playerErr = validatePlayerResults(player_results, seats, protocol?.first_killed_participant_id);
     if (playerErr) {
       return res.status(400).json({ error: playerErr });
     }
@@ -791,9 +842,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           await tx.run(
             `INSERT INTO tournament_game_player_results (
               id, game_id, participant_id, exit_type, exit_order,
-              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points,
+              regular_fouls, technical_fouls, judge_bonus, protocol_bonus, penalty_points, ci_points,
               color_protocol_json, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               resId,
               gameId,
@@ -805,6 +856,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
               pr.judge_bonus ?? 0,
               pr.protocol_bonus ?? 0,
               pr.penalty_points ?? 0,
+              (pr.participant_id === protocol?.first_killed_participant_id ? (pr.ci_points ?? 0) : 0),
               JSON.stringify(pr.color_protocol || []),
               pr.notes || null,
             ]
@@ -859,6 +911,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         judge_bonus: existing?.judge_bonus ?? 0,
         protocol_bonus: existing?.protocol_bonus ?? 0,
         penalty_points: existing?.penalty_points ?? 0,
+        ci_points: existing?.ci_points ?? 0,
         color_protocol: colorProto,
         notes: existing?.notes || null,
       };
@@ -981,6 +1034,7 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
         judge_bonus: existing?.judge_bonus ?? 0,
         protocol_bonus: existing?.protocol_bonus ?? 0,
         penalty_points: existing?.penalty_points ?? 0,
+        ci_points: existing?.ci_points ?? 0,
         color_protocol: colorProto,
         notes: existing?.notes || null,
       };

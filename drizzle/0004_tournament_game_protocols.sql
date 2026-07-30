@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS tournament_game_player_results (
   judge_bonus REAL NOT NULL DEFAULT 0,
   protocol_bonus REAL NOT NULL DEFAULT 0,
   penalty_points REAL NOT NULL DEFAULT 0,
+  ci_points REAL NOT NULL DEFAULT 0,
   color_protocol_json TEXT NOT NULL DEFAULT '[]',
   notes TEXT,
   UNIQUE(game_id, participant_id)

@@ -233,6 +233,7 @@ export const tournamentGamePlayerResults = sqliteTable('tournament_game_player_r
   judge_bonus: real('judge_bonus').notNull().default(0),
   protocol_bonus: real('protocol_bonus').notNull().default(0),
   penalty_points: real('penalty_points').notNull().default(0),
+  ci_points: real('ci_points').notNull().default(0),
   color_protocol_json: text('color_protocol_json').notNull().default('[]'),
   notes: text('notes'),
 }, (table) => ({

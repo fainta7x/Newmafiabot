@@ -1,6 +1,11 @@
 import { DatabaseWrapper } from './index.ts';
 
 export async function seedDemoData(db: DatabaseWrapper): Promise<void> {
+  // Never run in production, even if SEED_DEMO_DATA=true
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
   // Only seed if SEED_DEMO_DATA is explicitly true
   if (process.env.SEED_DEMO_DATA !== 'true') {
     return;
@@ -18,7 +23,7 @@ export async function seedDemoData(db: DatabaseWrapper): Promise<void> {
     return;
   }
 
-  console.log('[SEED] Seeding demo data: 10 test players and one completed "Test Tournament"...');
+  console.log('[SEED] Seeding demo data: 10 test players and one active "Test Tournament"...');
 
   const now = new Date().toISOString();
 
@@ -55,7 +60,7 @@ export async function seedDemoData(db: DatabaseWrapper): Promise<void> {
     if (!existingTournament) {
       await tx.run(
         `INSERT INTO tournaments (id, title, date, venue, stage, status, chief_judge_name, notes, public_token, results_published_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, 'test_tournament_token', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, 'active', ?, ?, NULL, NULL, ?, ?)`,
         [
           tournamentId,
           'Тестовый турнир',
@@ -64,7 +69,6 @@ export async function seedDemoData(db: DatabaseWrapper): Promise<void> {
           'Финал',
           'Главный Судья',
           'Тестовый демонстрационный турнир для проверки турнирного модуля и публичных результатов.',
-          now,
           now,
           now,
         ]

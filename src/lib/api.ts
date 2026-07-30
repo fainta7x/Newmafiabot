@@ -216,6 +216,14 @@ export interface TournamentGame {
   seats?: TournamentGameSeat[];
 }
 
+export interface TournamentStartReadiness {
+  ready: boolean;
+  participants_count: number;
+  games_count: number;
+  seats_count: number;
+  errors: string[];
+}
+
 export interface Tournament {
   id: string;
   title: string;
@@ -230,6 +238,7 @@ export interface Tournament {
   participants_count?: number;
   total_games_count?: number;
   completed_games_count?: number;
+  start_readiness?: TournamentStartReadiness;
   participants?: TournamentParticipant[];
   games?: TournamentGame[];
 }

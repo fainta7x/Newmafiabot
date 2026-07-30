@@ -15,10 +15,13 @@ import {
   Check,
   X,
   FileText,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
+import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
+import { SeatingExportModal } from './SeatingExportModal.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -43,6 +46,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
   const [showEditRosterModal, setShowEditRosterModal] = useState(false);
+
+  // Custom confirmation launch modal state
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [startModalLoading, setStartModalLoading] = useState(false);
+  const [startModalError, setStartModalError] = useState<string | null>(null);
+
+  // Seating PNG export modal state
+  const [showSeatingExportModal, setShowSeatingExportModal] = useState(false);
 
   // Swap modal state
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -122,18 +133,26 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     !isAnotherGameActive &&
     isRolesValid;
 
-  const handleStartTournament = async () => {
-    if (!confirm('Запустить турнир? После запуска состав участников и базовые данные турнира будут заблокированы.')) return;
-    setActionLoading(true);
-    setFeedbackMsg(null);
+  const handleOpenStartModal = () => {
+    setStartModalError(null);
+    setShowStartModal(true);
+  };
+
+  const handleConfirmStartTournament = async () => {
+    setStartModalLoading(true);
+    setStartModalError(null);
     try {
       await api.startTournament(tournamentId);
-      setFeedbackMsg({ type: 'success', text: 'Турнир успешно запущен! Состав зафиксирован.' });
+      setShowStartModal(false);
+      setFeedbackMsg({
+        type: 'success',
+        text: 'Турнир успешно запущен! Статус изменён на «Турнир идёт». Состав и рассадка заблокированы.',
+      });
       loadDetail();
     } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка запуска турнира' });
+      setStartModalError(err.message || 'Ошибка запуска турнира');
     } finally {
-      setActionLoading(false);
+      setStartModalLoading(false);
     }
   };
 
@@ -275,41 +294,104 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           )}
         </div>
 
-        {/* Global actions row (Draft Editing & Start Tournament) */}
-        {isDraft && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-soft">
-            <button
-              onClick={() => setShowEditDataModal(true)}
-              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-            >
-              <FileText className="w-3.5 h-3.5 text-accent" />
-              <span>Редактировать данные</span>
-            </button>
+        {/* Global actions row & readiness indicator */}
+        {isDraft ? (
+          <div className="space-y-3 pt-3 border-t border-border-soft">
+            {/* Readiness Badge & Export Button */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-2 p-3 rounded-2xl border border-border-soft">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-text-secondary">Статус готовности:</span>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                    tournament.start_readiness?.ready
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-danger/10 text-danger border-danger/30'
+                  }`}
+                >
+                  {tournament.start_readiness?.ready ? 'Готов к запуску' : 'Требуется исправление'}
+                </span>
+              </div>
 
-            <button
-              onClick={() => setShowEditRosterModal(true)}
-              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-            >
-              <Users className="w-3.5 h-3.5 text-accent" />
-              <span>Изменить состав</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowSeatingExportModal(true)}
+                className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Рассадка для игроков (PNG)</span>
+              </button>
+            </div>
 
-            <button
-              onClick={handleRegenerateSeating}
-              disabled={actionLoading}
-              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
-              <span>Перегенерировать рассадку</span>
-            </button>
+            {/* List of readiness errors if not ready */}
+            {tournament.start_readiness && !tournament.start_readiness.ready && (
+              <div className="p-3 bg-danger/10 border border-danger/30 rounded-2xl text-danger text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Для запуска турнира необходимо устранить замечания:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] font-medium pl-1">
+                  {tournament.start_readiness.errors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowEditDataModal(true)}
+                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <FileText className="w-3.5 h-3.5 text-accent" />
+                <span>Редактировать данные</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowEditRosterModal(true)}
+                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <Users className="w-3.5 h-3.5 text-accent" />
+                <span>Изменить состав</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRegenerateSeating}
+                disabled={actionLoading}
+                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
+                <span>Перегенерировать рассадку</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenStartModal}
+                disabled={actionLoading || !tournament.start_readiness?.ready}
+                title={!tournament.start_readiness?.ready ? 'Исправьте ошибки перед запуском' : 'Запустить турнир'}
+                className={`font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] ml-auto ${
+                  tournament.start_readiness?.ready
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
+                    : 'bg-surface-2 text-text-muted border border-border-soft opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Запустить турнир</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pt-2 border-t border-border-soft">
             <button
-              onClick={handleStartTournament}
-              disabled={actionLoading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20 min-h-[40px] ml-auto"
+              type="button"
+              onClick={() => setShowSeatingExportModal(true)}
+              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
-              <span>Запустить турнир</span>
+              <ImageIcon className="w-3.5 h-3.5 text-accent" />
+              <span>Рассадка для игроков (PNG)</span>
             </button>
           </div>
         )}
@@ -672,6 +754,23 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Confirm Start Tournament Modal */}
+      <ConfirmStartTournamentModal
+        isOpen={showStartModal}
+        onClose={() => setShowStartModal(false)}
+        onConfirm={handleConfirmStartTournament}
+        tournamentTitle={tournament.title}
+        loading={startModalLoading}
+        error={startModalError}
+      />
+
+      {/* Seating PNG Export Modal */}
+      <SeatingExportModal
+        isOpen={showSeatingExportModal}
+        onClose={() => setShowSeatingExportModal(false)}
+        tournament={tournament}
+      />
     </div>
   );
 };

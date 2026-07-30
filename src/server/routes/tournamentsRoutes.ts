@@ -57,6 +57,65 @@ async function generateGamesAndSeating(db: DatabaseWrapper, tournamentId: string
   }
 }
 
+// Helper to compute start_readiness for tournament launch
+function computeStartReadiness(participants: any[], games: any[]) {
+  const errors: string[] = [];
+  const participantsCount = participants.length;
+  const gamesCount = games.length;
+  let totalSeatsCount = 0;
+
+  if (participantsCount !== 10) {
+    errors.push(`Необходимо ровно 10 участников (текущее: ${participantsCount})`);
+  } else {
+    const uniquePlayerIds = new Set(participants.map((p: any) => p.player_id));
+    if (uniquePlayerIds.size !== 10) {
+      errors.push('Все 10 участников турнира должны быть уникальными');
+    }
+  }
+
+  if (gamesCount !== 10) {
+    errors.push(`Необходимо ровно 10 игр (текущее: ${gamesCount})`);
+  } else {
+    const gameNumbers = games.map((g: any) => g.game_number);
+    for (let i = 1; i <= 10; i++) {
+      if (!gameNumbers.includes(i)) {
+        errors.push(`Отсутствует игра №${i}`);
+      }
+    }
+  }
+
+  for (const g of games) {
+    const seats = g.seats || [];
+    totalSeatsCount += seats.length;
+
+    if (seats.length !== 10) {
+      errors.push(`В игра №${g.game_number} должно быть ровно 10 мест (найдено: ${seats.length})`);
+    } else {
+      const partIdsInGame = new Set(seats.map((s: any) => s.participant_id));
+      if (partIdsInGame.size !== 10) {
+        errors.push(`В игра №${g.game_number} есть дубликаты участников`);
+      }
+      const seatNums = seats.map((s: any) => s.seat_number);
+      const uniqueSeatNums = new Set(seatNums);
+      if (uniqueSeatNums.size !== 10 || Math.min(...seatNums) !== 1 || Math.max(...seatNums) !== 10) {
+        errors.push(`В игра №${g.game_number} номера мест должны быть от 1 до 10 без дубликатов`);
+      }
+    }
+  }
+
+  if (totalSeatsCount !== 100 && !errors.some((e) => e.includes('мест'))) {
+    errors.push(`Общее количество мест составляет ${totalSeatsCount} вместо 100`);
+  }
+
+  return {
+    ready: errors.length === 0,
+    participants_count: participantsCount,
+    games_count: gamesCount,
+    seats_count: totalSeatsCount,
+    errors,
+  };
+}
+
 // 1. GET /api/tournaments - Get list of tournaments
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
@@ -113,10 +172,13 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       games.push({ ...game, seats });
     }
 
+    const start_readiness = computeStartReadiness(participants, games);
+
     res.json({
       ...tournament,
       participants,
       games,
+      start_readiness,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка сервера' });
@@ -507,43 +569,25 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
       return res.status(404).json({ error: 'Турнир не найден' });
     }
 
-    // Validation 1: exactly 10 unique participants
+    if (tournament.status === 'active') {
+      return res.status(400).json({ error: 'Турнир уже запущен' });
+    }
+
     const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
-    if (participants.length !== 10) {
-      return res.status(400).json({ error: 'Для запуска турнира требуется ровно 10 участников' });
-    }
-    const participantIds = new Set(participants.map((p: any) => p.player_id));
-    if (participantIds.size !== 10) {
-      return res.status(400).json({ error: 'Все 10 участников турнира должны быть уникальными' });
-    }
-
-    // Validation 2: exactly 10 games with game_number 1 to 10
-    const games = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
-    if (games.length !== 10) {
-      return res.status(400).json({ error: 'Для запуска турнира требуется ровно 10 игр' });
-    }
-    const gameNumbers = games.map((g: any) => g.game_number);
-    for (let i = 1; i <= 10; i++) {
-      if (!gameNumbers.includes(i)) {
-        return res.status(400).json({ error: `В турнире отсутствует игра №${i}` });
-      }
+    const gamesList = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
+    
+    const games = [];
+    for (const game of gamesList) {
+      const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [game.id]);
+      games.push({ ...game, seats });
     }
 
-    // Validation 3 & 4: in each game, exactly 10 unique participants and seats 1..10 without duplicates
-    for (const g of games) {
-      const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [g.id]);
-      if (seats.length !== 10) {
-        return res.status(400).json({ error: `В игра №${g.game_number} должно быть ровно 10 мест` });
-      }
-      const partIdsInGame = new Set(seats.map((s: any) => s.participant_id));
-      if (partIdsInGame.size !== 10) {
-        return res.status(400).json({ error: `В игра №${g.game_number} должны быть рассажены 10 уникальных участников` });
-      }
-      const seatNums = seats.map((s: any) => s.seat_number);
-      const uniqueSeatNums = new Set(seatNums);
-      if (uniqueSeatNums.size !== 10 || Math.min(...seatNums) !== 1 || Math.max(...seatNums) !== 10) {
-        return res.status(400).json({ error: `В игра №${g.game_number} места должны содержать ровно номера 1..10 без дубликатов` });
-      }
+    const start_readiness = computeStartReadiness(participants, games);
+    if (!start_readiness.ready) {
+      return res.status(400).json({
+        error: `Турнир не готов к запуску: ${start_readiness.errors.join('; ')}`,
+        start_readiness,
+      });
     }
 
     const now = new Date().toISOString();

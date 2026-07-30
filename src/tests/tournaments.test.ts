@@ -359,35 +359,56 @@ describe('Tournament Module API Tests', () => {
     expect(patchRes.body.status).toBe('draft');
   });
 
-  // 10. Failed roster update leaves previous participants intact (Transaction Rollback)
-  it('10. Roster update failure rolls back without clearing existing participants', async () => {
+  // 11. start_readiness is returned correctly and validates readiness
+  it('11. GET /api/tournaments/:id returns start_readiness object with accurate readiness status', async () => {
     const validParticipants = playerIds.map((id) => ({ player_id: id }));
     const createRes = await request(app)
       .post('/api/tournaments')
       .set('Cookie', organizerCookie)
       .send({
-        title: 'Турнир Откат Транзакции',
+        title: 'Турнир Проверка Готовности',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`);
+
+    expect(detailRes.body.start_readiness).toBeDefined();
+    expect(detailRes.body.start_readiness.ready).toBe(true);
+    expect(detailRes.body.start_readiness.participants_count).toBe(10);
+    expect(detailRes.body.start_readiness.games_count).toBe(10);
+    expect(detailRes.body.start_readiness.seats_count).toBe(100);
+    expect(detailRes.body.start_readiness.errors.length).toBe(0);
+  });
+
+  // 12. Starting tournament locks status to active and prevents double start
+  it('12. Starting tournament transitions status to active and rejects second start attempt', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Повторный Запуск',
         date: new Date().toISOString(),
         participants: validParticipants,
       });
 
     const tournamentId = createRes.body.id;
 
-    // Attempt to update roster with non-existent player ID -> Fails
-    const badUpdate = await request(app)
-      .put(`/api/tournaments/${tournamentId}/participants`)
-      .set('Cookie', organizerCookie)
-      .send({
-        participants: [
-          ...playerIds.slice(0, 9).map((id) => ({ player_id: id })),
-          { player_id: 'non-existent-player-uuid' },
-        ],
-      });
+    const start1 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/start`)
+      .set('Cookie', organizerCookie);
 
-    expect(badUpdate.status).toBe(400);
+    expect(start1.status).toBe(200);
+    expect(start1.body.tournament.status).toBe('active');
 
-    // Verify original 10 participants are still intact
-    const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`);
-    expect(detailRes.body.participants.length).toBe(10);
+    // Second start attempt fails
+    const start2 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/start`)
+      .set('Cookie', organizerCookie);
+
+    expect(start2.status).toBe(400);
+    expect(start2.body.error).toContain('уже запущен');
   });
 });

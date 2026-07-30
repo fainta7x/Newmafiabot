@@ -13,7 +13,7 @@ CRM-система и игровой пульт проведения парти�
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Motion (Framer).
 - **Backend**: Node.js, Express, REST API, Zod Validation, JWT Cookie Authentication.
 - **Database**: SQLite3 + Drizzle ORM (поддержка перехода на PostgreSQL).
-- **Legacy Bot**: Python Telegram Bot (изолирован от Web CRM).
+- **Telegram Bot**: Python Telegram Bot (сохраняемый клиент общей системы, планируемый к интеграции по REST API). Подробный план интеграции зафиксирован в [Аудите интеграции Telegram-бота и Webapp](docs/telegram-webapp-integration.md).
 
 ---
 

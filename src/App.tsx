@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
+import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 
 export default function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -18,6 +19,13 @@ export default function App() {
     const parts = pathname.split('/').filter(Boolean);
     const eveningId = parts[1] || 'latest';
     return <PublicJoinView eveningId={eveningId} />;
+  }
+
+  // Public Tournament Results Route
+  if (pathname.startsWith('/tournaments/results/')) {
+    const parts = pathname.split('/').filter(Boolean);
+    const token = parts[2] || '';
+    return <PublicTournamentResults token={token} />;
   }
 
   // Primary CRM View

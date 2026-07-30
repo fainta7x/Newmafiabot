@@ -847,4 +847,24 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  publishTournamentResults: (tournamentId: string) =>
+    request<{ success: boolean; public_token: string }>(`/api/tournaments/${tournamentId}/publish`, {
+      method: 'POST',
+    }),
+
+  getPublicTournamentResults: (token: string) =>
+    request<{
+      tournament: {
+        id: string;
+        title: string;
+        date: string;
+        venue: string | null;
+        stage: string | null;
+        chief_judge_name: string | null;
+        results_published_at: string;
+      };
+      standings: any[];
+      nominations: any[];
+    }>(`/api/public/tournaments/results/${token}`),
 };

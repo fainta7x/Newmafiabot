@@ -169,6 +169,8 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');
+  addColumnIfNotExists('tournaments', 'public_token', 'TEXT');
+  addColumnIfNotExists('tournaments', 'results_published_at', 'TEXT');
 
   try {
     dbWrapper.sqlite.exec(`

@@ -10,6 +10,7 @@ import {
   UserCheck,
   RefreshCw,
   ArrowDown,
+  Copy,
 } from 'lucide-react';
 import { api, TournamentStandingItem } from '../../../lib/api.ts';
 
@@ -24,6 +25,10 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
   onResolve,
   refreshTrigger,
 }) => {
+  const [tournament, setTournament] = useState<any>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const [readiness, setReadiness] = useState<any>(null);
   const [resolutions, setResolutions] = useState<any[]>([]);
   const [standings, setStandings] = useState<TournamentStandingItem[]>([]);
@@ -49,21 +54,46 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
     setLoading(true);
     setError(null);
     try {
-      const [readinessRes, resolutionsRes, standingsRes, nominationsRes] = await Promise.all([
+      const [readinessRes, resolutionsRes, standingsRes, nominationsRes, tournamentRes] = await Promise.all([
         api.getTournamentFinalReadiness(tournamentId),
         api.getTournamentFinalResolutions(tournamentId),
         api.getTournamentStandings(tournamentId),
         api.getTournamentNominations(tournamentId),
+        api.getTournament(tournamentId),
       ]);
       setReadiness(readinessRes);
       setResolutions(resolutionsRes.resolutions || []);
       setStandings(standingsRes.standings || []);
       setNominations(nominationsRes.nominations || []);
+      setTournament(tournamentRes);
     } catch (err: any) {
       setError(err.message || 'Ошибка загрузки данных официальных итогов');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      await api.publishTournamentResults(tournamentId);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка публикации результатов');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!tournament?.public_token) return;
+    const url = `${window.location.origin}/tournaments/results/${tournament.public_token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      alert('Не удалось скопировать ссылку');
+    });
   };
 
   useEffect(() => {
@@ -250,6 +280,69 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
             Обнаружены нерешённые равенства по очкам или показателям. Пожалуйста, утвердите официальные решения Главного судьи для завершения.
           </p>
         )}
+
+        {/* Publication Block */}
+        <div className="pt-3 border-t border-border-soft/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-xs">
+            {tournament?.public_token ? (
+              <span className="text-emerald-400 font-extrabold flex items-center gap-1.5">
+                <Check className="w-4 h-4" />
+                <span>Результаты турнира опубликованы!</span>
+              </span>
+            ) : (
+              <span className="text-text-muted font-medium">
+                {isReady 
+                  ? 'Вы можете опубликовать официальные результаты для всеобщего доступа.' 
+                  : 'Для публикации необходимо сначала разрешить все равенства.'}
+              </span>
+            )}
+          </div>
+
+          <div className="shrink-0">
+            {tournament?.public_token ? (
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="bg-accent hover:bg-accent-hover text-white font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 min-h-[38px] cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Ссылка скопирована!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Скопировать ссылку</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={!isReady || publishing}
+                className={`font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 min-h-[38px] ${
+                  isReady && !publishing
+                    ? 'bg-accent hover:bg-accent-hover text-white cursor-pointer'
+                    : 'bg-surface-3 text-text-muted border border-border-soft cursor-not-allowed opacity-60'
+                }`}
+              >
+                {publishing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Публикация...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Опубликовать результаты</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Unresolved Standings Ties */}

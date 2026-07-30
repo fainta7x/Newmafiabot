@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
+import { internalGetStandings, internalGetNominations } from './tournamentsRoutes.ts';
 
 const router = Router();
 
@@ -222,6 +223,47 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
       message: isFull
         ? `Вы добавлены в резерв на «${selectedTableName}». Организатор свяжется с вами при освобождении места.`
         : `Вы успешно записаны на «${selectedTableName}»!`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// GET /api/public/tournaments/results/:token - Public tournament results (no authorization required)
+router.get('/tournaments/results/:token', async (req: Request, res: Response) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const { token } = req.params;
+
+    const tournament = await db.get(
+      `SELECT id, title, date, venue, stage, chief_judge_name, status, results_published_at
+       FROM tournaments WHERE public_token = ?`,
+      [token]
+    );
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Результаты турнира не найдены' });
+    }
+
+    if (tournament.status !== 'completed' || !tournament.results_published_at) {
+      return res.status(404).json({ error: 'Результаты турнира ещё не опубликованы' });
+    }
+
+    const standingsData = await internalGetStandings(db, tournament.id);
+    const nominationsData = await internalGetNominations(db, tournament.id);
+
+    res.json({
+      tournament: {
+        id: tournament.id,
+        title: tournament.title,
+        date: tournament.date,
+        venue: tournament.venue,
+        stage: tournament.stage,
+        chief_judge_name: tournament.chief_judge_name,
+        results_published_at: tournament.results_published_at,
+      },
+      standings: standingsData.standings,
+      nominations: nominationsData.nominations,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

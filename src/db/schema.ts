@@ -148,6 +148,8 @@ export const tournaments = sqliteTable('tournaments', {
   status: text('status').notNull().default('draft'), // draft, active, completed
   chief_judge_name: text('chief_judge_name'),
   notes: text('notes'),
+  public_token: text('public_token'),
+  results_published_at: text('results_published_at'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 });

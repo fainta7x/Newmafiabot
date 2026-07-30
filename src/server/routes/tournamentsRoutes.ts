@@ -724,7 +724,7 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
 });
 
 // Helper function to calculate standings, incorporating tie-breaking resolutions
-async function internalGetStandings(db: DatabaseWrapper, tournamentId: string) {
+export async function internalGetStandings(db: DatabaseWrapper, tournamentId: string) {
   const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
   if (!tournament) {
     throw new Error('Турнир не найден');
@@ -1079,7 +1079,7 @@ async function internalGetStandings(db: DatabaseWrapper, tournamentId: string) {
 }
 
 // Helper function to calculate nominations, incorporating tie-breaking resolutions
-async function internalGetNominations(db: DatabaseWrapper, tournamentId: string) {
+export async function internalGetNominations(db: DatabaseWrapper, tournamentId: string) {
   const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
   if (!tournament) {
     throw new Error('Турнир не найден');
@@ -1625,6 +1625,87 @@ router.get('/:id/final-readiness', requireOrganizerAuth, async (req: Authenticat
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка проверки готовности результатов' });
+  }
+});
+
+// POST /api/tournaments/:id/publish - Publish tournament results
+router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status !== 'completed') {
+      return res.status(400).json({ error: 'Публикация результатов возможна только для завершённых турниров' });
+    }
+
+    const standingsData = await internalGetStandings(db, tournamentId);
+    const nominationsData = await internalGetNominations(db, tournamentId);
+
+    // Standing resolutions
+    const standingsResolutions = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+      [tournamentId, 'standings_tie']
+    );
+    const standingsResolutionsMap = new Set<string>();
+    for (const r of standingsResolutions) {
+      let pids: string[] = [];
+      try { pids = JSON.parse(r.participant_ids_json || '[]'); } catch (_) {}
+      standingsResolutionsMap.add([...pids].sort().join(','));
+    }
+
+    // Nomination resolutions
+    const nominationResolutions = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+      [tournamentId, 'nomination_tie']
+    );
+    const nominationResolutionsMap = new Set<string>();
+    for (const r of nominationResolutions) {
+      if (r.category) {
+        nominationResolutionsMap.add(r.category);
+      }
+    }
+
+    const unresolvedStandings = [];
+    for (const group of standingsData.tie_groups) {
+      const sortedKey = [...group.participant_ids].sort().join(',');
+      if (!standingsResolutionsMap.has(sortedKey)) {
+        unresolvedStandings.push(group.tie_group_id);
+      }
+    }
+
+    const unresolvedNominations = [];
+    for (const cat of nominationsData.nominations) {
+      if (cat.has_tie) {
+        if (!nominationResolutionsMap.has(cat.category)) {
+          unresolvedNominations.push(cat.category);
+        }
+      }
+    }
+
+    const ready = unresolvedStandings.length === 0 && unresolvedNominations.length === 0;
+    if (!ready) {
+      return res.status(400).json({ error: 'Нельзя опубликовать результаты: не все равенства разрешены' });
+    }
+
+    let publicToken = tournament.public_token;
+    if (!publicToken) {
+      publicToken = crypto.randomUUID();
+    }
+    const now = new Date().toISOString();
+
+    await db.run(
+      'UPDATE tournaments SET public_token = ?, results_published_at = ?, updated_at = ? WHERE id = ?',
+      [publicToken, now, now, tournamentId]
+    );
+
+    res.json({ success: true, public_token: publicToken });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка публикации результатов' });
   }
 });
 

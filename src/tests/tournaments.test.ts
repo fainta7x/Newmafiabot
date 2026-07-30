@@ -422,4 +422,59 @@ describe('Tournament Module API Tests', () => {
     expect(start2.status).toBe(400);
     expect(start2.body.error).toContain('Турнир не может быть запущен из текущего статуса');
   });
+
+  // 13. Public results, publishing rules, stability, ordering, and private data protection
+  it('13. Public results, publishing rules, stability, ordering, and private data protection', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Публичный Турнир',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // 13a. Attempt to publish a draft tournament should fail
+    const pubFail1 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/publish`)
+      .set('Cookie', organizerCookie);
+    expect(pubFail1.status).toBe(400);
+    expect(pubFail1.body.error).toContain('завершённых');
+
+    // Manually update status to 'completed' in DB for testing
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    // 13b. Publish completed tournament with no unresolved ties should succeed
+    const pubSuccess = await request(app)
+      .post(`/api/tournaments/${tournamentId}/publish`)
+      .set('Cookie', organizerCookie);
+    
+    expect(pubSuccess.status).toBe(200);
+    expect(pubSuccess.body.success).toBe(true);
+    expect(pubSuccess.body.public_token).toBeDefined();
+
+    const token = pubSuccess.body.public_token;
+
+    // 13c. Access public results anonymously
+    const publicRes = await request(app)
+      .get(`/api/public/tournaments/results/${token}`);
+
+    expect(publicRes.status).toBe(200);
+    expect(publicRes.body.tournament).toBeDefined();
+    expect(publicRes.body.tournament.title).toBe('Публичный Турнир');
+    expect(publicRes.body.tournament.results_published_at).toBeDefined();
+
+    // 13d. Ensure NO private data is leaked
+    const responseString = JSON.stringify(publicRes.body);
+    expect(responseString).not.toContain('+7900000000'); // No phones leaked
+    expect(responseString).not.toContain('NEW_LEAD'); // No lead status leaked
+
+    // 13e. Unauthorized access with wrong token should fail
+    const badTokenRes = await request(app)
+      .get(`/api/public/tournaments/results/some_fake_nonexistent_token`);
+    expect(badTokenRes.status).toBe(404);
+  });
 });

@@ -1,42 +1,47 @@
-import { GameEvening } from './api.ts';
+export function formatForDateTimeLocal(dateInput?: string | Date | null): string {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
 
-/**
- * Formats an evening ISO date string into a localized Russian date and time string,
- * using the provided timezone or defaulting to Europe/Moscow.
- */
-export function formatEveningDateTime(startsAt: string, timezone?: string | null): string {
-  const tz = timezone && timezone.trim() !== '' ? timezone : 'Europe/Moscow';
+export function formatEveningDateTime(isoDate: string, timeZone: string = 'Europe/Moscow'): string {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return isoDate;
   try {
-    const dateObj = new Date(startsAt);
-    const dateFormatted = dateObj.toLocaleDateString('ru-RU', {
-      timeZone: tz,
+    return d.toLocaleString('ru-RU', {
+      timeZone,
       day: 'numeric',
-      month: 'long',
-      weekday: 'short',
-    });
-    const timeFormatted = dateObj.toLocaleTimeString('ru-RU', {
-      timeZone: tz,
+      month: 'short',
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `${dateFormatted} в ${timeFormatted}`;
-  } catch (_e) {
-    const dateObj = new Date(startsAt);
-    return dateObj.toLocaleString('ru-RU');
+  } catch {
+    return d.toLocaleString('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 }
 
-/**
- * Filters out completed, cancelled, and past evenings (using new Date(...).getTime() > nowMs)
- * and sorts remaining future evenings ascending by date (nearest first).
- */
-export function getSortedFutureEvenings(evenings: GameEvening[], nowMs: number = Date.now()): GameEvening[] {
-  return evenings
+export function getSortedFutureEvenings<T extends { starts_at: string; status?: string }>(
+  evenings: T[],
+  nowMsInput?: number
+): T[] {
+  const referenceMs = nowMsInput ?? Date.now();
+  return (evenings || [])
     .filter((e) => {
-      if (e.status === 'completed' || e.status === 'cancelled') return false;
-      if (!e.starts_at) return false;
-      const eveningTime = new Date(e.starts_at).getTime();
-      return !isNaN(eveningTime) && eveningTime > nowMs;
+      if (e.status === 'cancelled' || e.status === 'completed') return false;
+      const d = new Date(e.starts_at);
+      if (isNaN(d.getTime())) return false;
+      return d.getTime() >= referenceMs;
     })
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 }

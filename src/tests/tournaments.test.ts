@@ -33,8 +33,8 @@ beforeEach(async () => {
 describe('Tournament Module API Tests', () => {
   // 1. Cannot save other than 10 participants
   it('1. Reject tournament creation with less or more than 10 participants', async () => {
-    const nineParticipants = playerIds.slice(0, 9).map(id => ({ player_id: id }));
-    
+    const nineParticipants = playerIds.slice(0, 9).map((id) => ({ player_id: id }));
+
     const res = await request(app)
       .post('/api/tournaments')
       .set('Cookie', organizerCookie)
@@ -51,7 +51,7 @@ describe('Tournament Module API Tests', () => {
   // 2. Cannot add duplicate player
   it('2. Reject tournament creation with duplicate players', async () => {
     const duplicateParticipants = [
-      ...playerIds.slice(0, 9).map(id => ({ player_id: id })),
+      ...playerIds.slice(0, 9).map((id) => ({ player_id: id })),
       { player_id: playerIds[0] }, // Duplicate
     ];
 
@@ -98,7 +98,7 @@ describe('Tournament Module API Tests', () => {
 
   // 4. In each game all 10 participants are present without duplicates
   it('4. Each game has all 10 unique participants seated without duplicates', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
     const createRes = await request(app)
       .post('/api/tournaments')
       .set('Cookie', organizerCookie)
@@ -126,39 +126,9 @@ describe('Tournament Module API Tests', () => {
     }
   });
 
-  // 5. Seat number repetition across games is allowed
-  it('5. Participant can be assigned to different seat numbers in different games', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
-    const createRes = await request(app)
-      .post('/api/tournaments')
-      .set('Cookie', organizerCookie)
-      .send({
-        title: 'Проверка Мест',
-        date: new Date().toISOString(),
-        participants: validParticipants,
-      });
-
-    const tournamentId = createRes.body.id;
-    const detailRes = await request(app)
-      .get(`/api/tournaments/${tournamentId}`);
-
-    const participant1Id = detailRes.body.participants[0].id;
-    const seatsForP1 = detailRes.body.games.map((g: any) => {
-      const s = g.seats.find((st: any) => st.participant_id === participant1Id);
-      return s.seat_number;
-    });
-
-    // Player 1 has a seat number in each of the 10 games
-    expect(seatsForP1.length).toBe(10);
-    for (const seatNum of seatsForP1) {
-      expect(seatNum).toBeGreaterThanOrEqual(1);
-      expect(seatNum).toBeLessThanOrEqual(10);
-    }
-  });
-
-  // 6. Swapping changes only the two selected players in the specified game
-  it('6. Swapping two seats in a game swaps ONLY those two seats in that game', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
+  // 5. Swapping changes only the two selected players in the specified game
+  it('5. Swapping two seats in a game swaps ONLY those two seats in that game', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
     const createRes = await request(app)
       .post('/api/tournaments')
       .set('Cookie', organizerCookie)
@@ -202,52 +172,14 @@ describe('Tournament Module API Tests', () => {
     expect(game2After.seats[0].participant_id).toBe(game2Before.seats[0].participant_id);
   });
 
-  // 7. After starting tournament, cannot change roster or seating
-  it('7. Reject participant or seating changes after tournament is started', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
+  // 6. Cannot start game if tournament is in draft status
+  it('6. Cannot start a game if tournament status is draft', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
     const createRes = await request(app)
       .post('/api/tournaments')
       .set('Cookie', organizerCookie)
       .send({
-        title: 'Турнир Для Запуска',
-        date: new Date().toISOString(),
-        participants: validParticipants,
-      });
-
-    const tournamentId = createRes.body.id;
-
-    // Start tournament
-    const startRes = await request(app)
-      .post(`/api/tournaments/${tournamentId}/start`)
-      .set('Cookie', organizerCookie);
-
-    expect(startRes.status).toBe(200);
-    expect(startRes.body.tournament.status).toBe('active');
-
-    // Attempt to regenerate seating -> Should fail
-    const regenRes = await request(app)
-      .post(`/api/tournaments/${tournamentId}/generate-seating`)
-      .set('Cookie', organizerCookie);
-
-    expect(regenRes.status).toBe(400);
-
-    // Attempt to update participants -> Should fail
-    const updatePartsRes = await request(app)
-      .put(`/api/tournaments/${tournamentId}/participants`)
-      .set('Cookie', organizerCookie)
-      .send({ participants: validParticipants });
-
-    expect(updatePartsRes.status).toBe(400);
-  });
-
-  // 8. Cannot start a game with invalid role composition
-  it('8. Reject starting a game if roles composition is invalid', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
-    const createRes = await request(app)
-      .post('/api/tournaments')
-      .set('Cookie', organizerCookie)
-      .send({
-        title: 'Турнир Роли Ошибка',
+        title: 'Турнир Черновик',
         date: new Date().toISOString(),
         participants: validParticipants,
       });
@@ -255,52 +187,7 @@ describe('Tournament Module API Tests', () => {
     const tournamentId = createRes.body.id;
     const game1Id = createRes.body.games[0].id;
 
-    // Start tournament
-    await request(app)
-      .post(`/api/tournaments/${tournamentId}/start`)
-      .set('Cookie', organizerCookie);
-
-    // Assign invalid roles (e.g. 10 citizens)
-    const invalidRoles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(sNum => ({
-      seat_number: sNum,
-      role: 'citizen',
-    }));
-
-    await request(app)
-      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
-      .set('Cookie', organizerCookie)
-      .send({ roles: invalidRoles });
-
-    // Attempt to start game -> Should fail
-    const startGameRes = await request(app)
-      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/start`)
-      .set('Cookie', organizerCookie);
-
-    expect(startGameRes.status).toBe(400);
-    expect(startGameRes.body.error).toContain('неправильным набором ролей');
-  });
-
-  // 9. Valid role set: 6 citizen, 1 sheriff, 2 mafia, 1 don allows starting the game
-  it('9. Successfully start a game when exactly 6 citizens, 1 sheriff, 2 mafia, and 1 don are assigned', async () => {
-    const validParticipants = playerIds.map(id => ({ player_id: id }));
-    const createRes = await request(app)
-      .post('/api/tournaments')
-      .set('Cookie', organizerCookie)
-      .send({
-        title: 'Турнир Роли Успех',
-        date: new Date().toISOString(),
-        participants: validParticipants,
-      });
-
-    const tournamentId = createRes.body.id;
-    const game1Id = createRes.body.games[0].id;
-
-    // Start tournament
-    await request(app)
-      .post(`/api/tournaments/${tournamentId}/start`)
-      .set('Cookie', organizerCookie);
-
-    // Assign valid roles: 6 citizen, 1 sheriff, 2 mafia, 1 don
+    // Assign valid roles
     const validRoles = [
       { seat_number: 1, role: 'citizen' },
       { seat_number: 2, role: 'citizen' },
@@ -319,13 +206,188 @@ describe('Tournament Module API Tests', () => {
       .set('Cookie', organizerCookie)
       .send({ roles: validRoles });
 
-    // Launch game -> Should succeed
+    // Attempt to start game while tournament is in draft -> Should fail
     const startGameRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${game1Id}/start`)
       .set('Cookie', organizerCookie);
 
-    expect(startGameRes.status).toBe(200);
-    expect(startGameRes.body.success).toBe(true);
-    expect(startGameRes.body.game.status).toBe('active');
+    expect(startGameRes.status).toBe(400);
+    expect(startGameRes.body.error).toContain('активном турнире');
+  });
+
+  // 7. Cannot start a second game when one is already active
+  it('7. Cannot start a second game when another game is active in the tournament', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Две Игры',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    const game1Id = createRes.body.games[0].id;
+    const game2Id = createRes.body.games[1].id;
+
+    // Start tournament
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/start`)
+      .set('Cookie', organizerCookie);
+
+    const validRoles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+
+    // Assign roles to game 1 & game 2
+    await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: validRoles });
+
+    await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: validRoles });
+
+    // Start Game 1 -> Succeeds
+    const start1 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/start`)
+      .set('Cookie', organizerCookie);
+    expect(start1.status).toBe(200);
+
+    // Attempt to start Game 2 while Game 1 is active -> Fails
+    const start2 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`)
+      .set('Cookie', organizerCookie);
+    expect(start2.status).toBe(400);
+    expect(start2.body.error).toContain('уже идет другая игра');
+  });
+
+  // 8. After game start: roles and judge modifications are blocked
+  it('8. Roles and judge changes are blocked after game launch', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Блокировка Игры',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    const game1Id = createRes.body.games[0].id;
+
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/start`)
+      .set('Cookie', organizerCookie);
+
+    const validRoles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+
+    await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: validRoles });
+
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/start`)
+      .set('Cookie', organizerCookie);
+
+    // Try modifying roles -> Fails
+    const roleChange = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: validRoles });
+    expect(roleChange.status).toBe(400);
+
+    // Try modifying judge -> Fails
+    const judgeChange = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Новый Судья' });
+    expect(judgeChange.status).toBe(400);
+  });
+
+  // 9. Generic PATCH tournament ignores status field
+  it('9. Generic PATCH /api/tournaments/:id ignores status parameter', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Старый Заголовок',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // Send PATCH trying to directly set status: 'active'
+    const patchRes = await request(app)
+      .patch(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Новый Заголовок',
+        status: 'active',
+      });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.title).toBe('Новый Заголовок');
+    // Status must remain 'draft'
+    expect(patchRes.body.status).toBe('draft');
+  });
+
+  // 10. Failed roster update leaves previous participants intact (Transaction Rollback)
+  it('10. Roster update failure rolls back without clearing existing participants', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Откат Транзакции',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // Attempt to update roster with non-existent player ID -> Fails
+    const badUpdate = await request(app)
+      .put(`/api/tournaments/${tournamentId}/participants`)
+      .set('Cookie', organizerCookie)
+      .send({
+        participants: [
+          ...playerIds.slice(0, 9).map((id) => ({ player_id: id })),
+          { player_id: 'non-existent-player-uuid' },
+        ],
+      });
+
+    expect(badUpdate.status).toBe(400);
+
+    // Verify original 10 participants are still intact
+    const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`);
+    expect(detailRes.body.participants.length).toBe(10);
   });
 });

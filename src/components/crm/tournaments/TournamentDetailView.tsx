@@ -14,8 +14,11 @@ import {
   Edit2,
   Check,
   X,
+  FileText,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
+import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
+import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -36,6 +39,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
+
+  // Edit draft modals state
+  const [showEditDataModal, setShowEditDataModal] = useState(false);
+  const [showEditRosterModal, setShowEditRosterModal] = useState(false);
 
   // Swap modal state
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -89,6 +96,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const currentGame: TournamentGame | undefined = games[selectedGameIdx];
   const seats: TournamentGameSeat[] = currentGame?.seats || [];
 
+  // Check active game in entire tournament
+  const activeGameInTournament = games.find((g) => g.status === 'active');
+  const isAnotherGameActive = Boolean(
+    activeGameInTournament && currentGame && activeGameInTournament.id !== currentGame.id
+  );
+
   // Calculate role stats for selected game
   const roleCounts = {
     citizen: seats.filter((s) => s.role === 'citizen').length,
@@ -97,8 +110,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     don: seats.filter((s) => s.role === 'don').length,
   };
 
+  const isRolesValid =
+    roleCounts.citizen === 6 &&
+    roleCounts.sheriff === 1 &&
+    roleCounts.mafia === 2 &&
+    roleCounts.don === 1;
+
+  const canStartCurrentGame =
+    tournament.status === 'active' &&
+    currentGame?.status === 'planned' &&
+    !isAnotherGameActive &&
+    isRolesValid;
+
   const handleStartTournament = async () => {
-    if (!confirm('Запустить турнир? После запуска состав участников и базовое распределение будут заблокированы.')) return;
+    if (!confirm('Запустить турнир? После запуска состав участников и базовые данные турнира будут заблокированы.')) return;
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
@@ -148,13 +173,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleAssignRole = async (seatNumber: number, newRole: string | null) => {
-    if (!currentGame) return;
+    if (!currentGame || currentGame.status !== 'planned') return;
     try {
       const updatedRoles = seats.map((s) =>
         s.seat_number === seatNumber ? { seat_number: s.seat_number, role: newRole } : { seat_number: s.seat_number, role: s.role }
       );
       await api.updateGameRoles(tournamentId, currentGame.id, updatedRoles);
-      // Update local state without full reload
       const nextSeats = seats.map((s) => (s.seat_number === seatNumber ? { ...s, role: newRole } : s));
       const nextGames = games.map((g) => (g.id === currentGame.id ? { ...g, seats: nextSeats } : g));
       setTournament({ ...tournament, games: nextGames });
@@ -164,7 +188,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleSaveJudge = async () => {
-    if (!currentGame) return;
+    if (!currentGame || currentGame.status !== 'planned') return;
     try {
       await api.updateGameJudge(tournamentId, currentGame.id, judgeInput.trim());
       setEditingJudge(false);
@@ -176,6 +200,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
   const handleStartGame = async () => {
     if (!currentGame) return;
+    if (!canStartCurrentGame) {
+      if (tournament.status !== 'active') {
+        setFeedbackMsg({ type: 'error', text: 'Запуск игры разрешён только после старта турнира' });
+      } else if (isAnotherGameActive) {
+        setFeedbackMsg({ type: 'error', text: `Уже идет активная Игра №${activeGameInTournament?.game_number}` });
+      } else if (!isRolesValid) {
+        setFeedbackMsg({ type: 'error', text: 'Для запуска игры требуется ровно: 6 мирных, 1 Шериф, 2 мафии, 1 Дон' });
+      }
+      return;
+    }
+
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
@@ -202,17 +237,19 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <span>Назад</span>
           </button>
 
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-              tournament.status === 'active'
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : tournament.status === 'completed'
-                ? 'bg-surface-2 text-text-muted border-border-soft'
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-            }`}
-          >
-            {tournament.status === 'active' ? 'Турнир идёт' : tournament.status === 'completed' ? 'Завершён' : 'Черновик'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                tournament.status === 'active'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : tournament.status === 'completed'
+                  ? 'bg-surface-2 text-text-muted border-border-soft'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+              }`}
+            >
+              {tournament.status === 'active' ? 'Турнир идёт' : tournament.status === 'completed' ? 'Завершён' : 'Черновик'}
+            </span>
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -229,16 +266,38 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               </span>
             )}
             {tournament.stage && <span className="text-accent font-semibold">{tournament.stage}</span>}
+            {tournament.chief_judge_name && (
+              <span className="text-text-muted">Главный судья: {tournament.chief_judge_name}</span>
+            )}
           </div>
+          {tournament.notes && (
+            <p className="text-xs text-text-muted italic pt-1">{tournament.notes}</p>
+          )}
         </div>
 
-        {/* Global actions row */}
+        {/* Global actions row (Draft Editing & Start Tournament) */}
         {isDraft && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border-soft">
             <button
+              onClick={() => setShowEditDataModal(true)}
+              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+            >
+              <FileText className="w-3.5 h-3.5 text-accent" />
+              <span>Редактировать данные</span>
+            </button>
+
+            <button
+              onClick={() => setShowEditRosterModal(true)}
+              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+            >
+              <Users className="w-3.5 h-3.5 text-accent" />
+              <span>Изменить состав</span>
+            </button>
+
+            <button
               onClick={handleRegenerateSeating}
               disabled={actionLoading}
-              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+              className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
               <span>Перегенерировать рассадку</span>
@@ -247,7 +306,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <button
               onClick={handleStartTournament}
               disabled={actionLoading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20 min-h-[40px]"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20 min-h-[40px] ml-auto"
             >
               <Play className="w-3.5 h-3.5 fill-white" />
               <span>Запустить турнир</span>
@@ -282,6 +341,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <Users className="w-4 h-4 text-accent" />
             <h3 className="text-sm font-bold text-text-primary">Состав участников (10 человек)</h3>
           </div>
+          {isDraft && (
+            <button
+              onClick={() => setShowEditRosterModal(true)}
+              className="text-xs text-accent hover:underline font-bold"
+            >
+              Изменить состав
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -365,10 +432,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   </span>
                 </div>
 
-                {/* Judge info */}
+                {/* Judge info (Editable ONLY when game is planned) */}
                 <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
                   <span>Судья:</span>
-                  {editingJudge ? (
+                  {editingJudge && currentGame.status === 'planned' ? (
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -384,7 +451,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  ) : (
+                  ) : currentGame.status === 'planned' ? (
                     <button
                       onClick={() => {
                         setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
@@ -395,13 +462,18 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                       <span>{currentGame.judge_name || tournament.chief_judge_name || 'Назначить судью'}</span>
                       <Edit2 className="w-3 h-3 text-text-muted" />
                     </button>
+                  ) : (
+                    <span className="font-semibold text-text-primary">
+                      {currentGame.judge_name || tournament.chief_judge_name || 'Не указан'}
+                    </span>
                   )}
                 </div>
               </div>
 
               {/* Game Action Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
-                {isDraft && (
+                {/* Swap seats allowed ONLY in draft & planned game */}
+                {isDraft && currentGame.status === 'planned' && (
                   <button
                     onClick={() => {
                       setSwapSeat1(1);
@@ -415,13 +487,26 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   </button>
                 )}
 
-                {currentGame.status !== 'completed' && (
+                {currentGame.status === 'planned' && (
                   <button
                     onClick={handleStartGame}
-                    disabled={actionLoading}
-                    className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-accent/20 min-h-[40px]"
+                    disabled={actionLoading || !canStartCurrentGame}
+                    className={`font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 min-h-[40px] ${
+                      canStartCurrentGame
+                        ? 'bg-accent hover:bg-accent-hover text-white cursor-pointer shadow-lg shadow-accent/20'
+                        : 'bg-surface-1 text-text-muted border border-border-soft opacity-60 cursor-not-allowed'
+                    }`}
+                    title={
+                      tournament.status !== 'active'
+                        ? 'Запуск разрешен только в активном турнире (запустите турнир сначала)'
+                        : isAnotherGameActive
+                        ? `Сначала завершите игру №${activeGameInTournament?.game_number}`
+                        : !isRolesValid
+                        ? 'Назначьте ровно: 6 мирных, 1 Шериф, 2 мафии, 1 Дон'
+                        : ''
+                    }
                   >
-                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <Play className="w-3.5 h-3.5 fill-current" />
                     <span>Запустить игру №{currentGame.game_number}</span>
                   </button>
                 )}
@@ -449,7 +534,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
             {/* 10 Seats Cards List */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-text-secondary block">Рассадка на игру №{currentGame.game_number}:</span>
+              <span className="text-xs font-bold text-text-secondary block">
+                Рассадка на игру №{currentGame.game_number}
+                {currentGame.status !== 'planned' && ' (заблокирована для изменений)'}:
+              </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {seats.map((seat) => {
                   const roleObj = ROLES_LIST.find((r) => r.id === seat.role);
@@ -469,20 +557,30 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Role selection dropdown */}
-                      <select
-                        value={seat.role || ''}
-                        onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
-                        className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
-                          roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
-                        }`}
-                      >
-                        <option value="" className="bg-surface-1 text-text-muted">-- Роль не выбрана --</option>
-                        <option value="citizen" className="bg-surface-1 text-emerald-400 font-semibold">Мирный (6)</option>
-                        <option value="sheriff" className="bg-surface-1 text-amber-400 font-semibold">Шериф (1)</option>
-                        <option value="mafia" className="bg-surface-1 text-rose-400 font-semibold">Мафия (2)</option>
-                        <option value="don" className="bg-surface-1 text-purple-400 font-semibold">Дон (1)</option>
-                      </select>
+                      {/* Role selection dropdown (Disabled when game is active or completed) */}
+                      {currentGame.status === 'planned' ? (
+                        <select
+                          value={seat.role || ''}
+                          onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
+                          className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
+                            roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
+                          }`}
+                        >
+                          <option value="" className="bg-surface-1 text-text-muted">-- Роль не выбрана --</option>
+                          <option value="citizen" className="bg-surface-1 text-emerald-400 font-semibold">Мирный (6)</option>
+                          <option value="sheriff" className="bg-surface-1 text-amber-400 font-semibold">Шериф (1)</option>
+                          <option value="mafia" className="bg-surface-1 text-rose-400 font-semibold">Мафия (2)</option>
+                          <option value="don" className="bg-surface-1 text-purple-400 font-semibold">Дон (1)</option>
+                        </select>
+                      ) : (
+                        <span
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                            roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
+                          }`}
+                        >
+                          {roleObj ? roleObj.label : 'Без роли'}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -492,8 +590,24 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         )}
       </div>
 
+      {/* EDIT TOURNAMENT DATA MODAL */}
+      <EditTournamentDataModal
+        isOpen={showEditDataModal}
+        tournament={tournament}
+        onClose={() => setShowEditDataModal(false)}
+        onSaved={loadDetail}
+      />
+
+      {/* EDIT TOURNAMENT ROSTER MODAL */}
+      <EditTournamentRosterModal
+        isOpen={showEditRosterModal}
+        tournament={tournament}
+        onClose={() => setShowEditRosterModal(false)}
+        onSaved={loadDetail}
+      />
+
       {/* SWAP SEATS MODAL */}
-      {showSwapModal && (
+      {showSwapModal && isDraft && currentGame?.status === 'planned' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-sm w-full p-6 space-y-4 text-text-primary">
             <div className="flex items-center justify-between">

@@ -123,7 +123,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-// 3. POST /api/tournaments - Create a tournament
+// 3. POST /api/tournaments - Create a tournament (Atomic Transaction)
 router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const { title, date, venue, stage, chief_judge_name, notes, participants } = req.body;
@@ -152,74 +152,78 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
     }
   }
 
-  const tournamentId = crypto.randomUUID();
-  const now = new Date().toISOString();
-
   try {
-    await db.run(
-      `INSERT INTO tournaments (id, title, date, venue, stage, status, chief_judge_name, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
-      [
-        tournamentId,
-        title,
-        new Date(date).toISOString(),
-        venue || null,
-        stage || null,
-        chief_judge_name || null,
-        notes || null,
-        now,
-        now,
-      ]
-    );
+    const result = await db.transaction(async (tx) => {
+      const tournamentId = crypto.randomUUID();
+      const now = new Date().toISOString();
 
-    // Save 10 participants
-    const participantRecords = [];
-    for (let i = 0; i < 10; i++) {
-      const rawPart = participants[i];
-      const pid = typeof rawPart === 'string' ? rawPart : rawPart.player_id;
-      const customName = typeof rawPart === 'object' && rawPart.display_name ? rawPart.display_name.trim() : null;
-
-      const playerObj = await db.get<any>('SELECT nickname FROM players WHERE id = ?', [pid]);
-      const displayName = customName || playerObj?.nickname || `Игрок ${i + 1}`;
-
-      const participantId = crypto.randomUUID();
-      await db.run(
-        `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number)
-         VALUES (?, ?, ?, ?, ?)`,
-        [participantId, tournamentId, pid, displayName, i + 1]
+      await tx.run(
+        `INSERT INTO tournaments (id, title, date, venue, stage, status, chief_judge_name, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
+        [
+          tournamentId,
+          title,
+          new Date(date).toISOString(),
+          venue || null,
+          stage || null,
+          chief_judge_name || null,
+          notes || null,
+          now,
+          now,
+        ]
       );
-      participantRecords.push({ id: participantId, player_id: pid, display_name: displayName, participant_number: i + 1 });
-    }
 
-    // Generate 10 games & seating
-    await generateGamesAndSeating(db, tournamentId, chief_judge_name || null, participantRecords);
+      // Save 10 participants
+      const participantRecords = [];
+      for (let i = 0; i < 10; i++) {
+        const rawPart = participants[i];
+        const pid = typeof rawPart === 'string' ? rawPart : rawPart.player_id;
+        const customName = typeof rawPart === 'object' && rawPart.display_name ? rawPart.display_name.trim() : null;
 
-    // Fetch and return complete created tournament
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
-    const savedParticipants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [tournamentId]);
-    const gamesList = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
-    
-    const games = [];
-    for (const g of gamesList) {
-      const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [g.id]);
-      games.push({ ...g, seats });
-    }
+        const playerObj = await tx.get<any>('SELECT nickname FROM players WHERE id = ?', [pid]);
+        const displayName = customName || playerObj?.nickname || `Игрок ${i + 1}`;
 
-    res.status(201).json({
-      ...tournament,
-      participants: savedParticipants,
-      games,
+        const participantId = crypto.randomUUID();
+        await tx.run(
+          `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number)
+           VALUES (?, ?, ?, ?, ?)`,
+          [participantId, tournamentId, pid, displayName, i + 1]
+        );
+        participantRecords.push({ id: participantId, player_id: pid, display_name: displayName, participant_number: i + 1 });
+      }
+
+      // Generate 10 games & seating
+      await generateGamesAndSeating(tx, tournamentId, chief_judge_name || null, participantRecords);
+
+      // Fetch created objects
+      const tournament = await tx.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+      const savedParticipants = await tx.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [tournamentId]);
+      const gamesList = await tx.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
+
+      const games = [];
+      for (const g of gamesList) {
+        const seats = await tx.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [g.id]);
+        games.push({ ...g, seats });
+      }
+
+      return {
+        ...tournament,
+        participants: savedParticipants,
+        games,
+      };
     });
+
+    res.status(201).json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка создания турнира' });
   }
 });
 
-// 4. PATCH /api/tournaments/:id - Edit draft info
+// 4. PATCH /api/tournaments/:id - Edit draft metadata (status is NOT modified)
 router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const tournamentId = req.params.id;
-  const { title, date, venue, stage, chief_judge_name, notes, status } = req.body;
+  const { title, date, venue, stage, chief_judge_name, notes } = req.body;
 
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -233,15 +237,14 @@ router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res
     const updatedStage = stage !== undefined ? stage : tournament.stage;
     const updatedJudge = chief_judge_name !== undefined ? chief_judge_name : tournament.chief_judge_name;
     const updatedNotes = notes !== undefined ? notes : tournament.notes;
-    const updatedStatus = status !== undefined ? status : tournament.status;
 
     const now = new Date().toISOString();
 
     await db.run(
       `UPDATE tournaments
-       SET title = ?, date = ?, venue = ?, stage = ?, chief_judge_name = ?, notes = ?, status = ?, updated_at = ?
+       SET title = ?, date = ?, venue = ?, stage = ?, chief_judge_name = ?, notes = ?, updated_at = ?
        WHERE id = ?`,
-      [updatedTitle, updatedDate, updatedVenue, updatedStage, updatedJudge, updatedNotes, updatedStatus, now, tournamentId]
+      [updatedTitle, updatedDate, updatedVenue, updatedStage, updatedJudge, updatedNotes, now, tournamentId]
     );
 
     const updated = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -251,7 +254,7 @@ router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res
   }
 });
 
-// 5. PUT /api/tournaments/:id/participants - Save/Update 10 participants
+// 5. PUT /api/tournaments/:id/participants - Save/Update 10 participants (Atomic Transaction)
 router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const tournamentId = req.params.id;
@@ -285,31 +288,34 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
       }
     }
 
-    // Clear old participants (which cascades to old game seats)
-    await db.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    const updatedParticipants = await db.transaction(async (tx) => {
+      // Clear old participants (which cascades to old game seats)
+      await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
 
-    const participantRecords = [];
-    for (let i = 0; i < 10; i++) {
-      const rawPart = participants[i];
-      const pid = typeof rawPart === 'string' ? rawPart : rawPart.player_id;
-      const customName = typeof rawPart === 'object' && rawPart.display_name ? rawPart.display_name.trim() : null;
+      const participantRecords = [];
+      for (let i = 0; i < 10; i++) {
+        const rawPart = participants[i];
+        const pid = typeof rawPart === 'string' ? rawPart : rawPart.player_id;
+        const customName = typeof rawPart === 'object' && rawPart.display_name ? rawPart.display_name.trim() : null;
 
-      const playerObj = await db.get<any>('SELECT nickname FROM players WHERE id = ?', [pid]);
-      const displayName = customName || playerObj?.nickname || `Игрок ${i + 1}`;
+        const playerObj = await tx.get<any>('SELECT nickname FROM players WHERE id = ?', [pid]);
+        const displayName = customName || playerObj?.nickname || `Игрок ${i + 1}`;
 
-      const participantId = crypto.randomUUID();
-      await db.run(
-        `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number)
-         VALUES (?, ?, ?, ?, ?)`,
-        [participantId, tournamentId, pid, displayName, i + 1]
-      );
-      participantRecords.push({ id: participantId, player_id: pid, display_name: displayName, participant_number: i + 1 });
-    }
+        const participantId = crypto.randomUUID();
+        await tx.run(
+          `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number)
+           VALUES (?, ?, ?, ?, ?)`,
+          [participantId, tournamentId, pid, displayName, i + 1]
+        );
+        participantRecords.push({ id: participantId, player_id: pid, display_name: displayName, participant_number: i + 1 });
+      }
 
-    // Regenerate seating with new participants
-    await generateGamesAndSeating(db, tournamentId, tournament.chief_judge_name, participantRecords);
+      // Regenerate seating with new participants
+      await generateGamesAndSeating(tx, tournamentId, tournament.chief_judge_name, participantRecords);
 
-    const updatedParticipants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [tournamentId]);
+      return await tx.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [tournamentId]);
+    });
+
     res.json({ success: true, participants: updatedParticipants });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка обновления участников' });
@@ -370,12 +376,16 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
     }
 
     if (tournament.status !== 'draft') {
-      return res.status(400).json({ error: 'Рассадка заблокирована после запуска турнира' });
+      return res.status(400).json({ error: 'Перестановка мест запрещена после запуска турнира' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    if (game.status !== 'planned') {
+      return res.status(400).json({ error: 'Перестановка мест запрещена после запуска игры' });
     }
 
     let seat1, seat2;
@@ -420,12 +430,16 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
 router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
-  const { roles, seats } = req.body; // roles array [{ seat_number: 1, role: 'citizen' }] or seats array
+  const { roles, seats } = req.body;
 
   try {
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    if (game.status !== 'planned') {
+      return res.status(400).json({ error: 'Изменение ролей запрещено после запуска игры' });
     }
 
     const items = roles || seats;
@@ -469,6 +483,10 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
+    if (game.status !== 'planned') {
+      return res.status(400).json({ error: 'Изменение судьи запрещено после запуска игры' });
+    }
+
     await db.run('UPDATE tournament_games SET judge_name = ? WHERE id = ?', [judge_name || null, gameId]);
 
     const updated = await db.get<any>('SELECT * FROM tournament_games WHERE id = ?', [gameId]);
@@ -478,7 +496,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
   }
 });
 
-// 10. POST /api/tournaments/:id/start - Launch tournament
+// 10. POST /api/tournaments/:id/start - Launch tournament (with safe validations)
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const tournamentId = req.params.id;
@@ -487,6 +505,45 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
       return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    // Validation 1: exactly 10 unique participants
+    const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    if (participants.length !== 10) {
+      return res.status(400).json({ error: 'Для запуска турнира требуется ровно 10 участников' });
+    }
+    const participantIds = new Set(participants.map((p: any) => p.player_id));
+    if (participantIds.size !== 10) {
+      return res.status(400).json({ error: 'Все 10 участников турнира должны быть уникальными' });
+    }
+
+    // Validation 2: exactly 10 games with game_number 1 to 10
+    const games = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY game_number ASC', [tournamentId]);
+    if (games.length !== 10) {
+      return res.status(400).json({ error: 'Для запуска турнира требуется ровно 10 игр' });
+    }
+    const gameNumbers = games.map((g: any) => g.game_number);
+    for (let i = 1; i <= 10; i++) {
+      if (!gameNumbers.includes(i)) {
+        return res.status(400).json({ error: `В турнире отсутствует игра №${i}` });
+      }
+    }
+
+    // Validation 3 & 4: in each game, exactly 10 unique participants and seats 1..10 without duplicates
+    for (const g of games) {
+      const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [g.id]);
+      if (seats.length !== 10) {
+        return res.status(400).json({ error: `В игра №${g.game_number} должно быть ровно 10 мест` });
+      }
+      const partIdsInGame = new Set(seats.map((s: any) => s.participant_id));
+      if (partIdsInGame.size !== 10) {
+        return res.status(400).json({ error: `В игра №${g.game_number} должны быть рассажены 10 уникальных участников` });
+      }
+      const seatNums = seats.map((s: any) => s.seat_number);
+      const uniqueSeatNums = new Set(seatNums);
+      if (uniqueSeatNums.size !== 10 || Math.min(...seatNums) !== 1 || Math.max(...seatNums) !== 10) {
+        return res.status(400).json({ error: `В игра №${g.game_number} места должны содержать ровно номера 1..10 без дубликатов` });
+      }
     }
 
     const now = new Date().toISOString();
@@ -505,9 +562,32 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
   const { id: tournamentId, gameId } = req.params;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    // Requirement: Game can be started ONLY if tournament.status === 'active'
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Запуск игры разрешён только в активном турнире (турнир находится в статусе черновика)' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    if (game.status !== 'planned') {
+      return res.status(400).json({ error: 'Игра уже была запущена или завершена' });
+    }
+
+    // Check if another game in this tournament is currently active
+    const activeGamesCount = await db.get<any>(
+      "SELECT COUNT(*) as cnt FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
+      [tournamentId, gameId]
+    );
+    if (activeGamesCount && activeGamesCount.cnt > 0) {
+      return res.status(400).json({ error: 'В турнире уже идет другая игра' });
     }
 
     const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ?', [gameId]);

@@ -827,21 +827,46 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       seatsListForLh.push({ seat_number: s.seat_number, role: s.role });
     }
 
-    let bestMoveSeats: number[] = [];
-    try {
-      bestMoveSeats = JSON.parse(g.best_move_seats_json || '[]');
-    } catch (_) {}
+    const gameBms = await db.all<any>(`SELECT * FROM tournament_game_best_moves WHERE game_id = ?`, [g.game_id]);
+    let bestMovesList = [];
+    
+    if (gameBms.length > 0) {
+      for (const bm of gameBms) {
+        let seat_numbers = [];
+        try { seat_numbers = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+        bestMovesList.push({
+          participant_id: bm.participant_id,
+          source: bm.source,
+          seat_numbers,
+        });
+      }
+    } else if (g.best_move_participant_id) {
+      let legacySeats = [];
+      try { legacySeats = JSON.parse(g.best_move_seats_json || '[]'); } catch (_) {}
+      bestMovesList.push({
+        participant_id: g.best_move_participant_id,
+        source: 'first_killed',
+        seat_numbers: legacySeats,
+      });
+    }
 
-    const { bonusPoints: gameLhBonus } = calculateBestMovePoints(bestMoveSeats, seatsListForLh);
+    const bmPointsMap = new Map<string, number>();
+    for (const bm of bestMovesList) {
+      const points = calculateBestMovePoints(bm.seat_numbers, seatsListForLh).bonusPoints;
+      bmPointsMap.set(bm.participant_id, (bmPointsMap.get(bm.participant_id) || 0) + points);
+    }
 
-    let hasBlackInBestMove = false;
-    for (const seatNum of bestMoveSeats) {
-      const targetSeat = seats.find((s) => s.seat_number === seatNum);
-      if (targetSeat) {
-        const targetRole = normalizeRole(targetSeat.role);
-        if (targetRole === 'mafia' || targetRole === 'don') {
-          hasBlackInBestMove = true;
-          break;
+    let hasBlackInFirstKilledBestMove = false;
+    const fkBestMove = bestMovesList.find(bm => bm.source === 'first_killed' && bm.participant_id === g.first_killed_participant_id);
+    if (fkBestMove) {
+      for (const seatNum of fkBestMove.seat_numbers) {
+        const targetSeat = seats.find((s) => s.seat_number === seatNum);
+        if (targetSeat) {
+          const targetRole = normalizeRole(targetSeat.role);
+          if (targetRole === 'mafia' || targetRole === 'don') {
+            hasBlackInFirstKilledBestMove = true;
+            break;
+          }
         }
       }
     }
@@ -876,7 +901,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       }
 
       const posPoints = roundToTwo(judgeBonus + protocolBonus);
-      const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
+      const bmPoints = roundToTwo(bmPointsMap.get(s.participant_id) || 0);
       const penPoints = roundToTwo(penalty);
 
       const playerRate = ciRatesMap.get(s.participant_id) || 0;
@@ -884,9 +909,9 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         isFirstKilled: g.first_killed_participant_id === s.participant_id,
         role: s.role,
         winnerTeam: g.winner_team,
-        bestMoveParticipantId: g.best_move_participant_id,
+        bestMoveParticipantId: fkBestMove ? fkBestMove.participant_id : null,
         participantId: s.participant_id,
-        hasBlackInBestMove,
+        hasBlackInBestMove: hasBlackInFirstKilledBestMove,
         playerRate,
       });
       const gameCi = ciResult.gameCi;
@@ -1107,10 +1132,9 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
   const gameDataList: Array<{
     game_id: string;
     game_number: number;
-    best_move_participant_id: string | null;
-    best_move_seats: number[];
     seats: Array<{ participant_id: string; seat_number: number; role: string | null }>;
     resultsMap: Map<string, any>;
+    bmPointsMap: Map<string, number>;
   }> = [];
 
   for (const g of completedGames) {
@@ -1127,18 +1151,41 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
       resultMap.set(r.participant_id, r);
     }
 
-    let best_move_seats: number[] = [];
-    try {
-      best_move_seats = JSON.parse(g.best_move_seats_json || '[]');
-    } catch (_) {}
+    const gameBms = await db.all<any>(`SELECT * FROM tournament_game_best_moves WHERE game_id = ?`, [g.game_id]);
+    let bestMovesList = [];
+    
+    if (gameBms.length > 0) {
+      for (const bm of gameBms) {
+        let seat_numbers = [];
+        try { seat_numbers = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+        bestMovesList.push({
+          participant_id: bm.participant_id,
+          source: bm.source,
+          seat_numbers,
+        });
+      }
+    } else if (g.best_move_participant_id) {
+      let legacySeats = [];
+      try { legacySeats = JSON.parse(g.best_move_seats_json || '[]'); } catch (_) {}
+      bestMovesList.push({
+        participant_id: g.best_move_participant_id,
+        source: 'first_killed',
+        seat_numbers: legacySeats,
+      });
+    }
+
+    const bmPointsMap = new Map<string, number>();
+    for (const bm of bestMovesList) {
+      const points = calculateBestMovePoints(bm.seat_numbers, seats).bonusPoints;
+      bmPointsMap.set(bm.participant_id, (bmPointsMap.get(bm.participant_id) || 0) + points);
+    }
 
     gameDataList.push({
       game_id: g.game_id,
       game_number: g.game_number,
-      best_move_participant_id: g.best_move_participant_id,
-      best_move_seats,
       seats,
       resultsMap: resultMap,
+      bmPointsMap,
     });
   }
 
@@ -1182,11 +1229,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
         const pb = Number(resRow?.protocol_bonus || 0);
         const pen = Number(resRow?.penalty_points || 0);
 
-        let bm = 0;
-        if (gData.best_move_participant_id === p.participant_id) {
-          const seatsListForLh = gData.seats.map((s) => ({ seat_number: s.seat_number, role: s.role }));
-          bm = calculateBestMovePoints(gData.best_move_seats, seatsListForLh).bonusPoints;
-        }
+        const bm = gData.bmPointsMap.get(p.participant_id) || 0;
 
         const gameNomPoints = roundToTwo(jb + pb + bm - pen);
 

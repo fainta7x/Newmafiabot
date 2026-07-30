@@ -173,6 +173,12 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     dbWrapper.sqlite.exec(migration4Sql);
   }
 
+  const migration5SqlPath = path.join(process.cwd(), 'drizzle', '0005_tournament_game_best_moves.sql');
+  if (fs.existsSync(migration5SqlPath)) {
+    const migration5Sql = fs.readFileSync(migration5SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration5Sql);
+  }
+
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');

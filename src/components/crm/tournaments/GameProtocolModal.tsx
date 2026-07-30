@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Users,
@@ -504,14 +504,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     cancelEditColorMark(participantId);
   };
 
-  // Calculate live Best Move Score
-  const bestMoveCalculation = useMemo(() => {
-    if (!protocol.best_move_seats || protocol.best_move_seats.length === 0) {
-      return { guessedBlacks: 0, bonusPoints: 0 };
-    }
-
+  // Calculate live Best Move Scores
+  const calculateGuessedBlacks = (seats: number[]) => {
     let guessedBlacks = 0;
-    for (const seatNum of protocol.best_move_seats) {
+    for (const seatNum of seats) {
       const p = playerResults.find((pr) => pr.seat_number === seatNum);
       if (p && p.role) {
         const lower = p.role.toLowerCase();
@@ -520,25 +516,47 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         }
       }
     }
-
     let bonusPoints = 0;
     if (guessedBlacks === 1) bonusPoints = 0.1;
     else if (guessedBlacks === 2) bonusPoints = 0.3;
     else if (guessedBlacks >= 3) bonusPoints = 0.6;
-
     return { guessedBlacks, bonusPoints };
-  }, [protocol.best_move_seats, playerResults]);
+  };
 
-  // Handle Best Move Seat Selection
-  const toggleBestMoveSeat = (seatNumber: number) => {
+  const getBestMoveForSource = (source: string) => {
+    return (protocol.best_moves || []).find(bm => bm.source === source);
+  };
+
+  const toggleBestMoveSeat = (source: 'first_killed' | 'zero_round_voted', participantId: string, seatNumber: number) => {
     setProtocol((prev) => {
-      const current = prev.best_move_seats || [];
-      if (current.includes(seatNumber)) {
-        return { ...prev, best_move_seats: current.filter((s) => s !== seatNumber) };
-      } else {
-        if (current.length >= 3) return prev; // max 3
-        return { ...prev, best_move_seats: [...current, seatNumber].sort((a, b) => a - b) };
+      const moves = [...(prev.best_moves || [])];
+      const existingIdx = moves.findIndex(bm => bm.source === source);
+      
+      let seats: number[] = [];
+      if (existingIdx >= 0) {
+        seats = [...moves[existingIdx].seat_numbers];
       }
+
+      if (seats.includes(seatNumber)) {
+        seats = seats.filter((s) => s !== seatNumber);
+      } else {
+        if (seats.length >= 3) return prev; // max 3
+        seats = [...seats, seatNumber].sort((a, b) => a - b);
+      }
+
+      if (existingIdx >= 0) {
+        if (seats.length === 0) {
+           moves.splice(existingIdx, 1);
+        } else {
+           moves[existingIdx] = { ...moves[existingIdx], participant_id: participantId, seat_numbers: seats };
+        }
+      } else {
+        if (seats.length > 0) {
+          moves.push({ participant_id: participantId, source, seat_numbers: seats });
+        }
+      }
+
+      return { ...prev, best_moves: moves };
     });
   };
 
@@ -584,18 +602,26 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
     }
 
-    if (protocol.best_move_seats && protocol.best_move_seats.length > 0) {
-      if (!protocol.best_move_participant_id) {
-        return 'Выбраны цифры ЛХ, но не указан игрок, который сделал ЛХ';
-      }
-    }
-    if (protocol.best_move_participant_id) {
-      if (!protocol.best_move_seats || protocol.best_move_seats.length === 0) {
-        return 'Указан игрок ЛХ, но не выбраны цифры ЛХ';
-      }
-      const lhPlayer = playerResults.find((p) => p.participant_id === protocol.best_move_participant_id);
-      if (lhPlayer && !['killed', 'voted_zero_round'].includes(lhPlayer.exit_type)) {
-        return 'Получатель ЛХ должен покинуть игру со способом "Убит" или "Заголосован в 0 круг"';
+    if (protocol.best_moves && protocol.best_moves.length > 0) {
+      const seenParticipants = new Set<string>();
+      const seenSources = new Set<string>();
+      for (const bm of protocol.best_moves) {
+        if (seenParticipants.has(bm.participant_id)) return 'Один участник не может иметь два ЛХ';
+        seenParticipants.add(bm.participant_id);
+
+        if (seenSources.has(bm.source)) return 'Источник ЛХ не может повторяться';
+        seenSources.add(bm.source);
+
+        if (bm.source === 'first_killed' && bm.participant_id !== protocol.first_killed_participant_id) {
+          return 'Для ЛХ первого убитого участник обязан совпадать с первоубиенным';
+        }
+        if (bm.source === 'zero_round_voted' && bm.participant_id !== protocol.zero_round_voted_participant_id) {
+          return 'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг';
+        }
+
+        if (!bm.seat_numbers || bm.seat_numbers.length === 0) {
+          return 'Для ЛХ необходимо выбрать от 1 до 3 цифр';
+        }
       }
     }
 
@@ -1555,62 +1581,88 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   </div>
 
                   {/* Best Move Section */}
-                  <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                      <div className="flex items-center space-x-2">
-                        <Award className="w-4 h-4 text-amber-400" />
-                        <h3 className="text-xs font-bold text-slate-100">Лучший ход (ЛХ)</h3>
-                      </div>
-                      <div className="text-xs font-medium text-amber-400">
-                        Угадано чёрных: {bestMoveCalculation.guessedBlacks} (+{bestMoveCalculation.bonusPoints} б.)
-                      </div>
-                    </div>
+                  <div className="space-y-4">
+                    {protocol.first_killed_participant_id && (
+                      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                          <div className="flex items-center space-x-2">
+                            <Award className="w-4 h-4 text-amber-400" />
+                            <h3 className="text-xs font-bold text-slate-100">ЛХ Первого убитого</h3>
+                          </div>
+                          <div className="text-xs font-medium text-amber-400">
+                            Угадано: {calculateGuessedBlacks(getBestMoveForSource('first_killed')?.seat_numbers || []).guessedBlacks} (+{calculateGuessedBlacks(getBestMoveForSource('first_killed')?.seat_numbers || []).bonusPoints} б.)
+                          </div>
+                        </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <label className="text-slate-400 block mb-1">Игрок, сделавший ЛХ:</label>
-                        <select
-                          disabled={protocol.status === 'completed'}
-                          value={protocol.best_move_participant_id || ''}
-                          onChange={(e) => {
-                            const val = e.target.value || null;
-                            setProtocol((prev) => ({ ...prev, best_move_participant_id: val }));
-                          }}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-100 focus:border-amber-500 focus:outline-none"
-                        >
-                          <option value="">Не выбрано</option>
-                          {playerResults.map((p) => (
-                            <option key={p.participant_id} value={p.participant_id}>
-                              #{p.seat_number} - {p.display_name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-slate-400 block mb-1">Выберите до 3 цифр участников:</label>
-                        <div className="flex flex-wrap gap-1.5 pt-0.5">
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                            const isSelected = (protocol.best_move_seats || []).includes(num);
-                            return (
-                              <button
-                                key={num}
-                                type="button"
-                                disabled={protocol.status === 'completed'}
-                                onClick={() => toggleBestMoveSeat(num)}
-                                className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
-                                  isSelected
-                                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                                    : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
-                                }`}
-                              >
-                                #{num}
-                              </button>
-                            );
-                          })}
+                        <div>
+                          <label className="text-slate-400 text-xs block mb-1">Выберите до 3 цифр:</label>
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                              const isSelected = (getBestMoveForSource('first_killed')?.seat_numbers || []).includes(num);
+                              return (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() => toggleBestMoveSeat('first_killed', protocol.first_killed_participant_id!, num)}
+                                  className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
+                                    isSelected
+                                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                                  }`}
+                                >
+                                  #{num}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {protocol.zero_round_voted_participant_id && (
+                      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                          <div className="flex items-center space-x-2">
+                            <Award className="w-4 h-4 text-amber-400" />
+                            <h3 className="text-xs font-bold text-slate-100">ЛХ Заголосованного в 0 круг</h3>
+                          </div>
+                          <div className="text-xs font-medium text-amber-400">
+                            Угадано: {calculateGuessedBlacks(getBestMoveForSource('zero_round_voted')?.seat_numbers || []).guessedBlacks} (+{calculateGuessedBlacks(getBestMoveForSource('zero_round_voted')?.seat_numbers || []).bonusPoints} б.)
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-slate-400 text-xs block mb-1">Выберите до 3 цифр:</label>
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                              const isSelected = (getBestMoveForSource('zero_round_voted')?.seat_numbers || []).includes(num);
+                              return (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() => toggleBestMoveSeat('zero_round_voted', protocol.zero_round_voted_participant_id!, num)}
+                                  className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
+                                    isSelected
+                                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                                  }`}
+                                >
+                                  #{num}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!protocol.first_killed_participant_id && !protocol.zero_round_voted_participant_id && (
+                      <div className="text-xs text-slate-500 italic py-2">
+                        Выберите первоубиенного игрока или заголосованного в нулевой круг для ввода ЛХ.
+                      </div>
+                    )}
                   </div>
 
                   {/* Night Shots Journal */}
@@ -2044,9 +2096,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   {protocol.winner_team === 'red' ? 'Красные' : protocol.winner_team === 'black' ? 'Чёрные' : 'Не выбран'}
                 </strong>
               </p>
-              <p>
-                Лучший ход: {protocol.best_move_seats?.length ? `#${protocol.best_move_seats.join(', #')}` : 'Не указан'} (+{bestMoveCalculation.bonusPoints} б.)
-              </p>
+              {protocol.best_moves && protocol.best_moves.map(bm => {
+                const bmInfo = calculateGuessedBlacks(bm.seat_numbers);
+                const title = bm.source === 'first_killed' ? 'ЛХ Первого убитого' : 'ЛХ Заголосованного в 0 круг';
+                return (
+                  <p key={bm.source}>
+                    {title}: {bm.seat_numbers.length ? `#${bm.seat_numbers.join(', #')}` : 'Не указан'} (+{bmInfo.bonusPoints} б.)
+                  </p>
+                );
+              })}
+              {(!protocol.best_moves || protocol.best_moves.length === 0) && (
+                <p>Лучший ход: Не указан</p>
+              )}
               <p className="text-slate-400 text-xs">
                 После завершения игра получит статус «Завершена», и станет доступен запуск следующей игры турнира.
               </p>

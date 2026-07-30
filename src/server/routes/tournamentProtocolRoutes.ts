@@ -97,37 +97,13 @@ function validateFirstKilled(
   return null;
 }
 
-function validateBestMove(
-  bestMoveSeats: any,
-  bestMoveParticipantId: string | null | undefined,
+function validateBestMoves(
+  bestMoves: any[],
   firstKilledParticipantId: string | null | undefined,
   zeroRoundVotedParticipantId: string | null | undefined,
   allParticipantIds: string[],
   playerResults?: any[]
 ): string | null {
-  const seatsArr = Array.isArray(bestMoveSeats) ? bestMoveSeats : [];
-
-  if (bestMoveSeats !== undefined && bestMoveSeats !== null) {
-    if (!Array.isArray(bestMoveSeats)) {
-      return 'ЛХ должен быть массивом номеров мест';
-    }
-    if (bestMoveSeats.length > 3) {
-      return 'В ЛХ нельзя указать больше 3 номеров';
-    }
-    const seen = new Set<number>();
-    for (const seatNum of bestMoveSeats) {
-      const num = Number(seatNum);
-      if (!Number.isInteger(num) || num < 1 || num > 10) {
-        return 'Все номера мест в ЛХ должны быть в диапазоне от 1 до 10';
-      }
-      if (seen.has(num)) {
-        return 'Номера мест в ЛХ не могут повторяться';
-      }
-      seen.add(num);
-    }
-  }
-
-  // first_killed and zero_round_voted cannot be the same player
   if (
     firstKilledParticipantId &&
     zeroRoundVotedParticipantId &&
@@ -136,7 +112,6 @@ function validateBestMove(
     return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
   }
 
-  // Validate first_killed_participant_id independently
   if (firstKilledParticipantId) {
     if (!allParticipantIds.includes(firstKilledParticipantId)) {
       return 'Первоубиенный игрок не является участником этой игры';
@@ -149,7 +124,6 @@ function validateBestMove(
     }
   }
 
-  // Validate zero_round_voted_participant_id independently
   if (zeroRoundVotedParticipantId) {
     if (!allParticipantIds.includes(zeroRoundVotedParticipantId)) {
       return 'Заголосованный в нулевой круг игрок не является участником этой игры';
@@ -162,26 +136,54 @@ function validateBestMove(
     }
   }
 
-  // Check relationship between seats and recipient
-  if (seatsArr.length > 0 && !bestMoveParticipantId) {
-    return 'Если указаны номера лучшего хода, необходимо выбрать получателя ЛХ';
-  }
+  if (!bestMoves) return null;
+  if (!Array.isArray(bestMoves)) return 'best_moves должен быть массивом';
+  if (bestMoves.length > 2) return 'В игре не может быть более двух ЛХ';
 
-  if (!bestMoveParticipantId && seatsArr.length > 0) {
-    return 'Без получателя ЛХ массив номеров обязан быть пустым';
-  }
+  const seenSources = new Set<string>();
+  const seenParticipants = new Set<string>();
 
-  // Validate bestMoveParticipantId if present
-  if (bestMoveParticipantId) {
-    if (!allParticipantIds.includes(bestMoveParticipantId)) {
-      return 'Получатель ЛХ не является участником этой игры';
+  for (const bm of bestMoves) {
+    if (bm.source !== 'first_killed' && bm.source !== 'zero_round_voted') {
+      return 'Недопустимый источник ЛХ';
     }
 
-    const isFirstKilled = Boolean(firstKilledParticipantId && bestMoveParticipantId === firstKilledParticipantId);
-    const isZeroRoundVoted = Boolean(zeroRoundVotedParticipantId && bestMoveParticipantId === zeroRoundVotedParticipantId);
+    if (seenSources.has(bm.source)) {
+      return 'Источник ЛХ не может повторяться';
+    }
+    seenSources.add(bm.source);
 
-    if (!isFirstKilled && !isZeroRoundVoted) {
-      return 'Получателем лучшего хода может быть только первоубиенный игрок или игрок, заголосованный в нулевой круг';
+    if (seenParticipants.has(bm.participant_id)) {
+      return 'Один участник не может иметь два ЛХ';
+    }
+    seenParticipants.add(bm.participant_id);
+
+    if (bm.source === 'first_killed' && bm.participant_id !== firstKilledParticipantId) {
+      return 'Для ЛХ первого убитого участник обязан совпадать с first_killed_participant_id';
+    }
+
+    if (bm.source === 'zero_round_voted' && bm.participant_id !== zeroRoundVotedParticipantId) {
+      return 'Для ЛХ выбывшего в нулевом круге участник обязан совпадать с zero_round_voted_participant_id';
+    }
+
+    if (!Array.isArray(bm.seat_numbers)) {
+      return 'ЛХ должен содержать массив номеров мест (seat_numbers)';
+    }
+
+    if (bm.seat_numbers.length > 3) {
+      return 'В ЛХ нельзя указать больше 3 номеров';
+    }
+
+    const seenSeats = new Set<number>();
+    for (const seatNum of bm.seat_numbers) {
+      const num = Number(seatNum);
+      if (!Number.isInteger(num) || num < 1 || num > 10) {
+        return 'Все номера мест в ЛХ должны быть целыми числами от 1 до 10';
+      }
+      if (seenSeats.has(num)) {
+        return 'Номера мест в ЛХ не могут повторяться';
+      }
+      seenSeats.add(num);
     }
   }
 
@@ -447,6 +449,33 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 
       const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, seats);
 
+      const bmRecords = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+      let best_moves: any[] = [];
+      
+      if (bmRecords.length > 0) {
+        best_moves = bmRecords.map(bm => {
+          let bmSeats = [];
+          try { bmSeats = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+          const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bmSeats, seats);
+          return {
+            participant_id: bm.participant_id,
+            source: bm.source,
+            seat_numbers: bmSeats,
+            guessed_blacks: guessedBlacks,
+            bonus_points: bonusPoints
+          };
+        });
+      } else if (protocolRecord.best_move_participant_id) {
+        const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bestMoveSeats, seats);
+        best_moves.push({
+          participant_id: protocolRecord.best_move_participant_id,
+          source: protocolRecord.best_move_source || 'first_killed',
+          seat_numbers: bestMoveSeats,
+          guessed_blacks: guessedBlacks,
+          bonus_points: bonusPoints
+        });
+      }
+
       protocolData = {
         id: protocolRecord.id,
         game_id: gameId,
@@ -457,6 +486,7 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         best_move_participant_id: protocolRecord.best_move_participant_id,
         best_move_source: protocolRecord.best_move_source,
         best_move_seats: bestMoveSeats,
+        best_moves,
         votes,
         shots,
         replacement,
@@ -476,6 +506,7 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         best_move_participant_id: null,
         best_move_source: null,
         best_move_seats: [],
+        best_moves: [],
         votes: [],
         shots: [],
         replacement: null,
@@ -545,9 +576,18 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: votesErr });
     }
 
-    const bestMoveErr = validateBestMove(
-      protocol?.best_move_seats,
-      protocol?.best_move_participant_id,
+    let bestMoves = protocol?.best_moves;
+    if (bestMoves === undefined && protocol?.best_move_participant_id) {
+      bestMoves = [{
+        participant_id: protocol.best_move_participant_id,
+        source: protocol.best_move_participant_id === protocol.first_killed_participant_id ? 'first_killed' : 'zero_round_voted',
+        seat_numbers: protocol.best_move_seats || []
+      }];
+    }
+    if (!bestMoves) bestMoves = [];
+
+    const bestMoveErr = validateBestMoves(
+      bestMoves,
       protocol?.first_killed_participant_id,
       protocol?.zero_round_voted_participant_id,
       allParticipantIds,
@@ -565,16 +605,6 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     );
     if (fkErr) {
       return res.status(400).json({ error: fkErr });
-    }
-
-    // Determine best_move_source
-    let bestMoveSource: string | null = null;
-    if (protocol?.best_move_participant_id) {
-      if (protocol.best_move_participant_id === protocol.first_killed_participant_id) {
-        bestMoveSource = 'first_killed';
-      } else if (protocol.best_move_participant_id === protocol.zero_round_voted_participant_id) {
-        bestMoveSource = 'zero_round_voted';
-      }
     }
 
     const now = new Date().toISOString();
@@ -598,9 +628,9 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           protocol?.winner_team || null,
           protocol?.first_killed_participant_id || null,
           protocol?.zero_round_voted_participant_id || null,
-          protocol?.best_move_participant_id || null,
-          bestMoveSource,
-          JSON.stringify(protocol?.best_move_seats || []),
+          null, // deprecated
+          null, // deprecated
+          '[]', // deprecated
           JSON.stringify(protocol?.votes || []),
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
@@ -609,6 +639,14 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           now,
         ]
       );
+
+      await tx.run('DELETE FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+      for (const bm of bestMoves) {
+        await tx.run(
+          `INSERT INTO tournament_game_best_moves (id, game_id, participant_id, source, seat_numbers_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), gameId, bm.participant_id, bm.source, JSON.stringify(bm.seat_numbers || []), now, now]
+        );
+      }
 
       // Save player results
       if (Array.isArray(player_results)) {
@@ -695,6 +733,20 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     try { bestMoveSeats = JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch (_) {}
     const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, fullSeats);
 
+    const bmRecords = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    const responseBestMoves = bmRecords.map(bm => {
+      let bmSeats = [];
+      try { bmSeats = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+      const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bmSeats, fullSeats);
+      return {
+        participant_id: bm.participant_id,
+        source: bm.source,
+        seat_numbers: bmSeats,
+        guessed_blacks: guessedBlacks,
+        bonus_points: bonusPoints
+      };
+    });
+
     res.json({
       protocol: {
         id: savedProtocol.id,
@@ -706,6 +758,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         best_move_participant_id: savedProtocol.best_move_participant_id,
         best_move_source: savedProtocol.best_move_source,
         best_move_seats: bestMoveSeats,
+        best_moves: responseBestMoves,
         votes: JSON.parse(savedProtocol.votes_json || '[]'),
         shots: JSON.parse(savedProtocol.shots_json || '[]'),
         replacement: savedProtocol.replacement_json ? JSON.parse(savedProtocol.replacement_json) : null,
@@ -804,6 +857,20 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       try { bestMoveSeats = JSON.parse(existingProtocol.best_move_seats_json || '[]'); } catch (_) {}
       const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, fullSeats);
 
+      const bmRecords1 = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+      const responseBestMoves1 = bmRecords1.map(bm => {
+        let bmSeats = [];
+        try { bmSeats = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+        const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bmSeats, fullSeats);
+        return {
+          participant_id: bm.participant_id,
+          source: bm.source,
+          seat_numbers: bmSeats,
+          guessed_blacks: guessedBlacks,
+          bonus_points: bonusPoints
+        };
+      });
+
       return res.json({
         protocol: {
           id: existingProtocol.id,
@@ -815,6 +882,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           best_move_participant_id: existingProtocol.best_move_participant_id,
           best_move_source: existingProtocol.best_move_source,
           best_move_seats: bestMoveSeats,
+          best_moves: responseBestMoves1,
           votes: JSON.parse(existingProtocol.votes_json || '[]'),
           shots: JSON.parse(existingProtocol.shots_json || '[]'),
           replacement: existingProtocol.replacement_json ? JSON.parse(existingProtocol.replacement_json) : null,
@@ -857,9 +925,18 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: votesErr });
     }
 
-    const bestMoveErr = validateBestMove(
-      protocol?.best_move_seats,
-      protocol?.best_move_participant_id,
+    let bestMoves = protocol?.best_moves;
+    if (bestMoves === undefined && protocol?.best_move_participant_id) {
+      bestMoves = [{
+        participant_id: protocol.best_move_participant_id,
+        source: protocol.best_move_participant_id === protocol.first_killed_participant_id ? 'first_killed' : 'zero_round_voted',
+        seat_numbers: protocol.best_move_seats || []
+      }];
+    }
+    if (!bestMoves) bestMoves = [];
+
+    const bestMoveErr = validateBestMoves(
+      bestMoves,
       protocol?.first_killed_participant_id,
       protocol?.zero_round_voted_participant_id,
       allParticipantIds,
@@ -877,15 +954,6 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     );
     if (fkErr) {
       return res.status(400).json({ error: fkErr });
-    }
-
-    let bestMoveSource: string | null = null;
-    if (protocol?.best_move_participant_id) {
-      if (protocol.best_move_participant_id === protocol.first_killed_participant_id) {
-        bestMoveSource = 'first_killed';
-      } else if (protocol.best_move_participant_id === protocol.zero_round_voted_participant_id) {
-        bestMoveSource = 'zero_round_voted';
-      }
     }
 
     const now = new Date().toISOString();
@@ -909,9 +977,9 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           protocol.winner_team,
           protocol?.first_killed_participant_id || null,
           protocol?.zero_round_voted_participant_id || null,
-          protocol?.best_move_participant_id || null,
-          bestMoveSource,
-          JSON.stringify(protocol?.best_move_seats || []),
+          null, // deprecated
+          null, // deprecated
+          '[]', // deprecated
           JSON.stringify(protocol?.votes || []),
           JSON.stringify(protocol?.shots || []),
           protocol?.replacement ? JSON.stringify(protocol.replacement) : null,
@@ -921,6 +989,14 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           now,
         ]
       );
+
+      await tx.run('DELETE FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+      for (const bm of bestMoves) {
+        await tx.run(
+          `INSERT INTO tournament_game_best_moves (id, game_id, participant_id, source, seat_numbers_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), gameId, bm.participant_id, bm.source, JSON.stringify(bm.seat_numbers || []), now, now]
+        );
+      }
 
       // Save player results
       if (Array.isArray(player_results)) {
@@ -1009,6 +1085,20 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     try { bestMoveSeats = JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch (_) {}
     const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, fullSeats);
 
+    const bmRecords2 = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    const responseBestMoves2 = bmRecords2.map(bm => {
+      let bmSeats = [];
+      try { bmSeats = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+      const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bmSeats, fullSeats);
+      return {
+        participant_id: bm.participant_id,
+        source: bm.source,
+        seat_numbers: bmSeats,
+        guessed_blacks: guessedBlacks,
+        bonus_points: bonusPoints
+      };
+    });
+
     res.json({
       protocol: {
         id: savedProtocol.id,
@@ -1020,6 +1110,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         best_move_participant_id: savedProtocol.best_move_participant_id,
         best_move_source: savedProtocol.best_move_source,
         best_move_seats: bestMoveSeats,
+        best_moves: responseBestMoves2,
         votes: JSON.parse(savedProtocol.votes_json || '[]'),
         shots: JSON.parse(savedProtocol.shots_json || '[]'),
         replacement: savedProtocol.replacement_json ? JSON.parse(savedProtocol.replacement_json) : null,

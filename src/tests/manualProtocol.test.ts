@@ -187,7 +187,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.protocol.best_move_seats).toEqual(seatsArr);
+      expect(res.body.protocol.best_moves[0].seat_numbers).toEqual(seatsArr);
     }
   });
 
@@ -204,7 +204,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [1, 2, 3, 4],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive'
+        })),
       });
 
     expect(res.status).toBe(400);
@@ -224,7 +227,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [2, 2, 5],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive'
+        })),
       });
 
     expect(res.status).toBe(400);
@@ -251,8 +257,8 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.protocol.best_move_participant_id).toBe(firstKilledId);
-    expect(res.body.protocol.best_move_source).toBe('first_killed');
+    expect(res.body.protocol.best_moves[0].participant_id).toBe(firstKilledId);
+    expect(res.body.protocol.best_moves[0].source).toBe('first_killed');
   });
 
   // Test 7: Zero round voted participant can receive Best Move
@@ -275,8 +281,8 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.protocol.best_move_participant_id).toBe(votedId);
-    expect(res.body.protocol.best_move_source).toBe('zero_round_voted');
+    expect(res.body.protocol.best_moves[0].participant_id).toBe(votedId);
+    expect(res.body.protocol.best_moves[0].source).toBe('zero_round_voted');
   });
 
   // Test 8: Other player cannot receive Best Move
@@ -300,7 +306,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.toLowerCase()).toContain('первоубиенный');
+    expect(res.body.error).toContain('совпадать');
   });
 
   // Test 9, 10, 11: Best move scores calculation (1 black -> 0.1, 2 black -> 0.3, 3 black -> 0.6)
@@ -324,7 +330,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
         })),
       });
     expect(res1.status).toBe(200);
-    expect(res1.body.protocol.best_move_score).toBe(0.1);
+    expect(res1.body.protocol.best_moves[0].bonus_points).toBe(0.1);
 
     // 2 guessed black (Seats 8, 9)
     const res2 = await request(app)
@@ -342,7 +348,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
         })),
       });
     expect(res2.status).toBe(200);
-    expect(res2.body.protocol.best_move_score).toBe(0.3);
+    expect(res2.body.protocol.best_moves[0].bonus_points).toBe(0.3);
 
     // 3 guessed black (Seats 8, 9, 10)
     const res3 = await request(app)
@@ -360,7 +366,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
         })),
       });
     expect(res3.status).toBe(200);
-    expect(res3.body.protocol.best_move_score).toBe(0.6);
+    expect(res3.body.protocol.best_moves[0].bonus_points).toBe(0.6);
   });
 
   // Test 12: Color protocol of killed player can be empty
@@ -534,17 +540,27 @@ describe('Manual Mobile Protocol Test Suite', () => {
   it('19. Validates LH numbers and recipient exit_type', async () => {
     const p1Id = game1Seats[0].participant_id;
 
-    // LH numbers provided but no recipient
+    // LH numbers provided but empty participant
     const noRecipientRes = await request(app)
       .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
       .set('Cookie', organizerCookie)
       .send({
-        protocol: { best_move_seats: [1, 2, 3], best_move_participant_id: null },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        protocol: {
+          first_killed_participant_id: p1Id,
+          best_moves: [{
+             participant_id: '',
+             source: 'first_killed',
+             seat_numbers: [1, 2, 3]
+          }]
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === p1Id ? 'killed' : 'alive'
+        })),
       });
 
     expect(noRecipientRes.status).toBe(400);
-    expect(noRecipientRes.body.error).toContain('необходимо выбрать получателя ЛХ');
+    expect(noRecipientRes.body.error).toContain('Для ЛХ первого убитого участник обязан совпадать');
 
     // LH recipient is alive
     const aliveLHRes = await request(app)
@@ -553,8 +569,11 @@ describe('Manual Mobile Protocol Test Suite', () => {
       .send({
         protocol: {
           first_killed_participant_id: p1Id,
-          best_move_participant_id: p1Id,
-          best_move_seats: [1, 2, 3],
+          best_moves: [{
+             participant_id: p1Id,
+             source: 'first_killed',
+             seat_numbers: [1, 2, 3]
+          }]
         },
         player_results: game1Seats.map((s) => ({
           participant_id: s.participant_id,
@@ -563,7 +582,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(aliveLHRes.status).toBe(400);
-    expect(aliveLHRes.body.error).toContain('должен иметь тип ухода');
+    expect(aliveLHRes.body.error).toContain('Первоубиенный игрок должен иметь тип ухода');
   });
 
   // Test 20: Missing player_results on PUT or POST complete returns 400
@@ -734,5 +753,86 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(res.body.player_results[0].protocol_bonus).toBe(0.5);
     expect(res.body.player_results[0].judge_bonus).toBe(0.25);
     expect(res.body.player_results[0].penalty_points).toBe(0.5);
+  });
+
+  // BEST MOVES TESTS
+  describe('Multiple Best Moves tests', () => {
+    let basePayload: any;
+    beforeEach(() => {
+      basePayload = {
+        protocol: {
+          winner_team: 'red',
+          first_killed_participant_id: game1Seats[0].participant_id, // Seat 1, citizen
+          zero_round_voted_participant_id: game1Seats[1].participant_id, // Seat 2, citizen
+          shots: [{ night_number: 1, target_seat: 1, result: 'killed' }],
+          best_moves: []
+        },
+        player_results: game1Seats.map((s, idx) => ({
+          participant_id: s.participant_id,
+          exit_type: idx === 0 ? 'killed' : (idx === 1 ? 'voted_zero_round' : 'alive'),
+          exit_order: idx === 0 ? 1 : (idx === 1 ? 2 : null)
+        }))
+      };
+    });
+
+    it('should save two independent best moves', async () => {
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [8, 9, 10] }, // Guessed 3
+        { participant_id: game1Seats[1].participant_id, source: 'zero_round_voted', seat_numbers: [8, 2] } // Guessed 1
+      ];
+
+      const compRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(compRes.status).toBe(200);
+
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      expect(dbBms.length).toBe(2);
+
+      const standings = await request(app).get(`/api/tournaments/${tournamentId}/standings`).set('Cookie', organizerCookie);
+      const fkPlayerStats = standings.body.standings.find((s: any) => s.participant_id === game1Seats[0].participant_id);
+      const zrPlayerStats = standings.body.standings.find((s: any) => s.participant_id === game1Seats[1].participant_id);
+
+      expect(fkPlayerStats.best_move_points).toBe(0.6); // Guessed 3 (8,9,10)
+      expect(zrPlayerStats.best_move_points).toBe(0.1); // Guessed 1 (8)
+    });
+
+    it('should validate correctly that best_moves has max 2 elements', async () => {
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [8] },
+        { participant_id: game1Seats[1].participant_id, source: 'zero_round_voted', seat_numbers: [9] },
+        { participant_id: game1Seats[2].participant_id, source: 'first_killed', seat_numbers: [10] }
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('В игре не может быть более двух ЛХ');
+    });
+
+    it('should fall back to legacy best_move_participant_id if best_moves is undefined', async () => {
+      delete basePayload.protocol.best_moves;
+      basePayload.protocol.best_move_participant_id = game1Seats[0].participant_id;
+      basePayload.protocol.best_move_seats = [8, 9];
+
+      const compRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(compRes.status).toBe(200);
+
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      expect(dbBms.length).toBe(1);
+      expect(dbBms[0].participant_id).toBe(game1Seats[0].participant_id);
+      expect(JSON.parse(dbBms[0].seat_numbers_json)).toEqual([8, 9]);
+
+      const getRes = await request(app).get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie);
+      expect(getRes.body.protocol.best_moves.length).toBe(1);
+      expect(getRes.body.protocol.best_moves[0].participant_id).toBe(game1Seats[0].participant_id);
+      expect(getRes.body.protocol.best_moves[0].seat_numbers).toEqual([8, 9]);
+    });
   });
 });

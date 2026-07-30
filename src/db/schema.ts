@@ -242,6 +242,19 @@ export const tournamentGamePlayerResults = sqliteTable('tournament_game_player_r
   gameParticipantUnique: uniqueIndex('idx_tgpr_game_participant_unique').on(table.game_id, table.participant_id),
 }));
 
+export const tournamentGameBestMoves = sqliteTable('tournament_game_best_moves', {
+  id: text('id').primaryKey(),
+  game_id: text('game_id').notNull().references(() => tournamentGames.id, { onDelete: 'cascade' }),
+  participant_id: text('participant_id').notNull().references(() => tournamentParticipants.id, { onDelete: 'cascade' }),
+  source: text('source').notNull(), // first_killed, zero_round_voted
+  seat_numbers_json: text('seat_numbers_json').notNull().default('[]'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => ({
+  gameSourceUnique: uniqueIndex('idx_tgbm_game_source_unique').on(table.game_id, table.source),
+  gameParticipantUnique: uniqueIndex('idx_tgbm_game_participant_unique').on(table.game_id, table.participant_id),
+}));
+
 export const tournamentFinalResolutions = sqliteTable('tournament_final_resolutions', {
   id: text('id').primaryKey(),
   tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),

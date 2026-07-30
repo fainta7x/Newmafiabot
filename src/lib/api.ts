@@ -284,6 +284,14 @@ export interface ReplacementData {
   reason?: string | null;
 }
 
+export interface BestMoveData {
+  participant_id: string;
+  source: 'first_killed' | 'zero_round_voted';
+  seat_numbers: number[];
+  guessed_blacks?: number;
+  bonus_points?: number;
+}
+
 export interface TournamentGameProtocolData {
   id?: string;
   game_id: string;
@@ -291,9 +299,13 @@ export interface TournamentGameProtocolData {
   winner_team: 'red' | 'black' | null;
   first_killed_participant_id: string | null;
   zero_round_voted_participant_id: string | null;
+  /** @deprecated */
   best_move_participant_id: string | null;
+  /** @deprecated */
   best_move_source: 'first_killed' | 'zero_round_voted' | null;
+  /** @deprecated */
   best_move_seats: number[];
+  best_moves?: BestMoveData[];
   votes: VotingRound[];
   shots: ShotEntry[];
   replacement: ReplacementData | null;

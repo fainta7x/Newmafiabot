@@ -958,4 +958,84 @@ describe('Manual Mobile Protocol Test Suite', () => {
       expect(fkPlayerStats.best_move_points).toBe(0.6); // Not 1.2
     });
   });
+
+  // Night Shots Validations
+  it('28. Rejects duplicate night numbers', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          shots: [
+            { night_number: 1, target_seat: 5, result: 'killed' },
+            { night_number: 1, target_seat: 6, result: 'miss' }
+          ]
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' }))
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('подряд');
+  });
+
+  it('29. Rejects gap in night numbers', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          shots: [
+            { night_number: 1, target_seat: 5, result: 'killed' },
+            { night_number: 3, target_seat: 6, result: 'miss' }
+          ]
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' }))
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('подряд');
+  });
+
+  it('30. Rejects invalid target seat', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          shots: [
+            { night_number: 1, target_seat: 15, result: 'killed' }
+          ]
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' }))
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('от 1 до 10');
+  });
+
+  it('31. Rejects invalid result', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          shots: [
+            { night_number: 1, target_seat: 5, result: 'unknown_result' }
+          ]
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' }))
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Недопустимый результат');
+  });
+
+  it('32. Accepts empty shots array', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          shots: []
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' }))
+      });
+    expect(res.status).toBe(200);
+  });
 });

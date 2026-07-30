@@ -306,6 +306,42 @@ function validatePlayerResults(
   return null;
 }
 
+function validateShots(shots: any): string | null {
+  if (shots === undefined || shots === null) return null;
+  if (!Array.isArray(shots)) {
+    return 'Ночной журнал (shots) должен быть массивом';
+  }
+
+  for (let i = 0; i < shots.length; i++) {
+    const s = shots[i];
+    if (!s || typeof s !== 'object') {
+      return 'Неверный формат записи в ночном журнале';
+    }
+
+    if (s.night_number === undefined || s.night_number === null) {
+      return 'Номер ночи обязателен';
+    }
+    const nn = Number(s.night_number);
+    if (!Number.isInteger(nn) || nn <= 0) {
+      return 'Номер ночи должен быть положительным целым числом';
+    }
+    if (nn !== i + 1) {
+      return 'Номера ночей должны идти подряд от 1 до N и не повторяться';
+    }
+
+    const ts = Number(s.target_seat);
+    if (!Number.isInteger(ts) || ts < 1 || ts > 10) {
+      return 'Номер цели должен быть целым числом от 1 до 10';
+    }
+
+    if (!['killed', 'miss', 'agreement_failed'].includes(s.result)) {
+      return 'Недопустимый результат стрельбы. Возможные значения: killed, miss, agreement_failed';
+    }
+  }
+
+  return null;
+}
+
 function validateVotes(votes: any, isComplete: boolean = false): string | null {
   if (votes === undefined || votes === null) return null;
   if (!Array.isArray(votes)) {
@@ -586,6 +622,11 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     const votesErr = validateVotes(protocol?.votes, false);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
+    }
+
+    const shotsErr = validateShots(protocol?.shots);
+    if (shotsErr) {
+      return res.status(400).json({ error: shotsErr });
     }
 
     let bestMoves = protocol?.best_moves;
@@ -935,6 +976,11 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     const votesErr = validateVotes(protocol?.votes, true);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
+    }
+
+    const shotsErr = validateShots(protocol?.shots);
+    if (shotsErr) {
+      return res.status(400).json({ error: shotsErr });
     }
 
     let bestMoves = protocol?.best_moves;

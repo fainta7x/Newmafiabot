@@ -1726,14 +1726,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         {protocol.shots.map((shot, sIdx) => (
                           <div
                             key={sIdx}
-                            className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/80 flex items-center justify-between gap-2 text-xs"
+                            className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/80 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-xs"
                           >
-                            <span className="font-bold text-amber-400">
+                            <span className="font-bold text-amber-400 min-w-fit w-full sm:w-auto mb-2 sm:mb-0">
                               Ночь #{shot.night_number}
                             </span>
 
-                            <div className="flex items-center space-x-2">
-                              <span className="text-slate-400">Цель:</span>
+                            <div className="flex items-center space-x-2 w-full sm:w-auto">
+                              <span className="text-slate-400 hidden sm:inline">Цель:</span>
                               <select
                                 value={shot.target_seat}
                                 disabled={protocol.status === 'completed'}
@@ -1745,7 +1745,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     return { ...prev, shots: shotsCopy };
                                   });
                                 }}
-                                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none"
+                                className="bg-slate-900 border border-slate-700 rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-slate-200 focus:border-amber-500 focus:outline-none flex-1 sm:flex-none"
                               >
                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                                   <option key={num} value={num}>
@@ -1765,28 +1765,28 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     return { ...prev, shots: shotsCopy };
                                   });
                                 }}
-                                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none"
+                                className="bg-slate-900 border border-slate-700 rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-slate-200 focus:border-amber-500 focus:outline-none flex-1 sm:flex-none"
                               >
                                 <option value="killed">Убит</option>
                                 <option value="miss">Промах</option>
-                                <option value="agreement_failed">Несогласование</option>
+                                <option value="agreement_failed">Несогл.</option>
                               </select>
-                            </div>
 
-                            {protocol.status === 'draft' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setProtocol((prev) => ({
-                                    ...prev,
-                                    shots: (prev.shots || []).filter((_, idx) => idx !== sIdx)
-                                  }));
-                                }}
-                                className="text-slate-500 hover:text-rose-400"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                              {protocol.status === 'draft' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProtocol((prev) => ({
+                                      ...prev,
+                                      shots: (prev.shots || []).filter((_, idx) => idx !== sIdx).map((s, idx) => ({ ...s, night_number: idx + 1 }))
+                                    }));
+                                  }}
+                                  className="text-slate-500 hover:text-rose-400 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded shrink-0"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

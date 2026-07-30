@@ -116,7 +116,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   };
 
   return (
-    <div className="h-[100dvh] w-full max-w-md mx-auto sm:max-w-7xl flex flex-col bg-app-bg text-text-primary font-sans transition-colors duration-200 overflow-hidden">
+    <div className="min-h-[100dvh] w-full max-w-7xl mx-auto flex flex-col bg-app-bg text-text-primary font-sans transition-colors duration-200 relative">
       {/* Top Header Nav */}
       <header className="sticky top-0 z-40 bg-app-bg/95 backdrop-blur-xl border-b border-border-soft h-[56px] sm:h-[60px] flex items-center shrink-0 px-3.5 sm:px-4">
         <div className="w-full flex items-center justify-between gap-2.5">
@@ -245,7 +245,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       </header>
 
       {/* Main Content Workspace */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden px-3.5 sm:px-4 py-2 sm:py-3 w-full max-w-3xl mx-auto">
+      <main className="flex-1 w-full max-w-3xl mx-auto px-3.5 sm:px-4 py-3 sm:py-4 pb-[calc(76px+env(safe-area-inset-bottom))] sm:pb-8">
         {loading ? (
           <div className="py-20 text-center text-text-secondary text-xs">Загрузка данных системы...</div>
         ) : !isOrganizer ? (
@@ -255,13 +255,13 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             <p className="text-xs text-text-secondary">Панель управления CRM доступна только авторизованному организатору клуба.</p>
             <button
               onClick={() => setShowLoginModal(true)}
-              className="bg-accent hover:bg-accent-hover text-white font-semibold px-6 py-3 rounded-[12px] text-xs transition-all cursor-pointer"
+              className="bg-accent hover:bg-accent-hover text-white font-semibold px-6 py-3 rounded-[12px] text-xs transition-all cursor-pointer min-h-[44px]"
             >
               Войти как организатор
             </button>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
+          <div className="w-full">
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <CRMOverview
@@ -279,7 +279,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
             {/* Evenings Tab */}
             {activeTab === 'evenings' && (
-              <div className="flex-1 overflow-y-auto pb-16">
+              <div className="w-full">
                 {activeEveningId ? (
                   <EveningDetailView
                     eveningId={activeEveningId}
@@ -298,7 +298,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
             {/* Players Tab */}
             {activeTab === 'players' && (
-              <div className="flex-1 overflow-y-auto pb-16">
+              <div className="w-full">
                 <PlayersCRM
                   evenings={evenings}
                   onOpenEvening={handleOpenEvening}
@@ -311,7 +311,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
             {/* Tasks Tab */}
             {activeTab === 'tasks' && (
-              <div className="flex-1 overflow-y-auto pb-16">
+              <div className="w-full">
                 <TasksCRM
                   players={players}
                   evenings={evenings}
@@ -322,7 +322,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
             {/* Analytics Tab */}
             {activeTab === 'analytics' && (
-              <div className="flex-1 overflow-y-auto pb-16">
+              <div className="w-full">
                 <AnalyticsCRM
                   onOpenThemeModal={() => setShowThemeModal(true)}
                 />
@@ -334,7 +334,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
       {/* Mobile Bottom Navigation Bar */}
       {isOrganizer && (
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav flex items-center justify-around px-2 z-40 pb-safe h-[60px] border-t border-border-soft shrink-0">
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav flex items-center justify-around px-1 z-40 pb-safe min-h-[60px] h-[calc(60px+env(safe-area-inset-bottom))] border-t border-border-soft shrink-0">
           {[
             { id: 'overview', label: 'Пульс', icon: LayoutGrid },
             { id: 'evenings', label: 'Вечера', icon: Calendar },
@@ -348,17 +348,19 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <button
                 key={tab.id}
                 onClick={() => {
-                  setActiveEveningId(null);
+                  if (tab.id === 'overview' || tab.id === 'evenings') {
+                    setActiveEveningId(null);
+                  }
                   setActiveTab(tab.id as any);
                 }}
-                className="flex flex-col items-center justify-center flex-1 h-full cursor-pointer transition-all relative group"
+                className="flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] h-full cursor-pointer transition-all relative group py-1"
               >
                 <div
                   className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
                     isActive ? 'text-accent' : 'text-text-muted group-hover:text-text-secondary'
                   }`}
                 >
-                  <Icon className="w-[20px] h-[20px] stroke-[2]" />
+                  <Icon className="w-[22px] h-[22px] stroke-[2]" />
                 </div>
                 <span
                   className={`text-[10px] mt-0.5 transition-colors ${

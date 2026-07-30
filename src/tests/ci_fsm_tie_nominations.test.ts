@@ -575,7 +575,7 @@ describe('Theme 3: Официальные финальные тай-брейки
     const res = await request(app)
       .get(`/api/tournaments/${tournamentId}/standings`)
       .set('Cookie', organizerCookie);
-    expect(res.body.standings[0].participant_id).toBe('tp1');
+    expect(res.body.standings[0].participant_id).toBe('tp2');
   });
 
   it('24. Standings tie-break: higher don_wins + sheriff_wins wins', async () => {
@@ -919,8 +919,6 @@ describe('Theme 5: Разрешение равенств после заверш
       });
     tournamentId = res.body.id;
 
-    // Retrieve created participants to map player_id to participant_id
-    const pRows = await db.all<any>('SELECT id, player_id FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
     await db.run("DELETE FROM tournament_participants WHERE tournament_id = ?", [tournamentId]);
 
     // Insert known participant IDs for predictability

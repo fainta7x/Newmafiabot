@@ -29,6 +29,7 @@ import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
+import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -85,9 +86,11 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [editingJudge, setEditingJudge] = useState(false);
   const [judgeInput, setJudgeInput] = useState('');
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   useEffect(() => {
     loadDetail();
-  }, [tournamentId]);
+  }, [tournamentId, refreshTrigger]);
 
   const loadDetail = async () => {
     setLoading(true);
@@ -472,12 +475,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             })()}
 
             {tournament.status === 'completed' && (
-              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-400 flex items-center gap-2.5">
-                <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
-                <div>
-                  <span className="font-bold block text-text-primary">Турнир официально завершён</span>
-                  <p className="text-[11px] text-text-muted mt-0.5">Все игры, баллы и номинации окончательно зафиксированы и защищены от изменений.</p>
+              <div className="space-y-4">
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-400 flex items-center gap-2.5">
+                  <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-text-primary">Турнир официально завершён</span>
+                    <p className="text-[11px] text-text-muted mt-0.5">Все игры, баллы и номинации окончательно зафиксированы и защищены от изменений.</p>
+                  </div>
                 </div>
+
+                <TournamentOfficialResults
+                  tournamentId={tournamentId}
+                  refreshTrigger={refreshTrigger}
+                  onResolve={() => setRefreshTrigger((prev) => prev + 1)}
+                />
               </div>
             )}
 
@@ -557,9 +568,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       </div>
 
       {activeTab === 'standings' ? (
-        <TournamentStandingsView tournamentId={tournamentId} />
+        <TournamentStandingsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
       ) : activeTab === 'nominations' ? (
-        <TournamentNominationsView tournamentId={tournamentId} />
+        <TournamentNominationsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
       ) : (
         <>
           {/* Roster / Participants Accordion */}

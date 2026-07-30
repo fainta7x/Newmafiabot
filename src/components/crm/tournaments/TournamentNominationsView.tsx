@@ -4,9 +4,10 @@ import { api } from '../../../lib/api.ts';
 
 interface TournamentNominationsViewProps {
   tournamentId: string;
+  refreshTrigger?: number;
 }
 
-export const TournamentNominationsView: React.FC<TournamentNominationsViewProps> = ({ tournamentId }) => {
+export const TournamentNominationsView: React.FC<TournamentNominationsViewProps> = ({ tournamentId, refreshTrigger }) => {
   const [nominations, setNominations] = useState<any[]>([]);
   const [provisional, setProvisional] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
@@ -36,7 +37,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
 
   useEffect(() => {
     fetchNominations();
-  }, [tournamentId]);
+  }, [tournamentId, refreshTrigger]);
 
   const toggleExpand = (category: string, participantId: string) => {
     const key = `${category}-${participantId}`;

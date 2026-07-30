@@ -946,11 +946,11 @@ async function internalGetStandings(db: DatabaseWrapper, tournamentId: string) {
     if (Math.abs(b.total_points - a.total_points) > 0.0001) {
       return b.total_points - a.total_points;
     }
-    if (b.wins !== a.wins) {
-      return b.wins - a.wins;
-    }
     if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
       return b.additional_total - a.additional_total;
+    }
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
     }
     const sumDS_b = b.don_wins + b.sheriff_wins;
     const sumDS_a = a.don_wins + a.sheriff_wins;

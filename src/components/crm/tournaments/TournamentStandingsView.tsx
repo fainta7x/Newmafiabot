@@ -4,9 +4,10 @@ import { api, TournamentStandingItem } from '../../../lib/api.ts';
 
 interface TournamentStandingsViewProps {
   tournamentId: string;
+  refreshTrigger?: number;
 }
 
-export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = ({ tournamentId }) => {
+export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = ({ tournamentId, refreshTrigger }) => {
   const [standings, setStandings] = useState<TournamentStandingItem[]>([]);
   const [completedGamesCount, setCompletedGamesCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
   useEffect(() => {
     fetchStandings();
-  }, [tournamentId]);
+  }, [tournamentId, refreshTrigger]);
 
   const toggleExpandRow = (id: string) => {
     setExpandedRowId(expandedRowId === id ? null : id);
@@ -246,6 +247,12 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                               <div className="text-[9px] text-text-muted uppercase">У</div>
                               <div className="font-bold text-rose-400">{item.first_killed_count}</div>
                             </div>
+
+                            {item.place !== item.calculated_place && (
+                              <div className="col-span-7 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
+                                Исходное место по показателям: <span className="font-mono font-bold text-text-secondary">{item.calculated_place}</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -454,6 +461,12 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                               <div className="text-[9px] text-text-muted uppercase">У</div>
                               <div className="font-bold text-rose-400">{item.first_killed_count}</div>
                             </div>
+
+                            {item.place !== item.calculated_place && (
+                              <div className="col-span-7 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
+                                Исходное место по показателям: <span className="font-mono font-bold text-text-secondary">{item.calculated_place}</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -700,6 +713,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                 <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">
                                   Детализация по играм: {item.display_name}
                                 </h4>
+                                {item.place !== item.calculated_place && (
+                                  <div className="text-xs text-text-muted bg-surface-2 px-3 py-1.5 rounded-xl border border-border-soft inline-block font-sans">
+                                    Исходное место по показателям: <span className="font-mono font-bold text-text-secondary">{item.calculated_place}</span>
+                                  </div>
+                                )}
                                 {item.games.length === 0 ? (
                                   <p className="text-xs text-text-muted italic">Нет данных об играх</p>
                                 ) : (

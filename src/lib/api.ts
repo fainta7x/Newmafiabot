@@ -327,6 +327,9 @@ export interface TournamentStandingGame {
 
 export interface TournamentStandingItem {
   place: number;
+  calculated_place: number;
+  official_place: number;
+  tie_group_id: string | null;
   participant_id: string;
   participant_number: number;
   display_name: string;
@@ -356,6 +359,7 @@ export interface TournamentStandingsResponse {
   completed_games_count: number;
   tie_requires_draw: boolean;
   standings: TournamentStandingItem[];
+  tie_groups: Array<{ tie_group_id: string; participant_ids: string[] }>;
 }
 
 export interface TournamentStartReadiness {
@@ -776,6 +780,71 @@ export const api = {
         title: string;
         has_tie: boolean;
         candidates: any[];
+        winner_participant_id?: string | null;
+        resolution_method?: string | null;
+        comment?: string | null;
       }>;
     }>(`/api/tournaments/${tournamentId}/nominations`),
+
+  getTournamentFinalReadiness: (tournamentId: string) =>
+    request<{
+      ready: boolean;
+      unresolved_standings_ties: Array<{
+        tie_group_id: string;
+        participant_ids: string[];
+        display_names: string[];
+      }>;
+      unresolved_nomination_ties: Array<{
+        category: string;
+        title: string;
+        candidate_ids: string[];
+        display_names: string[];
+      }>;
+    }>(`/api/tournaments/${tournamentId}/final-readiness`),
+
+  getTournamentFinalResolutions: (tournamentId: string) =>
+    request<{
+      tournament_id: string;
+      resolutions: Array<{
+        id: string;
+        tournament_id: string;
+        type: 'standings_tie' | 'nomination_tie';
+        category: string | null;
+        participant_ids: string[];
+        ordered_participant_ids: string[] | null;
+        winner_participant_id: string | null;
+        resolution_method: 'draw' | 'chief_judge_decision';
+        comment: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+    }>(`/api/tournaments/${tournamentId}/final-resolutions`),
+
+  resolveStandingsTie: (
+    tournamentId: string,
+    tieGroupId: string,
+    payload: {
+      ordered_participant_ids: string[];
+      resolution_method: 'draw' | 'chief_judge_decision';
+      comment?: string;
+    }
+  ) =>
+    request<{ success: boolean }>(`/api/tournaments/${tournamentId}/final-resolutions/standings/${tieGroupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  resolveNominationTie: (
+    tournamentId: string,
+    category: string,
+    payload: {
+      winner_participant_id: string;
+      resolution_method: 'draw' | 'chief_judge_decision';
+      comment?: string;
+    }
+  ) =>
+    request<{ success: boolean }>(`/api/tournaments/${tournamentId}/final-resolutions/nominations/${category}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 };

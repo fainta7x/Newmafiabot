@@ -843,11 +843,20 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
     } else if (g.best_move_participant_id) {
       let legacySeats = [];
       try { legacySeats = JSON.parse(g.best_move_seats_json || '[]'); } catch (_) {}
-      bestMovesList.push({
-        participant_id: g.best_move_participant_id,
-        source: 'first_killed',
-        seat_numbers: legacySeats,
-      });
+      
+      let source = g.best_move_source;
+      if (!source) {
+        if (g.best_move_participant_id === g.first_killed_participant_id) source = 'first_killed';
+        else if (g.best_move_participant_id === g.zero_round_voted_participant_id) source = 'zero_round_voted';
+      }
+      
+      if (source) {
+        bestMovesList.push({
+          participant_id: g.best_move_participant_id,
+          source,
+          seat_numbers: legacySeats,
+        });
+      }
     }
 
     const bmPointsMap = new Map<string, number>();
@@ -1167,11 +1176,20 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
     } else if (g.best_move_participant_id) {
       let legacySeats = [];
       try { legacySeats = JSON.parse(g.best_move_seats_json || '[]'); } catch (_) {}
-      bestMovesList.push({
-        participant_id: g.best_move_participant_id,
-        source: 'first_killed',
-        seat_numbers: legacySeats,
-      });
+      
+      let source = g.best_move_source;
+      if (!source) {
+        if (g.best_move_participant_id === g.first_killed_participant_id) source = 'first_killed';
+        else if (g.best_move_participant_id === g.zero_round_voted_participant_id) source = 'zero_round_voted';
+      }
+      
+      if (source) {
+        bestMovesList.push({
+          participant_id: g.best_move_participant_id,
+          source,
+          seat_numbers: legacySeats,
+        });
+      }
     }
 
     const bmPointsMap = new Map<string, number>();

@@ -560,7 +560,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
 
     expect(noRecipientRes.status).toBe(400);
-    expect(noRecipientRes.body.error).toContain('Для ЛХ первого убитого участник обязан совпадать');
+    expect(noRecipientRes.body.error).toContain('participant_id должен быть строкой');
 
     // LH recipient is alive
     const aliveLHRes = await request(app)

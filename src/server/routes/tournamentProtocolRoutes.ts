@@ -144,6 +144,13 @@ function validateBestMoves(
   const seenParticipants = new Set<string>();
 
   for (const bm of bestMoves) {
+    if (!bm.participant_id || typeof bm.participant_id !== 'string') {
+      return 'participant_id должен быть строкой';
+    }
+    if (!allParticipantIds.includes(bm.participant_id)) {
+      return 'Участник ЛХ не найден в этой игре';
+    }
+
     if (bm.source !== 'first_killed' && bm.source !== 'zero_round_voted') {
       return 'Недопустимый источник ЛХ';
     }
@@ -176,14 +183,16 @@ function validateBestMoves(
 
     const seenSeats = new Set<number>();
     for (const seatNum of bm.seat_numbers) {
-      const num = Number(seatNum);
-      if (!Number.isInteger(num) || num < 1 || num > 10) {
+      if (typeof seatNum !== 'number') {
+        return 'Все номера мест в ЛХ должны быть числами';
+      }
+      if (!Number.isInteger(seatNum) || seatNum < 1 || seatNum > 10) {
         return 'Все номера мест в ЛХ должны быть целыми числами от 1 до 10';
       }
-      if (seenSeats.has(num)) {
+      if (seenSeats.has(seatNum)) {
         return 'Номера мест в ЛХ не могут повторяться';
       }
-      seenSeats.add(num);
+      seenSeats.add(seatNum);
     }
   }
 

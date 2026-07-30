@@ -61,6 +61,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     best_move_participant_id: null,
     best_move_source: null,
     best_move_seats: [],
+    best_moves: [],
     votes: [],
     shots: [],
     replacement: null,
@@ -109,6 +110,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   // First killed change & Ci reset confirmation
   const [showCiConfirmModal, setShowCiConfirmModal] = useState(false);
   const [pendingFirstKilledId, setPendingFirstKilledId] = useState<string | null>(null);
+
+  // Zero round voted change & BM reset confirmation
+  const [showZeroRoundConfirmModal, setShowZeroRoundConfirmModal] = useState(false);
+  const [pendingZeroRoundVotedId, setPendingZeroRoundVotedId] = useState<string | null>(null);
 
   // Color protocol entry editing state
   const [editingColorMarkMap, setEditingColorMarkMap] = useState<
@@ -545,15 +550,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       }
 
       if (existingIdx >= 0) {
-        if (seats.length === 0) {
-           moves.splice(existingIdx, 1);
-        } else {
-           moves[existingIdx] = { ...moves[existingIdx], participant_id: participantId, seat_numbers: seats };
-        }
+        moves[existingIdx] = { ...moves[existingIdx], participant_id: participantId, seat_numbers: seats };
       } else {
-        if (seats.length > 0) {
-          moves.push({ participant_id: participantId, source, seat_numbers: seats });
-        }
+        moves.push({ participant_id: participantId, source, seat_numbers: seats });
       }
 
       return { ...prev, best_moves: moves };
@@ -617,10 +616,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         }
         if (bm.source === 'zero_round_voted' && bm.participant_id !== protocol.zero_round_voted_participant_id) {
           return 'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг';
-        }
-
-        if (!bm.seat_numbers || bm.seat_numbers.length === 0) {
-          return 'Для ЛХ необходимо выбрать от 1 до 3 цифр';
         }
       }
     }
@@ -693,6 +688,63 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderBmCard = (source: 'first_killed' | 'zero_round_voted', participantId: string) => {
+    const player = playerResults.find(p => p.participant_id === participantId);
+    if (!player) return null;
+    const bm = getBestMoveForSource(source);
+    const seats = bm?.seat_numbers || [];
+    const { guessedBlacks, bonusPoints } = calculateGuessedBlacks(seats);
+    const title = source === 'first_killed' ? 'ЛХ первого убитого' : 'ЛХ игрока нулевого круга';
+
+    return (
+      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 flex flex-col space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-700/60 pb-3 gap-2">
+          <div className="flex flex-col">
+            <div className="flex items-center space-x-2">
+              <Award className="w-4 h-4 text-amber-400 shrink-0" />
+              <h3 className="text-sm font-bold text-slate-100">{title}</h3>
+            </div>
+            <div className="text-xs text-slate-400 mt-1 pl-6">
+              #{player.seat_number} — {player.display_name}
+            </div>
+          </div>
+          
+          <div className="flex flex-row items-center gap-3 sm:justify-end">
+             <div className="text-xs font-semibold text-slate-300 bg-slate-900/50 px-2 py-1 rounded-md border border-slate-700/50">
+               {seats.length} из 3
+             </div>
+             <div className="text-xs font-medium text-amber-400 bg-amber-900/20 px-2 py-1 rounded-md border border-amber-900/40">
+               Угадано: {guessedBlacks} (+{bonusPoints} б.)
+             </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="grid grid-cols-5 gap-2 pt-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+              const isSelected = seats.includes(num);
+              return (
+                <button
+                  key={num}
+                  type="button"
+                  disabled={protocol.status === 'completed'}
+                  onClick={() => toggleBestMoveSeat(source, participantId, num)}
+                  className={`min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold border transition ${
+                    isSelected
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (!isOpen) return null;
@@ -1535,16 +1587,30 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           const prevId = protocol.first_killed_participant_id;
                           if (newId === prevId) return;
 
+                          const prevBm = protocol.best_moves?.find(bm => bm.source === 'first_killed');
+                          const hasOldNumbers = prevBm && prevBm.seat_numbers.length > 0;
+                          let hasManualCi = false;
+
                           if (prevId) {
                             const prevPlayer = playerResults.find((p) => p.participant_id === prevId);
                             if (prevPlayer && Number(prevPlayer.ci_points || 0) !== 0) {
-                              setPendingFirstKilledId(newId);
-                              setShowCiConfirmModal(true);
-                              return;
+                              hasManualCi = true;
                             }
                           }
 
-                          setProtocol((prev) => ({ ...prev, first_killed_participant_id: newId }));
+                          if (prevId && (hasOldNumbers || hasManualCi)) {
+                            setPendingFirstKilledId(newId);
+                            setShowCiConfirmModal(true);
+                            return;
+                          }
+
+                          setProtocol((prev) => {
+                            let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'first_killed');
+                            if (newId) {
+                              moves.push({ participant_id: newId, source: 'first_killed', seat_numbers: [] });
+                            }
+                            return { ...prev, first_killed_participant_id: newId, best_moves: moves };
+                          });
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                       >
@@ -1565,8 +1631,26 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         disabled={protocol.status === 'completed'}
                         value={protocol.zero_round_voted_participant_id || ''}
                         onChange={(e) => {
-                          const val = e.target.value || null;
-                          setProtocol((prev) => ({ ...prev, zero_round_voted_participant_id: val }));
+                          const newId = e.target.value || null;
+                          const prevId = protocol.zero_round_voted_participant_id;
+                          if (newId === prevId) return;
+
+                          const prevBm = protocol.best_moves?.find(bm => bm.source === 'zero_round_voted');
+                          const hasOldNumbers = prevBm && prevBm.seat_numbers.length > 0;
+
+                          if (prevId && hasOldNumbers) {
+                            setPendingZeroRoundVotedId(newId);
+                            setShowZeroRoundConfirmModal(true);
+                            return;
+                          }
+
+                          setProtocol((prev) => {
+                            let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'zero_round_voted');
+                            if (newId) {
+                              moves.push({ participant_id: newId, source: 'zero_round_voted', seat_numbers: [] });
+                            }
+                            return { ...prev, zero_round_voted_participant_id: newId, best_moves: moves };
+                          });
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                       >
@@ -1582,81 +1666,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                   {/* Best Move Section */}
                   <div className="space-y-4">
-                    {protocol.first_killed_participant_id && (
-                      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
-                        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                          <div className="flex items-center space-x-2">
-                            <Award className="w-4 h-4 text-amber-400" />
-                            <h3 className="text-xs font-bold text-slate-100">ЛХ Первого убитого</h3>
-                          </div>
-                          <div className="text-xs font-medium text-amber-400">
-                            Угадано: {calculateGuessedBlacks(getBestMoveForSource('first_killed')?.seat_numbers || []).guessedBlacks} (+{calculateGuessedBlacks(getBestMoveForSource('first_killed')?.seat_numbers || []).bonusPoints} б.)
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-slate-400 text-xs block mb-1">Выберите до 3 цифр:</label>
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                              const isSelected = (getBestMoveForSource('first_killed')?.seat_numbers || []).includes(num);
-                              return (
-                                <button
-                                  key={num}
-                                  type="button"
-                                  disabled={protocol.status === 'completed'}
-                                  onClick={() => toggleBestMoveSeat('first_killed', protocol.first_killed_participant_id!, num)}
-                                  className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
-                                    isSelected
-                                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
-                                  }`}
-                                >
-                                  #{num}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {protocol.zero_round_voted_participant_id && (
-                      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
-                        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                          <div className="flex items-center space-x-2">
-                            <Award className="w-4 h-4 text-amber-400" />
-                            <h3 className="text-xs font-bold text-slate-100">ЛХ Заголосованного в 0 круг</h3>
-                          </div>
-                          <div className="text-xs font-medium text-amber-400">
-                            Угадано: {calculateGuessedBlacks(getBestMoveForSource('zero_round_voted')?.seat_numbers || []).guessedBlacks} (+{calculateGuessedBlacks(getBestMoveForSource('zero_round_voted')?.seat_numbers || []).bonusPoints} б.)
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-slate-400 text-xs block mb-1">Выберите до 3 цифр:</label>
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                              const isSelected = (getBestMoveForSource('zero_round_voted')?.seat_numbers || []).includes(num);
-                              return (
-                                <button
-                                  key={num}
-                                  type="button"
-                                  disabled={protocol.status === 'completed'}
-                                  onClick={() => toggleBestMoveSeat('zero_round_voted', protocol.zero_round_voted_participant_id!, num)}
-                                  className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
-                                    isSelected
-                                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
-                                  }`}
-                                >
-                                  #{num}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {protocol.first_killed_participant_id && renderBmCard('first_killed', protocol.first_killed_participant_id)}
+                    {protocol.zero_round_voted_participant_id && renderBmCard('zero_round_voted', protocol.zero_round_voted_participant_id)}
 
                     {!protocol.first_killed_participant_id && !protocol.zero_round_voted_participant_id && (
                       <div className="text-xs text-slate-500 italic py-2">
@@ -2099,9 +2110,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               {protocol.best_moves && protocol.best_moves.map(bm => {
                 const bmInfo = calculateGuessedBlacks(bm.seat_numbers);
                 const title = bm.source === 'first_killed' ? 'ЛХ Первого убитого' : 'ЛХ Заголосованного в 0 круг';
+                const formattedSeats = bm.seat_numbers.length > 0 
+                  ? `#${bm.seat_numbers.join(', #')}`
+                  : '0 номеров';
                 return (
                   <p key={bm.source}>
-                    {title}: {bm.seat_numbers.length ? `#${bm.seat_numbers.join(', #')}` : 'Не указан'} (+{bmInfo.bonusPoints} б.)
+                    {title}: {formattedSeats} (+{bmInfo.bonusPoints} б.)
                   </p>
                 );
               })}
@@ -2180,7 +2194,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             </div>
 
             <p className="text-xs sm:text-sm text-slate-300">
-              При смене первоубиенного его Ci будет обнулён
+              Выбранный ЛХ и ручной Ci прежнего первоубиенного будут очищены.
             </p>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
@@ -2201,13 +2215,65 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   if (prevId) {
                     updatePlayerResult(prevId, { ci_points: 0 });
                   }
-                  setProtocol((prev) => ({ ...prev, first_killed_participant_id: pendingFirstKilledId }));
+                  setProtocol((prev) => {
+                    let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'first_killed');
+                    if (pendingFirstKilledId) {
+                      moves.push({ participant_id: pendingFirstKilledId, source: 'first_killed', seat_numbers: [] });
+                    }
+                    return { ...prev, first_killed_participant_id: pendingFirstKilledId, best_moves: moves };
+                  });
                   setShowCiConfirmModal(false);
                   setPendingFirstKilledId(null);
                 }}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
               >
                 Сменить и обнулить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM ZERO ROUND VOTED BM RESET */}
+      {showZeroRoundConfirmModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <AlertTriangle className="w-6 h-6" />
+              <h3 className="text-lg font-bold">Подтверждение смены игрока нулевого круга</h3>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-300">
+              Выбранные номера ЛХ прежнего игрока будут очищены.
+            </p>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowZeroRoundConfirmModal(false);
+                  setPendingZeroRoundVotedId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProtocol((prev) => {
+                    let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'zero_round_voted');
+                    if (pendingZeroRoundVotedId) {
+                      moves.push({ participant_id: pendingZeroRoundVotedId, source: 'zero_round_voted', seat_numbers: [] });
+                    }
+                    return { ...prev, zero_round_voted_participant_id: pendingZeroRoundVotedId, best_moves: moves };
+                  });
+                  setShowZeroRoundConfirmModal(false);
+                  setPendingZeroRoundVotedId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
+              >
+                Сменить и очистить
               </button>
             </div>
           </div>

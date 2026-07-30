@@ -336,6 +336,8 @@ export interface TournamentStandingGame {
   win_point: number;
   positive_points: number;
   best_move_points: number;
+  game_penalty_points?: number;
+  disciplinary_penalty_points?: number;
   penalty_points: number;
   ci_points: number;
   ci_rate: number;
@@ -354,6 +356,8 @@ export interface TournamentStandingItem {
   total_points: number;
   additional_total: number;
   positive_points: number;
+  game_penalty_points?: number;
+  disciplinary_penalty_points?: number;
   penalty_points: number;
   best_move_points: number;
   ci_points: number;

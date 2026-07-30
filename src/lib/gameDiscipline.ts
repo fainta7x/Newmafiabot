@@ -213,6 +213,24 @@ export const resetNextVotingCancelled = (state: GameDiscipline): GameDiscipline 
   return { ...state, isNextVotingCancelled: false };
 };
 
+export function calculateDisciplinaryPenalty(
+  minorTechFouls: number,
+  majorTechFouls: number,
+  isRemoved: boolean,
+  isPpkCulprit: boolean
+): number {
+  let disc = 0;
+  disc += minorTechFouls * 0.3;
+  disc += majorTechFouls * 0.6;
+  if (isRemoved) {
+    disc += 1.0;
+  }
+  if (isPpkCulprit) {
+    disc += 1.0;
+  }
+  return Number(disc.toFixed(1));
+}
+
 export const getPlayerPenaltyStatus = (player: PlayerDiscipline): PlayerPenaltyResult => {
   let discPenalty = 0;
 

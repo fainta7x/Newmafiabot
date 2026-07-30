@@ -306,7 +306,7 @@ function validatePlayerResults(
   return null;
 }
 
-function validateVotes(votes: any): string | null {
+function validateVotes(votes: any, isComplete: boolean = false): string | null {
   if (votes === undefined || votes === null) return null;
   if (!Array.isArray(votes)) {
     return 'Протокол голосований должен быть массивом';
@@ -344,6 +344,9 @@ function validateVotes(votes: any): string | null {
     }
 
     if (r.nominated_seats.length === 0) {
+      if (isComplete) {
+        return 'Запрещено завершать протокол с пустым кругом голосования';
+      }
       if (Object.keys(r.vote_counts).length !== 0) {
         return 'Пустой круг разрешён только как nominated_seats: [] и vote_counts: {}';
       }
@@ -580,7 +583,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes);
+    const votesErr = validateVotes(protocol?.votes, false);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }
@@ -929,7 +932,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes);
+    const votesErr = validateVotes(protocol?.votes, true);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }

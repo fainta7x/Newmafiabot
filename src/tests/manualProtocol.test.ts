@@ -725,6 +725,38 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(res.body.error).toContain('не могут повторяться');
   });
 
+  // Test 25a: Draft allows empty round
+  it('25a. Allows empty round in draft', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          votes: [{ round_number: 1, is_revote: false, nominated_seats: [], vote_counts: {} }],
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(res.status).toBe(200);
+  });
+
+  // Test 25b: Complete rejects empty round
+  it('25b. Rejects empty round on complete', async () => {
+    const res = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          winner_team: 'red',
+          votes: [{ round_number: 1, is_revote: false, nominated_seats: [], vote_counts: {} }],
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Запрещено завершать протокол с пустым кругом голосования');
+  });
+
   // Test 26: Saves decimal bonuses and replacement block
   it('26. Accepts decimal bonuses and replacement data', async () => {
     const res = await request(app)

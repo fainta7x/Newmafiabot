@@ -1457,7 +1457,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 onClick={() => {
                                   setProtocol((prev) => ({
                                     ...prev,
-                                    votes: (prev.votes || []).filter((_, idx) => idx !== rIdx)
+                                    votes: (prev.votes || []).filter((_, idx) => idx !== rIdx).map((v, idx) => ({
+                                      ...v,
+                                      round_number: idx + 1
+                                    }))
                                   }));
                                 }}
                                 className="text-slate-500 hover:text-rose-400 p-1"
@@ -1472,7 +1475,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             <span className="text-xs text-slate-400 block">
                               Выставленные кандидаты (выберите игрока 1-10):
                             </span>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1.5 w-full">
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seatNum) => {
                                 const isNominated = (round.nominated_seats || []).includes(seatNum);
                                 return (
@@ -1504,7 +1507,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                         return { ...prev, votes: votesCopy };
                                       });
                                     }}
-                                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
+                                    className={`w-full h-11 sm:w-8 sm:h-8 rounded-lg text-sm font-bold border transition ${
                                       isNominated
                                         ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
                                         : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
@@ -1520,7 +1523,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           {/* Vote Counts per Candidate */}
                           {round.nominated_seats && round.nominated_seats.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-700/60">
-                              <span className="text-xs text-slate-400 block">Голоса за участников:</span>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-slate-400 block">Голоса за участников:</span>
+                                <span className="text-xs text-amber-400 font-medium">
+                                  Всего: {round.nominated_seats.reduce((sum, s) => sum + (round.vote_counts?.[s] || 0), 0)}
+                                </span>
+                              </div>
                               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                                 {round.nominated_seats.map((seatNum) => {
                                   const p = playerResults.find((pr) => pr.seat_number === seatNum);
@@ -1555,7 +1563,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                             return { ...prev, votes: votesCopy };
                                           });
                                         }}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-center font-bold text-amber-400 focus:border-amber-500 focus:outline-none"
+                                        className="w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none"
                                       />
                                     </div>
                                   );

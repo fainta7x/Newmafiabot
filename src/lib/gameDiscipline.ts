@@ -1,8 +1,8 @@
-export type PendingActionType = 
-  | 'removal_4th_foul' 
-  | 'minor_tech_causing_removal' 
-  | 'major_tech_causing_removal' 
-  | 'direct_removal' 
+export type PendingActionType =
+  | 'removal_4th_foul'
+  | 'minor_tech_causing_removal'
+  | 'major_tech_causing_removal'
+  | 'direct_removal'
   | 'ppk';
 
 export interface PlayerDiscipline {
@@ -25,6 +25,7 @@ export interface GameDiscipline {
   isPpk: boolean;
   ppkWinnerTeam: 'red' | 'black' | null;
   ppkCulpritId: string | null;
+  requiresProtocolReview: boolean;
 }
 
 export interface PlayerPenaltyResult {
@@ -60,6 +61,7 @@ export const createInitialGameDiscipline = (playersData: { id: string, team: 're
     isPpk: false,
     ppkWinnerTeam: null,
     ppkCulpritId: null,
+    requiresProtocolReview: false,
   };
 };
 
@@ -105,7 +107,7 @@ export const addMinorTechFoul = (state: GameDiscipline, playerId: string): GameD
   if (!player || player.isRemoved || player.pendingAction) return state;
 
   const totalTechFoulsBefore = player.minorTechFouls + player.majorTechFouls;
-  
+
   if (totalTechFoulsBefore >= 1) {
     return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'minor_tech_causing_removal' } } };
   }
@@ -119,7 +121,7 @@ export const addMajorTechFoul = (state: GameDiscipline, playerId: string): GameD
   if (!player || player.isRemoved || player.pendingAction) return state;
 
   const totalTechFoulsBefore = player.minorTechFouls + player.majorTechFouls;
-  
+
   if (totalTechFoulsBefore >= 1) {
     return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'major_tech_causing_removal' } } };
   }
@@ -176,6 +178,7 @@ export const confirmAction = (state: GameDiscipline, playerId: string): GameDisc
     newState.isPpk = true;
     newState.ppkWinnerTeam = player.team === 'red' ? 'black' : 'red';
     newState.ppkCulpritId = playerId;
+    newState.requiresProtocolReview = true;
   }
 
   return newState;
@@ -212,18 +215,18 @@ export const resetNextVotingCancelled = (state: GameDiscipline): GameDiscipline 
 
 export const getPlayerPenaltyStatus = (player: PlayerDiscipline): PlayerPenaltyResult => {
   let discPenalty = 0;
-  
+
   if (player.regularFouls >= 4 || player.removedReason === '4th_foul') {
     discPenalty += 1.0;
   }
-  
+
   discPenalty += player.minorTechFouls * 0.3;
   discPenalty += player.majorTechFouls * 0.6;
-  
+
   if (player.removedReason === '2nd_tech') {
     discPenalty += 1.0;
   }
-  
+
   if (player.removedReason === 'direct') {
     discPenalty += 1.0;
   }
@@ -231,11 +234,11 @@ export const getPlayerPenaltyStatus = (player: PlayerDiscipline): PlayerPenaltyR
   if (player.ppkCaused) {
     discPenalty += 1.0;
   }
-  
+
   discPenalty = Number(discPenalty.toFixed(1));
-  
+
   const totalPenalty = discPenalty + player.gamePenalty;
-  
+
   return {
     disciplinaryPenalty: discPenalty,
     gamePenalty: player.gamePenalty,

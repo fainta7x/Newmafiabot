@@ -3,6 +3,7 @@ import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import * as schema from './schema.ts';
+import { seedDemoData } from './seed.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -12,22 +13,26 @@ export interface DatabaseWrapper {
   run(sql: string, params?: any[]): Promise<{ lastID: number | bigint | null; changes: number }>;
   exec(sql: string): Promise<void>;
   transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T>;
+  dbPath: string;
 }
 
 let defaultDbInstance: DatabaseWrapper | null = null;
 
 export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
   const dbPath = dbPathOrMemory || process.env.DATABASE_PATH || path.join(process.cwd(), 'mafia_crm.sqlite');
+  const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:'))
+    ? dbPath
+    : path.resolve(dbPath);
 
   // If path is not :memory: and parent dir doesn't exist, create it
-  if (dbPath !== ':memory:' && !dbPath.startsWith('file:')) {
-    const dir = path.dirname(path.resolve(dbPath));
+  if (resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
+    const dir = path.dirname(resolvedDbPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
   }
 
-  const sqlite = new Database(dbPath);
+  const sqlite = new Database(resolvedDbPath);
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
 
@@ -36,6 +41,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
   const wrapper: DatabaseWrapper = {
     sqlite,
     drizzle: drizzleDb,
+    dbPath: resolvedDbPath,
 
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
       const stmt = sqlite.prepare(sql);
@@ -85,6 +91,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
 export async function getDb(): Promise<DatabaseWrapper> {
   if (!defaultDbInstance) {
     defaultDbInstance = createDatabaseConnection();
+    await seedDemoData(defaultDbInstance);
   }
   return defaultDbInstance;
 }

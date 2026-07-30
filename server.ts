@@ -6,6 +6,7 @@ dotenv.config();
 
 async function startServer() {
   const db = await getDb();
+  console.log(`[DATABASE] Database path is fixated at: ${db.dbPath}`);
   const app = await createApp(db);
   const PORT = 3000;
 

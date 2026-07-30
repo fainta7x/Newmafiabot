@@ -344,6 +344,7 @@ export interface TournamentStandingItem {
 
 export interface TournamentStandingsResponse {
   tournament_id: string;
+  completed_games_count: number;
   standings: TournamentStandingItem[];
 }
 

@@ -259,53 +259,64 @@ function validateVotes(votes: any): string | null {
       return 'Неверный формат круга голосования';
     }
 
-    if (r.round_number !== undefined && r.round_number !== null) {
-      const rn = Number(r.round_number);
-      if (!Number.isInteger(rn) || rn <= 0) {
-        return 'Номер круга голосования должен быть положительным целым числом';
-      }
-      if (seenRounds.has(rn)) {
-        return 'Номера кругов голосования не могут повторяться';
-      }
-      seenRounds.add(rn);
+    if (r.round_number === undefined || r.round_number === null) {
+      return 'Номер круга голосования обязателен';
     }
+    const rn = Number(r.round_number);
+    if (!Number.isInteger(rn) || rn <= 0) {
+      return 'Номер круга голосования должен быть положительным целым числом';
+    }
+    if (seenRounds.has(rn)) {
+      return 'Номера кругов голосования не могут повторяться';
+    }
+    seenRounds.add(rn);
 
-    if (r.is_revote !== undefined && r.is_revote !== null && typeof r.is_revote !== 'boolean') {
+    if (typeof r.is_revote !== 'boolean') {
       return 'Поле переголосования (is_revote) должно быть булевым значением';
     }
 
-    const nominatedSet = new Set<number>();
-    if (r.nominated_seats !== undefined && r.nominated_seats !== null) {
-      if (!Array.isArray(r.nominated_seats)) {
-        return 'Выставленные игроки в круге голосования должны быть массивом';
+    if (!Array.isArray(r.nominated_seats)) {
+      return 'Выставленные игроки в круге голосования должны быть массивом';
+    }
+
+    if (typeof r.vote_counts !== 'object' || r.vote_counts === null || Array.isArray(r.vote_counts)) {
+      return 'Счётчик голосов должен быть объектом';
+    }
+
+    if (r.nominated_seats.length === 0) {
+      if (Object.keys(r.vote_counts).length !== 0) {
+        return 'Пустой круг разрешён только как nominated_seats: [] и vote_counts: {}';
       }
-      for (const seat of r.nominated_seats) {
-        const num = Number(seat);
-        if (!Number.isInteger(num) || num < 1 || num > 10) {
-          return 'Номера кандидатов должны быть целыми числами от 1 до 10';
-        }
-        if (nominatedSet.has(num)) {
-          return 'Кандидаты на голосование не могут повторяться в одном круге';
-        }
-        nominatedSet.add(num);
+      continue;
+    }
+
+    const nominatedSet = new Set<number>();
+    for (const seat of r.nominated_seats) {
+      const num = Number(seat);
+      if (!Number.isInteger(num) || num < 1 || num > 10) {
+        return 'Номера кандидатов должны быть целыми числами от 1 до 10';
+      }
+      if (nominatedSet.has(num)) {
+        return 'Кандидаты на голосование не могут повторяться в одном круге';
+      }
+      nominatedSet.add(num);
+    }
+
+    for (const seat of nominatedSet) {
+      if (r.vote_counts[seat] === undefined && r.vote_counts[String(seat)] === undefined) {
+        return `Каждый кандидат голосования обязан иметь запись в vote_counts (отсутствует место ${seat})`;
       }
     }
 
-    if (r.vote_counts !== undefined && r.vote_counts !== null) {
-      if (typeof r.vote_counts !== 'object' || Array.isArray(r.vote_counts)) {
-        return 'Счётчик голосов должен быть объектом';
+    for (const [key, val] of Object.entries(r.vote_counts)) {
+      const seatKey = Number(key);
+      if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > 10 || !nominatedSet.has(seatKey)) {
+        return 'Лишние кандидаты в vote_counts запрещены';
       }
 
-      for (const [key, val] of Object.entries(r.vote_counts)) {
-        const seatKey = Number(key);
-        if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > 10 || !nominatedSet.has(seatKey)) {
-          return 'Лишние кандидаты в vote_counts запрещены';
-        }
-
-        const count = Number(val);
-        if (!Number.isInteger(count) || count < 0 || count > 10) {
-          return 'Количество голосов должно быть целым числом от 0 до 10';
-        }
+      const count = Number(val);
+      if (!Number.isInteger(count) || count < 0 || count > 10) {
+        return 'Количество голосов должно быть целым числом от 0 до 10';
       }
     }
   }

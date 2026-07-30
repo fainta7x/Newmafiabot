@@ -95,17 +95,16 @@ beforeEach(async () => {
 });
 
 describe('Tournament Standings Endpoint & Formula Calculations', () => {
-  it('GET /api/tournaments/:tournamentId/standings returns 200 with empty completed stats initially', async () => {
+  it('GET /api/tournaments/:tournamentId/standings returns 200 with empty standings before first completed game', async () => {
     const res = await request(app)
       .get(`/api/tournaments/${tournamentId}/standings`)
       .set('Cookie', organizerCookie);
 
     expect(res.status).toBe(200);
     expect(res.body.tournament_id).toBe(tournamentId);
+    expect(res.body.completed_games_count).toBe(0);
     expect(res.body.standings).toBeDefined();
-    expect(res.body.standings.length).toBe(10);
-    expect(res.body.standings[0].total_points).toBe(0);
-    expect(res.body.standings[0].games_played).toBe(0);
+    expect(res.body.standings.length).toBe(0);
   });
 
   it('returns 404 for non-existent tournament standings', async () => {
@@ -116,8 +115,8 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(res.status).toBe(404);
   });
 
-  it('ignores draft protocols in standings calculations', async () => {
-    // Save draft for game 1
+  it('ignores draft protocols in standings calculations when saved via PUT /protocol', async () => {
+    // Save draft for game 1 using PUT /protocol
     const playerResultsDraft = game1Seats.map((seat) => ({
       participant_id: seat.participant_id,
       role: seat.role || 'citizen',
@@ -130,8 +129,8 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
       ci_points: 0,
     }));
 
-    await request(app)
-      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/draft`)
+    const saveRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
       .set('Cookie', organizerCookie)
       .send({
         protocol: {
@@ -140,14 +139,16 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
         player_results: playerResultsDraft,
       });
 
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body.protocol.status).toBe('draft');
+
     const standingsRes = await request(app)
       .get(`/api/tournaments/${tournamentId}/standings`)
       .set('Cookie', organizerCookie);
 
     expect(standingsRes.status).toBe(200);
-    // Games played should still be 0 since protocol is draft
-    expect(standingsRes.body.standings[0].games_played).toBe(0);
-    expect(standingsRes.body.standings[0].total_points).toBe(0);
+    expect(standingsRes.body.completed_games_count).toBe(0);
+    expect(standingsRes.body.standings.length).toBe(0);
   });
 
   it('calculates total_points, additional_total, positive_points, wins correctly on completed game', async () => {
@@ -325,9 +326,9 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
       .get(`/api/tournaments/${tournamentId}/standings`)
       .set('Cookie', organizerCookie);
 
-    // Standings should be updated (games_played back to 0)
-    expect(standingsRes.body.standings[0].games_played).toBe(0);
-    expect(standingsRes.body.standings[0].total_points).toBe(0);
+    // Standings should be updated (completed_games_count back to 0, standings empty)
+    expect(standingsRes.body.completed_games_count).toBe(0);
+    expect(standingsRes.body.standings.length).toBe(0);
   });
 
   it('includes individual games breakdown in items', async () => {

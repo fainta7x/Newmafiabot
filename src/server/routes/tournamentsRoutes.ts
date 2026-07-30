@@ -740,6 +740,16 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
       [tournamentId]
     );
 
+    const completed_games_count = completedGames.length;
+
+    if (completed_games_count === 0) {
+      return res.json({
+        tournament_id: tournamentId,
+        completed_games_count: 0,
+        standings: [],
+      });
+    }
+
     for (const g of completedGames) {
       const seats = await db.all<any>(
         `SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?`,
@@ -861,6 +871,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 
     res.json({
       tournament_id: tournamentId,
+      completed_games_count,
       standings: standingsList,
     });
   } catch (err: any) {

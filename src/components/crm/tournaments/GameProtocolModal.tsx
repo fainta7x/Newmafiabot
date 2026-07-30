@@ -15,7 +15,8 @@ import {
   Award,
   Clock,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Pencil
 } from 'lucide-react';
 import {
   api,
@@ -104,6 +105,15 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // First killed change & Ci reset confirmation
+  const [showCiConfirmModal, setShowCiConfirmModal] = useState(false);
+  const [pendingFirstKilledId, setPendingFirstKilledId] = useState<string | null>(null);
+
+  // Color protocol entry editing state
+  const [editingColorMarkMap, setEditingColorMarkMap] = useState<
+    Record<string, { index: number; seats: number[]; mark: 'red' | 'black' | 'sheriff' } | null>
+  >({});
 
   // Exit type change confirmation modal (when color_protocol is present)
   const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<{
@@ -439,6 +449,59 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         return pr;
       })
     );
+  };
+
+  const startEditColorMark = (participantId: string, index: number, entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }) => {
+    setEditingColorMarkMap((prev) => ({
+      ...prev,
+      [participantId]: { index, seats: [...entry.seat_numbers], mark: entry.mark }
+    }));
+  };
+
+  const cancelEditColorMark = (participantId: string) => {
+    setEditingColorMarkMap((prev) => ({ ...prev, [participantId]: null }));
+  };
+
+  const toggleEditColorSeat = (participantId: string, seatNum: number) => {
+    setEditingColorMarkMap((prev) => {
+      const current = prev[participantId];
+      if (!current) return prev;
+      const seats = current.seats.includes(seatNum)
+        ? current.seats.filter((s) => s !== seatNum)
+        : [...current.seats, seatNum].sort((a, b) => a - b);
+      return { ...prev, [participantId]: { ...current, seats } };
+    });
+  };
+
+  const setEditColorMarkType = (participantId: string, mark: 'red' | 'black' | 'sheriff') => {
+    setEditingColorMarkMap((prev) => {
+      const current = prev[participantId];
+      if (!current) return prev;
+      return { ...prev, [participantId]: { ...current, mark } };
+    });
+  };
+
+  const saveEditColorMark = (participantId: string) => {
+    const editState = editingColorMarkMap[participantId];
+    if (!editState || editState.seats.length === 0) return;
+
+    setPlayerResults((prev) =>
+      prev.map((pr) => {
+        if (pr.participant_id === participantId) {
+          const list = [...(pr.color_protocol || [])];
+          if (editState.index >= 0 && editState.index < list.length) {
+            list[editState.index] = {
+              seat_numbers: [...editState.seats].sort((a, b) => a - b),
+              mark: editState.mark
+            };
+          }
+          return { ...pr, color_protocol: list };
+        }
+        return pr;
+      })
+    );
+
+    cancelEditColorMark(participantId);
   };
 
   // Calculate live Best Move Score
@@ -946,8 +1009,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             </div>
 
                             {player.participant_id === protocol.first_killed_participant_id && (
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-cyan-500/40 col-span-2 sm:col-span-1">
-                                <span className="text-cyan-400 font-bold block mb-1">Ci (ручной)</span>
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-cyan-500/40 col-span-2 sm:col-span-1 space-y-1">
+                                <span className="text-cyan-400 font-bold block">Ci (ручной)</span>
                                 <input
                                   type="text"
                                   inputMode="decimal"
@@ -956,6 +1019,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'ci_points', e.target.value)}
                                   className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-cyan-500 focus:outline-none disabled:opacity-50 font-bold text-cyan-300"
                                 />
+                                <p className="text-[10px] text-slate-400">Ci пока вводится вручную</p>
                               </div>
                             )}
                           </div>
@@ -991,44 +1055,142 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               {/* Saved marks list */}
                               {player.color_protocol && player.color_protocol.length > 0 ? (
                                 <div className="space-y-1">
-                                  {player.color_protocol.map((entry, eIdx) => (
-                                    <div
-                                      key={eIdx}
-                                      className="flex items-center justify-between bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-xs"
-                                    >
-                                      <span className="font-bold text-amber-300">
-                                        {formatColorMark(entry)}
-                                      </span>
+                                  {player.color_protocol.map((entry, eIdx) => {
+                                    const editState = editingColorMarkMap[player.participant_id];
+                                    const isEditingThis = editState && editState.index === eIdx;
 
-                                      {protocol.status === 'draft' && (
-                                        <div className="flex items-center space-x-1">
-                                          <button
-                                            type="button"
-                                            disabled={eIdx === 0}
-                                            onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx - 1)}
-                                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
-                                          >
-                                            <ArrowUp className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            disabled={eIdx === player.color_protocol.length - 1}
-                                            onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx + 1)}
-                                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
-                                          >
-                                            <ArrowDown className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleDeleteColorMark(player.participant_id, eIdx)}
-                                            className="p-0.5 text-rose-400 hover:text-rose-300 ml-1"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
+                                    if (isEditingThis) {
+                                      return (
+                                        <div
+                                          key={eIdx}
+                                          className="p-2 bg-slate-800/90 rounded border border-amber-500/50 space-y-2 text-xs"
+                                        >
+                                          <div className="text-[11px] font-bold text-amber-400">
+                                            Редактирование записи #{eIdx + 1}:
+                                          </div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((sNum) => {
+                                              const isSel = editState.seats.includes(sNum);
+                                              return (
+                                                <button
+                                                  key={sNum}
+                                                  type="button"
+                                                  onClick={() => toggleEditColorSeat(player.participant_id, sNum)}
+                                                  className={`w-6 h-6 rounded text-[11px] font-bold border transition ${
+                                                    isSel
+                                                      ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800'
+                                                  }`}
+                                                >
+                                                  #{sNum}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                          <div className="flex items-center justify-between pt-1">
+                                            <div className="flex items-center space-x-1 text-[11px]">
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditColorMarkType(player.participant_id, 'red')}
+                                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                                  editState.mark === 'red'
+                                                    ? 'bg-rose-600 text-white'
+                                                    : 'bg-slate-900 text-rose-400 hover:bg-slate-700'
+                                                }`}
+                                              >
+                                                кр
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditColorMarkType(player.participant_id, 'black')}
+                                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                                  editState.mark === 'black'
+                                                    ? 'bg-slate-950 text-amber-400 border border-slate-700'
+                                                    : 'bg-slate-900 text-slate-300 hover:bg-slate-700'
+                                                }`}
+                                              >
+                                                ч
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditColorMarkType(player.participant_id, 'sheriff')}
+                                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                                  editState.mark === 'sheriff'
+                                                    ? 'bg-amber-500 text-slate-950'
+                                                    : 'bg-slate-900 text-amber-400 hover:bg-slate-700'
+                                                }`}
+                                              >
+                                                ш
+                                              </button>
+                                            </div>
+                                            <div className="flex items-center space-x-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => cancelEditColorMark(player.participant_id)}
+                                                className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-[11px]"
+                                              >
+                                                Отмена
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => saveEditColorMark(player.participant_id)}
+                                                className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px]"
+                                              >
+                                                Сохранить
+                                              </button>
+                                            </div>
+                                          </div>
                                         </div>
-                                      )}
-                                    </div>
-                                  ))}
+                                      );
+                                    }
+
+                                    return (
+                                      <div
+                                        key={eIdx}
+                                        className="flex items-center justify-between bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-xs"
+                                      >
+                                        <span className="font-bold text-amber-300">
+                                          {formatColorMark(entry)}
+                                        </span>
+
+                                        {protocol.status === 'draft' && (
+                                          <div className="flex items-center space-x-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => startEditColorMark(player.participant_id, eIdx, entry)}
+                                              title="Редактировать"
+                                              className="p-0.5 text-slate-400 hover:text-amber-400 transition mr-1"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={eIdx === 0}
+                                              onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx - 1)}
+                                              className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                                            >
+                                              <ArrowUp className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={eIdx === player.color_protocol.length - 1}
+                                              onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx + 1)}
+                                              className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                                            >
+                                              <ArrowDown className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteColorMark(player.participant_id, eIdx)}
+                                              className="p-0.5 text-rose-400 hover:text-rose-300 ml-1"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <div className="text-[11px] text-slate-500 italic">
@@ -1349,8 +1511,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         disabled={protocol.status === 'completed'}
                         value={protocol.first_killed_participant_id || ''}
                         onChange={(e) => {
-                          const val = e.target.value || null;
-                          setProtocol((prev) => ({ ...prev, first_killed_participant_id: val }));
+                          const newId = e.target.value || null;
+                          const prevId = protocol.first_killed_participant_id;
+                          if (newId === prevId) return;
+
+                          if (prevId) {
+                            const prevPlayer = playerResults.find((p) => p.participant_id === prevId);
+                            if (prevPlayer && Number(prevPlayer.ci_points || 0) !== 0) {
+                              setPendingFirstKilledId(newId);
+                              setShowCiConfirmModal(true);
+                              return;
+                            }
+                          }
+
+                          setProtocol((prev) => ({ ...prev, first_killed_participant_id: newId }));
                         }}
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                       >
@@ -1935,6 +2109,50 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md"
               >
                 {submitting ? 'Возвращаем...' : 'Да, вернуть в черновик'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM FIRST KILLED CI RESET */}
+      {showCiConfirmModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <AlertTriangle className="w-6 h-6" />
+              <h3 className="text-lg font-bold">Подтверждение смены первоубиенного</h3>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-300">
+              При смене первоубиенного его Ci будет обнулён
+            </p>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCiConfirmModal(false);
+                  setPendingFirstKilledId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const prevId = protocol.first_killed_participant_id;
+                  if (prevId) {
+                    updatePlayerResult(prevId, { ci_points: 0 });
+                  }
+                  setProtocol((prev) => ({ ...prev, first_killed_participant_id: pendingFirstKilledId }));
+                  setShowCiConfirmModal(false);
+                  setPendingFirstKilledId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
+              >
+                Сменить и обнулить
               </button>
             </div>
           </div>

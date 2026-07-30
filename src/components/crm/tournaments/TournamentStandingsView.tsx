@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2 } from 'lucide-react';
 import { api, TournamentStandingItem } from '../../../lib/api.ts';
 
 interface TournamentStandingsViewProps {
@@ -8,10 +8,16 @@ interface TournamentStandingsViewProps {
 
 export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = ({ tournamentId }) => {
   const [standings, setStandings] = useState<TournamentStandingItem[]>([]);
+  const [completedGamesCount, setCompletedGamesCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Expanded row state for main stats (< 640px)
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+
+  // Expanded games breakdown state (both mobile and desktop)
+  const [expandedGamesId, setExpandedGamesId] = useState<string | null>(null);
 
   const fetchStandings = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -20,6 +26,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
     try {
       const res = await api.getTournamentStandings(tournamentId);
+      setCompletedGamesCount(res.completed_games_count ?? 0);
       setStandings(res.standings || []);
     } catch (err: any) {
       setError(err.message || 'Не удалось загрузить турнирную таблицу');
@@ -33,8 +40,13 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
     fetchStandings();
   }, [tournamentId]);
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+  const toggleExpandRow = (id: string) => {
+    setExpandedRowId(expandedRowId === id ? null : id);
+  };
+
+  const toggleExpandGames = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedGamesId(expandedGamesId === id ? null : id);
   };
 
   if (loading) {
@@ -45,6 +57,9 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
       </div>
     );
   }
+
+  const top3 = standings.filter((item) => item.place <= 3);
+  const restParticipants = standings.filter((item) => item.place > 3);
 
   return (
     <div className="space-y-4 text-text-primary">
@@ -85,183 +100,637 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
         </div>
       )}
 
-      {/* Standings Table */}
-      <div className="bg-surface-1 border border-border-soft rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-surface-2 border-b border-border-soft text-text-muted text-[11px] uppercase tracking-wider font-extrabold">
-                <th className="py-3 px-3 text-center w-10">Место</th>
-                <th className="py-3 px-3">Участник</th>
-                <th className="py-3 px-2 text-center">Игр</th>
-                <th className="py-3 px-2 text-center text-accent">Очки</th>
-                <th className="py-3 px-2 text-center">Побед</th>
-                <th className="py-3 px-2 text-center">Шериф/Дон</th>
-                <th className="py-3 px-2 text-center">Доп. сум.</th>
-                <th className="py-3 px-2 text-center">Бонус</th>
-                <th className="py-3 px-2 text-center">ЛХ</th>
-                <th className="py-3 px-2 text-center">Штраф</th>
-                <th className="py-3 px-2 text-center">Ci</th>
-                <th className="py-3 px-2 text-center w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-soft/60">
-              {standings.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="py-8 text-center text-text-muted text-xs">
-                    Нет завершённых игр для формирования таблицы
-                  </td>
-                </tr>
-              ) : (
-                standings.map((item) => {
-                  const isExpanded = expandedId === item.participant_id;
+      {/* Empty State when completed_games_count === 0 */}
+      {completedGamesCount === 0 || standings.length === 0 ? (
+        <div className="bg-surface-1 border border-border-soft rounded-3xl p-8 text-center text-text-muted text-xs space-y-2">
+          <Trophy className="w-8 h-8 text-amber-400/50 mx-auto" />
+          <p className="text-sm font-semibold text-text-secondary">
+            Таблица появится после завершения первой игры
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* ====================================================== */}
+          {/* MOBILE VIEW (< 640px)                                  */}
+          {/* ====================================================== */}
+          <div className="block sm:hidden space-y-3">
+            {/* Top 3 Compact Cards */}
+            {top3.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-text-muted px-1 flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Лидеры турнира</span>
+                </div>
 
-                  return (
-                    <React.Fragment key={item.participant_id}>
-                      <tr
-                        onClick={() => toggleExpand(item.participant_id)}
-                        className={`hover:bg-surface-2/60 transition-colors cursor-pointer ${
-                          isExpanded ? 'bg-surface-2/40' : ''
+                <div className="grid grid-cols-1 gap-2.5">
+                  {top3.map((item) => {
+                    const isRowExpanded = expandedRowId === item.participant_id;
+                    const isGamesExpanded = expandedGamesId === item.participant_id;
+
+                    return (
+                      <div
+                        key={item.participant_id}
+                        onClick={() => toggleExpandRow(item.participant_id)}
+                        className={`bg-surface-1 border rounded-2xl p-3 space-y-2 cursor-pointer transition-all ${
+                          item.place === 1
+                            ? 'border-amber-500/50 shadow-sm bg-gradient-to-r from-amber-500/5 to-transparent'
+                            : item.place === 2
+                            ? 'border-slate-400/40'
+                            : 'border-amber-700/40'
                         }`}
                       >
-                        {/* Place */}
-                        <td className="py-3 px-3 text-center font-bold">
-                          <span
-                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
-                              item.place === 1
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-black'
-                                : item.place === 2
-                                ? 'bg-slate-300/20 text-slate-300 border border-slate-300/40 font-bold'
-                                : item.place === 3
-                                ? 'bg-amber-700/20 text-amber-600 border border-amber-700/40 font-bold'
-                                : 'text-text-muted font-semibold'
-                            }`}
-                          >
-                            {item.place}
-                          </span>
-                        </td>
-
-                        {/* Participant */}
-                        <td className="py-3 px-3 font-extrabold text-text-primary">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-text-muted text-[11px] font-mono">
-                              #{item.participant_number}
+                        {/* Top visible row: Place, Nick, Σ, Σдб, И, П */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs shrink-0 ${
+                                item.place === 1
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-black'
+                                  : item.place === 2
+                                  ? 'bg-slate-300/20 text-slate-300 border border-slate-300/40 font-bold'
+                                  : 'bg-amber-700/20 text-amber-600 border border-amber-700/40 font-bold'
+                              }`}
+                            >
+                              {item.place}
                             </span>
-                            <span>{item.display_name}</span>
+
+                            <div className="min-w-0 truncate">
+                              <span className="text-text-muted text-[11px] font-mono mr-1">
+                                #{item.participant_number}
+                              </span>
+                              <span className="font-extrabold text-text-primary text-sm truncate">
+                                {item.display_name}
+                              </span>
+                            </div>
                           </div>
-                        </td>
 
-                        {/* Games played */}
-                        <td className="py-3 px-2 text-center font-mono text-text-secondary">
-                          {item.games_played}
-                        </td>
+                          <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">Σ</div>
+                              <div className="font-black text-sm text-accent">{item.total_points}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">Σдб</div>
+                              <div className="font-bold text-text-secondary">
+                                {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">И</div>
+                              <div className="font-semibold text-text-secondary">{item.games_played}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">П</div>
+                              <div className="font-bold text-emerald-400">{item.wins}</div>
+                            </div>
+                            {isRowExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-text-muted ml-1" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-text-muted ml-1" />
+                            )}
+                          </div>
+                        </div>
 
-                        {/* Total points */}
-                        <td className="py-3 px-2 text-center font-black text-sm text-accent">
-                          {item.total_points}
-                        </td>
+                        {/* Collapsible expanded stats (+, −, ЛХ, Ci, Д, Ш, У) */}
+                        {isRowExpanded && (
+                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-7 gap-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">+</div>
+                              <div className="font-bold text-emerald-400">
+                                {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">−</div>
+                              <div className="font-bold text-danger">
+                                {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
+                              <div className="font-bold text-amber-400">
+                                {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Ci</div>
+                              <div className="font-bold text-cyan-400">
+                                {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Д</div>
+                              <div className="font-bold text-purple-400">{item.don_wins}</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Ш</div>
+                              <div className="font-bold text-amber-400">{item.sheriff_wins}</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">У</div>
+                              <div className="font-bold text-rose-400">{item.first_killed_count}</div>
+                            </div>
+                          </div>
+                        )}
 
-                        {/* Wins */}
-                        <td className="py-3 px-2 text-center font-bold text-emerald-400">
-                          {item.wins}
-                        </td>
+                        {/* Button to open per-game breakdown */}
+                        <div className="pt-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpandGames(item.participant_id, e)}
+                            className="bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
+                          >
+                            <Gamepad2 className="w-3 h-3 text-accent" />
+                            <span>{isGamesExpanded ? 'Скрыть детализацию' : 'Детализация по играм'}</span>
+                          </button>
+                        </div>
 
-                        {/* Sheriff / Don wins */}
-                        <td className="py-3 px-2 text-center text-[11px] font-mono text-text-secondary">
-                          <span title="Побед Шерифом" className="text-amber-400 font-bold">{item.sheriff_wins}Ш</span>
-                          {' / '}
-                          <span title="Побед Доном" className="text-purple-400 font-bold">{item.don_wins}Д</span>
-                        </td>
-
-                        {/* Additional total */}
-                        <td className="py-3 px-2 text-center font-bold text-text-primary">
-                          {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
-                        </td>
-
-                        {/* Positive points */}
-                        <td className="py-3 px-2 text-center font-mono text-text-secondary">
-                          {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
-                        </td>
-
-                        {/* Best move points */}
-                        <td className="py-3 px-2 text-center font-mono text-amber-400 font-semibold">
-                          {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
-                        </td>
-
-                        {/* Penalty points */}
-                        <td className="py-3 px-2 text-center font-mono text-danger font-semibold">
-                          {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
-                        </td>
-
-                        {/* Ci points */}
-                        <td className="py-3 px-2 text-center font-mono text-cyan-400 font-semibold">
-                          {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
-                        </td>
-
-                        {/* Expand Icon */}
-                        <td className="py-3 px-2 text-center text-text-muted">
-                          {isExpanded ? <ChevronUp className="w-4 h-4 mx-auto" /> : <ChevronDown className="w-4 h-4 mx-auto" />}
-                        </td>
-                      </tr>
-
-                      {/* Expanded Games Breakdown */}
-                      {isExpanded && (
-                        <tr className="bg-surface-2/30">
-                          <td colSpan={12} className="p-4">
-                            <div className="space-y-2">
-                              <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-                                Детализация по играм: {item.display_name}
-                              </h4>
-                              {item.games.length === 0 ? (
-                                <p className="text-xs text-text-muted italic">Нет данных об играх</p>
-                              ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                                  {item.games.map((g) => (
-                                    <div
-                                      key={g.game_number}
-                                      className="p-3 bg-surface-1 rounded-2xl border border-border-soft space-y-1.5 text-xs"
-                                    >
-                                      <div className="flex items-center justify-between font-bold">
-                                        <span>Игра №{g.game_number} (Слот {g.seat_number})</span>
-                                        <span
-                                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                                            g.win_point === 1
-                                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                                              : 'bg-danger/10 text-danger border border-danger/30'
-                                          }`}
-                                        >
-                                          {g.win_point === 1 ? 'Победа' : 'Поражение'}
+                        {/* Per-game breakdown if active */}
+                        {isGamesExpanded && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="pt-2 border-t border-border-soft/60 space-y-2 text-xs"
+                          >
+                            <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                              Игры игрока: {item.display_name}
+                            </h4>
+                            {item.games.length === 0 ? (
+                              <p className="text-[11px] text-text-muted italic">Нет данных об играх</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {item.games.map((g) => (
+                                  <div
+                                    key={g.game_number}
+                                    className="p-2.5 bg-surface-2/60 rounded-xl border border-border-soft space-y-1"
+                                  >
+                                    <div className="flex items-center justify-between font-bold">
+                                      <span>
+                                        Игра №{g.game_number} (Слот {g.seat_number})
+                                      </span>
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                          g.win_point === 1
+                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                            : 'bg-danger/10 text-danger border border-danger/30'
+                                        }`}
+                                      >
+                                        {g.win_point === 1 ? 'Победа' : 'Поражение'}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1 text-[11px] text-text-secondary pt-1 border-t border-border-soft/60">
+                                      <div>
+                                        Роль:{' '}
+                                        <span className="font-semibold text-text-primary capitalize">
+                                          {g.role || '—'}
                                         </span>
                                       </div>
-
-                                      <div className="grid grid-cols-2 gap-1 text-[11px] text-text-secondary pt-1 border-t border-border-soft/60">
-                                        <div>Роль: <span className="font-semibold text-text-primary capitalize">{g.role || '—'}</span></div>
-                                        <div>Победа team: <span className="font-semibold text-text-primary">{g.winner_team === 'red' ? 'Красные' : g.winner_team === 'black' ? 'Чёрные' : '—'}</span></div>
-                                        <div>Бонус судьи/прот: <span className="font-mono text-emerald-400">+{g.positive_points}</span></div>
-                                        <div>ЛХ очки: <span className="font-mono text-amber-400">+{g.best_move_points}</span></div>
-                                        <div>Штрафы: <span className="font-mono text-danger">-{g.penalty_points}</span></div>
-                                        <div>Ci очки: <span className="font-mono text-cyan-400">+{g.ci_points}</span></div>
+                                      <div>
+                                        Победа:{' '}
+                                        <span className="font-semibold text-text-primary">
+                                          {g.winner_team === 'red'
+                                            ? 'Красные'
+                                            : g.winner_team === 'black'
+                                            ? 'Чёрные'
+                                            : '—'}
+                                        </span>
                                       </div>
-
-                                      <div className="pt-1 text-right font-extrabold text-xs text-accent border-t border-border-soft/60">
-                                        Итого за игру: {g.game_total}
+                                      <div>
+                                        Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                      </div>
+                                      <div>
+                                        ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                      </div>
+                                      <div>
+                                        Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
+                                      </div>
+                                      <div>
+                                        Ci: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
                                       </div>
                                     </div>
-                                  ))}
-                                </div>
-                              )}
+                                    <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
+                                      Итого за игру: {g.game_total}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Remaining participants (Place 4+) vertical rows */}
+            {restParticipants.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-text-muted px-1">
+                  Все участники
+                </div>
+
+                <div className="space-y-2">
+                  {restParticipants.map((item) => {
+                    const isRowExpanded = expandedRowId === item.participant_id;
+                    const isGamesExpanded = expandedGamesId === item.participant_id;
+
+                    return (
+                      <div
+                        key={item.participant_id}
+                        onClick={() => toggleExpandRow(item.participant_id)}
+                        className="bg-surface-1 border border-border-soft rounded-2xl p-3 space-y-2 cursor-pointer hover:bg-surface-2/40 transition-all"
+                      >
+                        {/* Top visible row: Place, Nick, Σ, Σдб, И, П */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs shrink-0 font-semibold text-text-muted bg-surface-2 border border-border-soft">
+                              {item.place}
+                            </span>
+
+                            <div className="min-w-0 truncate">
+                              <span className="text-text-muted text-[11px] font-mono mr-1">
+                                #{item.participant_number}
+                              </span>
+                              <span className="font-extrabold text-text-primary text-sm truncate">
+                                {item.display_name}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">Σ</div>
+                              <div className="font-black text-sm text-accent">{item.total_points}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">Σдб</div>
+                              <div className="font-bold text-text-secondary">
+                                {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">И</div>
+                              <div className="font-semibold text-text-secondary">{item.games_played}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-text-muted">П</div>
+                              <div className="font-bold text-emerald-400">{item.wins}</div>
+                            </div>
+                            {isRowExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-text-muted ml-1" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-text-muted ml-1" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Collapsible expanded stats (+, −, ЛХ, Ci, Д, Ш, У) */}
+                        {isRowExpanded && (
+                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-7 gap-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">+</div>
+                              <div className="font-bold text-emerald-400">
+                                {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">−</div>
+                              <div className="font-bold text-danger">
+                                {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
+                              <div className="font-bold text-amber-400">
+                                {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Ci</div>
+                              <div className="font-bold text-cyan-400">
+                                {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Д</div>
+                              <div className="font-bold text-purple-400">{item.don_wins}</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">Ш</div>
+                              <div className="font-bold text-amber-400">{item.sheriff_wins}</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase">У</div>
+                              <div className="font-bold text-rose-400">{item.first_killed_count}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Button to open per-game breakdown */}
+                        <div className="pt-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpandGames(item.participant_id, e)}
+                            className="bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all"
+                          >
+                            <Gamepad2 className="w-3 h-3 text-accent" />
+                            <span>{isGamesExpanded ? 'Скрыть детализацию' : 'Детализация по играм'}</span>
+                          </button>
+                        </div>
+
+                        {/* Per-game breakdown if active */}
+                        {isGamesExpanded && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="pt-2 border-t border-border-soft/60 space-y-2 text-xs"
+                          >
+                            <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                              Игры игрока: {item.display_name}
+                            </h4>
+                            {item.games.length === 0 ? (
+                              <p className="text-[11px] text-text-muted italic">Нет данных об играх</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {item.games.map((g) => (
+                                  <div
+                                    key={g.game_number}
+                                    className="p-2.5 bg-surface-2/60 rounded-xl border border-border-soft space-y-1"
+                                  >
+                                    <div className="flex items-center justify-between font-bold">
+                                      <span>
+                                        Игра №{g.game_number} (Слот {g.seat_number})
+                                      </span>
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                          g.win_point === 1
+                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                            : 'bg-danger/10 text-danger border border-danger/30'
+                                        }`}
+                                      >
+                                        {g.win_point === 1 ? 'Победа' : 'Поражение'}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1 text-[11px] text-text-secondary pt-1 border-t border-border-soft/60">
+                                      <div>
+                                        Роль:{' '}
+                                        <span className="font-semibold text-text-primary capitalize">
+                                          {g.role || '—'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        Победа:{' '}
+                                        <span className="font-semibold text-text-primary">
+                                          {g.winner_team === 'red'
+                                            ? 'Красные'
+                                            : g.winner_team === 'black'
+                                            ? 'Чёрные'
+                                            : '—'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                      </div>
+                                      <div>
+                                        ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                      </div>
+                                      <div>
+                                        Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
+                                      </div>
+                                      <div>
+                                        Ci: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
+                                      </div>
+                                    </div>
+                                    <div className="pt-1 text-right font-extrabold text-[11px] text-accent">
+                                      Итого за игру: {g.game_total}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ====================================================== */}
+          {/* DESKTOP VIEW (>= 640px)                                */}
+          {/* Exact matched headers:                                 */}
+          {/* Место | Игрок | Σ | Σдб | + | − | ЛХ | Ci | П | Д | Ш | У | И */}
+          {/* ====================================================== */}
+          <div className="hidden sm:block bg-surface-1 border border-border-soft rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-surface-2 border-b border-border-soft text-text-muted text-[11px] uppercase tracking-wider font-extrabold">
+                    <th className="py-3 px-3 text-center w-12">Место</th>
+                    <th className="py-3 px-3">Игрок</th>
+                    <th className="py-3 px-2 text-center text-accent">Σ</th>
+                    <th className="py-3 px-2 text-center">Σдб</th>
+                    <th className="py-3 px-2 text-center text-emerald-400">+</th>
+                    <th className="py-3 px-2 text-center text-danger">−</th>
+                    <th className="py-3 px-2 text-center text-amber-400">ЛХ</th>
+                    <th className="py-3 px-2 text-center text-cyan-400">Ci</th>
+                    <th className="py-3 px-2 text-center text-emerald-400">П</th>
+                    <th className="py-3 px-2 text-center text-purple-400">Д</th>
+                    <th className="py-3 px-2 text-center text-amber-400">Ш</th>
+                    <th className="py-3 px-2 text-center text-rose-400">У</th>
+                    <th className="py-3 px-2 text-center">И</th>
+                    <th className="py-3 px-2 text-center w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-soft/60">
+                  {standings.map((item) => {
+                    const isGamesExpanded = expandedGamesId === item.participant_id;
+
+                    return (
+                      <React.Fragment key={item.participant_id}>
+                        <tr
+                          onClick={() => toggleExpandGames(item.participant_id)}
+                          className={`hover:bg-surface-2/60 transition-colors cursor-pointer ${
+                            isGamesExpanded ? 'bg-surface-2/40' : ''
+                          }`}
+                        >
+                          {/* Место */}
+                          <td className="py-3 px-3 text-center font-bold">
+                            <span
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
+                                item.place === 1
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-black'
+                                  : item.place === 2
+                                  ? 'bg-slate-300/20 text-slate-300 border border-slate-300/40 font-bold'
+                                  : item.place === 3
+                                  ? 'bg-amber-700/20 text-amber-600 border border-amber-700/40 font-bold'
+                                  : 'text-text-muted font-semibold'
+                              }`}
+                            >
+                              {item.place}
+                            </span>
+                          </td>
+
+                          {/* Игрок */}
+                          <td className="py-3 px-3 font-extrabold text-text-primary">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-text-muted text-[11px] font-mono">
+                                #{item.participant_number}
+                              </span>
+                              <span>{item.display_name}</span>
                             </div>
                           </td>
+
+                          {/* Σ (total_points) */}
+                          <td className="py-3 px-2 text-center font-black text-sm text-accent">
+                            {item.total_points}
+                          </td>
+
+                          {/* Σдб (additional_total) */}
+                          <td className="py-3 px-2 text-center font-bold text-text-primary">
+                            {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
+                          </td>
+
+                          {/* + (positive_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-emerald-400 font-semibold">
+                            {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                          </td>
+
+                          {/* − (penalty_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-danger font-semibold">
+                            {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                          </td>
+
+                          {/* ЛХ (best_move_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-amber-400 font-semibold">
+                            {item.best_move_points > 0 ? `+${item.best_move_points}` : item.best_move_points}
+                          </td>
+
+                          {/* Ci (ci_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-cyan-400 font-semibold">
+                            {item.ci_points > 0 ? `+${item.ci_points}` : item.ci_points}
+                          </td>
+
+                          {/* П (wins) */}
+                          <td className="py-3 px-2 text-center font-bold text-emerald-400">
+                            {item.wins}
+                          </td>
+
+                          {/* Д (don_wins) */}
+                          <td className="py-3 px-2 text-center font-bold text-purple-400">
+                            {item.don_wins}
+                          </td>
+
+                          {/* Ш (sheriff_wins) */}
+                          <td className="py-3 px-2 text-center font-bold text-amber-400">
+                            {item.sheriff_wins}
+                          </td>
+
+                          {/* У (first_killed_count) */}
+                          <td className="py-3 px-2 text-center font-bold text-rose-400">
+                            {item.first_killed_count}
+                          </td>
+
+                          {/* И (games_played) */}
+                          <td className="py-3 px-2 text-center font-mono text-text-secondary">
+                            {item.games_played}
+                          </td>
+
+                          {/* Expand Icon */}
+                          <td className="py-3 px-2 text-center text-text-muted">
+                            {isGamesExpanded ? (
+                              <ChevronUp className="w-4 h-4 mx-auto" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 mx-auto" />
+                            )}
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+                        {/* Expanded Games Breakdown Row */}
+                        {isGamesExpanded && (
+                          <tr className="bg-surface-2/30">
+                            <td colSpan={14} className="p-4">
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">
+                                  Детализация по играм: {item.display_name}
+                                </h4>
+                                {item.games.length === 0 ? (
+                                  <p className="text-xs text-text-muted italic">Нет данных об играх</p>
+                                ) : (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                    {item.games.map((g) => (
+                                      <div
+                                        key={g.game_number}
+                                        className="p-3 bg-surface-1 rounded-2xl border border-border-soft space-y-1.5 text-xs"
+                                      >
+                                        <div className="flex items-center justify-between font-bold">
+                                          <span>
+                                            Игра №{g.game_number} (Слот {g.seat_number})
+                                          </span>
+                                          <span
+                                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                              g.win_point === 1
+                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                                : 'bg-danger/10 text-danger border border-danger/30'
+                                            }`}
+                                          >
+                                            {g.win_point === 1 ? 'Победа' : 'Поражение'}
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-1 text-[11px] text-text-secondary pt-1 border-t border-border-soft/60">
+                                          <div>
+                                            Роль:{' '}
+                                            <span className="font-semibold text-text-primary capitalize">
+                                              {g.role || '—'}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            Победа team:{' '}
+                                            <span className="font-semibold text-text-primary">
+                                              {g.winner_team === 'red'
+                                                ? 'Красные'
+                                                : g.winner_team === 'black'
+                                                ? 'Чёрные'
+                                                : '—'}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                          </div>
+                                          <div>
+                                            ЛХ очки: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                          </div>
+                                          <div>
+                                            Штрафы: <span className="font-mono text-danger">-{g.penalty_points}</span>
+                                          </div>
+                                          <div>
+                                            Ci очки: <span className="font-mono text-cyan-400">+{g.ci_points}</span>
+                                          </div>
+                                        </div>
+
+                                        <div className="pt-1 text-right font-extrabold text-xs text-accent border-t border-border-soft/60">
+                                          Итого за игру: {g.game_total}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

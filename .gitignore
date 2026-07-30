@@ -37,3 +37,4 @@ __pycache__/
 
 # Generated images & local media artifacts
 generated_images/
+uploads/

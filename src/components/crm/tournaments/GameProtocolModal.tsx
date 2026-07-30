@@ -66,6 +66,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const isFirstRender = useRef(true);
+  const isUpdatingFromServer = useRef(false);
+  const isSavingRef = useRef(false);
+  const dirtyRevision = useRef(0);
+  const lastSavedRevision = useRef(0);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Modals for confirmation
@@ -84,10 +88,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     api.getGameProtocol(tournamentId, gameId)
       .then((res) => {
         if (!isMounted) return;
+        isUpdatingFromServer.current = true;
         setGame(res.game);
         setProtocol(res.protocol);
         setPlayerResults(res.player_results);
         setSaveStatus('saved');
+        dirtyRevision.current = 0;
+        lastSavedRevision.current = 0;
 
         // Restore backup from localStorage if available and draft is newer
         const backupKey = `tournament_protocol_backup_${gameId}`;
@@ -121,6 +128,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   useEffect(() => {
     if (isFirstRender.current || loading || !isOpen || protocol.status === 'completed') return;
 
+    if (isUpdatingFromServer.current) {
+      isUpdatingFromServer.current = false;
+      return;
+    }
+
+    dirtyRevision.current++;
     setSaveStatus('unsaved');
 
     // Save backup to localStorage immediately
@@ -137,7 +150,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
 
     autoSaveTimeout.current = setTimeout(() => {
-      triggerSave();
+      performSave();
     }, 1500);
 
     return () => {
@@ -145,9 +158,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     };
   }, [protocol, playerResults]);
 
-  const triggerSave = async () => {
-    if (protocol.status === 'completed') return;
+  const performSave = async (isManual = false) => {
+    if (protocol.status === 'completed' || loading) return;
 
+    if (isSavingRef.current) {
+      return;
+    }
+
+    if (!isManual && dirtyRevision.current <= lastSavedRevision.current && saveStatus === 'saved') {
+      return;
+    }
+
+    const revisionToSave = dirtyRevision.current;
+    isSavingRef.current = true;
     setSaveStatus('saving');
     setSaveErrorMessage(null);
 
@@ -169,14 +192,36 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       };
 
       const res = await api.saveGameProtocol(tournamentId, gameId, payload);
-      setProtocol(res.protocol);
-      setPlayerResults(res.player_results);
-      setSaveStatus('saved');
+      lastSavedRevision.current = Math.max(lastSavedRevision.current, revisionToSave);
+
+      if (dirtyRevision.current === revisionToSave) {
+        isUpdatingFromServer.current = true;
+        setProtocol(res.protocol);
+        setPlayerResults(res.player_results);
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('unsaved');
+        if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
+        autoSaveTimeout.current = setTimeout(() => {
+          performSave();
+        }, 500);
+      }
+
       if (onProtocolUpdated) onProtocolUpdated();
     } catch (err: any) {
       setSaveStatus('error');
       setSaveErrorMessage(err.message || 'Ошибка сохранения');
+    } finally {
+      isSavingRef.current = false;
     }
+  };
+
+  const handleModalClose = async () => {
+    if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
+    if (dirtyRevision.current > lastSavedRevision.current && protocol.status !== 'completed') {
+      await performSave(true);
+    }
+    onClose();
   };
 
   // Helper to update player result
@@ -224,8 +269,57 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     });
   };
 
+  // Validate protocol on client side before completing
+  const validateBeforeComplete = (): string | null => {
+    if (!protocol.winner_team || !['red', 'black'].includes(protocol.winner_team)) {
+      return 'Необходимо выбрать победившую команду (Красные или Чёрные)';
+    }
+
+    if (!playerResults || playerResults.length !== 10) {
+      return 'В протоколе должно быть ровно 10 игроков';
+    }
+
+    // Role check: 6 citizen, 1 sheriff, 2 mafia, 1 don
+    const roleCounts: Record<string, number> = { citizen: 0, sheriff: 0, mafia: 0, don: 0 };
+    for (const pr of playerResults) {
+      const r = (pr.role || '').toLowerCase();
+      if (r === 'мирянин' || r === 'мирный') roleCounts.citizen++;
+      else if (r === 'шериф') roleCounts.sheriff++;
+      else if (r === 'мафия') roleCounts.mafia++;
+      else if (r === 'дон') roleCounts.don++;
+      else if (roleCounts[r] !== undefined) roleCounts[r]++;
+    }
+    if (roleCounts.citizen !== 6 || roleCounts.sheriff !== 1 || roleCounts.mafia !== 2 || roleCounts.don !== 1) {
+      return 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)';
+    }
+
+    if (protocol.best_move_seats && protocol.best_move_seats.length > 0) {
+      if (!protocol.best_move_participant_id) {
+        return 'Выбраны цифры ЛХ, но не указан игрок, который сделал ЛХ';
+      }
+    }
+    if (protocol.best_move_participant_id) {
+      if (!protocol.best_move_seats || protocol.best_move_seats.length === 0) {
+        return 'Указан игрок ЛХ, но не выбраны цифры ЛХ';
+      }
+      const lhPlayer = playerResults.find((p) => p.participant_id === protocol.best_move_participant_id);
+      if (lhPlayer && !['killed', 'voted_zero_round'].includes(lhPlayer.exit_type)) {
+        return 'Получатель ЛХ должен покинуть игру со способом "Убит" или "Заголосован в 0 круг"';
+      }
+    }
+
+    return null;
+  };
+
   // Handle Complete Protocol
   const handleComplete = async () => {
+    const valErr = validateBeforeComplete();
+    if (valErr) {
+      setError(valErr);
+      setShowCompleteConfirm(false);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -342,17 +436,24 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 {saveStatus === 'error' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="text-rose-400 font-medium" title={saveErrorMessage || 'Ошибка'}>
+                    <span className="text-rose-400 font-medium max-w-[150px] truncate" title={saveErrorMessage || 'Ошибка'}>
                       {saveErrorMessage || 'Ошибка'}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => performSave(true)}
+                      className="ml-1 px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold border border-rose-500/40 transition cursor-pointer"
+                    >
+                      Сохранить сейчас
+                    </button>
                   </>
                 )}
               </div>
             )}
 
             <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition"
+              onClick={handleModalClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition cursor-pointer"
               title="Закрыть"
             >
               <X className="w-5 h-5" />
@@ -1227,8 +1328,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             {protocol.status === 'draft' ? (
               <button
                 type="button"
-                onClick={() => setShowCompleteConfirm(true)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center space-x-1.5"
+                onClick={() => {
+                  const valErr = validateBeforeComplete();
+                  if (valErr) {
+                    setError(valErr);
+                  } else {
+                    setError(null);
+                    setShowCompleteConfirm(true);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <FileCheck className="w-4 h-4" />
                 <span>Завершить протокол</span>

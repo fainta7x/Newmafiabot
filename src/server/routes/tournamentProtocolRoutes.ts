@@ -45,14 +45,19 @@ export function calculateBestMovePoints(
   return { guessedBlacks, bonusPoints };
 }
 
+const VALID_EXIT_TYPES = ['alive', 'killed', 'voted_zero_round', 'voted_day', 'removed'];
+const VALID_COLOR_MARKS = ['red', 'black', 'sheriff'];
+
 function validateBestMove(
   bestMoveSeats: any,
   bestMoveParticipantId: string | null | undefined,
   firstKilledParticipantId: string | null | undefined,
   zeroRoundVotedParticipantId: string | null | undefined,
-  allParticipantIds: string[]
+  allParticipantIds: string[],
+  playerResults?: any[]
 ): string | null {
-  // Validate bestMoveSeats
+  const seatsArr = Array.isArray(bestMoveSeats) ? bestMoveSeats : [];
+
   if (bestMoveSeats !== undefined && bestMoveSeats !== null) {
     if (!Array.isArray(bestMoveSeats)) {
       return 'ЛХ должен быть массивом номеров мест';
@@ -73,16 +78,39 @@ function validateBestMove(
     }
   }
 
-  // Validate bestMoveParticipantId
+  // Check relationship between seats and recipient
+  if (seatsArr.length > 0 && !bestMoveParticipantId) {
+    return 'Если указаны номера лучшего хода, необходимо выбрать получателя ЛХ';
+  }
+
+  if (!bestMoveParticipantId && seatsArr.length > 0) {
+    return 'Без получателя ЛХ массив номеров обязан быть пустым';
+  }
+
+  // Validate bestMoveParticipantId if present
   if (bestMoveParticipantId) {
     if (!allParticipantIds.includes(bestMoveParticipantId)) {
       return 'Получатель ЛХ не является участником этой игры';
     }
+
     const isFirstKilled = Boolean(firstKilledParticipantId && bestMoveParticipantId === firstKilledParticipantId);
     const isZeroRoundVoted = Boolean(zeroRoundVotedParticipantId && bestMoveParticipantId === zeroRoundVotedParticipantId);
 
     if (!isFirstKilled && !isZeroRoundVoted) {
       return 'Получателем лучшего хода может быть только первоубиенный игрок или игрок, заголосованный в нулевой круг';
+    }
+
+    // Check exit_type of recipient in playerResults if provided
+    if (playerResults && Array.isArray(playerResults)) {
+      const recipientResult = playerResults.find((pr) => pr.participant_id === bestMoveParticipantId);
+      if (recipientResult) {
+        if (isFirstKilled && recipientResult.exit_type !== 'killed') {
+          return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
+        }
+        if (isZeroRoundVoted && recipientResult.exit_type !== 'voted_zero_round') {
+          return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
+        }
+      }
     }
   }
 
@@ -96,23 +124,95 @@ function validatePlayerResults(
   if (!Array.isArray(playerResults)) {
     return 'Результаты игроков должны быть массивом';
   }
+
+  if (playerResults.length !== 10) {
+    return 'Результаты игроков должны содержать ровно 10 записей';
+  }
+
   const seatParticipantIds = gameSeats.map((s) => s.participant_id);
+  const seenParticipantIds = new Set<string>();
+
   for (const pr of playerResults) {
     if (!pr.participant_id || !seatParticipantIds.includes(pr.participant_id)) {
       return 'Результаты содержат участника, не принадлежащего этой игре';
     }
-    if (pr.regular_fouls !== undefined && (typeof pr.regular_fouls !== 'number' || pr.regular_fouls < 0)) {
-      return 'Обычные фолы должны быть неотрицательным числом';
+
+    if (seenParticipantIds.has(pr.participant_id)) {
+      return 'Результаты игроков содержат дубликаты участников';
     }
-    if (pr.technical_fouls !== undefined && (typeof pr.technical_fouls !== 'number' || pr.technical_fouls < 0)) {
-      return 'Технические фолы должны быть неотрицательным числом';
+    seenParticipantIds.add(pr.participant_id);
+
+    if (pr.exit_type !== undefined && !VALID_EXIT_TYPES.includes(pr.exit_type)) {
+      return `Недопустимый тип ухода из игры: ${pr.exit_type}`;
+    }
+
+    if (pr.exit_order !== undefined && pr.exit_order !== null) {
+      if (!Number.isInteger(pr.exit_order) || pr.exit_order < 1 || pr.exit_order > 10) {
+        return 'Порядок ухода из игры должен быть целым числом от 1 до 10 или null';
+      }
+    }
+
+    if (pr.regular_fouls !== undefined) {
+      if (!Number.isInteger(pr.regular_fouls) || pr.regular_fouls < 0 || pr.regular_fouls > 4) {
+        return 'Обычные фолы должны быть целым числом от 0 до 4';
+      }
+    }
+
+    if (pr.technical_fouls !== undefined) {
+      if (!Number.isInteger(pr.technical_fouls) || pr.technical_fouls < 0 || pr.technical_fouls > 4) {
+        return 'Технические фолы должны быть целым числом от 0 до 4';
+      }
+    }
+
+    if (pr.judge_bonus !== undefined && (typeof pr.judge_bonus !== 'number' || !Number.isFinite(pr.judge_bonus))) {
+      return 'Бонусные баллы судьи должны быть числом';
+    }
+
+    if (pr.protocol_bonus !== undefined && (typeof pr.protocol_bonus !== 'number' || !Number.isFinite(pr.protocol_bonus))) {
+      return 'Баллы протокола должны быть числом';
+    }
+
+    if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points))) {
+      return 'Штрафные баллы должны быть числом';
+    }
+
+    if (pr.color_protocol !== undefined && pr.color_protocol !== null) {
+      if (!Array.isArray(pr.color_protocol)) {
+        return 'Цветовой протокол должен быть массивом';
+      }
+      for (const entry of pr.color_protocol) {
+        if (!entry || !VALID_COLOR_MARKS.includes(entry.mark)) {
+          return 'Цветовой протокол содержит недопустимую метку';
+        }
+        if (entry.seat_numbers !== undefined && entry.seat_numbers !== null) {
+          if (!Array.isArray(entry.seat_numbers)) {
+            return 'Номера мест в цветовом протоколе должны быть массивом';
+          }
+          const seenSeats = new Set<number>();
+          for (const sn of entry.seat_numbers) {
+            const num = Number(sn);
+            if (!Number.isInteger(num) || num < 1 || num > 10) {
+              return 'Номера мест в цветовом протоколе должны быть от 1 до 10';
+            }
+            if (seenSeats.has(num)) {
+              return 'Номера мест в цветовом протоколе не могут повторяться';
+            }
+            seenSeats.add(num);
+          }
+        }
+      }
     }
   }
+
+  if (seenParticipantIds.size !== 10) {
+    return 'Результаты должны содержать ровно 10 уникальных участников';
+  }
+
   return null;
 }
 
 // 1. GET /api/tournaments/:tournamentId/games/:gameId/protocol
-router.get('/:tournamentId/games/:gameId/protocol', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const { tournamentId, gameId } = req.params;
 
@@ -239,36 +339,50 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
   const { protocol, player_results } = req.body;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Сохранить протокол можно только в активном турнире' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    if (game.status === 'planned') {
+      return res.status(400).json({ error: 'Нельзя сохранить запланированную игру. Сначала запустите игру' });
     }
 
     const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
     const allParticipantIds = seats.map((s) => s.participant_id);
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
-    if (existingProtocol && existingProtocol.status === 'completed') {
+    if ((existingProtocol && existingProtocol.status === 'completed') || game.status === 'completed') {
       return res.status(400).json({ error: 'Завершённую игру нельзя редактировать без возврата в черновик' });
     }
 
     // Validations
-    const bestMoveErr = validateBestMove(
-      protocol?.best_move_seats,
-      protocol?.best_move_participant_id,
-      protocol?.first_killed_participant_id,
-      protocol?.zero_round_voted_participant_id,
-      allParticipantIds
-    );
-    if (bestMoveErr) {
-      return res.status(400).json({ error: bestMoveErr });
-    }
-
     if (player_results) {
       const playerErr = validatePlayerResults(player_results, seats);
       if (playerErr) {
         return res.status(400).json({ error: playerErr });
       }
+    }
+
+    const bestMoveErr = validateBestMove(
+      protocol?.best_move_seats,
+      protocol?.best_move_participant_id,
+      protocol?.first_killed_participant_id,
+      protocol?.zero_round_voted_participant_id,
+      allParticipantIds,
+      player_results
+    );
+    if (bestMoveErr) {
+      return res.status(400).json({ error: bestMoveErr });
     }
 
     // Determine best_move_source
@@ -432,9 +546,22 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
   const { protocol, player_results } = req.body;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Завершить протокол можно только в активном турнире' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    if (game.status === 'planned') {
+      return res.status(400).json({ error: 'Нельзя завершить запланированную игру. Сначала запустите игру' });
     }
 
     const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
@@ -528,22 +655,23 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)' });
     }
 
-    const bestMoveErr = validateBestMove(
-      protocol?.best_move_seats,
-      protocol?.best_move_participant_id,
-      protocol?.first_killed_participant_id,
-      protocol?.zero_round_voted_participant_id,
-      allParticipantIds
-    );
-    if (bestMoveErr) {
-      return res.status(400).json({ error: bestMoveErr });
-    }
-
     if (player_results) {
       const playerErr = validatePlayerResults(player_results, seats);
       if (playerErr) {
         return res.status(400).json({ error: playerErr });
       }
+    }
+
+    const bestMoveErr = validateBestMove(
+      protocol?.best_move_seats,
+      protocol?.best_move_participant_id,
+      protocol?.first_killed_participant_id,
+      protocol?.zero_round_voted_participant_id,
+      allParticipantIds,
+      player_results
+    );
+    if (bestMoveErr) {
+      return res.status(400).json({ error: bestMoveErr });
     }
 
     let bestMoveSource: string | null = null;
@@ -708,9 +836,26 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
   const { tournamentId, gameId } = req.params;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status !== 'active') {
+      return res.status(400).json({ error: 'Вернуть игру в черновик можно только в активном турнире' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
+    }
+
+    const activeGame = await db.get<any>(
+      "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
+      [tournamentId, gameId]
+    );
+    if (activeGame) {
+      return res.status(400).json({ error: 'Нельзя вернуть игру в черновик, так как в турнире уже есть другая активная игра' });
     }
 
     const existingProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);

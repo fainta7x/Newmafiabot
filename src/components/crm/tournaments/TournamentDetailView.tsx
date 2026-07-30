@@ -579,11 +579,19 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
+                  disabled={currentGame.status === 'planned'}
+                  title={currentGame.status === 'planned' ? 'Сначала запустите игру' : ''}
                   onClick={() => {
-                    setProtocolGameId(currentGame.id);
-                    setShowGameProtocolModal(true);
+                    if (currentGame.status !== 'planned') {
+                      setProtocolGameId(currentGame.id);
+                      setShowGameProtocolModal(true);
+                    }
                   }}
-                  className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] shadow-sm"
+                  className={`font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 min-h-[40px] shadow-sm ${
+                    currentGame.status === 'planned'
+                      ? 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/50 cursor-not-allowed opacity-60'
+                      : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 cursor-pointer'
+                  }`}
                 >
                   <FileCheck className="w-4 h-4 text-amber-400" />
                   <span>Протокол игры</span>

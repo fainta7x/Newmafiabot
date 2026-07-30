@@ -180,7 +180,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
             best_move_participant_id: firstKilledId,
             best_move_seats: seatsArr,
           },
-          player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+          player_results: game1Seats.map((s) => ({
+            participant_id: s.participant_id,
+            exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+          })),
         });
 
       expect(res.status).toBe(200);
@@ -241,7 +244,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [8, 9, 10],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+        })),
       });
 
     expect(res.status).toBe(200);
@@ -262,7 +268,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: votedId,
           best_move_seats: [8, 9],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === votedId ? 'voted_zero_round' : 'alive',
+        })),
       });
 
     expect(res.status).toBe(200);
@@ -306,7 +315,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [8, 1, 2], // 8 is mafia, 1 & 2 are citizen
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+        })),
       });
     expect(res1.status).toBe(200);
     expect(res1.body.protocol.best_move_score).toBe(0.1);
@@ -321,7 +333,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [8, 9, 1], // 8 & 9 are mafia
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+        })),
       });
     expect(res2.status).toBe(200);
     expect(res2.body.protocol.best_move_score).toBe(0.3);
@@ -336,7 +351,10 @@ describe('Manual Mobile Protocol Test Suite', () => {
           best_move_participant_id: firstKilledId,
           best_move_seats: [8, 9, 10], // 8, 9, 10 are mafia/don
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === firstKilledId ? 'killed' : 'alive',
+        })),
       });
     expect(res3.status).toBe(200);
     expect(res3.body.protocol.best_move_score).toBe(0.6);
@@ -396,9 +414,59 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(editRes.text).toContain('без возврата в черновик');
   });
 
-  // Test 14: After completion, next game can be started
-  it('14. Allows starting the next game after the previous game is completed', async () => {
-    // Set roles for game 2
+  // Test 15: Planned game cannot be saved or completed
+  it('15. Rejects saving or completing a planned game', async () => {
+    // game2Id is currently planned
+    const saveRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game2Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(saveRes.status).toBe(400);
+    expect(saveRes.body.error).toContain('Нельзя сохранить запланированную игру');
+
+    const completeRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game2Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(completeRes.status).toBe(400);
+    expect(completeRes.body.error).toContain('Нельзя завершить запланированную игру');
+  });
+
+  // Test 16: GET protocol requires organizer auth
+  it('16. Requires organizer authorization for GET protocol', async () => {
+    const unauthRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`);
+
+    expect(unauthRes.status).toBe(401);
+
+    const authRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie);
+
+    expect(authRes.status).toBe(200);
+  });
+
+  // Test 17: Cannot revert completed game if another game is active
+  it('17. Prevents reverting completed game if another game is active', async () => {
+    // Complete game 1
+    const complete1 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+    expect(complete1.status).toBe(200);
+
+    // Set roles and start game 2 (making game 2 active)
     const roles = [
       { seat_number: 1, role: 'citizen' },
       { seat_number: 2, role: 'citizen' },
@@ -416,29 +484,82 @@ describe('Manual Mobile Protocol Test Suite', () => {
       .set('Cookie', organizerCookie)
       .send({ roles });
 
-    // Trying to start game 2 while game 1 is active should fail
-    const startGame2Fail = await request(app)
+    await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`)
       .set('Cookie', organizerCookie);
-    expect(startGame2Fail.status).toBe(400);
 
-    // Complete game 1
-    const completeRes = await request(app)
-      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+    // Try reverting game 1 to draft
+    const revertRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/revert-to-draft`)
+      .set('Cookie', organizerCookie);
+
+    expect(revertRes.status).toBe(400);
+    expect(revertRes.body.error).toContain('уже есть другая активная игра');
+  });
+
+  // Test 18: Rejects invalid player results count or exit_type
+  it('18. Rejects invalid player results count or exit_type', async () => {
+    // Less than 10 results
+    const shortRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+        player_results: game1Seats.slice(0, 5).map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(shortRes.status).toBe(400);
+    expect(shortRes.body.error).toContain('ровно 10');
+
+    // Invalid exit_type
+    const invalidExitRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red' },
+        player_results: game1Seats.map((s, idx) => ({
+          participant_id: s.participant_id,
+          exit_type: idx === 0 ? 'exploded' : 'alive',
+        })),
+      });
+
+    expect(invalidExitRes.status).toBe(400);
+    expect(invalidExitRes.body.error).toContain('Недопустимый тип ухода');
+  });
+
+  // Test 19: Validates LH numbers and recipient exit_type
+  it('19. Validates LH numbers and recipient exit_type', async () => {
+    const p1Id = game1Seats[0].participant_id;
+
+    // LH numbers provided but no recipient
+    const noRecipientRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { best_move_seats: [1, 2, 3], best_move_participant_id: null },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(noRecipientRes.status).toBe(400);
+    expect(noRecipientRes.body.error).toContain('необходимо выбрать получателя ЛХ');
+
+    // LH recipient is alive
+    const aliveLHRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
       .set('Cookie', organizerCookie)
       .send({
         protocol: {
-          winner_team: 'red',
+          first_killed_participant_id: p1Id,
+          best_move_participant_id: p1Id,
+          best_move_seats: [1, 2, 3],
         },
-        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: 'alive', // Should be 'killed' or 'voted_zero_round'
+        })),
       });
-    expect(completeRes.status).toBe(200);
 
-    // Now starting game 2 should succeed!
-    const startGame2Success = await request(app)
-      .post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`)
-      .set('Cookie', organizerCookie);
-    expect(startGame2Success.status).toBe(200);
-    expect(startGame2Success.body.game.status).toBe('active');
+    expect(aliveLHRes.status).toBe(400);
+    expect(aliveLHRes.body.error).toContain('должен иметь тип ухода');
   });
 });

@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS tournament_game_protocols (
   game_id TEXT NOT NULL UNIQUE REFERENCES tournament_games(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'draft',
   winner_team TEXT,
-  end_reason TEXT DEFAULT 'normal',
+  end_reason TEXT NOT NULL DEFAULT 'normal',
   ppk_culprit_participant_id TEXT,
   first_killed_participant_id TEXT,
   zero_round_voted_participant_id TEXT,

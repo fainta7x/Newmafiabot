@@ -242,10 +242,27 @@ function validatePlayerResults(
       }
     }
 
-    if (pr.technical_fouls !== undefined) {
-      if (!Number.isInteger(pr.technical_fouls) || pr.technical_fouls < 0 || pr.technical_fouls > 4) {
-        return 'Технические фолы должны быть целым числом от 0 до 4';
+    if (pr.minor_technical_fouls !== undefined) {
+      if (!Number.isInteger(pr.minor_technical_fouls) || pr.minor_technical_fouls < 0) {
+        return 'Малые тех. фолы должны быть целым неотрицательным числом';
       }
+    }
+    if (pr.major_technical_fouls !== undefined) {
+      if (!Number.isInteger(pr.major_technical_fouls) || pr.major_technical_fouls < 0) {
+        return 'Большие тех. фолы должны быть целым неотрицательным числом';
+      }
+    }
+
+    const minor = pr.minor_technical_fouls || 0;
+    const major = pr.major_technical_fouls || 0;
+    const techSum = minor + major;
+
+    if (techSum > 2) {
+      return 'Сумма малых и больших тех. фолов не может превышать 2';
+    }
+
+    if (techSum === 2 && pr.exit_type !== 'removed') {
+      return 'Два технических фола требуют статус removed';
     }
 
     if (pr.judge_bonus !== undefined && (typeof pr.judge_bonus !== 'number' || !Number.isFinite(pr.judge_bonus))) {
@@ -260,17 +277,21 @@ function validatePlayerResults(
       return 'Штрафные баллы должны быть конечным неотрицательным числом';
     }
 
+    if (pr.regular_fouls === 4 && pr.exit_type !== 'removed') {
+      return '4 обычных фола требуют статус removed';
+    }
+
     if (pr.removal_reason && !['4th_foul', '2nd_tech', 'direct'].includes(pr.removal_reason)) {
       return 'Указана неверная причина удаления';
     }
-    if (pr.removal_reason === '4th_foul' && (pr.exit_type !== 'removed' || pr.regular_fouls !== 4)) {
-      return 'Причина 4th_foul требует 4 обычных фола и статус removed';
+    if (pr.removal_reason && pr.exit_type !== 'removed') {
+      return 'Указанная причина удаления требует статус removed';
     }
-    if (pr.removal_reason === '2nd_tech' && (pr.exit_type !== 'removed' || (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0) < 2)) {
-      return 'Причина 2nd_tech требует статус removed и 2 техфола';
+    if (pr.removal_reason === '4th_foul' && pr.regular_fouls !== 4) {
+      return 'Причина 4th_foul требует ровно 4 обычных фола';
     }
-    if (pr.removal_reason === 'direct' && pr.exit_type !== 'removed') {
-      return 'Причина direct требует статус removed';
+    if (pr.removal_reason === '2nd_tech' && techSum !== 2) {
+      return 'Причина 2nd_tech требует ровно два технических фола';
     }
 
 
@@ -503,16 +524,11 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 
     if (protocolRecord) {
       let bestMoveSeats = [];
-      let votes = [];
-      let shots = [];
-      let replacement = null;
+      
+      
+      
 
       try { bestMoveSeats = JSON.parse(protocolRecord.best_move_seats_json || '[]'); } catch (_) {}
-      try { votes = JSON.parse(protocolRecord.votes_json || '[]'); } catch (_) {}
-      try { shots = JSON.parse(protocolRecord.shots_json || '[]'); } catch (_) {}
-      if (protocolRecord.replacement_json) {
-        try { replacement = JSON.parse(protocolRecord.replacement_json); } catch (_) {}
-      }
 
       const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, seats);
 
@@ -543,28 +559,8 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         });
       }
 
-      protocolData = {
-        id: protocolRecord.id,
-        game_id: gameId,
-        status: protocolRecord.status,
-        winner_team: protocolRecord.winner_team,
-        end_reason: protocolRecord.end_reason,
-        ppk_culprit_participant_id: protocolRecord.ppk_culprit_participant_id,
-        first_killed_participant_id: protocolRecord.first_killed_participant_id,
-        zero_round_voted_participant_id: protocolRecord.zero_round_voted_participant_id,
-        best_move_participant_id: protocolRecord.best_move_participant_id,
-        best_move_source: protocolRecord.best_move_source,
-        best_move_seats: bestMoveSeats,
-        best_moves,
-        votes,
-        shots,
-        replacement,
-        judge_notes: protocolRecord.judge_notes,
-        created_at: protocolRecord.created_at,
-        updated_at: protocolRecord.updated_at,
-        completed_at: protocolRecord.completed_at,
-        best_move_score,
-      };
+      protocolData = serializeProtocolOutput(protocolRecord, best_moves, best_move_score);
+      protocolData.best_move_score = best_move_score;
     } else {
       protocolData = {
         game_id: gameId,
@@ -645,12 +641,8 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       protocol.winner_team = culpritRole === 'red' ? 'black' : 'red';
     }
 
-    if (protocol?.end_reason && !['normal', 'ppk'].includes(protocol.end_reason)) {
-      return res.status(400).json({ error: 'Неверная причина завершения (end_reason)' });
-    }
-    if (protocol?.end_reason === 'normal' && protocol?.ppk_culprit_participant_id) {
-      return res.status(400).json({ error: 'При обычном завершении виновник ППК должен быть null' });
-    }
+    const ppkErr = processPPK(protocol, seats);
+    if (ppkErr) return res.status(400).json({ error: ppkErr });
 
     if (player_results && Array.isArray(player_results)) {
       player_results.forEach(pr => {
@@ -814,36 +806,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       ORDER BY tgs.seat_number ASC
     `, [gameId]);
 
-    const playerResultsList = fullSeats.map((seat) => {
-      const existing = resultsMap.get(seat.participant_id);
-      let colorProto = [];
-      if (existing?.color_protocol_json) {
-        try { colorProto = JSON.parse(existing.color_protocol_json); } catch (_) {}
-      }
-      return {
-        id: existing?.id,
-        game_id: gameId,
-        participant_id: seat.participant_id,
-        seat_number: seat.seat_number,
-        display_name: seat.display_name,
-        player_id: seat.player_id,
-        role: seat.role,
-        exit_type: existing?.exit_type || 'alive',
-        exit_order: existing?.exit_order ?? null,
-        regular_fouls: existing?.regular_fouls ?? 0,
-        minor_technical_fouls: existing?.minor_technical_fouls ?? 0,
-        major_technical_fouls: existing?.major_technical_fouls ?? 0,
-        technical_fouls: existing?.technical_fouls ?? 0,
-        judge_bonus: existing?.judge_bonus ?? 0,
-        protocol_bonus: existing?.protocol_bonus ?? 0,
-        penalty_points: existing?.penalty_points ?? 0,
-        disciplinary_penalty_points: existing?.disciplinary_penalty_points ?? 0,
-        removal_reason: existing?.removal_reason || null,
-        ci_points: existing?.ci_points ?? 0,
-        color_protocol: colorProto,
-        notes: existing?.notes || null,
-      };
-    });
+    const playerResultsList = serializePlayerResultsOutput(fullSeats, savedResultsRecords, gameId);
 
     let bestMoveSeats = [];
     try { bestMoveSeats = JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch (_) {}
@@ -863,30 +826,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       };
     });
 
-    res.json({
-      protocol: {
-        id: savedProtocol.id,
-        game_id: gameId,
-        status: savedProtocol.status,
-        winner_team: savedProtocol.winner_team,
-        first_killed_participant_id: savedProtocol.first_killed_participant_id,
-        zero_round_voted_participant_id: savedProtocol.zero_round_voted_participant_id,
-        best_move_participant_id: savedProtocol.best_move_participant_id,
-        best_move_source: savedProtocol.best_move_source,
-        best_move_seats: bestMoveSeats,
-        best_moves: responseBestMoves,
-        votes: JSON.parse(savedProtocol.votes_json || '[]'),
-        shots: JSON.parse(savedProtocol.shots_json || '[]'),
-        replacement: savedProtocol.replacement_json ? JSON.parse(savedProtocol.replacement_json) : null,
-        judge_notes: savedProtocol.judge_notes,
-        created_at: savedProtocol.created_at,
-        updated_at: savedProtocol.updated_at,
-        completed_at: savedProtocol.completed_at,
-        best_move_score,
-      },
-      player_results: playerResultsList,
-      game,
-    });
+    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score), player_results: playerResultsList, game, best_move_score: best_move_score });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка сохранения протокола' });
   }
@@ -942,32 +882,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         ORDER BY tgs.seat_number ASC
       `, [gameId]);
 
-      const playerResultsList = fullSeats.map((seat) => {
-        const existing = resultsMap.get(seat.participant_id);
-        let colorProto = [];
-        if (existing?.color_protocol_json) {
-          try { colorProto = JSON.parse(existing.color_protocol_json); } catch (_) {}
-        }
-        return {
-          id: existing?.id,
-          game_id: gameId,
-          participant_id: seat.participant_id,
-          seat_number: seat.seat_number,
-          display_name: seat.display_name,
-          player_id: seat.player_id,
-          role: seat.role,
-          exit_type: existing?.exit_type || 'alive',
-          exit_order: existing?.exit_order ?? null,
-          regular_fouls: existing?.regular_fouls ?? 0,
-          technical_fouls: existing?.technical_fouls ?? 0,
-          judge_bonus: existing?.judge_bonus ?? 0,
-          protocol_bonus: existing?.protocol_bonus ?? 0,
-          penalty_points: existing?.penalty_points ?? 0,
-          ci_points: existing?.ci_points ?? 0,
-          color_protocol: colorProto,
-          notes: existing?.notes || null,
-        };
-      });
+      const playerResultsList = serializePlayerResultsOutput(fullSeats, savedResultsRecords, gameId);
 
       let bestMoveSeats = [];
       try { bestMoveSeats = JSON.parse(existingProtocol.best_move_seats_json || '[]'); } catch (_) {}
@@ -1014,24 +929,8 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     }
 
     // Completion Validations
-    if (protocol?.end_reason === 'ppk') {
-      if (!protocol.ppk_culprit_participant_id) {
-        return res.status(400).json({ error: 'При ППК виновник обязателен' });
-      }
-      const culprit = seats.find((s: any) => s.participant_id === protocol.ppk_culprit_participant_id);
-      if (!culprit) {
-        return res.status(400).json({ error: 'Виновник ППК не участвует в игре' });
-      }
-      // Automate winner assignment for ppk
-      const culpritRole = normalizeRole(culprit.role);
-      if (culpritRole === 'citizen' || culpritRole === 'sheriff') {
-        
-        protocol.winner_team = 'black';
-      } else if (culpritRole === 'mafia' || culpritRole === 'don') {
-        
-        protocol.winner_team = 'red';
-      }
-    }
+    const ppkErr = processPPK(protocol, seats);
+    if (ppkErr) return res.status(400).json({ error: ppkErr });
 
     if (!protocol?.winner_team || !['red', 'black'].includes(protocol.winner_team)) {
       return res.status(400).json({ error: 'Необходимо выбрать победившую команду (Красные или Чёрные)' });
@@ -1047,12 +946,6 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)' });
     }
 
-    if (protocol?.end_reason && !['normal', 'ppk'].includes(protocol.end_reason)) {
-      return res.status(400).json({ error: 'Неверная причина завершения (end_reason)' });
-    }
-    if (protocol?.end_reason === 'normal' && protocol?.ppk_culprit_participant_id) {
-      return res.status(400).json({ error: 'При обычном завершении виновник ППК должен быть null' });
-    }
 
     if (player_results && Array.isArray(player_results)) {
       player_results.forEach(pr => {
@@ -1219,36 +1112,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       ORDER BY tgs.seat_number ASC
     `, [gameId]);
 
-    const playerResultsList = fullSeats.map((seat) => {
-      const existing = resultsMap.get(seat.participant_id);
-      let colorProto = [];
-      if (existing?.color_protocol_json) {
-        try { colorProto = JSON.parse(existing.color_protocol_json); } catch (_) {}
-      }
-      return {
-        id: existing?.id,
-        game_id: gameId,
-        participant_id: seat.participant_id,
-        seat_number: seat.seat_number,
-        display_name: seat.display_name,
-        player_id: seat.player_id,
-        role: seat.role,
-        exit_type: existing?.exit_type || 'alive',
-        exit_order: existing?.exit_order ?? null,
-        regular_fouls: existing?.regular_fouls ?? 0,
-        minor_technical_fouls: existing?.minor_technical_fouls ?? 0,
-        major_technical_fouls: existing?.major_technical_fouls ?? 0,
-        technical_fouls: existing?.technical_fouls ?? 0,
-        judge_bonus: existing?.judge_bonus ?? 0,
-        protocol_bonus: existing?.protocol_bonus ?? 0,
-        penalty_points: existing?.penalty_points ?? 0,
-        disciplinary_penalty_points: existing?.disciplinary_penalty_points ?? 0,
-        removal_reason: existing?.removal_reason || null,
-        ci_points: existing?.ci_points ?? 0,
-        color_protocol: colorProto,
-        notes: existing?.notes || null,
-      };
-    });
+    const playerResultsList = serializePlayerResultsOutput(fullSeats, savedResultsRecords, gameId);
 
     let bestMoveSeats = [];
     try { bestMoveSeats = JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch (_) {}
@@ -1268,30 +1132,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       };
     });
 
-    res.json({
-      protocol: {
-        id: savedProtocol.id,
-        game_id: gameId,
-        status: savedProtocol.status,
-        winner_team: savedProtocol.winner_team,
-        first_killed_participant_id: savedProtocol.first_killed_participant_id,
-        zero_round_voted_participant_id: savedProtocol.zero_round_voted_participant_id,
-        best_move_participant_id: savedProtocol.best_move_participant_id,
-        best_move_source: savedProtocol.best_move_source,
-        best_move_seats: bestMoveSeats,
-        best_moves: responseBestMoves2,
-        votes: JSON.parse(savedProtocol.votes_json || '[]'),
-        shots: JSON.parse(savedProtocol.shots_json || '[]'),
-        replacement: savedProtocol.replacement_json ? JSON.parse(savedProtocol.replacement_json) : null,
-        judge_notes: savedProtocol.judge_notes,
-        created_at: savedProtocol.created_at,
-        updated_at: savedProtocol.updated_at,
-        completed_at: savedProtocol.completed_at,
-        best_move_score,
-      },
-      player_results: playerResultsList,
-      game: updatedGame,
-    });
+    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves2, best_move_score), player_results: playerResultsList, game: updatedGame, best_move_score: best_move_score });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка завершения протокола' });
   }
@@ -1365,67 +1206,113 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       ORDER BY tgs.seat_number ASC
     `, [gameId]);
 
-    const playerResultsList = fullSeats.map((seat) => {
-      const existing = resultsMap.get(seat.participant_id);
-      let colorProto = [];
-      if (existing?.color_protocol_json) {
-        try { colorProto = JSON.parse(existing.color_protocol_json); } catch (_) {}
-      }
-      return {
-        id: existing?.id,
-        game_id: gameId,
-        participant_id: seat.participant_id,
-        seat_number: seat.seat_number,
-        display_name: seat.display_name,
-        player_id: seat.player_id,
-        role: seat.role,
-        exit_type: existing?.exit_type || 'alive',
-        exit_order: existing?.exit_order ?? null,
-        regular_fouls: existing?.regular_fouls ?? 0,
-        minor_technical_fouls: existing?.minor_technical_fouls ?? 0,
-        major_technical_fouls: existing?.major_technical_fouls ?? 0,
-        technical_fouls: existing?.technical_fouls ?? 0,
-        judge_bonus: existing?.judge_bonus ?? 0,
-        protocol_bonus: existing?.protocol_bonus ?? 0,
-        penalty_points: existing?.penalty_points ?? 0,
-        disciplinary_penalty_points: existing?.disciplinary_penalty_points ?? 0,
-        removal_reason: existing?.removal_reason || null,
-        ci_points: existing?.ci_points ?? 0,
-        color_protocol: colorProto,
-        notes: existing?.notes || null,
-      };
-    });
+    const playerResultsList = serializePlayerResultsOutput(fullSeats, savedResultsRecords, gameId);
 
     let bestMoveSeats = [];
     try { bestMoveSeats = JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch (_) {}
     const { bonusPoints: best_move_score } = calculateBestMovePoints(bestMoveSeats, fullSeats);
 
-    res.json({
-      protocol: {
-        id: savedProtocol.id,
-        game_id: gameId,
-        status: savedProtocol.status,
-        winner_team: savedProtocol.winner_team,
-        first_killed_participant_id: savedProtocol.first_killed_participant_id,
-        zero_round_voted_participant_id: savedProtocol.zero_round_voted_participant_id,
-        best_move_participant_id: savedProtocol.best_move_participant_id,
-        best_move_source: savedProtocol.best_move_source,
-        best_move_seats: bestMoveSeats,
-        votes: JSON.parse(savedProtocol.votes_json || '[]'),
-        shots: JSON.parse(savedProtocol.shots_json || '[]'),
-        replacement: savedProtocol.replacement_json ? JSON.parse(savedProtocol.replacement_json) : null,
-        judge_notes: savedProtocol.judge_notes,
-        created_at: savedProtocol.created_at,
-        updated_at: savedProtocol.updated_at,
-        completed_at: savedProtocol.completed_at,
-        best_move_score,
-      },
-      player_results: playerResultsList,
-      game: updatedGame,
+    const bmRecords = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    const responseBestMoves = bmRecords.map(bm => {
+      let bmSeats = [];
+      try { bmSeats = JSON.parse(bm.seat_numbers_json || '[]'); } catch (_) {}
+      const { guessedBlacks, bonusPoints } = calculateBestMovePoints(bmSeats, fullSeats);
+      return {
+        participant_id: bm.participant_id,
+        source: bm.source,
+        seat_numbers: bmSeats,
+        guessed_blacks: guessedBlacks,
+        bonus_points: bonusPoints
+      };
     });
+
+    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score), player_results: playerResultsList, game: updatedGame, best_move_score: best_move_score });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка возврата в черновик' });
   }
 });
+
+
+function processPPK(protocol: any, seats: any[]): string | null {
+  if (protocol?.end_reason && !['normal', 'ppk'].includes(protocol.end_reason)) {
+    return 'Неверная причина завершения (end_reason)';
+  }
+  if (protocol?.end_reason === 'ppk') {
+    if (!protocol.ppk_culprit_participant_id) {
+      return 'При ППК виновник обязателен';
+    }
+    const culprit = seats.find((s: any) => s.participant_id === protocol.ppk_culprit_participant_id);
+    if (!culprit) {
+      return 'Виновник ППК не участвует в игре';
+    }
+    const culpritRole = normalizeRole(culprit.role);
+    if (culpritRole === 'citizen' || culpritRole === 'sheriff') {
+      protocol.winner_team = 'black';
+    } else if (culpritRole === 'mafia' || culpritRole === 'don') {
+      protocol.winner_team = 'red';
+    } else {
+      return 'Неизвестная роль виновника ППК';
+    }
+  } else if (protocol?.end_reason === 'normal' && protocol?.ppk_culprit_participant_id) {
+    return 'При обычном завершении виновник ППК должен быть null';
+  }
+  return null;
+}
+
+function serializeProtocolOutput(savedProtocol: any, responseBestMoves: any[], best_move_score?: number) {
+  return {
+    id: savedProtocol.id,
+    game_id: savedProtocol.game_id,
+    status: savedProtocol.status,
+    winner_team: savedProtocol.winner_team,
+    end_reason: savedProtocol.end_reason,
+    ppk_culprit_participant_id: savedProtocol.ppk_culprit_participant_id,
+    first_killed_participant_id: savedProtocol.first_killed_participant_id,
+    zero_round_voted_participant_id: savedProtocol.zero_round_voted_participant_id,
+    best_move_participant_id: savedProtocol.best_move_participant_id,
+    best_move_source: savedProtocol.best_move_source,
+    best_moves: responseBestMoves,
+    best_move_seats: (function(){ try { return JSON.parse(savedProtocol.best_move_seats_json || '[]'); } catch(e){return [];} })(),
+    votes: (function(){ try { return JSON.parse(savedProtocol.votes_json || '[]'); } catch(e){return [];} })(),
+    shots: (function(){ try { return JSON.parse(savedProtocol.shots_json || '[]'); } catch(e){return [];} })(),
+    replacement: (function(){ try { return JSON.parse(savedProtocol.replacement_json || 'null'); } catch(e){return null;} })(),
+    judge_notes: savedProtocol.judge_notes,
+    created_at: savedProtocol.created_at,
+    updated_at: savedProtocol.updated_at,
+    completed_at: savedProtocol.completed_at,
+    best_move_score: best_move_score ?? 0
+  };
+}
+
+function serializePlayerResultsOutput(seats: any[], existingResults: any[], gameId: string) {
+  return seats.map((seat: any) => {
+    const existing = existingResults.find((r: any) => r.participant_id === seat.participant_id);
+    let colorProto = [];
+    try { colorProto = JSON.parse(existing?.color_protocol_json || '[]'); } catch (_) {}
+    return {
+      id: existing?.id,
+      game_id: gameId,
+      participant_id: seat.participant_id,
+      seat_number: seat.seat_number,
+      display_name: seat.display_name,
+      player_id: seat.player_id,
+      role: seat.role,
+      exit_type: existing?.exit_type || 'alive',
+      exit_order: existing?.exit_order ?? null,
+      regular_fouls: existing?.regular_fouls ?? 0,
+      minor_technical_fouls: existing?.minor_technical_fouls ?? 0,
+      major_technical_fouls: existing?.major_technical_fouls ?? 0,
+      technical_fouls: existing?.technical_fouls ?? 0,
+      judge_bonus: existing?.judge_bonus ?? 0,
+      protocol_bonus: existing?.protocol_bonus ?? 0,
+      penalty_points: existing?.penalty_points ?? 0,
+      disciplinary_penalty_points: existing?.disciplinary_penalty_points ?? 0,
+      removal_reason: existing?.removal_reason || null,
+      ci_points: existing?.ci_points ?? 0,
+      color_protocol: colorProto,
+      notes: existing?.notes || null,
+    };
+  });
+}
 
 export default router;

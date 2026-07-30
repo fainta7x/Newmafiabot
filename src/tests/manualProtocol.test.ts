@@ -775,6 +775,75 @@ describe('Manual Mobile Protocol Test Suite', () => {
       };
     });
 
+    it('should save two independent best moves, including empty ones, and preserve them in GET, PUT, and revert', async () => {
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [] },
+        { participant_id: game1Seats[1].participant_id, source: 'zero_round_voted', seat_numbers: [8, 9] }
+      ];
+
+      // PUT
+      const putRes = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(putRes.status).toBe(200);
+
+      // GET
+      let getRes = await request(app).get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie);
+      expect(getRes.body.protocol.best_moves.length).toBe(2);
+      expect(getRes.body.protocol.best_moves.find((bm: any) => bm.source === 'first_killed').seat_numbers).toEqual([]);
+      expect(getRes.body.protocol.best_moves.find((bm: any) => bm.source === 'zero_round_voted').seat_numbers).toEqual([8, 9]);
+
+      // Complete
+      const compRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(compRes.status).toBe(200);
+
+      // Revert to draft
+      const revertRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/revert-to-draft`)
+        .set('Cookie', organizerCookie);
+      expect(revertRes.status).toBe(200);
+
+      // GET again
+      getRes = await request(app).get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie);
+      expect(getRes.body.protocol.best_moves.length).toBe(2);
+      expect(getRes.body.protocol.best_moves.find((bm: any) => bm.source === 'first_killed').seat_numbers).toEqual([]);
+      expect(getRes.body.protocol.best_moves.find((bm: any) => bm.source === 'zero_round_voted').seat_numbers).toEqual([8, 9]);
+    });
+
+    it('should reject invalid seat numbers (4 numbers, duplicates, strings, out of bounds)', async () => {
+      // 4 numbers
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [1, 2, 3, 4] }
+      ];
+      let res = await request(app).put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie).send(basePayload);
+      expect(res.status).toBe(400);
+
+      // Duplicates
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [1, 2, 2] }
+      ];
+      res = await request(app).put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie).send(basePayload);
+      expect(res.status).toBe(400);
+
+      // Strings (schema will reject due to strict typings/coerce)
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: ['1'] as any }
+      ];
+      res = await request(app).put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie).send(basePayload);
+      expect(res.status).toBe(400);
+
+      // Out of bounds
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [11] }
+      ];
+      res = await request(app).put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`).set('Cookie', organizerCookie).send(basePayload);
+      expect(res.status).toBe(400);
+    });
+
     it('should save two independent best moves', async () => {
       basePayload.protocol.best_moves = [
         { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [8, 9, 10] }, // Guessed 3
@@ -833,6 +902,28 @@ describe('Manual Mobile Protocol Test Suite', () => {
       expect(getRes.body.protocol.best_moves.length).toBe(1);
       expect(getRes.body.protocol.best_moves[0].participant_id).toBe(game1Seats[0].participant_id);
       expect(getRes.body.protocol.best_moves[0].seat_numbers).toEqual([8, 9]);
+    });
+
+    it('should not double points if legacy fields and best_moves are sent together', async () => {
+      basePayload.protocol.best_moves = [
+        { participant_id: game1Seats[0].participant_id, source: 'first_killed', seat_numbers: [8, 9, 10] } // 0.6 pts
+      ];
+      basePayload.protocol.best_move_participant_id = game1Seats[0].participant_id;
+      basePayload.protocol.best_move_seats = [8, 9, 10];
+
+      const compRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+      expect(compRes.status).toBe(200);
+
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      // The API should only process best_moves if provided, ignoring the legacy fields to prevent duplicates.
+      expect(dbBms.length).toBe(1);
+
+      const standings = await request(app).get(`/api/tournaments/${tournamentId}/standings`).set('Cookie', organizerCookie);
+      const fkPlayerStats = standings.body.standings.find((s: any) => s.participant_id === game1Seats[0].participant_id);
+      expect(fkPlayerStats.best_move_points).toBe(0.6); // Not 1.2
     });
   });
 });

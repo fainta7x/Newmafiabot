@@ -362,4 +362,100 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(p0Item.games[0].game_number).toBe(1);
     expect(p0Item.games[0].win_point).toBe(1);
   });
+
+  it('applies dual best moves correctly: both to standings, both to nominations, but only first_killed triggers CI points logic', async () => {
+    // We already have game1 completed from the previous tests (or not? tests run in isolation or sequentially in same db?
+    // beforeEach drops db, so only game 1 is created. But we will complete game 1 to get a distance > 1.
+    const playerResultsComplete = game1Seats.map((seat) => ({
+      participant_id: seat.participant_id,
+      role: seat.role,
+      exit_type: 'alive',
+      regular_fouls: 0,
+      technical_fouls: 0,
+      protocol_bonus: 0,
+      judge_bonus: 0,
+      penalty_points: 0,
+    }));
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`).set('Cookie', organizerCookie).send({
+      protocol: { winner_team: 'black' },
+      player_results: playerResultsComplete,
+    });
+
+    const roles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    // Use game 2 that was already generated
+    const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+    const game2Id = detailRes.body.games.find((g: any) => g.game_number === 2).id;
+    await request(app).patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`).set('Cookie', organizerCookie).send({ roles });
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`).set('Cookie', organizerCookie);
+    const detailRes2 = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+    const game2Seats = detailRes2.body.games.find((g: any) => g.id === game2Id).seats;
+
+    const p0Id = game2Seats.find((s: any) => s.seat_number === 1).participant_id; // citizen
+    const p1Id = game2Seats.find((s: any) => s.seat_number === 2).participant_id; // citizen
+
+    const playerResultsComplete2 = game2Seats.map((seat: any) => ({
+      participant_id: seat.participant_id,
+      role: seat.role,
+      exit_type: seat.participant_id === p0Id ? 'killed' : (seat.participant_id === p1Id ? 'voted_zero_round' : 'alive'),
+      regular_fouls: 0,
+      technical_fouls: 0,
+      protocol_bonus: 0,
+      judge_bonus: 0,
+      penalty_points: 0,
+    }));
+
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${game2Id}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          winner_team: 'red',
+          first_killed_participant_id: p0Id,
+          zero_round_voted_participant_id: p1Id,
+          best_moves: [
+            { participant_id: p0Id, source: 'first_killed', seat_numbers: [8, 9, 10] }, // Guessed 3 (0.6 pts + CI)
+            { participant_id: p1Id, source: 'zero_round_voted', seat_numbers: [8, 9, 10] }, // Guessed 3 (0.6 pts)
+          ]
+        },
+        player_results: playerResultsComplete2,
+      });
+
+    // 1) Verify Standings
+    const standingsRes = await request(app).get(`/api/tournaments/${tournamentId}/standings`).set('Cookie', organizerCookie);
+    const p0Standing = standingsRes.body.standings.find((s: any) => s.participant_id === p0Id);
+    const p1Standing = standingsRes.body.standings.find((s: any) => s.participant_id === p1Id);
+    
+    // 2) Verify Nominations
+    const nomsRes = await request(app).get(`/api/tournaments/${tournamentId}/nominations`).set('Cookie', organizerCookie);
+    const bestCitizenNom = nomsRes.body.nominations.find((n: any) => n.category === 'best_citizen');
+    
+    const p0Nom = bestCitizenNom.candidates.find((c: any) => c.participant_id === p0Id);
+    const p1Nom = bestCitizenNom.candidates.find((c: any) => c.participant_id === p1Id);
+    
+    // They both should have best_move_points = 0.6 for Game 2 in breakdown
+    const p0GameBreakdown = p0Nom.breakdown.find((b: any) => b.game_number === 2);
+    const p1GameBreakdown = p1Nom.breakdown.find((b: any) => b.game_number === 2);
+    
+    expect(p0GameBreakdown.best_move_points).toBe(0.6);
+    expect(p1GameBreakdown.best_move_points).toBe(0.6);
+
+    // 3) Verify CI points
+    // CI logic: CI points should be non-zero for first_killed, but exactly 0 for zero_round_voted
+    const p0Stand2 = p0Standing.games.find((g: any) => g.game_number === 2);
+    const p1Stand2 = p1Standing.games.find((g: any) => g.game_number === 2);
+
+    expect(p0Stand2.ci_points).toBeGreaterThan(0); 
+    expect(p1Stand2.ci_points).toBe(0);
+  });
 });

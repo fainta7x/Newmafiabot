@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, ArrowRight, X } from 'lucide-react';
+import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
+import { TournamentsList } from './tournaments/TournamentsList.tsx';
+import { TournamentDetailView } from './tournaments/TournamentDetailView.tsx';
 
 interface EveningsListProps {
   evenings: GameEvening[];
@@ -13,6 +15,9 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   onOpenEvening,
   onCreateEvening,
 }) => {
+  const [subTab, setSubTab] = useState<'evenings' | 'tournaments'>('evenings');
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -51,111 +56,156 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with Create Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-        <div>
-          <h2 className="text-xl font-black text-white uppercase tracking-tight">Игровые Вечера Клуба</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Управление мероприятиями, записями игроков и финансовым расчётом</p>
-        </div>
+    <div className="space-y-5">
+      {/* Sub-tab Switcher Bar */}
+      <div className="flex items-center gap-1.5 bg-surface-1 p-1 rounded-2xl border border-border-soft w-full sm:w-auto self-start text-xs font-bold">
+        <button
+          onClick={() => {
+            setSubTab('evenings');
+            setActiveTournamentId(null);
+          }}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            subTab === 'evenings'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Игровые вечера</span>
+        </button>
 
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <button
-            onClick={async () => {
-              try {
-                const res = await api.createNextFriday();
-                alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')}) с двумя столами!`);
-                onOpenEvening(res.id);
-              } catch (err: any) {
-                alert(err.message || 'Ошибка создания вечера на пятницу');
-              }
-            }}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Следующая пятница</span>
-          </button>
-
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-rose-600/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Новый Вечер</span>
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setSubTab('tournaments');
+          }}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            subTab === 'tournaments'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+          }`}
+        >
+          <Trophy className="w-4 h-4" />
+          <span>Турниры</span>
+        </button>
       </div>
 
-      {/* Evenings Grid / Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {evenings.map((e) => {
-          const isCompleted = e.status === 'completed' || !!e.settled_at;
-          const isActive = e.status === 'active';
+      {subTab === 'tournaments' ? (
+        activeTournamentId ? (
+          <TournamentDetailView
+            tournamentId={activeTournamentId}
+            onBack={() => setActiveTournamentId(null)}
+          />
+        ) : (
+          <TournamentsList onOpenTournament={(id) => setActiveTournamentId(id)} />
+        )
+      ) : (
+        <>
+          {/* Header with Create Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-1 border border-border-soft p-5 rounded-3xl">
+            <div>
+              <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Игровые Вечера Клуба</h2>
+              <p className="text-xs text-text-secondary mt-0.5">Управление мероприятиями, записями игроков и финансовым расчётом</p>
+            </div>
 
-          return (
-            <div
-              key={e.id}
-              className={`bg-slate-900 border rounded-3xl p-5 space-y-4 flex flex-col justify-between transition-all hover:border-rose-500/40 relative overflow-hidden ${
-                isActive
-                  ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
-                  : isCompleted
-                  ? 'border-slate-800/80 opacity-90'
-                  : 'border-slate-800'
-              }`}
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                    isActive
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
-                      : isCompleted
-                      ? 'bg-slate-800 text-slate-400 border-slate-700'
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  }`}>
-                    {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : 'Запланирован'}
-                  </span>
-
-                  <span className="text-[11px] font-mono text-slate-400 font-bold uppercase">
-                    {e.format}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-white leading-snug">{e.title}</h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    📅 {new Date(e.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </p>
-                  {e.venue && <p className="text-[11px] text-slate-400">📍 {e.venue}</p>}
-                </div>
-
-                {/* Numbers Row */}
-                <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-2xl border border-slate-850 text-center font-mono">
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Запись</span>
-                    <span className="text-sm font-bold text-white">{e.registered_count || 0}/{e.capacity}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Пришло</span>
-                    <span className="text-sm font-bold text-emerald-400">{e.attended_count || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Выручка</span>
-                    <span className="text-sm font-bold text-amber-400">{e.total_revenue || 0} ₽</span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.createNextFriday();
+                    alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')}) с двумя столами!`);
+                    onOpenEvening(res.id);
+                  } catch (err: any) {
+                    alert(err.message || 'Ошибка создания вечера на пятницу');
+                  }
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Следующая пятница</span>
+              </button>
 
               <button
-                onClick={() => onOpenEvening(e.id)}
-                className="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                onClick={() => setShowCreateModal(true)}
+                className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-accent/20"
               >
-                <span>Управление вечерa</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
+                <span>Новый Вечер</span>
               </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Evenings Grid / Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {evenings.map((e) => {
+              const isCompleted = e.status === 'completed' || !!e.settled_at;
+              const isActive = e.status === 'active';
+
+              return (
+                <div
+                  key={e.id}
+                  className={`bg-surface-1 border rounded-3xl p-5 space-y-4 flex flex-col justify-between transition-all hover:border-accent/40 relative overflow-hidden ${
+                    isActive
+                      ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
+                      : isCompleted
+                      ? 'border-border-soft opacity-90'
+                      : 'border-border-soft'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        isActive
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
+                          : isCompleted
+                          ? 'bg-surface-2 text-text-muted border-border-soft'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      }`}>
+                        {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : 'Запланирован'}
+                      </span>
+
+                      <span className="text-[11px] font-mono text-text-secondary font-bold uppercase">
+                        {e.format}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-bold text-text-primary leading-snug">{e.title}</h3>
+                      <p className="text-xs text-text-secondary mt-1">
+                        📅 {new Date(e.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                      {e.venue && <p className="text-[11px] text-text-secondary">📍 {e.venue}</p>}
+                    </div>
+
+                    {/* Numbers Row */}
+                    <div className="grid grid-cols-3 gap-2 bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center font-mono">
+                      <div>
+                        <span className="text-[9px] text-text-muted uppercase font-bold block">Запись</span>
+                        <span className="text-sm font-bold text-text-primary">{e.registered_count || 0}/{e.capacity}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-text-muted uppercase font-bold block">Пришло</span>
+                        <span className="text-sm font-bold text-emerald-400">{e.attended_count || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-text-muted uppercase font-bold block">Выручка</span>
+                        <span className="text-sm font-bold text-amber-400">{e.total_revenue || 0} ₽</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onOpenEvening(e.id)}
+                    className="w-full bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  >
+                    <span>Управление вечера</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Create Evening Modal */}
       {showCreateModal && (

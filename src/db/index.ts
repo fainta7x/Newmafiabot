@@ -147,4 +147,10 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     const migration1Sql = fs.readFileSync(migration1SqlPath, 'utf8');
     dbWrapper.sqlite.exec(migration1Sql);
   }
+
+  const migration2SqlPath = path.join(process.cwd(), 'drizzle', '0002_tournaments.sql');
+  if (fs.existsSync(migration2SqlPath)) {
+    const migration2Sql = fs.readFileSync(migration2SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration2Sql);
+  }
 }

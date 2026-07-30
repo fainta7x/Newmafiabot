@@ -138,3 +138,52 @@ export const migrationHistory = sqliteTable('migration_history', {
   details_json: text('details_json'),
   executed_at: text('executed_at').notNull(),
 });
+
+export const tournaments = sqliteTable('tournaments', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  date: text('date').notNull(),
+  venue: text('venue'),
+  stage: text('stage'),
+  status: text('status').notNull().default('draft'), // draft, active, completed
+  chief_judge_name: text('chief_judge_name'),
+  notes: text('notes'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export const tournamentParticipants = sqliteTable('tournament_participants', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),
+  player_id: text('player_id').notNull().references(() => players.id, { onDelete: 'cascade' }),
+  display_name: text('display_name').notNull(),
+  participant_number: integer('participant_number').notNull(),
+}, (table) => ({
+  tournamentPlayerUnique: uniqueIndex('idx_tp_tournament_player_unique').on(table.tournament_id, table.player_id),
+  tournamentNumberUnique: uniqueIndex('idx_tp_tournament_number_unique').on(table.tournament_id, table.participant_number),
+}));
+
+export const tournamentGames = sqliteTable('tournament_games', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),
+  game_number: integer('game_number').notNull(),
+  judge_name: text('judge_name'),
+  status: text('status').notNull().default('planned'), // planned, active, completed
+  winner_team: text('winner_team'),
+  started_at: text('started_at'),
+  completed_at: text('completed_at'),
+}, (table) => ({
+  tournamentGameNumberUnique: uniqueIndex('idx_tg_tournament_number_unique').on(table.tournament_id, table.game_number),
+}));
+
+export const tournamentGameSeats = sqliteTable('tournament_game_seats', {
+  id: text('id').primaryKey(),
+  game_id: text('game_id').notNull().references(() => tournamentGames.id, { onDelete: 'cascade' }),
+  participant_id: text('participant_id').notNull().references(() => tournamentParticipants.id, { onDelete: 'cascade' }),
+  seat_number: integer('seat_number').notNull(),
+  role: text('role'), // citizen, sheriff, mafia, don
+}, (table) => ({
+  gameSeatNumberUnique: uniqueIndex('idx_tgs_game_seat_unique').on(table.game_id, table.seat_number),
+  gameParticipantUnique: uniqueIndex('idx_tgs_game_participant_unique').on(table.game_id, table.participant_id),
+}));
+

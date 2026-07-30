@@ -183,6 +183,57 @@ export interface AnalyticsData {
   sourceBreakdown: Record<string, number>;
 }
 
+export interface TournamentParticipant {
+  id: string;
+  tournament_id: string;
+  player_id: string;
+  display_name: string;
+  participant_number: number;
+  player_nickname?: string;
+  telegram_username?: string;
+  phone?: string;
+}
+
+export interface TournamentGameSeat {
+  id: string;
+  game_id: string;
+  participant_id: string;
+  seat_number: number;
+  role: string | null;
+  display_name?: string;
+  player_id?: string;
+}
+
+export interface TournamentGame {
+  id: string;
+  tournament_id: string;
+  game_number: number;
+  judge_name: string | null;
+  status: 'planned' | 'active' | 'completed';
+  winner_team: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  seats?: TournamentGameSeat[];
+}
+
+export interface Tournament {
+  id: string;
+  title: string;
+  date: string;
+  venue?: string | null;
+  stage?: string | null;
+  status: 'draft' | 'active' | 'completed';
+  chief_judge_name?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  participants_count?: number;
+  total_games_count?: number;
+  completed_games_count?: number;
+  participants?: TournamentParticipant[];
+  games?: TournamentGame[];
+}
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -413,4 +464,54 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return request<AnalyticsData>(`/api/analytics${query ? `?${query}` : ''}`);
   },
+
+  // Tournaments
+  getTournaments: () => request<Tournament[]>('/api/tournaments'),
+  getTournament: (id: string) => request<Tournament>(`/api/tournaments/${id}`),
+  createTournament: (data: {
+    title: string;
+    date: string;
+    venue?: string;
+    stage?: string;
+    chief_judge_name?: string;
+    notes?: string;
+    participants: Array<{ player_id: string; display_name?: string }>;
+  }) => request<Tournament>('/api/tournaments', { method: 'POST', body: JSON.stringify(data) }),
+  updateTournament: (id: string, data: Partial<Tournament>) =>
+    request<Tournament>(`/api/tournaments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  updateTournamentParticipants: (
+    id: string,
+    participants: Array<{ player_id: string; display_name?: string }>
+  ) =>
+    request<{ success: boolean; participants: TournamentParticipant[] }>(`/api/tournaments/${id}/participants`, {
+      method: 'PUT',
+      body: JSON.stringify({ participants }),
+    }),
+  generateTournamentSeating: (id: string) =>
+    request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST' }),
+  swapTournamentSeats: (tournamentId: string, gameId: string, seat1: number, seat2: number) =>
+    request<{ success: boolean; game_id: string; seats: TournamentGameSeat[] }>(
+      `/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`,
+      { method: 'POST', body: JSON.stringify({ seat_number_1: seat1, seat_number_2: seat2 }) }
+    ),
+  updateGameRoles: (
+    tournamentId: string,
+    gameId: string,
+    roles: Array<{ seat_number: number; role: string | null }>
+  ) =>
+    request<{ success: boolean; game_id: string; seats: TournamentGameSeat[] }>(
+      `/api/tournaments/${tournamentId}/games/${gameId}/roles`,
+      { method: 'PATCH', body: JSON.stringify({ roles }) }
+    ),
+  updateGameJudge: (tournamentId: string, gameId: string, judge_name: string | null) =>
+    request<TournamentGame>(`/api/tournaments/${tournamentId}/games/${gameId}/judge`, {
+      method: 'PATCH',
+      body: JSON.stringify({ judge_name }),
+    }),
+  startTournament: (id: string) =>
+    request<{ success: boolean; tournament: Tournament }>(`/api/tournaments/${id}/start`, { method: 'POST' }),
+  startTournamentGame: (tournamentId: string, gameId: string) =>
+    request<{ success: boolean; game: TournamentGame }>(`/api/tournaments/${tournamentId}/games/${gameId}/start`, {
+      method: 'POST',
+    }),
 };

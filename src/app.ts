@@ -15,6 +15,7 @@ import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
+import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -50,6 +51,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/games', gamesRoutes);
+  app.use('/api/tournaments', tournamentsRoutes);
 
   // Vite development or static distribution in production
   if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {

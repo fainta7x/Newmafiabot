@@ -96,16 +96,21 @@ describe('Theme 1: FSM 2022 Ci расчет', () => {
     expect(calculateCiThreshold(12)).toBe(5);
   });
 
-  it('5. calculateCiRate with 5 first-kills and threshold 4 should return 0.5', () => {
-    expect(calculateCiRate(5, 4)).toBe(0.5);
+  it('5. calculateCiRate with 0 first-kills should return 0', () => {
+    expect(calculateCiRate(0, 4)).toBe(0);
   });
 
-  it('6. calculateCiRate with 3 first-kills and threshold 4 should return 0', () => {
-    expect(calculateCiRate(3, 4)).toBe(0);
+  it('6. calculateCiRate with varying first-kills and threshold 4', () => {
+    expect(calculateCiRate(1, 4)).toBe(0.1);
+    expect(calculateCiRate(2, 4)).toBe(0.2);
+    expect(calculateCiRate(3, 4)).toBe(0.3);
+    expect(calculateCiRate(4, 4)).toBe(0.4);
+    expect(calculateCiRate(5, 4)).toBe(0.4);
+    expect(calculateCiRate(10, 4)).toBe(0.4);
   });
 
-  it('7. calculateCiRate with 4 first-kills and threshold 4 should return 0.5', () => {
-    expect(calculateCiRate(4, 4)).toBe(0.5);
+  it('7. calculateCiRate with 0 threshold should return 0', () => {
+    expect(calculateCiRate(1, 0)).toBe(0);
   });
 
   it('8. calculateGameCi for win should return 0', () => {

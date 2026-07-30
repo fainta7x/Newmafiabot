@@ -17,8 +17,11 @@ export function calculateCiThreshold(distanceGames: number): number {
 }
 
 export function calculateCiRate(firstKilledCount: number, thresholdB: number): number {
-  if (firstKilledCount <= 0) return 0;
-  return firstKilledCount >= thresholdB ? 0.5 : 0;
+  if (firstKilledCount <= 0 || thresholdB <= 0) return 0;
+
+  return roundToTwo(
+    Math.min(0.4, (firstKilledCount * 0.4) / thresholdB)
+  );
 }
 
 export interface CiParams {

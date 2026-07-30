@@ -31,8 +31,8 @@ beforeEach(async () => {
 });
 
 describe('Tournament Module API Tests', () => {
-  // 1. Cannot save other than 10 participants
-  it('1. Reject tournament creation with less or more than 10 participants', async () => {
+  // 1. Creation of a tournament with 9 participants is allowed, but start_readiness shows that exactly 10 participants are required to start
+  it('1. Creation of a tournament with 9 participants is allowed, but start_readiness shows that exactly 10 participants are required to start', async () => {
     const nineParticipants = playerIds.slice(0, 9).map((id) => ({ player_id: id }));
 
     const res = await request(app)
@@ -44,8 +44,19 @@ describe('Tournament Module API Tests', () => {
         participants: nineParticipants,
       });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toContain('10 участников');
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeDefined();
+
+    const tournamentId = res.body.id;
+    const detailRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie);
+
+    expect(detailRes.body.start_readiness).toBeDefined();
+    expect(detailRes.body.start_readiness.ready).toBe(false);
+    expect(detailRes.body.start_readiness.errors).toContainEqual(
+      expect.stringContaining('Необходимо ровно 10 участников')
+    );
   });
 
   // 2. Cannot add duplicate player
@@ -409,6 +420,6 @@ describe('Tournament Module API Tests', () => {
       .set('Cookie', organizerCookie);
 
     expect(start2.status).toBe(400);
-    expect(start2.body.error).toContain('уже запущен');
+    expect(start2.body.error).toContain('Турнир не может быть запущен из текущего статуса');
   });
 });

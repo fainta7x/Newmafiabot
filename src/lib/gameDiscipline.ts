@@ -7,6 +7,7 @@ export type PendingActionType =
 
 export interface PlayerDiscipline {
   id: string;
+  team: 'red' | 'black';
   regularFouls: number;
   minorTechFouls: number;
   majorTechFouls: number;
@@ -15,6 +16,7 @@ export interface PlayerDiscipline {
   gamePenalty: number;
   pendingAction: PendingActionType | null;
   ppkCaused: boolean;
+  has30SecPenalty: boolean;
 }
 
 export interface GameDiscipline {
@@ -22,6 +24,7 @@ export interface GameDiscipline {
   isNextVotingCancelled: boolean;
   isPpk: boolean;
   ppkWinnerTeam: 'red' | 'black' | null;
+  ppkCulpritId: string | null;
 }
 
 export interface PlayerPenaltyResult {
@@ -29,11 +32,12 @@ export interface PlayerPenaltyResult {
   gamePenalty: number;
   totalPenalty: number;
   nominationPenalty: number;
-  nextSpeechDuration: number | null;
+  has30SecPenalty: boolean;
 }
 
-export const createInitialPlayerDiscipline = (id: string): PlayerDiscipline => ({
+export const createInitialPlayerDiscipline = (id: string, team: 'red' | 'black'): PlayerDiscipline => ({
   id,
+  team,
   regularFouls: 0,
   minorTechFouls: 0,
   majorTechFouls: 0,
@@ -42,25 +46,52 @@ export const createInitialPlayerDiscipline = (id: string): PlayerDiscipline => (
   gamePenalty: 0,
   pendingAction: null,
   ppkCaused: false,
+  has30SecPenalty: false,
 });
 
-export const createInitialGameDiscipline = (playerIds: string[]): GameDiscipline => {
+export const createInitialGameDiscipline = (playersData: { id: string, team: 'red' | 'black' }[]): GameDiscipline => {
   const players: Record<string, PlayerDiscipline> = {};
-  for (const id of playerIds) {
-    players[id] = createInitialPlayerDiscipline(id);
+  for (const data of playersData) {
+    players[data.id] = createInitialPlayerDiscipline(data.id, data.team);
   }
   return {
     players,
     isNextVotingCancelled: false,
     isPpk: false,
     ppkWinnerTeam: null,
+    ppkCulpritId: null,
+  };
+};
+
+export const consumeNextSpeech = (state: GameDiscipline, playerId: string): { duration: number | null, newState: GameDiscipline } => {
+  const player = state.players[playerId];
+  if (!player || !player.has30SecPenalty) {
+    return { duration: null, newState: state };
+  }
+
+  return {
+    duration: 30,
+    newState: {
+      ...state,
+      players: {
+        ...state.players,
+        [playerId]: {
+          ...player,
+          has30SecPenalty: false,
+        }
+      }
+    }
   };
 };
 
 export const addRegularFoul = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  if (state.isPpk) return state;
   const player = state.players[playerId];
   if (!player || player.isRemoved || player.pendingAction) return state;
 
+  if (player.regularFouls === 2) {
+    return { ...state, players: { ...state.players, [playerId]: { ...player, regularFouls: 3, has30SecPenalty: true } } };
+  }
   if (player.regularFouls === 3) {
     return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'removal_4th_foul' } } };
   }
@@ -69,6 +100,7 @@ export const addRegularFoul = (state: GameDiscipline, playerId: string): GameDis
 };
 
 export const addMinorTechFoul = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  if (state.isPpk) return state;
   const player = state.players[playerId];
   if (!player || player.isRemoved || player.pendingAction) return state;
 
@@ -82,6 +114,7 @@ export const addMinorTechFoul = (state: GameDiscipline, playerId: string): GameD
 };
 
 export const addMajorTechFoul = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  if (state.isPpk) return state;
   const player = state.players[playerId];
   if (!player || player.isRemoved || player.pendingAction) return state;
 
@@ -95,18 +128,20 @@ export const addMajorTechFoul = (state: GameDiscipline, playerId: string): GameD
 };
 
 export const requestDirectRemoval = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  if (state.isPpk) return state;
   const player = state.players[playerId];
   if (!player || player.isRemoved || player.pendingAction) return state;
   return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'direct_removal' } } };
 };
 
 export const requestPpk = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  if (state.isPpk) return state;
   const player = state.players[playerId];
   if (!player || player.pendingAction) return state;
   return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'ppk' } } };
 };
 
-export const confirmAction = (state: GameDiscipline, playerId: string, ppkWinnerTeam?: 'red' | 'black'): GameDiscipline => {
+export const confirmAction = (state: GameDiscipline, playerId: string): GameDiscipline => {
   const player = state.players[playerId];
   if (!player || !player.pendingAction) return state;
 
@@ -117,27 +152,30 @@ export const confirmAction = (state: GameDiscipline, playerId: string, ppkWinner
     updatedPlayer.regularFouls = 4;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '4th_foul';
+    updatedPlayer.has30SecPenalty = false;
     newState.isNextVotingCancelled = true;
   } else if (player.pendingAction === 'minor_tech_causing_removal') {
     updatedPlayer.minorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
+    updatedPlayer.has30SecPenalty = false;
     newState.isNextVotingCancelled = true;
   } else if (player.pendingAction === 'major_tech_causing_removal') {
     updatedPlayer.majorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
+    updatedPlayer.has30SecPenalty = false;
     newState.isNextVotingCancelled = true;
   } else if (player.pendingAction === 'direct_removal') {
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = 'direct';
+    updatedPlayer.has30SecPenalty = false;
     newState.isNextVotingCancelled = true;
   } else if (player.pendingAction === 'ppk') {
     updatedPlayer.ppkCaused = true;
     newState.isPpk = true;
-    if (ppkWinnerTeam) {
-      newState.ppkWinnerTeam = ppkWinnerTeam;
-    }
+    newState.ppkWinnerTeam = player.team === 'red' ? 'black' : 'red';
+    newState.ppkCulpritId = playerId;
   }
 
   return newState;
@@ -162,7 +200,7 @@ export const cancelAction = (state: GameDiscipline, playerId: string): GameDisci
 export const setGamePenalty = (state: GameDiscipline, playerId: string, penalty: number): GameDiscipline => {
   const player = state.players[playerId];
   if (!player) return state;
-  if (penalty < 0) return state;
+  if (!Number.isFinite(penalty) || penalty < 0) return state;
 
   return { ...state, players: { ...state.players, [playerId]: { ...player, gamePenalty: penalty } } };
 };
@@ -194,13 +232,15 @@ export const getPlayerPenaltyStatus = (player: PlayerDiscipline): PlayerPenaltyR
     discPenalty += 1.0;
   }
   
+  discPenalty = Number(discPenalty.toFixed(1));
+  
   const totalPenalty = discPenalty + player.gamePenalty;
   
   return {
-    disciplinaryPenalty: Number(discPenalty.toFixed(1)),
+    disciplinaryPenalty: discPenalty,
     gamePenalty: player.gamePenalty,
-    totalPenalty: Number(totalPenalty.toFixed(1)),
+    totalPenalty: totalPenalty,
     nominationPenalty: player.gamePenalty,
-    nextSpeechDuration: (player.regularFouls === 3 && !player.isRemoved) ? 30 : null
+    has30SecPenalty: player.has30SecPenalty
   };
 };

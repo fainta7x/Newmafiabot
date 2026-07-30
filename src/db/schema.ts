@@ -240,4 +240,18 @@ export const tournamentGamePlayerResults = sqliteTable('tournament_game_player_r
   gameParticipantUnique: uniqueIndex('idx_tgpr_game_participant_unique').on(table.game_id, table.participant_id),
 }));
 
+export const tournamentFinalResolutions = sqliteTable('tournament_final_resolutions', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // standings_tie, nomination_tie
+  category: text('category'), // e.g., best_citizen, etc.
+  participant_ids_json: text('participant_ids_json').notNull(), // json array of player IDs involved
+  ordered_participant_ids_json: text('ordered_participant_ids_json'), // sorted order chosen for standings
+  winner_participant_id: text('winner_participant_id'), // chosen winner for nomination tie
+  resolution_method: text('resolution_method').notNull(), // draw, chief_judge_decision
+  comment: text('comment'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
 

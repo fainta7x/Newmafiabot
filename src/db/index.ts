@@ -169,4 +169,24 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');
+
+  try {
+    dbWrapper.sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS tournament_final_resolutions (
+        id TEXT PRIMARY KEY,
+        tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        category TEXT,
+        participant_ids_json TEXT NOT NULL,
+        ordered_participant_ids_json TEXT,
+        winner_participant_id TEXT,
+        resolution_method TEXT NOT NULL,
+        comment TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+  } catch (e) {
+    console.error('Failed to create tournament_final_resolutions table:', e);
+  }
 }

@@ -884,3 +884,283 @@ describe('Theme 4: Расчёт номинаций', () => {
     expect(bestDon.has_tie).toBe(false);
   });
 });
+
+describe('Theme 5: Разрешение равенств после завершения турнира', () => {
+  let app: any;
+  let db: DatabaseWrapper;
+  let organizerCookie: string;
+  let tournamentId: string;
+
+  beforeEach(async () => {
+    db = createDatabaseConnection(':memory:');
+    app = await createApp(db);
+    const token = generateOrganizerToken();
+    organizerCookie = `organizer_token=${token}`;
+
+    for (let i = 1; i <= 10; i++) {
+      const pid = `player-${i}`;
+      await db.run(
+        `INSERT INTO players (id, nickname, phone, contact_status, created_at, updated_at)
+         VALUES (?, ?, ?, 'NEW_LEAD', ?, ?)`,
+        [pid, `Player_${i}`, `+7900000000${i}`, new Date().toISOString(), new Date().toISOString()]
+      );
+    }
+
+    const res = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир для Решений',
+        date: new Date().toISOString(),
+        participants: Array.from({ length: 10 }, (_, i) => ({
+          player_id: `player-${i + 1}`,
+          display_name: `Игрок ${i + 1}`,
+        })),
+      });
+    tournamentId = res.body.id;
+
+    // Retrieve created participants to map player_id to participant_id
+    const pRows = await db.all<any>('SELECT id, player_id FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    await db.run("DELETE FROM tournament_participants WHERE tournament_id = ?", [tournamentId]);
+
+    // Insert known participant IDs for predictability
+    await db.run(`INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number) VALUES 
+      ('tp1', ?, 'player-1', 'Player 1', 1),
+      ('tp2', ?, 'player-2', 'Player 2', 2),
+      ('tp3', ?, 'player-3', 'Player 3', 3),
+      ('tp4', ?, 'player-4', 'Player 4', 4),
+      ('tp5', ?, 'player-5', 'Player 5', 5),
+      ('tp6', ?, 'player-6', 'Player 6', 6),
+      ('tp7', ?, 'player-7', 'Player 7', 7),
+      ('tp8', ?, 'player-8', 'Player 8', 8),
+      ('tp9', ?, 'player-9', 'Player 9', 9),
+      ('tp10', ?, 'player-10', 'Player 10', 10)`,
+      [
+        tournamentId, tournamentId, tournamentId, tournamentId, tournamentId,
+        tournamentId, tournamentId, tournamentId, tournamentId, tournamentId
+      ]
+    );
+
+    // Make the tournament completed
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+  });
+
+  it('41. GET /api/tournaments/:id/final-resolutions returns empty list initially', async () => {
+    const res = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-resolutions`)
+      .set('Cookie', organizerCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.tournament_id).toBe(tournamentId);
+    expect(res.body.resolutions).toEqual([]);
+  });
+
+  it('42. PUT standing tie-break fails if tournament is not completed', async () => {
+    await db.run("UPDATE tournaments SET status = 'active' WHERE id = ?", [tournamentId]);
+
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/standings/tg_any`)
+      .set('Cookie', organizerCookie)
+      .send({
+        ordered_participant_ids: ['tp1', 'tp2'],
+        resolution_method: 'draw',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Решения разрешены только для completed-турнира');
+  });
+
+  it('43. PUT standing tie-break fails for non-existent tie group', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/standings/tg_nonexistent`)
+      .set('Cookie', organizerCookie)
+      .send({
+        ordered_participant_ids: ['tp1', 'tp2'],
+        resolution_method: 'draw',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Группа равенства не найдена или неактивна');
+  });
+
+  it('44. PUT standing tie-break successfully resolves a tie group and updates standings places', async () => {
+    // Generate a tie between tp1 and tp2 by adding a completed game
+    await db.run("DELETE FROM tournament_games WHERE tournament_id = ?", [tournamentId]);
+    await addMockCompletedGame(db, tournamentId, 1, 'red', [
+      { playerId: 'tp1', role: 'citizen', isWinner: true },
+      { playerId: 'tp2', role: 'citizen', isWinner: true },
+    ]);
+
+    // Fetch standings to discover tieGroupId
+    const standingsRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/standings`)
+      .set('Cookie', organizerCookie);
+
+    expect(standingsRes.body.tie_groups.length).toBe(1);
+    const tg = standingsRes.body.tie_groups[0];
+    const tieGroupId = tg.tie_group_id;
+
+    // Attempt PUT resolution with wrong participant list
+    const badPut = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/standings/${tieGroupId}`)
+      .set('Cookie', organizerCookie)
+      .send({
+        ordered_participant_ids: ['tp1', 'tp3'], // tp3 is not in tie group
+        resolution_method: 'chief_judge_decision',
+      });
+    expect(badPut.status).toBe(400);
+
+    // Correct PUT resolution (favor tp2 over tp1)
+    const goodPut = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/standings/${tieGroupId}`)
+      .set('Cookie', organizerCookie)
+      .send({
+        ordered_participant_ids: ['tp2', 'tp1'],
+        resolution_method: 'chief_judge_decision',
+        comment: 'Chief judge prefers Player 2',
+      });
+    expect(goodPut.status).toBe(200);
+
+    // Verify GET /final-resolutions
+    const resolutionsRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-resolutions`)
+      .set('Cookie', organizerCookie);
+    expect(resolutionsRes.body.resolutions.length).toBe(1);
+    expect(resolutionsRes.body.resolutions[0].type).toBe('standings_tie');
+    expect(resolutionsRes.body.resolutions[0].ordered_participant_ids).toEqual(['tp2', 'tp1']);
+
+    // Check updated standings places
+    const updatedStandings = await request(app)
+      .get(`/api/tournaments/${tournamentId}/standings`)
+      .set('Cookie', organizerCookie);
+
+    const tp2Row = updatedStandings.body.standings.find((s: any) => s.participant_id === 'tp2');
+    const tp1Row = updatedStandings.body.standings.find((s: any) => s.participant_id === 'tp1');
+
+    expect(tp2Row.official_place).toBe(1);
+    expect(tp1Row.official_place).toBe(2);
+  });
+
+  it('45. PUT nomination tie-break successfully resolves and updates nominations winner', async () => {
+    // Generate a tie in best_sheriff between tp1 and tp2
+    await db.run("DELETE FROM tournament_games WHERE tournament_id = ?", [tournamentId]);
+    await addMockCompletedGame(db, tournamentId, 1, 'red', [
+      { playerId: 'tp1', role: 'sheriff', isWinner: true, protocolBonus: 1.5 },
+      { playerId: 'tp2', role: 'sheriff', isWinner: true, protocolBonus: 1.5 },
+    ]);
+
+    // Check that best_sheriff has a tie
+    const nomsRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/nominations`)
+      .set('Cookie', organizerCookie);
+
+    const bestSheriff = nomsRes.body.nominations.find((n: any) => n.category === 'best_sheriff');
+    expect(bestSheriff.has_tie).toBe(true);
+
+    // PUT nomination tie-break with wrong winner (not a tied leader)
+    const badPut = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/nominations/best_sheriff`)
+      .set('Cookie', organizerCookie)
+      .send({
+        winner_participant_id: 'tp3', // tp3 is not a leader
+        resolution_method: 'draw',
+      });
+    expect(badPut.status).toBe(400);
+
+    // Correct PUT nomination tie-break (choosing tp1)
+    const goodPut = await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/nominations/best_sheriff`)
+      .set('Cookie', organizerCookie)
+      .send({
+        winner_participant_id: 'tp1',
+        resolution_method: 'draw',
+        comment: 'Drawn out of hat',
+      });
+    expect(goodPut.status).toBe(200);
+
+    // Check nominations now shows tp1 as the official winner
+    const updatedNoms = await request(app)
+      .get(`/api/tournaments/${tournamentId}/nominations`)
+      .set('Cookie', organizerCookie);
+
+    const updatedSheriff = updatedNoms.body.nominations.find((n: any) => n.category === 'best_sheriff');
+    expect(updatedSheriff.winner_participant_id).toBe('tp1');
+    expect(updatedSheriff.resolution_method).toBe('draw');
+    expect(updatedSheriff.comment).toBe('Drawn out of hat');
+  });
+
+  it('46. GET /api/tournaments/:id/final-readiness reports accurate unresolved ties', async () => {
+    // Create dual ties: standings tie between tp1 and tp2, sheriff nomination tie between tp1 and tp2
+    await db.run("DELETE FROM tournament_games WHERE tournament_id = ?", [tournamentId]);
+    await addMockCompletedGame(db, tournamentId, 1, 'red', [
+      { playerId: 'tp1', role: 'sheriff', isWinner: true, protocolBonus: 1.0 },
+      { playerId: 'tp2', role: 'sheriff', isWinner: true, protocolBonus: 1.0 },
+    ]);
+
+    // Check readiness (should be false because of both ties)
+    const readinessRes = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-readiness`)
+      .set('Cookie', organizerCookie);
+
+    expect(readinessRes.status).toBe(200);
+    expect(readinessRes.body.ready).toBe(false);
+    expect(readinessRes.body.unresolved_standings_ties.length).toBe(1);
+    expect(readinessRes.body.unresolved_nomination_ties.length).toBe(2); // Ties in best_sheriff and mvp
+
+    // Resolve standings tie
+    const tgId = readinessRes.body.unresolved_standings_ties[0].tie_group_id;
+    await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/standings/${tgId}`)
+      .set('Cookie', organizerCookie)
+      .send({
+        ordered_participant_ids: ['tp1', 'tp2'],
+        resolution_method: 'draw',
+      });
+
+    // Check readiness again (still false because of 2 nomination ties)
+    const readinessRes2 = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-readiness`)
+      .set('Cookie', organizerCookie);
+
+    expect(readinessRes2.body.ready).toBe(false);
+    expect(readinessRes2.body.unresolved_standings_ties.length).toBe(0);
+    expect(readinessRes2.body.unresolved_nomination_ties.length).toBe(2);
+
+    // Resolve best_sheriff nomination tie
+    await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/nominations/best_sheriff`)
+      .set('Cookie', organizerCookie)
+      .send({
+        winner_participant_id: 'tp2',
+        resolution_method: 'chief_judge_decision',
+      });
+
+    // Check readiness again (still false because of 1 nomination tie left - mvp)
+    const readinessRes2_5 = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-readiness`)
+      .set('Cookie', organizerCookie);
+
+    expect(readinessRes2_5.body.ready).toBe(false);
+    expect(readinessRes2_5.body.unresolved_nomination_ties.length).toBe(1);
+    expect(readinessRes2_5.body.unresolved_nomination_ties[0].category).toBe('mvp');
+
+    // Resolve mvp nomination tie
+    await request(app)
+      .put(`/api/tournaments/${tournamentId}/final-resolutions/nominations/mvp`)
+      .set('Cookie', organizerCookie)
+      .send({
+        winner_participant_id: 'tp1',
+        resolution_method: 'chief_judge_decision',
+      });
+
+    // Check readiness again (should be true now)
+    const readinessRes3 = await request(app)
+      .get(`/api/tournaments/${tournamentId}/final-readiness`)
+      .set('Cookie', organizerCookie);
+
+    expect(readinessRes3.body.ready).toBe(true);
+    expect(readinessRes3.body.unresolved_standings_ties.length).toBe(0);
+    expect(readinessRes3.body.unresolved_nomination_ties.length).toBe(0);
+  });
+});
+

@@ -723,287 +723,556 @@ router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: Authen
   }
 });
 
+// Helper function to calculate standings, incorporating tie-breaking resolutions
+async function internalGetStandings(db: DatabaseWrapper, tournamentId: string) {
+  const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+  if (!tournament) {
+    throw new Error('Турнир не найден');
+  }
+
+  const participants = await db.all<any>(
+    `SELECT tp.id as participant_id, tp.participant_number,
+            COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+     FROM tournament_participants tp
+     LEFT JOIN players p ON tp.player_id = p.id
+     WHERE tp.tournament_id = ?
+     ORDER BY tp.participant_number ASC`,
+    [tournamentId]
+  );
+
+  const statsMap = new Map<string, any>();
+  for (const p of participants) {
+    statsMap.set(p.participant_id, {
+      place: 0,
+      calculated_place: 0,
+      official_place: 0,
+      participant_id: p.participant_id,
+      participant_number: p.participant_number,
+      display_name: p.display_name,
+      total_points: 0,
+      additional_total: 0,
+      positive_points: 0,
+      penalty_points: 0,
+      best_move_points: 0,
+      ci_points: 0,
+      wins: 0,
+      don_wins: 0,
+      sheriff_wins: 0,
+      first_killed_count: 0,
+      games_played: 0,
+      games: [],
+    });
+  }
+
+  const completedGames = await db.all<any>(
+    `SELECT g.id as game_id, g.game_number, COALESCE(p.winner_team, g.winner_team) as winner_team, p.first_killed_participant_id,
+            p.best_move_participant_id, p.best_move_seats_json
+     FROM tournament_games g
+     INNER JOIN tournament_game_protocols p ON p.game_id = g.id
+     WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
+     ORDER BY g.game_number ASC`,
+    [tournamentId]
+  );
+
+  const completed_games_count = completedGames.length;
+
+  if (completed_games_count === 0) {
+    return {
+      tournament_id: tournamentId,
+      completed_games_count: 0,
+      tie_requires_draw: false,
+      standings: [],
+      tie_groups: [],
+    };
+  }
+
+  const redFirstKilledCounts = new Map<string, number>();
+  for (const p of participants) {
+    redFirstKilledCounts.set(p.participant_id, 0);
+  }
+
+  for (const g of completedGames) {
+    if (g.first_killed_participant_id) {
+      const seats = await db.all<any>(
+        `SELECT participant_id, role FROM tournament_game_seats WHERE game_id = ?`,
+        [g.game_id]
+      );
+      const fkSeat = seats.find((s) => s.participant_id === g.first_killed_participant_id);
+      if (fkSeat) {
+        const normR = normalizeRole(fkSeat.role);
+        if (normR === 'citizen' || normR === 'sheriff') {
+          const cur = redFirstKilledCounts.get(g.first_killed_participant_id) || 0;
+          redFirstKilledCounts.set(g.first_killed_participant_id, cur + 1);
+        }
+      }
+    }
+  }
+
+  const distanceGames = 10;
+  const thresholdB = calculateCiThreshold(distanceGames);
+  const ciRatesMap = new Map<string, number>();
+  for (const [partId, count] of redFirstKilledCounts.entries()) {
+    const rate = calculateCiRate(count, thresholdB);
+    ciRatesMap.set(partId, rate);
+  }
+
+  for (const g of completedGames) {
+    const seats = await db.all<any>(
+      `SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?`,
+      [g.game_id]
+    );
+
+    const seatsListForLh: Array<{ seat_number: number; role: string | null }> = [];
+    for (const s of seats) {
+      seatsListForLh.push({ seat_number: s.seat_number, role: s.role });
+    }
+
+    let bestMoveSeats: number[] = [];
+    try {
+      bestMoveSeats = JSON.parse(g.best_move_seats_json || '[]');
+    } catch (_) {}
+
+    const { bonusPoints: gameLhBonus } = calculateBestMovePoints(bestMoveSeats, seatsListForLh);
+
+    let hasBlackInBestMove = false;
+    for (const seatNum of bestMoveSeats) {
+      const targetSeat = seats.find((s) => s.seat_number === seatNum);
+      if (targetSeat) {
+        const targetRole = normalizeRole(targetSeat.role);
+        if (targetRole === 'mafia' || targetRole === 'don') {
+          hasBlackInBestMove = true;
+          break;
+        }
+      }
+    }
+
+    const results = await db.all<any>(
+      `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points
+       FROM tournament_game_player_results WHERE game_id = ?`,
+      [g.game_id]
+    );
+
+    const resultMap = new Map<string, any>();
+    for (const r of results) {
+      resultMap.set(r.participant_id, r);
+    }
+
+    for (const s of seats) {
+      const pStats = statsMap.get(s.participant_id);
+      if (!pStats) continue;
+
+      const normRole = normalizeRole(s.role);
+      const resRow = resultMap.get(s.participant_id);
+
+      const judgeBonus = Number(resRow?.judge_bonus || 0);
+      const protocolBonus = Number(resRow?.protocol_bonus || 0);
+      const penalty = Number(resRow?.penalty_points || 0);
+
+      let winPoint = 0;
+      if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
+        winPoint = 1;
+      } else if (g.winner_team === 'black' && (normRole === 'mafia' || normRole === 'don')) {
+        winPoint = 1;
+      }
+
+      const posPoints = roundToTwo(judgeBonus + protocolBonus);
+      const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
+      const penPoints = roundToTwo(penalty);
+
+      const playerRate = ciRatesMap.get(s.participant_id) || 0;
+      const ciResult = calculateGameCi({
+        isFirstKilled: g.first_killed_participant_id === s.participant_id,
+        role: s.role,
+        winnerTeam: g.winner_team,
+        bestMoveParticipantId: g.best_move_participant_id,
+        participantId: s.participant_id,
+        hasBlackInBestMove,
+        playerRate,
+      });
+      const gameCi = ciResult.gameCi;
+      const ciReason = ciResult.ciReason;
+
+      const addTotalGame = roundToTwo(posPoints + bmPoints - penPoints);
+      const gameTotal = roundToTwo(winPoint + addTotalGame + gameCi);
+
+      pStats.games_played += 1;
+      pStats.wins += winPoint;
+      if (winPoint === 1 && normRole === 'don') pStats.don_wins += 1;
+      if (winPoint === 1 && normRole === 'sheriff') pStats.sheriff_wins += 1;
+      if (g.first_killed_participant_id && s.participant_id === g.first_killed_participant_id) {
+        pStats.first_killed_count += 1;
+      }
+
+      pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
+      pStats.best_move_points = roundToTwo(pStats.best_move_points + bmPoints);
+      pStats.penalty_points = roundToTwo(pStats.penalty_points + penPoints);
+      pStats.ci_points = roundToTwo(pStats.ci_points + gameCi);
+      pStats.additional_total = roundToTwo(pStats.additional_total + addTotalGame);
+      pStats.total_points = roundToTwo(pStats.total_points + gameTotal);
+
+      pStats.games.push({
+        game_number: g.game_number,
+        seat_number: s.seat_number,
+        role: s.role,
+        winner_team: g.winner_team,
+        win_point: winPoint,
+        positive_points: posPoints,
+        best_move_points: bmPoints,
+        penalty_points: penPoints,
+        ci_points: gameCi,
+        ci_rate: playerRate,
+        ci_reason: ciReason,
+        game_total: gameTotal,
+      });
+    }
+  }
+
+  const standingsList = Array.from(statsMap.values());
+
+  for (const item of standingsList) {
+    const redCount = redFirstKilledCounts.get(item.participant_id) || 0;
+    const rate = ciRatesMap.get(item.participant_id) || 0;
+    item.ci_calculation = {
+      distance_games: distanceGames,
+      threshold_b: calculateCiThreshold(distanceGames),
+      first_killed_count: redCount,
+      ci_rate: rate,
+      provisional: tournament.status !== 'completed',
+    };
+  }
+
+  // Initial standard sorting
+  standingsList.sort((a, b) => {
+    if (Math.abs(b.total_points - a.total_points) > 0.0001) {
+      return b.total_points - a.total_points;
+    }
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
+    }
+    if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
+      return b.additional_total - a.additional_total;
+    }
+    const sumDS_b = b.don_wins + b.sheriff_wins;
+    const sumDS_a = a.don_wins + a.sheriff_wins;
+    if (sumDS_b !== sumDS_a) {
+      return sumDS_b - sumDS_a;
+    }
+    if (b.first_killed_count !== a.first_killed_count) {
+      return b.first_killed_count - a.first_killed_count;
+    }
+    return a.participant_number - b.participant_number;
+  });
+
+  // Assign calculated_place
+  for (let i = 0; i < standingsList.length; i++) {
+    if (i === 0) {
+      standingsList[i].calculated_place = 1;
+    } else {
+      const prev = standingsList[i - 1];
+      const curr = standingsList[i];
+      const isEqual =
+        Math.abs(curr.total_points - prev.total_points) < 0.0001 &&
+        Math.abs(curr.additional_total - prev.additional_total) < 0.0001 &&
+        curr.wins === prev.wins &&
+        (curr.don_wins + curr.sheriff_wins) === (prev.don_wins + prev.sheriff_wins) &&
+        curr.first_killed_count === prev.first_killed_count;
+
+      if (isEqual) {
+        standingsList[i].calculated_place = prev.calculated_place;
+      } else {
+        standingsList[i].calculated_place = i + 1;
+      }
+    }
+    standingsList[i].official_place = standingsList[i].calculated_place;
+    standingsList[i].place = standingsList[i].calculated_place;
+  }
+
+  // Find tie groups (only for players with games_played > 0)
+  const tieGroups: Array<{ tie_group_id: string; participant_ids: string[] }> = [];
+  const tieGroupMap = new Map<string, string[]>();
+
+  for (const item of standingsList) {
+    if (item.games_played === 0) continue;
+    const sportKey = `${item.total_points}_${item.additional_total}_${item.wins}_${item.don_wins + item.sheriff_wins}_${item.first_killed_count}`;
+    if (!tieGroupMap.has(sportKey)) {
+      tieGroupMap.set(sportKey, []);
+    }
+    tieGroupMap.get(sportKey)!.push(item.participant_id);
+  }
+
+  for (const [sportKey, pids] of tieGroupMap.entries()) {
+    if (pids.length >= 2) {
+      const ptsStr = String(sportKey).replace(/\./g, '_');
+      const tieGroupId = `tg_${ptsStr}`;
+      tieGroups.push({
+        tie_group_id: tieGroupId,
+        participant_ids: pids,
+      });
+    }
+  }
+
+  // Associate tie_group_id
+  for (const item of standingsList) {
+    const group = tieGroups.find(g => g.participant_ids.includes(item.participant_id));
+    item.tie_group_id = group ? group.tie_group_id : null;
+  }
+
+  // Load final standings resolutions
+  const resolutions = await db.all<any>(
+    'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+    [tournamentId, 'standings_tie']
+  );
+
+  const resMap = new Map<string, any>();
+  for (const r of resolutions) {
+    let pids: string[] = [];
+    try { pids = JSON.parse(r.participant_ids_json || '[]'); } catch (_) {}
+    const sortedKey = [...pids].sort().join(',');
+    resMap.set(sortedKey, r);
+  }
+
+  let tieRequiresDraw = false;
+
+  for (const group of tieGroups) {
+    const sortedKey = [...group.participant_ids].sort().join(',');
+    const resolution = resMap.get(sortedKey);
+
+    if (resolution) {
+      let orderedPids: string[] = [];
+      try { orderedPids = JSON.parse(resolution.ordered_participant_ids_json || '[]'); } catch (_) {}
+
+      const basePlace = Math.min(
+        ...standingsList
+          .filter(item => group.participant_ids.includes(item.participant_id))
+          .map(item => item.calculated_place)
+      );
+
+      for (const item of standingsList) {
+        if (group.participant_ids.includes(item.participant_id)) {
+          const orderIndex = orderedPids.indexOf(item.participant_id);
+          if (orderIndex !== -1) {
+            item.official_place = basePlace + orderIndex;
+            item.place = item.official_place;
+          }
+        }
+      }
+    } else {
+      tieRequiresDraw = true;
+    }
+  }
+
+  // Sort by official_place ASC, stable sorting by participant_number
+  standingsList.sort((a, b) => {
+    if (a.official_place !== b.official_place) {
+      return a.official_place - b.official_place;
+    }
+    return a.participant_number - b.participant_number;
+  });
+
+  return {
+    tournament_id: tournamentId,
+    completed_games_count,
+    tie_requires_draw: tieRequiresDraw,
+    standings: standingsList,
+    tie_groups: tieGroups,
+  };
+}
+
+// Helper function to calculate nominations, incorporating tie-breaking resolutions
+async function internalGetNominations(db: DatabaseWrapper, tournamentId: string) {
+  const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+  if (!tournament) {
+    throw new Error('Турнир не найден');
+  }
+
+  const participants = await db.all<any>(
+    `SELECT tp.id as participant_id, tp.participant_number,
+            COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
+     FROM tournament_participants tp
+     LEFT JOIN players p ON tp.player_id = p.id
+     WHERE tp.tournament_id = ?
+     ORDER BY tp.participant_number ASC`,
+    [tournamentId]
+  );
+
+  const completedGames = await db.all<any>(
+    `SELECT g.id as game_id, g.game_number, p.best_move_participant_id, p.best_move_seats_json
+     FROM tournament_games g
+     INNER JOIN tournament_game_protocols p ON p.game_id = g.id
+     WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
+     ORDER BY g.game_number ASC`,
+    [tournamentId]
+  );
+
+  const gameDataList: Array<{
+    game_id: string;
+    game_number: number;
+    best_move_participant_id: string | null;
+    best_move_seats: number[];
+    seats: Array<{ participant_id: string; seat_number: number; role: string | null }>;
+    resultsMap: Map<string, any>;
+  }> = [];
+
+  for (const g of completedGames) {
+    const seats = await db.all<any>(
+      'SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?',
+      [g.game_id]
+    );
+    const results = await db.all<any>(
+      'SELECT participant_id, judge_bonus, protocol_bonus, penalty_points FROM tournament_game_player_results WHERE game_id = ?',
+      [g.game_id]
+    );
+    const resultMap = new Map<string, any>();
+    for (const r of results) {
+      resultMap.set(r.participant_id, r);
+    }
+
+    let best_move_seats: number[] = [];
+    try {
+      best_move_seats = JSON.parse(g.best_move_seats_json || '[]');
+    } catch (_) {}
+
+    gameDataList.push({
+      game_id: g.game_id,
+      game_number: g.game_number,
+      best_move_participant_id: g.best_move_participant_id,
+      best_move_seats,
+      seats,
+      resultsMap: resultMap,
+    });
+  }
+
+  const categoriesDef = [
+    { category: 'best_citizen', title: 'Лучший мирный', targetRoles: ['citizen'] },
+    { category: 'best_mafia', title: 'Лучшая мафия', targetRoles: ['mafia'] },
+    { category: 'best_sheriff', title: 'Лучший Шериф', targetRoles: ['sheriff'] },
+    { category: 'best_don', title: 'Лучший Дон', targetRoles: ['don'] },
+    { category: 'mvp', title: 'MVP', targetRoles: ['citizen', 'sheriff', 'mafia', 'don'] },
+  ];
+
+  const nominationResolutions = await db.all<any>(
+    'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+    [tournamentId, 'nomination_tie']
+  );
+
+  const nominationsResult = [];
+
+  for (const cat of categoriesDef) {
+    const candidateList = [];
+
+    for (const p of participants) {
+      let gamesInRole = 0;
+      let sumJudge = 0;
+      let sumProtocol = 0;
+      let sumBestMove = 0;
+      let sumPenalty = 0;
+      const breakdown = [];
+
+      for (const gData of gameDataList) {
+        const seat = gData.seats.find((s) => s.participant_id === p.participant_id);
+        if (!seat) continue;
+
+        const normRole = normalizeRole(seat.role);
+        if (!normRole || !cat.targetRoles.includes(normRole)) continue;
+
+        gamesInRole++;
+
+        const resRow = gData.resultsMap.get(p.participant_id);
+        const jb = Number(resRow?.judge_bonus || 0);
+        const pb = Number(resRow?.protocol_bonus || 0);
+        const pen = Number(resRow?.penalty_points || 0);
+
+        let bm = 0;
+        if (gData.best_move_participant_id === p.participant_id) {
+          const seatsListForLh = gData.seats.map((s) => ({ seat_number: s.seat_number, role: s.role }));
+          bm = calculateBestMovePoints(gData.best_move_seats, seatsListForLh).bonusPoints;
+        }
+
+        const gameNomPoints = roundToTwo(jb + pb + bm - pen);
+
+        sumJudge = roundToTwo(sumJudge + jb);
+        sumProtocol = roundToTwo(sumProtocol + pb);
+        sumBestMove = roundToTwo(sumBestMove + bm);
+        sumPenalty = roundToTwo(sumPenalty + pen);
+
+        breakdown.push({
+          game_number: gData.game_number,
+          role: seat.role,
+          judge_bonus: jb,
+          protocol_bonus: pb,
+          best_move_points: bm,
+          penalty_points: pen,
+          nomination_points: gameNomPoints,
+        });
+      }
+
+      if (gamesInRole >= 1) {
+        const totalNomPoints = roundToTwo(sumJudge + sumProtocol + sumBestMove - sumPenalty);
+        candidateList.push({
+          participant_id: p.participant_id,
+          display_name: p.display_name,
+          nomination_points: totalNomPoints,
+          games_in_role: gamesInRole,
+          judge_bonus: sumJudge,
+          protocol_bonus: sumProtocol,
+          best_move_points: sumBestMove,
+          penalty_points: sumPenalty,
+          breakdown,
+        });
+      }
+    }
+
+    candidateList.sort((a, b) => b.nomination_points - a.nomination_points);
+
+    let hasTie = false;
+    if (candidateList.length > 1) {
+      const topPoints = candidateList[0].nomination_points;
+      const secondPoints = candidateList[1].nomination_points;
+      if (Math.abs(topPoints - secondPoints) < 0.0001) {
+        hasTie = true;
+      }
+    }
+
+    const resolution = nominationResolutions.find(r => r.category === cat.category);
+    let winner_participant_id = null;
+    if (candidateList.length > 0) {
+      if (!hasTie) {
+        winner_participant_id = candidateList[0].participant_id;
+      } else if (resolution) {
+        winner_participant_id = resolution.winner_participant_id;
+      }
+    }
+
+    nominationsResult.push({
+      category: cat.category,
+      title: cat.title,
+      has_tie: hasTie,
+      candidates: candidateList,
+      winner_participant_id,
+      resolution_method: resolution?.resolution_method || null,
+      comment: resolution?.comment || null,
+    });
+  }
+
+  return {
+    tournament_id: tournamentId,
+    provisional: tournament.status !== 'completed',
+    nominations: nominationsResult,
+  };
+}
+
 // GET /api/tournaments/:tournamentId/standings
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
   const { tournamentId } = req.params;
 
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
-    if (!tournament) {
-      return res.status(404).json({ error: 'Турнир не найден' });
-    }
-
-    // 1. Get all participants
-    const participants = await db.all<any>(
-      `SELECT tp.id as participant_id, tp.participant_number,
-              COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
-       FROM tournament_participants tp
-       LEFT JOIN players p ON tp.player_id = p.id
-       WHERE tp.tournament_id = ?
-       ORDER BY tp.participant_number ASC`,
-      [tournamentId]
-    );
-
-    // 2. Map of stats per participant_id
-    const statsMap = new Map<string, any>();
-    for (const p of participants) {
-      statsMap.set(p.participant_id, {
-        place: 0,
-        participant_id: p.participant_id,
-        participant_number: p.participant_number,
-        display_name: p.display_name,
-        total_points: 0,
-        additional_total: 0,
-        positive_points: 0,
-        penalty_points: 0,
-        best_move_points: 0,
-        ci_points: 0,
-        wins: 0,
-        don_wins: 0,
-        sheriff_wins: 0,
-        first_killed_count: 0,
-        games_played: 0,
-        games: [],
-      });
-    }
-
-    // 3. Get completed games with completed protocols
-    const completedGames = await db.all<any>(
-      `SELECT g.id as game_id, g.game_number, COALESCE(p.winner_team, g.winner_team) as winner_team, p.first_killed_participant_id,
-              p.best_move_participant_id, p.best_move_seats_json
-       FROM tournament_games g
-       INNER JOIN tournament_game_protocols p ON p.game_id = g.id
-       WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
-       ORDER BY g.game_number ASC`,
-      [tournamentId]
-    );
-
-    const completed_games_count = completedGames.length;
-
-    if (completed_games_count === 0) {
-      return res.json({
-        tournament_id: tournamentId,
-        completed_games_count: 0,
-        tie_requires_draw: false,
-        standings: [],
-      });
-    }
-
-    // Pass 1: Compute red-role first-killed count (i) for each participant across all completed games
-    const redFirstKilledCounts = new Map<string, number>();
-    for (const p of participants) {
-      redFirstKilledCounts.set(p.participant_id, 0);
-    }
-
-    for (const g of completedGames) {
-      if (g.first_killed_participant_id) {
-        const seats = await db.all<any>(
-          `SELECT participant_id, role FROM tournament_game_seats WHERE game_id = ?`,
-          [g.game_id]
-        );
-        const fkSeat = seats.find((s) => s.participant_id === g.first_killed_participant_id);
-        if (fkSeat) {
-          const normR = normalizeRole(fkSeat.role);
-          if (normR === 'citizen' || normR === 'sheriff') {
-            const cur = redFirstKilledCounts.get(g.first_killed_participant_id) || 0;
-            redFirstKilledCounts.set(g.first_killed_participant_id, cur + 1);
-          }
-        }
-      }
-    }
-
-    // Compute ci_rate for each participant using clean helper function
-    const distanceGames = 10;
-    const thresholdB = calculateCiThreshold(distanceGames);
-    const ciRatesMap = new Map<string, number>();
-    for (const [partId, count] of redFirstKilledCounts.entries()) {
-      const rate = calculateCiRate(count, thresholdB);
-      ciRatesMap.set(partId, rate);
-    }
-
-    // Pass 2: Calculate per-game results & total standings
-    for (const g of completedGames) {
-      const seats = await db.all<any>(
-        `SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?`,
-        [g.game_id]
-      );
-
-      const seatsListForLh: Array<{ seat_number: number; role: string | null }> = [];
-      for (const s of seats) {
-        seatsListForLh.push({ seat_number: s.seat_number, role: s.role });
-      }
-
-      let bestMoveSeats: number[] = [];
-      try {
-        bestMoveSeats = JSON.parse(g.best_move_seats_json || '[]');
-      } catch (_) {}
-
-      const { bonusPoints: gameLhBonus } = calculateBestMovePoints(bestMoveSeats, seatsListForLh);
-
-      // Check if best_move_seats contains at least one mafia or don in this game
-      let hasBlackInBestMove = false;
-      for (const seatNum of bestMoveSeats) {
-        const targetSeat = seats.find((s) => s.seat_number === seatNum);
-        if (targetSeat) {
-          const targetRole = normalizeRole(targetSeat.role);
-          if (targetRole === 'mafia' || targetRole === 'don') {
-            hasBlackInBestMove = true;
-            break;
-          }
-        }
-      }
-
-      const results = await db.all<any>(
-        `SELECT participant_id, judge_bonus, protocol_bonus, penalty_points
-         FROM tournament_game_player_results WHERE game_id = ?`,
-        [g.game_id]
-      );
-
-      const resultMap = new Map<string, any>();
-      for (const r of results) {
-        resultMap.set(r.participant_id, r);
-      }
-
-      for (const s of seats) {
-        const pStats = statsMap.get(s.participant_id);
-        if (!pStats) continue;
-
-        const normRole = normalizeRole(s.role);
-        const resRow = resultMap.get(s.participant_id);
-
-        const judgeBonus = Number(resRow?.judge_bonus || 0);
-        const protocolBonus = Number(resRow?.protocol_bonus || 0);
-        const penalty = Number(resRow?.penalty_points || 0);
-
-        let winPoint = 0;
-        if (g.winner_team === 'red' && (normRole === 'citizen' || normRole === 'sheriff')) {
-          winPoint = 1;
-        } else if (g.winner_team === 'black' && (normRole === 'mafia' || normRole === 'don')) {
-          winPoint = 1;
-        }
-
-        const posPoints = roundToTwo(judgeBonus + protocolBonus);
-        const bmPoints = (s.participant_id === g.best_move_participant_id) ? roundToTwo(gameLhBonus) : 0;
-        const penPoints = roundToTwo(penalty);
-
-        // FSM 2022 Ci calculation for this game via helper
-        const playerRate = ciRatesMap.get(s.participant_id) || 0;
-        const ciResult = calculateGameCi({
-          isFirstKilled: g.first_killed_participant_id === s.participant_id,
-          role: s.role,
-          winnerTeam: g.winner_team,
-          bestMoveParticipantId: g.best_move_participant_id,
-          participantId: s.participant_id,
-          hasBlackInBestMove,
-          playerRate,
-        });
-        const gameCi = ciResult.gameCi;
-        const ciReason = ciResult.ciReason;
-
-        const addTotalGame = roundToTwo(posPoints + bmPoints - penPoints);
-        const gameTotal = roundToTwo(winPoint + addTotalGame + gameCi);
-
-        pStats.games_played += 1;
-        pStats.wins += winPoint;
-        if (winPoint === 1 && normRole === 'don') pStats.don_wins += 1;
-        if (winPoint === 1 && normRole === 'sheriff') pStats.sheriff_wins += 1;
-        if (g.first_killed_participant_id && s.participant_id === g.first_killed_participant_id) {
-          pStats.first_killed_count += 1;
-        }
-
-        pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
-        pStats.best_move_points = roundToTwo(pStats.best_move_points + bmPoints);
-        pStats.penalty_points = roundToTwo(pStats.penalty_points + penPoints);
-        pStats.ci_points = roundToTwo(pStats.ci_points + gameCi);
-        pStats.additional_total = roundToTwo(pStats.additional_total + addTotalGame);
-        pStats.total_points = roundToTwo(pStats.total_points + gameTotal);
-
-        pStats.games.push({
-          game_number: g.game_number,
-          seat_number: s.seat_number,
-          role: s.role,
-          winner_team: g.winner_team,
-          win_point: winPoint,
-          positive_points: posPoints,
-          best_move_points: bmPoints,
-          penalty_points: penPoints,
-          ci_points: gameCi,
-          ci_rate: playerRate,
-          ci_reason: ciReason,
-          game_total: gameTotal,
-        });
-      }
-    }
-
-    const standingsList = Array.from(statsMap.values());
-
-    for (const item of standingsList) {
-      const redCount = redFirstKilledCounts.get(item.participant_id) || 0;
-      const rate = ciRatesMap.get(item.participant_id) || 0;
-      item.ci_calculation = {
-        distance_games: distanceGames,
-        threshold_b: calculateCiThreshold(distanceGames),
-        first_killed_count: redCount,
-        ci_rate: rate,
-        provisional: tournament.status !== 'completed',
-      };
-    }
-
-    // Sort: total_points desc, wins desc, additional_total desc, don_wins+sheriff_wins desc, first_killed_count desc, participant_number asc
-    standingsList.sort((a, b) => {
-      if (Math.abs(b.total_points - a.total_points) > 0.0001) {
-        return b.total_points - a.total_points;
-      }
-      if (b.wins !== a.wins) {
-        return b.wins - a.wins;
-      }
-      if (Math.abs(b.additional_total - a.additional_total) > 0.0001) {
-        return b.additional_total - a.additional_total;
-      }
-      const sumDS_b = b.don_wins + b.sheriff_wins;
-      const sumDS_a = a.don_wins + a.sheriff_wins;
-      if (sumDS_b !== sumDS_a) {
-        return sumDS_b - sumDS_a;
-      }
-      if (b.first_killed_count !== a.first_killed_count) {
-        return b.first_killed_count - a.first_killed_count;
-      }
-      return a.participant_number - b.participant_number;
-    });
-
-    let tieRequiresDraw = false;
-    for (let i = 0; i < standingsList.length; i++) {
-      if (i === 0) {
-        standingsList[i].place = 1;
-      } else {
-        const prev = standingsList[i - 1];
-        const curr = standingsList[i];
-        const isEqual =
-          Math.abs(curr.total_points - prev.total_points) < 0.0001 &&
-          Math.abs(curr.additional_total - prev.additional_total) < 0.0001 &&
-          curr.wins === prev.wins &&
-          (curr.don_wins + curr.sheriff_wins) === (prev.don_wins + prev.sheriff_wins) &&
-          curr.first_killed_count === prev.first_killed_count;
-
-        if (isEqual) {
-          curr.place = prev.place;
-          if (curr.games_played > 0 && prev.games_played > 0) {
-            tieRequiresDraw = true;
-          }
-        } else {
-          curr.place = i + 1;
-        }
-      }
-    }
-
-    res.json({
-      tournament_id: tournamentId,
-      completed_games_count,
-      tie_requires_draw: tieRequiresDraw,
-      standings: standingsList,
-    });
+    const standingsData = await internalGetStandings(db, tournamentId);
+    res.json(standingsData);
   } catch (err: any) {
+    if (err.message === 'Турнир не найден') {
+      return res.status(404).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message || 'Ошибка вычисления турнирной таблицы' });
   }
 });
@@ -1057,169 +1326,305 @@ router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: Authe
   const { tournamentId } = req.params;
 
   try {
+    const nominationsData = await internalGetNominations(db, tournamentId);
+    res.json(nominationsData);
+  } catch (err: any) {
+    if (err.message === 'Турнир не найден') {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || 'Ошибка вычисления номинаций' });
+  }
+});
+
+// GET /api/tournaments/:id/final-resolutions - Load final resolutions
+router.get('/:id/final-resolutions', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId } = req.params;
+
+  try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
       return res.status(404).json({ error: 'Турнир не найден' });
     }
 
-    const participants = await db.all<any>(
-      `SELECT tp.id as participant_id, tp.participant_number,
-              COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
-       FROM tournament_participants tp
-       LEFT JOIN players p ON tp.player_id = p.id
-       WHERE tp.tournament_id = ?
-       ORDER BY tp.participant_number ASC`,
+    const resolutions = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ?',
       [tournamentId]
     );
 
-    const completedGames = await db.all<any>(
-      `SELECT g.id as game_id, g.game_number, p.best_move_participant_id, p.best_move_seats_json
-       FROM tournament_games g
-       INNER JOIN tournament_game_protocols p ON p.game_id = g.id
-       WHERE g.tournament_id = ? AND g.status = 'completed' AND p.status = 'completed'
-       ORDER BY g.game_number ASC`,
-      [tournamentId]
-    );
-
-    const gameDataList: Array<{
-      game_id: string;
-      game_number: number;
-      best_move_participant_id: string | null;
-      best_move_seats: number[];
-      seats: Array<{ participant_id: string; seat_number: number; role: string | null }>;
-      resultsMap: Map<string, any>;
-    }> = [];
-
-    for (const g of completedGames) {
-      const seats = await db.all<any>(
-        'SELECT participant_id, seat_number, role FROM tournament_game_seats WHERE game_id = ?',
-        [g.game_id]
-      );
-      const results = await db.all<any>(
-        'SELECT participant_id, judge_bonus, protocol_bonus, penalty_points FROM tournament_game_player_results WHERE game_id = ?',
-        [g.game_id]
-      );
-      const resultMap = new Map<string, any>();
-      for (const r of results) {
-        resultMap.set(r.participant_id, r);
-      }
-
-      let best_move_seats: number[] = [];
-      try {
-        best_move_seats = JSON.parse(g.best_move_seats_json || '[]');
-      } catch (_) {}
-
-      gameDataList.push({
-        game_id: g.game_id,
-        game_number: g.game_number,
-        best_move_participant_id: g.best_move_participant_id,
-        best_move_seats,
-        seats,
-        resultsMap: resultMap,
-      });
-    }
-
-    const categoriesDef = [
-      { category: 'best_citizen', title: 'Лучший мирный', targetRoles: ['citizen'] },
-      { category: 'best_mafia', title: 'Лучшая мафия', targetRoles: ['mafia'] },
-      { category: 'best_sheriff', title: 'Лучший Шериф', targetRoles: ['sheriff'] },
-      { category: 'best_don', title: 'Лучший Дон', targetRoles: ['don'] },
-      { category: 'mvp', title: 'MVP', targetRoles: ['citizen', 'sheriff', 'mafia', 'don'] },
-    ];
-
-    const nominationsResult = [];
-
-    for (const cat of categoriesDef) {
-      const candidateList = [];
-
-      for (const p of participants) {
-        let gamesInRole = 0;
-        let sumJudge = 0;
-        let sumProtocol = 0;
-        let sumBestMove = 0;
-        let sumPenalty = 0;
-        const breakdown = [];
-
-        for (const gData of gameDataList) {
-          const seat = gData.seats.find((s) => s.participant_id === p.participant_id);
-          if (!seat) continue;
-
-          const normRole = normalizeRole(seat.role);
-          if (!normRole || !cat.targetRoles.includes(normRole)) continue;
-
-          gamesInRole++;
-
-          const resRow = gData.resultsMap.get(p.participant_id);
-          const jb = Number(resRow?.judge_bonus || 0);
-          const pb = Number(resRow?.protocol_bonus || 0);
-          const pen = Number(resRow?.penalty_points || 0);
-
-          let bm = 0;
-          if (gData.best_move_participant_id === p.participant_id) {
-            const seatsListForLh = gData.seats.map((s) => ({ seat_number: s.seat_number, role: s.role }));
-            bm = calculateBestMovePoints(gData.best_move_seats, seatsListForLh).bonusPoints;
-          }
-
-          const gameNomPoints = roundToTwo(jb + pb + bm - pen);
-
-          sumJudge = roundToTwo(sumJudge + jb);
-          sumProtocol = roundToTwo(sumProtocol + pb);
-          sumBestMove = roundToTwo(sumBestMove + bm);
-          sumPenalty = roundToTwo(sumPenalty + pen);
-
-          breakdown.push({
-            game_number: gData.game_number,
-            role: seat.role,
-            judge_bonus: jb,
-            protocol_bonus: pb,
-            best_move_points: bm,
-            penalty_points: pen,
-            nomination_points: gameNomPoints,
-          });
-        }
-
-        if (gamesInRole >= 1) {
-          const totalNomPoints = roundToTwo(sumJudge + sumProtocol + sumBestMove - sumPenalty);
-          candidateList.push({
-            participant_id: p.participant_id,
-            display_name: p.display_name,
-            nomination_points: totalNomPoints,
-            games_in_role: gamesInRole,
-            judge_bonus: sumJudge,
-            protocol_bonus: sumProtocol,
-            best_move_points: sumBestMove,
-            penalty_points: sumPenalty,
-            breakdown,
-          });
-        }
-      }
-
-      candidateList.sort((a, b) => b.nomination_points - a.nomination_points);
-
-      let hasTie = false;
-      if (candidateList.length > 1) {
-        const topPoints = candidateList[0].nomination_points;
-        const secondPoints = candidateList[1].nomination_points;
-        if (Math.abs(topPoints - secondPoints) < 0.0001) {
-          hasTie = true;
-        }
-      }
-
-      nominationsResult.push({
-        category: cat.category,
-        title: cat.title,
-        has_tie: hasTie,
-        candidates: candidateList,
-      });
-    }
+    const formatted = resolutions.map(r => ({
+      ...r,
+      participant_ids: JSON.parse(r.participant_ids_json || '[]'),
+      ordered_participant_ids: r.ordered_participant_ids_json ? JSON.parse(r.ordered_participant_ids_json) : null,
+    }));
 
     res.json({
       tournament_id: tournamentId,
-      provisional: tournament.status !== 'completed',
-      nominations: nominationsResult,
+      resolutions: formatted,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Ошибка вычисления номинаций' });
+    res.status(500).json({ error: err.message || 'Ошибка загрузки финальных решений' });
+  }
+});
+
+// PUT /api/tournaments/:id/final-resolutions/standings/:tieGroupId - Set standing tie resolution
+router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId, tieGroupId } = req.params;
+  const { ordered_participant_ids, resolution_method, comment } = req.body;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+    if (tournament.status !== 'completed') {
+      return res.status(400).json({ error: 'Решения разрешены только для completed-турнира' });
+    }
+
+    if (!Array.isArray(ordered_participant_ids) || ordered_participant_ids.length < 2) {
+      return res.status(400).json({ error: 'Должен быть передан массив упорядоченных участников длиной от 2' });
+    }
+
+    if (!['draw', 'chief_judge_decision'].includes(resolution_method)) {
+      return res.status(400).json({ error: 'Неверный способ решения' });
+    }
+
+    // Compute current standings to find the tie group
+    const standingsData = await internalGetStandings(db, tournamentId);
+    const tieGroup = standingsData.tie_groups.find(g => g.tie_group_id === tieGroupId);
+
+    if (!tieGroup) {
+      return res.status(400).json({ error: 'Группа равенства не найдена или неактивна' });
+    }
+
+    // Verify ordered_participant_ids matches exactly the tieGroup participants
+    const inputSorted = [...ordered_participant_ids].sort().join(',');
+    const groupSorted = [...tieGroup.participant_ids].sort().join(',');
+
+    if (inputSorted !== groupSorted) {
+      return res.status(400).json({ error: 'Нельзя включить в решение игрока, который не входит в эту группу равенства' });
+    }
+
+    const existing = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+      [tournamentId, 'standings_tie']
+    );
+
+    const match = existing.find(r => {
+      let pids: string[] = [];
+      try { pids = JSON.parse(r.participant_ids_json || '[]'); } catch (_) {}
+      return [...pids].sort().join(',') === groupSorted;
+    });
+
+    const now = new Date().toISOString();
+
+    if (match) {
+      await db.run(
+        `UPDATE tournament_final_resolutions
+         SET ordered_participant_ids_json = ?, resolution_method = ?, comment = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+          JSON.stringify(ordered_participant_ids),
+          resolution_method,
+          comment || null,
+          now,
+          match.id
+        ]
+      );
+    } else {
+      const newId = crypto.randomUUID();
+      await db.run(
+        `INSERT INTO tournament_final_resolutions (
+           id, tournament_id, type, category, participant_ids_json,
+           ordered_participant_ids_json, winner_participant_id, resolution_method, comment, created_at, updated_at
+         ) VALUES (?, ?, ?, NULL, ?, ?, NULL, ?, ?, ?, ?)`,
+        [
+          newId,
+          tournamentId,
+          'standings_tie',
+          JSON.stringify(tieGroup.participant_ids),
+          JSON.stringify(ordered_participant_ids),
+          resolution_method,
+          comment || null,
+          now,
+          now
+        ]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка сохранения решения равенства таблиц' });
+  }
+});
+
+// PUT /api/tournaments/:id/final-resolutions/nominations/:category - Set nomination tie resolution
+router.put('/:id/final-resolutions/nominations/:category', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId, category } = req.params;
+  const { winner_participant_id, resolution_method, comment } = req.body;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+    if (tournament.status !== 'completed') {
+      return res.status(400).json({ error: 'Решения разрешены только для completed-турнира' });
+    }
+
+    if (!['draw', 'chief_judge_decision'].includes(resolution_method)) {
+      return res.status(400).json({ error: 'Неверный способ решения' });
+    }
+
+    const nominationsData = await internalGetNominations(db, tournamentId);
+    const catData = nominationsData.nominations.find(c => c.category === category);
+
+    if (!catData) {
+      return res.status(400).json({ error: 'Категория номинации не найдена' });
+    }
+
+    if (!catData.has_tie) {
+      return res.status(400).json({ error: 'В этой номинации нет равенства лидеров' });
+    }
+
+    const maxPoints = catData.candidates[0]?.nomination_points;
+    const leaders = catData.candidates.filter(c => Math.abs(c.nomination_points - maxPoints) < 0.0001);
+    const leaderIds = leaders.map(l => l.participant_id);
+
+    if (!leaderIds.includes(winner_participant_id)) {
+      return res.status(400).json({ error: 'Победитель номинации должен быть выбран только среди равных лидеров' });
+    }
+
+    const match = await db.get<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ? AND category = ?',
+      [tournamentId, 'nomination_tie', category]
+    );
+
+    const now = new Date().toISOString();
+
+    if (match) {
+      await db.run(
+        `UPDATE tournament_final_resolutions
+         SET winner_participant_id = ?, participant_ids_json = ?, resolution_method = ?, comment = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+          winner_participant_id,
+          JSON.stringify(leaderIds),
+          resolution_method,
+          comment || null,
+          now,
+          match.id
+        ]
+      );
+    } else {
+      const newId = crypto.randomUUID();
+      await db.run(
+        `INSERT INTO tournament_final_resolutions (
+           id, tournament_id, type, category, participant_ids_json,
+           ordered_participant_ids_json, winner_participant_id, resolution_method, comment, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+        [
+          newId,
+          tournamentId,
+          'nomination_tie',
+          category,
+          JSON.stringify(leaderIds),
+          winner_participant_id,
+          resolution_method,
+          comment || null,
+          now,
+          now
+        ]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка сохранения решения равенства номинаций' });
+  }
+});
+
+// GET /api/tournaments/:id/final-readiness - Get final readiness check results
+router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    const standingsData = await internalGetStandings(db, tournamentId);
+    const nominationsData = await internalGetNominations(db, tournamentId);
+
+    // Standing resolutions
+    const standingsResolutions = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+      [tournamentId, 'standings_tie']
+    );
+    const standingsResolutionsMap = new Set<string>();
+    for (const r of standingsResolutions) {
+      let pids: string[] = [];
+      try { pids = JSON.parse(r.participant_ids_json || '[]'); } catch (_) {}
+      standingsResolutionsMap.add([...pids].sort().join(','));
+    }
+
+    // Nomination resolutions
+    const nominationResolutions = await db.all<any>(
+      'SELECT * FROM tournament_final_resolutions WHERE tournament_id = ? AND type = ?',
+      [tournamentId, 'nomination_tie']
+    );
+    const nominationResolutionsMap = new Set<string>();
+    for (const r of nominationResolutions) {
+      if (r.category) {
+        nominationResolutionsMap.add(r.category);
+      }
+    }
+
+    const unresolvedStandings = [];
+    for (const group of standingsData.tie_groups) {
+      const sortedKey = [...group.participant_ids].sort().join(',');
+      if (!standingsResolutionsMap.has(sortedKey)) {
+        const displayNames = group.participant_ids.map(pid => {
+          const item = standingsData.standings.find(s => s.participant_id === pid);
+          return item ? item.display_name : pid;
+        });
+        unresolvedStandings.push({
+          tie_group_id: group.tie_group_id,
+          participant_ids: group.participant_ids,
+          display_names: displayNames,
+        });
+      }
+    }
+
+    const unresolvedNominations = [];
+    for (const cat of nominationsData.nominations) {
+      if (cat.has_tie) {
+        if (!nominationResolutionsMap.has(cat.category)) {
+          const maxPoints = cat.candidates[0]?.nomination_points;
+          const leaders = cat.candidates.filter(c => Math.abs(c.nomination_points - maxPoints) < 0.0001);
+          unresolvedNominations.push({
+            category: cat.category,
+            title: cat.title,
+            candidate_ids: leaders.map(l => l.participant_id),
+            display_names: leaders.map(l => l.display_name),
+          });
+        }
+      }
+    }
+
+    const ready = unresolvedStandings.length === 0 && unresolvedNominations.length === 0;
+
+    res.json({
+      ready,
+      unresolved_standings_ties: unresolvedStandings,
+      unresolved_nomination_ties: unresolvedNominations,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка проверки готовности результатов' });
   }
 });
 

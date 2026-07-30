@@ -652,4 +652,87 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('не могут быть одним и тем же игроком');
   });
+
+  // Test 24: Rejects color protocol for non-killed player or invalid seats
+  it('24. Rejects color protocol for non-killed player or invalid seats', async () => {
+    const p1Id = game1Seats[0].participant_id;
+
+    // Color protocol on alive player
+    const nonKilledRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {},
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: 'alive',
+          color_protocol: s.participant_id === p1Id ? [{ seat_numbers: [1, 2], mark: 'red' }] : [],
+        })),
+      });
+
+    expect(nonKilledRes.status).toBe(400);
+    expect(nonKilledRes.body.error).toContain('убитого игрока');
+
+    // Color protocol with seat > 10
+    const invalidSeatRes = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {},
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === p1Id ? 'killed' : 'alive',
+          color_protocol: s.participant_id === p1Id ? [{ seat_numbers: [11], mark: 'red' }] : [],
+        })),
+      });
+
+    expect(invalidSeatRes.status).toBe(400);
+    expect(invalidSeatRes.body.error).toContain('от 1 до 10');
+  });
+
+  // Test 25: Validates votes nominated candidates without duplicates
+  it('25. Rejects duplicate candidates in votes', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          votes: [{ round_number: 1, is_revote: false, nominated_seats: [1, 1], vote_counts: { 1: 5 } }],
+        },
+        player_results: game1Seats.map((s) => ({ participant_id: s.participant_id, exit_type: 'alive' })),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('не могут повторяться');
+  });
+
+  // Test 26: Saves decimal bonuses and replacement block
+  it('26. Accepts decimal bonuses and replacement data', async () => {
+    const res = await request(app)
+      .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          replacement: {
+            replaced_seat: 1,
+            replacement_name_or_comment: 'Замена Иванова',
+            replacement_time: 'День 2',
+            notes: 'По состоянию здоровья',
+          },
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: 'alive',
+          protocol_bonus: 0.5,
+          judge_bonus: 0.25,
+          penalty_points: 0.5,
+        })),
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.protocol.replacement.replacement_name_or_comment).toBe('Замена Иванова');
+    expect(res.body.player_results[0].protocol_bonus).toBe(0.5);
+    expect(res.body.player_results[0].judge_bonus).toBe(0.25);
+    expect(res.body.player_results[0].penalty_points).toBe(0.5);
+  });
 });

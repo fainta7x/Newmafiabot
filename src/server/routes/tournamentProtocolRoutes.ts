@@ -202,6 +202,9 @@ function validatePlayerResults(
       if (!Array.isArray(pr.color_protocol)) {
         return 'Цветовой протокол должен быть массивом';
       }
+      if (pr.color_protocol.length > 0 && pr.exit_type !== 'killed') {
+        return 'Цветовой протокол разрешён только для убитого игрока';
+      }
       for (const entry of pr.color_protocol) {
         if (!entry || !VALID_COLOR_MARKS.includes(entry.mark)) {
           return 'Цветовой протокол содержит недопустимую метку';
@@ -230,6 +233,35 @@ function validatePlayerResults(
     return 'Результаты должны содержать ровно 10 уникальных участников';
   }
 
+  return null;
+}
+
+function validateVotes(votes: any): string | null {
+  if (votes === undefined || votes === null) return null;
+  if (!Array.isArray(votes)) {
+    return 'Протокол голосований должен быть массивом';
+  }
+  for (const r of votes) {
+    if (!r || typeof r !== 'object') {
+      return 'Неверный формат круга голосования';
+    }
+    if (r.nominated_seats !== undefined && r.nominated_seats !== null) {
+      if (!Array.isArray(r.nominated_seats)) {
+        return 'Выставленные игроки в круге голосования должны быть массивом';
+      }
+      const seen = new Set<number>();
+      for (const seat of r.nominated_seats) {
+        const num = Number(seat);
+        if (!Number.isInteger(num) || num < 1 || num > 10) {
+          return 'Номера кандидатов должны быть целыми числами от 1 до 10';
+        }
+        if (seen.has(num)) {
+          return 'Кандидаты на голосование не могут повторяться в одном круге';
+        }
+        seen.add(num);
+      }
+    }
+  }
   return null;
 }
 
@@ -394,6 +426,11 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     const playerErr = validatePlayerResults(player_results, seats);
     if (playerErr) {
       return res.status(400).json({ error: playerErr });
+    }
+
+    const votesErr = validateVotes(protocol?.votes);
+    if (votesErr) {
+      return res.status(400).json({ error: votesErr });
     }
 
     const bestMoveErr = validateBestMove(
@@ -684,6 +721,11 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
     const playerErr = validatePlayerResults(player_results, seats);
     if (playerErr) {
       return res.status(400).json({ error: playerErr });
+    }
+
+    const votesErr = validateVotes(protocol?.votes);
+    if (votesErr) {
+      return res.status(400).json({ error: votesErr });
     }
 
     const bestMoveErr = validateBestMove(

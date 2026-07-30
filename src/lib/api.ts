@@ -275,8 +275,11 @@ export interface ShotEntry {
 
 export interface ReplacementData {
   replaced_seat: number;
-  replaced_participant_id: string;
-  new_participant_id: string;
+  replaced_participant_id?: string | null;
+  new_participant_id?: string | null;
+  replacement_name_or_comment?: string | null;
+  replacement_time?: string | null;
+  notes?: string | null;
   reason?: string | null;
 }
 

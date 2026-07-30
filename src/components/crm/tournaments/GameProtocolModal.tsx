@@ -13,16 +13,23 @@ import {
   Trash2,
   Shield,
   Award,
-  Clock
+  Clock,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import {
   api,
   TournamentGame,
   TournamentGameProtocolData,
-  PlayerResultData,
-  VotingRound,
-  ShotEntry
+  PlayerResultData
 } from '../../../lib/api';
+
+export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
+  if (!entry || !entry.seat_numbers) return '';
+  const sorted = [...entry.seat_numbers].sort((a, b) => a - b);
+  const markLabel = entry.mark === 'red' ? 'кр' : entry.mark === 'black' ? 'ч' : 'ш';
+  return `${sorted.join(' ')} ${markLabel}`;
+}
 
 interface GameProtocolModalProps {
   tournamentId: string;
@@ -62,10 +69,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
 
+  // Decimal inputs state (strings)
+  const [playerInputStrings, setPlayerInputStrings] = useState<Record<string, string>>({});
+
+  // Color Protocol builder state per player
+  const [selectedColorSeats, setSelectedColorSeats] = useState<Record<string, number[]>>({});
+  const [selectedColorMark, setSelectedColorMark] = useState<Record<string, 'red' | 'black' | 'sheriff'>>({});
+
   // Auto-save state
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const isFirstRender = useRef(true);
+  const isLoadingRef = useRef(true);
   const isUpdatingFromServer = useRef(false);
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
@@ -90,13 +105,56 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Exit type change confirmation modal (when color_protocol is present)
+  const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<{
+    participantId: string;
+    newExitType: PlayerResultData['exit_type'];
+    playerName: string;
+    seatNum: number;
+  } | null>(null);
+
+  // Helper for decimal parsing
+  const parseDecimalString = (val: string): number => {
+    if (!val || val.trim() === '' || val === '-') return 0;
+    const normalized = val.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const handleDecimalChange = (
+    participantId: string,
+    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points',
+    rawStr: string
+  ) => {
+    const key = `${participantId}_${field}`;
+    setPlayerInputStrings((prev) => ({ ...prev, [key]: rawStr }));
+    const numVal = parseDecimalString(rawStr);
+    updatePlayerResult(participantId, { [field]: numVal });
+  };
+
+  const getDecimalInputValue = (
+    participantId: string,
+    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points',
+    numVal: number
+  ): string => {
+    const key = `${participantId}_${field}`;
+    if (key in playerInputStrings) {
+      return playerInputStrings[key];
+    }
+    return numVal !== undefined && numVal !== null ? String(numVal) : '0';
+  };
+
   // Load Protocol Data
   useEffect(() => {
     if (!isOpen || !gameId) return;
 
     let isMounted = true;
+    isLoadingRef.current = true;
     setLoading(true);
     setError(null);
+    setPlayerInputStrings({});
+
+    let restoredBackupData: { protocol: any; playerResults: any } | null = null;
 
     api.getGameProtocol(tournamentId, gameId)
       .then((res) => {
@@ -105,6 +163,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         setGame(res.game);
         setProtocol(res.protocol);
         setPlayerResults(res.player_results);
+        protocolRef.current = res.protocol;
+        playerResultsRef.current = res.player_results;
         setSaveStatus('saved');
         dirtyRevision.current = 0;
         lastSavedRevision.current = 0;
@@ -115,14 +175,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         if (savedBackup && res.protocol.status === 'draft') {
           try {
             const parsed = JSON.parse(savedBackup);
-            if (parsed.updatedAt && new Date(parsed.updatedAt).getTime() > new Date(res.protocol.updated_at || 0).getTime()) {
-              if (parsed.protocol) setProtocol(parsed.protocol);
-              if (parsed.playerResults) setPlayerResults(parsed.playerResults);
-              setSaveStatus('unsaved');
-              dirtyRevision.current++;
-              setTimeout(() => {
-                performSave();
-              }, 100);
+            if (
+              parsed.updatedAt &&
+              new Date(parsed.updatedAt).getTime() > new Date(res.protocol.updated_at || 0).getTime()
+            ) {
+              if (parsed.protocol && parsed.playerResults) {
+                restoredBackupData = parsed;
+                setProtocol(parsed.protocol);
+                setPlayerResults(parsed.playerResults);
+                protocolRef.current = parsed.protocol;
+                playerResultsRef.current = parsed.playerResults;
+                dirtyRevision.current = 1;
+                setSaveStatus('unsaved');
+              }
             }
           } catch (_) {}
         }
@@ -132,8 +197,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       })
       .finally(() => {
         if (isMounted) {
+          isLoadingRef.current = false;
           setLoading(false);
           isFirstRender.current = false;
+          if (restoredBackupData) {
+            performSave(true);
+          }
         }
       });
 
@@ -144,7 +213,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Debounced Auto-save effect
   useEffect(() => {
-    if (isFirstRender.current || loading || !isOpen || protocol.status === 'completed') return;
+    if (isFirstRender.current || loading || isLoadingRef.current || !isOpen || protocol.status === 'completed') return;
 
     if (isUpdatingFromServer.current) {
       isUpdatingFromServer.current = false;
@@ -177,7 +246,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   }, [protocol, playerResults]);
 
   const performSave = (isManual = false): Promise<boolean> => {
-    if (protocolRef.current.status === 'completed' || loading) {
+    if (protocolRef.current.status === 'completed' || isLoadingRef.current) {
       return Promise.resolve(true);
     }
 
@@ -216,7 +285,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               judge_bonus: pr.judge_bonus,
               protocol_bonus: pr.protocol_bonus,
               penalty_points: pr.penalty_points,
-              color_protocol: pr.color_protocol,
+              color_protocol: pr.color_protocol || [],
               notes: pr.notes
             }))
           };
@@ -274,8 +343,101 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Helper to update player result
   const updatePlayerResult = (participantId: string, updates: Partial<PlayerResultData>) => {
+    if (updates.exit_type !== undefined) {
+      const targetPlayer = playerResults.find((pr) => pr.participant_id === participantId);
+      if (
+        targetPlayer &&
+        targetPlayer.exit_type === 'killed' &&
+        updates.exit_type !== 'killed' &&
+        targetPlayer.color_protocol &&
+        targetPlayer.color_protocol.length > 0
+      ) {
+        setPendingExitTypeConfirm({
+          participantId,
+          newExitType: updates.exit_type,
+          playerName: targetPlayer.display_name,
+          seatNum: targetPlayer.seat_number
+        });
+        return;
+      }
+    }
+
     setPlayerResults((prev) =>
       prev.map((pr) => (pr.participant_id === participantId ? { ...pr, ...updates } : pr))
+    );
+  };
+
+  const confirmExitTypeChange = () => {
+    if (!pendingExitTypeConfirm) return;
+    const { participantId, newExitType } = pendingExitTypeConfirm;
+    setPlayerResults((prev) =>
+      prev.map((pr) => {
+        if (pr.participant_id === participantId) {
+          return { ...pr, exit_type: newExitType, color_protocol: [] };
+        }
+        return pr;
+      })
+    );
+    setPendingExitTypeConfirm(null);
+  };
+
+  // Color protocol handlers per player
+  const toggleColorSeatSelection = (participantId: string, seatNum: number) => {
+    setSelectedColorSeats((prev) => {
+      const current = prev[participantId] || [];
+      if (current.includes(seatNum)) {
+        return { ...prev, [participantId]: current.filter((s) => s !== seatNum) };
+      } else {
+        return { ...prev, [participantId]: [...current, seatNum].sort((a, b) => a - b) };
+      }
+    });
+  };
+
+  const handleAddColorMark = (participantId: string) => {
+    const seats = selectedColorSeats[participantId] || [];
+    if (seats.length === 0) return;
+    const mark = selectedColorMark[participantId] || 'red';
+
+    setPlayerResults((prev) =>
+      prev.map((pr) => {
+        if (pr.participant_id === participantId) {
+          const list = pr.color_protocol || [];
+          return {
+            ...pr,
+            color_protocol: [...list, { seat_numbers: [...seats].sort((a, b) => a - b), mark }]
+          };
+        }
+        return pr;
+      })
+    );
+
+    setSelectedColorSeats((prev) => ({ ...prev, [participantId]: [] }));
+  };
+
+  const handleMoveColorMark = (participantId: string, fromIndex: number, toIndex: number) => {
+    setPlayerResults((prev) =>
+      prev.map((pr) => {
+        if (pr.participant_id === participantId) {
+          const list = [...(pr.color_protocol || [])];
+          if (toIndex < 0 || toIndex >= list.length) return pr;
+          const [moved] = list.splice(fromIndex, 1);
+          list.splice(toIndex, 0, moved);
+          return { ...pr, color_protocol: list };
+        }
+        return pr;
+      })
+    );
+  };
+
+  const handleDeleteColorMark = (participantId: string, index: number) => {
+    setPlayerResults((prev) =>
+      prev.map((pr) => {
+        if (pr.participant_id === participantId) {
+          const list = (pr.color_protocol || []).filter((_, i) => i !== index);
+          return { ...pr, color_protocol: list };
+        }
+        return pr;
+      })
     );
   };
 
@@ -401,7 +563,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           judge_bonus: pr.judge_bonus,
           protocol_bonus: pr.protocol_bonus,
           penalty_points: pr.penalty_points,
-          color_protocol: pr.color_protocol,
+          color_protocol: pr.color_protocol || [],
           notes: pr.notes
         }))
       };
@@ -502,25 +664,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 {saveStatus === 'error' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="text-rose-400 font-medium max-w-[150px] truncate" title={saveErrorMessage || 'Ошибка'}>
-                      {saveErrorMessage || 'Ошибка'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => performSave(true)}
-                      className="ml-1 px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold border border-rose-500/40 transition cursor-pointer"
-                    >
-                      Сохранить сейчас
-                    </button>
+                    <span className="text-rose-400 font-medium">Ошибка</span>
                   </>
                 )}
               </div>
             )}
 
             <button
+              type="button"
               onClick={handleModalClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition cursor-pointer"
-              title="Закрыть"
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -529,7 +682,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
         {/* Global Error Banner */}
         {error && (
-          <div className="bg-rose-500/20 border-b border-rose-500/40 text-rose-300 px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between">
+          <div className="bg-rose-500/15 border-b border-rose-500/30 px-4 py-2.5 flex items-center justify-between text-xs text-rose-300 shrink-0">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{error}</span>
@@ -540,311 +693,514 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           </div>
         )}
 
+        {/* Save Error Banner */}
+        {saveErrorMessage && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-300 shrink-0">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Ошибка автосохранения: {saveErrorMessage}</span>
+            </div>
+            <button
+              onClick={() => performSave(true)}
+              className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold hover:bg-amber-400"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/60 overflow-x-auto shrink-0">
+        <div className="bg-slate-800/40 border-b border-slate-800 px-3 py-2 flex items-center space-x-1 sm:space-x-2 shrink-0 overflow-x-auto">
           <button
+            type="button"
             onClick={() => setActiveTab('players')}
-            className={`flex-1 min-w-[100px] py-3 px-3 text-xs sm:text-sm font-medium flex items-center justify-center space-x-2 border-b-2 transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
               activeTab === 'players'
-                ? 'border-amber-500 text-amber-400 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Игроки (10)</span>
+            <span>Игроки</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('votes')}
-            className={`flex-1 min-w-[100px] py-3 px-3 text-xs sm:text-sm font-medium flex items-center justify-center space-x-2 border-b-2 transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
               activeTab === 'votes'
-                ? 'border-amber-500 text-amber-400 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Vote className="w-4 h-4" />
-            <span>Голосования ({protocol.votes?.length || 0})</span>
+            <span>Голосования</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('nights')}
-            className={`flex-1 min-w-[100px] py-3 px-3 text-xs sm:text-sm font-medium flex items-center justify-center space-x-2 border-b-2 transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
               activeTab === 'nights'
-                ? 'border-amber-500 text-amber-400 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Moon className="w-4 h-4" />
-            <span>Ночи / ЛХ</span>
+            <span>Ночи и ЛХ</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('summary')}
-            className={`flex-1 min-w-[100px] py-3 px-3 text-xs sm:text-sm font-medium flex items-center justify-center space-x-2 border-b-2 transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
               activeTab === 'summary'
-                ? 'border-amber-500 text-amber-400 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <FileCheck className="w-4 h-4" />
-            <span>Итог</span>
+            <span>Итоги</span>
           </button>
         </div>
 
-        {/* Tab Content Container */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4">
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
               <Clock className="w-8 h-8 animate-spin text-amber-500" />
-              <p className="text-sm">Загрузка данных протокола...</p>
+              <span className="text-sm font-medium">Загрузка данных протокола...</span>
             </div>
           ) : (
             <>
-              {/* TAB 1: PLAYERS */}
+              {/* TAB 1: PLAYERS PROTOCOL */}
               {activeTab === 'players' && (
-                <div className="space-y-3">
-                  <div className="text-xs text-slate-400 bg-slate-800/40 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-                    <span>Управляйте фолами, статусом выхода из игры и баллами игроков.</span>
-                    <span className="text-amber-400 font-medium">Всего мест: 10</span>
+                <div className="space-y-4">
+                  <div className="text-xs text-slate-400 flex items-center justify-between">
+                    <span>Заполните фолы, доп. баллы, штрафы и цветовые протоколы участников:</span>
+                    <span className="font-semibold text-slate-300">Игроков: {playerResults.length}/10</span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
-                    {playerResults.map((player) => (
-                      <div
-                        key={player.participant_id}
-                        className={`bg-slate-800/60 rounded-xl p-3 border transition ${
-                          player.exit_type !== 'alive'
-                            ? 'border-slate-700/60 bg-slate-800/30'
-                            : 'border-slate-700 hover:border-slate-600'
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-700/60">
-                          {/* Player Identity */}
-                          <div className="flex items-center space-x-3">
-                            <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-sm flex items-center justify-center border border-amber-500/30 shrink-0">
-                              #{player.seat_number}
-                            </span>
-                            <div>
-                              <div className="font-semibold text-sm text-slate-100">
+                  <div className="space-y-3">
+                    {playerResults.map((player) => {
+                      const isKilled = player.exit_type === 'killed';
+                      const hasColorProtocol = player.color_protocol && player.color_protocol.length > 0;
+                      const showColorSection = isKilled || hasColorProtocol;
+
+                      return (
+                        <div
+                          key={player.participant_id}
+                          className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/80 space-y-2.5 transition hover:border-slate-600"
+                        >
+                          {/* Top Row: Seat, Name, Role, Exit Status */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/30">
+                                #{player.seat_number}
+                              </span>
+                              <span className="font-semibold text-sm text-slate-100">
                                 {player.display_name}
-                              </div>
-                              <div className="text-xs text-slate-400">
-                                Роль:{' '}
-                                <span className="font-medium text-amber-300">
-                                  {player.role === 'citizen' && 'Мирный'}
-                                  {player.role === 'sheriff' && 'Шериф'}
-                                  {player.role === 'mafia' && 'Мафия'}
-                                  {player.role === 'don' && 'Дон'}
-                                  {!player.role && 'Не назначена'}
-                                </span>
-                              </div>
+                              </span>
                             </div>
-                          </div>
 
-                          {/* Status / Exit Dropdown */}
-                          <div className="flex items-center space-x-2">
-                            <select
-                              value={player.exit_type}
-                              disabled={protocol.status === 'completed'}
-                              onChange={(e) =>
-                                updatePlayerResult(player.participant_id, {
-                                  exit_type: e.target.value as any
-                                })
-                              }
-                              className="bg-slate-900 text-xs border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
-                            >
-                              <option value="alive">Жив</option>
-                              <option value="killed">Убит ночью</option>
-                              <option value="voted_zero_round">Заголосован (0 круг)</option>
-                              <option value="voted_day">Заголосован днём</option>
-                              <option value="removed">Снят судьёй</option>
-                            </select>
-
-                            {player.exit_type !== 'alive' && (
-                              <input
-                                type="number"
-                                placeholder="Порядок ухода (1-10)"
+                            <div className="flex items-center space-x-2 text-xs">
+                              <span className="text-slate-400">Роль:</span>
+                              <select
                                 disabled={protocol.status === 'completed'}
-                                value={player.exit_order ?? ''}
+                                value={player.role || 'citizen'}
                                 onChange={(e) =>
                                   updatePlayerResult(player.participant_id, {
-                                    exit_order: e.target.value ? parseInt(e.target.value) : null
+                                    role: e.target.value as any
                                   })
                                 }
-                                className="w-16 bg-slate-900 text-xs border border-slate-700 rounded-lg px-2 py-1.5 text-center text-slate-200 focus:border-amber-500 focus:outline-none"
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none disabled:opacity-60"
+                              >
+                                <option value="citizen">Мирный</option>
+                                <option value="sheriff">Шериф</option>
+                                <option value="mafia">Мафия</option>
+                                <option value="don">Дон</option>
+                              </select>
+
+                              <span className="text-slate-400 ml-1">Статус:</span>
+                              <select
+                                disabled={protocol.status === 'completed'}
+                                value={player.exit_type}
+                                onChange={(e) =>
+                                  updatePlayerResult(player.participant_id, {
+                                    exit_type: e.target.value as any
+                                  })
+                                }
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none disabled:opacity-60"
+                              >
+                                <option value="alive">Жив</option>
+                                <option value="killed">Убит (ночью)</option>
+                                <option value="voted_zero_round">Заголосован (0 круг)</option>
+                                <option value="voted_day">Заголосован (день)</option>
+                                <option value="removed">Снят (4 фола/дискв.)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Middle Row: Fouls & Bonuses Grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400 block mb-1">Обычные фолы</span>
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
+                                  onClick={() =>
+                                    updatePlayerResult(player.participant_id, {
+                                      regular_fouls: Math.max(0, player.regular_fouls - 1)
+                                    })
+                                  }
+                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                >
+                                  -
+                                </button>
+                                <span className="flex-1 text-center font-bold text-amber-400 text-sm">
+                                  {player.regular_fouls}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
+                                  onClick={() =>
+                                    updatePlayerResult(player.participant_id, {
+                                      regular_fouls: Math.min(4, player.regular_fouls + 1)
+                                    })
+                                  }
+                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400 block mb-1">Тех. фолы</span>
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed' || player.technical_fouls <= 0}
+                                  onClick={() =>
+                                    updatePlayerResult(player.participant_id, {
+                                      technical_fouls: Math.max(0, player.technical_fouls - 1)
+                                    })
+                                  }
+                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                >
+                                  -
+                                </button>
+                                <span className="flex-1 text-center font-bold text-rose-400 text-sm">
+                                  {player.technical_fouls}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() =>
+                                    updatePlayerResult(player.participant_id, {
+                                      technical_fouls: player.technical_fouls + 1
+                                    })
+                                  }
+                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400 block mb-1">Балл за прот.</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={protocol.status === 'completed'}
+                                value={getDecimalInputValue(player.participant_id, 'protocol_bonus', player.protocol_bonus ?? 0)}
+                                onChange={(e) => handleDecimalChange(player.participant_id, 'protocol_bonus', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
                               />
-                            )}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Fouls and Bonuses */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs">
-                          {/* Regular Fouls */}
-                          <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 block mb-1">Фолы</span>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                type="button"
-                                disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
-                                onClick={() =>
-                                  updatePlayerResult(player.participant_id, {
-                                    regular_fouls: Math.max(0, player.regular_fouls - 1)
-                                  })
-                                }
-                                className="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded flex items-center justify-center font-bold disabled:opacity-40"
-                              >
-                                -
-                              </button>
-                              <span className="font-bold text-amber-400 w-4 text-center">
-                                {player.regular_fouls}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
-                                onClick={() =>
-                                  updatePlayerResult(player.participant_id, {
-                                    regular_fouls: Math.min(4, player.regular_fouls + 1)
-                                  })
-                                }
-                                className="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded flex items-center justify-center font-bold disabled:opacity-40"
-                              >
-                                +
-                              </button>
+                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400 block mb-1">Балл судьи</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={protocol.status === 'completed'}
+                                value={getDecimalInputValue(player.participant_id, 'judge_bonus', player.judge_bonus ?? 0)}
+                                onChange={(e) => handleDecimalChange(player.participant_id, 'judge_bonus', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                              />
+                            </div>
+
+                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 col-span-2 sm:col-span-1">
+                              <span className="text-slate-400 block mb-1">Штраф</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                disabled={protocol.status === 'completed'}
+                                value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
+                                onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                              />
                             </div>
                           </div>
 
-                          {/* Technical Fouls */}
-                          <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 block mb-1">Тех. фолы</span>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                type="button"
-                                disabled={protocol.status === 'completed' || player.technical_fouls <= 0}
-                                onClick={() =>
-                                  updatePlayerResult(player.participant_id, {
-                                    technical_fouls: Math.max(0, player.technical_fouls - 1)
-                                  })
-                                }
-                                className="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded flex items-center justify-center font-bold disabled:opacity-40"
-                              >
-                                -
-                              </button>
-                              <span className="font-bold text-rose-400 w-4 text-center">
-                                {player.technical_fouls}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={protocol.status === 'completed' || player.technical_fouls >= 4}
-                                onClick={() =>
-                                  updatePlayerResult(player.participant_id, {
-                                    technical_fouls: Math.min(4, player.technical_fouls + 1)
-                                  })
-                                }
-                                className="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded flex items-center justify-center font-bold disabled:opacity-40"
-                              >
-                                +
-                              </button>
+                          {/* Notes */}
+                          <div>
+                            <input
+                              type="text"
+                              placeholder="Заметка о действиях игрока..."
+                              disabled={protocol.status === 'completed'}
+                              value={player.notes || ''}
+                              onChange={(e) =>
+                                updatePlayerResult(player.participant_id, {
+                                  notes: e.target.value || null
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                            />
+                          </div>
+
+                          {/* Color Protocol Section (for killed player or existing marks) */}
+                          {showColorSection && (
+                            <div className="bg-slate-900/80 rounded-lg p-2.5 border border-slate-700/60 space-y-2">
+                              <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                                <span>Оставленный протокол:</span>
+                                {!isKilled && (
+                                  <span className="text-[10px] text-amber-400/80">
+                                    (Статус изменён, но протокол сохранён)
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Saved marks list */}
+                              {player.color_protocol && player.color_protocol.length > 0 ? (
+                                <div className="space-y-1">
+                                  {player.color_protocol.map((entry, eIdx) => (
+                                    <div
+                                      key={eIdx}
+                                      className="flex items-center justify-between bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-xs"
+                                    >
+                                      <span className="font-bold text-amber-300">
+                                        {formatColorMark(entry)}
+                                      </span>
+
+                                      {protocol.status === 'draft' && (
+                                        <div className="flex items-center space-x-1">
+                                          <button
+                                            type="button"
+                                            disabled={eIdx === 0}
+                                            onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx - 1)}
+                                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                                          >
+                                            <ArrowUp className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={eIdx === player.color_protocol.length - 1}
+                                            onClick={() => handleMoveColorMark(player.participant_id, eIdx, eIdx + 1)}
+                                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                                          >
+                                            <ArrowDown className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteColorMark(player.participant_id, eIdx)}
+                                            className="p-0.5 text-rose-400 hover:text-rose-300 ml-1"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-[11px] text-slate-500 italic">
+                                  Записи отсутствуют
+                                </div>
+                              )}
+
+                              {/* Add entry form */}
+                              {protocol.status === 'draft' && isKilled && (
+                                <div className="space-y-1.5 pt-1 border-t border-slate-800">
+                                  <div className="text-[11px] text-slate-400">Выберите места (1-10):</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((sNum) => {
+                                      const isSelected = (selectedColorSeats[player.participant_id] || []).includes(sNum);
+                                      return (
+                                        <button
+                                          key={sNum}
+                                          type="button"
+                                          onClick={() => toggleColorSeatSelection(player.participant_id, sNum)}
+                                          className={`w-6 h-6 rounded text-xs font-bold border transition ${
+                                            isSelected
+                                              ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                                          }`}
+                                        >
+                                          {sNum}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-1">
+                                    <div className="flex items-center space-x-1 text-xs">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedColorMark((prev) => ({ ...prev, [player.participant_id]: 'red' }))
+                                        }
+                                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                          (selectedColorMark[player.participant_id] || 'red') === 'red'
+                                            ? 'bg-rose-600 text-white border-rose-500'
+                                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                                        }`}
+                                      >
+                                        Красный
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedColorMark((prev) => ({ ...prev, [player.participant_id]: 'black' }))
+                                        }
+                                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                          selectedColorMark[player.participant_id] === 'black'
+                                            ? 'bg-slate-950 text-slate-200 border-slate-500'
+                                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                                        }`}
+                                      >
+                                        Чёрный
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedColorMark((prev) => ({ ...prev, [player.participant_id]: 'sheriff' }))
+                                        }
+                                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                                          selectedColorMark[player.participant_id] === 'sheriff'
+                                            ? 'bg-amber-500 text-slate-950 border-amber-400'
+                                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                                        }`}
+                                      >
+                                        Шериф
+                                      </button>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      disabled={(selectedColorSeats[player.participant_id] || []).length === 0}
+                                      onClick={() => handleAddColorMark(player.participant_id)}
+                                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center space-x-1"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>Добавить</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Judge Bonus */}
-                          <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 block mb-1">Балл судьи</span>
-                            <input
-                              type="number"
-                              step="0.1"
-                              disabled={protocol.status === 'completed'}
-                              value={player.judge_bonus ?? 0}
-                              onChange={(e) =>
-                                updatePlayerResult(player.participant_id, {
-                                  judge_bonus: parseFloat(e.target.value) || 0
-                                })
-                              }
-                              className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none"
-                            />
-                          </div>
-
-                          {/* Penalty Points */}
-                          <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 block mb-1">Штраф</span>
-                            <input
-                              type="number"
-                              step="0.1"
-                              disabled={protocol.status === 'completed'}
-                              value={player.penalty_points ?? 0}
-                              onChange={(e) =>
-                                updatePlayerResult(player.participant_id, {
-                                  penalty_points: parseFloat(e.target.value) || 0
-                                })
-                              }
-                              className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none"
-                            />
-                          </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: VOTES */}
+              {/* TAB 2: VOTINGS */}
               {activeTab === 'votes' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-200">
-                      Протокол дневных голосований
-                    </h3>
+                    <span className="text-xs text-slate-400">
+                      Протокол дневных голосов и переголосований по кругам:
+                    </span>
                     {protocol.status === 'draft' && (
                       <button
                         type="button"
                         onClick={() => {
                           const currentVotes = protocol.votes || [];
-                          const newRound: VotingRound = {
-                            round_number: currentVotes.length + 1,
-                            is_revote: false,
-                            nominated_seats: [],
-                            vote_counts: {}
-                          };
+                          const nextRoundNum = currentVotes.length + 1;
                           setProtocol((prev) => ({
                             ...prev,
-                            votes: [...(prev.votes || []), newRound]
+                            votes: [
+                              ...(prev.votes || []),
+                              {
+                                round_number: nextRoundNum,
+                                is_revote: false,
+                                nominated_seats: [],
+                                vote_counts: {}
+                              }
+                            ]
                           }));
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 text-xs font-medium flex items-center space-x-1.5 transition"
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-1"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Добавить круг голосования</span>
+                        <span>Добавить круг</span>
                       </button>
                     )}
                   </div>
 
-                  {(!protocol.votes || protocol.votes.length === 0) ? (
-                    <div className="bg-slate-800/40 rounded-xl p-8 text-center text-slate-400 text-xs space-y-2 border border-slate-800">
-                      <Vote className="w-8 h-8 text-slate-600 mx-auto" />
-                      <p>Голосования ещё не внесены в протокол.</p>
-                      {protocol.status === 'draft' && (
-                        <p className="text-amber-400/80">
-                          Нажмите «Добавить круг голосования» выше.
-                        </p>
-                      )}
+                  {!protocol.votes || protocol.votes.length === 0 ? (
+                    <div className="bg-slate-800/40 rounded-xl p-8 text-center text-slate-400 text-xs border border-slate-800">
+                      Голосования не зафиксированы. Нажмите «Добавить круг» для внесения данных.
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {protocol.votes.map((round, rIndex) => (
+                      {protocol.votes.map((round, rIdx) => (
                         <div
-                          key={rIndex}
-                          className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3"
+                          key={rIdx}
+                          className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/80 space-y-3"
                         >
+                          {/* Round Header */}
                           <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-3">
                               <span className="font-bold text-sm text-amber-400">
-                                Круг #{round.round_number}
+                                Круг #{round.round_number || rIdx + 1}
                               </span>
-                              {round.is_revote && (
-                                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-xs border border-purple-500/30">
+
+                              {/* Toggle: Голосование / Переголосование */}
+                              <div className="flex items-center space-x-1 bg-slate-900 p-0.5 rounded-lg border border-slate-700">
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() => {
+                                    setProtocol((prev) => {
+                                      const copy = [...(prev.votes || [])];
+                                      copy[rIdx] = { ...copy[rIdx], is_revote: false };
+                                      return { ...prev, votes: copy };
+                                    });
+                                  }}
+                                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
+                                    !round.is_revote
+                                      ? 'bg-amber-500 text-slate-950 font-bold'
+                                      : 'text-slate-400 hover:text-slate-200'
+                                  }`}
+                                >
+                                  Голосование
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() => {
+                                    setProtocol((prev) => {
+                                      const copy = [...(prev.votes || [])];
+                                      copy[rIdx] = { ...copy[rIdx], is_revote: true };
+                                      return { ...prev, votes: copy };
+                                    });
+                                  }}
+                                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
+                                    round.is_revote
+                                      ? 'bg-purple-600 text-white font-bold'
+                                      : 'text-slate-400 hover:text-slate-200'
+                                  }`}
+                                >
                                   Переголосование
-                                </span>
-                              )}
+                                </button>
+                              </div>
                             </div>
 
                             {protocol.status === 'draft' && (
@@ -853,7 +1209,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 onClick={() => {
                                   setProtocol((prev) => ({
                                     ...prev,
-                                    votes: (prev.votes || []).filter((_, idx) => idx !== rIndex)
+                                    votes: (prev.votes || []).filter((_, idx) => idx !== rIdx)
                                   }));
                                 }}
                                 className="text-slate-500 hover:text-rose-400 p-1"
@@ -863,36 +1219,47 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             )}
                           </div>
 
-                          {/* Nominated Seats selector */}
+                          {/* Candidate Seats Selector */}
                           <div className="space-y-1.5">
-                            <span className="text-xs text-slate-400">Выставленные игроки (номера мест):</span>
+                            <span className="text-xs text-slate-400 block">
+                              Выставленные кандидаты (выберите игрока 1-10):
+                            </span>
                             <div className="flex flex-wrap gap-1.5">
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seatNum) => {
-                                const isNominated = round.nominated_seats?.includes(seatNum);
+                                const isNominated = (round.nominated_seats || []).includes(seatNum);
                                 return (
                                   <button
                                     key={seatNum}
                                     type="button"
                                     disabled={protocol.status === 'completed'}
                                     onClick={() => {
-                                      const currentNom = round.nominated_seats || [];
-                                      const updatedNom = isNominated
-                                        ? currentNom.filter((s) => s !== seatNum)
-                                        : [...currentNom, seatNum].sort((a, b) => a - b);
-
                                       setProtocol((prev) => {
                                         const votesCopy = [...(prev.votes || [])];
-                                        votesCopy[rIndex] = {
-                                          ...votesCopy[rIndex],
-                                          nominated_seats: updatedNom
+                                        const r = votesCopy[rIdx];
+                                        const currentNoms = r.nominated_seats || [];
+                                        let updatedNoms: number[];
+                                        let updatedCounts = { ...(r.vote_counts || {}) };
+
+                                        if (currentNoms.includes(seatNum)) {
+                                          updatedNoms = currentNoms.filter((s) => s !== seatNum);
+                                          delete updatedCounts[seatNum];
+                                        } else {
+                                          updatedNoms = Array.from(new Set([...currentNoms, seatNum])).sort((a, b) => a - b);
+                                          updatedCounts[seatNum] = updatedCounts[seatNum] || 0;
+                                        }
+
+                                        votesCopy[rIdx] = {
+                                          ...r,
+                                          nominated_seats: updatedNoms,
+                                          vote_counts: updatedCounts
                                         };
                                         return { ...prev, votes: votesCopy };
                                       });
                                     }}
-                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition flex items-center justify-center ${
+                                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
                                       isNominated
-                                        ? 'bg-amber-500 text-slate-950 shadow-md scale-105'
-                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
                                     }`}
                                   >
                                     #{seatNum}
@@ -902,42 +1269,49 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             </div>
                           </div>
 
-                          {/* Vote counts per nominated seat */}
+                          {/* Vote Counts per Candidate */}
                           {round.nominated_seats && round.nominated_seats.length > 0 && (
-                            <div className="pt-2 border-t border-slate-700/40 space-y-2">
-                              <span className="text-xs text-slate-400">Распределение голосов:</span>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {round.nominated_seats.map((seatNum) => (
-                                  <div
-                                    key={seatNum}
-                                    className="bg-slate-900/80 p-2 rounded-lg border border-slate-700/60 flex items-center justify-between"
-                                  >
-                                    <span className="text-xs font-semibold text-amber-300">
-                                      Игрок #{seatNum}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="10"
-                                      disabled={protocol.status === 'completed'}
-                                      value={round.vote_counts?.[seatNum] ?? 0}
-                                      onChange={(e) => {
-                                        const count = parseInt(e.target.value) || 0;
-                                        setProtocol((prev) => {
-                                          const votesCopy = [...(prev.votes || [])];
-                                          const currentCounts = { ...(votesCopy[rIndex].vote_counts || {}) };
-                                          currentCounts[seatNum] = count;
-                                          votesCopy[rIndex] = {
-                                            ...votesCopy[rIndex],
-                                            vote_counts: currentCounts
-                                          };
-                                          return { ...prev, votes: votesCopy };
-                                        });
-                                      }}
-                                      className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-xs text-center font-bold text-white focus:border-amber-500 focus:outline-none"
-                                    />
-                                  </div>
-                                ))}
+                            <div className="space-y-1.5 pt-2 border-t border-slate-700/60">
+                              <span className="text-xs text-slate-400 block">Голоса за участников:</span>
+                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                {round.nominated_seats.map((seatNum) => {
+                                  const p = playerResults.find((pr) => pr.seat_number === seatNum);
+                                  const count = round.vote_counts?.[seatNum] ?? 0;
+
+                                  return (
+                                    <div
+                                      key={seatNum}
+                                      className="bg-slate-900 p-2 rounded-lg border border-slate-700/80 text-xs flex flex-col space-y-1"
+                                    >
+                                      <span className="font-semibold text-slate-200 truncate">
+                                        #{seatNum} {p?.display_name || ''}
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="10"
+                                        disabled={protocol.status === 'completed'}
+                                        value={count}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 0;
+                                          setProtocol((prev) => {
+                                            const votesCopy = [...(prev.votes || [])];
+                                            const r = votesCopy[rIdx];
+                                            votesCopy[rIdx] = {
+                                              ...r,
+                                              vote_counts: {
+                                                ...(r.vote_counts || {}),
+                                                [seatNum]: Math.max(0, Math.min(10, val))
+                                              }
+                                            };
+                                            return { ...prev, votes: votesCopy };
+                                          });
+                                        }}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-center font-bold text-amber-400 focus:border-amber-500 focus:outline-none"
+                                      />
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -951,242 +1325,138 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               {/* TAB 3: NIGHTS & BEST MOVE */}
               {activeTab === 'nights' && (
                 <div className="space-y-5">
-                  {/* First Killed & Zero Round Voted */}
+                  {/* First Killed & Zero Round Voted Selectors */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* First Killed */}
-                    <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">
-                        Первоубиенный игрок (ночь #1):
+                    <div className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/80 space-y-2">
+                      <label className="text-xs font-semibold text-slate-200 block">
+                        Первоубиенный игрок (ночь 1):
                       </label>
                       <select
-                        value={protocol.first_killed_participant_id || ''}
                         disabled={protocol.status === 'completed'}
+                        value={protocol.first_killed_participant_id || ''}
                         onChange={(e) => {
                           const val = e.target.value || null;
-                          setProtocol((prev) => ({
-                            ...prev,
-                            first_killed_participant_id: val,
-                            // if best_move_participant_id was first_killed and now changed, adjust if invalid
-                            best_move_participant_id:
-                              prev.best_move_source === 'first_killed' ? val : prev.best_move_participant_id
-                          }));
+                          setProtocol((prev) => ({ ...prev, first_killed_participant_id: val }));
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                       >
-                        <option value="">-- Не выбрано --</option>
+                        <option value="">Не выбрано</option>
                         {playerResults.map((p) => (
                           <option key={p.participant_id} value={p.participant_id}>
-                            #{p.seat_number} {p.display_name}
+                            #{p.seat_number} - {p.display_name} ({p.exit_type})
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Zero Round Voted */}
-                    <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">
-                        Заголосованный в нулевой круг (день #0):
+                    <div className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/80 space-y-2">
+                      <label className="text-xs font-semibold text-slate-200 block">
+                        Заголосованный в нулевой круг (день 1):
                       </label>
                       <select
-                        value={protocol.zero_round_voted_participant_id || ''}
                         disabled={protocol.status === 'completed'}
+                        value={protocol.zero_round_voted_participant_id || ''}
                         onChange={(e) => {
                           const val = e.target.value || null;
-                          setProtocol((prev) => ({
-                            ...prev,
-                            zero_round_voted_participant_id: val,
-                            best_move_participant_id:
-                              prev.best_move_source === 'zero_round_voted' ? val : prev.best_move_participant_id
-                          }));
+                          setProtocol((prev) => ({ ...prev, zero_round_voted_participant_id: val }));
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                       >
-                        <option value="">-- Не выбрано --</option>
+                        <option value="">Не выбрано</option>
                         {playerResults.map((p) => (
                           <option key={p.participant_id} value={p.participant_id}>
-                            #{p.seat_number} {p.display_name}
+                            #{p.seat_number} - {p.display_name} ({p.exit_type})
                           </option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* BEST MOVE (ЛХ) SECTION */}
-                  <div className="bg-slate-800/80 rounded-xl p-4 border border-amber-500/30 space-y-4">
+                  {/* Best Move Section */}
+                  <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
                       <div className="flex items-center space-x-2">
-                        <Award className="w-5 h-5 text-amber-400" />
-                        <h3 className="font-bold text-sm text-amber-300">
-                          Протокол Лучшего Хода (ЛХ)
-                        </h3>
+                        <Award className="w-4 h-4 text-amber-400" />
+                        <h3 className="text-xs font-bold text-slate-100">Лучший ход (ЛХ)</h3>
                       </div>
-                      <span className="text-xs text-slate-400">
-                        Правила: 0-3 уникальных номера (1..10)
-                      </span>
+                      <div className="text-xs font-medium text-amber-400">
+                        Угадано чёрных: {bestMoveCalculation.guessedBlacks} (+{bestMoveCalculation.bonusPoints} б.)
+                      </div>
                     </div>
 
-                    {/* Recipient Selection */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-300 font-medium block">
-                        Получатель Лучшего Хода:
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="text-slate-400 block mb-1">Игрок, сделавший ЛХ:</label>
+                        <select
                           disabled={protocol.status === 'completed'}
-                          onClick={() =>
-                            setProtocol((prev) => ({
-                              ...prev,
-                              best_move_participant_id: null,
-                              best_move_source: null
-                            }))
-                          }
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                            !protocol.best_move_participant_id
-                              ? 'bg-amber-500 text-slate-950 font-bold'
-                              : 'bg-slate-900 text-slate-400 hover:bg-slate-700'
-                          }`}
+                          value={protocol.best_move_participant_id || ''}
+                          onChange={(e) => {
+                            const val = e.target.value || null;
+                            setProtocol((prev) => ({ ...prev, best_move_participant_id: val }));
+                          }}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-100 focus:border-amber-500 focus:outline-none"
                         >
-                          Никто
-                        </button>
-
-                        {protocol.first_killed_participant_id && (
-                          <button
-                            type="button"
-                            disabled={protocol.status === 'completed'}
-                            onClick={() => {
-                              const fkId = protocol.first_killed_participant_id;
-                              setProtocol((prev) => ({
-                                ...prev,
-                                best_move_participant_id: fkId,
-                                best_move_source: 'first_killed'
-                              }));
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                              protocol.best_move_participant_id === protocol.first_killed_participant_id
-                                ? 'bg-amber-500 text-slate-950 font-bold'
-                                : 'bg-slate-900 text-slate-300 hover:bg-slate-700'
-                            }`}
-                          >
-                            Первоубиенный (#
-                            {
-                              playerResults.find((p) => p.participant_id === protocol.first_killed_participant_id)
-                                ?.seat_number
-                            }
-                            )
-                          </button>
-                        )}
-
-                        {protocol.zero_round_voted_participant_id && (
-                          <button
-                            type="button"
-                            disabled={protocol.status === 'completed'}
-                            onClick={() => {
-                              const zvId = protocol.zero_round_voted_participant_id;
-                              setProtocol((prev) => ({
-                                ...prev,
-                                best_move_participant_id: zvId,
-                                best_move_source: 'zero_round_voted'
-                              }));
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                              protocol.best_move_participant_id === protocol.zero_round_voted_participant_id
-                                ? 'bg-amber-500 text-slate-950 font-bold'
-                                : 'bg-slate-900 text-slate-300 hover:bg-slate-700'
-                            }`}
-                          >
-                            Заголосованный в 0 круг (#
-                            {
-                              playerResults.find((p) => p.participant_id === protocol.zero_round_voted_participant_id)
-                                ?.seat_number
-                            }
-                            )
-                          </button>
-                        )}
+                          <option value="">Не выбрано</option>
+                          {playerResults.map((p) => (
+                            <option key={p.participant_id} value={p.participant_id}>
+                              #{p.seat_number} - {p.display_name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
-                      {!protocol.first_killed_participant_id && !protocol.zero_round_voted_participant_id && (
-                        <p className="text-xs text-amber-400/70 italic pt-1">
-                          Укажите первоубиенного или заголосованного в 0 круг выше, чтобы выбрать получателя ЛХ.
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Best Move Numbers Selector */}
-                    <div className="space-y-2 pt-2 border-t border-slate-700/60">
-                      <span className="text-xs text-slate-300 font-medium block">
-                        Выбранные номера в ЛХ (максимум 3):
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seatNum) => {
-                          const isSelected = protocol.best_move_seats?.includes(seatNum);
-                          return (
-                            <button
-                              key={seatNum}
-                              type="button"
-                              disabled={
-                                protocol.status === 'completed' ||
-                                (!isSelected && (protocol.best_move_seats?.length || 0) >= 3)
-                              }
-                              onClick={() => toggleBestMoveSeat(seatNum)}
-                              className={`w-9 h-9 rounded-xl font-bold text-xs transition flex items-center justify-center ${
-                                isSelected
-                                  ? 'bg-amber-500 text-slate-950 shadow-lg scale-105 ring-2 ring-amber-400'
-                                  : 'bg-slate-900 text-slate-300 hover:bg-slate-700 disabled:opacity-40'
-                              }`}
-                            >
-                              #{seatNum}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Live Calculation Score Display */}
-                    <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
-                      <div className="text-xs space-y-0.5">
-                        <div className="text-slate-300 font-medium">
-                          Угадано чёрных игроков:{' '}
-                          <span className="font-bold text-amber-400">
-                            {bestMoveCalculation.guessedBlacks} из 3
-                          </span>
+                      <div>
+                        <label className="text-slate-400 block mb-1">Выберите до 3 цифр участников:</label>
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                            const isSelected = (protocol.best_move_seats || []).includes(num);
+                            return (
+                              <button
+                                key={num}
+                                type="button"
+                                disabled={protocol.status === 'completed'}
+                                onClick={() => toggleBestMoveSeat(num)}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold border transition ${
+                                  isSelected
+                                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                    : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                                }`}
+                              >
+                                #{num}
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="text-slate-400 text-[11px]">
-                          1 чёрный = +0.1, 2 чёрных = +0.3, 3 чёрных = +0.6
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-xs text-slate-400 block">Бонусный балл</span>
-                        <span className="text-lg font-bold text-amber-400">
-                          +{bestMoveCalculation.bonusPoints}
-                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Night Shots Recorder */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-semibold text-slate-300">
-                        Ночные выстрелы (мафия)
-                      </h4>
+                  {/* Night Shots Journal */}
+                  <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                      <div className="flex items-center space-x-2">
+                        <Moon className="w-4 h-4 text-indigo-400" />
+                        <h3 className="text-xs font-bold text-slate-100">Журнал ночных отстрелов</h3>
+                      </div>
                       {protocol.status === 'draft' && (
                         <button
                           type="button"
                           onClick={() => {
                             const currentShots = protocol.shots || [];
-                            const newShot: ShotEntry = {
-                              night_number: currentShots.length + 1,
-                              target_seat: 1,
-                              result: 'killed'
-                            };
+                            const nextNight = currentShots.length + 1;
                             setProtocol((prev) => ({
                               ...prev,
-                              shots: [...(prev.shots || []), newShot]
+                              shots: [
+                                ...(prev.shots || []),
+                                {
+                                  night_number: nextNight,
+                                  target_seat: 1,
+                                  result: 'killed'
+                                }
+                              ]
                             }));
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-400 hover:bg-slate-700 text-xs font-medium flex items-center space-x-1 transition"
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Добавить ночь</span>
@@ -1194,9 +1464,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                       )}
                     </div>
 
-                    {(!protocol.shots || protocol.shots.length === 0) ? (
-                      <div className="bg-slate-800/30 p-4 rounded-xl text-center text-xs text-slate-500 border border-slate-800">
-                        Ночные выстрелы не зарегистрированы.
+                    {!protocol.shots || protocol.shots.length === 0 ? (
+                      <div className="text-xs text-slate-500 italic py-2">
+                        Записи ночных выстрелов отсутствуют.
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1311,6 +1581,122 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Substitution Section */}
+                  <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                      <span className="font-semibold text-xs text-slate-200">Замена в игре</span>
+                      {protocol.status === 'draft' && (
+                        <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(protocol.replacement)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setProtocol((prev) => ({
+                                  ...prev,
+                                  replacement: {
+                                    replaced_seat: 1,
+                                    replacement_name_or_comment: '',
+                                    replacement_time: '',
+                                    notes: ''
+                                  }
+                                }));
+                              } else {
+                                setProtocol((prev) => ({ ...prev, replacement: null }));
+                              }
+                            }}
+                            className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
+                          />
+                          <span>Включить замену</span>
+                        </label>
+                      )}
+                    </div>
+
+                    {protocol.replacement ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="text-slate-400 block mb-1">Заменённое место</label>
+                          <select
+                            disabled={protocol.status === 'completed'}
+                            value={protocol.replacement.replaced_seat || 1}
+                            onChange={(e) => {
+                              const seat = parseInt(e.target.value) || 1;
+                              setProtocol((prev) => ({
+                                ...prev,
+                                replacement: { ...prev.replacement!, replaced_seat: seat }
+                              }));
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
+                              <option key={s} value={s}>
+                                Игрок #{s}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-slate-400 block mb-1">Имя или комментарий о замене</label>
+                          <input
+                            type="text"
+                            placeholder="например: Замена на Иванова"
+                            disabled={protocol.status === 'completed'}
+                            value={protocol.replacement.replacement_name_or_comment || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProtocol((prev) => ({
+                                ...prev,
+                                replacement: { ...prev.replacement!, replacement_name_or_comment: val }
+                              }));
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-slate-400 block mb-1">Момент замены</label>
+                          <input
+                            type="text"
+                            placeholder="например: День 2"
+                            disabled={protocol.status === 'completed'}
+                            value={protocol.replacement.replacement_time || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProtocol((prev) => ({
+                                ...prev,
+                                replacement: { ...prev.replacement!, replacement_time: val }
+                              }));
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-slate-400 block mb-1">Заметка судьи о замене</label>
+                          <input
+                            type="text"
+                            placeholder="Причина или заметка"
+                            disabled={protocol.status === 'completed'}
+                            value={protocol.replacement.notes || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProtocol((prev) => ({
+                                ...prev,
+                                replacement: { ...prev.replacement!, notes: val }
+                              }));
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-500 italic">
+                        Замен в игре не производилось.
+                      </div>
+                    )}
+                  </div>
+
                   {/* Judge Notes */}
                   <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-2">
                     <label className="text-xs font-semibold text-slate-300 block">
@@ -1341,7 +1727,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             <th className="py-2 px-2">Статус</th>
                             <th className="py-2 px-1 text-center">Фолы</th>
                             <th className="py-2 px-1 text-center">Тех</th>
+                            <th className="py-2 px-1 text-right">Балл за прот.</th>
                             <th className="py-2 px-1 text-right">Судья</th>
+                            <th className="py-2 px-1 text-right">Штраф</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -1364,7 +1752,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </td>
                               <td className="py-2 px-1 text-center font-bold text-amber-400">{p.regular_fouls}</td>
                               <td className="py-2 px-1 text-center font-bold text-rose-400">{p.technical_fouls}</td>
+                              <td className="py-2 px-1 text-right text-slate-300">{p.protocol_bonus || 0}</td>
                               <td className="py-2 px-1 text-right text-slate-300">{p.judge_bonus || 0}</td>
+                              <td className="py-2 px-1 text-right text-rose-300">{p.penalty_points || 0}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1422,6 +1812,39 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
       </div>
+
+      {/* MODAL: CONFIRM EXIT TYPE CHANGE WHEN COLOR PROTOCOL EXISTS */}
+      {pendingExitTypeConfirm && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <AlertTriangle className="w-6 h-6 text-amber-400" />
+              <h3 className="text-base font-bold">Очистить оставленный протокол?</h3>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-300">
+              У игрока #{pendingExitTypeConfirm.seatNum} ({pendingExitTypeConfirm.playerName}) есть сохранённый цветовой протокол. Изменение статуса ухода с «Убит» удалит эти записи.
+            </p>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingExitTypeConfirm(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={confirmExitTypeChange}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
+              >
+                Удалить и изменить статус
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CONFIRM COMPLETE PROTOCOL */}
       {showCompleteConfirm && (

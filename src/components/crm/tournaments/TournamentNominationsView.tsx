@@ -207,13 +207,80 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                 </div>
               </div>
 
-              {/* Candidates Table */}
+              {/* Candidates Ranking */}
               <div className="space-y-2 pt-2">
                 <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider block">
                   Рейтинг претендентов:
                 </span>
 
-                <div className="border border-border-soft rounded-2xl overflow-hidden bg-surface-2/20">
+                {/* Mobile View: Cards */}
+                <div className="block sm:hidden space-y-2">
+                  {nom.candidates.map((candidate: any, idx: number) => {
+                    const isExpanded = expandedCandidates[`${nom.category}-${candidate.participant_id}`];
+                    const isWinner = winners.some((w: any) => w.participant_id === candidate.participant_id);
+
+                    return (
+                      <div key={candidate.participant_id} className={`border border-border-soft rounded-2xl overflow-hidden bg-surface-1 ${isWinner ? 'bg-accent/5 border-accent/20' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(nom.category, candidate.participant_id)}
+                          className="w-full text-left p-3 min-h-[44px] flex flex-col gap-2"
+                        >
+                          <div className="flex items-center justify-between w-full min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-text-muted font-bold text-xs w-4 shrink-0">{idx + 1}</span>
+                              <span className="font-bold text-sm text-text-primary truncate">{candidate.display_name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-accent font-black font-mono">
+                                {candidate.nomination_points > 0 ? `+${candidate.nomination_points}` : candidate.nomination_points}
+                              </span>
+                              {isExpanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-secondary pl-6">
+                             <div>Суд: <span className="text-text-primary">{candidate.judge_bonus > 0 ? `+${candidate.judge_bonus}` : candidate.judge_bonus}</span></div>
+                             <div>Пр: <span className="text-text-primary">{candidate.protocol_bonus > 0 ? `+${candidate.protocol_bonus}` : candidate.protocol_bonus}</span></div>
+                             <div>ЛХ: <span className="text-amber-400">{candidate.best_move_points > 0 ? `+${candidate.best_move_points}` : candidate.best_move_points}</span></div>
+                             <div>Штр: <span className="text-danger">{candidate.penalty_points > 0 ? `-${candidate.penalty_points}` : candidate.penalty_points}</span></div>
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-3 bg-surface-2/40 border-t border-border-soft">
+                            <span className="font-bold text-text-secondary uppercase tracking-wider block text-[10px] mb-2 font-sans">
+                              Детализация игр ({candidate.display_name}):
+                            </span>
+                            {candidate.breakdown.length === 0 ? (
+                              <span className="italic text-text-muted text-xs font-sans">Нет завершённых игр в этой роли</span>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2 font-sans">
+                                {candidate.breakdown.map((b: any, bIdx: number) => (
+                                  <div key={bIdx} className="p-2.5 bg-surface-1 border border-border-soft rounded-xl space-y-1">
+                                    <div className="font-bold flex justify-between text-[11px]">
+                                      <span>Игра №{b.game_number}</span>
+                                      <span className="text-accent font-mono text-xs">+{b.nomination_points}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-text-muted font-mono">
+                                      <div>Судья: +{b.judge_bonus}</div>
+                                      <div>Протокол: +{b.protocol_bonus}</div>
+                                      <div>ЛХ: +{b.best_move_points}</div>
+                                      <div>Штрафы: -{b.penalty_points}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop View: Table */}
+                <div className="hidden sm:block border border-border-soft rounded-2xl overflow-hidden bg-surface-2/20">
                   <table className="w-full text-left text-xs border-collapse font-mono">
                     <thead>
                       <tr className="bg-surface-2 text-text-muted text-[10px] uppercase font-bold border-b border-border-soft">

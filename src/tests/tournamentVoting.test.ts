@@ -5,6 +5,7 @@ import {
   createNextRevoteRound,
   cleanAndSyncVotes,
   validateChildLeadersOrder,
+  validateVotingHierarchy,
   VotingRound
 } from '../shared/tournamentVoting';
 
@@ -161,5 +162,98 @@ describe('Tournament Voting Logic Tests', () => {
     expect(synced.length).toBe(1);
     expect(synced[0].round_number).toBe(1);
     expect(synced[0].outcome).toBe('pending');
+  });
+
+  describe('validateVotingHierarchy tests', () => {
+    test('1. main -> revote -> revote, where second tie_revote has no child: returns error', () => {
+      const votes: VotingRound[] = [
+        {
+          round_number: 1,
+          day_number: 1,
+          is_revote: false,
+          nominated_seats: [1, 2, 3],
+          vote_counts: { 1: 3, 2: 3, 3: 4 },
+          eligible_voters: 10,
+          outcome: 'single_eliminated'
+        },
+        {
+          round_number: 2,
+          day_number: 2,
+          is_revote: false,
+          nominated_seats: [4, 5],
+          vote_counts: { 4: 5, 5: 5 },
+          eligible_voters: 10,
+          outcome: 'tie_revote'
+        },
+        {
+          round_number: 3,
+          day_number: 2,
+          is_revote: true,
+          parent_round_number: 2,
+          nominated_seats: [4, 5],
+          vote_counts: { 4: 5, 5: 5 },
+          eligible_voters: 10,
+          outcome: 'tie_revote' // Second tie_revote but no child round exists for it!
+        }
+      ];
+
+      const err = validateVotingHierarchy(votes);
+      expect(err).not.toBeNull();
+      expect(err).toContain('раунд #3 завершился ничьей, но для него отсутствует связанное переголосование');
+    });
+
+    test('2. Complete chain is valid', () => {
+      const votes: VotingRound[] = [
+        {
+          round_number: 1,
+          day_number: 2,
+          is_revote: false,
+          nominated_seats: [4, 5],
+          vote_counts: { 4: 5, 5: 5 },
+          eligible_voters: 10,
+          outcome: 'tie_revote'
+        },
+        {
+          round_number: 2,
+          day_number: 2,
+          is_revote: true,
+          parent_round_number: 1,
+          nominated_seats: [4, 5],
+          vote_counts: { 4: 5, 5: 5 },
+          eligible_voters: 10,
+          outcome: 'tie_revote'
+        },
+        {
+          round_number: 3,
+          day_number: 2,
+          is_revote: true,
+          parent_round_number: 2,
+          nominated_seats: [4, 5],
+          vote_counts: { 4: 10, 5: 0 },
+          eligible_voters: 10,
+          outcome: 'single_eliminated'
+        }
+      ];
+
+      const err = validateVotingHierarchy(votes);
+      expect(err).toBeNull();
+    });
+
+    test('3. Completed no_elimination after automatic night doesn\'t require child', () => {
+      const votes: VotingRound[] = [
+        {
+          round_number: 1,
+          day_number: 1,
+          is_revote: false,
+          nominated_seats: [1, 2, 3, 4],
+          vote_counts: { 1: 2, 2: 2, 3: 2, 4: 2 },
+          eligible_voters: 8,
+          outcome: 'no_elimination' // e.g. automatic night
+        }
+      ];
+
+      const err = validateVotingHierarchy(votes);
+      expect(err).toBeNull();
+    });
   });
 });

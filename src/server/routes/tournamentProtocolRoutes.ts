@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
-import { determineVotingResult } from '../../shared/tournamentVoting.ts';
+import { determineVotingResult, validateVotingHierarchy } from '../../shared/tournamentVoting.ts';
 
 const router = Router();
 
@@ -648,16 +648,9 @@ function validateVotes(
   }
 
   if (isComplete) {
-    const parentsWithTie = votes
-      .filter((v: any) => !v.is_revote && v.outcome === 'tie_revote')
-      .map((v: any) => Number(v.round_number));
-    const activeChildrenParents = new Set(
-      votes.filter((v: any) => v.is_revote && v.parent_round_number !== undefined && v.parent_round_number !== null).map((v: any) => Number(v.parent_round_number))
-    );
-    for (const pNum of parentsWithTie) {
-      if (!activeChildrenParents.has(pNum)) {
-        return `Голосование: раунд #${pNum} завершился ничьей, но для него отсутствует связанное переголосование.`;
-      }
+    const hierarchyError = validateVotingHierarchy(votes);
+    if (hierarchyError) {
+      return hierarchyError;
     }
   }
 

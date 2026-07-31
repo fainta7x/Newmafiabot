@@ -280,6 +280,50 @@ export function validateChildLeadersOrder(parentRound: VotingRound, childRound: 
 }
 
 /**
+ * Validate voting hierarchy: every round (including revotes) with outcome 'tie_revote'
+ * must have exactly one logically correct child revote stage.
+ */
+export function validateVotingHierarchy(votes: Partial<VotingRound>[]): string | null {
+  for (const r of votes) {
+    if (r.outcome === 'tie_revote') {
+      const parentNum = r.round_number;
+      const dayNum = r.day_number ?? 0;
+
+      if (parentNum === undefined || parentNum === null) {
+        continue;
+      }
+
+      const children = votes.filter(
+        v => v.is_revote && v.parent_round_number !== undefined && v.parent_round_number !== null && Number(v.parent_round_number) === Number(parentNum)
+      );
+
+      if (children.length === 0) {
+        return `Голосование: раунд #${parentNum} завершился ничьей, но для него отсутствует связанное переголосование.`;
+      }
+      if (children.length > 1) {
+        return `Голосование (этап #${parentNum}, день ${dayNum}): обнаружено более одного переголосования для одного этапа.`;
+      }
+
+      const child = children[0];
+      const parentResult = determineVotingResult(r);
+      const parentLeaders = parentResult.winners;
+      const childNominated = child.nominated_seats || [];
+
+      if (parentLeaders.length !== childNominated.length) {
+        return `Голосование (этап #${child.round_number}, день ${child.day_number ?? ''}): количество кандидатов (${childNominated.length}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.length}).`;
+      }
+
+      for (let i = 0; i < parentLeaders.length; i++) {
+        if (Number(parentLeaders[i]) !== Number(childNominated[i])) {
+          return `Голосование (этап #${child.round_number}, день ${child.day_number ?? ''}): список кандидатов переголосования (${childNominated.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${parentLeaders.join(', ')}).`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Assign new sequential numbers from 1 to each round, preserving hierarchy mappings.
  */
 export function safeRenumberVotes(votesList: VotingRound[]): VotingRound[] {

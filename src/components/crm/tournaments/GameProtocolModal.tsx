@@ -31,7 +31,8 @@ import {
   determineVotingResult,
   createNextRevoteRound,
   cleanAndSyncVotes,
-  calculateVoteRemainder
+  calculateVoteRemainder,
+  validateVotingHierarchy
 } from '../../../shared/tournamentVoting';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
@@ -1713,6 +1714,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           }
         }
       }
+    }
+
+    const hierarchyError = validateVotingHierarchy(votes);
+    if (hierarchyError) {
+      return {
+        errorMsg: hierarchyError,
+        roundIndexWithError: null
+      };
     }
 
     const zeroRoundEliminated = new Set<number>();

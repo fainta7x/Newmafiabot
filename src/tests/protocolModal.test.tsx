@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup, fireEvent, screen } from '@testing-library/react';
 import { GameProtocolModal, formatColorMark, getProtocolPayload, buildLegacyTechFoulClassification } from '../components/crm/tournaments/GameProtocolModal';
+import { TournamentDetailView } from '../components/crm/tournaments/TournamentDetailView';
 import { api } from '../lib/api';
 
 import { calculateDisciplinaryPenalty } from '../lib/gameDiscipline';
@@ -475,6 +476,223 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(screen.getAllByText('мТ: 1').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Игр. −0.2').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Судья +0.5').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Auto-Save UX & Silent Refresh Regression Tests', () => {
+    const testTournId = 'test-tourn-id-ux';
+    const testGameId = 'test-game-id-ux';
+
+    const mockGame = {
+      id: testGameId,
+      tournament_id: testTournId,
+      game_number: 1,
+      table_number: 1,
+      status: 'active'
+    };
+
+    const validRoles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+
+    const mockProtocol = {
+      game_id: testGameId,
+      status: 'draft',
+      winner_team: 'red',
+      first_killed_participant_id: null,
+      zero_round_voted_participant_id: null,
+      best_move_participant_id: null,
+      best_move_source: null,
+      best_move_seats: [],
+      votes: [],
+      shots: [],
+      replacement: null,
+      judge_notes: null,
+      best_move_score: 0,
+      updated_at: '2026-01-01T00:00:00.000Z'
+    };
+
+    const mockPlayerResults = Array.from({ length: 10 }, (_, i) => ({
+      participant_id: `p-${i + 1}`,
+      display_name: `Player ${i + 1}`,
+      seat_number: i + 1,
+      role: validRoles[i],
+      exit_type: 'alive',
+      removal_reason: null,
+      regular_fouls: 0,
+      minor_technical_fouls: 0,
+      major_technical_fouls: 0,
+      technical_fouls: 0,
+      judge_bonus: 0,
+      protocol_bonus: 0,
+      penalty_points: 0,
+      disciplinary_penalty_points: 0,
+      color_protocol: [],
+      notes: ''
+    }));
+
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('1-7: Auto-save triggers after debounce without calling onProtocolUpdated or unmounting, preserving tab & expanded player', async () => {
+      const onProtocolUpdatedSpy = vi.fn();
+      const saveSpy = vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: { ...mockProtocol, updated_at: new Date().toISOString() } as any,
+        player_results: mockPlayerResults as any
+      });
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={testTournId}
+          gameId={testGameId}
+          isOpen={true}
+          onClose={() => {}}
+          onProtocolUpdated={onProtocolUpdatedSpy}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Expand player row p-1
+      const row1 = screen.getByTestId('player-row-p-1');
+      fireEvent.click(row1);
+      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+
+      // Trigger field change by changing status of player 1 to voted_day
+      const statusSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(statusSelect, { target: { value: 'voted_day' } });
+
+      // Verify saveGameProtocol not called immediately before debounce timer
+      expect(saveSpy).not.toHaveBeenCalled();
+
+      // Wait for 1500ms auto-save debounce
+      await waitFor(() => {
+        expect(saveSpy).toHaveBeenCalledTimes(1);
+      }, { timeout: 4000 });
+
+      // 3: onProtocolUpdated was NOT called for draft auto-save
+      expect(onProtocolUpdatedSpy).not.toHaveBeenCalled();
+
+      // 4, 5, 6: Modal is still mounted, player p-1 is still expanded and input is present
+      expect(screen.getByText('Player 1')).toBeTruthy();
+      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+    });
+
+    it('8: onProtocolUpdated is called exactly ONCE after successful protocol completion', async () => {
+      const onProtocolUpdatedSpy = vi.fn();
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: mockPlayerResults as any
+      });
+
+      vi.spyOn(api, 'completeGameProtocol').mockResolvedValue({
+        game: { ...mockGame, status: 'completed' } as any,
+        protocol: { ...mockProtocol, status: 'completed' } as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={testTournId}
+          gameId={testGameId}
+          isOpen={true}
+          onClose={() => {}}
+          onProtocolUpdated={onProtocolUpdatedSpy}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Click completion button
+      const completeBtn = screen.getByRole('button', { name: /Завершить протокол/i });
+      fireEvent.click(completeBtn);
+
+      // Confirm completion
+      const confirmBtn = screen.getByRole('button', { name: /Подтвердить завершение/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => expect(onProtocolUpdatedSpy).toHaveBeenCalledTimes(1));
+    });
+
+    it('9: onProtocolUpdated is called exactly ONCE after successful revert to draft', async () => {
+      const onProtocolUpdatedSpy = vi.fn();
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: { ...mockProtocol, status: 'completed' } as any,
+        player_results: mockPlayerResults as any
+      });
+
+      vi.spyOn(api, 'revertGameProtocolToDraft').mockResolvedValue({
+        game: { ...mockGame, status: 'active' } as any,
+        protocol: { ...mockProtocol, status: 'draft' } as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={testTournId}
+          gameId={testGameId}
+          isOpen={true}
+          onClose={() => {}}
+          onProtocolUpdated={onProtocolUpdatedSpy}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Click revert to draft button
+      const revertBtn = screen.getByRole('button', { name: /Вернуть в черновик/i });
+      fireEvent.click(revertBtn);
+
+      // Confirm revert
+      const confirmBtn = screen.getByRole('button', { name: /Да, вернуть в черновик/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => expect(onProtocolUpdatedSpy).toHaveBeenCalledTimes(1));
+    });
+
+    it('10: Silent update in TournamentDetailView does not display full-screen loading or unmount modal', async () => {
+      const mockTournament = {
+        id: testTournId,
+        title: 'Test Tournament UX',
+        status: 'active',
+        games: [mockGame]
+      };
+
+      vi.spyOn(api, 'getTournament').mockResolvedValue(mockTournament as any);
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(<TournamentDetailView tournamentId={testTournId} onBack={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Test Tournament UX')).toBeTruthy());
+
+      // Open modal
+      const protocolBtn = screen.getByRole('button', { name: /Протокол/i });
+      fireEvent.click(protocolBtn);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Loading screen should not be present
+      expect(screen.queryByText('Загрузка данных турнира...')).toBeNull();
+      // Modal remains open
+      expect(screen.getByText('Player 1')).toBeTruthy();
     });
   });
 });

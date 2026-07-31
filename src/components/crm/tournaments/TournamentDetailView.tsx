@@ -103,15 +103,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     loadDetail();
   }, [tournamentId, refreshTrigger]);
 
-  const loadDetail = async () => {
-    setLoading(true);
+  const loadDetail = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const data = await api.getTournament(tournamentId);
       setTournament(data);
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка загрузки турнира' });
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1238,7 +1243,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             setProtocolGameId(null);
           }}
           onProtocolUpdated={() => {
-            loadDetail();
+            loadDetail({ silent: true });
           }}
         />
       )}

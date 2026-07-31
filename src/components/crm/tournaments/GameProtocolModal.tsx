@@ -328,6 +328,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           isLoadingRef.current = false;
           setLoading(false);
           isFirstRender.current = false;
+          isUpdatingFromServer.current = false;
           if (restoredBackupData) {
             performSave(true);
           }
@@ -466,8 +467,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           } else {
             setSaveStatus('unsaved');
           }
-
-          if (onProtocolUpdated) onProtocolUpdated();
         } catch (err: any) {
           setSaveStatus('error');
           const errMsg = err.message || 'Ошибка сохранения';

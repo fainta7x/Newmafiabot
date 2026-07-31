@@ -8,6 +8,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+vite.config.ts.timestamp-*.mjs
 
 # SQLite databases & runtime storage
 *.db

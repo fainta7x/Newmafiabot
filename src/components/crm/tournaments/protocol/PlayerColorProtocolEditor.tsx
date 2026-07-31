@@ -41,7 +41,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
   onSetSelectedColorMark,
   onAddColorMark,
 }) => {
-  const isKilled = player.exit_type !== 'alive' && player.exit_type !== 'removed';
+  const isKilled = player.exit_type === 'killed';
   const hasMarks = player.color_protocol && player.color_protocol.length > 0;
   const showColorSection = isKilled || hasMarks;
 

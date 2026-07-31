@@ -13,6 +13,7 @@ import {
 import {
   normalizeRoleValue,
   calculateRoleCounts,
+  validateRoleCountsTransition,
   SeatRoleInput
 } from '../../lib/tournamentRoleValidation.ts';
 
@@ -793,30 +794,10 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
     }));
     const prospectiveCounts = calculateRoleCounts(prospectiveSeatInputs);
 
-    if (prospectiveCounts.citizen > 6) {
+    const transition = validateRoleCountsTransition(currentCounts, prospectiveCounts);
+    if (!transition.allowed) {
       return res.status(400).json({
-        error: `Превышен лимит ролей "Мирный": максимум 6 (запрошено ${prospectiveCounts.citizen}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
-        current_counts: currentCounts,
-        prospective_counts: prospectiveCounts,
-      });
-    }
-    if (prospectiveCounts.sheriff > 1) {
-      return res.status(400).json({
-        error: `Превышен лимит ролей "Шериф": максимум 1 (запрошено ${prospectiveCounts.sheriff}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
-        current_counts: currentCounts,
-        prospective_counts: prospectiveCounts,
-      });
-    }
-    if (prospectiveCounts.mafia > 2) {
-      return res.status(400).json({
-        error: `Превышен лимит ролей "Мафия": максимум 2 (запрошено ${prospectiveCounts.mafia}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
-        current_counts: currentCounts,
-        prospective_counts: prospectiveCounts,
-      });
-    }
-    if (prospectiveCounts.don > 1) {
-      return res.status(400).json({
-        error: `Превышен лимит ролей "Дон": максимум 1 (запрошено ${prospectiveCounts.don}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
+        error: transition.error,
         current_counts: currentCounts,
         prospective_counts: prospectiveCounts,
       });

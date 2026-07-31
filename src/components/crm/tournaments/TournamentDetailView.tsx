@@ -999,7 +999,13 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                             roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
                           }`}
                         >
-                          <option value="" className="bg-surface-1 text-text-muted">-- Роль не выбрана --</option>
+                          <option
+                            value=""
+                            disabled={isRoleOptionDisabled(seats, seat.seat_number, null)}
+                            className="bg-surface-1 text-text-muted disabled:opacity-40"
+                          >
+                            -- Роль не выбрана --
+                          </option>
                           <option
                             value="citizen"
                             disabled={isRoleOptionDisabled(seats, seat.seat_number, 'citizen')}

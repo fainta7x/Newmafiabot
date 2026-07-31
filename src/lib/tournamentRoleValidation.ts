@@ -54,6 +54,20 @@ export function calculateRoleCounts(seats: SeatRoleInput[]): RoleCounts {
   return counts;
 }
 
+export function calculateRoleOverflows(counts: RoleCounts): Record<TournamentRole, number> {
+  return {
+    citizen: Math.max(0, counts.citizen - ROLE_LIMITS.citizen),
+    sheriff: Math.max(0, counts.sheriff - ROLE_LIMITS.sheriff),
+    mafia: Math.max(0, counts.mafia - ROLE_LIMITS.mafia),
+    don: Math.max(0, counts.don - ROLE_LIMITS.don),
+  };
+}
+
+export function getTotalOverflow(counts: RoleCounts): number {
+  const overflows = calculateRoleOverflows(counts);
+  return overflows.citizen + overflows.sheriff + overflows.mafia + overflows.don;
+}
+
 export function calculateProspectiveRoleCounts(
   currentSeats: SeatRoleInput[],
   targetSeatNumber: number,
@@ -64,6 +78,51 @@ export function calculateProspectiveRoleCounts(
     s.seat_number === targetSeatNumber ? { ...s, role: normalizedNewRole } : s
   );
   return calculateRoleCounts(updatedSeats);
+}
+
+export function validateRoleCountsTransition(
+  currentCounts: RoleCounts,
+  prospectiveCounts: RoleCounts
+): { allowed: boolean; error?: string } {
+  const currentTotalOverflow = getTotalOverflow(currentCounts);
+  const prospectiveTotalOverflow = getTotalOverflow(prospectiveCounts);
+
+  const currentOverflows = calculateRoleOverflows(currentCounts);
+  const prospectiveOverflows = calculateRoleOverflows(prospectiveCounts);
+
+  if (currentTotalOverflow === 0) {
+    // Mode 1: Correct initial state (no role exceeds limit)
+    for (const role of (['citizen', 'sheriff', 'mafia', 'don'] as TournamentRole[])) {
+      const limit = ROLE_LIMITS[role];
+      if (prospectiveCounts[role] > limit) {
+        const labelGenitive = ROLE_GENITIVE_LABELS[role];
+        return {
+          allowed: false,
+          error: `Нельзя назначить ещё одного ${labelGenitive}: допустим только ${limit}`,
+        };
+      }
+    }
+    return { allowed: true };
+  } else {
+    // Mode 2: Already incorrect initial state (overflow > 0)
+    if (prospectiveTotalOverflow >= currentTotalOverflow) {
+      return {
+        allowed: false,
+        error: `Нельзя сделать это изменение: операция не уменьшает общий перерасход ролей`,
+      };
+    }
+
+    for (const role of (['citizen', 'sheriff', 'mafia', 'don'] as TournamentRole[])) {
+      if (prospectiveOverflows[role] > currentOverflows[role]) {
+        return {
+          allowed: false,
+          error: `Нельзя сделать это изменение: увеличивается превышение для роли "${ROLE_LABELS[role]}"`,
+        };
+      }
+    }
+
+    return { allowed: true };
+  }
 }
 
 export interface RoleAssignmentValidationResult {
@@ -77,31 +136,39 @@ export function validateRoleAssignmentChange(
   targetSeatNumber: number,
   newRole: string | null | undefined
 ): RoleAssignmentValidationResult {
-  const normalizedNewRole = normalizeRoleValue(newRole);
-  const prospectiveCounts = calculateProspectiveRoleCounts(currentSeats, targetSeatNumber, normalizedNewRole);
+  const currentSeat = currentSeats.find((s) => s.seat_number === targetSeatNumber);
+  const currentRoleNormalized = normalizeRoleValue(currentSeat?.role);
+  const newRoleNormalized = normalizeRoleValue(newRole);
 
-  if (!normalizedNewRole) {
+  const currentCounts = calculateRoleCounts(currentSeats);
+  const prospectiveCounts = calculateProspectiveRoleCounts(currentSeats, targetSeatNumber, newRoleNormalized);
+
+  if (currentRoleNormalized === newRoleNormalized) {
     return { allowed: true, prospectiveCounts };
   }
 
-  const limit = ROLE_LIMITS[normalizedNewRole];
-  if (prospectiveCounts[normalizedNewRole] > limit) {
-    const labelGenitive = ROLE_GENITIVE_LABELS[normalizedNewRole];
-    return {
-      allowed: false,
-      error: `Нельзя назначить ещё одного ${labelGenitive}: допустим только ${limit}`,
-      prospectiveCounts,
-    };
-  }
+  const transition = validateRoleCountsTransition(currentCounts, prospectiveCounts);
 
-  return { allowed: true, prospectiveCounts };
+  return {
+    allowed: transition.allowed,
+    error: transition.error,
+    prospectiveCounts,
+  };
 }
 
 export function isRoleOptionDisabled(
   currentSeats: SeatRoleInput[],
   targetSeatNumber: number,
-  optionRole: TournamentRole
+  optionRole: string | null | undefined
 ): boolean {
-  const prospectiveCounts = calculateProspectiveRoleCounts(currentSeats, targetSeatNumber, optionRole);
-  return prospectiveCounts[optionRole] > ROLE_LIMITS[optionRole];
+  const currentSeat = currentSeats.find((s) => s.seat_number === targetSeatNumber);
+  const currentRoleNormalized = normalizeRoleValue(currentSeat?.role);
+  const optionRoleNormalized = normalizeRoleValue(optionRole);
+
+  if (currentRoleNormalized === optionRoleNormalized) {
+    return false;
+  }
+
+  const validation = validateRoleAssignmentChange(currentSeats, targetSeatNumber, optionRole);
+  return !validation.allowed;
 }

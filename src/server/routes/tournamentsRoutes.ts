@@ -211,7 +211,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
         WHERE tgs.game_id = ?
         ORDER BY tgs.seat_number ASC
       `, [game.id]);
-      games.push({ ...game, seats });
+      const proto = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [game.id]);
+      games.push({ ...game, seats, protocol_status: proto?.status || null });
     }
 
     const start_readiness = computeStartReadiness(participants, games);
@@ -335,6 +336,10 @@ router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
       return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать. Сначала верните его на корректировку.' });
     }
 
     const updatedTitle = title !== undefined ? title : tournament.title;
@@ -539,12 +544,38 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
   const { roles, seats } = req.body;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    if (game.status !== 'planned') {
+    if (game.status === 'planned') {
+      // Allowed
+    } else if (tournament.status === 'correction') {
+      if (game.status === 'completed') {
+        return res.status(400).json({ error: 'Сначала необходимо вернуть протокол игры в черновик' });
+      }
+      if (game.status === 'active') {
+        const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+        if (!protocol || protocol.status !== 'draft') {
+          return res.status(400).json({ error: 'Сначала необходимо вернуть протокол игры в черновик' });
+        }
+        const otherActive = await db.get<any>(
+          "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
+          [tournamentId, gameId]
+        );
+        if (otherActive) {
+          return res.status(400).json({ error: 'В турнире уже есть другая активная игра' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Изменение ролей запрещено для этой игры' });
+      }
+    } else {
       return res.status(400).json({ error: 'Изменение ролей запрещено после запуска игры' });
     }
 
@@ -584,12 +615,38 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
   const { judge_name } = req.body;
 
   try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    if (game.status !== 'planned') {
+    if (game.status === 'planned') {
+      // Allowed
+    } else if (tournament.status === 'correction') {
+      if (game.status === 'completed') {
+        return res.status(400).json({ error: 'Сначала необходимо вернуть протокол игры в черновик' });
+      }
+      if (game.status === 'active') {
+        const protocol = await db.get<any>('SELECT status FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+        if (!protocol || protocol.status !== 'draft') {
+          return res.status(400).json({ error: 'Сначала необходимо вернуть протокол игры в черновик' });
+        }
+        const otherActive = await db.get<any>(
+          "SELECT id FROM tournament_games WHERE tournament_id = ? AND status = 'active' AND id != ?",
+          [tournamentId, gameId]
+        );
+        if (otherActive) {
+          return res.status(400).json({ error: 'В турнире уже есть другая активная игра' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Изменение судьи запрещено для этой игры' });
+      }
+    } else {
       return res.status(400).json({ error: 'Изменение судьи запрещено после запуска игры' });
     }
 
@@ -1363,8 +1420,8 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
       return res.status(400).json({ error: 'Турнир уже завершён' });
     }
 
-    if (tournament.status !== 'active') {
-      return res.status(400).json({ error: 'Завершить можно только активный турнир' });
+    if (tournament.status !== 'active' && tournament.status !== 'correction') {
+      return res.status(400).json({ error: 'Завершить можно только активный турнир или турнир в режиме корректировки' });
     }
 
     const readiness = await computeCompleteReadiness(db, tournamentId);
@@ -1422,7 +1479,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
 
       const now = new Date().toISOString();
       await tx.run(
-        "UPDATE tournaments SET status = 'active', results_published_at = NULL, updated_at = ? WHERE id = ?",
+        "UPDATE tournaments SET status = 'correction', results_published_at = NULL, updated_at = ? WHERE id = ?",
         [now, tournamentId]
       );
 
@@ -1434,7 +1491,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
     res.json({
       success: true,
       tournament_id: tournamentId,
-      status: 'active',
+      status: 'correction',
       public_results_hidden: true,
       invalidated_resolutions_count: result.invalidated_resolutions_count,
     });

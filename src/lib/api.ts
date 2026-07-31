@@ -215,6 +215,7 @@ export interface TournamentGame {
   completed_at: string | null;
   draft_protocol_json?: string | null;
   protocol_import_id?: string | null;
+  protocol_status?: 'draft' | 'completed' | null;
   seats?: TournamentGameSeat[];
 }
 
@@ -398,7 +399,7 @@ export interface Tournament {
   date: string;
   venue?: string | null;
   stage?: string | null;
-  status: 'draft' | 'active' | 'completed';
+  status: 'draft' | 'active' | 'completed' | 'correction';
   chief_judge_name?: string | null;
   notes?: string | null;
   created_at: string;

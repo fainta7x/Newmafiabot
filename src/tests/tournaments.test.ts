@@ -529,13 +529,13 @@ describe('Tournament Module API Tests', () => {
     expect(reopenRes.status).toBe(200);
     expect(reopenRes.body.success).toBe(true);
     expect(reopenRes.body.tournament_id).toBe(tournamentId);
-    expect(reopenRes.body.status).toBe('active');
+    expect(reopenRes.body.status).toBe('correction');
     expect(reopenRes.body.public_results_hidden).toBe(true);
     expect(reopenRes.body.invalidated_resolutions_count).toBe(1);
 
     // Verify DB state
     const tDb = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
-    expect(tDb.status).toBe('active');
+    expect(tDb.status).toBe('correction');
     expect(tDb.results_published_at).toBeNull();
     expect(tDb.public_token).toBe(publicToken); // Public token preserved
 
@@ -546,7 +546,7 @@ describe('Tournament Module API Tests', () => {
     const pubResAfter = await request(app).get(`/api/public/tournaments/results/${publicToken}`);
     expect(pubResAfter.status).toBe(404);
 
-    // Repeating call when already active fails with 400
+    // Repeating call when already in correction fails with 400
     const repeatRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
       .set('Cookie', organizerCookie);
@@ -637,6 +637,7 @@ describe('Tournament Module API Tests', () => {
       .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
       .set('Cookie', organizerCookie);
     expect(reopen.status).toBe(200);
+    expect(reopen.body.status).toBe('correction');
 
     // Step 2: Now revert game 1 protocol to draft
     const gameRevert = await request(app)
@@ -662,5 +663,173 @@ describe('Tournament Module API Tests', () => {
         best_moves: [],
       });
     expect(completeProtocolRes.status).toBe(200);
+  });
+
+  // 16. Correction mode restrictions & editing rules
+  it('16. Correction mode: metadata editing, judge/role change rules on completed vs draft game, and re-completion', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Проверки Режима Корректировки',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // Start tournament
+    await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+
+    // Get game 1
+    const tDetail = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+    const game1 = tDetail.body.games.find((g: any) => g.game_number === 1);
+    const gameId = game1.id;
+
+    // Set roles and start game 1
+    const roles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
+
+    // Complete game 1 protocol
+    const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
+    const playerResults = seats.map((s: any) => ({
+      participant_id: s.participant_id,
+      seat_number: s.seat_number,
+      exit_type: 'alive',
+      regular_fouls: 0,
+      minor_technical_fouls: 0,
+      major_technical_fouls: 0,
+      protocol_bonus: 0,
+    }));
+
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red', end_reason: 'normal' },
+        player_results: playerResults,
+        best_moves: [],
+      });
+
+    // Mark tournament completed
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    // 1. Direct metadata patch in completed status MUST FAIL (400)
+    const patchCompleted = await request(app)
+      .patch(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie)
+      .send({ title: 'Попытка изменения в completed' });
+    expect(patchCompleted.status).toBe(400);
+
+    // 2. Reopen tournament for correction
+    const reopen = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+    expect(reopen.status).toBe(200);
+    expect(reopen.body.status).toBe('correction');
+
+    // 3. Metadata patch in correction status MUST SUCCEED (200)
+    const patchCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie)
+      .send({ title: 'Турнир после корректировки' });
+    expect(patchCorrection.status).toBe(200);
+    expect(patchCorrection.body.title).toBe('Турнир после корректировки');
+
+    // 4. Changing judge/roles on game 1 (game status: completed) MUST FAIL with specific error
+    const judgeChangeFail = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Новый Судья' });
+    expect(judgeChangeFail.status).toBe(400);
+    expect(judgeChangeFail.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+
+    const roleChangeFail = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+    expect(roleChangeFail.status).toBe(400);
+    expect(roleChangeFail.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+
+    // 5. Revert game 1 protocol to draft
+    const revertRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/revert-to-draft`)
+      .set('Cookie', organizerCookie);
+    expect(revertRes.status).toBe(200);
+
+    // 6. Now changing judge and roles MUST SUCCEED
+    const judgeChangeSuccess = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Корректировки' });
+    expect(judgeChangeSuccess.status).toBe(200);
+    expect(judgeChangeSuccess.body.judge_name).toBe('Судья Корректировки');
+
+    const newRoles = [...roles];
+    newRoles[6] = { seat_number: 7, role: 'don' }; // swap sheriff and don
+    newRoles[9] = { seat_number: 10, role: 'sheriff' };
+
+    const roleChangeSuccess = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: newRoles });
+    expect(roleChangeSuccess.status).toBe(200);
+
+    // 7. Re-complete protocol, mark all games completed, and re-complete tournament
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red', end_reason: 'normal' },
+        player_results: playerResults,
+        best_moves: [],
+      });
+
+    // Mark all games and protocols in tournament as completed for test completion readiness
+    const allGames = await db.all<any>('SELECT id FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+    for (const g of allGames) {
+      await db.run("UPDATE tournament_games SET status = 'completed' WHERE id = ?", [g.id]);
+      const proto = await db.get<any>('SELECT id FROM tournament_game_protocols WHERE game_id = ?', [g.id]);
+      if (!proto) {
+        await db.run(
+          `INSERT INTO tournament_game_protocols (id, game_id, winner_team, end_reason, status, created_at, updated_at, completed_at)
+           VALUES (?, ?, 'red', 'normal', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [`proto_${g.id}`, g.id]
+        );
+        const gSeats = await db.all<any>('SELECT participant_id FROM tournament_game_seats WHERE game_id = ?', [g.id]);
+        for (const s of gSeats) {
+          await db.run(
+            `INSERT INTO tournament_game_player_results (id, game_id, participant_id, exit_type, regular_fouls, minor_technical_fouls, major_technical_fouls, protocol_bonus)
+             VALUES (?, ?, ?, 'alive', 0, 0, 0, 0)`,
+            [`res_${g.id}_${s.participant_id}`, g.id, s.participant_id]
+          );
+        }
+      } else {
+        await db.run("UPDATE tournament_game_protocols SET status = 'completed', winner_team = 'red' WHERE id = ?", [proto.id]);
+      }
+    }
+
+    const completeTournament = await request(app)
+      .post(`/api/tournaments/${tournamentId}/complete`)
+      .set('Cookie', organizerCookie);
+    expect(completeTournament.status).toBe(200);
+    expect(completeTournament.body.status).toBe('completed');
   });
 });

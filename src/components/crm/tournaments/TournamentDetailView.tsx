@@ -177,6 +177,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     roleCounts.mafia === 2 &&
     roleCounts.don === 1;
 
+  const isCorrection = tournament.status === 'correction';
+  const canEditCurrentGameJudgeAndRoles =
+    currentGame?.status === 'planned' ||
+    (isCorrection &&
+      currentGame?.status === 'active' &&
+      (currentGame as any).protocol_status === 'draft' &&
+      !isAnotherGameActive);
+
   const canStartCurrentGame =
     tournament.status === 'active' &&
     currentGame?.status === 'planned' &&
@@ -242,7 +250,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleAssignRole = async (seatNumber: number, newRole: string | null) => {
-    if (!currentGame || currentGame.status !== 'planned') return;
+    if (!currentGame || !canEditCurrentGameJudgeAndRoles) return;
     try {
       const updatedRoles = seats.map((s) =>
         s.seat_number === seatNumber ? { seat_number: s.seat_number, role: newRole } : { seat_number: s.seat_number, role: s.role }
@@ -257,7 +265,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   const handleSaveJudge = async () => {
-    if (!currentGame || currentGame.status !== 'planned') return;
+    if (!currentGame || !canEditCurrentGameJudgeAndRoles) return;
     try {
       await api.updateGameJudge(tournamentId, currentGame.id, judgeInput.trim());
       setEditingJudge(false);
@@ -311,12 +319,20 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
                 tournament.status === 'active'
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : tournament.status === 'correction'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 animate-pulse'
                   : tournament.status === 'completed'
                   ? 'bg-surface-2 text-text-muted border-border-soft'
                   : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
               }`}
             >
-              {tournament.status === 'active' ? 'Турнир идёт' : tournament.status === 'completed' ? 'Завершён' : 'Черновик'}
+              {tournament.status === 'active'
+                ? 'Турнир идёт'
+                : tournament.status === 'correction'
+                ? 'Режим корректировки'
+                : tournament.status === 'completed'
+                ? 'Завершён'
+                : 'Черновик'}
             </span>
           </div>
         </div>
@@ -494,6 +510,64 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               );
             })()}
 
+            {/* Correction Mode Section */}
+            {tournament.status === 'correction' && (() => {
+              const readiness = tournament.complete_readiness || { isReady: false, errors: ['Ошибка загрузки готовности'] };
+              return (
+                <div className="space-y-3">
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2 text-amber-300 text-xs">
+                    <div className="flex items-center gap-2 font-black uppercase tracking-wider text-amber-400 text-sm">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      <span>Режим корректировки турнира</span>
+                    </div>
+                    <p className="text-text-secondary leading-relaxed">
+                      Турнир возвращён из завершённых для внесения исправлений. Публичные результаты временно скрыты, а результаты спорных ситуаций аннулированы. Для изменения судьи и ролей верните протокол соответствующей игры в черновик. После внесения правок завершите турнир повторно.
+                    </p>
+                  </div>
+
+                  <div className="bg-surface-2 border border-border-soft rounded-2xl p-4 space-y-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2 font-bold text-text-primary">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Прогресс турнира:</span>
+                        <span className="font-mono text-accent text-sm font-black">
+                          {games.filter((g) => g.status === 'completed').length} из {games.length} игр завершено
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!readiness.isReady || actionLoading}
+                        onClick={() => setShowCompleteModal(true)}
+                        className={`font-extrabold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer min-h-[38px] ${
+                          readiness.isReady
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                            : 'bg-surface-3 text-text-muted cursor-not-allowed border border-border-soft/60 shadow-none'
+                        }`}
+                      >
+                        <Trophy className="w-3.5 h-3.5" />
+                        <span>Повторно завершить турнир</span>
+                      </button>
+                    </div>
+
+                    {!readiness.isReady && readiness.errors && readiness.errors.length > 0 && (
+                      <div className="border-t border-border-soft/60 pt-3 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-danger font-bold text-[11px] uppercase tracking-wider">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>Необходимо исправить для завершения:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-0.5 text-[11px] text-text-secondary leading-relaxed pl-1">
+                          {readiness.errors.map((err: string, idx: number) => (
+                            <li key={idx} className="font-sans">{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {tournament.status === 'completed' && (
               <div className="space-y-4">
                 <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-xs text-emerald-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -524,7 +598,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
+              {(tournament.status === 'active' || tournament.status === 'correction') && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditDataModal(true)}
+                  className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                >
+                  <FileText className="w-3.5 h-3.5 text-accent" />
+                  <span>Редактировать данные</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowSeatingExportModal(true)}
@@ -703,10 +787,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   </span>
                 </div>
 
-                {/* Judge info (Editable ONLY when game is planned) */}
+                {/* Judge info */}
                 <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
                   <span>Судья:</span>
-                  {editingJudge && currentGame.status === 'planned' ? (
+                  {editingJudge && canEditCurrentGameJudgeAndRoles ? (
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -715,14 +799,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         className="bg-surface-1 border border-border-soft rounded px-2 py-0.5 text-xs text-text-primary"
                         placeholder="Имя судьи"
                       />
-                      <button onClick={handleSaveJudge} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded">
+                      <button onClick={handleSaveJudge} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer">
                         <Check className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setEditingJudge(false)} className="p-1 text-text-muted hover:bg-surface-hover rounded">
+                      <button onClick={() => setEditingJudge(false)} className="p-1 text-text-muted hover:bg-surface-hover rounded cursor-pointer">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  ) : currentGame.status === 'planned' ? (
+                  ) : canEditCurrentGameJudgeAndRoles ? (
                     <button
                       onClick={() => {
                         setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
@@ -837,10 +921,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
             {/* 10 Seats Cards List */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-text-secondary block">
-                Рассадка на игру №{currentGame.game_number}
-                {currentGame.status !== 'planned' && ' (заблокирована для изменений)'}:
-              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <span className="text-xs font-bold text-text-secondary block">
+                  Рассадка на игру №{currentGame.game_number}
+                  {!canEditCurrentGameJudgeAndRoles && ' (заблокирована для изменений)'}:
+                </span>
+                {isCorrection && currentGame.status === 'completed' && (
+                  <span className="text-[11px] text-amber-400 italic font-medium">
+                    Для изменения судьи/ролей верните протокол в черновик
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {seats.map((seat) => {
                   const roleObj = ROLES_LIST.find((r) => r.id === seat.role);
@@ -860,8 +951,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Role selection dropdown (Disabled when game is active or completed) */}
-                      {currentGame.status === 'planned' ? (
+                      {/* Role selection dropdown */}
+                      {canEditCurrentGameJudgeAndRoles ? (
                         <select
                           value={seat.role || ''}
                           onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}

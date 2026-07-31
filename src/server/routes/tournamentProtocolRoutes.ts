@@ -608,8 +608,8 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
     }
 
-    if (tournament.status !== 'active') {
-      return res.status(400).json({ error: 'Сохранить протокол можно только в активном турнире' });
+    if (tournament.status !== 'active' && tournament.status !== 'correction') {
+      return res.status(400).json({ error: 'Сохранить протокол можно только в активном турнире или режиме корректировки' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
@@ -850,8 +850,8 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
     }
 
-    if (tournament.status !== 'active') {
-      return res.status(400).json({ error: 'Завершить протокол можно только в активном турнире' });
+    if (tournament.status !== 'active' && tournament.status !== 'correction') {
+      return res.status(400).json({ error: 'Завершить протокол можно только в активном турнире или режиме корректировки' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
@@ -1136,8 +1136,8 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать' });
     }
 
-    if (tournament.status !== 'active') {
-      return res.status(400).json({ error: 'Вернуть игру в черновик можно только в активном турнире' });
+    if (tournament.status !== 'active' && tournament.status !== 'correction') {
+      return res.status(400).json({ error: 'Вернуть игру в черновик можно только в активном турнире или режиме корректировки' });
     }
 
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);

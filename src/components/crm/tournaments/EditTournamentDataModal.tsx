@@ -82,7 +82,7 @@ export const EditTournamentDataModal: React.FC<EditTournamentDataModalProps> = (
         <div>
           <h3 className="text-xl font-bold tracking-tight">Редактировать данные турнира</h3>
           <p className="text-xs text-text-secondary mt-1">
-            Изменение основных параметров мероприятия в режиме черновика
+            Изменение основных параметров турнира
           </p>
         </div>
 

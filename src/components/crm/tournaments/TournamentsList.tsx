@@ -75,6 +75,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {tournaments.map((t) => {
             const isActive = t.status === 'active';
+            const isCorrection = t.status === 'correction';
             const isCompleted = t.status === 'completed';
             const completedGames = t.completed_games_count || 0;
             const totalGames = t.total_games_count || 10;
@@ -85,6 +86,8 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                 className={`bg-surface-1 border rounded-3xl p-5 space-y-4 flex flex-col justify-between transition-all hover:border-accent/40 relative overflow-hidden ${
                   isActive
                     ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/10'
+                    : isCorrection
+                    ? 'border-amber-500/50 shadow-lg shadow-amber-500/10'
                     : isCompleted
                     ? 'border-border-soft opacity-90'
                     : 'border-border-soft'
@@ -97,12 +100,20 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                         isActive
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
+                          : isCorrection
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 animate-pulse'
                           : isCompleted
                           ? 'bg-surface-2 text-text-muted border-border-soft'
                           : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                       }`}
                     >
-                      {isActive ? 'Турнир идёт' : isCompleted ? 'Турнир завершён' : 'Черновик'}
+                      {isActive
+                        ? 'Турнир идёт'
+                        : isCorrection
+                        ? 'Корректировка'
+                        : isCompleted
+                        ? 'Турнир завершён'
+                        : 'Черновик'}
                     </span>
 
                     {t.stage && (

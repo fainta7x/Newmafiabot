@@ -477,4 +477,190 @@ describe('Tournament Module API Tests', () => {
       .get(`/api/public/tournaments/results/some_fake_nonexistent_token`);
     expect(badTokenRes.status).toBe(404);
   });
+
+  // 14. Reopening completed tournament for correction and public results hiding
+  it('14. Reopening completed tournament for correction, invalidating resolutions, and hiding public results', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир для коррекции',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // Manually complete and publish tournament
+    const publicToken = 'test-token-correction-123';
+    await db.run(
+      "UPDATE tournaments SET status = 'completed', public_token = ?, results_published_at = ? WHERE id = ?",
+      [publicToken, new Date().toISOString(), tournamentId]
+    );
+
+    // Insert a dummy resolution into tournament_final_resolutions
+    const nowIso = new Date().toISOString();
+    await db.run(
+      "INSERT INTO tournament_final_resolutions (id, tournament_id, type, participant_ids_json, resolution_method, created_at, updated_at) VALUES ('res-1', ?, 'nomination_tie', '[]', 'draw', ?, ?)",
+      [tournamentId, nowIso, nowIso]
+    );
+
+    // Verify public endpoint returns 200 before reopening
+    const pubResBefore = await request(app).get(`/api/public/tournaments/results/${publicToken}`);
+    expect(pubResBefore.status).toBe(200);
+
+    // Endpoint protection checks:
+    // Unauthorized check
+    const unauthRes = await request(app).post(`/api/tournaments/${tournamentId}/reopen-for-correction`);
+    expect(unauthRes.status).toBe(401);
+
+    // Nonexistent tournament check
+    const nonExistRes = await request(app)
+      .post('/api/tournaments/nonexistent-id/reopen-for-correction')
+      .set('Cookie', organizerCookie);
+    expect(nonExistRes.status).toBe(404);
+
+    // Successful reopen call
+    const reopenRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+
+    expect(reopenRes.status).toBe(200);
+    expect(reopenRes.body.success).toBe(true);
+    expect(reopenRes.body.tournament_id).toBe(tournamentId);
+    expect(reopenRes.body.status).toBe('active');
+    expect(reopenRes.body.public_results_hidden).toBe(true);
+    expect(reopenRes.body.invalidated_resolutions_count).toBe(1);
+
+    // Verify DB state
+    const tDb = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    expect(tDb.status).toBe('active');
+    expect(tDb.results_published_at).toBeNull();
+    expect(tDb.public_token).toBe(publicToken); // Public token preserved
+
+    const resolutions = await db.all<any>('SELECT * FROM tournament_final_resolutions WHERE tournament_id = ?', [tournamentId]);
+    expect(resolutions.length).toBe(0); // Resolutions cleared
+
+    // Public endpoint now returns 404 because results are hidden
+    const pubResAfter = await request(app).get(`/api/public/tournaments/results/${publicToken}`);
+    expect(pubResAfter.status).toBe(404);
+
+    // Repeating call when already active fails with 400
+    const repeatRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+    expect(repeatRes.status).toBe(400);
+  });
+
+  // 15. Game protocol correction workflow after reopening tournament
+  it('15. Full workflow: reopen tournament -> revert completed game to draft -> edit -> re-complete protocol', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Исправления Игр',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+
+    // Start tournament
+    await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+
+    // Get game 1
+    const tDetail = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+    const game1 = tDetail.body.games.find((g: any) => g.game_number === 1);
+    const gameId = game1.id;
+
+    // Set roles BEFORE starting game 1
+    const roles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+
+    // Start game 1
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
+
+    // Complete game 1 protocol
+    const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
+    const playerResults = seats.map((s: any) => ({
+      participant_id: s.participant_id,
+      seat_number: s.seat_number,
+      exit_type: 'alive',
+      regular_fouls: 1,
+      minor_technical_fouls: 0,
+      major_technical_fouls: 0,
+      protocol_bonus: 0,
+    }));
+
+    const completePayload = {
+      protocol: {
+        winner_team: 'red',
+        end_reason: 'normal',
+      },
+      player_results: playerResults,
+      best_moves: [],
+    };
+
+    const compRes1 = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send(completePayload);
+    expect(compRes1.status).toBe(200);
+
+    // Manually mark tournament completed in DB for test scenario
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    // Direct revert attempt on completed tournament must fail (400)
+    const directRevert = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/revert-to-draft`)
+      .set('Cookie', organizerCookie);
+    expect(directRevert.status).toBe(400);
+
+    // Step 1: Reopen tournament for correction
+    const reopen = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+    expect(reopen.status).toBe(200);
+
+    // Step 2: Now revert game 1 protocol to draft
+    const gameRevert = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/revert-to-draft`)
+      .set('Cookie', organizerCookie);
+    expect(gameRevert.status).toBe(200);
+    expect(gameRevert.body.protocol.status).toBe('draft');
+    expect(gameRevert.body.game.status).toBe('active');
+
+    // Step 3: Modify protocol and re-complete
+    const updatedResults = [...playerResults];
+    updatedResults[0].protocol_bonus = 0.5; // add bonus points
+
+    const completeProtocolRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: {
+          winner_team: 'red',
+          end_reason: 'normal',
+        },
+        player_results: updatedResults,
+        best_moves: [],
+      });
+    expect(completeProtocolRes.status).toBe(200);
+  });
 });

@@ -875,6 +875,17 @@ export const api = {
       method: 'POST',
     }),
 
+  reopenTournamentForCorrection: (tournamentId: string) =>
+    request<{
+      success: boolean;
+      tournament_id: string;
+      status: 'active';
+      public_results_hidden: boolean;
+      invalidated_resolutions_count: number;
+    }>(`/api/tournaments/${tournamentId}/reopen-for-correction`, {
+      method: 'POST',
+    }),
+
   getPublicTournamentResults: (token: string) =>
     request<{
       tournament: {

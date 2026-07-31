@@ -17,6 +17,7 @@ import {
   FileText,
   Image as ImageIcon,
   Trophy,
+  RotateCcw,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
@@ -29,6 +30,7 @@ import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
+import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 
 interface TournamentDetailViewProps {
@@ -81,6 +83,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
 
   // Judge edit state
   const [editingJudge, setEditingJudge] = useState(false);
@@ -112,6 +115,23 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       text: 'Турнир успешно официально завершён! Все результаты зафиксированы.',
     });
     loadDetail();
+  };
+
+  const handleReopenTournament = async () => {
+    try {
+      await api.reopenTournamentForCorrection(tournamentId);
+      setFeedbackMsg({
+        type: 'success',
+        text: 'Турнир возвращён на корректировку. Публичные результаты временно скрыты.',
+      });
+      await loadDetail();
+    } catch (err: any) {
+      setFeedbackMsg({
+        type: 'error',
+        text: err.message || 'Ошибка возврата турнира на корректировку',
+      });
+      throw err;
+    }
   };
 
   if (loading) {
@@ -476,12 +496,24 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
             {tournament.status === 'completed' && (
               <div className="space-y-4">
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-3 text-xs text-emerald-400 flex items-center gap-2.5">
-                  <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
-                  <div>
-                    <span className="font-bold block text-text-primary">Турнир официально завершён</span>
-                    <p className="text-[11px] text-text-muted mt-0.5">Все игры, баллы и номинации окончательно зафиксированы и защищены от изменений.</p>
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-xs text-emerald-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Trophy className="w-4.5 h-4.5 text-amber-400 shrink-0" />
+                    <div>
+                      <span className="font-bold block text-text-primary">Турнир официально завершён</span>
+                      <p className="text-[11px] text-text-muted mt-0.5">
+                        Результаты зафиксированы. Организатор может вернуть турнир на корректировку при необходимости.
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowReopenModal(true)}
+                    className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px] shrink-0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Редактировать завершённый турнир</span>
+                  </button>
                 </div>
 
                 <TournamentOfficialResults
@@ -999,6 +1031,12 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         onClose={() => setShowCompleteModal(false)}
         onConfirm={handleCompleteTournament}
         tournamentId={tournamentId}
+      />
+
+      <ConfirmReopenTournamentModal
+        isOpen={showReopenModal}
+        onClose={() => setShowReopenModal(false)}
+        onConfirm={handleReopenTournament}
       />
     </div>
   );

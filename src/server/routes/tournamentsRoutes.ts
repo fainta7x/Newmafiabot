@@ -1391,6 +1391,58 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
   }
 });
 
+// POST /api/tournaments/:id/reopen-for-correction - Reopen completed tournament for correction
+router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId } = req.params;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status !== 'completed') {
+      return res.status(400).json({ error: 'Редактировать можно только завершённый турнир' });
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const resolutions = await tx.all<any>(
+        'SELECT id FROM tournament_final_resolutions WHERE tournament_id = ?',
+        [tournamentId]
+      );
+      const invalidatedCount = resolutions.length;
+
+      if (invalidatedCount > 0) {
+        await tx.run(
+          'DELETE FROM tournament_final_resolutions WHERE tournament_id = ?',
+          [tournamentId]
+        );
+      }
+
+      const now = new Date().toISOString();
+      await tx.run(
+        "UPDATE tournaments SET status = 'active', results_published_at = NULL, updated_at = ? WHERE id = ?",
+        [now, tournamentId]
+      );
+
+      return {
+        invalidated_resolutions_count: invalidatedCount,
+      };
+    });
+
+    res.json({
+      success: true,
+      tournament_id: tournamentId,
+      status: 'active',
+      public_results_hidden: true,
+      invalidated_resolutions_count: result.invalidated_resolutions_count,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка возврата турнира на корректировку' });
+  }
+});
+
 // GET /api/tournaments/:tournamentId/nominations
 router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;

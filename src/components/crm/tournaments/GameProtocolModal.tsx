@@ -163,6 +163,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   // Voting states
   const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
   const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
+  const roundRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'votes' && highlightedRoundIdx !== null) {
+      setTimeout(() => {
+        const el = roundRefs.current[highlightedRoundIdx];
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [activeTab, highlightedRoundIdx]);
 
   // Auto-save state
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
@@ -856,10 +868,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     proto: TournamentGameProtocolData
   ) => {
     const confirmedVotes = votes.filter((v: any) => v.outcome && v.outcome !== 'pending');
-    
+
     const zeroRoundEliminatedSeats = new Set<number>();
     const otherDayEliminatedSeats = new Set<number>();
-    
+
     for (const r of confirmedVotes) {
       const seats = r.eliminated_seats || [];
       if (r.day_number === 0) {
@@ -868,11 +880,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         seats.forEach((s: number) => otherDayEliminatedSeats.add(s));
       }
     }
-    
+
     const updatedResults = results.map(pr => {
       const isZeroElim = zeroRoundEliminatedSeats.has(pr.seat_number);
       const isOtherElim = otherDayEliminatedSeats.has(pr.seat_number);
-      
+
       let nextExitType = pr.exit_type;
       if (isZeroElim) {
         nextExitType = 'voted_zero_round';
@@ -881,13 +893,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       } else if (pr.exit_type === 'voted_zero_round' || pr.exit_type === 'voted_day') {
         nextExitType = 'alive';
       }
-      
+
       return {
         ...pr,
         exit_type: nextExitType
       };
     });
-    
+
     let zeroRoundVotedId: string | null = null;
     const zeroRoundRounds = confirmedVotes.filter((v: any) => v.day_number === 0);
     const day0ElimSeats = zeroRoundRounds.reduce<number[]>((acc, r: any) => [...acc, ...(r.eliminated_seats || [])], []);
@@ -898,7 +910,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         zeroRoundVotedId = player.participant_id;
       }
     }
-    
+
     let nextBestMoves = [...(proto.best_moves || [])];
     if (!zeroRoundVotedId) {
       nextBestMoves = nextBestMoves.filter(bm => bm.source !== 'zero_round_voted');
@@ -911,13 +923,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         };
       }
     }
-    
+
     const updatedProto = {
       ...proto,
       zero_round_voted_participant_id: zeroRoundVotedId,
       best_moves: nextBestMoves
     };
-    
+
     return { player_results: updatedResults, protocol: updatedProto };
   };
 
@@ -946,7 +958,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       if (parentNum !== undefined && parentNum !== null) {
         newParentNum = oldToNewNum.get(parentNum);
       }
-      
+
       const { _newRoundNum, ...rest } = r;
       return {
         ...rest,
@@ -1043,23 +1055,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       const votesCopy = [...(prev.votes || [])];
       let r = { ...votesCopy[rIdx] };
       const hadOutcome = r.outcome && r.outcome !== 'pending';
-      
+
       r = updater(r);
-      
+
       if (hadOutcome) {
         r.outcome = 'pending';
         r.eliminated_seats = [];
         r.table_leave_votes = undefined;
       }
-      
+
       votesCopy[rIdx] = r;
-      
+
       const nextVotes = syncAndCleanVotes(votesCopy);
-      
+
       const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
       setPlayerResults(syncRes.player_results);
       playerResultsRef.current = syncRes.player_results;
-      
+
       dirtyRevision.current++;
       setSaveStatus('unsaved');
       return syncRes.protocol;
@@ -1138,20 +1150,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setProtocol((prev) => {
       const votesCopy = [...(prev.votes || [])];
       const r = votesCopy[rIdx];
-      
+
       votesCopy[rIdx] = {
         ...r,
         outcome: 'pending',
         eliminated_seats: [],
         table_leave_votes: undefined
       };
-      
+
       const nextVotes = syncAndCleanVotes(votesCopy);
-      
+
       const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
       setPlayerResults(syncRes.player_results);
       playerResultsRef.current = syncRes.player_results;
-      
+
       dirtyRevision.current++;
       setSaveStatus('unsaved');
       return syncRes.protocol;
@@ -1171,7 +1183,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       const round = votes[rIdx];
       const roundNum = round.round_number ?? (rIdx + 1);
       const dayNum = round.day_number ?? (rIdx === 0 ? 0 : 1);
-      
+
       if (!round.nominated_seats || round.nominated_seats.length === 0) {
         return {
           errorMsg: `Запрещено завершать протокол с пустым кругом голосования (круг #${roundNum}, день ${dayNum}).`,
@@ -1451,6 +1463,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
     const votingVal = validateVotesLogic(protocol.votes || [], playerResults, protocol.zero_round_voted_participant_id);
     if (votingVal.errorMsg) {
+      setActiveTab('votes');
       if (votingVal.roundIndexWithError !== null) {
         setHighlightedRoundIdx(votingVal.roundIndexWithError);
       }
@@ -2537,7 +2550,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         onClick={() => {
                           const currentVotes = protocol.votes || [];
                           const normalVotes = currentVotes.filter(v => !v.is_revote);
-                          const nextDayNum = normalVotes.length; // 0, 1, 2, ...
+                          const nextDayNum = normalVotes.length === 0
+                            ? 0
+                            : Math.max(...normalVotes.map(v => v.day_number ?? 0)) + 1;
                           const nextRoundNum = currentVotes.length + 1;
                           setProtocol((prev) => {
                             const nextVotes = [
@@ -2632,6 +2647,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         return (
                           <div
                             key={rIdx}
+                            ref={(el) => {
+                              roundRefs.current[rIdx] = el;
+                            }}
+                            data-testid={`round-card-${rIdx}`}
                             className={`bg-slate-800/60 rounded-xl p-4 border transition-all space-y-4 ${
                               isErrorHighlighted
                                 ? 'border-rose-500/80 ring-2 ring-rose-500/20 bg-rose-950/10'
@@ -2653,7 +2672,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     value={dayNum}
                                     onChange={(e) => {
                                       const d = parseInt(e.target.value) || 0;
-                                      handleRoundChange(rIdx, (r) => ({ ...r, day_number: d }));
+                                      handleRoundChange(rIdx, (r) => ({
+                                        ...r,
+                                        day_number: d,
+                                        eligible_voters: d === 0 ? 10 : r.eligible_voters
+                                      }));
                                     }}
                                     className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                                   >
@@ -2830,6 +2853,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                           inputMode="numeric"
                                           disabled={protocol.status === 'completed' || isConfirmed}
                                           value={draftValue}
+                                          onFocus={(e) => e.target.select()}
                                           onChange={(e) => {
                                             const raw = e.target.value.replace(/\D/g, '');
                                             if (raw === '') {
@@ -2843,7 +2867,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                               }));
                                             } else {
                                               let val = parseInt(raw, 10);
-                                              if (val > 10) val = 10;
+                                              if (val > eligibleVoters) val = eligibleVoters;
                                               const cleanStr = String(val);
                                               setVoteDrafts(prev => ({ ...prev, [draftKey]: cleanStr }));
                                               handleRoundChange(rIdx, (r) => ({
@@ -2882,6 +2906,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                       inputMode="numeric"
                                       disabled={protocol.status === 'completed' || isConfirmed}
                                       value={voteDrafts[`${rIdx}-leave`] !== undefined ? voteDrafts[`${rIdx}-leave`] : (round.table_leave_votes !== null && round.table_leave_votes !== undefined ? String(round.table_leave_votes) : '')}
+                                      onFocus={(e) => e.target.select()}
                                       onChange={(e) => {
                                         const raw = e.target.value.replace(/\D/g, '');
                                         if (raw === '') {
@@ -2892,7 +2917,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                           }));
                                         } else {
                                           let val = parseInt(raw, 10);
-                                          if (val > 10) val = 10;
+                                          if (val > eligibleVoters) val = eligibleVoters;
                                           const cleanStr = String(val);
                                           setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: cleanStr }));
                                           handleRoundChange(rIdx, (r) => ({

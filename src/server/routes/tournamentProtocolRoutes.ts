@@ -390,6 +390,7 @@ function validateVotes(
   }
 
   const seenRounds = new Set<number>();
+  const usedParents = new Set<number>();
 
   for (let rIdx = 0; rIdx < votes.length; rIdx++) {
     const r = votes[rIdx];
@@ -432,25 +433,62 @@ function validateVotes(
       }
     }
 
-    // Requirement 2: Revote day_number and eligible_voters inheritance
+    // Requirement 2: Revote day_number and eligible_voters inheritance & strict validation
     if (r.is_revote) {
-      let parentRound = null;
-      if (r.parent_round_number) {
-        parentRound = votes.find((v: any) => Number(v.round_number) === Number(r.parent_round_number));
-      } else if (rIdx > 0) {
-        parentRound = votes[rIdx - 1];
+      if (r.parent_round_number === undefined || r.parent_round_number === null) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): переголосование обязано содержать явный parent_round_number.`;
       }
 
-      if (parentRound) {
-        const parentDayNum = parentRound.day_number ?? 0;
-        const parentEligibleVoters = parentRound.eligible_voters !== undefined && parentRound.eligible_voters !== null ? Number(parentRound.eligible_voters) : 10;
-        
-        if (dayNum !== parentDayNum) {
-          return `Голосование (этап #${roundNum}, день ${dayNum}): день переголосования (${dayNum}) должен совпадать с днём родительского голосования (${parentDayNum}).`;
+      const parentRoundNum = Number(r.parent_round_number);
+      if (usedParents.has(parentRoundNum)) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): обнаружено дублирующееся переголосование для раунда #${parentRoundNum}.`;
+      }
+      usedParents.add(parentRoundNum);
+
+      const parentRound = votes.find((v: any) => Number(v.round_number) === parentRoundNum);
+      if (!parentRound) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): родительское голосование #${parentRoundNum} не найдено.`;
+      }
+
+      const parentIdx = votes.findIndex((v: any) => Number(v.round_number) === parentRoundNum);
+      if (parentIdx >= rIdx) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): родительское голосование должно предшествовать переголосованию.`;
+      }
+
+      if (parentRound.is_revote) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): родительское голосование не может само являться переголосованием.`;
+      }
+
+      if (parentRound.outcome !== 'tie_revote') {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): родительское голосование должно иметь исход tie_revote.`;
+      }
+
+      // Verify that parent actually had a tie by vote counts
+      const parentNominated = parentRound.nominated_seats || [];
+      const parentVoteCounts = parentRound.vote_counts || {};
+      let parentMaxVotes = -1;
+      let parentWinnersCount = 0;
+      for (const seat of parentNominated) {
+        const v = Number(parentVoteCounts[seat] ?? parentVoteCounts[String(seat)] ?? 0);
+        if (v > parentMaxVotes) {
+          parentMaxVotes = v;
+          parentWinnersCount = 1;
+        } else if (v === parentMaxVotes) {
+          parentWinnersCount++;
         }
-        if (eligibleVoters !== parentEligibleVoters) {
-          return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих переголосования (${eligibleVoters}) должно совпадать с количеством родительского голосования (${parentEligibleVoters}).`;
-        }
+      }
+      if (parentWinnersCount <= 1 && parentNominated.length > 0) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): родительское голосование не имеет ничьей по голосам.`;
+      }
+
+      const parentDayNum = parentRound.day_number ?? 0;
+      const parentEligibleVoters = parentRound.eligible_voters !== undefined && parentRound.eligible_voters !== null ? Number(parentRound.eligible_voters) : 10;
+
+      if (dayNum !== parentDayNum) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): день переголосования (${dayNum}) должен совпадать с днём родительского голосования (${parentDayNum}).`;
+      }
+      if (eligibleVoters !== parentEligibleVoters) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих переголосования (${eligibleVoters}) должно совпадать с количеством родительского голосования (${parentEligibleVoters}).`;
       }
     }
 
@@ -587,6 +625,20 @@ function validateVotes(
             return `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`;
           }
         }
+      }
+    }
+  }
+
+  if (isComplete) {
+    const parentsWithTie = votes
+      .filter((v: any) => !v.is_revote && v.outcome === 'tie_revote')
+      .map((v: any) => Number(v.round_number));
+    const activeChildrenParents = new Set(
+      votes.filter((v: any) => v.is_revote && v.parent_round_number !== undefined && v.parent_round_number !== null).map((v: any) => Number(v.parent_round_number))
+    );
+    for (const pNum of parentsWithTie) {
+      if (!activeChildrenParents.has(pNum)) {
+        return `Голосование: раунд #${pNum} завершился ничьей, но для него отсутствует связанное переголосование.`;
       }
     }
   }

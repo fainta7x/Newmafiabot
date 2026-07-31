@@ -1150,6 +1150,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 2, // Matches parent day_number
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [3, 4],
           vote_counts: { 3: 4, 4: 4 },
           is_confirmed: true,
@@ -1186,6 +1187,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 3, // MISMATCH with parent day_number 2
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [3, 4],
           vote_counts: { 3: 4, 4: 4 },
           is_confirmed: true,
@@ -1223,6 +1225,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8, // Matches parent voter count
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 },
           is_confirmed: true,
@@ -1259,6 +1262,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 6, // MISMATCH with parent eligible_voters 8
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 3, 2: 3 },
           is_confirmed: true,
@@ -1296,6 +1300,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 }, // Tie!
           is_confirmed: true,
@@ -1333,6 +1338,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 },
           is_confirmed: true,
@@ -1370,6 +1376,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 },
           is_confirmed: true,
@@ -1407,6 +1414,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 },
           is_confirmed: true,
@@ -1470,6 +1478,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 6, 2: 2 }, // Single majority winner on revote
           is_confirmed: true,
@@ -1557,6 +1566,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           day_number: 1,
           eligible_voters: 8,
           is_revote: true,
+          parent_round_number: 1,
           nominated_seats: [1, 2],
           vote_counts: { 1: 4, 2: 4 },
           is_confirmed: true,
@@ -1580,6 +1590,311 @@ describe('Manual Mobile Protocol Test Suite', () => {
         .set('Cookie', organizerCookie);
 
       expect(getRes.body.protocol.status).toBe('draft');
+    });
+
+    // 17. Rejects revote without parent_round_number.
+    it('17. Rejects revote round if is_revote is true but parent_round_number is missing', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('переголосование обязано содержать явный parent_round_number');
+    });
+
+    // 18. Rejects revote referencing a parent round that does not exist.
+    it('18. Rejects revote round if parent_round_number references a non-existent round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 99, // NON-EXISTENT
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('родительское голосование #99 не найдено');
+    });
+
+    // 19. Rejects revote with parent round after the revote round (wrong order).
+    it('19. Rejects revote round if parent round is ordered after the revote round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 2, // PARENT IS LATER (round #2)
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('родительское голосование должно предшествовать переголосованию');
+    });
+
+    // 20. Rejects revote with parent round that is also a revote.
+    it('20. Rejects revote round if parent round is itself a revote round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 1,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote', // Acts as intermediate tie
+          table_leave_votes: 4,
+          eliminated_seats: [],
+        },
+        {
+          round_number: 3,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 2, // INVALID: Round 2 is also a revote
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('родительское голосование не может само являться переголосованием');
+    });
+
+    // 21. Rejects revote with parent round that does not have outcome 'tie_revote'.
+    it('21. Rejects revote round if parent round outcome is not tie_revote', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 5, 2: 3 }, // Single majority winner
+          is_confirmed: true,
+          outcome: 'single_eliminated',
+          eliminated_seats: [1],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 1, // INVALID: Parent round 1 has outcome 'single_eliminated', not 'tie_revote'
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('родительское голосование должно иметь исход tie_revote');
+    });
+
+    // 22. Rejects duplicate revotes for the same parent round.
+    it('22. Rejects saving a protocol if multiple revote rounds reference the same parent_round_number', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 1,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+        {
+          round_number: 3,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 1, // DUPLICATE REFERENCING ROUND 1
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('обнаружено дублирующееся переголосование для раунда #1');
+    });
+
+    // 23. Rejects completion of protocol if a tie has no linked child revote.
+    it('23. Rejects completion of protocol if a round is tie_revote but there is no subsequent child revote round referencing it', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote', // Tie but no revote round is added to the array!
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('раунд #1 завершился ничьей, но для него отсутствует связанное переголосование');
+    });
+
+    // 24. Rejects revote if nominated seats do not match the tied winners of parent round.
+    it('24. Rejects revote if nominated_seats do not match the tied winners of parent round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2, 3],
+          vote_counts: { 1: 3, 2: 3, 3: 2 }, // Tied winners are [1, 2]
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          parent_round_number: 1,
+          nominated_seats: [1, 3], // WRONG NOMINEES: Should be [1, 2]
+          vote_counts: { 1: 4, 3: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('список кандидатов переголосования (1, 3) не соответствует спорным игрокам предыдущего раунда (1, 2)');
     });
   });
 });

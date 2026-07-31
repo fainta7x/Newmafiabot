@@ -695,4 +695,467 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(screen.getByText('Player 1')).toBeTruthy();
     });
   });
+
+  describe('GameProtocolModal Custom Voting Tests', () => {
+    const localTournId = 'local-tourn';
+    const localGameId = 'local-game';
+    const localGame = {
+      id: localGameId,
+      tournament_id: localTournId,
+      game_number: 1,
+      table_number: 1,
+      status: 'active'
+    };
+    const localPlayerResults = Array.from({ length: 10 }, (_, i) => {
+      const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+      return {
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: roles[i],
+        exit_type: 'alive',
+        exit_order: null,
+        regular_fouls: 0,
+        technical_fouls: 0,
+        judge_bonus: 0,
+        protocol_bonus: 0,
+        penalty_points: 0,
+        ci_points: 0,
+        color_protocol: [],
+        notes: null
+      };
+    });
+    const baseLocalProtocol = {
+      game_id: localGameId,
+      status: 'draft',
+      winner_team: 'red',
+      first_killed_participant_id: null,
+      zero_round_voted_participant_id: null,
+      best_move_participant_id: null,
+      best_move_source: null,
+      best_move_seats: [],
+      votes: [],
+      shots: [],
+      replacement: null,
+      judge_notes: null,
+      best_move_score: 0,
+      updated_at: '2026-01-01T00:00:00.000Z'
+    };
+
+    it('1. Clears vote 0, inputs 5, field shows 5 and not 05', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 0, 2: 0 },
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      const inputs = screen.getAllByRole('textbox');
+      const input1 = inputs[0] as HTMLInputElement;
+      expect(input1.value).toBe('0');
+
+      fireEvent.change(input1, { target: { value: '' } });
+      expect(input1.value).toBe('');
+
+      fireEvent.change(input1, { target: { value: '5' } });
+      expect(input1.value).toBe('5');
+    });
+
+    it('2. In zero round, the number of voters is strictly 10 and the selector is disabled', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 0,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      const selectElements = screen.getAllByRole('combobox');
+      const votersSelect = selectElements[1] as HTMLSelectElement;
+      expect(votersSelect.value).toBe('10');
+      expect(votersSelect.disabled).toBe(true);
+    });
+
+    it('3. With a single leader in a revote round, the final poll table_leave_votes block is not rendered', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: true,
+            parent_round_number: null,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 7, 2: 3 },
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      expect(screen.queryByText(/Голоса за уход всех спорных игроков/i)).toBeNull();
+    });
+
+    it('4. With a repeat tie and empty table_leave_votes, confirmation is not available', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            outcome: 'tie_revote'
+          },
+          {
+            round_number: 2,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: true,
+            parent_round_number: 1,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            table_leave_votes: null,
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      const confirmBtn = screen.getByRole('button', { name: /Подтвердить исход/i }) as HTMLButtonElement;
+      expect(confirmBtn.disabled).toBe(true);
+    });
+
+    it('5. After explicit input of 0, confirmation becomes available and indicates nobody leaves', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            outcome: 'tie_revote'
+          },
+          {
+            round_number: 2,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: true,
+            parent_round_number: 1,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            table_leave_votes: null,
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      const leaveInput = screen.getByText(/Голоса за уход всех спорных игроков/i).parentElement?.querySelector('input') as HTMLInputElement;
+      fireEvent.change(leaveInput, { target: { value: '0' } });
+
+      await waitFor(() => {
+        const confirmBtn = screen.getByRole('button', { name: /Подтвердить исход/i }) as HTMLButtonElement;
+        expect(confirmBtn.disabled).toBe(false);
+        expect(screen.getByText(/Никто не покидает стол/i)).toBeTruthy();
+      });
+    });
+
+    it('6. Validation error from another tab switches to Votes and triggers scrollIntoView', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 4 },
+            outcome: 'pending'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      const scrollIntoViewMock = vi.fn();
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const completeBtn = screen.getByRole('button', { name: /Завершить протокол/i });
+      fireEvent.click(completeBtn);
+
+      await waitFor(() => {
+        expect(scrollIntoViewMock).toHaveBeenCalled();
+      });
+
+      expect(screen.getByText(/сумма распределённых голосов/i)).toBeTruthy();
+    });
+
+    it('7. Deleting parent round also filters out child revote round', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 5, 2: 5 },
+            outcome: 'tie_revote'
+          },
+          {
+            round_number: 2,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: true,
+            parent_round_number: 1,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 6, 2: 4 },
+            outcome: 'single_eliminated'
+          }
+        ]
+      };
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      expect(screen.getByText(/Круг #1/i)).toBeTruthy();
+      expect(screen.getByText(/Круг #2/i)).toBeTruthy();
+
+      const deleteButtons = screen.getAllByRole('button').filter(b => b.className.includes('hover:text-rose-400'));
+      expect(deleteButtons.length).toBe(2);
+
+      fireEvent.click(deleteButtons[0]);
+
+      expect(screen.queryByText(/Круг #1/i)).toBeNull();
+      expect(screen.queryByText(/Круг #2/i)).toBeNull();
+    });
+
+    it('8. After renumbering, parent_round_number continues to refer to the correct parent round', async () => {
+      const customProtocol = {
+        ...baseLocalProtocol,
+        votes: [
+          {
+            round_number: 1,
+            day_number: 1,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [1, 2],
+            vote_counts: { 1: 6, 2: 4 },
+            outcome: 'single_eliminated'
+          },
+          {
+            round_number: 2,
+            day_number: 2,
+            eligible_voters: 10,
+            is_revote: false,
+            nominated_seats: [3, 4],
+            vote_counts: { 3: 5, 4: 5 },
+            outcome: 'tie_revote'
+          },
+          {
+            round_number: 3,
+            day_number: 2,
+            eligible_voters: 10,
+            is_revote: true,
+            parent_round_number: 2,
+            nominated_seats: [3, 4],
+            vote_counts: { 3: 6, 4: 4 },
+            outcome: 'single_eliminated'
+          }
+        ]
+      };
+      const saveSpy = vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: localGame as any,
+        protocol: customProtocol as any,
+        player_results: localPlayerResults as any
+      });
+
+      render(
+        <GameProtocolModal
+          tournamentId={localTournId}
+          gameId={localGameId}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      );
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const votesTab = screen.getByRole('button', { name: /Голоса/i });
+      fireEvent.click(votesTab);
+
+      expect(screen.getByText(/Круг #1/i)).toBeTruthy();
+      expect(screen.getByText(/Круг #2/i)).toBeTruthy();
+      expect(screen.getByText(/Круг #3/i)).toBeTruthy();
+
+      const deleteButtons = screen.getAllByRole('button').filter(b => b.className.includes('hover:text-rose-400'));
+      fireEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(saveSpy).toHaveBeenCalled();
+      }, { timeout: 4000 });
+
+      const lastCallPayload = saveSpy.mock.calls[saveSpy.mock.calls.length - 1][2];
+      const savedVotes = lastCallPayload?.protocol?.votes;
+      expect(savedVotes).toBeDefined();
+      if (savedVotes) {
+        expect(savedVotes.length).toBe(2);
+        expect(savedVotes[0].round_number).toBe(1);
+        expect(savedVotes[1].round_number).toBe(2);
+        expect(savedVotes[1].parent_round_number).toBe(1);
+      }
+    });
+  });
 });

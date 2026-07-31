@@ -524,9 +524,9 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 
     if (protocolRecord) {
       let bestMoveSeats = [];
-      
-      
-      
+
+
+
 
       try { bestMoveSeats = JSON.parse(protocolRecord.best_move_seats_json || '[]'); } catch (_) {}
 

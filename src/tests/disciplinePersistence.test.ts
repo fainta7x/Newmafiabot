@@ -43,10 +43,10 @@ describe('Discipline API', () => {
     const seatingRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/generate-seating`)
       .set('Cookie', organizerCookie);
-    
+
     gameId = seatingRes.body.games[0].id;
     gameId = seatingRes.body.games[1].id;
-    
+
     await request(app)
       .post(`/api/tournaments/${tournamentId}/start`)
       .set('Cookie', organizerCookie);
@@ -54,7 +54,7 @@ describe('Discipline API', () => {
     // Set roles for both games
     const roles = ['citizen', 'citizen', 'citizen', 'sheriff', 'citizen', 'citizen', 'citizen', 'mafia', 'don', 'mafia'];
     const formattedRoles = roles.map((role, idx) => ({ seat_number: idx + 1, role }));
-    
+
     await request(app)
       .patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`)
       .set('Cookie', organizerCookie)
@@ -121,7 +121,7 @@ describe('Discipline API', () => {
   });
 
   it('2. Отдельная игра: удалённый красный получает ППК. Победитель автоматически чёрные, доп штраф 1, итог 2.9', async () => {
-    const p1 = gameSeats[0]; // citizen
+    const p1 = gameSeats[0];
     const draftRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
       .set('Cookie', organizerCookie)
@@ -204,7 +204,6 @@ describe('Discipline API', () => {
   });
 
   it('5. Все API-ветки возвращают новые поля', async () => {
-    const p1 = gameSeats[0];
     // PUT returns
     const draftRes = await request(app)
       .put(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`)
@@ -220,7 +219,7 @@ describe('Discipline API', () => {
     expect(draftRes.body.player_results[0]).toHaveProperty('technical_fouls');
     expect(draftRes.body.player_results[0]).toHaveProperty('disciplinary_penalty_points');
     expect(draftRes.body.player_results[0]).toHaveProperty('removal_reason');
-    
+
     // GET returns
     const getRes = await request(app)
       .get(`/api/tournaments/${tournamentId}/games/${gameId}/protocol`)
@@ -253,7 +252,7 @@ describe('Discipline API', () => {
     const sqlite = new Database(':memory:');
     const rawDb: any = { sqlite, get: async (sql: any, params?: any) => params && params.length > 0 ? sqlite.prepare(sql).get(...params) : sqlite.prepare(sql).get(), all: async (sql: any, params?: any) => params && params.length > 0 ? sqlite.prepare(sql).all(...params) : sqlite.prepare(sql).all(), run: async (sql: any, params?: any) => params && params.length > 0 ? sqlite.prepare(sql).run(...params) : sqlite.prepare(sql).run(), exec: async (sql: any) => sqlite.exec(sql) };
 
-    
+
     // old schema missing new columns
     await rawDb.run(`
       CREATE TABLE tournament_game_protocols (
@@ -265,7 +264,7 @@ describe('Discipline API', () => {
         updated_at TEXT NOT NULL
       );
     `);
-    
+
     await rawDb.run(`
       CREATE TABLE tournament_game_player_results (
         id TEXT PRIMARY KEY,
@@ -284,18 +283,18 @@ describe('Discipline API', () => {
         UNIQUE(game_id, participant_id)
       );
     `);
-    
+
     // seed old data
     await rawDb.run(`INSERT INTO tournament_game_protocols (id, game_id, created_at, updated_at) VALUES ('proto1', 'g1', 'now', 'now')`);
     await rawDb.run(`INSERT INTO tournament_game_player_results (id, game_id, participant_id, technical_fouls, penalty_points) VALUES ('res1', 'g1', 'p1', 1, 0.5)`);
-    
+
     // Migrate
     initializeDatabase(rawDb);
-    
+
     const proto = await rawDb.get(`SELECT * FROM tournament_game_protocols`);
     expect(proto.end_reason).toBe('normal');
     expect(proto.ppk_culprit_participant_id).toBeNull();
-    
+
     const res = await rawDb.get(`SELECT * FROM tournament_game_player_results`);
     expect(res.minor_technical_fouls).toBe(0);
     expect(res.major_technical_fouls).toBe(0);

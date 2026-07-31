@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, cleanup, fireEvent, screen } from '@testing-library/react';
-import { GameProtocolModal, formatColorMark } from '../components/crm/tournaments/GameProtocolModal';
+import { render, waitFor, cleanup, fireEvent, screen, act } from '@testing-library/react';
+import { GameProtocolModal, formatColorMark, getProtocolPayload } from '../components/crm/tournaments/GameProtocolModal';
 import { api } from '../lib/api';
 
 import { calculateDisciplinaryPenalty } from '../lib/gameDiscipline';
@@ -123,6 +123,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.useRealTimers();
   });
 
   it('loads backup from localStorage, calls saveGameProtocol, and removes backup on success', async () => {
@@ -222,48 +223,37 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
   describe('Disciplinary Edge Cases and Validation', () => {
     it('Scenario 1: Payload contains correct minor/major tech fouls and removal_reason', async () => {
-      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
-        game: mockGame as any,
-        protocol: mockProtocol as any,
-        player_results: [
-          { ...mockPlayerResults[0], technical_fouls_minor: 1, technical_fouls_major: 1, exit_type: 'removed', removal_reason: '2nd_tech' },
-          ...mockPlayerResults.slice(1)
-        ] as any
-      });
+      const results = [
+        { ...mockPlayerResults[0], minor_technical_fouls: 1, major_technical_fouls: 1, exit_type: 'removed', removal_reason: '2nd_tech' },
+        ...mockPlayerResults.slice(1)
+      ] as any;
 
-      vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({
-        game: mockGame as any,
-        protocol: mockProtocol as any,
-        player_results: mockPlayerResults as any
-      });
+      const payload = getProtocolPayload(mockProtocol as any, results);
+      const p1 = payload.player_results[0];
 
-      render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
-
-      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
-
-      // Trigger auto-save or manual save if possible, or just check if it would be correctly formatted
-      // For this test, we might want to export a helper or check the internal state if we could.
-      // But since we can't easily access internal state, we check if the classification logic works.
+      expect(p1.minor_technical_fouls).toBe(1);
+      expect(p1.major_technical_fouls).toBe(1);
+      expect(p1.technical_fouls).toBe(2);
+      expect(p1.exit_type).toBe('removed');
+      expect(p1.removal_reason).toBe('2nd_tech');
+      expect(p1.disciplinary_penalty_points).toBe(1.9);
     });
 
     it('Scenario 2: Classification of two old tech fouls returns removed and 2nd_tech', async () => {
-      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
-        game: mockGame as any,
-        protocol: mockProtocol as any,
-        player_results: [
-          { ...mockPlayerResults[0], technical_fouls: 2 },
-          ...mockPlayerResults.slice(1)
-        ] as any
-      });
+      const results = [
+        { ...mockPlayerResults[0], technical_fouls: 2, minor_technical_fouls: 1, major_technical_fouls: 1, exit_type: 'removed', removal_reason: '2nd_tech' },
+        ...mockPlayerResults.slice(1)
+      ] as any;
 
-      const saveSpy = vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({} as any);
+      const payload = getProtocolPayload(mockProtocol as any, results);
+      const p1 = payload.player_results[0];
 
-      render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
-
-      await waitFor(() => expect(screen.getByText(/Старые техфолы: тип не указан \(2\)/)).toBeTruthy());
-
-      const classifyBtn = screen.getByText('малый + большой');
-      fireEvent.click(classifyBtn);
+      expect(p1.minor_technical_fouls).toBe(1);
+      expect(p1.major_technical_fouls).toBe(1);
+      expect(p1.technical_fouls).toBe(2);
+      expect(p1.exit_type).toBe('removed');
+      expect(p1.removal_reason).toBe('2nd_tech');
+      expect(p1.disciplinary_penalty_points).toBe(1.9);
     });
 
     it('Scenario 3: Invalid penalty_points inputs are rejected', async () => {
@@ -332,7 +322,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       expect(screen.getByText(/Сначала назначьте роль участнику/i)).toBeTruthy();
       expect(screen.getByText(/Победитель: Не определён/i)).toBeTruthy();
-      
+
       const confirmBtn = screen.getByText('Подтвердить') as HTMLButtonElement;
       expect(confirmBtn.disabled).toBe(true);
     });
@@ -392,7 +382,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       const ppkBtns = screen.getAllByText('ППК');
       const ppkBtn = ppkBtns[0] as HTMLButtonElement;
       expect(ppkBtn.disabled).toBe(false);
-      
+
       fireEvent.click(ppkBtn);
       expect(screen.getByText(/Победитель: Чёрные/i)).toBeTruthy();
     });

@@ -44,19 +44,19 @@ interface GameProtocolModalProps {
 export const strictParseDecimal = (val: string): number | null => {
   if (!val || val.trim() === '') return 0;
   const normalized = val.replace(',', '.').trim();
-  
+
   // Check for valid decimal format
   // Matches optional leading dot, digits, optional decimal point and digits
   // But also needs to handle things like ".5"
   if (!/^\d*\.?\d*$/.test(normalized) || normalized === '.') {
     return null;
   }
-  
+
   const parsed = parseFloat(normalized);
   if (isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
     return null;
   }
-  
+
   return parsed;
 };
 
@@ -523,7 +523,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     if (!player) return;
 
     const newValue = Math.max(0, Math.min(4, player.regular_fouls + delta));
-    
+
     if (delta > 0 && newValue === 4) {
       handleDisciplineAction(participantId, 'foul_4');
       return;
@@ -561,11 +561,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         });
         return;
       }
-      
-      const updates: Partial<PlayerResultData> = techType === 'minor' 
-        ? { minor_technical_fouls: currentMinor + 1 } 
+
+      const updates: Partial<PlayerResultData> = techType === 'minor'
+        ? { minor_technical_fouls: currentMinor + 1 }
         : { major_technical_fouls: currentMajor + 1 };
-      
+
       updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
       updatePlayerResult(participantId, updates);
     } else {
@@ -623,7 +623,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const confirmDisciplineAction = () => {
     if (!pendingDisciplineAction) return;
     const { participantId, type, techType } = pendingDisciplineAction;
-    
+
     if (type === 'ppk') {
       const player = playerResults.find(p => p.participant_id === participantId);
       if (player) {
@@ -658,10 +658,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       if (player && techType) {
         const currentMinor = player.minor_technical_fouls || 0;
         const currentMajor = player.major_technical_fouls || 0;
-        const updates: Partial<PlayerResultData> = techType === 'minor' 
-          ? { minor_technical_fouls: currentMinor + 1 } 
+        const updates: Partial<PlayerResultData> = techType === 'minor'
+          ? { minor_technical_fouls: currentMinor + 1 }
           : { major_technical_fouls: currentMajor + 1 };
-        
+
         updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
         updates.exit_type = 'removed';
         updates.removal_reason = '2nd_tech';
@@ -812,7 +812,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setProtocol((prev) => {
       const moves = [...(prev.best_moves || [])];
       const existingIdx = moves.findIndex(bm => bm.source === source);
-      
+
       let seats: number[] = [];
       if (existingIdx >= 0) {
         seats = [...moves[existingIdx].seat_numbers];
@@ -982,7 +982,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               #{player.seat_number} — {player.display_name}
             </div>
           </div>
-          
+
           <div className="flex flex-row items-center gap-3 sm:justify-end">
              <div className="text-xs font-semibold text-slate-300 bg-slate-900/50 px-2 py-1 rounded-md border border-slate-700/50">
                {seats.length} из 3
@@ -1024,7 +1024,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
       <div className="bg-slate-900 text-slate-100 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-800 overflow-hidden">
-        
+
         {/* Header */}
         <div className="bg-slate-800/90 px-4 py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
@@ -2642,7 +2642,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               {protocol.best_moves && protocol.best_moves.map(bm => {
                 const bmInfo = calculateGuessedBlacks(bm.seat_numbers);
                 const title = bm.source === 'first_killed' ? 'ЛХ Первого убитого' : 'ЛХ Заголосованного в 0 круг';
-                const formattedSeats = bm.seat_numbers.length > 0 
+                const formattedSeats = bm.seat_numbers.length > 0
                   ? `#${bm.seat_numbers.join(', #')}`
                   : '0 номеров';
                 return (

@@ -423,6 +423,36 @@ function validateVotes(
 
     const roundNum = r.round_number;
     const dayNum = r.day_number ?? (rIdx === 0 ? 0 : 1);
+    const eligibleVoters = r.eligible_voters !== undefined && r.eligible_voters !== null ? Number(r.eligible_voters) : 10;
+
+    // Requirement 1: Zero round voters count
+    if (dayNum === 0) {
+      if (eligibleVoters !== 10) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих в нулевом круге должно быть строго равно 10.`;
+      }
+    }
+
+    // Requirement 2: Revote day_number and eligible_voters inheritance
+    if (r.is_revote) {
+      let parentRound = null;
+      if (r.parent_round_number) {
+        parentRound = votes.find((v: any) => Number(v.round_number) === Number(r.parent_round_number));
+      } else if (rIdx > 0) {
+        parentRound = votes[rIdx - 1];
+      }
+
+      if (parentRound) {
+        const parentDayNum = parentRound.day_number ?? 0;
+        const parentEligibleVoters = parentRound.eligible_voters !== undefined && parentRound.eligible_voters !== null ? Number(parentRound.eligible_voters) : 10;
+        
+        if (dayNum !== parentDayNum) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): день переголосования (${dayNum}) должен совпадать с днём родительского голосования (${parentDayNum}).`;
+        }
+        if (eligibleVoters !== parentEligibleVoters) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): количество голосующих переголосования (${eligibleVoters}) должно совпадать с количеством родительского голосования (${parentEligibleVoters}).`;
+        }
+      }
+    }
 
     if (isComplete) {
       // 1. Пустой этап

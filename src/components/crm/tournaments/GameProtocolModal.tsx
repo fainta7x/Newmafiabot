@@ -921,7 +921,124 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     return { player_results: updatedResults, protocol: updatedProto };
   };
 
+  const safeRenumberVotes = (votesList: any[]): any[] => {
+    // 1. Assign new sequential numbers from 1 to each round, in their current order
+    const newVotes = votesList.map((r, idx) => {
+      return {
+        ...r,
+        _newRoundNum: idx + 1
+      };
+    });
+
+    // 2. Map old round_number to new round_number
+    const oldToNewNum = new Map<number, number>();
+    for (let idx = 0; idx < votesList.length; idx++) {
+      const oldR = votesList[idx];
+      const newR = newVotes[idx];
+      if (oldR.round_number !== undefined && oldR.round_number !== null) {
+        oldToNewNum.set(oldR.round_number, newR._newRoundNum);
+      }
+    }
+
+    return newVotes.map(r => {
+      const parentNum = r.parent_round_number;
+      let newParentNum = undefined;
+      if (parentNum !== undefined && parentNum !== null) {
+        newParentNum = oldToNewNum.get(parentNum);
+      }
+      
+      const { _newRoundNum, ...rest } = r;
+      return {
+        ...rest,
+        round_number: _newRoundNum,
+        parent_round_number: newParentNum
+      };
+    });
+  };
+
+  const syncAndCleanVotes = (votesList: any[]): any[] => {
+    const existingRoundNums = new Set(votesList.map(v => v.round_number));
+
+    // Rule: "при удалении исходного голосования удаляй и его переголосование"
+    let filtered = votesList.filter(r => {
+      if (r.is_revote) {
+        if (r.parent_round_number === undefined || r.parent_round_number === null) {
+          return false;
+        }
+        if (!existingRoundNums.has(r.parent_round_number)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Rule: "при сбросе или изменении исходного голосования автоматически удаляй связанное переголосование"
+    const parentRoundMap = new Map<number, any>();
+    filtered.forEach(r => {
+      if (!r.is_revote) {
+        parentRoundMap.set(r.round_number, r);
+      }
+    });
+
+    filtered = filtered.filter(r => {
+      if (r.is_revote) {
+        const parent = parentRoundMap.get(r.parent_round_number);
+        if (!parent || parent.outcome !== 'tie_revote') {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Propagate day_number and eligible_voters from parents to children
+    // and enforce day 0 -> 10 voters count
+    filtered = filtered.map(r => {
+      if (!r.is_revote && r.day_number === 0) {
+        return {
+          ...r,
+          eligible_voters: 10
+        };
+      }
+      if (r.is_revote && r.parent_round_number) {
+        const parent = parentRoundMap.get(r.parent_round_number);
+        if (parent) {
+          return {
+            ...r,
+            day_number: parent.day_number ?? 0,
+            eligible_voters: parent.eligible_voters ?? 10
+          };
+        }
+      }
+      return r;
+    });
+
+    // Rule: "при удалении переголосования исходное голосование возвращай в `pending`"
+    const activeParentNums = new Set<number>();
+    filtered.forEach(r => {
+      if (r.is_revote && r.parent_round_number !== undefined && r.parent_round_number !== null) {
+        activeParentNums.add(r.parent_round_number);
+      }
+    });
+
+    filtered = filtered.map(r => {
+      if (!r.is_revote && r.outcome === 'tie_revote') {
+        if (!activeParentNums.has(r.round_number)) {
+          return {
+            ...r,
+            outcome: 'pending',
+            eliminated_seats: [],
+            table_leave_votes: undefined
+          };
+        }
+      }
+      return r;
+    });
+
+    return safeRenumberVotes(filtered);
+  };
+
   const handleRoundChange = (rIdx: number, updater: (r: any) => any) => {
+    setHighlightedRoundIdx(null);
     setProtocol((prev) => {
       const votesCopy = [...(prev.votes || [])];
       let r = { ...votesCopy[rIdx] };
@@ -937,14 +1054,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       
       votesCopy[rIdx] = r;
       
-      let nextVotes = votesCopy;
-      if (hadOutcome) {
-        nextVotes = votesCopy.filter((v: any) => v.parent_round_number !== r.round_number);
-        nextVotes = nextVotes.map((v: any, idx: number) => ({
-          ...v,
-          round_number: idx + 1
-        }));
-      }
+      const nextVotes = syncAndCleanVotes(votesCopy);
       
       const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
       setPlayerResults(syncRes.player_results);
@@ -961,6 +1071,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     calculatedOutcome: 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination',
     winners: number[]
   ) => {
+    setHighlightedRoundIdx(null);
     if (calculatedOutcome === 'tie_revote') {
       setProtocol((prev) => {
         const currentVotes = [...(prev.votes || [])];
@@ -972,7 +1083,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         currentVotes[rIdx] = updatedParent;
 
         const newRound = {
-          round_number: updatedParent.round_number + 1,
+          round_number: 9999, // temporary unique round number
           is_revote: true,
           nominated_seats: winners,
           vote_counts: winners.reduce((acc, s) => ({ ...acc, [s]: 0 }), {}),
@@ -980,15 +1091,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           eligible_voters: updatedParent.eligible_voters ?? 10,
           parent_round_number: updatedParent.round_number,
           outcome: 'pending' as const,
-          eliminated_seats: []
+          eliminated_seats: [],
+          table_leave_votes: null // Requirement 4: initially null
         };
 
         currentVotes.splice(rIdx + 1, 0, newRound);
 
-        const nextVotes = currentVotes.map((v, idx) => ({
-          ...v,
-          round_number: idx + 1
-        }));
+        const nextVotes = syncAndCleanVotes(currentVotes);
 
         const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
         setPlayerResults(syncRes.player_results);
@@ -1011,7 +1120,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             : []
         };
 
-        const syncRes = syncConfirmedVotesToResults(currentVotes, playerResultsRef.current, { ...prev, votes: currentVotes });
+        const nextVotes = syncAndCleanVotes(currentVotes);
+
+        const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
         setPlayerResults(syncRes.player_results);
         playerResultsRef.current = syncRes.player_results;
 
@@ -1023,10 +1134,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   };
 
   const handleResetOutcome = (rIdx: number) => {
+    setHighlightedRoundIdx(null);
     setProtocol((prev) => {
       const votesCopy = [...(prev.votes || [])];
       const r = votesCopy[rIdx];
-      const hadParentNumber = r.round_number;
       
       votesCopy[rIdx] = {
         ...r,
@@ -1035,10 +1146,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         table_leave_votes: undefined
       };
       
-      const nextVotes = votesCopy.filter((v: any) => v.parent_round_number !== hadParentNumber).map((v: any, idx: number) => ({
-        ...v,
-        round_number: idx + 1
-      }));
+      const nextVotes = syncAndCleanVotes(votesCopy);
       
       const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
       setPlayerResults(syncRes.player_results);
@@ -2428,36 +2536,42 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                         type="button"
                         onClick={() => {
                           const currentVotes = protocol.votes || [];
+                          const normalVotes = currentVotes.filter(v => !v.is_revote);
+                          const nextDayNum = normalVotes.length; // 0, 1, 2, ...
                           const nextRoundNum = currentVotes.length + 1;
-                          setProtocol((prev) => ({
-                            ...prev,
-                            votes: [
+                          setProtocol((prev) => {
+                            const nextVotes = [
                               ...(prev.votes || []),
                               {
                                 round_number: nextRoundNum,
                                 is_revote: false,
                                 nominated_seats: [],
                                 vote_counts: {},
-                                day_number: nextRoundNum === 1 ? 0 : 1,
+                                day_number: nextDayNum,
                                 eligible_voters: 10,
                                 outcome: 'pending'
                               }
-                            ]
-                          }));
+                            ];
+                            const cleanVotes = syncAndCleanVotes(nextVotes);
+                            const syncRes = syncConfirmedVotesToResults(cleanVotes, playerResultsRef.current, { ...prev, votes: cleanVotes });
+                            setPlayerResults(syncRes.player_results);
+                            playerResultsRef.current = syncRes.player_results;
+                            return syncRes.protocol;
+                          });
                           dirtyRevision.current++;
                           setSaveStatus('unsaved');
                         }}
                         className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-1"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Добавить круг</span>
+                        <span>Добавить голосование</span>
                       </button>
                     )}
                   </div>
 
                   {!protocol.votes || protocol.votes.length === 0 ? (
                     <div className="bg-slate-800/40 rounded-xl p-8 text-center text-slate-400 text-xs border border-slate-800">
-                      Голосования не зафиксированы. Нажмите «Добавить круг» для внесения данных.
+                      Голосования не зафиксированы. Нажмите «Добавить голосование» для внесения данных.
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -2495,14 +2609,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               calculatedOutcome = 'tie_revote';
                               outcomeDescription = `Ничья между игроками #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется переголосование.`;
                             } else {
-                              const tableLeaveVotes = round.table_leave_votes ?? 0;
-                              const majorityRequired = Math.floor(eligibleVoters / 2) + 1;
-                              if (tableLeaveVotes >= majorityRequired) {
-                                calculatedOutcome = 'all_tied_eliminated';
-                                outcomeDescription = `Большинство голосующих (${tableLeaveVotes} из ${majorityRequired}) высказались за уход. Все спорные игроки (#${winners.join(', #')}) покидают стол.`;
+                              const tableLeaveVotes = round.table_leave_votes;
+                              if (tableLeaveVotes === undefined || tableLeaveVotes === null) {
+                                calculatedOutcome = 'pending';
+                                outcomeDescription = `Введите количество голосов за уход всех игроков для подведения итогов переголосования`;
                               } else {
-                                calculatedOutcome = 'no_elimination';
-                                outcomeDescription = `Большинство голосов за уход не набрано (${tableLeaveVotes} из ${majorityRequired}). Никто не покидает стол.`;
+                                const majorityRequired = Math.floor(eligibleVoters / 2) + 1;
+                                if (tableLeaveVotes >= majorityRequired) {
+                                  calculatedOutcome = 'all_tied_eliminated';
+                                  outcomeDescription = `Большинство голосующих (${tableLeaveVotes} из ${majorityRequired}) высказались за уход. Все спорные игроки (#${winners.join(', #')}) покидают стол.`;
+                                } else {
+                                  calculatedOutcome = 'no_elimination';
+                                  outcomeDescription = `Большинство голосов за уход не набрано (${tableLeaveVotes} из ${majorityRequired}). Никто не покидает стол.`;
+                                }
                               }
                             }
                           }
@@ -2530,7 +2649,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
                                   <span className="text-slate-400 text-[11px]">День:</span>
                                   <select
-                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    disabled={protocol.status === 'completed' || isConfirmed || round.is_revote}
                                     value={dayNum}
                                     onChange={(e) => {
                                       const d = parseInt(e.target.value) || 0;
@@ -2552,7 +2671,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
                                   <span className="text-slate-400 text-[11px]">Голосующих:</span>
                                   <select
-                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    disabled={protocol.status === 'completed' || isConfirmed || round.is_revote || dayNum === 0}
                                     value={eligibleVoters}
                                     onChange={(e) => {
                                       const ev = parseInt(e.target.value) || 10;
@@ -2611,11 +2730,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setHighlightedRoundIdx(null);
                                     setProtocol((prev) => {
-                                      const nextVotes = (prev.votes || []).filter((_, idx) => idx !== rIdx).map((v, idx) => ({
-                                        ...v,
-                                        round_number: idx + 1
-                                      }));
+                                      const remainingVotes = (prev.votes || []).filter((_, idx) => idx !== rIdx);
+                                      const nextVotes = syncAndCleanVotes(remainingVotes);
                                       const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
                                       setPlayerResults(syncRes.player_results);
                                       playerResultsRef.current = syncRes.player_results;
@@ -2754,7 +2872,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             )}
 
                             {/* Revote: Table leave votes block */}
-                            {round.is_revote && nominatedSeats.length > 0 && (
+                            {round.is_revote && nominatedSeats.length > 0 && winners.length > 1 && (
                               <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
                                 <div className="flex flex-col space-y-1">
                                   <span className="text-xs text-slate-400">Голоса за уход всех спорных игроков (#{winners.join(', #')}):</span>
@@ -2763,14 +2881,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                       type="text"
                                       inputMode="numeric"
                                       disabled={protocol.status === 'completed' || isConfirmed}
-                                      value={voteDrafts[`${rIdx}-leave`] !== undefined ? voteDrafts[`${rIdx}-leave`] : String(round.table_leave_votes ?? 0)}
+                                      value={voteDrafts[`${rIdx}-leave`] !== undefined ? voteDrafts[`${rIdx}-leave`] : (round.table_leave_votes !== null && round.table_leave_votes !== undefined ? String(round.table_leave_votes) : '')}
                                       onChange={(e) => {
                                         const raw = e.target.value.replace(/\D/g, '');
                                         if (raw === '') {
                                           setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: '' }));
                                           handleRoundChange(rIdx, (r) => ({
                                             ...r,
-                                            table_leave_votes: 0
+                                            table_leave_votes: null
                                           }));
                                         } else {
                                           let val = parseInt(raw, 10);
@@ -2824,7 +2942,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   {!isConfirmed ? (
                                     <button
                                       type="button"
-                                      disabled={sumVotes !== eligibleVoters || protocol.status === 'completed'}
+                                      disabled={sumVotes !== eligibleVoters || calculatedOutcome === 'pending' || protocol.status === 'completed'}
                                       onClick={() => {
                                         if (calculatedOutcome !== 'pending') {
                                           handleConfirmOutcome(rIdx, calculatedOutcome, winners);

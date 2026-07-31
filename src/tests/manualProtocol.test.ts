@@ -1038,4 +1038,548 @@ describe('Manual Mobile Protocol Test Suite', () => {
       });
     expect(res.status).toBe(200);
   });
+
+  // Comprehensive Voting Protocols, Validation, and Constraint Tests (16 Mandatory Scenarios)
+  describe('Mandatory Voting Protocols and Constraints Tests', () => {
+    let basePayload: any;
+
+    beforeEach(() => {
+      basePayload = {
+        protocol: {
+          winner_team: 'red',
+          votes: [],
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: 'alive',
+        })),
+      };
+    });
+
+    // 1. Day 0 round accepts eligible_voters of 10.
+    it('1. Accepts day_number = 0 when eligible_voters is exactly 10', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 0,
+          eligible_voters: 10,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 5, 2: 5 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[0].eligible_voters).toBe(10);
+    });
+
+    // 2. Day 0 round rejects eligible_voters other than 10 (e.g. 9) during PUT.
+    it('2. Rejects day_number = 0 during PUT if eligible_voters is not 10', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 0,
+          eligible_voters: 9, // INVALID for day 0
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 5 },
+          is_confirmed: true,
+          outcome: 'single_eliminated',
+          eliminated_seats: [2],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('количество голосующих в нулевом круге должно быть строго равно 10');
+    });
+
+    // 3. Day 0 round rejects eligible_voters other than 10 on complete POST.
+    it('3. Rejects day_number = 0 during completion POST if eligible_voters is not 10', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 0,
+          eligible_voters: 8, // INVALID
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('количество голосующих в нулевом круге должно быть строго равно 10');
+    });
+
+    // 4. Revote inherits day number from parent.
+    it('4. Accepts revote round when it correctly inherits the day_number from parent round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 2,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [3, 4],
+          vote_counts: { 3: 4, 4: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 2, // Matches parent day_number
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [3, 4],
+          vote_counts: { 3: 4, 4: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+    });
+
+    // 5. Revote rejects mismatched day number.
+    it('5. Rejects revote round if day_number does not match parent round day_number', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 2,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [3, 4],
+          vote_counts: { 3: 4, 4: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 3, // MISMATCH with parent day_number 2
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [3, 4],
+          vote_counts: { 3: 4, 4: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('должен совпадать с днём родительского голосования');
+    });
+
+    // 6. Revote inherits eligible voters from parent.
+    it('6. Accepts revote round when it correctly inherits eligible_voters from parent round', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8, // Matches parent voter count
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 1,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+    });
+
+    // 7. Revote rejects mismatched eligible voters.
+    it('7. Rejects revote round if eligible_voters does not match parent round eligible_voters', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 6, // MISMATCH with parent eligible_voters 8
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 3, 2: 3 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0,
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('количество голосующих');
+    });
+
+    // 8. Revote tie-break requires explicit table_leave_votes.
+    it('8. Rejects completion of revote tie-break if table_leave_votes is null or undefined', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 }, // Tie!
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: null, // Missing explicit vote count!
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('не указаны голоса за уход всех спорных игроков при переголосовании');
+    });
+
+    // 9. Revote tie-break accepts explicit table_leave_votes = 0.
+    it('9. Accepts revote tie-break with table_leave_votes explicitly set to 0', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 0, // Explicitly 0
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[1].table_leave_votes).toBe(0);
+    });
+
+    // 10. Revote tie-break with table_leave_votes below majority -> outcome is no_elimination.
+    it('10. Resolves outcome to no_elimination when table_leave_votes is below majority (e.g. 4 of 8)', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: 4, // 4 out of 8 is not a majority (majority is 5)
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[1].outcome).toBe('no_elimination');
+    });
+
+    // 11. Revote tie-break with table_leave_votes >= majority -> outcome is all_tied_eliminated.
+    it('11. Resolves outcome to all_tied_eliminated when table_leave_votes is >= majority (e.g. 5 of 8)', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'all_tied_eliminated',
+          table_leave_votes: 5, // 5 out of 8 is a majority
+          eliminated_seats: [1, 2],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[1].outcome).toBe('all_tied_eliminated');
+      expect(res.body.protocol.votes[1].eliminated_seats).toEqual([1, 2]);
+    });
+
+    // 12. Single winner outcome is single_eliminated without needing table_leave_votes.
+    it('12. Resolves normal round with single majority winner to single_eliminated without needing table_leave_votes', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 5, 2: 3 }, // Single majority winner
+          is_confirmed: true,
+          outcome: 'single_eliminated',
+          eliminated_seats: [1],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[0].outcome).toBe('single_eliminated');
+    });
+
+    // 13. Revote with single winner does not require table_leave_votes.
+    it('13. Resolves revote with single winner to single_eliminated without requiring table_leave_votes', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 6, 2: 2 }, // Single majority winner on revote
+          is_confirmed: true,
+          outcome: 'single_eliminated',
+          table_leave_votes: null, // No tie, so table_leave_votes is optional/null
+          eliminated_seats: [1],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[1].outcome).toBe('single_eliminated');
+    });
+
+    // 14. Normal tie-break without revote results in tie_revote outcome.
+    it('14. Resolves normal round tie to tie_revote without requiring table_leave_votes', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 }, // Tie!
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.protocol.votes[0].outcome).toBe('tie_revote');
+    });
+
+    // 15. Validation errors return exact failing round index/indices in the response.
+    it('15. Returns exact error indices in PUT response when voting constraints are violated', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 0,
+          eligible_voters: 8, // VIOLATION: Must be 10 for day 0!
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .put(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('количество голосующих в нулевом круге должно быть строго равно 10');
+    });
+
+    // 16. Validation errors on complete POST block transitioning and return detailed reports.
+    it('16. Blocks transition to completed status and returns details on validation errors during POST complete', async () => {
+      basePayload.protocol.votes = [
+        {
+          round_number: 1,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: false,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'tie_revote',
+          eliminated_seats: [],
+        },
+        {
+          round_number: 2,
+          day_number: 1,
+          eligible_voters: 8,
+          is_revote: true,
+          nominated_seats: [1, 2],
+          vote_counts: { 1: 4, 2: 4 },
+          is_confirmed: true,
+          outcome: 'no_elimination',
+          table_leave_votes: null, // VIOLATION
+          eliminated_seats: [],
+        },
+      ];
+
+      const res = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(basePayload);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('не указаны голоса за уход всех спорных игроков при переголосовании');
+
+      // Verify game is still in draft / not completed
+      const getRes = await request(app)
+        .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie);
+
+      expect(getRes.body.protocol.status).toBe('draft');
+    });
+  });
 });

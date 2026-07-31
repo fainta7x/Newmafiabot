@@ -120,13 +120,45 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     Record<string, { index: number; seats: number[]; mark: 'red' | 'black' | 'sheriff' } | null>
   >({});
 
-  // Exit type change confirmation modal (when color_protocol is present)
   const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<{
     participantId: string;
     newExitType: PlayerResultData['exit_type'];
     playerName: string;
     seatNum: number;
   } | null>(null);
+
+  // Discipline confirmations
+  const [pendingDisciplineAction, setPendingDisciplineAction] = useState<{
+    participantId: string;
+    type: 'foul_4' | 'tech_2' | 'direct_removal' | 'ppk' | 'cancel_ppk' | 'cancel_direct';
+    playerName: string;
+    seatNum: number;
+    techType?: 'minor' | 'major';
+  } | null>(null);
+
+  const [oldTechFoulsToFix, setOldTechFoulsToFix] = useState<Record<string, number>>({});
+
+  // PPK Winner Team helper
+  const getOppositeTeam = (role: string | null): 'red' | 'black' | null => {
+    if (!role) return null;
+    const r = role.toLowerCase();
+    if (r === 'citizen' || r === 'sheriff' || r === 'мирный' || r === 'мирянин' || r === 'шериф') return 'black';
+    if (r === 'mafia' || r === 'don' || r === 'мафия' || r === 'дон') return 'red';
+    return null;
+  };
+
+  const calculateDisciplinaryPenaltyLocal = (pr: PlayerResultData, isPpkCulprit: boolean) => {
+    let disc = 0;
+    disc += (pr.minor_technical_fouls || 0) * 0.3;
+    disc += (pr.major_technical_fouls || 0) * 0.6;
+    if (pr.exit_type === 'removed') {
+      disc += 1.0;
+    }
+    if (isPpkCulprit) {
+      disc += 1.0;
+    }
+    return Number(disc.toFixed(1));
+  };
 
   // Helper for decimal parsing
   const parseDecimalString = (val: string): number => {
@@ -226,6 +258,34 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     };
   }, [isOpen, tournamentId, gameId]);
 
+  // Detect unclassified tech fouls from old versions
+  useEffect(() => {
+    if (!loading && playerResults.length > 0) {
+      const toFix: Record<string, number> = {};
+      playerResults.forEach(pr => {
+        const total = pr.technical_fouls || 0;
+        const sum = (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0);
+        if (total > sum) {
+          toFix[pr.participant_id] = total;
+        }
+      });
+      setOldTechFoulsToFix(toFix);
+    }
+  }, [loading, playerResults]);
+
+  const classifyTechFoul = (participantId: string, minor: number, major: number) => {
+    updatePlayerResult(participantId, {
+      minor_technical_fouls: minor,
+      major_technical_fouls: major,
+      technical_fouls: minor + major
+    });
+    setOldTechFoulsToFix(prev => {
+      const next = { ...prev };
+      delete next[participantId];
+      return next;
+    });
+  };
+
   // Debounced Auto-save effect
   useEffect(() => {
     if (isFirstRender.current || loading || isLoadingRef.current || !isOpen || protocol.status === 'completed') return;
@@ -296,10 +356,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               exit_type: pr.exit_type,
               exit_order: pr.exit_order,
               regular_fouls: pr.regular_fouls,
+              minor_technical_fouls: pr.minor_technical_fouls || 0,
+              major_technical_fouls: pr.major_technical_fouls || 0,
               technical_fouls: pr.technical_fouls,
               judge_bonus: pr.judge_bonus,
               protocol_bonus: pr.protocol_bonus,
               penalty_points: pr.penalty_points,
+              disciplinary_penalty_points: calculateDisciplinaryPenaltyLocal(pr, currentProto.ppk_culprit_participant_id === pr.participant_id),
+              removal_reason: pr.removal_reason,
               color_protocol: pr.color_protocol || [],
               notes: pr.notes
             }))
@@ -382,6 +446,78 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     );
   };
 
+  const handleRegularFoulChange = (participantId: string, delta: number) => {
+    const player = playerResults.find(p => p.participant_id === participantId);
+    if (!player) return;
+
+    const newValue = Math.max(0, Math.min(4, player.regular_fouls + delta));
+    
+    if (delta > 0 && newValue === 4) {
+      handleDisciplineAction(participantId, 'foul_4');
+      return;
+    }
+
+    if (delta < 0 && player.regular_fouls === 4 && player.removal_reason === '4th_foul') {
+      updatePlayerResult(participantId, {
+        regular_fouls: 3,
+        exit_type: 'alive',
+        removal_reason: null
+      });
+      return;
+    }
+
+    updatePlayerResult(participantId, { regular_fouls: newValue });
+  };
+
+  const handleTechFoulChange = (participantId: string, techType: 'minor' | 'major', delta: number) => {
+    const player = playerResults.find(p => p.participant_id === participantId);
+    if (!player) return;
+
+    const currentMinor = player.minor_technical_fouls || 0;
+    const currentMajor = player.major_technical_fouls || 0;
+    const currentTotal = currentMinor + currentMajor;
+
+    if (delta > 0) {
+      if (currentTotal >= 2) return;
+      if (currentTotal === 1) {
+        setPendingDisciplineAction({
+          participantId,
+          type: 'tech_2',
+          playerName: player.display_name,
+          seatNum: player.seat_number,
+          techType
+        });
+        return;
+      }
+      
+      const updates: Partial<PlayerResultData> = techType === 'minor' 
+        ? { minor_technical_fouls: currentMinor + 1 } 
+        : { major_technical_fouls: currentMajor + 1 };
+      
+      updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
+      updatePlayerResult(participantId, updates);
+    } else {
+      const updates: Partial<PlayerResultData> = {};
+      if (techType === 'minor' && currentMinor > 0) {
+        updates.minor_technical_fouls = currentMinor - 1;
+      } else if (techType === 'major' && currentMajor > 0) {
+        updates.major_technical_fouls = currentMajor - 1;
+      } else {
+        return;
+      }
+
+      const newTotal = (updates.minor_technical_fouls ?? currentMinor) + (updates.major_technical_fouls ?? currentMajor);
+      updates.technical_fouls = newTotal;
+
+      if (newTotal === 1 && player.removal_reason === '2nd_tech') {
+        updates.exit_type = 'alive';
+        updates.removal_reason = null;
+      }
+
+      updatePlayerResult(participantId, updates);
+    }
+  };
+
   const confirmExitTypeChange = () => {
     if (!pendingExitTypeConfirm) return;
     const { participantId, newExitType } = pendingExitTypeConfirm;
@@ -394,6 +530,74 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       })
     );
     setPendingExitTypeConfirm(null);
+  };
+
+  const handleDisciplineAction = (
+    participantId: string,
+    type: 'foul_4' | 'tech_2' | 'direct_removal' | 'ppk' | 'cancel_ppk' | 'cancel_direct',
+    techType?: 'minor' | 'major'
+  ) => {
+    const player = playerResults.find(p => p.participant_id === participantId);
+    if (!player) return;
+    setPendingDisciplineAction({
+      participantId,
+      type,
+      playerName: player.display_name,
+      seatNum: player.seat_number,
+      techType
+    });
+  };
+
+  const confirmDisciplineAction = () => {
+    if (!pendingDisciplineAction) return;
+    const { participantId, type, techType } = pendingDisciplineAction;
+    
+    if (type === 'ppk') {
+      const player = playerResults.find(p => p.participant_id === participantId);
+      if (player) {
+        const winnerTeam = getOppositeTeam(player.role);
+        if (!winnerTeam) {
+          setError(`Не удалось определить победителя по ППК: роль игрока #${player.seat_number} не установлена или некорректна`);
+          setPendingDisciplineAction(null);
+          return;
+        }
+        setProtocol(prev => ({
+          ...prev,
+          end_reason: 'ppk',
+          ppk_culprit_participant_id: participantId,
+          winner_team: winnerTeam
+        }));
+      }
+    } else if (type === 'cancel_ppk') {
+      setProtocol(prev => ({
+        ...prev,
+        end_reason: 'normal',
+        ppk_culprit_participant_id: null,
+        winner_team: null
+      }));
+    } else if (type === 'direct_removal') {
+      updatePlayerResult(participantId, { exit_type: 'removed', removal_reason: 'direct' });
+    } else if (type === 'cancel_direct') {
+      updatePlayerResult(participantId, { exit_type: 'alive', removal_reason: null });
+    } else if (type === 'foul_4') {
+      updatePlayerResult(participantId, { regular_fouls: 4, exit_type: 'removed', removal_reason: '4th_foul' });
+    } else if (type === 'tech_2') {
+      const player = playerResults.find(p => p.participant_id === participantId);
+      if (player && techType) {
+        const currentMinor = player.minor_technical_fouls || 0;
+        const currentMajor = player.major_technical_fouls || 0;
+        const updates: Partial<PlayerResultData> = techType === 'minor' 
+          ? { minor_technical_fouls: currentMinor + 1 } 
+          : { major_technical_fouls: currentMajor + 1 };
+        
+        updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
+        updates.exit_type = 'removed';
+        updates.removal_reason = '2nd_tech';
+        updatePlayerResult(participantId, updates);
+      }
+    }
+
+    setPendingDisciplineAction(null);
   };
 
   // Color protocol handlers per player
@@ -618,6 +822,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           return 'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг';
         }
       }
+    }
+
+    // Check for unclassified tech fouls
+    if (Object.keys(oldTechFoulsToFix).length > 0) {
+      return 'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)';
     }
 
     return null;
@@ -966,11 +1175,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               <select
                                 disabled={protocol.status === 'completed'}
                                 value={player.exit_type}
-                                onChange={(e) =>
-                                  updatePlayerResult(player.participant_id, {
-                                    exit_type: e.target.value as any
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const val = e.target.value as any;
+                                  if (val === 'removed') {
+                                    handleDisciplineAction(player.participant_id, 'direct_removal');
+                                  } else {
+                                    updatePlayerResult(player.participant_id, {
+                                      exit_type: val
+                                    });
+                                  }
+                                }}
                                 className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none disabled:opacity-60"
                               >
                                 <option value="alive">Жив</option>
@@ -983,117 +1197,244 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           </div>
 
                           {/* Middle Row: Fouls & Bonuses Grid */}
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                              <span className="text-slate-400 block mb-1">Обычные фолы</span>
-                              <div className="flex items-center space-x-1">
-                                <button
-                                  type="button"
-                                  disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
-                                  onClick={() =>
-                                    updatePlayerResult(player.participant_id, {
-                                      regular_fouls: Math.max(0, player.regular_fouls - 1)
-                                    })
-                                  }
-                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
-                                >
-                                  -
-                                </button>
-                                <span className="flex-1 text-center font-bold text-amber-400 text-sm">
-                                  {player.regular_fouls}
-                                </span>
-                                <button
-                                  type="button"
-                                  disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
-                                  onClick={() =>
-                                    updatePlayerResult(player.participant_id, {
-                                      regular_fouls: Math.min(4, player.regular_fouls + 1)
-                                    })
-                                  }
-                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
-                                >
-                                  +
-                                </button>
+                          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mt-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                              {/* Regular Fouls */}
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-slate-400">Обычные фолы</span>
+                                  {player.regular_fouls === 3 && (
+                                    <span className="text-[10px] text-amber-500 font-medium animate-pulse">30 сек</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
+                                    onClick={() => handleRegularFoulChange(player.participant_id, -1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="flex-1 text-center font-bold text-amber-400 text-sm">
+                                    {player.regular_fouls}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
+                                    onClick={() => handleRegularFoulChange(player.participant_id, 1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Technical Fouls - Minor */}
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-1">Малый тех −0.3</span>
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || (player.minor_technical_fouls || 0) <= 0}
+                                    onClick={() => handleTechFoulChange(player.participant_id, 'minor', -1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="flex-1 text-center font-bold text-rose-400 text-sm">
+                                    {player.minor_technical_fouls || 0}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
+                                    onClick={() => handleTechFoulChange(player.participant_id, 'minor', 1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Technical Fouls - Major */}
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-1">Большой тех −0.6</span>
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || (player.major_technical_fouls || 0) <= 0}
+                                    onClick={() => handleTechFoulChange(player.participant_id, 'major', -1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="flex-1 text-center font-bold text-rose-600 text-sm">
+                                    {player.major_technical_fouls || 0}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
+                                    onClick={() => handleTechFoulChange(player.participant_id, 'major', 1)}
+                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Game Penalty (Penalty points) */}
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-0.5">Игровой минус</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={protocol.status === 'completed'}
+                                  value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
+                                  onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                />
+                                <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Учитывается в номинациях</span>
+                              </div>
+
+                              {/* Disciplinary Penalty (Read-only) */}
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-0.5">Дисципл. минус</span>
+                                <div className="w-full bg-slate-900/40 border border-slate-800 rounded px-2 py-1 text-slate-400 text-xs text-center font-medium">
+                                  {calculateDisciplinaryPenaltyLocal(player, protocol.ppk_culprit_participant_id === player.participant_id)}
+                                </div>
+                                <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Не влияет на номин.</span>
                               </div>
                             </div>
 
-                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                              <span className="text-slate-400 block mb-1">Тех. фолы</span>
-                              <div className="flex items-center space-x-1">
-                                <button
-                                  type="button"
-                                  disabled={protocol.status === 'completed' || player.technical_fouls <= 0}
-                                  onClick={() =>
-                                    updatePlayerResult(player.participant_id, {
-                                      technical_fouls: Math.max(0, player.technical_fouls - 1)
-                                    })
-                                  }
-                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
-                                >
-                                  -
-                                </button>
-                                <span className="flex-1 text-center font-bold text-rose-400 text-sm">
-                                  {player.technical_fouls}
-                                </span>
+                            {/* Unclassified Tech Fouls Warning */}
+                            {oldTechFoulsToFix[player.participant_id] !== undefined && (
+                              <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                <div className="flex items-center space-x-2 text-amber-400 mb-2">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span className="text-[11px] font-bold">Старые техфолы: тип не указан ({oldTechFoulsToFix[player.participant_id]})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {oldTechFoulsToFix[player.participant_id] === 1 ? (
+                                    <>
+                                      <button
+                                        onClick={() => classifyTechFoul(player.participant_id, 1, 0)}
+                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                      >
+                                        1 малый
+                                      </button>
+                                      <button
+                                        onClick={() => classifyTechFoul(player.participant_id, 0, 1)}
+                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                      >
+                                        1 большой
+                                      </button>
+                                    </>
+                                  ) : oldTechFoulsToFix[player.participant_id] === 2 ? (
+                                    <>
+                                      <button
+                                        onClick={() => classifyTechFoul(player.participant_id, 2, 0)}
+                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                      >
+                                        2 малых
+                                      </button>
+                                      <button
+                                        onClick={() => classifyTechFoul(player.participant_id, 1, 1)}
+                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                      >
+                                        малый + большой
+                                      </button>
+                                      <button
+                                        onClick={() => classifyTechFoul(player.participant_id, 0, 2)}
+                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                      >
+                                        2 больших
+                                      </button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Bonuses and Ci Row */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mt-3">
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-1">Балл за прот.</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={protocol.status === 'completed'}
+                                  value={getDecimalInputValue(player.participant_id, 'protocol_bonus', player.protocol_bonus ?? 0)}
+                                  onChange={(e) => handleDecimalChange(player.participant_id, 'protocol_bonus', e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                />
+                              </div>
+
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                                <span className="text-slate-400 block mb-1">Балл судьи</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={protocol.status === 'completed'}
+                                  value={getDecimalInputValue(player.participant_id, 'judge_bonus', player.judge_bonus ?? 0)}
+                                  onChange={(e) => handleDecimalChange(player.participant_id, 'judge_bonus', e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                />
+                              </div>
+
+                              {player.participant_id === protocol.first_killed_participant_id ? (
+                                <div className="bg-cyan-950/20 p-2 rounded-lg border border-cyan-500/40 space-y-1">
+                                  <span className="text-cyan-400 font-bold block">Коэффициент Ci</span>
+                                  <p className="text-[10px] text-slate-400 leading-tight">
+                                    Ci рассчитывается автоматически
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="hidden sm:block"></div>
+                              )}
+                            </div>
+
+                            {/* Action Buttons: Removal & PPK */}
+                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-800/40">
+                              {player.removal_reason === 'direct' ? (
                                 <button
                                   type="button"
                                   disabled={protocol.status === 'completed'}
-                                  onClick={() =>
-                                    updatePlayerResult(player.participant_id, {
-                                      technical_fouls: player.technical_fouls + 1
-                                    })
-                                  }
-                                  className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                  onClick={() => handleDisciplineAction(player.participant_id, 'cancel_direct')}
+                                  className="flex-1 min-h-[36px] rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-medium hover:bg-emerald-500/20 transition flex items-center justify-center"
                                 >
-                                  +
+                                  Отменить удаление
                                 </button>
-                              </div>
-                            </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed' || player.exit_type === 'removed'}
+                                  onClick={() => handleDisciplineAction(player.participant_id, 'direct_removal')}
+                                  className="flex-1 min-h-[36px] rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[11px] font-medium hover:bg-rose-500/20 transition disabled:opacity-30 flex items-center justify-center"
+                                >
+                                  Удалить решением судьи
+                                </button>
+                              )}
 
-                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                              <span className="text-slate-400 block mb-1">Балл за прот.</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                disabled={protocol.status === 'completed'}
-                                value={getDecimalInputValue(player.participant_id, 'protocol_bonus', player.protocol_bonus ?? 0)}
-                                onChange={(e) => handleDecimalChange(player.participant_id, 'protocol_bonus', e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
-                              />
+                              {protocol.ppk_culprit_participant_id === player.participant_id ? (
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed'}
+                                  onClick={() => handleDisciplineAction(player.participant_id, 'cancel_ppk')}
+                                  className="flex-1 min-h-[36px] rounded-lg bg-amber-500 text-slate-950 font-bold text-[11px] hover:bg-amber-600 transition shadow-lg shadow-amber-500/20 flex items-center justify-center"
+                                >
+                                  Снять ППК
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={protocol.status === 'completed' || (protocol.end_reason === 'ppk' && protocol.ppk_culprit_participant_id !== player.participant_id)}
+                                  onClick={() => handleDisciplineAction(player.participant_id, 'ppk')}
+                                  className="flex-1 min-h-[36px] rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium hover:bg-slate-700 transition disabled:opacity-30 flex items-center justify-center"
+                                >
+                                  ППК
+                                </button>
+                              )}
                             </div>
-
-                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                              <span className="text-slate-400 block mb-1">Балл судьи</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                disabled={protocol.status === 'completed'}
-                                value={getDecimalInputValue(player.participant_id, 'judge_bonus', player.judge_bonus ?? 0)}
-                                onChange={(e) => handleDecimalChange(player.participant_id, 'judge_bonus', e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
-                              />
-                            </div>
-
-                            <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 col-span-2 sm:col-span-1">
-                              <span className="text-slate-400 block mb-1">Штраф</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                disabled={protocol.status === 'completed'}
-                                value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
-                                onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
-                              />
-                            </div>
-
-                            {player.participant_id === protocol.first_killed_participant_id && (
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-cyan-500/40 col-span-2 sm:col-span-1 space-y-1">
-                                <span className="text-cyan-400 font-bold block">Коэффициент Ci</span>
-                                <p className="text-[10px] text-slate-300 font-medium">
-                                  Ci рассчитывается автоматически по дистанции турнира
-                                </p>
-                              </div>
-                            )}
                           </div>
 
                           {/* Notes */}
@@ -1806,13 +2147,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        disabled={protocol.status === 'completed'}
+                        disabled={protocol.status === 'completed' || protocol.end_reason === 'ppk'}
                         onClick={() => setProtocol((prev) => ({ ...prev, winner_team: 'red' }))}
                         className={`py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 border transition ${
                           protocol.winner_team === 'red'
                             ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-lg ring-2 ring-rose-500/50'
                             : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                        }`}
+                        } ${protocol.end_reason === 'ppk' ? 'opacity-50 grayscale' : ''}`}
                       >
                         <Shield className="w-4 h-4 text-rose-400" />
                         <span>Победа Красных</span>
@@ -1820,19 +2161,34 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                       <button
                         type="button"
-                        disabled={protocol.status === 'completed'}
+                        disabled={protocol.status === 'completed' || protocol.end_reason === 'ppk'}
                         onClick={() => setProtocol((prev) => ({ ...prev, winner_team: 'black' }))}
                         className={`py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 border transition ${
                           protocol.winner_team === 'black'
                             ? 'bg-slate-950 border-slate-500 text-slate-100 shadow-lg ring-2 ring-slate-400/50'
                             : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                        }`}
+                        } ${protocol.end_reason === 'ppk' ? 'opacity-50 grayscale' : ''}`}
                       >
                         <Shield className="w-4 h-4 text-slate-400" />
                         <span>Победа Чёрных</span>
                       </button>
                     </div>
                   </div>
+
+                  {/* PPK Status Message */}
+                  {protocol.end_reason === 'ppk' && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-amber-400">Игра завершена по ППК</h4>
+                        <p className="text-xs text-slate-300">
+                          Виновник: <strong>#{playerResults.find(p => p.participant_id === protocol.ppk_culprit_participant_id)?.seat_number}</strong> ({playerResults.find(p => p.participant_id === protocol.ppk_culprit_participant_id)?.display_name})
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Substitution Section */}
                   <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
@@ -1971,18 +2327,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                       Сводная таблица параметров игроков
                     </h4>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
+                      <table className="w-full text-left text-[10px] sm:text-xs border-collapse">
                         <thead>
                           <tr className="border-b border-slate-700 text-slate-400">
                             <th className="py-2 px-1">#</th>
                             <th className="py-2 px-2">Игрок</th>
                             <th className="py-2 px-2">Роль</th>
                             <th className="py-2 px-2">Статус</th>
-                            <th className="py-2 px-1 text-center">Фолы</th>
-                            <th className="py-2 px-1 text-center">Тех</th>
-                            <th className="py-2 px-1 text-right">Балл за прот.</th>
+                            <th className="py-2 px-1 text-center" title="Обычные фолы">Ф</th>
+                            <th className="py-2 px-1 text-center" title="Малые техфолы">мТ</th>
+                            <th className="py-2 px-1 text-center" title="Большие техфолы">БТ</th>
+                            <th className="py-2 px-1 text-right">Игр. м.</th>
+                            <th className="py-2 px-1 text-right">Дисц. м.</th>
                             <th className="py-2 px-1 text-right">Судья</th>
-                            <th className="py-2 px-1 text-right">Штраф</th>
+                            <th className="py-2 px-1 text-right">Прот.</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -1990,24 +2348,28 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             <tr key={p.participant_id} className="hover:bg-slate-800/40">
                               <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
                               <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}</td>
-                              <td className="py-2 px-2 text-amber-300/90 text-[11px]">
+                              <td className="py-2 px-2 text-amber-300/90">
                                 {p.role === 'citizen' && 'Мирный'}
                                 {p.role === 'sheriff' && 'Шериф'}
                                 {p.role === 'mafia' && 'Мафия'}
                                 {p.role === 'don' && 'Дон'}
                               </td>
-                              <td className="py-2 px-2 text-slate-300 text-[11px]">
+                              <td className="py-2 px-2 text-slate-300">
                                 {p.exit_type === 'alive' && <span className="text-emerald-400">Жив</span>}
                                 {p.exit_type === 'killed' && <span className="text-rose-400">Убит</span>}
-                                {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Заголосован (0)</span>}
-                                {p.exit_type === 'voted_day' && <span className="text-amber-400">Заголосован</span>}
+                                {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Загол. (0)</span>}
+                                {p.exit_type === 'voted_day' && <span className="text-amber-400">Загол.</span>}
                                 {p.exit_type === 'removed' && <span className="text-purple-400">Снят</span>}
                               </td>
                               <td className="py-2 px-1 text-center font-bold text-amber-400">{p.regular_fouls}</td>
-                              <td className="py-2 px-1 text-center font-bold text-rose-400">{p.technical_fouls}</td>
-                              <td className="py-2 px-1 text-right text-slate-300">{p.protocol_bonus || 0}</td>
-                              <td className="py-2 px-1 text-right text-slate-300">{p.judge_bonus || 0}</td>
+                              <td className="py-2 px-1 text-center font-bold text-rose-400">{p.minor_technical_fouls || 0}</td>
+                              <td className="py-2 px-1 text-center font-bold text-rose-600">{p.major_technical_fouls || 0}</td>
                               <td className="py-2 px-1 text-right text-rose-300">{p.penalty_points || 0}</td>
+                              <td className="py-2 px-1 text-right text-slate-400">
+                                {calculateDisciplinaryPenaltyLocal(p, protocol.ppk_culprit_participant_id === p.participant_id)}
+                              </td>
+                              <td className="py-2 px-1 text-right text-slate-300">{p.judge_bonus || 0}</td>
+                              <td className="py-2 px-1 text-right text-slate-300">{p.protocol_bonus || 0}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2065,6 +2427,73 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
       </div>
+
+      {/* MODAL: CONFIRM DISCIPLINE ACTION */}
+      {pendingDisciplineAction && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+            <div className="flex items-center space-x-3 text-rose-400">
+              <AlertTriangle className="w-6 h-6" />
+              <h3 className="text-base font-bold">
+                {pendingDisciplineAction.type === 'foul_4' && 'Подтвердите 4-й фол'}
+                {pendingDisciplineAction.type === 'tech_2' && 'Подтвердите 2-й техфол'}
+                {pendingDisciplineAction.type === 'direct_removal' && 'Удаление решением судьи'}
+                {pendingDisciplineAction.type === 'ppk' && 'Завершить игру по ППК?'}
+                {pendingDisciplineAction.type === 'cancel_ppk' && 'Отменить завершение по ППК?'}
+                {pendingDisciplineAction.type === 'cancel_direct' && 'Отменить удаление судьи?'}
+              </h3>
+            </div>
+
+            <div className="text-xs sm:text-sm text-slate-300 space-y-2">
+              <p>
+                Игрок <strong>#{pendingDisciplineAction.seatNum} ({pendingDisciplineAction.playerName})</strong>
+              </p>
+              {pendingDisciplineAction.type === 'foul_4' && (
+                <p>Будет автоматически удалён из игры по причине «4-й фол».</p>
+              )}
+              {pendingDisciplineAction.type === 'tech_2' && (
+                <p>
+                  Будет автоматически удалён из игры по причине «2-й техфол».
+                  Тип фола: <span className="text-rose-400 font-bold">{pendingDisciplineAction.techType === 'minor' ? 'Малый' : 'Большой'}</span>
+                </p>
+              )}
+              {pendingDisciplineAction.type === 'direct_removal' && (
+                <p>Игрок будет удалён из игры по решению судьи (дисквалификация).</p>
+              )}
+              {pendingDisciplineAction.type === 'ppk' && (
+                <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 space-y-1">
+                  <p>Игра будет немедленно завершена.</p>
+                  <p className="text-rose-400 font-bold">
+                    Победитель: {getOppositeTeam(playerResults.find(p => p.participant_id === pendingDisciplineAction.participantId)?.role || '') === 'red' ? 'Красные' : 'Чёрные'}
+                  </p>
+                  <p className="text-amber-500 font-medium">Виновнику будет начислен штраф −1.0.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingDisciplineAction(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={confirmDisciplineAction}
+                className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md ${
+                  ['foul_4', 'tech_2', 'direct_removal', 'ppk'].includes(pendingDisciplineAction.type)
+                    ? 'bg-rose-600 hover:bg-rose-500'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                }`}
+              >
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CONFIRM EXIT TYPE CHANGE WHEN COLOR PROTOCOL EXISTS */}
       {pendingExitTypeConfirm && (

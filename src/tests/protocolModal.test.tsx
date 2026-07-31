@@ -146,4 +146,29 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
     expect(localStorage.getItem(backupKey)).not.toBeNull();
   });
+
+  it('renders technical foul classification buttons (minor/major)', async () => {
+    vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+      game: mockGame as any,
+      protocol: mockProtocol as any,
+      player_results: mockPlayerResults as any
+    });
+
+    const { getByText, getAllByText } = render(
+      <GameProtocolModal
+        tournamentId={tournamentId}
+        gameId={gameId}
+        isOpen={true}
+        onClose={() => {}}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getByText('Player 1')).toBeTruthy();
+    });
+
+    // Check for minor and major tech foul labels
+    expect(getAllByText(/Малый тех/i).length).toBeGreaterThan(0);
+    expect(getAllByText(/Большой тех/i).length).toBeGreaterThan(0);
+  });
 });

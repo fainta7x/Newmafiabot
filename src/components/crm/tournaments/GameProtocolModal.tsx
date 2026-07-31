@@ -160,6 +160,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   const [selectedColorSeats, setSelectedColorSeats] = useState<Record<string, number[]>>({});
   const [selectedColorMark, setSelectedColorMark] = useState<Record<string, 'red' | 'black' | 'sheriff'>>({});
 
+  // Voting states
+  const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
+  const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
+
   // Auto-save state
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
@@ -846,6 +850,426 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     });
   };
 
+  const syncConfirmedVotesToResults = (
+    votes: any[],
+    results: PlayerResultData[],
+    proto: TournamentGameProtocolData
+  ) => {
+    const confirmedVotes = votes.filter((v: any) => v.outcome && v.outcome !== 'pending');
+    
+    const zeroRoundEliminatedSeats = new Set<number>();
+    const otherDayEliminatedSeats = new Set<number>();
+    
+    for (const r of confirmedVotes) {
+      const seats = r.eliminated_seats || [];
+      if (r.day_number === 0) {
+        seats.forEach((s: number) => zeroRoundEliminatedSeats.add(s));
+      } else {
+        seats.forEach((s: number) => otherDayEliminatedSeats.add(s));
+      }
+    }
+    
+    const updatedResults = results.map(pr => {
+      const isZeroElim = zeroRoundEliminatedSeats.has(pr.seat_number);
+      const isOtherElim = otherDayEliminatedSeats.has(pr.seat_number);
+      
+      let nextExitType = pr.exit_type;
+      if (isZeroElim) {
+        nextExitType = 'voted_zero_round';
+      } else if (isOtherElim) {
+        nextExitType = 'voted_day';
+      } else if (pr.exit_type === 'voted_zero_round' || pr.exit_type === 'voted_day') {
+        nextExitType = 'alive';
+      }
+      
+      return {
+        ...pr,
+        exit_type: nextExitType
+      };
+    });
+    
+    let zeroRoundVotedId: string | null = null;
+    const zeroRoundRounds = confirmedVotes.filter((v: any) => v.day_number === 0);
+    const day0ElimSeats = zeroRoundRounds.reduce<number[]>((acc, r: any) => [...acc, ...(r.eliminated_seats || [])], []);
+    if (day0ElimSeats.length === 1) {
+      const targetSeat = day0ElimSeats[0];
+      const player = results.find(p => p.seat_number === targetSeat);
+      if (player) {
+        zeroRoundVotedId = player.participant_id;
+      }
+    }
+    
+    let nextBestMoves = [...(proto.best_moves || [])];
+    if (!zeroRoundVotedId) {
+      nextBestMoves = nextBestMoves.filter(bm => bm.source !== 'zero_round_voted');
+    } else {
+      const zrBmIdx = nextBestMoves.findIndex(bm => bm.source === 'zero_round_voted');
+      if (zrBmIdx >= 0) {
+        nextBestMoves[zrBmIdx] = {
+          ...nextBestMoves[zrBmIdx],
+          participant_id: zeroRoundVotedId
+        };
+      }
+    }
+    
+    const updatedProto = {
+      ...proto,
+      zero_round_voted_participant_id: zeroRoundVotedId,
+      best_moves: nextBestMoves
+    };
+    
+    return { player_results: updatedResults, protocol: updatedProto };
+  };
+
+  const handleRoundChange = (rIdx: number, updater: (r: any) => any) => {
+    setProtocol((prev) => {
+      const votesCopy = [...(prev.votes || [])];
+      let r = { ...votesCopy[rIdx] };
+      const hadOutcome = r.outcome && r.outcome !== 'pending';
+      
+      r = updater(r);
+      
+      if (hadOutcome) {
+        r.outcome = 'pending';
+        r.eliminated_seats = [];
+        r.table_leave_votes = undefined;
+      }
+      
+      votesCopy[rIdx] = r;
+      
+      let nextVotes = votesCopy;
+      if (hadOutcome) {
+        nextVotes = votesCopy.filter((v: any) => v.parent_round_number !== r.round_number);
+        nextVotes = nextVotes.map((v: any, idx: number) => ({
+          ...v,
+          round_number: idx + 1
+        }));
+      }
+      
+      const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
+      setPlayerResults(syncRes.player_results);
+      playerResultsRef.current = syncRes.player_results;
+      
+      dirtyRevision.current++;
+      setSaveStatus('unsaved');
+      return syncRes.protocol;
+    });
+  };
+
+  const handleConfirmOutcome = (
+    rIdx: number,
+    calculatedOutcome: 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination',
+    winners: number[]
+  ) => {
+    if (calculatedOutcome === 'tie_revote') {
+      setProtocol((prev) => {
+        const currentVotes = [...(prev.votes || [])];
+        const updatedParent = {
+          ...currentVotes[rIdx],
+          outcome: 'tie_revote' as const,
+          eliminated_seats: []
+        };
+        currentVotes[rIdx] = updatedParent;
+
+        const newRound = {
+          round_number: updatedParent.round_number + 1,
+          is_revote: true,
+          nominated_seats: winners,
+          vote_counts: winners.reduce((acc, s) => ({ ...acc, [s]: 0 }), {}),
+          day_number: updatedParent.day_number ?? (rIdx === 0 ? 0 : 1),
+          eligible_voters: updatedParent.eligible_voters ?? 10,
+          parent_round_number: updatedParent.round_number,
+          outcome: 'pending' as const,
+          eliminated_seats: []
+        };
+
+        currentVotes.splice(rIdx + 1, 0, newRound);
+
+        const nextVotes = currentVotes.map((v, idx) => ({
+          ...v,
+          round_number: idx + 1
+        }));
+
+        const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
+        setPlayerResults(syncRes.player_results);
+        playerResultsRef.current = syncRes.player_results;
+
+        dirtyRevision.current++;
+        setSaveStatus('unsaved');
+        return syncRes.protocol;
+      });
+    } else {
+      setProtocol((prev) => {
+        const currentVotes = [...(prev.votes || [])];
+        currentVotes[rIdx] = {
+          ...currentVotes[rIdx],
+          outcome: calculatedOutcome,
+          eliminated_seats: calculatedOutcome === 'single_eliminated'
+            ? [winners[0]]
+            : calculatedOutcome === 'all_tied_eliminated'
+            ? winners
+            : []
+        };
+
+        const syncRes = syncConfirmedVotesToResults(currentVotes, playerResultsRef.current, { ...prev, votes: currentVotes });
+        setPlayerResults(syncRes.player_results);
+        playerResultsRef.current = syncRes.player_results;
+
+        dirtyRevision.current++;
+        setSaveStatus('unsaved');
+        return syncRes.protocol;
+      });
+    }
+  };
+
+  const handleResetOutcome = (rIdx: number) => {
+    setProtocol((prev) => {
+      const votesCopy = [...(prev.votes || [])];
+      const r = votesCopy[rIdx];
+      const hadParentNumber = r.round_number;
+      
+      votesCopy[rIdx] = {
+        ...r,
+        outcome: 'pending',
+        eliminated_seats: [],
+        table_leave_votes: undefined
+      };
+      
+      const nextVotes = votesCopy.filter((v: any) => v.parent_round_number !== hadParentNumber).map((v: any, idx: number) => ({
+        ...v,
+        round_number: idx + 1
+      }));
+      
+      const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
+      setPlayerResults(syncRes.player_results);
+      playerResultsRef.current = syncRes.player_results;
+      
+      dirtyRevision.current++;
+      setSaveStatus('unsaved');
+      return syncRes.protocol;
+    });
+  };
+
+  const validateVotesLogic = (
+    votes: any[],
+    results: PlayerResultData[],
+    zeroRoundVotedId: string | null
+  ): { errorMsg: string | null, roundIndexWithError: number | null } => {
+    if (!votes || votes.length === 0) {
+      return { errorMsg: null, roundIndexWithError: null };
+    }
+
+    for (let rIdx = 0; rIdx < votes.length; rIdx++) {
+      const round = votes[rIdx];
+      const roundNum = round.round_number ?? (rIdx + 1);
+      const dayNum = round.day_number ?? (rIdx === 0 ? 0 : 1);
+      
+      if (!round.nominated_seats || round.nominated_seats.length === 0) {
+        return {
+          errorMsg: `Запрещено завершать протокол с пустым кругом голосования (круг #${roundNum}, день ${dayNum}).`,
+          roundIndexWithError: rIdx
+        };
+      }
+
+      if (round.eligible_voters === undefined || round.eligible_voters === null || round.eligible_voters <= 0) {
+        return {
+          errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указано количество имеющих право голоса.`,
+          roundIndexWithError: rIdx
+        };
+      }
+
+      const sumVotes = round.nominated_seats.reduce((sum: number, s: number) => sum + (round.vote_counts?.[s] || 0), 0);
+      if (sumVotes !== round.eligible_voters) {
+        return {
+          errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): сумма распределённых голосов (${sumVotes}) не равна количеству голосующих (${round.eligible_voters}).`,
+          roundIndexWithError: rIdx
+        };
+      }
+
+      if (!round.outcome || round.outcome === 'pending') {
+        return {
+          errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход голосования не подтверждён судьёй.`,
+          roundIndexWithError: rIdx
+        };
+      }
+
+      const voteCounts = round.vote_counts || {};
+      let maxVotes = -1;
+      let winners: number[] = [];
+      for (const seat of round.nominated_seats) {
+        const votes = voteCounts[seat] ?? 0;
+        if (votes > maxVotes) {
+          maxVotes = votes;
+          winners = [seat];
+        } else if (votes === maxVotes) {
+          winners.push(seat);
+        }
+      }
+
+      if (winners.length === 1) {
+        if (round.outcome !== 'single_eliminated') {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается выбывание игрока #${winners[0]}).`,
+            roundIndexWithError: rIdx
+          };
+        }
+        if (!round.eliminated_seats || round.eliminated_seats.length !== 1 || round.eliminated_seats[0] !== winners[0]) {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки противоречат исходу (ожидается игрок #${winners[0]}).`,
+            roundIndexWithError: rIdx
+          };
+        }
+      } else {
+        if (!round.is_revote) {
+          if (round.outcome !== 'tie_revote') {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`,
+              roundIndexWithError: rIdx
+            };
+          }
+          if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`,
+              roundIndexWithError: rIdx
+            };
+          }
+        } else {
+          if (round.table_leave_votes === undefined || round.table_leave_votes === null) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`,
+              roundIndexWithError: rIdx
+            };
+          }
+          const majorityRequired = Math.floor(round.eligible_voters / 2) + 1;
+          const leavesTable = round.table_leave_votes >= majorityRequired;
+          if (leavesTable) {
+            if (round.outcome !== 'all_tied_eliminated') {
+              return {
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`,
+                roundIndexWithError: rIdx
+              };
+            }
+            const elims = [...(round.eliminated_seats || [])].sort((a,b) => a-b);
+            const expected = [...winners].sort((a,b) => a-b);
+            if (JSON.stringify(elims) !== JSON.stringify(expected)) {
+              return {
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`,
+                roundIndexWithError: rIdx
+              };
+            }
+          } else {
+            if (round.outcome !== 'no_elimination') {
+              return {
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`,
+                roundIndexWithError: rIdx
+              };
+            }
+            if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+              return {
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
+                roundIndexWithError: rIdx
+              };
+            }
+          }
+        }
+      }
+
+      if (round.is_revote && round.parent_round_number) {
+        const parentRound = votes.find(v => v.round_number === round.parent_round_number);
+        if (parentRound) {
+          const parentVoteCounts = parentRound.vote_counts || {};
+          let parentMaxVotes = -1;
+          let parentWinners: number[] = [];
+          for (const seat of parentRound.nominated_seats) {
+            const v = parentVoteCounts[seat] ?? 0;
+            if (v > parentMaxVotes) {
+              parentMaxVotes = v;
+              parentWinners = [seat];
+            } else if (v === parentMaxVotes) {
+              parentWinners.push(seat);
+            }
+          }
+          const currentNoms = [...(round.nominated_seats || [])].sort((a,b) => a-b);
+          const expectedNoms = [...parentWinners].sort((a,b) => a-b);
+          if (JSON.stringify(currentNoms) !== JSON.stringify(expectedNoms)) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`,
+              roundIndexWithError: rIdx
+            };
+          }
+        }
+      }
+    }
+
+    const zeroRoundEliminated = new Set<number>();
+    const otherDayEliminated = new Set<number>();
+    for (const round of votes) {
+      if (round.outcome && round.outcome !== 'pending') {
+        const dayNum = round.day_number ?? 0;
+        const seats = round.eliminated_seats || [];
+        if (dayNum === 0) {
+          seats.forEach((s: number) => zeroRoundEliminated.add(s));
+        } else {
+          seats.forEach((s: number) => otherDayEliminated.add(s));
+        }
+      }
+    }
+
+    for (const pr of results) {
+      if (pr.exit_type === 'voted_zero_round' && !zeroRoundEliminated.has(pr.seat_number)) {
+        return {
+          errorMsg: `Игрок #${pr.seat_number} имеет статус ухода "Заголосован (0 круг)", но не был заголосован в подтверждённых кругах дня 0.`,
+          roundIndexWithError: null
+        };
+      }
+      if (pr.exit_type === 'voted_day' && !otherDayEliminated.has(pr.seat_number)) {
+        return {
+          errorMsg: `Игрок #${pr.seat_number} имеет статус ухода "Заголосован", но не был заголосован в подтверждённых кругах последующих дней.`,
+          roundIndexWithError: null
+        };
+      }
+      if (zeroRoundEliminated.has(pr.seat_number) && pr.exit_type !== 'voted_zero_round') {
+        return {
+          errorMsg: `Игрок #${pr.seat_number} выбыл в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`,
+          roundIndexWithError: null
+        };
+      }
+      if (otherDayEliminated.has(pr.seat_number) && pr.exit_type !== 'voted_day') {
+        return {
+          errorMsg: `Игрок #${pr.seat_number} выбыл при голосовании, но его статус ухода в списке игроков не "Заголосован".`,
+          roundIndexWithError: null
+        };
+      }
+    }
+
+    const zrCount = zeroRoundEliminated.size;
+    if (zrCount === 1) {
+      if (!zeroRoundVotedId) {
+        return {
+          errorMsg: `В нулевом круге выбыл один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.`,
+          roundIndexWithError: null
+        };
+      }
+      const targetSeat = Array.from(zeroRoundEliminated)[0];
+      const targetPlayer = results.find(p => p.seat_number === targetSeat);
+      if (targetPlayer && targetPlayer.participant_id !== zeroRoundVotedId) {
+        return {
+          errorMsg: `Игрок в поле "Заголосованный в нулевой круг" должен совпадать с выбывшим игроком #${targetSeat}.`,
+          roundIndexWithError: null
+        };
+      }
+    } else {
+      if (zeroRoundVotedId !== null && zeroRoundVotedId !== '') {
+        return {
+          errorMsg: `В нулевом круге выбыло ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено (пусто).`,
+          roundIndexWithError: null
+        };
+      }
+    }
+
+    return { errorMsg: null, roundIndexWithError: null };
+  };
+
   // Validate protocol on client side before completing
   const validateBeforeComplete = (): string | null => {
     if (!protocol.winner_team || !['red', 'black'].includes(protocol.winner_team)) {
@@ -916,6 +1340,15 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     if (Object.keys(decimalErrors).length > 0) {
       return 'Исправьте ошибки в полях штрафных баллов перед завершением';
     }
+
+    const votingVal = validateVotesLogic(protocol.votes || [], playerResults, protocol.zero_round_voted_participant_id);
+    if (votingVal.errorMsg) {
+      if (votingVal.roundIndexWithError !== null) {
+        setHighlightedRoundIdx(votingVal.roundIndexWithError);
+      }
+      return votingVal.errorMsg;
+    }
+    setHighlightedRoundIdx(null);
 
     return null;
   };
@@ -2004,10 +2437,15 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 round_number: nextRoundNum,
                                 is_revote: false,
                                 nominated_seats: [],
-                                vote_counts: {}
+                                vote_counts: {},
+                                day_number: nextRoundNum === 1 ? 0 : 1,
+                                eligible_voters: 10,
+                                outcome: 'pending'
                               }
                             ]
                           }));
+                          dirtyRevision.current++;
+                          setSaveStatus('unsaved');
                         }}
                         className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-1"
                       >
@@ -2022,182 +2460,402 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                       Голосования не зафиксированы. Нажмите «Добавить круг» для внесения данных.
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {protocol.votes.map((round, rIdx) => (
-                        <div
-                          key={rIdx}
-                          className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/80 space-y-3"
-                        >
-                          {/* Round Header */}
-                          <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                            <div className="flex items-center space-x-3">
-                              <span className="font-bold text-sm text-amber-400">
-                                Круг #{round.round_number || rIdx + 1}
-                              </span>
+                    <div className="space-y-4">
+                      {protocol.votes.map((round, rIdx) => {
+                        const roundNum = round.round_number || rIdx + 1;
+                        const dayNum = round.day_number ?? (rIdx === 0 ? 0 : 1);
+                        const eligibleVoters = round.eligible_voters ?? 10;
+                        const nominatedSeats = round.nominated_seats || [];
+                        const voteCounts = round.vote_counts || {};
+                        const sumVotes = nominatedSeats.reduce((sum, s) => sum + (voteCounts[s] || 0), 0);
+                        const isConfirmed = round.outcome && round.outcome !== 'pending';
 
-                              {/* Toggle: Голосование / Переголосование */}
-                              <div className="flex items-center space-x-1 bg-slate-900 p-0.5 rounded-lg border border-slate-700">
-                                <button
-                                  type="button"
-                                  disabled={protocol.status === 'completed'}
-                                  onClick={() => {
-                                    setProtocol((prev) => {
-                                      const copy = [...(prev.votes || [])];
-                                      copy[rIdx] = { ...copy[rIdx], is_revote: false };
-                                      return { ...prev, votes: copy };
-                                    });
-                                  }}
-                                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
-                                    !round.is_revote
-                                      ? 'bg-amber-500 text-slate-950 font-bold'
-                                      : 'text-slate-400 hover:text-slate-200'
-                                  }`}
-                                >
-                                  Голосование
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={protocol.status === 'completed'}
-                                  onClick={() => {
-                                    setProtocol((prev) => {
-                                      const copy = [...(prev.votes || [])];
-                                      copy[rIdx] = { ...copy[rIdx], is_revote: true };
-                                      return { ...prev, votes: copy };
-                                    });
-                                  }}
-                                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
-                                    round.is_revote
-                                      ? 'bg-purple-600 text-white font-bold'
-                                      : 'text-slate-400 hover:text-slate-200'
-                                  }`}
-                                >
-                                  Переголосование
-                                </button>
-                              </div>
-                            </div>
+                        // Calculate potential outcome
+                        let maxVotes = -1;
+                        let winners: number[] = [];
+                        for (const seat of nominatedSeats) {
+                          const v = voteCounts[seat] ?? 0;
+                          if (v > maxVotes) {
+                            maxVotes = v;
+                            winners = [seat];
+                          } else if (v === maxVotes) {
+                            winners.push(seat);
+                          }
+                        }
 
-                            {protocol.status === 'draft' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setProtocol((prev) => ({
-                                    ...prev,
-                                    votes: (prev.votes || []).filter((_, idx) => idx !== rIdx).map((v, idx) => ({
-                                      ...v,
-                                      round_number: idx + 1
-                                    }))
-                                  }));
-                                }}
-                                className="text-slate-500 hover:text-rose-400 p-1"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
+                        let calculatedOutcome: 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination' | 'pending' = 'pending';
+                        let outcomeDescription = '';
 
-                          {/* Candidate Seats Selector */}
-                          <div className="space-y-1.5">
-                            <span className="text-xs text-slate-400 block">
-                              Выставленные кандидаты (выберите игрока 1-10):
-                            </span>
-                            <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1.5 w-full">
-                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seatNum) => {
-                                const isNominated = (round.nominated_seats || []).includes(seatNum);
-                                return (
-                                  <button
-                                    key={seatNum}
-                                    type="button"
-                                    disabled={protocol.status === 'completed'}
-                                    onClick={() => {
-                                      setProtocol((prev) => {
-                                        const votesCopy = [...(prev.votes || [])];
-                                        const r = votesCopy[rIdx];
-                                        const currentNoms = r.nominated_seats || [];
-                                        let updatedNoms: number[];
-                                        let updatedCounts = { ...(r.vote_counts || {}) };
+                        if (sumVotes === eligibleVoters && nominatedSeats.length > 0) {
+                          if (winners.length === 1) {
+                            calculatedOutcome = 'single_eliminated';
+                            outcomeDescription = `Игрок #${winners[0]} набрал большинство голосов (${maxVotes}) и покидает стол.`;
+                          } else if (winners.length > 1) {
+                            if (!round.is_revote) {
+                              calculatedOutcome = 'tie_revote';
+                              outcomeDescription = `Ничья между игроками #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется переголосование.`;
+                            } else {
+                              const tableLeaveVotes = round.table_leave_votes ?? 0;
+                              const majorityRequired = Math.floor(eligibleVoters / 2) + 1;
+                              if (tableLeaveVotes >= majorityRequired) {
+                                calculatedOutcome = 'all_tied_eliminated';
+                                outcomeDescription = `Большинство голосующих (${tableLeaveVotes} из ${majorityRequired}) высказались за уход. Все спорные игроки (#${winners.join(', #')}) покидают стол.`;
+                              } else {
+                                calculatedOutcome = 'no_elimination';
+                                outcomeDescription = `Большинство голосов за уход не набрано (${tableLeaveVotes} из ${majorityRequired}). Никто не покидает стол.`;
+                              }
+                            }
+                          }
+                        }
 
-                                        if (currentNoms.includes(seatNum)) {
-                                          updatedNoms = currentNoms.filter((s) => s !== seatNum);
-                                          delete updatedCounts[seatNum];
-                                        } else {
-                                          updatedNoms = Array.from(new Set([...currentNoms, seatNum])).sort((a, b) => a - b);
-                                          updatedCounts[seatNum] = updatedCounts[seatNum] || 0;
-                                        }
+                        const isErrorHighlighted = highlightedRoundIdx === rIdx;
 
-                                        votesCopy[rIdx] = {
-                                          ...r,
-                                          nominated_seats: updatedNoms,
-                                          vote_counts: updatedCounts
-                                        };
-                                        return { ...prev, votes: votesCopy };
-                                      });
+                        return (
+                          <div
+                            key={rIdx}
+                            className={`bg-slate-800/60 rounded-xl p-4 border transition-all space-y-4 ${
+                              isErrorHighlighted
+                                ? 'border-rose-500/80 ring-2 ring-rose-500/20 bg-rose-950/10'
+                                : 'border-slate-700/80'
+                            }`}
+                          >
+                            {/* Round Header */}
+                            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="font-bold text-sm text-amber-400">
+                                  Круг #{roundNum}
+                                </span>
+
+                                {/* Day Badge/Selector */}
+                                <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                                  <span className="text-slate-400 text-[11px]">День:</span>
+                                  <select
+                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    value={dayNum}
+                                    onChange={(e) => {
+                                      const d = parseInt(e.target.value) || 0;
+                                      handleRoundChange(rIdx, (r) => ({ ...r, day_number: d }));
                                     }}
-                                    className={`w-full h-11 sm:w-8 sm:h-8 rounded-lg text-sm font-bold border transition ${
-                                      isNominated
-                                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                                    className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
+                                  >
+                                    <option value="0" className="bg-slate-900 text-slate-200">0 (Нулевой)</option>
+                                    <option value="1" className="bg-slate-900 text-slate-200">1</option>
+                                    <option value="2" className="bg-slate-900 text-slate-200">2</option>
+                                    <option value="3" className="bg-slate-900 text-slate-200">3</option>
+                                    <option value="4" className="bg-slate-900 text-slate-200">4</option>
+                                    <option value="5" className="bg-slate-900 text-slate-200">5</option>
+                                    <option value="6" className="bg-slate-900 text-slate-200">6</option>
+                                  </select>
+                                </div>
+
+                                {/* Eligible Voters Selector */}
+                                <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                                  <span className="text-slate-400 text-[11px]">Голосующих:</span>
+                                  <select
+                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    value={eligibleVoters}
+                                    onChange={(e) => {
+                                      const ev = parseInt(e.target.value) || 10;
+                                      handleRoundChange(rIdx, (r) => ({ ...r, eligible_voters: ev }));
+                                    }}
+                                    className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
+                                  >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                                      <option key={n} value={n} className="bg-slate-900 text-slate-200">
+                                        {n}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Toggle: Голосование / Переголосование */}
+                                <div className="flex items-center space-x-1 bg-slate-900 p-0.5 rounded-lg border border-slate-700">
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    onClick={() => {
+                                      handleRoundChange(rIdx, (r) => ({ ...r, is_revote: false, parent_round_number: undefined }));
+                                    }}
+                                    className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
+                                      !round.is_revote
+                                        ? 'bg-amber-500 text-slate-950 font-bold'
+                                        : 'text-slate-400 hover:text-slate-200'
                                     }`}
                                   >
-                                    #{seatNum}
+                                    Голосование
                                   </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Vote Counts per Candidate */}
-                          {round.nominated_seats && round.nominated_seats.length > 0 && (
-                            <div className="space-y-1.5 pt-2 border-t border-slate-700/60">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-slate-400 block">Голоса за участников:</span>
-                                <span className="text-xs text-amber-400 font-medium">
-                                  Всего: {round.nominated_seats.reduce((sum, s) => sum + (round.vote_counts?.[s] || 0), 0)}
-                                </span>
+                                  <button
+                                    type="button"
+                                    disabled={protocol.status === 'completed' || isConfirmed}
+                                    onClick={() => {
+                                      const prevRounds = (protocol.votes || []).slice(0, rIdx);
+                                      const parentR = prevRounds[prevRounds.length - 1];
+                                      handleRoundChange(rIdx, (r) => ({
+                                        ...r,
+                                        is_revote: true,
+                                        parent_round_number: parentR ? parentR.round_number : undefined
+                                      }));
+                                    }}
+                                    className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
+                                      round.is_revote
+                                        ? 'bg-purple-600 text-white font-bold'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                  >
+                                    Переголосование
+                                  </button>
+                                </div>
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                                {round.nominated_seats.map((seatNum) => {
-                                  const p = playerResults.find((pr) => pr.seat_number === seatNum);
-                                  const count = round.vote_counts?.[seatNum] ?? 0;
 
+                              {protocol.status === 'draft' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProtocol((prev) => {
+                                      const nextVotes = (prev.votes || []).filter((_, idx) => idx !== rIdx).map((v, idx) => ({
+                                        ...v,
+                                        round_number: idx + 1
+                                      }));
+                                      const syncRes = syncConfirmedVotesToResults(nextVotes, playerResultsRef.current, { ...prev, votes: nextVotes });
+                                      setPlayerResults(syncRes.player_results);
+                                      playerResultsRef.current = syncRes.player_results;
+                                      return syncRes.protocol;
+                                    });
+                                    dirtyRevision.current++;
+                                    setSaveStatus('unsaved');
+                                  }}
+                                  className="text-slate-500 hover:text-rose-400 p-1"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Candidate Seats Selector */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-xs text-slate-400">
+                                <span>Выставленные кандидаты (выберите от 1 до 10 игроков):</span>
+                                {round.is_revote && round.parent_round_number && (
+                                  <span className="text-purple-400 font-medium text-[11px]">
+                                    (Кандидаты привязаны к ничьей в Круге #{round.parent_round_number})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1.5 w-full">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((seatNum) => {
+                                  const isNominated = nominatedSeats.includes(seatNum);
                                   return (
-                                    <div
+                                    <button
                                       key={seatNum}
-                                      className="bg-slate-900 p-2 rounded-lg border border-slate-700/80 text-xs flex flex-col space-y-1"
+                                      type="button"
+                                      disabled={protocol.status === 'completed' || isConfirmed || (round.is_revote && !!round.parent_round_number)}
+                                      onClick={() => {
+                                        handleRoundChange(rIdx, (r) => {
+                                          const currentNoms = r.nominated_seats || [];
+                                          let updatedNoms: number[];
+                                          let updatedCounts = { ...(r.vote_counts || {}) };
+
+                                          if (currentNoms.includes(seatNum)) {
+                                            updatedNoms = currentNoms.filter((s: number) => s !== seatNum);
+                                            delete updatedCounts[seatNum];
+                                          } else {
+                                            updatedNoms = Array.from(new Set([...currentNoms, seatNum])).sort((a, b) => a - b);
+                                            updatedCounts[seatNum] = updatedCounts[seatNum] || 0;
+                                          }
+
+                                          return {
+                                            ...r,
+                                            nominated_seats: updatedNoms,
+                                            vote_counts: updatedCounts
+                                          };
+                                        });
+                                      }}
+                                      className={`w-full h-11 sm:w-8 sm:h-8 rounded-lg text-sm font-bold border transition ${
+                                        isNominated
+                                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                                      }`}
                                     >
-                                      <span className="font-semibold text-slate-200 truncate">
-                                        #{seatNum} {p?.display_name || ''}
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="10"
-                                        disabled={protocol.status === 'completed'}
-                                        value={count}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value) || 0;
-                                          setProtocol((prev) => {
-                                            const votesCopy = [...(prev.votes || [])];
-                                            const r = votesCopy[rIdx];
-                                            votesCopy[rIdx] = {
-                                              ...r,
-                                              vote_counts: {
-                                                ...(r.vote_counts || {}),
-                                                [seatNum]: Math.max(0, Math.min(10, val))
-                                              }
-                                            };
-                                            return { ...prev, votes: votesCopy };
-                                          });
-                                        }}
-                                        className="w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none"
-                                      />
-                                    </div>
+                                      #{seatNum}
+                                    </button>
                                   );
                                 })}
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {/* Vote Counts per Candidate */}
+                            {nominatedSeats.length > 0 && (
+                              <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-400">Распределение голосов:</span>
+                                  <span className={`font-bold ${sumVotes === eligibleVoters ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    Всего распределено: {sumVotes} из {eligibleVoters}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                  {nominatedSeats.map((seatNum) => {
+                                    const p = playerResults.find((pr) => pr.seat_number === seatNum);
+                                    const count = voteCounts[seatNum] ?? 0;
+                                    const draftKey = `${rIdx}-${seatNum}`;
+                                    const draftValue = voteDrafts[draftKey] !== undefined ? voteDrafts[draftKey] : String(count);
+
+                                    return (
+                                      <div
+                                        key={seatNum}
+                                        className="bg-slate-900 p-2 rounded-lg border border-slate-700/80 text-xs flex flex-col space-y-1"
+                                      >
+                                        <span className="font-semibold text-slate-200 truncate">
+                                          #{seatNum} {p?.display_name || ''}
+                                        </span>
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          disabled={protocol.status === 'completed' || isConfirmed}
+                                          value={draftValue}
+                                          onChange={(e) => {
+                                            const raw = e.target.value.replace(/\D/g, '');
+                                            if (raw === '') {
+                                              setVoteDrafts(prev => ({ ...prev, [draftKey]: '' }));
+                                              handleRoundChange(rIdx, (r) => ({
+                                                ...r,
+                                                vote_counts: {
+                                                  ...(r.vote_counts || {}),
+                                                  [seatNum]: 0
+                                                }
+                                              }));
+                                            } else {
+                                              let val = parseInt(raw, 10);
+                                              if (val > 10) val = 10;
+                                              const cleanStr = String(val);
+                                              setVoteDrafts(prev => ({ ...prev, [draftKey]: cleanStr }));
+                                              handleRoundChange(rIdx, (r) => ({
+                                                ...r,
+                                                vote_counts: {
+                                                  ...(r.vote_counts || {}),
+                                                  [seatNum]: val
+                                                }
+                                              }));
+                                            }
+                                          }}
+                                          onBlur={() => {
+                                            setVoteDrafts(prev => {
+                                              const copy = { ...prev };
+                                              delete copy[draftKey];
+                                              return copy;
+                                            });
+                                          }}
+                                          className="w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none"
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Revote: Table leave votes block */}
+                            {round.is_revote && nominatedSeats.length > 0 && (
+                              <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
+                                <div className="flex flex-col space-y-1">
+                                  <span className="text-xs text-slate-400">Голоса за уход всех спорных игроков (#{winners.join(', #')}):</span>
+                                  <div className="flex items-center space-x-3 bg-slate-900 p-2 rounded-lg border border-slate-700 max-w-xs">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      disabled={protocol.status === 'completed' || isConfirmed}
+                                      value={voteDrafts[`${rIdx}-leave`] !== undefined ? voteDrafts[`${rIdx}-leave`] : String(round.table_leave_votes ?? 0)}
+                                      onChange={(e) => {
+                                        const raw = e.target.value.replace(/\D/g, '');
+                                        if (raw === '') {
+                                          setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: '' }));
+                                          handleRoundChange(rIdx, (r) => ({
+                                            ...r,
+                                            table_leave_votes: 0
+                                          }));
+                                        } else {
+                                          let val = parseInt(raw, 10);
+                                          if (val > 10) val = 10;
+                                          const cleanStr = String(val);
+                                          setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: cleanStr }));
+                                          handleRoundChange(rIdx, (r) => ({
+                                            ...r,
+                                            table_leave_votes: val
+                                          }));
+                                        }
+                                      }}
+                                      onBlur={() => {
+                                        setVoteDrafts(prev => {
+                                          const copy = { ...prev };
+                                          delete copy[`${rIdx}-leave`];
+                                          return copy;
+                                        });
+                                      }}
+                                      className="w-16 h-10 bg-slate-800 border border-slate-700 rounded text-center font-bold text-md text-amber-400 focus:border-amber-500 focus:outline-none"
+                                    />
+                                    <span className="text-xs text-slate-400">
+                                      Большинство для ухода: <strong className="text-amber-400">{Math.floor(eligibleVoters / 2) + 1}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Outcome Calculator & Judge Confirmation Panel */}
+                            {nominatedSeats.length > 0 && (
+                              <div className="pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                    Статус исхода (рассчитано автоматически)
+                                  </span>
+                                  <p className="text-xs text-slate-300">
+                                    {sumVotes !== eligibleVoters ? (
+                                      <span className="text-amber-400/80 italic font-medium">
+                                        Распределите {eligibleVoters} голосов для подведения итогов
+                                      </span>
+                                    ) : (
+                                      <span className="font-semibold text-amber-100">
+                                        {outcomeDescription}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center space-x-2 shrink-0">
+                                  {!isConfirmed ? (
+                                    <button
+                                      type="button"
+                                      disabled={sumVotes !== eligibleVoters || protocol.status === 'completed'}
+                                      onClick={() => {
+                                        if (calculatedOutcome !== 'pending') {
+                                          handleConfirmOutcome(rIdx, calculatedOutcome, winners);
+                                        }
+                                      }}
+                                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700/50 text-white font-bold text-xs transition border border-emerald-500 shadow"
+                                    >
+                                      Подтвердить исход
+                                    </button>
+                                  ) : (
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                                      <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold text-center">
+                                        ✓ Подтверждено
+                                      </span>
+                                      {protocol.status === 'draft' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleResetOutcome(rIdx)}
+                                          className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-medium transition"
+                                        >
+                                          Сбросить
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

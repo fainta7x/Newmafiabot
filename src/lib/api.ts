@@ -271,6 +271,12 @@ export interface VotingRound {
   is_revote?: boolean;
   nominated_seats: number[];
   vote_counts: Record<number, number>;
+  day_number?: number;
+  eligible_voters?: number | null;
+  parent_round_number?: number | null;
+  outcome?: 'pending' | 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination';
+  eliminated_seats?: number[];
+  table_leave_votes?: number | null;
 }
 
 export interface ShotEntry {

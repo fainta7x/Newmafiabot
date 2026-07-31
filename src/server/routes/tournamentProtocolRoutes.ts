@@ -378,7 +378,12 @@ function validateShots(shots: any): string | null {
   return null;
 }
 
-function validateVotes(votes: any, isComplete: boolean = false): string | null {
+function validateVotes(
+  votes: any,
+  isComplete: boolean = false,
+  playerResults?: any[],
+  zeroRoundVotedId?: string | null
+): string | null {
   if (votes === undefined || votes === null) return null;
   if (!Array.isArray(votes)) {
     return 'Протокол голосований должен быть массивом';
@@ -386,7 +391,8 @@ function validateVotes(votes: any, isComplete: boolean = false): string | null {
 
   const seenRounds = new Set<number>();
 
-  for (const r of votes) {
+  for (let rIdx = 0; rIdx < votes.length; rIdx++) {
+    const r = votes[rIdx];
     if (!r || typeof r !== 'object') {
       return 'Неверный формат круга голосования';
     }
@@ -415,14 +421,19 @@ function validateVotes(votes: any, isComplete: boolean = false): string | null {
       return 'Счётчик голосов должен быть объектом';
     }
 
-    if (r.nominated_seats.length === 0) {
-      if (isComplete) {
-        return 'Запрещено завершать протокол с пустым кругом голосования';
+    const roundNum = r.round_number;
+    const dayNum = r.day_number ?? (rIdx === 0 ? 0 : 1);
+
+    if (isComplete) {
+      // 1. Пустой этап
+      if (r.nominated_seats.length === 0) {
+        return `Запрещено завершать протокол с пустым кругом голосования (круг #${roundNum}, день ${dayNum}).`;
       }
-      if (Object.keys(r.vote_counts).length !== 0) {
-        return 'Пустой круг разрешён только как nominated_seats: [] и vote_counts: {}';
+
+      // 2. Не указано количество голосующих
+      if (r.eligible_voters === undefined || r.eligible_voters === null || Number(r.eligible_voters) <= 0) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): не указано количество имеющих право голоса.`;
       }
-      continue;
     }
 
     const nominatedSet = new Set<number>();
@@ -443,6 +454,7 @@ function validateVotes(votes: any, isComplete: boolean = false): string | null {
       }
     }
 
+    let sumVotes = 0;
     for (const [key, val] of Object.entries(r.vote_counts)) {
       const seatKey = Number(key);
       if (!Number.isInteger(seatKey) || seatKey < 1 || seatKey > 10 || !nominatedSet.has(seatKey)) {
@@ -453,8 +465,151 @@ function validateVotes(votes: any, isComplete: boolean = false): string | null {
       if (!Number.isInteger(count) || count < 0 || count > 10) {
         return 'Количество голосов должно быть целым числом от 0 до 10';
       }
+      sumVotes += count;
+    }
+
+    if (isComplete) {
+      // 3. Сумма голосов не равна количеству голосующих
+      if (sumVotes !== Number(r.eligible_voters)) {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): сумма распределённых голосов (${sumVotes}) не равна количеству голосующих (${r.eligible_voters}).`;
+      }
+
+      // 4. Исход остался pending
+      if (!r.outcome || r.outcome === 'pending') {
+        return `Голосование (этап #${roundNum}, день ${dayNum}): исход голосования не подтверждён судьёй.`;
+      }
+
+      // Find candidates with max votes
+      let maxVotes = -1;
+      let winners: number[] = [];
+      for (const seat of r.nominated_seats) {
+        const votes = Number(r.vote_counts[seat] ?? r.vote_counts[String(seat)] ?? 0);
+        if (votes > maxVotes) {
+          maxVotes = votes;
+          winners = [seat];
+        } else if (votes === maxVotes) {
+          winners.push(seat);
+        }
+      }
+
+      // 5. Рассчитанный максимум не соответствует сохранённому исходу
+      if (winners.length === 1) {
+        if (r.outcome !== 'single_eliminated') {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается выбывание игрока #${winners[0]}).`;
+        }
+        if (!r.eliminated_seats || r.eliminated_seats.length !== 1 || Number(r.eliminated_seats[0]) !== winners[0]) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки противоречат исходу (ожидается игрок #${winners[0]}).`;
+        }
+      } else {
+        // Tie
+        if (!r.is_revote) {
+          if (r.outcome !== 'tie_revote') {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`;
+          }
+          if (r.eliminated_seats && r.eliminated_seats.length > 0) {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`;
+          }
+        } else {
+          // Revote tie
+          if (r.table_leave_votes === undefined || r.table_leave_votes === null) {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`;
+          }
+          const majorityRequired = Math.floor(Number(r.eligible_voters) / 2) + 1;
+          const leavesTable = Number(r.table_leave_votes) >= majorityRequired;
+          if (leavesTable) {
+            if (r.outcome !== 'all_tied_eliminated') {
+              return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`;
+            }
+            const elims = [...(r.eliminated_seats || [])].map(Number).sort((a,b) => a-b);
+            const expected = [...winners].map(Number).sort((a,b) => a-b);
+            if (JSON.stringify(elims) !== JSON.stringify(expected)) {
+              return `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`;
+            }
+          } else {
+            if (r.outcome !== 'no_elimination') {
+              return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`;
+            }
+            if (r.eliminated_seats && r.eliminated_seats.length > 0) {
+              return `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`;
+            }
+          }
+        }
+      }
+
+      // 6. Переголосование содержит не тех кандидатов
+      if (r.is_revote && r.parent_round_number) {
+        const parentRound = votes.find(v => Number(v.round_number) === Number(r.parent_round_number));
+        if (parentRound) {
+          let parentMaxVotes = -1;
+          let parentWinners: number[] = [];
+          for (const seat of parentRound.nominated_seats) {
+            const v = Number(parentRound.vote_counts[seat] ?? parentRound.vote_counts[String(seat)] ?? 0);
+            if (v > parentMaxVotes) {
+              parentMaxVotes = v;
+              parentWinners = [seat];
+            } else if (v === parentMaxVotes) {
+              parentWinners.push(seat);
+            }
+          }
+          const currentNoms = [...(r.nominated_seats || [])].map(Number).sort((a,b) => a-b);
+          const expectedNoms = [...parentWinners].map(Number).sort((a,b) => a-b);
+          if (JSON.stringify(currentNoms) !== JSON.stringify(expectedNoms)) {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`;
+          }
+        }
+      }
     }
   }
+
+  if (isComplete && playerResults) {
+    // 8. Статусы игроков не соответствуют подтверждённым исходам
+    const zeroRoundEliminated = new Set<number>();
+    const otherDayEliminated = new Set<number>();
+    for (const round of votes) {
+      if (round.outcome && round.outcome !== 'pending') {
+        const dayNum = round.day_number ?? 0;
+        const seats = round.eliminated_seats || [];
+        if (dayNum === 0) {
+          seats.forEach((s: any) => zeroRoundEliminated.add(Number(s)));
+        } else {
+          seats.forEach((s: any) => otherDayEliminated.add(Number(s)));
+        }
+      }
+    }
+
+    for (const pr of playerResults) {
+      if (pr.exit_type === 'voted_zero_round' && !zeroRoundEliminated.has(Number(pr.seat_number))) {
+        return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован (0 круг)", но не был заголосован в подтверждённых кругах дня 0.`;
+      }
+      if (pr.exit_type === 'voted_day' && !otherDayEliminated.has(Number(pr.seat_number))) {
+        return `Игрок #${pr.seat_number} имеет статус ухода "Заголосован", но не был заголосован в подтверждённых кругах последующих дней.`;
+      }
+      if (zeroRoundEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_zero_round') {
+        return `Игрок #${pr.seat_number} выбыл в нулевом круге, но его статус ухода в списке игроков не "Заголосован (0 круг)".`;
+      }
+      if (otherDayEliminated.has(Number(pr.seat_number)) && pr.exit_type !== 'voted_day') {
+        return `Игрок #${pr.seat_number} выбыл при голосовании, но его статус ухода в списке игроков не "Заголосован".`;
+      }
+    }
+
+    // 9. Нарушены правила нулевого круга и ЛХ
+    const zrCount = zeroRoundEliminated.size;
+    if (zrCount === 1) {
+      if (!zeroRoundVotedId) {
+        return 'В нулевом круге выбыл один игрок, но в поле "Заголосованный в нулевой круг" не выбран участник.';
+      }
+      const targetSeat = Array.from(zeroRoundEliminated)[0];
+      const targetPlayer = playerResults.find(p => Number(p.seat_number) === targetSeat);
+      if (targetPlayer && targetPlayer.participant_id !== zeroRoundVotedId) {
+        return `Игрок в поле "Заголосованный в нулевой круг" должен совпадать с выбывшим игроком #${targetSeat}.`;
+      }
+    } else {
+      if (zeroRoundVotedId !== null && zeroRoundVotedId !== '' && zeroRoundVotedId !== undefined) {
+        return `В нулевом круге выбыло ${zrCount} игроков (не 1), поэтому поле "Заголосованный в нулевой круг" должно быть сброшено.`;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -666,7 +821,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes, false);
+    const votesErr = validateVotes(protocol?.votes, false, player_results, protocol?.zero_round_voted_participant_id);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }
@@ -950,7 +1105,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: playerErr });
     }
 
-    const votesErr = validateVotes(protocol?.votes, true);
+    const votesErr = validateVotes(protocol?.votes, true, player_results, protocol?.zero_round_voted_participant_id);
     if (votesErr) {
       return res.status(400).json({ error: votesErr });
     }

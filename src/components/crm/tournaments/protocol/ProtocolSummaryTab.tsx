@@ -1,6 +1,7 @@
 import React from 'react';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
+import { calculateDisciplinaryPenalty } from '../../../../lib/gameDiscipline';
 
 export interface ProtocolSummaryTabProps {
   protocol: TournamentGameProtocolData;
@@ -8,15 +9,6 @@ export interface ProtocolSummaryTabProps {
   onWinnerTeamChange: (team: 'red' | 'black' | null) => void;
   onReplacementChange: (replacement: any | null) => void;
   onJudgeNotesChange: (notes: string) => void;
-}
-
-export function calculateDisciplinaryPenalty(minor: number, major: number, isRemoved: boolean, isPPKCulprit: boolean): number {
-  if (isPPKCulprit) return -1;
-  if (isRemoved) return -0.5;
-  let totalPenalty = 0;
-  totalPenalty -= minor * 0.5;
-  totalPenalty -= major * 0.5;
-  return totalPenalty;
 }
 
 export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({

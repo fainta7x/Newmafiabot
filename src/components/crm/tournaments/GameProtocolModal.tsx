@@ -1013,11 +1013,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     });
 
     // Rule: "при сбросе или изменении исходного голосования автоматически удаляй связанное переголосование"
+    // parentRoundMap maps round_number of ALL rounds so we support chain parents
     const parentRoundMap = new Map<number, any>();
     filtered.forEach(r => {
-      if (!r.is_revote) {
-        parentRoundMap.set(r.round_number, r);
-      }
+      parentRoundMap.set(r.round_number, r);
     });
 
     filtered = filtered.filter(r => {
@@ -1061,7 +1060,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     });
 
     filtered = filtered.map(r => {
-      if (!r.is_revote && r.outcome === 'tie_revote') {
+      if (r.outcome === 'tie_revote') {
         if (!activeParentNums.has(r.round_number)) {
           return {
             ...r,
@@ -1370,44 +1369,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   ))}
                 </select>
               </div>
-
-              {/* Toggle: Голосование / Переголосование */}
-              <div className="flex items-center space-x-1 bg-slate-900 p-0.5 rounded-lg border border-slate-700">
-                <button
-                  type="button"
-                  disabled={protocol.status === 'completed' || isConfirmed}
-                  onClick={() => {
-                    handleRoundChange(rIdx, (r) => ({ ...r, is_revote: false, parent_round_number: undefined }));
-                  }}
-                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
-                    !round.is_revote
-                      ? 'bg-amber-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Голосование
-                </button>
-                <button
-                  type="button"
-                  disabled={protocol.status === 'completed' || isConfirmed}
-                  onClick={() => {
-                    const prevRounds = (protocol.votes || []).slice(0, rIdx);
-                    const parentR = prevRounds[prevRounds.length - 1];
-                    handleRoundChange(rIdx, (r) => ({
-                      ...r,
-                      is_revote: true,
-                      parent_round_number: parentR ? parentR.round_number : undefined
-                    }));
-                  }}
-                  className={`px-2 py-0.5 text-[11px] rounded font-medium transition ${
-                    round.is_revote
-                      ? 'bg-purple-600 text-white font-bold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Переголосование
-                </button>
-              </div>
             </div>
 
             {protocol.status === 'draft' && (
@@ -1708,7 +1669,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             </div>
           </div>
         )}
-        {!isNested && (() => {
+        {(() => {
           const childRIdx = (protocol.votes || []).findIndex((r: any) => r.is_revote && r.parent_round_number === round.round_number);
           if (childRIdx >= 0) {
             const childRound = protocol.votes[childRIdx];
@@ -1756,11 +1717,48 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       }
 
       const sumVotes = round.nominated_seats.reduce((sum: number, s: number) => sum + (round.vote_counts?.[s] || 0), 0);
+
       if (sumVotes !== round.eligible_voters) {
         return {
           errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): сумма распределённых голосов (${sumVotes}) не равна количеству голосующих (${round.eligible_voters}).`,
           roundIndexWithError: rIdx
         };
+      }
+
+      const noms = round.nominated_seats || [];
+      if (noms.length > 0) {
+        const eligible = Number(round.eligible_voters ?? 10);
+        if (noms.length === 1) {
+          const onlySeat = noms[0];
+          const count = Number(round.vote_counts?.[onlySeat] ?? 0);
+          if (count !== eligible) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): единственный кандидат #${onlySeat} должен получить ровно ${eligible} голосов (получено ${count}).`,
+              roundIndexWithError: rIdx
+            };
+          }
+        } else {
+          const lastSeat = noms[noms.length - 1];
+          let sumPrev = 0;
+          for (let i = 0; i < noms.length - 1; i++) {
+            const seat = noms[i];
+            sumPrev += Number(round.vote_counts?.[seat] ?? 0);
+          }
+          if (sumPrev > eligible) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): сумма голосов предыдущих кандидатов (${sumPrev}) превышает число голосующих (${eligible}).`,
+              roundIndexWithError: rIdx
+            };
+          }
+          const expectedLast = eligible - sumPrev;
+          const actualLast = Number(round.vote_counts?.[lastSeat] ?? 0);
+          if (actualLast !== expectedLast) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): последний кандидат #${lastSeat} должен получить автоматический остаток ${expectedLast} голосов (получено ${actualLast}).`,
+              roundIndexWithError: rIdx
+            };
+          }
+        }
       }
 
       if (!round.outcome || round.outcome === 'pending') {
@@ -1782,6 +1780,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           winners.push(seat);
         }
       }
+
+      const nominatedSeats = round.nominated_seats || [];
+      const isRepeatedTie = winners.length === nominatedSeats.length;
+      const isAllowedDecision = winners.length <= (Number(round.eligible_voters || 10) / 2);
 
       if (winners.length === 1) {
         if (round.outcome !== 'single_eliminated') {
@@ -1811,41 +1813,73 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             };
           }
         } else {
-          if (round.table_leave_votes === undefined || round.table_leave_votes === null) {
-            return {
-              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`,
-              roundIndexWithError: rIdx
-            };
-          }
-          const majorityRequired = Math.floor(round.eligible_voters / 2) + 1;
-          const leavesTable = round.table_leave_votes >= majorityRequired;
-          if (leavesTable) {
-            if (round.outcome !== 'all_tied_eliminated') {
+          // Revote tie
+          if (!isRepeatedTie) {
+            if (round.outcome !== 'tie_revote') {
               return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`,
-                roundIndexWithError: rIdx
-              };
-            }
-            const elims = [...(round.eliminated_seats || [])].sort((a,b) => a-b);
-            const expected = [...winners].sort((a,b) => a-b);
-            if (JSON.stringify(elims) !== JSON.stringify(expected)) {
-              return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`,
-                roundIndexWithError: rIdx
-              };
-            }
-          } else {
-            if (round.outcome !== 'no_elimination') {
-              return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`,
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`,
                 roundIndexWithError: rIdx
               };
             }
             if (round.eliminated_seats && round.eliminated_seats.length > 0) {
               return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
+                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`,
                 roundIndexWithError: rIdx
               };
+            }
+          } else {
+            // Repeated tie
+            if (!isAllowedDecision) {
+              if (round.outcome !== 'no_elimination') {
+                return {
+                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination', так как спорных игроков больше половины.`,
+                  roundIndexWithError: rIdx
+                };
+              }
+              if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+                return {
+                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
+                  roundIndexWithError: rIdx
+                };
+              }
+            } else {
+              if (round.table_leave_votes === undefined || round.table_leave_votes === null) {
+                return {
+                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`,
+                  roundIndexWithError: rIdx
+                };
+              }
+              const majorityRequired = Math.floor(round.eligible_voters / 2) + 1;
+              const leavesTable = round.table_leave_votes >= majorityRequired;
+              if (leavesTable) {
+                if (round.outcome !== 'all_tied_eliminated') {
+                  return {
+                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`,
+                    roundIndexWithError: rIdx
+                  };
+                }
+                const elims = [...(round.eliminated_seats || [])].sort((a,b) => a-b);
+                const expected = [...winners].sort((a,b) => a-b);
+                if (JSON.stringify(elims) !== JSON.stringify(expected)) {
+                  return {
+                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`,
+                    roundIndexWithError: rIdx
+                  };
+                }
+              } else {
+                if (round.outcome !== 'no_elimination') {
+                  return {
+                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`,
+                    roundIndexWithError: rIdx
+                  };
+                }
+                if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+                  return {
+                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
+                    roundIndexWithError: rIdx
+                  };
+                }
+              }
             }
           }
         }
@@ -1866,8 +1900,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               parentWinners.push(seat);
             }
           }
-          const currentNoms = [...(round.nominated_seats || [])].sort((a,b) => a-b);
-          const expectedNoms = [...parentWinners].sort((a,b) => a-b);
+          const currentNoms = [...(round.nominated_seats || [])].map(Number);
+          const expectedNoms = [...parentWinners].map(Number);
           if (JSON.stringify(currentNoms) !== JSON.stringify(expectedNoms)) {
             return {
               errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`,
@@ -3148,8 +3182,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   ) : (
                     <div className="space-y-4">
                       {protocol.votes.map((round, rIdx) => {
-                        const isLinkedRevote = round.is_revote && round.parent_round_number !== undefined && round.parent_round_number !== null && (protocol.votes || []).some((parent: any) => parent.round_number === round.parent_round_number && !parent.is_revote);
-                        if (isLinkedRevote) return null;
+                        if (round.is_revote) return null;
 
                         return renderRoundCard(round, rIdx, false);
                       })}
@@ -3587,6 +3620,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             <th className="py-2 px-2">Игрок</th>
                             <th className="py-2 px-2">Роль</th>
                             <th className="py-2 px-2">Статус</th>
+                            <th className="py-2 px-1 text-center" title="Победа">Поб.</th>
                             <th className="py-2 px-1 text-center" title="Обычные фолы">Ф</th>
                             <th className="py-2 px-1 text-center" title="Малые техфолы">мТ</th>
                             <th className="py-2 px-1 text-center" title="Большие техфолы">БТ</th>
@@ -3613,6 +3647,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Загол. (0)</span>}
                                 {p.exit_type === 'voted_day' && <span className="text-amber-400">Загол.</span>}
                                 {p.exit_type === 'removed' && <span className="text-purple-400">Снят</span>}
+                              </td>
+                              <td className="py-2 px-1 text-center">
+                                {!protocol.winner_team ? (
+                                  <span className="text-slate-500 font-bold">-</span>
+                                ) : (() => {
+                                  const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
+                                  const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
+                                  return isWinner ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                      Поб.
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
+                                      Пор.
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="py-2 px-1 text-center font-bold text-amber-400">{p.regular_fouls}</td>
                               <td className="py-2 px-1 text-center font-bold text-rose-400">{p.minor_technical_fouls || 0}</td>

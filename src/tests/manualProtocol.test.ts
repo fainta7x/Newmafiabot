@@ -1741,8 +1741,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
         .set('Cookie', organizerCookie)
         .send(basePayload);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('родительское голосование не может само являться переголосованием');
+      expect(res.status).toBe(200);
     });
 
     // 21. Rejects revote with parent round that does not have outcome 'tie_revote'.

@@ -302,4 +302,35 @@ describe('Discipline API', () => {
     expect(res.disciplinary_penalty_points).toBe(0);
     expect(res.removal_reason).toBeNull();
   });
+
+  it('7. Complete protocol, re-call /protocol/complete, and verify response contains end_reason and ppk_culprit_participant_id', async () => {
+    const p1 = gameSeats[0];
+    const payload = {
+      protocol: {
+        end_reason: 'ppk',
+        ppk_culprit_participant_id: p1.participant_id,
+        first_killed_participant_id: gameSeats[1].participant_id
+      },
+      player_results: gameSeats.map((s) => ({
+        participant_id: s.participant_id,
+        exit_type: s.participant_id === gameSeats[1].participant_id ? 'killed' : 'alive'
+      }))
+    };
+
+    // First completion
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send(payload);
+
+    // Re-call completion (should return 200 and same data)
+    const secondRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send(payload);
+
+    expect(secondRes.status).toBe(200);
+    expect(secondRes.body.protocol.end_reason).toBe('ppk');
+    expect(secondRes.body.protocol.ppk_culprit_participant_id).toBe(p1.participant_id);
+  });
 });

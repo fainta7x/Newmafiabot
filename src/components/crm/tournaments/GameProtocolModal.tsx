@@ -41,6 +41,59 @@ interface GameProtocolModalProps {
   onProtocolUpdated?: () => void;
 }
 
+export const strictParseDecimal = (val: string): number | null => {
+  if (!val || val.trim() === '') return 0;
+  const normalized = val.replace(',', '.').trim();
+  
+  // Check for valid decimal format
+  // Matches optional leading dot, digits, optional decimal point and digits
+  // But also needs to handle things like ".5"
+  if (!/^\d*\.?\d*$/.test(normalized) || normalized === '.') {
+    return null;
+  }
+  
+  const parsed = parseFloat(normalized);
+  if (isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  
+  return parsed;
+};
+
+export const getProtocolPayload = (proto: TournamentGameProtocolData, results: PlayerResultData[]) => {
+  return {
+    protocol: {
+      ...proto,
+      winner_team: proto.winner_team,
+      end_reason: proto.end_reason || 'normal',
+      ppk_culprit_participant_id: proto.ppk_culprit_participant_id || null,
+      first_killed_participant_id: proto.first_killed_participant_id || null,
+      zero_round_voted_participant_id: proto.zero_round_voted_participant_id || null,
+    },
+    player_results: results.map((pr) => ({
+      participant_id: pr.participant_id,
+      exit_type: pr.exit_type,
+      exit_order: pr.exit_order,
+      regular_fouls: pr.regular_fouls,
+      minor_technical_fouls: pr.minor_technical_fouls || 0,
+      major_technical_fouls: pr.major_technical_fouls || 0,
+      technical_fouls: (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0),
+      judge_bonus: pr.judge_bonus,
+      protocol_bonus: pr.protocol_bonus,
+      penalty_points: pr.penalty_points,
+      disciplinary_penalty_points: calculateDisciplinaryPenalty(
+        pr.minor_technical_fouls || 0,
+        pr.major_technical_fouls || 0,
+        pr.exit_type === 'removed',
+        proto.ppk_culprit_participant_id === pr.participant_id
+      ),
+      removal_reason: pr.removal_reason,
+      color_protocol: pr.color_protocol || [],
+      notes: pr.notes
+    }))
+  };
+};
+
 export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   tournamentId,
   gameId,
@@ -72,6 +125,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
   const [decimalErrors, setDecimalErrors] = useState<Record<string, string>>({});
+  const decimalErrorsRef = useRef(decimalErrors);
+
+  useEffect(() => {
+    decimalErrorsRef.current = decimalErrors;
+  }, [decimalErrors]);
 
   // Decimal inputs state (strings)
   const [playerInputStrings, setPlayerInputStrings] = useState<Record<string, string>>({});
@@ -150,44 +208,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   };
 
   const parseDecimalString = (val: string): number => {
-    if (!val || val.trim() === '' || val === '-') return 0;
-    const normalized = val.replace(',', '.');
-    const parsed = parseFloat(normalized);
-    return isNaN(parsed) ? 0 : parsed;
-  };
-
-  const getProtocolPayload = (proto: TournamentGameProtocolData, results: PlayerResultData[]) => {
-    return {
-      protocol: {
-        ...proto,
-        winner_team: proto.winner_team,
-        end_reason: proto.end_reason || 'normal',
-        ppk_culprit_participant_id: proto.ppk_culprit_participant_id || null,
-        first_killed_participant_id: proto.first_killed_participant_id || null,
-        zero_round_voted_participant_id: proto.zero_round_voted_participant_id || null,
-      },
-      player_results: results.map((pr) => ({
-        participant_id: pr.participant_id,
-        exit_type: pr.exit_type,
-        exit_order: pr.exit_order,
-        regular_fouls: pr.regular_fouls,
-        minor_technical_fouls: pr.minor_technical_fouls || 0,
-        major_technical_fouls: pr.major_technical_fouls || 0,
-        technical_fouls: (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0),
-        judge_bonus: pr.judge_bonus,
-        protocol_bonus: pr.protocol_bonus,
-        penalty_points: pr.penalty_points,
-        disciplinary_penalty_points: calculateDisciplinaryPenalty(
-          pr.minor_technical_fouls || 0,
-          pr.major_technical_fouls || 0,
-          pr.exit_type === 'removed',
-          proto.ppk_culprit_participant_id === pr.participant_id
-        ),
-        removal_reason: pr.removal_reason,
-        color_protocol: pr.color_protocol || [],
-        notes: pr.notes
-      }))
-    };
+    const parsed = strictParseDecimal(val);
+    return parsed === null ? 0 : parsed;
   };
 
   const handleDecimalChange = (
@@ -199,23 +221,21 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setPlayerInputStrings((prev) => ({ ...prev, [key]: rawStr }));
 
     if (field === 'penalty_points') {
-      const normalized = rawStr.replace(',', '.').trim();
-      if (normalized !== '' && normalized !== '-') {
-        const parsed = parseFloat(normalized);
-        if (isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
-          setDecimalErrors(prev => ({ ...prev, [key]: 'Некорректное значение' }));
-          return;
-        }
+      const parsed = strictParseDecimal(rawStr);
+      if (parsed === null) {
+        setDecimalErrors(prev => ({ ...prev, [key]: 'Некорректное значение' }));
+        return;
       }
       setDecimalErrors(prev => {
         const next = { ...prev };
         delete next[key];
         return next;
       });
+      updatePlayerResult(participantId, { [field]: parsed });
+    } else {
+      const numVal = parseDecimalString(rawStr);
+      updatePlayerResult(participantId, { [field]: numVal });
     }
-
-    const numVal = parseDecimalString(rawStr);
-    updatePlayerResult(participantId, { [field]: numVal });
   };
 
   const getDecimalInputValue = (
@@ -313,11 +333,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   }, [loading, playerResults]);
 
   const classifyTechFoul = (participantId: string, minor: number, major: number) => {
-    updatePlayerResult(participantId, {
+    const total = minor + major;
+    const updates: Partial<PlayerResultData> = {
       minor_technical_fouls: minor,
       major_technical_fouls: major,
-      technical_fouls: minor + major
-    });
+      technical_fouls: total
+    };
+
+    if (total === 2) {
+      updates.exit_type = 'removed';
+      updates.removal_reason = '2nd_tech';
+    }
+
+    updatePlayerResult(participantId, updates);
     setOldTechFoulsToFix(prev => {
       const next = { ...prev };
       delete next[participantId];
@@ -405,7 +433,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           }
 
           // Check for decimal errors
-          if (Object.keys(decimalErrors).length > 0) {
+          if (Object.keys(decimalErrorsRef.current).length > 0) {
             setSaveStatus('unsaved');
             setSaveErrorMessage('Исправьте ошибки в полях штрафных баллов');
             break;
@@ -873,6 +901,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       return 'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)';
     }
 
+    // Check for decimal errors
+    if (Object.keys(decimalErrors).length > 0) {
+      return 'Исправьте ошибки в полях штрафных баллов перед завершением';
+    }
+
     return null;
   };
 
@@ -1195,7 +1228,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                               <span className="text-slate-400 ml-1">Статус:</span>
                               <select
-                                disabled={protocol.status === 'completed'}
+                                disabled={protocol.status === 'completed' || !!player.removal_reason}
                                 value={player.exit_type}
                                 onChange={(e) => {
                                   const val = e.target.value as any;
@@ -1215,6 +1248,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 <option value="voted_day">Заголосован (день)</option>
                                 <option value="removed">Снят (4 фола/дискв.)</option>
                               </select>
+                              {!!player.removal_reason && (
+                                <span className="text-[10px] text-rose-400 font-bold ml-1 uppercase">
+                                  {player.removal_reason === '4th_foul' && '4 фола'}
+                                  {player.removal_reason === '2nd_tech' && '2 техфола'}
+                                  {player.removal_reason === 'direct' && 'Удаление'}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -1311,6 +1351,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="text"
                                   inputMode="decimal"
                                   disabled={protocol.status === 'completed'}
+                                  data-testid={`penalty-${player.participant_id}`}
                                   value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
                                   className={`w-full bg-slate-800 border ${decimalErrors[`${player.participant_id}_penalty_points`] ? 'border-rose-500' : 'border-slate-700'} rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50`}
@@ -1349,14 +1390,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   {oldTechFoulsToFix[player.participant_id] === 1 ? (
                                     <>
                                       <button
+                                        disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 1, 0)}
-                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
                                       >
                                         1 малый
                                       </button>
                                       <button
+                                        disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 0, 1)}
-                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
                                       >
                                         1 большой
                                       </button>
@@ -1364,20 +1407,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   ) : oldTechFoulsToFix[player.participant_id] === 2 ? (
                                     <>
                                       <button
+                                        disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 2, 0)}
-                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
                                       >
                                         2 малых
                                       </button>
                                       <button
+                                        disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 1, 1)}
-                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
                                       >
                                         малый + большой
                                       </button>
                                       <button
+                                        disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 0, 2)}
-                                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-medium text-slate-200 border border-slate-700"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
                                       >
                                         2 больших
                                       </button>
@@ -1432,7 +1478,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="button"
                                   disabled={protocol.status === 'completed'}
                                   onClick={() => handleDisciplineAction(player.participant_id, 'cancel_direct')}
-                                  className="flex-1 min-h-[36px] rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-medium hover:bg-emerald-500/20 transition flex items-center justify-center"
+                                  className="flex-1 min-h-[44px] rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-500/20 transition flex items-center justify-center"
                                 >
                                   Отменить удаление
                                 </button>
@@ -1441,7 +1487,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="button"
                                   disabled={protocol.status === 'completed' || player.exit_type === 'removed'}
                                   onClick={() => handleDisciplineAction(player.participant_id, 'direct_removal')}
-                                  className="flex-1 min-h-[36px] rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[11px] font-medium hover:bg-rose-500/20 transition disabled:opacity-30 flex items-center justify-center"
+                                  className="flex-1 min-h-[44px] rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[11px] font-bold hover:bg-rose-500/20 transition disabled:opacity-30 flex items-center justify-center"
                                 >
                                   Удалить решением судьи
                                 </button>
@@ -1452,7 +1498,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="button"
                                   disabled={protocol.status === 'completed'}
                                   onClick={() => handleDisciplineAction(player.participant_id, 'cancel_ppk')}
-                                  className="flex-1 min-h-[36px] rounded-lg bg-amber-500 text-slate-950 font-bold text-[11px] hover:bg-amber-600 transition shadow-lg shadow-amber-500/20 flex items-center justify-center"
+                                  className="flex-1 min-h-[44px] rounded-lg bg-amber-500 text-slate-950 font-bold text-[11px] hover:bg-amber-600 transition shadow-lg shadow-amber-500/20 flex items-center justify-center"
                                 >
                                   Снять ППК
                                 </button>
@@ -1461,7 +1507,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="button"
                                   disabled={protocol.status === 'completed' || (protocol.end_reason === 'ppk' && protocol.ppk_culprit_participant_id !== player.participant_id)}
                                   onClick={() => handleDisciplineAction(player.participant_id, 'ppk')}
-                                  className="flex-1 min-h-[36px] rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium hover:bg-slate-700 transition disabled:opacity-30 flex items-center justify-center"
+                                  className="flex-1 min-h-[44px] rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-bold hover:bg-slate-700 transition disabled:opacity-30 flex items-center justify-center"
                                 >
                                   ППК
                                 </button>
@@ -2466,71 +2512,83 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       </div>
 
       {/* MODAL: CONFIRM DISCIPLINE ACTION */}
-      {pendingDisciplineAction && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <div className="flex items-center space-x-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-base font-bold">
-                {pendingDisciplineAction.type === 'foul_4' && 'Подтвердите 4-й фол'}
-                {pendingDisciplineAction.type === 'tech_2' && 'Подтвердите 2-й техфол'}
-                {pendingDisciplineAction.type === 'direct_removal' && 'Удаление решением судьи'}
-                {pendingDisciplineAction.type === 'ppk' && 'Завершить игру по ППК?'}
-                {pendingDisciplineAction.type === 'cancel_ppk' && 'Отменить завершение по ППК?'}
-                {pendingDisciplineAction.type === 'cancel_direct' && 'Отменить удаление судьи?'}
-              </h3>
-            </div>
+      {pendingDisciplineAction && (() => {
+        const player = playerResults.find(p => p.participant_id === pendingDisciplineAction.participantId);
+        const winnerTeam = getOppositeTeam(player?.role || null);
+        const canConfirmPpk = pendingDisciplineAction.type !== 'ppk' || !!winnerTeam;
 
-            <div className="text-xs sm:text-sm text-slate-300 space-y-2">
-              <p>
-                Игрок <strong>#{pendingDisciplineAction.seatNum} ({pendingDisciplineAction.playerName})</strong>
-              </p>
-              {pendingDisciplineAction.type === 'foul_4' && (
-                <p>Будет автоматически удалён из игры по причине «4-й фол».</p>
-              )}
-              {pendingDisciplineAction.type === 'tech_2' && (
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+              <div className="flex items-center space-x-3 text-rose-400">
+                <AlertTriangle className="w-6 h-6" />
+                <h3 className="text-base font-bold">
+                  {pendingDisciplineAction.type === 'foul_4' && 'Подтвердите 4-й фол'}
+                  {pendingDisciplineAction.type === 'tech_2' && 'Подтвердите 2-й техфол'}
+                  {pendingDisciplineAction.type === 'direct_removal' && 'Удаление решением судьи'}
+                  {pendingDisciplineAction.type === 'ppk' && 'Завершить игру по ППК?'}
+                  {pendingDisciplineAction.type === 'cancel_ppk' && 'Отменить завершение по ППК?'}
+                  {pendingDisciplineAction.type === 'cancel_direct' && 'Отменить удаление судьи?'}
+                </h3>
+              </div>
+
+              <div className="text-xs sm:text-sm text-slate-300 space-y-2">
                 <p>
-                  Будет автоматически удалён из игры по причине «2-й техфол».
-                  Тип фола: <span className="text-rose-400 font-bold">{pendingDisciplineAction.techType === 'minor' ? 'Малый' : 'Большой'}</span>
+                  Игрок <strong>#{pendingDisciplineAction.seatNum} ({pendingDisciplineAction.playerName})</strong>
                 </p>
-              )}
-              {pendingDisciplineAction.type === 'direct_removal' && (
-                <p>Игрок будет удалён из игры по решению судьи (дисквалификация).</p>
-              )}
-              {pendingDisciplineAction.type === 'ppk' && (
-                <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 space-y-1">
-                  <p>Игровой процесс завершится, но протокол останется открыт для проверки и выставления баллов.</p>
-                  <p className="text-rose-400 font-bold">
-                    Победитель: {getOppositeTeam(playerResults.find(p => p.participant_id === pendingDisciplineAction.participantId)?.role || '') === 'red' ? 'Красные' : 'Чёрные'}
+                {pendingDisciplineAction.type === 'foul_4' && (
+                  <p>Будет автоматически удалён из игры по причине «4-й фол».</p>
+                )}
+                {pendingDisciplineAction.type === 'tech_2' && (
+                  <p>
+                    Будет автоматически удалён из игры по причине «2-й техфол».
+                    Тип фола: <span className="text-rose-400 font-bold">{pendingDisciplineAction.techType === 'minor' ? 'Малый' : 'Большой'}</span>
                   </p>
-                  <p className="text-amber-500 font-medium">Виновнику будет начислен штраф −1.0.</p>
-                </div>
-              )}
-            </div>
+                )}
+                {pendingDisciplineAction.type === 'direct_removal' && (
+                  <p>Игрок будет удалён из игры по решению судьи (дисквалификация).</p>
+                )}
+                {pendingDisciplineAction.type === 'ppk' && (
+                  <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 space-y-1">
+                    <p>Игровой процесс завершится, но протокол останется открыт для проверки и выставления баллов.</p>
+                    <p className="text-rose-400 font-bold">
+                      Победитель: {winnerTeam === 'red' ? 'Красные' : winnerTeam === 'black' ? 'Чёрные' : 'Не определён'}
+                    </p>
+                    {!winnerTeam && (
+                      <p className="text-rose-500 text-[11px] mt-1 bg-rose-500/10 p-2 rounded">
+                        Сначала назначьте роль участнику в рассадке
+                      </p>
+                    )}
+                    <p className="text-amber-500 font-medium">Виновнику будет начислен штраф −1.0.</p>
+                  </div>
+                )}
+              </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setPendingDisciplineAction(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={confirmDisciplineAction}
-                className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md ${
-                  ['foul_4', 'tech_2', 'direct_removal', 'ppk'].includes(pendingDisciplineAction.type)
-                    ? 'bg-rose-600 hover:bg-rose-500'
-                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                }`}
-              >
-                Подтвердить
-              </button>
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingDisciplineAction(null)}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex-1 sm:flex-none"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  disabled={!canConfirmPpk}
+                  onClick={confirmDisciplineAction}
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md flex-1 sm:flex-none ${
+                    ['foul_4', 'tech_2', 'direct_removal', 'ppk'].includes(pendingDisciplineAction.type)
+                      ? 'bg-rose-600 hover:bg-rose-500'
+                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                  } disabled:opacity-50`}
+                >
+                  Подтвердить
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: CONFIRM EXIT TYPE CHANGE WHEN COLOR PROTOCOL EXISTS */}
       {pendingExitTypeConfirm && (

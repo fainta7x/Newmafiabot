@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
+import { determineVotingResult } from '../../shared/tournamentVoting.ts';
 
 const router = Router();
 
@@ -572,82 +573,55 @@ function validateVotes(
         return `Голосование (этап #${roundNum}, день ${dayNum}): исход голосования не подтверждён судьёй.`;
       }
 
-      // Find candidates with max votes
-      let maxVotes = -1;
-      let winners: number[] = [];
-      for (const seat of r.nominated_seats) {
-        const votes = Number(r.vote_counts[seat] ?? r.vote_counts[String(seat)] ?? 0);
-        if (votes > maxVotes) {
-          maxVotes = votes;
-          winners = [seat];
-        } else if (votes === maxVotes) {
-          winners.push(seat);
-        }
-      }
+      const votingResult = determineVotingResult({
+        nominated_seats: r.nominated_seats,
+        eligible_voters: Number(r.eligible_voters),
+        is_revote: !!r.is_revote,
+        vote_counts: r.vote_counts,
+        table_leave_votes: r.table_leave_votes !== null && r.table_leave_votes !== undefined ? Number(r.table_leave_votes) : null
+      });
+      const winners = votingResult.winners;
 
-      const nominatedSeats = r.nominated_seats || [];
-      const isRepeatedTie = winners.length === nominatedSeats.length;
-      const isAllowedDecision = winners.length <= (Number(r.eligible_voters || 10) / 2);
-
-      // 5. Рассчитанный максимум не соответствует сохранённому исходу
-      if (winners.length === 1) {
+      if (votingResult.outcome === 'single_eliminated') {
         if (r.outcome !== 'single_eliminated') {
           return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается выбывание игрока #${winners[0]}).`;
         }
         if (!r.eliminated_seats || r.eliminated_seats.length !== 1 || Number(r.eliminated_seats[0]) !== winners[0]) {
           return `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки противоречат исходу (ожидается игрок #${winners[0]}).`;
         }
-      } else {
-        // Tie
-        if (!r.is_revote) {
-          if (r.outcome !== 'tie_revote') {
-            return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`;
+      } else if (votingResult.outcome === 'needs_revote') {
+        if (r.outcome !== 'tie_revote') {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`;
+        }
+        if (r.eliminated_seats && r.eliminated_seats.length > 0) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`;
+        }
+      } else if (votingResult.outcome === 'auto_no_elimination') {
+        if (r.outcome !== 'no_elimination') {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination', так как спорных игроков больше половины.`;
+        }
+        if (r.eliminated_seats && r.eliminated_seats.length > 0) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`;
+        }
+      } else if (votingResult.outcome === 'requires_table_decision') {
+        if (r.table_leave_votes === undefined || r.table_leave_votes === null) {
+          return `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`;
+        }
+        if (votingResult.resolvedOutcome === 'all_tied_eliminated') {
+          if (r.outcome !== 'all_tied_eliminated') {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`;
           }
-          if (r.eliminated_seats && r.eliminated_seats.length > 0) {
-            return `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`;
+          const elims = [...(r.eliminated_seats || [])].map(Number).sort((a,b) => a-b);
+          const expected = [...winners].map(Number).sort((a,b) => a-b);
+          if (JSON.stringify(elims) !== JSON.stringify(expected)) {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`;
           }
         } else {
-          // Revote tie
-          if (!isRepeatedTie) {
-            if (r.outcome !== 'tie_revote') {
-              return `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`;
-            }
-            if (r.eliminated_seats && r.eliminated_seats.length > 0) {
-              return `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`;
-            }
-          } else {
-            // Repeated tie
-            if (!isAllowedDecision) {
-              if (r.outcome !== 'no_elimination') {
-                return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination', так как спорных игроков больше половины.`;
-              }
-              if (r.eliminated_seats && r.eliminated_seats.length > 0) {
-                return `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`;
-              }
-            } else {
-              if (r.table_leave_votes === undefined || r.table_leave_votes === null) {
-                return `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`;
-              }
-              const majorityRequired = Math.floor(Number(r.eligible_voters) / 2) + 1;
-              const leavesTable = Number(r.table_leave_votes) >= majorityRequired;
-              if (leavesTable) {
-                if (r.outcome !== 'all_tied_eliminated') {
-                  return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`;
-                }
-                const elims = [...(r.eliminated_seats || [])].map(Number).sort((a,b) => a-b);
-                const expected = [...winners].map(Number).sort((a,b) => a-b);
-                if (JSON.stringify(elims) !== JSON.stringify(expected)) {
-                  return `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`;
-                }
-              } else {
-                if (r.outcome !== 'no_elimination') {
-                  return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`;
-                }
-                if (r.eliminated_seats && r.eliminated_seats.length > 0) {
-                  return `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`;
-                }
-              }
-            }
+          if (r.outcome !== 'no_elimination') {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`;
+          }
+          if (r.eliminated_seats && r.eliminated_seats.length > 0) {
+            return `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`;
           }
         }
       }
@@ -656,19 +630,15 @@ function validateVotes(
       if (r.is_revote && r.parent_round_number) {
         const parentRound = votes.find(v => Number(v.round_number) === Number(r.parent_round_number));
         if (parentRound) {
-          let parentMaxVotes = -1;
-          let parentWinners: number[] = [];
-          for (const seat of parentRound.nominated_seats) {
-            const v = Number(parentRound.vote_counts[seat] ?? parentRound.vote_counts[String(seat)] ?? 0);
-            if (v > parentMaxVotes) {
-              parentMaxVotes = v;
-              parentWinners = [seat];
-            } else if (v === parentMaxVotes) {
-              parentWinners.push(seat);
-            }
-          }
+          const parentResult = determineVotingResult({
+            nominated_seats: parentRound.nominated_seats,
+            eligible_voters: Number(parentRound.eligible_voters),
+            is_revote: !!parentRound.is_revote,
+            vote_counts: parentRound.vote_counts,
+            table_leave_votes: parentRound.table_leave_votes !== null && parentRound.table_leave_votes !== undefined ? Number(parentRound.table_leave_votes) : null
+          });
           const currentNoms = [...(r.nominated_seats || [])].map(Number);
-          const expectedNoms = [...parentWinners].map(Number);
+          const expectedNoms = [...parentResult.winners].map(Number);
           if (JSON.stringify(currentNoms) !== JSON.stringify(expectedNoms)) {
             return `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`;
           }

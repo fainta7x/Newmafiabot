@@ -27,6 +27,12 @@ import {
   PlayerResultData
 } from '../../../lib/api';
 import { calculateDisciplinaryPenalty } from '../../../lib/gameDiscipline';
+import {
+  determineVotingResult,
+  createNextRevoteRound,
+  cleanAndSyncVotes,
+  calculateVoteRemainder
+} from '../../../shared/tournamentVoting';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
   if (!entry || !entry.seat_numbers) return '';
@@ -961,141 +967,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     return { player_results: updatedResults, protocol: updatedProto };
   };
 
-  const safeRenumberVotes = (votesList: any[]): any[] => {
-    // 1. Assign new sequential numbers from 1 to each round, in their current order
-    const newVotes = votesList.map((r, idx) => {
-      return {
-        ...r,
-        _newRoundNum: idx + 1
-      };
-    });
-
-    // 2. Map old round_number to new round_number
-    const oldToNewNum = new Map<number, number>();
-    for (let idx = 0; idx < votesList.length; idx++) {
-      const oldR = votesList[idx];
-      const newR = newVotes[idx];
-      if (oldR.round_number !== undefined && oldR.round_number !== null) {
-        oldToNewNum.set(oldR.round_number, newR._newRoundNum);
-      }
-    }
-
-    return newVotes.map(r => {
-      const parentNum = r.parent_round_number;
-      let newParentNum = undefined;
-      if (parentNum !== undefined && parentNum !== null) {
-        newParentNum = oldToNewNum.get(parentNum);
-      }
-
-      const { _newRoundNum, ...rest } = r;
-      return {
-        ...rest,
-        round_number: _newRoundNum,
-        parent_round_number: newParentNum
-      };
-    });
-  };
-
   const syncAndCleanVotes = (votesList: any[]): any[] => {
-    const existingRoundNums = new Set(votesList.map(v => v.round_number));
-
-    // Rule: "при удалении исходного голосования удаляй и его переголосование"
-    let filtered = votesList.filter(r => {
-      if (r.is_revote) {
-        if (r.parent_round_number === undefined || r.parent_round_number === null) {
-          return false;
-        }
-        if (!existingRoundNums.has(r.parent_round_number)) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    // Rule: "при сбросе или изменении исходного голосования автоматически удаляй связанное переголосование"
-    // parentRoundMap maps round_number of ALL rounds so we support chain parents
-    const parentRoundMap = new Map<number, any>();
-    filtered.forEach(r => {
-      parentRoundMap.set(r.round_number, r);
-    });
-
-    filtered = filtered.filter(r => {
-      if (r.is_revote) {
-        const parent = parentRoundMap.get(r.parent_round_number);
-        if (!parent || parent.outcome !== 'tie_revote') {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    // Propagate day_number and eligible_voters from parents to children
-    // and enforce day 0 -> 10 voters count
-    filtered = filtered.map(r => {
-      if (!r.is_revote && r.day_number === 0) {
-        return {
-          ...r,
-          eligible_voters: 10
-        };
-      }
-      if (r.is_revote && r.parent_round_number) {
-        const parent = parentRoundMap.get(r.parent_round_number);
-        if (parent) {
-          return {
-            ...r,
-            day_number: parent.day_number ?? 0,
-            eligible_voters: parent.eligible_voters ?? 10
-          };
-        }
-      }
-      return r;
-    });
-
-    // Rule: "при удалении переголосования исходное голосование возвращай в `pending`"
-    const activeParentNums = new Set<number>();
-    filtered.forEach(r => {
-      if (r.is_revote && r.parent_round_number !== undefined && r.parent_round_number !== null) {
-        activeParentNums.add(r.parent_round_number);
-      }
-    });
-
-    filtered = filtered.map(r => {
-      if (r.outcome === 'tie_revote') {
-        if (!activeParentNums.has(r.round_number)) {
-          return {
-            ...r,
-            outcome: 'pending',
-            eliminated_seats: [],
-            table_leave_votes: undefined
-          };
-        }
-      }
-      return r;
-    });
-
-    return safeRenumberVotes(filtered);
+    return cleanAndSyncVotes(votesList);
   };
 
   const recalculateVoteRemainder = (r: any) => {
-    const noms = r.nominated_seats || [];
-    if (noms.length < 2) return r;
-
-    const eligible = r.eligible_voters ?? 10;
-    const lastSeat = noms[noms.length - 1];
-
-    let sumPrev = 0;
-    for (let i = 0; i < noms.length - 1; i++) {
-      sumPrev += Number(r.vote_counts?.[noms[i]] || 0);
-    }
-
-    const remainder = Math.max(0, eligible - sumPrev);
-
     return {
       ...r,
-      vote_counts: {
-        ...(r.vote_counts || {}),
-        [lastSeat]: remainder
-      }
+      vote_counts: calculateVoteRemainder(r.nominated_seats || [], r.eligible_voters ?? 10, r.vote_counts || {})
     };
   };
 
@@ -1131,11 +1010,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const handleConfirmOutcome = (
     rIdx: number,
-    calculatedOutcome: 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination',
+    calculatedOutcome: string,
     winners: number[]
   ) => {
     setHighlightedRoundIdx(null);
-    if (calculatedOutcome === 'tie_revote') {
+    if (calculatedOutcome === 'tie_revote' || calculatedOutcome === 'needs_revote') {
       setProtocol((prev) => {
         const currentVotes = [...(prev.votes || [])];
         const updatedParent = {
@@ -1145,18 +1024,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         };
         currentVotes[rIdx] = updatedParent;
 
-        const newRound = {
-          round_number: 9999, // temporary unique round number
-          is_revote: true,
-          nominated_seats: winners,
-          vote_counts: winners.reduce((acc, s) => ({ ...acc, [s]: 0 }), {}),
-          day_number: updatedParent.day_number ?? (rIdx === 0 ? 0 : 1),
-          eligible_voters: updatedParent.eligible_voters ?? 10,
-          parent_round_number: updatedParent.round_number,
-          outcome: 'pending' as const,
-          eliminated_seats: [],
-          table_leave_votes: null // Requirement 4: initially null
-        };
+        const newRound = createNextRevoteRound(updatedParent, winners);
 
         currentVotes.splice(rIdx + 1, 0, newRound);
 
@@ -1171,14 +1039,21 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         return syncRes.protocol;
       });
     } else {
+      let dbOutcome: 'single_eliminated' | 'all_tied_eliminated' | 'no_elimination' = 'no_elimination';
+      if (calculatedOutcome === 'single_eliminated') {
+        dbOutcome = 'single_eliminated';
+      } else if (calculatedOutcome === 'all_tied_eliminated') {
+        dbOutcome = 'all_tied_eliminated';
+      }
+
       setProtocol((prev) => {
         const currentVotes = [...(prev.votes || [])];
         currentVotes[rIdx] = {
           ...currentVotes[rIdx],
-          outcome: calculatedOutcome,
-          eliminated_seats: calculatedOutcome === 'single_eliminated'
+          outcome: dbOutcome,
+          eliminated_seats: dbOutcome === 'single_eliminated'
             ? [winners[0]]
-            : calculatedOutcome === 'all_tied_eliminated'
+            : dbOutcome === 'all_tied_eliminated'
             ? winners
             : []
         };
@@ -1230,48 +1105,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     const sumVotes = nominatedSeats.reduce((sum: number, s: number) => sum + (voteCounts[s] || 0), 0);
     const isConfirmed = round.outcome && round.outcome !== 'pending';
 
-    // Calculate potential outcome
-    let maxVotes = -1;
-    let winners: number[] = [];
-    for (const seat of nominatedSeats) {
-      const v = voteCounts[seat] ?? 0;
-      if (v > maxVotes) {
-        maxVotes = v;
-        winners = [seat];
-      } else if (v === maxVotes) {
-        winners.push(seat);
-      }
-    }
-
-    let calculatedOutcome: 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination' | 'pending' = 'pending';
-    let outcomeDescription = '';
-
-    if (sumVotes === eligibleVoters && nominatedSeats.length > 0) {
-      if (winners.length === 1) {
-        calculatedOutcome = 'single_eliminated';
-        outcomeDescription = `Игрок #${winners[0]} набрал большинство голосов (${maxVotes}) и покидает стол.`;
-      } else if (winners.length > 1) {
-        if (!round.is_revote) {
-          calculatedOutcome = 'tie_revote';
-          outcomeDescription = `Ничья между игроками #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется переголосование.`;
-        } else {
-          const tableLeaveVotes = round.table_leave_votes;
-          if (tableLeaveVotes === undefined || tableLeaveVotes === null) {
-            calculatedOutcome = 'pending';
-            outcomeDescription = `Введите количество голосов за уход всех игроков для подведения итогов переголосования`;
-          } else {
-            const majorityRequired = Math.floor(eligibleVoters / 2) + 1;
-            if (tableLeaveVotes >= majorityRequired) {
-              calculatedOutcome = 'all_tied_eliminated';
-              outcomeDescription = `Большинство голосующих (${tableLeaveVotes} из ${majorityRequired}) высказались за уход. Все спорные игроки (#${winners.join(', #')}) покидают стол.`;
-            } else {
-              calculatedOutcome = 'no_elimination';
-              outcomeDescription = `Большинство голосов за уход не набрано (${tableLeaveVotes} из ${majorityRequired}). Никто не покидает стол.`;
-            }
-          }
-        }
-      }
-    }
+    const votingResult = determineVotingResult(round);
+    const winners = votingResult.winners;
+    const calculatedOutcome = votingResult.resolvedOutcome || (votingResult.outcome === 'requires_table_decision' ? 'pending' : votingResult.outcome);
+    const outcomeDescription = votingResult.outcome === 'requires_table_decision' && votingResult.resolvedOutcome === undefined
+      ? 'Введите количество голосов за уход всех игроков для подведения итогов переголосования'
+      : votingResult.description;
 
     const isErrorHighlighted = highlightedRoundIdx === rIdx;
 
@@ -1462,7 +1301,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 const count = voteCounts[seatNum] ?? 0;
                 const draftKey = `${rIdx}-${seatNum}`;
                 const draftValue = voteDrafts[draftKey] !== undefined ? voteDrafts[draftKey] : String(count);
-                const isLastCandidate = nominatedSeats.length >= 2 && nominatedSeats[nominatedSeats.length - 1] === seatNum;
+                const isReadOnlyCandidate = nominatedSeats.length === 1 || (nominatedSeats.length >= 2 && nominatedSeats[nominatedSeats.length - 1] === seatNum);
 
                 return (
                   <div
@@ -1517,12 +1356,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                     <input
                       type="text"
                       inputMode="numeric"
-                      disabled={protocol.status === 'completed' || isConfirmed || isLastCandidate}
-                      value={isLastCandidate ? String(count) : draftValue}
-                      placeholder={isLastCandidate ? "остаток" : ""}
+                      disabled={protocol.status === 'completed' || isConfirmed || isReadOnlyCandidate}
+                      value={isReadOnlyCandidate ? String(count) : draftValue}
+                      placeholder={isReadOnlyCandidate ? (nominatedSeats.length === 1 ? "все голоса" : "остаток") : ""}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => {
-                        if (isLastCandidate) return;
+                        if (isReadOnlyCandidate) return;
                         const raw = e.target.value.replace(/\D/g, '');
                         if (raw === '') {
                           setVoteDrafts(prev => ({ ...prev, [draftKey]: '' }));
@@ -1554,11 +1393,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           return copy;
                         });
                       }}
-                      className={`w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none ${isLastCandidate ? 'opacity-70 cursor-not-allowed bg-slate-900/60' : ''}`}
+                      className={`w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none ${isReadOnlyCandidate ? 'opacity-70 cursor-not-allowed bg-slate-900/60' : ''}`}
                     />
-                    {isLastCandidate && (
+                    {isReadOnlyCandidate && (
                       <span className="text-[9px] text-slate-500 text-center font-semibold uppercase tracking-wider mt-0.5">
-                        остаток
+                        {nominatedSeats.length === 1 ? "все голоса" : "остаток"}
                       </span>
                     )}
                   </div>
@@ -1569,7 +1408,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         )}
 
         {/* Revote: Table leave votes block */}
-        {round.is_revote && nominatedSeats.length > 0 && winners.length > 1 && (
+        {votingResult.outcome === 'requires_table_decision' && nominatedSeats.length > 0 && (
           <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
             <div className="flex flex-col space-y-1">
               <span className="text-xs text-slate-400">Голоса за уход всех спорных игроков (#{winners.join(', #')}):</span>
@@ -1768,140 +1607,104 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         };
       }
 
-      const voteCounts = round.vote_counts || {};
-      let maxVotes = -1;
-      let winners: number[] = [];
-      for (const seat of round.nominated_seats) {
-        const votes = voteCounts[seat] ?? 0;
-        if (votes > maxVotes) {
-          maxVotes = votes;
-          winners = [seat];
-        } else if (votes === maxVotes) {
-          winners.push(seat);
-        }
-      }
+      const votingResult = determineVotingResult({
+        nominated_seats: round.nominated_seats,
+        eligible_voters: Number(round.eligible_voters),
+        is_revote: !!round.is_revote,
+        vote_counts: round.vote_counts,
+        table_leave_votes: round.table_leave_votes !== null && round.table_leave_votes !== undefined ? Number(round.table_leave_votes) : null
+      });
+      const winners = votingResult.winners;
 
-      const nominatedSeats = round.nominated_seats || [];
-      const isRepeatedTie = winners.length === nominatedSeats.length;
-      const isAllowedDecision = winners.length <= (Number(round.eligible_voters || 10) / 2);
-
-      if (winners.length === 1) {
+      if (votingResult.outcome === 'single_eliminated') {
         if (round.outcome !== 'single_eliminated') {
           return {
             errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается выбывание игрока #${winners[0]}).`,
             roundIndexWithError: rIdx
           };
         }
-        if (!round.eliminated_seats || round.eliminated_seats.length !== 1 || round.eliminated_seats[0] !== winners[0]) {
+        if (!round.eliminated_seats || round.eliminated_seats.length !== 1 || Number(round.eliminated_seats[0]) !== winners[0]) {
           return {
             errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки противоречат исходу (ожидается игрок #${winners[0]}).`,
             roundIndexWithError: rIdx
           };
         }
-      } else {
-        if (!round.is_revote) {
-          if (round.outcome !== 'tie_revote') {
+      } else if (votingResult.outcome === 'needs_revote') {
+        if (round.outcome !== 'tie_revote') {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`,
+            roundIndexWithError: rIdx
+          };
+        }
+        if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`,
+            roundIndexWithError: rIdx
+          };
+        }
+      } else if (votingResult.outcome === 'auto_no_elimination') {
+        if (round.outcome !== 'no_elimination') {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination', так как спорных игроков больше половины.`,
+            roundIndexWithError: rIdx
+          };
+        }
+        if (round.eliminated_seats && round.eliminated_seats.length > 0) {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
+            roundIndexWithError: rIdx
+          };
+        }
+      } else if (votingResult.outcome === 'requires_table_decision') {
+        if (round.table_leave_votes === undefined || round.table_leave_votes === null) {
+          return {
+            errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`,
+            roundIndexWithError: rIdx
+          };
+        }
+        if (votingResult.resolvedOutcome === 'all_tied_eliminated') {
+          if (round.outcome !== 'all_tied_eliminated') {
             return {
-              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`,
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`,
+              roundIndexWithError: rIdx
+            };
+          }
+          const elims = [...(round.eliminated_seats || [])].map(Number).sort((a,b) => a-b);
+          const expected = [...winners].map(Number).sort((a,b) => a-b);
+          if (JSON.stringify(elims) !== JSON.stringify(expected)) {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`,
+              roundIndexWithError: rIdx
+            };
+          }
+        } else {
+          if (round.outcome !== 'no_elimination') {
+            return {
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`,
               roundIndexWithError: rIdx
             };
           }
           if (round.eliminated_seats && round.eliminated_seats.length > 0) {
             return {
-              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`,
+              errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
               roundIndexWithError: rIdx
             };
-          }
-        } else {
-          // Revote tie
-          if (!isRepeatedTie) {
-            if (round.outcome !== 'tie_revote') {
-              return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход не соответствует распределению голосов (ожидается ничья между игроками #${winners.join(', #')}).`,
-                roundIndexWithError: rIdx
-              };
-            }
-            if (round.eliminated_seats && round.eliminated_seats.length > 0) {
-              return {
-                errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): при ничьей список выбывших должен быть пуст.`,
-                roundIndexWithError: rIdx
-              };
-            }
-          } else {
-            // Repeated tie
-            if (!isAllowedDecision) {
-              if (round.outcome !== 'no_elimination') {
-                return {
-                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination', так как спорных игроков больше половины.`,
-                  roundIndexWithError: rIdx
-                };
-              }
-              if (round.eliminated_seats && round.eliminated_seats.length > 0) {
-                return {
-                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
-                  roundIndexWithError: rIdx
-                };
-              }
-            } else {
-              if (round.table_leave_votes === undefined || round.table_leave_votes === null) {
-                return {
-                  errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): не указаны голоса за уход всех спорных игроков при переголосовании.`,
-                  roundIndexWithError: rIdx
-                };
-              }
-              const majorityRequired = Math.floor(round.eligible_voters / 2) + 1;
-              const leavesTable = round.table_leave_votes >= majorityRequired;
-              if (leavesTable) {
-                if (round.outcome !== 'all_tied_eliminated') {
-                  return {
-                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'all_tied_eliminated' (все уходят).`,
-                    roundIndexWithError: rIdx
-                  };
-                }
-                const elims = [...(round.eliminated_seats || [])].sort((a,b) => a-b);
-                const expected = [...winners].sort((a,b) => a-b);
-                if (JSON.stringify(elims) !== JSON.stringify(expected)) {
-                  return {
-                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): выбывшие игроки должны совпадать с кандидатами переголосования #${winners.join(', #')}.`,
-                    roundIndexWithError: rIdx
-                  };
-                }
-              } else {
-                if (round.outcome !== 'no_elimination') {
-                  return {
-                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): исход должен быть 'no_elimination' (никто не уходит).`,
-                    roundIndexWithError: rIdx
-                  };
-                }
-                if (round.eliminated_seats && round.eliminated_seats.length > 0) {
-                  return {
-                    errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список выбывших должен быть пуст, так как большинство не набрано.`,
-                    roundIndexWithError: rIdx
-                  };
-                }
-              }
-            }
           }
         }
       }
 
       if (round.is_revote && round.parent_round_number) {
-        const parentRound = votes.find(v => v.round_number === round.parent_round_number);
+        const parentRound = votes.find(v => Number(v.round_number) === Number(round.parent_round_number));
         if (parentRound) {
-          const parentVoteCounts = parentRound.vote_counts || {};
-          let parentMaxVotes = -1;
-          let parentWinners: number[] = [];
-          for (const seat of parentRound.nominated_seats) {
-            const v = parentVoteCounts[seat] ?? 0;
-            if (v > parentMaxVotes) {
-              parentMaxVotes = v;
-              parentWinners = [seat];
-            } else if (v === parentMaxVotes) {
-              parentWinners.push(seat);
-            }
-          }
+          const parentResult = determineVotingResult({
+            nominated_seats: parentRound.nominated_seats,
+            eligible_voters: Number(parentRound.eligible_voters),
+            is_revote: !!parentRound.is_revote,
+            vote_counts: parentRound.vote_counts,
+            table_leave_votes: parentRound.table_leave_votes !== null && parentRound.table_leave_votes !== undefined ? Number(parentRound.table_leave_votes) : null
+          });
           const currentNoms = [...(round.nominated_seats || [])].map(Number);
-          const expectedNoms = [...parentWinners].map(Number);
+          const expectedNoms = [...parentResult.winners].map(Number);
           if (JSON.stringify(currentNoms) !== JSON.stringify(expectedNoms)) {
             return {
               errorMsg: `Голосование (этап #${roundNum}, день ${dayNum}): список кандидатов переголосования (${currentNoms.join(', ')}) не соответствует спорным игрокам предыдущего раунда (${expectedNoms.join(', ')}).`,
@@ -3656,11 +3459,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
                                   return isWinner ? (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                      Поб.
+                                      +1
                                     </span>
                                   ) : (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
-                                      Пор.
+                                      0
                                     </span>
                                   );
                                 })()}

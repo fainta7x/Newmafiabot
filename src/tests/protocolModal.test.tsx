@@ -6,6 +6,51 @@ import { render, waitFor, cleanup } from '@testing-library/react';
 import { GameProtocolModal, formatColorMark } from '../components/crm/tournaments/GameProtocolModal';
 import { api } from '../lib/api';
 
+import { calculateDisciplinaryPenalty } from '../lib/gameDiscipline';
+
+describe('Disciplinary Penalty Scenarios', () => {
+  it('Scenario 1: 1 minor tech foul = -0.3', () => {
+    expect(calculateDisciplinaryPenalty(1, 0, false, false)).toBe(0.3);
+  });
+
+  it('Scenario 2: 2 minor tech fouls = -0.6 (and removal)', () => {
+    expect(calculateDisciplinaryPenalty(2, 0, true, false)).toBe(1.6);
+  });
+
+  it('Scenario 3: 1 major tech foul = -0.6', () => {
+    expect(calculateDisciplinaryPenalty(0, 1, false, false)).toBe(0.6);
+  });
+
+  it('Scenario 4: 2 major tech fouls = -1.2 (and removal)', () => {
+    expect(calculateDisciplinaryPenalty(0, 2, true, false)).toBe(2.2);
+  });
+
+  it('Scenario 5: 1 minor + 1 major = -0.9 (and removal)', () => {
+    expect(calculateDisciplinaryPenalty(1, 1, true, false)).toBe(1.9);
+  });
+
+  it('Scenario 6: Removal by judge (exit_type=removed) = -1.0', () => {
+    expect(calculateDisciplinaryPenalty(0, 0, true, false)).toBe(1.0);
+  });
+
+  it('Scenario 7: Removal by judge + 1 minor tech foul = -1.3', () => {
+    expect(calculateDisciplinaryPenalty(1, 0, true, false)).toBe(1.3);
+  });
+
+  it('Scenario 8: PPK culprit (isPpkCulprit=true) = -1.0', () => {
+    expect(calculateDisciplinaryPenalty(0, 0, false, true)).toBe(1.0);
+  });
+
+  it('Scenario 9: PPK culprit + 2 minor tech fouls = -1.6', () => {
+    // Note: PPK culprit is not necessarily "removed" in the same sense as foul removal, but gets +1.0
+    expect(calculateDisciplinaryPenalty(2, 0, false, true)).toBe(1.6);
+  });
+
+  it('Scenario 10: Removal for 4 fouls = -1.0', () => {
+    expect(calculateDisciplinaryPenalty(0, 0, true, false)).toBe(1.0);
+  });
+});
+
 describe('GameProtocolModal Frontend Helpers', () => {
   it('formats color marks correctly', () => {
     expect(formatColorMark({ seat_numbers: [4], mark: 'red' })).toBe('4 кр');

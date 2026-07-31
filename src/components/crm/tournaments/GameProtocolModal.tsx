@@ -24,6 +24,7 @@ import {
   TournamentGameProtocolData,
   PlayerResultData
 } from '../../../lib/api';
+import { calculateDisciplinaryPenalty } from '../../../lib/gameDiscipline';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
   if (!entry || !entry.seat_numbers) return '';
@@ -70,6 +71,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   });
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
+  const [decimalErrors, setDecimalErrors] = useState<Record<string, string>>({});
 
   // Decimal inputs state (strings)
   const [playerInputStrings, setPlayerInputStrings] = useState<Record<string, string>>({});
@@ -147,25 +149,45 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     return null;
   };
 
-  const calculateDisciplinaryPenaltyLocal = (pr: PlayerResultData, isPpkCulprit: boolean) => {
-    let disc = 0;
-    disc += (pr.minor_technical_fouls || 0) * 0.3;
-    disc += (pr.major_technical_fouls || 0) * 0.6;
-    if (pr.exit_type === 'removed') {
-      disc += 1.0;
-    }
-    if (isPpkCulprit) {
-      disc += 1.0;
-    }
-    return Number(disc.toFixed(1));
-  };
-
-  // Helper for decimal parsing
   const parseDecimalString = (val: string): number => {
     if (!val || val.trim() === '' || val === '-') return 0;
     const normalized = val.replace(',', '.');
     const parsed = parseFloat(normalized);
     return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const getProtocolPayload = (proto: TournamentGameProtocolData, results: PlayerResultData[]) => {
+    return {
+      protocol: {
+        ...proto,
+        winner_team: proto.winner_team,
+        end_reason: proto.end_reason || 'normal',
+        ppk_culprit_participant_id: proto.ppk_culprit_participant_id || null,
+        first_killed_participant_id: proto.first_killed_participant_id || null,
+        zero_round_voted_participant_id: proto.zero_round_voted_participant_id || null,
+      },
+      player_results: results.map((pr) => ({
+        participant_id: pr.participant_id,
+        exit_type: pr.exit_type,
+        exit_order: pr.exit_order,
+        regular_fouls: pr.regular_fouls,
+        minor_technical_fouls: pr.minor_technical_fouls || 0,
+        major_technical_fouls: pr.major_technical_fouls || 0,
+        technical_fouls: (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0),
+        judge_bonus: pr.judge_bonus,
+        protocol_bonus: pr.protocol_bonus,
+        penalty_points: pr.penalty_points,
+        disciplinary_penalty_points: calculateDisciplinaryPenalty(
+          pr.minor_technical_fouls || 0,
+          pr.major_technical_fouls || 0,
+          pr.exit_type === 'removed',
+          proto.ppk_culprit_participant_id === pr.participant_id
+        ),
+        removal_reason: pr.removal_reason,
+        color_protocol: pr.color_protocol || [],
+        notes: pr.notes
+      }))
+    };
   };
 
   const handleDecimalChange = (
@@ -175,6 +197,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   ) => {
     const key = `${participantId}_${field}`;
     setPlayerInputStrings((prev) => ({ ...prev, [key]: rawStr }));
+
+    if (field === 'penalty_points') {
+      const normalized = rawStr.replace(',', '.').trim();
+      if (normalized !== '' && normalized !== '-') {
+        const parsed = parseFloat(normalized);
+        if (isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
+          setDecimalErrors(prev => ({ ...prev, [key]: 'Некорректное значение' }));
+          return;
+        }
+      }
+      setDecimalErrors(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+
     const numVal = parseDecimalString(rawStr);
     updatePlayerResult(participantId, { [field]: numVal });
   };
@@ -349,25 +388,30 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           const currentProto = protocolRef.current;
           const currentResults = playerResultsRef.current;
 
-          const payload = {
-            protocol: currentProto,
-            player_results: currentResults.map((pr) => ({
-              participant_id: pr.participant_id,
-              exit_type: pr.exit_type,
-              exit_order: pr.exit_order,
-              regular_fouls: pr.regular_fouls,
-              minor_technical_fouls: pr.minor_technical_fouls || 0,
-              major_technical_fouls: pr.major_technical_fouls || 0,
-              technical_fouls: pr.technical_fouls,
-              judge_bonus: pr.judge_bonus,
-              protocol_bonus: pr.protocol_bonus,
-              penalty_points: pr.penalty_points,
-              disciplinary_penalty_points: calculateDisciplinaryPenaltyLocal(pr, currentProto.ppk_culprit_participant_id === pr.participant_id),
-              removal_reason: pr.removal_reason,
-              color_protocol: pr.color_protocol || [],
-              notes: pr.notes
-            }))
-          };
+          // Check for unclassified tech fouls
+          const hasUnclassified = currentResults.some(pr => pr.technical_fouls > (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0));
+          if (hasUnclassified) {
+            setSaveStatus('unsaved');
+            setSaveErrorMessage('Сначала классифицируйте старые техфолы');
+            // Backup locally anyway
+            const backupKey = `tournament_protocol_backup_${gameId}`;
+            localStorage.setItem(backupKey, JSON.stringify({
+              protocol: currentProto,
+              player_results: currentResults,
+              timestamp: new Date().toISOString(),
+              version: '1.0'
+            }));
+            break;
+          }
+
+          // Check for decimal errors
+          if (Object.keys(decimalErrors).length > 0) {
+            setSaveStatus('unsaved');
+            setSaveErrorMessage('Исправьте ошибки в полях штрафных баллов');
+            break;
+          }
+
+          const payload = getProtocolPayload(currentProto, currentResults);
 
           const res = await api.saveGameProtocol(tournamentId, gameId, payload);
           lastSavedRevision.current = Math.max(lastSavedRevision.current, revisionToSave);
@@ -845,21 +889,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setError(null);
 
     try {
-      const payload = {
-        protocol,
-        player_results: playerResults.map((pr) => ({
-          participant_id: pr.participant_id,
-          exit_type: pr.exit_type,
-          exit_order: pr.exit_order,
-          regular_fouls: pr.regular_fouls,
-          technical_fouls: pr.technical_fouls,
-          judge_bonus: pr.judge_bonus,
-          protocol_bonus: pr.protocol_bonus,
-          penalty_points: pr.penalty_points,
-          color_protocol: pr.color_protocol || [],
-          notes: pr.notes
-        }))
-      };
+      const payload = getProtocolPayload(protocol, playerResults);
 
       const res = await api.completeGameProtocol(tournamentId, gameId, payload);
       setProtocol(res.protocol);
@@ -1155,21 +1185,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                             <div className="flex items-center space-x-2 text-xs">
                               <span className="text-slate-400">Роль:</span>
-                              <select
-                                disabled={protocol.status === 'completed'}
-                                value={player.role || 'citizen'}
-                                onChange={(e) =>
-                                  updatePlayerResult(player.participant_id, {
-                                    role: e.target.value as any
-                                  })
-                                }
-                                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none disabled:opacity-60"
-                              >
-                                <option value="citizen">Мирный</option>
-                                <option value="sheriff">Шериф</option>
-                                <option value="mafia">Мафия</option>
-                                <option value="don">Дон</option>
-                              </select>
+                              <div className="bg-slate-900/40 border border-slate-700/50 rounded-lg px-2 py-1 text-slate-100 font-medium min-w-[70px] text-center">
+                                {player.role === 'citizen' && 'Мирный'}
+                                {player.role === 'sheriff' && 'Шериф'}
+                                {player.role === 'mafia' && 'Мафия'}
+                                {player.role === 'don' && 'Дон'}
+                                {!['citizen', 'sheriff', 'mafia', 'don'].includes(player.role || '') && (player.role || 'Не указана')}
+                              </div>
 
                               <span className="text-slate-400 ml-1">Статус:</span>
                               <select
@@ -1212,18 +1234,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
                                     onClick={() => handleRegularFoulChange(player.participant_id, -1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
-                                  <span className="flex-1 text-center font-bold text-amber-400 text-sm">
+                                  <span className="flex-1 text-center font-bold text-amber-400 text-base">
                                     {player.regular_fouls}
                                   </span>
                                   <button
                                     type="button"
                                     disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
                                     onClick={() => handleRegularFoulChange(player.participant_id, 1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1238,18 +1260,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.minor_technical_fouls || 0) <= 0}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'minor', -1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
-                                  <span className="flex-1 text-center font-bold text-rose-400 text-sm">
+                                  <span className="flex-1 text-center font-bold text-rose-400 text-base">
                                     {player.minor_technical_fouls || 0}
                                   </span>
                                   <button
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'minor', 1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1264,18 +1286,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.major_technical_fouls || 0) <= 0}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'major', -1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
-                                  <span className="flex-1 text-center font-bold text-rose-600 text-sm">
+                                  <span className="flex-1 text-center font-bold text-rose-600 text-base">
                                     {player.major_technical_fouls || 0}
                                   </span>
                                   <button
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'major', 1)}
-                                    className="w-6 h-6 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center"
+                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1291,8 +1313,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   disabled={protocol.status === 'completed'}
                                   value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                  className={`w-full bg-slate-800 border ${decimalErrors[`${player.participant_id}_penalty_points`] ? 'border-rose-500' : 'border-slate-700'} rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50`}
                                 />
+                                {decimalErrors[`${player.participant_id}_penalty_points`] && (
+                                  <span className="text-[10px] text-rose-500 block mt-0.5 leading-none text-center">
+                                    {decimalErrors[`${player.participant_id}_penalty_points`]}
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Учитывается в номинациях</span>
                               </div>
 
@@ -1300,7 +1327,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
                                 <span className="text-slate-400 block mb-0.5">Дисципл. минус</span>
                                 <div className="w-full bg-slate-900/40 border border-slate-800 rounded px-2 py-1 text-slate-400 text-xs text-center font-medium">
-                                  {calculateDisciplinaryPenaltyLocal(player, protocol.ppk_culprit_participant_id === player.participant_id)}
+                                  {calculateDisciplinaryPenalty(
+                                    player.minor_technical_fouls || 0,
+                                    player.major_technical_fouls || 0,
+                                    player.exit_type === 'removed',
+                                    protocol.ppk_culprit_participant_id === player.participant_id
+                                  )}
                                 </div>
                                 <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Не влияет на номин.</span>
                               </div>
@@ -2366,7 +2398,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               <td className="py-2 px-1 text-center font-bold text-rose-600">{p.major_technical_fouls || 0}</td>
                               <td className="py-2 px-1 text-right text-rose-300">{p.penalty_points || 0}</td>
                               <td className="py-2 px-1 text-right text-slate-400">
-                                {calculateDisciplinaryPenaltyLocal(p, protocol.ppk_culprit_participant_id === p.participant_id)}
+                                {calculateDisciplinaryPenalty(
+                                  p.minor_technical_fouls || 0,
+                                  p.major_technical_fouls || 0,
+                                  p.exit_type === 'removed',
+                                  protocol.ppk_culprit_participant_id === p.participant_id
+                                )}
                               </td>
                               <td className="py-2 px-1 text-right text-slate-300">{p.judge_bonus || 0}</td>
                               <td className="py-2 px-1 text-right text-slate-300">{p.protocol_bonus || 0}</td>
@@ -2462,7 +2499,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               )}
               {pendingDisciplineAction.type === 'ppk' && (
                 <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 space-y-1">
-                  <p>Игра будет немедленно завершена.</p>
+                  <p>Игровой процесс завершится, но протокол останется открыт для проверки и выставления баллов.</p>
                   <p className="text-rose-400 font-bold">
                     Победитель: {getOppositeTeam(playerResults.find(p => p.participant_id === pendingDisciplineAction.participantId)?.role || '') === 'red' ? 'Красные' : 'Чёрные'}
                   </p>

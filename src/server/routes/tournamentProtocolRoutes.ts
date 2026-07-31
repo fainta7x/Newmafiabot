@@ -566,6 +566,8 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
         game_id: gameId,
         status: 'draft',
         winner_team: game.winner_team || null,
+        end_reason: 'normal',
+        ppk_culprit_participant_id: null,
         first_killed_participant_id: null,
         zero_round_voted_participant_id: null,
         best_move_participant_id: null,
@@ -903,26 +905,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       });
 
       return res.json({
-        protocol: {
-          id: existingProtocol.id,
-          game_id: gameId,
-          status: 'completed',
-          winner_team: existingProtocol.winner_team,
-          first_killed_participant_id: existingProtocol.first_killed_participant_id,
-          zero_round_voted_participant_id: existingProtocol.zero_round_voted_participant_id,
-          best_move_participant_id: existingProtocol.best_move_participant_id,
-          best_move_source: existingProtocol.best_move_source,
-          best_move_seats: bestMoveSeats,
-          best_moves: responseBestMoves1,
-          votes: JSON.parse(existingProtocol.votes_json || '[]'),
-          shots: JSON.parse(existingProtocol.shots_json || '[]'),
-          replacement: existingProtocol.replacement_json ? JSON.parse(existingProtocol.replacement_json) : null,
-          judge_notes: existingProtocol.judge_notes,
-          created_at: existingProtocol.created_at,
-          updated_at: existingProtocol.updated_at,
-          completed_at: existingProtocol.completed_at,
-          best_move_score,
-        },
+        protocol: serializeProtocolOutput(existingProtocol, responseBestMoves1, best_move_score),
         player_results: playerResultsList,
         game,
       });

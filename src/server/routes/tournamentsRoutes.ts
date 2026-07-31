@@ -10,6 +10,11 @@ import {
   calculateCiRate,
   calculateGameCi
 } from '../utils/ciHelper.ts';
+import {
+  normalizeRoleValue,
+  calculateRoleCounts,
+  SeatRoleInput
+} from '../../lib/tournamentRoleValidation.ts';
 
 const router = Router();
 
@@ -734,15 +739,99 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
       return res.status(400).json({ error: 'Не переданы назначения ролей' });
     }
 
+    const seenSeats = new Set<number>();
     for (const item of items) {
-      const seatNum = item.seat_number;
-      const roleVal = normalizeRole(item.role);
+      if (!item || typeof item !== 'object') {
+        return res.status(400).json({ error: 'Некорректный элемент в списке назначений ролей' });
+      }
 
-      await db.run(
-        'UPDATE tournament_game_seats SET role = ? WHERE game_id = ? AND seat_number = ?',
-        [roleVal, gameId, seatNum]
-      );
+      const seatNum = item.seat_number;
+      if (typeof seatNum !== 'number' || !Number.isInteger(seatNum) || seatNum < 1 || seatNum > 10) {
+        return res.status(400).json({
+          error: `Некорректный номер места: ${seatNum}. Место должно быть целым числом от 1 до 10`,
+        });
+      }
+
+      if (seenSeats.has(seatNum)) {
+        return res.status(400).json({
+          error: `Повторяющийся номер места ${seatNum} в одном запросе`,
+        });
+      }
+      seenSeats.add(seatNum);
+
+      const rawRole = item.role;
+      if (rawRole !== null && rawRole !== undefined && rawRole !== '') {
+        const normalized = normalizeRoleValue(rawRole);
+        if (!normalized) {
+          return res.status(400).json({
+            error: `Неизвестное значение роли: "${rawRole}"`,
+          });
+        }
+      }
     }
+
+    const currentSeats = await db.all<any>(
+      'SELECT seat_number, role FROM tournament_game_seats WHERE game_id = ?',
+      [gameId]
+    );
+
+    const currentCounts = calculateRoleCounts(
+      currentSeats.map((s) => ({ seat_number: s.seat_number, role: s.role }))
+    );
+
+    const seatMap = new Map<number, string | null>();
+    for (const s of currentSeats) {
+      seatMap.set(s.seat_number, s.role ? normalizeRoleValue(s.role) : null);
+    }
+    for (const item of items) {
+      seatMap.set(item.seat_number, normalizeRoleValue(item.role));
+    }
+
+    const prospectiveSeatInputs: SeatRoleInput[] = Array.from(seatMap.entries()).map(([seat_number, role]) => ({
+      seat_number,
+      role,
+    }));
+    const prospectiveCounts = calculateRoleCounts(prospectiveSeatInputs);
+
+    if (prospectiveCounts.citizen > 6) {
+      return res.status(400).json({
+        error: `Превышен лимит ролей "Мирный": максимум 6 (запрошено ${prospectiveCounts.citizen}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
+        current_counts: currentCounts,
+        prospective_counts: prospectiveCounts,
+      });
+    }
+    if (prospectiveCounts.sheriff > 1) {
+      return res.status(400).json({
+        error: `Превышен лимит ролей "Шериф": максимум 1 (запрошено ${prospectiveCounts.sheriff}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
+        current_counts: currentCounts,
+        prospective_counts: prospectiveCounts,
+      });
+    }
+    if (prospectiveCounts.mafia > 2) {
+      return res.status(400).json({
+        error: `Превышен лимит ролей "Мафия": максимум 2 (запрошено ${prospectiveCounts.mafia}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
+        current_counts: currentCounts,
+        prospective_counts: prospectiveCounts,
+      });
+    }
+    if (prospectiveCounts.don > 1) {
+      return res.status(400).json({
+        error: `Превышен лимит ролей "Дон": максимум 1 (запрошено ${prospectiveCounts.don}). Текущий состав: Мирные ${currentCounts.citizen}/6, Шериф ${currentCounts.sheriff}/1, Мафия ${currentCounts.mafia}/2, Дон ${currentCounts.don}/1`,
+        current_counts: currentCounts,
+        prospective_counts: prospectiveCounts,
+      });
+    }
+
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        const seatNum = item.seat_number;
+        const roleVal = normalizeRoleValue(item.role);
+        await tx.run(
+          'UPDATE tournament_game_seats SET role = ? WHERE game_id = ? AND seat_number = ?',
+          [roleVal, gameId, seatNum]
+        );
+      }
+    });
 
     const updatedSeats = await db.all<any>(`
       SELECT tgs.*, tp.display_name, tp.player_id

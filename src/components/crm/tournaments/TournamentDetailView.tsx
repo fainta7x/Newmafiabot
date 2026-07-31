@@ -33,6 +33,10 @@ import { UserCheck, FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
+import {
+  validateRoleAssignmentChange,
+  isRoleOptionDisabled,
+} from '../../../lib/tournamentRoleValidation.ts';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -268,6 +272,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
   const handleAssignRole = async (seatNumber: number, newRole: string | null) => {
     if (!currentGame || !canEditCurrentGameJudgeAndRoles) return;
+    const validation = validateRoleAssignmentChange(seats, seatNumber, newRole);
+    if (!validation.allowed) {
+      setFeedbackMsg({
+        type: 'error',
+        text: validation.error || 'Нельзя назначить данную роль: лимит заполнен',
+      });
+      return;
+    }
     try {
       const updatedRoles = seats.map((s) =>
         s.seat_number === seatNumber ? { seat_number: s.seat_number, role: newRole } : { seat_number: s.seat_number, role: s.role }
@@ -988,10 +1000,34 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                           }`}
                         >
                           <option value="" className="bg-surface-1 text-text-muted">-- Роль не выбрана --</option>
-                          <option value="citizen" className="bg-surface-1 text-emerald-400 font-semibold">Мирный (6)</option>
-                          <option value="sheriff" className="bg-surface-1 text-amber-400 font-semibold">Шериф (1)</option>
-                          <option value="mafia" className="bg-surface-1 text-rose-400 font-semibold">Мафия (2)</option>
-                          <option value="don" className="bg-surface-1 text-purple-400 font-semibold">Дон (1)</option>
+                          <option
+                            value="citizen"
+                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'citizen')}
+                            className="bg-surface-1 text-emerald-400 font-semibold disabled:opacity-40"
+                          >
+                            Мирный ({roleCounts.citizen}/6)
+                          </option>
+                          <option
+                            value="sheriff"
+                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'sheriff')}
+                            className="bg-surface-1 text-amber-400 font-semibold disabled:opacity-40"
+                          >
+                            Шериф ({roleCounts.sheriff}/1)
+                          </option>
+                          <option
+                            value="mafia"
+                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'mafia')}
+                            className="bg-surface-1 text-rose-400 font-semibold disabled:opacity-40"
+                          >
+                            Мафия ({roleCounts.mafia}/2)
+                          </option>
+                          <option
+                            value="don"
+                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'don')}
+                            className="bg-surface-1 text-purple-400 font-semibold disabled:opacity-40"
+                          >
+                            Дон ({roleCounts.don}/1)
+                          </option>
                         </select>
                       ) : (
                         <span

@@ -178,12 +178,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     roleCounts.don === 1;
 
   const isCorrection = tournament.status === 'correction';
-  const canEditCurrentGameJudgeAndRoles =
-    currentGame?.status === 'planned' ||
-    (isCorrection &&
-      currentGame?.status === 'active' &&
-      (currentGame as any).protocol_status === 'draft' &&
-      !isAnotherGameActive);
+  const canEditCurrentGameJudgeAndRoles = Boolean(
+    currentGame &&
+      (((tournament.status === 'draft' || tournament.status === 'active') && currentGame.status === 'planned') ||
+        (isCorrection &&
+          currentGame.status === 'active' &&
+          (currentGame as any).protocol_status === 'draft' &&
+          !isAnotherGameActive))
+  );
 
   const canStartCurrentGame =
     tournament.status === 'active' &&

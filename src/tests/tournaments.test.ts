@@ -832,4 +832,238 @@ describe('Tournament Module API Tests', () => {
     expect(completeTournament.status).toBe(200);
     expect(completeTournament.body.status).toBe('completed');
   });
+
+  // 17. Access matrix for editing judge and roles, and metadata edit restrictions
+  it('17. Access matrix for editing judge and roles, and metadata edit restrictions', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+
+    // Create draft tournament
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Матрицы Доступа',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+    const tournamentId = createRes.body.id;
+    const game1Id = createRes.body.games[0].id;
+    const game2Id = createRes.body.games[1].id;
+
+    // 1. planned-игра в `draft` допускает изменение судьи и ролей
+    const judgeDraft = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Драфта' });
+    expect(judgeDraft.status).toBe(200);
+
+    const rolesSample = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    const rolesDraft = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesDraft.status).toBe(200);
+
+    // Start tournament -> status: active
+    await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+
+    // 2. planned-игра (game2) в `active` допускает изменение судьи и ролей
+    const judgeActive = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Активного Турнира' });
+    expect(judgeActive.status).toBe(200);
+
+    const rolesActive = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesActive.status).toBe(200);
+
+    // Set tournament status to completed artificially
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    // 3. искусственно созданная planned-игра в `completed` не допускает эти изменения
+    const judgeInCompleted = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Завершённого' });
+    expect(judgeInCompleted.status).toBe(400);
+
+    const rolesInCompleted = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesInCompleted.status).toBe(400);
+
+    // 7. Метаданные нельзя изменить в `completed` и неизвестном статусе
+    const metadataCompleted = await request(app)
+      .patch(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie)
+      .send({ title: 'Новый Заголовок' });
+    expect(metadataCompleted.status).toBe(400);
+
+    await db.run("UPDATE tournaments SET status = 'unknown_status' WHERE id = ?", [tournamentId]);
+    const metadataUnknown = await request(app)
+      .patch(`/api/tournaments/${tournamentId}`)
+      .set('Cookie', organizerCookie)
+      .send({ title: 'Новый Заголовок 2' });
+    expect(metadataUnknown.status).toBe(400);
+
+    // Set tournament status to correction
+    await db.run("UPDATE tournaments SET status = 'correction' WHERE id = ?", [tournamentId]);
+
+    // 4. planned-игра в `correction` не допускает эти изменения
+    const judgePlannedInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Корректировки' });
+    expect(judgePlannedInCorrection.status).toBe(400);
+
+    const rolesPlannedInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesPlannedInCorrection.status).toBe(400);
+
+    // Set game 1 to active with draft protocol
+    await db.run("UPDATE tournament_games SET status = 'active' WHERE id = ?", [game1Id]);
+    await db.run(
+      `INSERT INTO tournament_game_protocols (id, game_id, status, created_at, updated_at)
+       VALUES (?, ?, 'draft', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [`proto_${game1Id}`, game1Id]
+    );
+
+    // 5. active-игра с draft-протоколом в `correction` допускает изменения
+    const judgeActiveInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Активной игры в Корректировке' });
+    expect(judgeActiveInCorrection.status).toBe(200);
+
+    const rolesActiveInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesActiveInCorrection.status).toBe(200);
+
+    // 6. completed-игра в `correction` требует сначала вернуть протокол в черновик
+    await db.run("UPDATE tournament_games SET status = 'completed' WHERE id = ?", [game1Id]);
+    await db.run("UPDATE tournament_game_protocols SET status = 'completed' WHERE game_id = ?", [game1Id]);
+
+    const judgeCompletedInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/judge`)
+      .set('Cookie', organizerCookie)
+      .send({ judge_name: 'Судья Завершённой игры' });
+    expect(judgeCompletedInCorrection.status).toBe(400);
+    expect(judgeCompletedInCorrection.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+
+    const rolesCompletedInCorrection = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/games/${game1Id}/roles`)
+      .set('Cookie', organizerCookie)
+      .send({ roles: rolesSample });
+    expect(rolesCompletedInCorrection.status).toBe(400);
+    expect(rolesCompletedInCorrection.body.error).toContain('Сначала необходимо вернуть протокол игры в черновик');
+  });
+
+  // 18. Data persistence check on reopen-for-correction
+  it('18. Data persistence check on reopen-for-correction: protocol, results, fouls, PPK, and best moves preserved', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Проверки Сохранности Данных',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+
+    const game1 = createRes.body.games[0];
+    const gameId = game1.id;
+
+    const roles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'citizen' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'sheriff' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    await request(app).patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`).set('Cookie', organizerCookie).send({ roles });
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
+
+    const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
+    const playerResults = seats.map((s: any, idx: number) => ({
+      participant_id: s.participant_id,
+      seat_number: s.seat_number,
+      exit_type: idx === 0 ? 'killed_night' : 'alive',
+      exit_round: idx === 0 ? 1 : null,
+      regular_fouls: idx === 1 ? 2 : 0,
+      minor_technical_fouls: idx === 2 ? 1 : 0,
+      major_technical_fouls: idx === 3 ? 1 : 0,
+      ppk: idx === 3 ? 1 : 0,
+      protocol_bonus: idx === 4 ? 0.3 : 0,
+    }));
+
+    const bestMoves = [
+      {
+        shooter_participant_id: seats[0].participant_id,
+        round: 1,
+        target_seat_1: 8,
+        target_seat_2: 9,
+        target_seat_3: 10,
+      },
+    ];
+
+    await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
+      .set('Cookie', organizerCookie)
+      .send({
+        protocol: { winner_team: 'red', end_reason: 'normal' },
+        player_results: playerResults,
+        best_moves: bestMoves,
+      });
+
+    // Mark tournament completed
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    // Snapshot DB data before reopen
+    const protoBefore = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+    const resultsBefore = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? ORDER BY participant_id', [gameId]);
+    const bestMovesBefore = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+
+    // Reopen tournament for correction
+    const reopenRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+    expect(reopenRes.status).toBe(200);
+
+    // Snapshot DB data after reopen
+    const protoAfter = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+    const resultsAfter = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? ORDER BY participant_id', [gameId]);
+    const bestMovesAfter = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+
+    // Compare records
+    expect(protoAfter).toEqual(protoBefore);
+    expect(resultsAfter).toEqual(resultsBefore);
+    expect(bestMovesAfter).toEqual(bestMovesBefore);
+  });
 });

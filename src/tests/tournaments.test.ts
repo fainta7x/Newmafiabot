@@ -1011,36 +1011,44 @@ describe('Tournament Module API Tests', () => {
     await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
 
     const seats = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
+    const firstKilledParticipantId = seats[0].participant_id;
+    const culpritParticipantId = seats[7].participant_id; // Seat 8 is mafia (black)
+
     const playerResults = seats.map((s: any, idx: number) => ({
       participant_id: s.participant_id,
       seat_number: s.seat_number,
-      exit_type: idx === 0 ? 'killed_night' : 'alive',
-      exit_round: idx === 0 ? 1 : null,
-      regular_fouls: idx === 1 ? 2 : 0,
+      exit_type: idx === 0 ? 'killed' : 'alive',
       minor_technical_fouls: idx === 2 ? 1 : 0,
-      major_technical_fouls: idx === 3 ? 1 : 0,
-      ppk: idx === 3 ? 1 : 0,
-      protocol_bonus: idx === 4 ? 0.3 : 0,
     }));
 
-    const bestMoves = [
-      {
-        shooter_participant_id: seats[0].participant_id,
-        round: 1,
-        target_seat_1: 8,
-        target_seat_2: 9,
-        target_seat_3: 10,
-      },
-    ];
-
-    await request(app)
+    const completeRes = await request(app)
       .post(`/api/tournaments/${tournamentId}/games/${gameId}/protocol/complete`)
       .set('Cookie', organizerCookie)
       .send({
-        protocol: { winner_team: 'red', end_reason: 'normal' },
+        protocol: {
+          end_reason: 'ppk',
+          ppk_culprit_participant_id: culpritParticipantId,
+          first_killed_participant_id: firstKilledParticipantId,
+          best_moves: [
+            {
+              participant_id: firstKilledParticipantId,
+              source: 'first_killed',
+              seat_numbers: [8, 9, 10],
+            },
+          ],
+        },
         player_results: playerResults,
-        best_moves: bestMoves,
       });
+
+    expect(completeRes.status).toBe(200);
+    expect(completeRes.body.protocol.end_reason).toBe('ppk');
+    expect(completeRes.body.protocol.ppk_culprit_participant_id).toBe(culpritParticipantId);
+    expect(completeRes.body.protocol.winner_team).toBe('red');
+    const culpritResult = completeRes.body.player_results.find((p: any) => p.participant_id === culpritParticipantId);
+    expect(culpritResult.disciplinary_penalty_points).toBeGreaterThanOrEqual(1.0);
+
+    const dbBestMovesBeforeReopen = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    expect(dbBestMovesBeforeReopen.length).toBeGreaterThan(0);
 
     // Mark tournament completed
     await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
@@ -1048,7 +1056,7 @@ describe('Tournament Module API Tests', () => {
     // Snapshot DB data before reopen
     const protoBefore = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     const resultsBefore = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? ORDER BY participant_id', [gameId]);
-    const bestMovesBefore = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    const bestMovesBefore = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ? ORDER BY participant_id', [gameId]);
 
     // Reopen tournament for correction
     const reopenRes = await request(app)
@@ -1059,7 +1067,7 @@ describe('Tournament Module API Tests', () => {
     // Snapshot DB data after reopen
     const protoAfter = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
     const resultsAfter = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? ORDER BY participant_id', [gameId]);
-    const bestMovesAfter = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [gameId]);
+    const bestMovesAfter = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ? ORDER BY participant_id', [gameId]);
 
     // Compare records
     expect(protoAfter).toEqual(protoBefore);

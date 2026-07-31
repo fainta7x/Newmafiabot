@@ -111,7 +111,7 @@ beforeEach(async () => {
 describe('Tournament Day Readiness - Critical User Scenario Integration Audit', () => {
 
   // ==========================================
-  // 1. Ordinary Protocol Completion
+  // 1. Обычное заполнение протокола
   // ==========================================
   describe('1. Обычное заполнение протокола', () => {
     it('сохраняет черновик, загружает его без потерь и завершает победой красных', async () => {
@@ -390,7 +390,7 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
   // 4. Separation of Game and Disciplinary Penalties
   // ==========================================
   describe('4. Разделение игровых и дисциплинарных штрафов', () => {
-    it('разделяет penalty_points и disciplinary_penalty_points без взаимного подмешивания', async () => {
+    it('разделяет penalty_points и disciplinary_penalty_points без взаимного подмешивания в standings и nominations', async () => {
       const p1Id = game1Seats[0].participant_id;
 
       const payload = {
@@ -421,6 +421,7 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(pr1.penalty_points).toBe(0.2);
       expect(pr1.disciplinary_penalty_points).toBe(0.3);
 
+      // 1. Check Standings
       const standingsRes = await request(app)
         .get(`/api/tournaments/${tournamentId}/standings`)
         .set('Cookie', organizerCookie);
@@ -429,9 +430,31 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(st1.game_penalty_points).toBe(0.2);
       expect(st1.disciplinary_penalty_points).toBe(0.3);
       expect(st1.penalty_points).toBe(0.5); // total penalty = 0.2 + 0.3 = 0.5
-      // win_point = 1, pos_points = 0, bm_points = 0, penalty = 0.5 => add_total = -0.5, total_points = 0.5
       expect(st1.additional_total).toBe(-0.5);
       expect(st1.total_points).toBe(0.5);
+
+      // 2. Check Nominations API
+      const nominationsRes = await request(app)
+        .get(`/api/tournaments/${tournamentId}/nominations`)
+        .set('Cookie', organizerCookie);
+
+      expect(nominationsRes.status).toBe(200);
+
+      const bestCitizenCategory = nominationsRes.body.nominations.find((n: any) => n.category === 'best_citizen');
+      expect(bestCitizenCategory).toBeDefined();
+
+      const candidateP1 = bestCitizenCategory.candidates.find((c: any) => c.participant_id === p1Id);
+      expect(candidateP1).toBeDefined();
+
+      // Check candidate's penalty_points is game penalty only (0.2), not total (0.5)
+      expect(candidateP1.penalty_points).toBe(0.2);
+      // nomination_points = 0 (win is not in nomination) - 0.2 = -0.2
+      expect(candidateP1.nomination_points).toBe(-0.2);
+
+      // Check breakdown
+      expect(candidateP1.breakdown).toHaveLength(1);
+      expect(candidateP1.breakdown[0].penalty_points).toBe(0.2);
+      expect(candidateP1.breakdown[0].nomination_points).toBe(-0.2);
     });
   });
 
@@ -439,11 +462,44 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
   // 5. Best Moves
   // ==========================================
   describe('5. Лучшие ходы (best_moves)', () => {
-    it('сохраняет один и два лучших хода, рассчитывает баллы и правильно отражает в таблице без дублирования', async () => {
+    it('сохраняет один лучший ход и правильно его рассчитывает', async () => {
+      const pFirstKilled = game1Seats[0].participant_id;
+
+      const singleBmPayload = {
+        protocol: {
+          winner_team: 'red',
+          first_killed_participant_id: pFirstKilled,
+          best_moves: [
+            {
+              participant_id: pFirstKilled,
+              source: 'first_killed',
+              seat_numbers: [8, 9, 10], // 3 guessed blacks = 0.6 bonus
+            },
+          ],
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === pFirstKilled ? 'killed' : 'alive',
+        })),
+      };
+
+      const completeRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(singleBmPayload);
+
+      expect(completeRes.status).toBe(200);
+      expect(completeRes.body.protocol.best_moves).toHaveLength(1);
+      expect(completeRes.body.protocol.best_moves[0].bonus_points).toBe(0.6);
+
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      expect(dbBms).toHaveLength(1);
+    });
+
+    it('сохраняет два лучших хода, исключает дублирование в БД и таблице после повторного завершения игры', async () => {
       const pFirstKilled = game1Seats[0].participant_id; // Seat 1
       const pZeroRoundVoted = game1Seats[1].participant_id; // Seat 2
 
-      // Mafia seats: Seat 8, Seat 9, Seat 10 (Don)
       // Best move 1: first killed player picks seats 8, 9, 10 => 3 guessed blacks = 0.6 bonus
       // Best move 2: zero round voted player picks seats 8, 9 => 2 guessed blacks = 0.3 bonus
       const payload = {
@@ -475,6 +531,7 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
         })),
       };
 
+      // 1. Initial completion
       const completeRes = await request(app)
         .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
         .set('Cookie', organizerCookie)
@@ -483,22 +540,32 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(completeRes.status).toBe(200);
       expect(completeRes.body.protocol.best_moves).toHaveLength(2);
 
-      const bm1 = completeRes.body.protocol.best_moves.find((b: any) => b.participant_id === pFirstKilled);
-      expect(bm1.guessed_blacks).toBe(3);
-      expect(bm1.bonus_points).toBe(0.6);
+      // 2. Revert to draft
+      const revertRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/revert-to-draft`)
+        .set('Cookie', organizerCookie);
+      expect(revertRes.status).toBe(200);
 
-      const bm2 = completeRes.body.protocol.best_moves.find((b: any) => b.participant_id === pZeroRoundVoted);
-      expect(bm2.guessed_blacks).toBe(2);
-      expect(bm2.bonus_points).toBe(0.3);
+      // 3. Re-complete game with identical best_moves
+      const reCompleteRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(payload);
 
-      // Check GET protocol reloading
+      expect(reCompleteRes.status).toBe(200);
+
+      // 4. Check direct DB records (must be exactly 2 rows, not 4)
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      expect(dbBms).toHaveLength(2);
+
+      // 5. Check GET protocol API
       const getRes = await request(app)
         .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
         .set('Cookie', organizerCookie);
 
       expect(getRes.body.protocol.best_moves).toHaveLength(2);
 
-      // Check Standings
+      // 6. Check Standings API (points must be 0.6 and 0.3, not doubled to 1.2 and 0.6)
       const standingsRes = await request(app)
         .get(`/api/tournaments/${tournamentId}/standings`)
         .set('Cookie', organizerCookie);
@@ -570,6 +637,95 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       const st0 = standings2.body.standings.find((s: any) => s.participant_id === game1Seats[0].participant_id);
       expect(st0.disciplinary_penalty_points).toBe(0.3);
     });
+
+    it('поддерживает reopening завершённого турнира для исправления протокола и повторного завершения', async () => {
+      const pFirstKilled = game1Seats[0].participant_id;
+      const redCulpritId = game1Seats[1].participant_id;
+
+      // 1. Complete game with PPK, best moves, fouls
+      const fullPayload = {
+        protocol: {
+          end_reason: 'ppk',
+          ppk_culprit_participant_id: redCulpritId,
+          first_killed_participant_id: pFirstKilled,
+          best_moves: [
+            {
+              participant_id: pFirstKilled,
+              source: 'first_killed',
+              seat_numbers: [8, 9, 10],
+            },
+          ],
+        },
+        player_results: game1Seats.map((s) => ({
+          participant_id: s.participant_id,
+          exit_type: s.participant_id === pFirstKilled ? 'killed' : 'alive',
+          minor_technical_fouls: s.participant_id === game1Seats[2].participant_id ? 1 : 0,
+        })),
+      };
+
+      const completeRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(fullPayload);
+
+      expect(completeRes.status).toBe(200);
+
+      // 2. Mark tournament completed
+      await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+      // 3. Organizer reopens tournament for correction
+      const reopenRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+        .set('Cookie', organizerCookie);
+
+      expect(reopenRes.status).toBe(200);
+
+      const tournamentDetail = await request(app)
+        .get(`/api/tournaments/${tournamentId}`)
+        .set('Cookie', organizerCookie);
+
+      expect(tournamentDetail.body.status).toBe('correction');
+
+      // 4. Return game to draft
+      const revertRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/revert-to-draft`)
+        .set('Cookie', organizerCookie);
+
+      expect(revertRes.status).toBe(200);
+
+      // 5. Update protocol notes while preserving PPK, best_moves, fouls
+      const updatedNotesPayload = {
+        ...fullPayload,
+        protocol: {
+          ...fullPayload.protocol,
+          judge_notes: 'Исправление заметок на турнире в статусе correction',
+        },
+      };
+
+      const reCompleteRes = await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send(updatedNotesPayload);
+
+      expect(reCompleteRes.status).toBe(200);
+
+      // 6. Verify results recalculated without duplication
+      const standingsRes = await request(app)
+        .get(`/api/tournaments/${tournamentId}/standings`)
+        .set('Cookie', organizerCookie);
+
+      expect(standingsRes.body.completed_games_count).toBe(1);
+
+      // 7. Check PPK, best moves, roles and penalties preserved
+      const getProtocolRes = await request(app)
+        .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
+        .set('Cookie', organizerCookie);
+
+      expect(getProtocolRes.body.protocol.end_reason).toBe('ppk');
+      expect(getProtocolRes.body.protocol.ppk_culprit_participant_id).toBe(redCulpritId);
+      expect(getProtocolRes.body.protocol.judge_notes).toBe('Исправление заметок на турнире в статусе correction');
+      expect(getProtocolRes.body.protocol.best_moves).toHaveLength(1);
+    });
   });
 
   // ==========================================
@@ -613,7 +769,7 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(resNoWinner.body.error).toContain('победившую команду');
     });
 
-    it('возвращает понятные сообщения об ошибках без повреждения протокола в базе', async () => {
+    it('возвращает понятные сообщения об ошибках и сохраняет атомарность без неполных записей в БД', async () => {
       // Send invalid payload (e.g., > 3 seats in best move)
       const invalidRes = await request(app)
         .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
@@ -636,7 +792,21 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(invalidRes.status).toBe(400);
       expect(invalidRes.body.error).toBeDefined();
 
-      // Protocol status remains draft / untouched
+      // Direct SQL checks for DB atomicity
+      const dbGame = await db.get<any>('SELECT * FROM tournament_games WHERE id = ?', [game1Id]);
+      expect(dbGame.status).toBe('active');
+      expect(dbGame.status).not.toBe('completed');
+
+      const dbProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [game1Id]);
+      expect(dbProtocol?.status).not.toBe('completed');
+
+      const dbBms = await db.all<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ?', [game1Id]);
+      expect(dbBms).toHaveLength(0);
+
+      const dbResults = await db.all<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ?', [game1Id]);
+      expect(dbResults).toHaveLength(0);
+
+      // GET API check
       const getRes = await request(app)
         .get(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol`)
         .set('Cookie', organizerCookie);

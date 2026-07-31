@@ -60,6 +60,25 @@ export const strictParseDecimal = (val: string): number | null => {
   return parsed;
 };
 
+export const buildLegacyTechFoulClassification = (
+  minor: number,
+  major: number
+): Partial<PlayerResultData> => {
+  const total = minor + major;
+  const updates: Partial<PlayerResultData> = {
+    minor_technical_fouls: minor,
+    major_technical_fouls: major,
+    technical_fouls: total
+  };
+
+  if (total === 2) {
+    updates.exit_type = 'removed';
+    updates.removal_reason = '2nd_tech';
+  }
+
+  return updates;
+};
+
 export const getProtocolPayload = (proto: TournamentGameProtocolData, results: PlayerResultData[]) => {
   return {
     protocol: {
@@ -333,17 +352,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   }, [loading, playerResults]);
 
   const classifyTechFoul = (participantId: string, minor: number, major: number) => {
-    const total = minor + major;
-    const updates: Partial<PlayerResultData> = {
-      minor_technical_fouls: minor,
-      major_technical_fouls: major,
-      technical_fouls: total
-    };
-
-    if (total === 2) {
-      updates.exit_type = 'removed';
-      updates.removal_reason = '2nd_tech';
-    }
+    const updates = buildLegacyTechFoulClassification(minor, major);
 
     updatePlayerResult(participantId, updates);
     setOldTechFoulsToFix(prev => {

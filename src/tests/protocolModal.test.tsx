@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, cleanup, fireEvent, screen, act } from '@testing-library/react';
-import { GameProtocolModal, formatColorMark, getProtocolPayload } from '../components/crm/tournaments/GameProtocolModal';
+import { render, waitFor, cleanup, fireEvent, screen } from '@testing-library/react';
+import { GameProtocolModal, formatColorMark, getProtocolPayload, buildLegacyTechFoulClassification } from '../components/crm/tournaments/GameProtocolModal';
 import { api } from '../lib/api';
 
 import { calculateDisciplinaryPenalty } from '../lib/gameDiscipline';
@@ -239,21 +239,20 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(p1.disciplinary_penalty_points).toBe(1.9);
     });
 
-    it('Scenario 2: Classification of two old tech fouls returns removed and 2nd_tech', async () => {
-      const results = [
-        { ...mockPlayerResults[0], technical_fouls: 2, minor_technical_fouls: 1, major_technical_fouls: 1, exit_type: 'removed', removal_reason: '2nd_tech' },
-        ...mockPlayerResults.slice(1)
-      ] as any;
+    it('Scenario 2: Classification of two old tech fouls returns removed and 2nd_tech', () => {
+      const res2 = buildLegacyTechFoulClassification(1, 1);
+      expect(res2.minor_technical_fouls).toBe(1);
+      expect(res2.major_technical_fouls).toBe(1);
+      expect(res2.technical_fouls).toBe(2);
+      expect(res2.exit_type).toBe('removed');
+      expect(res2.removal_reason).toBe('2nd_tech');
 
-      const payload = getProtocolPayload(mockProtocol as any, results);
-      const p1 = payload.player_results[0];
-
-      expect(p1.minor_technical_fouls).toBe(1);
-      expect(p1.major_technical_fouls).toBe(1);
-      expect(p1.technical_fouls).toBe(2);
-      expect(p1.exit_type).toBe('removed');
-      expect(p1.removal_reason).toBe('2nd_tech');
-      expect(p1.disciplinary_penalty_points).toBe(1.9);
+      const res1 = buildLegacyTechFoulClassification(1, 0);
+      expect(res1.minor_technical_fouls).toBe(1);
+      expect(res1.major_technical_fouls).toBe(0);
+      expect(res1.technical_fouls).toBe(1);
+      expect(res1.exit_type).toBeUndefined();
+      expect(res1.removal_reason).toBeUndefined();
     });
 
     it('Scenario 3: Invalid penalty_points inputs are rejected', async () => {

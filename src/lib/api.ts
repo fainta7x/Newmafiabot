@@ -671,6 +671,14 @@ export const api = {
     }),
   generateTournamentSeating: (id: string) =>
     request<{ success: boolean; games: TournamentGame[] }>(`/api/tournaments/${id}/generate-seating`, { method: 'POST' }),
+  correctTournamentParticipant: (tournamentId: string, participantId: string, playerId: string) =>
+    request<{ success: boolean; participant: TournamentParticipant }>(
+      `/api/tournaments/${tournamentId}/participants/${participantId}/correct-player`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ player_id: playerId }),
+      }
+    ),
   swapTournamentSeats: (tournamentId: string, gameId: string, seat1: number, seat2: number) =>
     request<{ success: boolean; game_id: string; seats: TournamentGameSeat[] }>(
       `/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`,

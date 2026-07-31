@@ -19,7 +19,7 @@ import {
   Trophy,
   RotateCcw,
 } from 'lucide-react';
-import { api, Tournament, TournamentGame, TournamentGameSeat } from '../../../lib/api.ts';
+import { api, Tournament, TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
 import { EditTournamentRosterModal } from './EditTournamentRosterModal.tsx';
 import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
@@ -28,7 +28,8 @@ import { ProtocolImportModal } from './ProtocolImportModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
-import { FileSpreadsheet, FileCheck, Award } from 'lucide-react';
+import { CorrectParticipantModal } from './CorrectParticipantModal.tsx';
+import { UserCheck, FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
@@ -78,6 +79,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapSeat1, setSwapSeat1] = useState<number>(1);
   const [swapSeat2, setSwapSeat2] = useState<number>(2);
+
+  // Correct participant state
+  const [correctingParticipant, setCorrectingParticipant] = useState<TournamentParticipant | null>(null);
 
   // Feedback state
   const [actionLoading, setActionLoading] = useState(false);
@@ -180,6 +184,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const isCorrection = tournament.status === 'correction';
   const canEditCurrentGameJudgeAndRoles = Boolean(
     currentGame &&
+      (((tournament.status === 'draft' || tournament.status === 'active') && currentGame.status === 'planned') ||
+        (isCorrection &&
+          currentGame.status === 'active' &&
+          (currentGame as any).protocol_status === 'draft' &&
+          !isAnotherGameActive))
+  );
+
+  const canSwapSeatsCurrentGame = Boolean(
+    currentGame &&
+      tournament.status !== 'completed' &&
+      currentGame.status !== 'completed' &&
       (((tournament.status === 'draft' || tournament.status === 'active') && currentGame.status === 'planned') ||
         (isCorrection &&
           currentGame.status === 'active' &&
@@ -718,6 +733,16 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   {p.player_nickname && p.player_nickname !== p.display_name && (
                     <span className="text-[10px] text-text-muted block truncate">({p.player_nickname})</span>
                   )}
+                  {tournament.status !== 'completed' && (
+                    <button
+                      type="button"
+                      onClick={() => setCorrectingParticipant(p)}
+                      className="text-[10px] text-accent hover:underline font-bold mt-1 inline-flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <UserCheck className="w-3 h-3" />
+                      <span>Исправить</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -861,8 +886,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   <span>Загрузить бланк игры</span>
                 </button>
 
-                {/* Swap seats allowed ONLY in draft & planned game */}
-                {isDraft && currentGame.status === 'planned' && (
+                {/* Swap seats / Correct players on seats allowed in draft/planned or active game in correction mode with draft protocol */}
+                {canSwapSeatsCurrentGame && (
                   <button
                     onClick={() => {
                       setSwapSeat1(1);
@@ -872,7 +897,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                     className="bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5 text-accent" />
-                    <span>Поменять местами</span>
+                    <span>Исправить игроков на местах</span>
                   </button>
                 )}
 
@@ -1005,71 +1030,128 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       />
 
       {/* SWAP SEATS MODAL */}
-      {showSwapModal && isDraft && currentGame?.status === 'planned' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-sm w-full p-6 space-y-4 text-text-primary">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold">Перестановка мест</h3>
-              <button onClick={() => setShowSwapModal(false)} className="text-text-muted hover:text-text-primary p-1 rounded-full">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-xs text-text-secondary">
-              Выберите два места в Игра №{currentGame?.game_number}, которые нужно поменять местами:
-            </p>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-text-secondary font-semibold mb-1">Первое место</label>
-                <select
-                  value={swapSeat1}
-                  onChange={(e) => setSwapSeat1(parseInt(e.target.value))}
-                  className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
-                >
-                  {seats.map((s) => (
-                    <option key={s.id} value={s.seat_number}>
-                      Место #{s.seat_number} — {s.display_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-text-secondary font-semibold mb-1">Второе место</label>
-                <select
-                  value={swapSeat2}
-                  onChange={(e) => setSwapSeat2(parseInt(e.target.value))}
-                  className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
-                >
-                  {seats.map((s) => (
-                    <option key={s.id} value={s.seat_number}>
-                      Место #{s.seat_number} — {s.display_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSwapSeats}
-                  disabled={actionLoading}
-                  className="flex-1 bg-accent hover:bg-accent-hover text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer min-h-[44px]"
-                >
-                  {actionLoading ? 'Выполнение...' : 'Поменять местами'}
-                </button>
+      {showSwapModal && canSwapSeatsCurrentGame && (() => {
+        const seat1Obj = seats.find((s) => s.seat_number === swapSeat1);
+        const seat2Obj = seats.find((s) => s.seat_number === swapSeat2);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-md w-full p-6 space-y-4 text-text-primary shadow-2xl">
+              <div className="flex items-center justify-between border-b border-border-soft pb-3">
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="w-5 h-5 text-accent" />
+                  <h3 className="text-base font-bold">Исправить игроков на местах</h3>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowSwapModal(false)}
-                  className="bg-surface-2 text-text-secondary font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer min-h-[44px]"
+                  className="text-text-muted hover:text-text-primary p-1 rounded-full cursor-pointer"
                 >
-                  Отмена
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              <p className="text-xs text-text-secondary">
+                Выберите два слота в Игра №{currentGame?.game_number}, которые следует поменять местами:
+              </p>
+
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-text-secondary font-semibold mb-1">Первое место</label>
+                    <select
+                      value={swapSeat1}
+                      onChange={(e) => setSwapSeat1(parseInt(e.target.value))}
+                      className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
+                    >
+                      {seats.map((s) => (
+                        <option key={s.id} value={s.seat_number}>
+                          Место #{s.seat_number} — {s.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary font-semibold mb-1">Второе место</label>
+                    <select
+                      value={swapSeat2}
+                      onChange={(e) => setSwapSeat2(parseInt(e.target.value))}
+                      className="w-full bg-surface-2 border border-border-soft rounded-xl p-2.5 text-text-primary font-bold focus:outline-none"
+                    >
+                      {seats.map((s) => (
+                        <option key={s.id} value={s.seat_number}>
+                          Место #{s.seat_number} — {s.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {seat1Obj && seat2Obj && swapSeat1 !== swapSeat2 && (
+                  <div className="bg-surface-2 p-3.5 rounded-2xl border border-border-soft space-y-2">
+                    <span className="text-[11px] font-bold text-accent uppercase tracking-wider block">
+                      Подтверждение назначения игроков:
+                    </span>
+                    <div className="space-y-1.5 text-xs font-medium">
+                      <div className="flex items-center justify-between">
+                        <span>Место #{swapSeat1}: <strong className="text-text-primary">{seat1Obj.display_name}</strong></span>
+                        <span className="text-accent font-bold">➔ станет {seat2Obj.display_name}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Место #{swapSeat2}: <strong className="text-text-primary">{seat2Obj.display_name}</strong></span>
+                        <span className="text-accent font-bold">➔ станет {seat1Obj.display_name}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-surface-2 p-3 rounded-xl border border-border-soft text-[11px] text-text-muted flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    Роли и все действия протокола остаются у своих номеров мест
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSwapSeats}
+                    disabled={actionLoading || swapSeat1 === swapSeat2}
+                    className={`flex-1 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer min-h-[44px] flex items-center justify-center ${
+                      actionLoading || swapSeat1 === swapSeat2
+                        ? 'bg-surface-2 text-text-muted border border-border-soft cursor-not-allowed opacity-60'
+                        : 'bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20'
+                    }`}
+                  >
+                    {actionLoading ? 'Выполнение...' : 'Исправить игроков на местах'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSwapModal(false)}
+                    className="bg-surface-2 hover:bg-surface-hover text-text-secondary font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer min-h-[44px]"
+                  >
+                    Отмена
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* CORRECT PARTICIPANT MODAL */}
+      <CorrectParticipantModal
+        isOpen={!!correctingParticipant}
+        tournamentId={tournamentId}
+        participant={correctingParticipant}
+        allParticipants={tournament.participants || []}
+        onClose={() => setCorrectingParticipant(null)}
+        onSuccess={() => {
+          setCorrectingParticipant(null);
+          setFeedbackMsg({ type: 'success', text: 'Профиль участника успешно исправлен во всём турнире' });
+          loadDetail();
+        }}
+      />
 
       {/* Confirm Start Tournament Modal */}
       <ConfirmStartTournamentModal

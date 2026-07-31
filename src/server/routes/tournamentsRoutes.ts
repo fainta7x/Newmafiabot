@@ -475,6 +475,66 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
   }
 });
 
+// 5b. PATCH /api/tournaments/:id/participants/:participantId/correct-player - Correct CRM profile for tournament participant
+router.patch('/:id/participants/:participantId/correct-player', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const db = (req as any).db as DatabaseWrapper;
+  const { id: tournamentId, participantId } = req.params;
+  const { player_id } = req.body;
+
+  try {
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    if (!tournament) {
+      return res.status(404).json({ error: 'Турнир не найден' });
+    }
+
+    if (tournament.status === 'completed') {
+      return res.status(400).json({ error: 'Завершённый турнир нельзя редактировать. Сначала верните его на корректировку.' });
+    }
+
+    const allowedStatuses = ['draft', 'active', 'correction'];
+    if (!allowedStatuses.includes(tournament.status)) {
+      return res.status(400).json({ error: 'Изменение профиля участника запрещено в текущем статусе турнира' });
+    }
+
+    const participant = await db.get<any>(
+      'SELECT * FROM tournament_participants WHERE id = ? AND tournament_id = ?',
+      [participantId, tournamentId]
+    );
+    if (!participant) {
+      return res.status(404).json({ error: 'Участник турнира не найден' });
+    }
+
+    if (!player_id) {
+      return res.status(400).json({ error: 'Не указан player_id для исправления профиля' });
+    }
+
+    const newPlayer = await db.get<any>('SELECT * FROM players WHERE id = ?', [player_id]);
+    if (!newPlayer) {
+      return res.status(400).json({ error: 'Игрок с указанным ID не найден в CRM' });
+    }
+
+    const duplicateCheck = await db.get<any>(
+      'SELECT id FROM tournament_participants WHERE tournament_id = ? AND player_id = ? AND id != ?',
+      [tournamentId, player_id, participantId]
+    );
+    if (duplicateCheck) {
+      return res.status(400).json({ error: 'Этот игрок CRM уже задействован в данном турнире' });
+    }
+
+    const displayName = newPlayer.nickname || newPlayer.first_name || participant.display_name;
+
+    await db.run(
+      'UPDATE tournament_participants SET player_id = ?, display_name = ? WHERE id = ?',
+      [player_id, displayName, participantId]
+    );
+
+    const updatedParticipant = await db.get<any>('SELECT * FROM tournament_participants WHERE id = ?', [participantId]);
+    res.json({ success: true, participant: updatedParticipant });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Ошибка исправления профиля участника' });
+  }
+});
+
 // 7. POST /api/tournaments/:id/games/:gameId/swap-seats - Swap two seats in a game
 router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = (req as any).db as DatabaseWrapper;
@@ -487,17 +547,14 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
       return res.status(404).json({ error: 'Турнир не найден' });
     }
 
-    if (tournament.status !== 'draft') {
-      return res.status(400).json({ error: 'Перестановка мест запрещена после запуска турнира' });
-    }
-
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
       return res.status(404).json({ error: 'Игра не найдена' });
     }
 
-    if (game.status !== 'planned') {
-      return res.status(400).json({ error: 'Перестановка мест запрещена после запуска игры' });
+    const check = await checkGameEditingPermission(db, tournament, game);
+    if (!check.allowed) {
+      return res.status(400).json({ error: check.error || 'Перестановка мест запрещена' });
     }
 
     let seat1, seat2;
@@ -518,11 +575,79 @@ router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: A
       return res.status(400).json({ error: 'Выберите разных игроков для перестановки' });
     }
 
-    // Swap seat_numbers between seat1 and seat2 safely
-    const tempSeatNumber = -999;
-    await db.run('UPDATE tournament_game_seats SET seat_number = ? WHERE id = ?', [tempSeatNumber, seat1.id]);
-    await db.run('UPDATE tournament_game_seats SET seat_number = ? WHERE id = ?', [seat1.seat_number, seat2.id]);
-    await db.run('UPDATE tournament_game_seats SET seat_number = ? WHERE id = ?', [seat2.seat_number, seat1.id]);
+    const P1 = seat1.participant_id;
+    const P2 = seat2.participant_id;
+
+    await db.transaction(async (tx) => {
+      await tx.exec('PRAGMA defer_foreign_keys = ON;');
+
+      // 1. Swap participant_id in tournament_game_seats (seat numbers remain unchanged)
+      const tempId = crypto.randomUUID();
+      await tx.run('UPDATE tournament_game_seats SET participant_id = ? WHERE id = ?', [tempId, seat1.id]);
+      await tx.run('UPDATE tournament_game_seats SET participant_id = ? WHERE id = ?', [P1, seat2.id]);
+      await tx.run('UPDATE tournament_game_seats SET participant_id = ? WHERE id = ?', [P2, seat1.id]);
+
+      // 2. Transfer personal data in protocol (PPK, best move, first killed, zero round voted)
+      const proto = await tx.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+      if (proto) {
+        let fk = proto.first_killed_participant_id;
+        if (fk === P1) fk = P2;
+        else if (fk === P2) fk = P1;
+
+        let zr = proto.zero_round_voted_participant_id;
+        if (zr === P1) zr = P2;
+        else if (zr === P2) zr = P1;
+
+        let bm = proto.best_move_participant_id;
+        if (bm === P1) bm = P2;
+        else if (bm === P2) bm = P1;
+
+        let ppk = proto.ppk_culprit_participant_id;
+        if (ppk === P1) ppk = P2;
+        else if (ppk === P2) ppk = P1;
+
+        await tx.run(
+          `UPDATE tournament_game_protocols
+           SET first_killed_participant_id = ?,
+               zero_round_voted_participant_id = ?,
+               best_move_participant_id = ?,
+               ppk_culprit_participant_id = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [fk, zr, bm, ppk, proto.id]
+        );
+      }
+
+      // 3. Swap tournament_game_player_results
+      const resP1 = await tx.get<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? AND participant_id = ?', [gameId, P1]);
+      const resP2 = await tx.get<any>('SELECT * FROM tournament_game_player_results WHERE game_id = ? AND participant_id = ?', [gameId, P2]);
+
+      if (resP1 && resP2) {
+        const tempResId = crypto.randomUUID();
+        await tx.run('UPDATE tournament_game_player_results SET participant_id = ? WHERE id = ?', [tempResId, resP1.id]);
+        await tx.run('UPDATE tournament_game_player_results SET participant_id = ? WHERE id = ?', [P1, resP2.id]);
+        await tx.run('UPDATE tournament_game_player_results SET participant_id = ? WHERE id = ?', [P2, resP1.id]);
+      } else if (resP1) {
+        await tx.run('UPDATE tournament_game_player_results SET participant_id = ? WHERE id = ?', [P2, resP1.id]);
+      } else if (resP2) {
+        await tx.run('UPDATE tournament_game_player_results SET participant_id = ? WHERE id = ?', [P1, resP2.id]);
+      }
+
+      // 4. Swap tournament_game_best_moves
+      const bmP1 = await tx.get<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ? AND participant_id = ?', [gameId, P1]);
+      const bmP2 = await tx.get<any>('SELECT * FROM tournament_game_best_moves WHERE game_id = ? AND participant_id = ?', [gameId, P2]);
+
+      if (bmP1 && bmP2) {
+        const tempBmId = crypto.randomUUID();
+        await tx.run('UPDATE tournament_game_best_moves SET participant_id = ? WHERE id = ?', [tempBmId, bmP1.id]);
+        await tx.run('UPDATE tournament_game_best_moves SET participant_id = ? WHERE id = ?', [P1, bmP2.id]);
+        await tx.run('UPDATE tournament_game_best_moves SET participant_id = ? WHERE id = ?', [P2, bmP1.id]);
+      } else if (bmP1) {
+        await tx.run('UPDATE tournament_game_best_moves SET participant_id = ? WHERE id = ?', [P2, bmP1.id]);
+      } else if (bmP2) {
+        await tx.run('UPDATE tournament_game_best_moves SET participant_id = ? WHERE id = ?', [P1, bmP2.id]);
+      }
+    });
 
     const updatedSeats = await db.all<any>(`
       SELECT tgs.*, tp.display_name, tp.player_id

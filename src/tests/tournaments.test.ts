@@ -1066,4 +1066,171 @@ describe('Tournament Module API Tests', () => {
     expect(resultsAfter).toEqual(resultsBefore);
     expect(bestMovesAfter).toEqual(bestMovesBefore);
   });
+
+  // 19. Integration test for correcting CRM player profile in tournament
+  it('19. Correct CRM player profile: preserves participant ID, prevents duplicate selection, and respects completed status', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Исправления Профилей',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    const participant1 = createRes.body.participants[0];
+    const participant2 = createRes.body.participants[1];
+
+    // Create a new CRM player not in the tournament
+    const newPlayerId = 'player_crm_corr_test_99';
+    await db.run(
+      `INSERT INTO players (id, full_name, nickname, created_at, updated_at)
+       VALUES (?, 'Правильный', 'ПравНик', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [newPlayerId]
+    );
+
+    // 1. Successful correction in draft mode
+    const corrRes = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/participants/${participant1.id}/correct-player`)
+      .set('Cookie', organizerCookie)
+      .send({ player_id: newPlayerId });
+
+    expect(corrRes.status).toBe(200);
+    expect(corrRes.body.success).toBe(true);
+    expect(corrRes.body.participant.id).toBe(participant1.id);
+    expect(corrRes.body.participant.player_id).toBe(newPlayerId);
+    expect(corrRes.body.participant.display_name).toBe('ПравНик');
+
+    // Verify DB participant updated
+    const pDb = await db.get<any>('SELECT * FROM tournament_participants WHERE id = ?', [participant1.id]);
+    expect(pDb.player_id).toBe(newPlayerId);
+    expect(pDb.display_name).toBe('ПравНик');
+    expect(pDb.participant_number).toBe(participant1.participant_number);
+
+    // 2. Prevent duplicate selection: try setting participant2 to newPlayerId
+    const dupRes = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/participants/${participant2.id}/correct-player`)
+      .set('Cookie', organizerCookie)
+      .send({ player_id: newPlayerId });
+
+    expect(dupRes.status).toBe(400);
+    expect(dupRes.body.error).toContain('уже задействован');
+
+    // 3. Mark tournament completed and verify correction is prohibited
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    const completedCorrRes = await request(app)
+      .patch(`/api/tournaments/${tournamentId}/participants/${participant1.id}/correct-player`)
+      .set('Cookie', organizerCookie)
+      .send({ player_id: playerIds[0] });
+
+    expect(completedCorrRes.status).toBe(400);
+    expect(completedCorrRes.body.error).toContain('Завершённый турнир нельзя редактировать');
+  });
+
+  // 20. Integration test for swap-seats adhering to "slot is source of truth" and correction mode
+  it('20. Swap seats logic: slot is source of truth, personal protocol data transfers to new player on slot, forbidden in completed', async () => {
+    const validParticipants = playerIds.map((id, idx) => ({ player_id: id, display_name: `Игрок ${idx + 1}` }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Турнир Корректировки Слотов',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    const game1 = createRes.body.games[0];
+    const gameId = game1.id;
+
+    // 1. Swap seats in draft mode for planned game
+    const swapDraftRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`)
+      .set('Cookie', organizerCookie)
+      .send({ seat_number_1: 1, seat_number_2: 2 });
+
+    expect(swapDraftRes.status).toBe(200);
+    expect(swapDraftRes.body.success).toBe(true);
+
+    // Verify seat 1 and 2 swapped participant IDs
+    const seatsDraft = await db.all<any>('SELECT * FROM tournament_game_seats WHERE game_id = ? ORDER BY seat_number ASC', [gameId]);
+    const seat1P = seatsDraft.find((s: any) => s.seat_number === 1).participant_id;
+    const seat2P = seatsDraft.find((s: any) => s.seat_number === 2).participant_id;
+
+    // Start tournament and game 1
+    await request(app).post(`/api/tournaments/${tournamentId}/start`).set('Cookie', organizerCookie);
+
+    const roles = [
+      { seat_number: 1, role: 'citizen' },
+      { seat_number: 2, role: 'sheriff' },
+      { seat_number: 3, role: 'citizen' },
+      { seat_number: 4, role: 'citizen' },
+      { seat_number: 5, role: 'citizen' },
+      { seat_number: 6, role: 'citizen' },
+      { seat_number: 7, role: 'citizen' },
+      { seat_number: 8, role: 'mafia' },
+      { seat_number: 9, role: 'mafia' },
+      { seat_number: 10, role: 'don' },
+    ];
+    await request(app).patch(`/api/tournaments/${tournamentId}/games/${gameId}/roles`).set('Cookie', organizerCookie).send({ roles });
+    await request(app).post(`/api/tournaments/${tournamentId}/games/${gameId}/start`).set('Cookie', organizerCookie);
+
+    // Insert protocol data for game 1
+    const p1 = seat1P;
+    const p2 = seat2P;
+
+    await db.run(
+      `INSERT INTO tournament_game_protocols (id, game_id, status, winner_team, end_reason, first_killed_participant_id, zero_round_voted_participant_id, best_move_participant_id, ppk_culprit_participant_id, created_at, updated_at)
+       VALUES ('proto_swap_test', ?, 'draft', 'red', 'normal', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [gameId, p1, p2, p1, p2]
+    );
+
+    await db.run(
+      `INSERT INTO tournament_game_player_results (id, game_id, participant_id, exit_type, regular_fouls, minor_technical_fouls, major_technical_fouls, protocol_bonus)
+       VALUES ('res_p1', ?, ?, 'killed', 2, 1, 0, 0.5)`,
+      [gameId, p1]
+    );
+    await db.run(
+      `INSERT INTO tournament_game_player_results (id, game_id, participant_id, exit_type, regular_fouls, minor_technical_fouls, major_technical_fouls, protocol_bonus)
+       VALUES ('res_p2', ?, ?, 'alive', 0, 0, 0, 0)`,
+      [gameId, p2]
+    );
+
+    // Set tournament status = completed and verify swap-seats fails
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    const swapCompletedRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`)
+      .set('Cookie', organizerCookie)
+      .send({ seat_number_1: 1, seat_number_2: 2 });
+
+    expect(swapCompletedRes.status).toBe(400);
+
+    // Reopen tournament for correction
+    await request(app).post(`/api/tournaments/${tournamentId}/reopen-for-correction`).set('Cookie', organizerCookie);
+
+    // Swap seats 1 and 2 in active game with draft protocol in correction mode
+    const swapCorrRes = await request(app)
+      .post(`/api/tournaments/${tournamentId}/games/${gameId}/swap-seats`)
+      .set('Cookie', organizerCookie)
+      .send({ seat_number_1: 1, seat_number_2: 2 });
+
+    expect(swapCorrRes.status).toBe(200);
+
+    // Check protocol fields swapped p1 and p2 references
+    const protoAfter = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);
+    expect(protoAfter.first_killed_participant_id).toBe(p2);
+    expect(protoAfter.zero_round_voted_participant_id).toBe(p1);
+    expect(protoAfter.best_move_participant_id).toBe(p2);
+    expect(protoAfter.ppk_culprit_participant_id).toBe(p1);
+
+    // Check player results transferred
+    const resP1After = await db.get<any>('SELECT * FROM tournament_game_player_results WHERE id = ?', ['res_p1']);
+    const resP2After = await db.get<any>('SELECT * FROM tournament_game_player_results WHERE id = ?', ['res_p2']);
+    expect(resP1After.participant_id).toBe(p2);
+    expect(resP2After.participant_id).toBe(p1);
+  });
 });

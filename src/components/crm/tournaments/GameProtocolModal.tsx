@@ -16,7 +16,9 @@ import {
   Clock,
   ArrowUp,
   ArrowDown,
-  Pencil
+  Pencil,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import {
   api,
@@ -143,6 +145,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   });
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
   const [decimalErrors, setDecimalErrors] = useState<Record<string, string>>({});
   const decimalErrorsRef = useRef(decimalErrors);
 
@@ -1031,62 +1034,63 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 text-slate-100 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto overflow-x-hidden">
+      <div className="bg-slate-900 text-slate-100 rounded-none sm:rounded-2xl w-full max-w-4xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl border-0 sm:border sm:border-slate-800 overflow-hidden min-w-0">
 
         {/* Header */}
-        <div className="bg-slate-800/90 px-4 py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+        <div className="bg-slate-800/90 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0 min-h-[56px] sm:min-h-[64px] min-w-0">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base sm:text-lg shrink-0">
               #{game?.game_number || 1}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-semibold text-white">
-                  Протокол игры #{game?.game_number || 1}
+                <h2 className="text-sm sm:text-base font-semibold text-white truncate">
+                  <span className="sm:hidden">Игра #{game?.game_number || 1}</span>
+                  <span className="hidden sm:inline">Протокол игры #{game?.game_number || 1}</span>
                 </h2>
                 {protocol.status === 'completed' ? (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                     Завершён
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
                     Черновик
                   </span>
                 )}
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-[11px] sm:text-xs text-slate-400 truncate">
                 Судья: {game?.judge_name || 'Не указан'}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 shrink-0">
             {/* Save Status Badge */}
             {protocol.status === 'draft' && (
-              <div className="text-xs flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700">
+              <div className="text-[11px] sm:text-xs flex items-center space-x-1.5 px-2 py-1 rounded-lg bg-slate-800 border border-slate-700">
                 {saveStatus === 'saved' && (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-400 font-medium">Сохранено</span>
+                    <span className="text-emerald-400 font-medium hidden sm:inline">Сохранено</span>
                   </>
                 )}
                 {saveStatus === 'saving' && (
                   <>
                     <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                    <span className="text-amber-400 font-medium">Сохраняем...</span>
+                    <span className="text-amber-400 font-medium hidden sm:inline">Сохраняем...</span>
                   </>
                 )}
                 {saveStatus === 'unsaved' && (
                   <>
                     <Save className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-400">Не сохранено</span>
+                    <span className="text-slate-400 hidden sm:inline">Не сохранено</span>
                   </>
                 )}
                 {saveStatus === 'error' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="text-rose-400 font-medium">Ошибка</span>
+                    <span className="text-rose-400 font-medium hidden sm:inline">Ошибка</span>
                   </>
                 )}
               </div>
@@ -1095,7 +1099,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             <button
               type="button"
               onClick={handleModalClose}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition"
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1132,62 +1136,64 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         )}
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-800/40 border-b border-slate-800 px-3 py-2 flex items-center space-x-1 sm:space-x-2 shrink-0 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('players')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === 'players'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Игроки</span>
-          </button>
+        <div className="bg-slate-800/40 border-b border-slate-800 p-1.5 sm:px-3 sm:py-2 shrink-0">
+          <div className="grid grid-cols-4 gap-1 sm:flex sm:space-x-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('players')}
+              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+                activeTab === 'players'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="truncate">Игроки</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('votes')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === 'votes'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            <Vote className="w-4 h-4" />
-            <span>Голосования</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('votes')}
+              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+                activeTab === 'votes'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Vote className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="truncate">Голоса</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('nights')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === 'nights'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            <Moon className="w-4 h-4" />
-            <span>Ночи и ЛХ</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('nights')}
+              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+                activeTab === 'nights'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="truncate">Ночи/ЛХ</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('summary')}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === 'summary'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            <FileCheck className="w-4 h-4" />
-            <span>Итоги</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('summary')}
+              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+                activeTab === 'summary'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <FileCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="truncate">Итог</span>
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 pb-24 sm:pb-6 max-w-full">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
               <Clock className="w-8 h-8 animate-spin text-amber-500" />
@@ -1205,67 +1211,257 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                   <div className="space-y-3">
                     {playerResults.map((player) => {
+                      const isExpanded = expandedPlayerId === player.participant_id;
                       const isKilled = player.exit_type === 'killed';
                       const hasColorProtocol = player.color_protocol && player.color_protocol.length > 0;
                       const showColorSection = isKilled || hasColorProtocol;
 
+                      const isPpkCulprit = protocol.ppk_culprit_participant_id === player.participant_id || (player.removal_reason as unknown as string) === 'ppk';
+                      const discPen = calculateDisciplinaryPenalty(
+                        player.minor_technical_fouls || 0,
+                        player.major_technical_fouls || 0,
+                        player.exit_type === 'removed',
+                        isPpkCulprit
+                      );
+
+                      // Badges for collapsed header
+                      const briefBadges: { key: string; label: string; className: string }[] = [];
+                      if (player.regular_fouls > 0) {
+                        briefBadges.push({
+                          key: 'fouls',
+                          label: `Ф: ${player.regular_fouls}`,
+                          className: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        });
+                      }
+                      if ((player.minor_technical_fouls || 0) > 0) {
+                        briefBadges.push({
+                          key: 'minor_tech',
+                          label: `мТ: ${player.minor_technical_fouls}`,
+                          className: 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                        });
+                      }
+                      if ((player.major_technical_fouls || 0) > 0) {
+                        briefBadges.push({
+                          key: 'major_tech',
+                          label: `бТ: ${player.major_technical_fouls}`,
+                          className: 'bg-rose-600/10 text-rose-400 border-rose-600/30'
+                        });
+                      }
+                      if (player.penalty_points && player.penalty_points > 0) {
+                        briefBadges.push({
+                          key: 'penalty',
+                          label: `Игр. −${player.penalty_points}`,
+                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                        });
+                      }
+                      if (discPen > 0) {
+                        briefBadges.push({
+                          key: 'disc',
+                          label: `Дисц. −${discPen}`,
+                          className: 'bg-purple-500/10 text-purple-300 border-purple-500/30'
+                        });
+                      }
+                      if (player.judge_bonus && player.judge_bonus > 0) {
+                        briefBadges.push({
+                          key: 'judge',
+                          label: `Судья +${player.judge_bonus}`,
+                          className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                        });
+                      }
+                      if (player.protocol_bonus && player.protocol_bonus > 0) {
+                        briefBadges.push({
+                          key: 'proto',
+                          label: `Прот. +${player.protocol_bonus}`,
+                          className: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                        });
+                      }
+                      if (isPpkCulprit) {
+                        briefBadges.push({
+                          key: 'ppk',
+                          label: 'ППК',
+                          className: 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                        });
+                      }
+                      if (player.removal_reason === 'direct') {
+                        briefBadges.push({
+                          key: 'direct',
+                          label: 'Удалён',
+                          className: 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
+                        });
+                      }
+                      if (hasColorProtocol) {
+                        briefBadges.push({
+                          key: 'color_proto',
+                          label: 'Есть цветовой протокол',
+                          className: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
+                        });
+                      }
+
+                      // Role formatting
+                      let roleLabel = 'Не указана';
+                      let roleClass = 'bg-slate-800 text-slate-400 border-slate-700';
+                      if (player.role === 'citizen') {
+                        roleLabel = 'Мирный';
+                        roleClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+                      } else if (player.role === 'sheriff') {
+                        roleLabel = 'Шериф';
+                        roleClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+                      } else if (player.role === 'mafia') {
+                        roleLabel = 'Мафия';
+                        roleClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                      } else if (player.role === 'don') {
+                        roleLabel = 'Дон';
+                        roleClass = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+                      }
+
+                      // Exit status badge formatting (only if not alive)
+                      let statusLabel: string | null = null;
+                      let statusClass = 'bg-slate-800 text-slate-400 border-slate-700';
+                      if (player.exit_type === 'killed') {
+                        statusLabel = 'Убит';
+                        statusClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+                      } else if (player.exit_type === 'voted_zero_round') {
+                        statusLabel = 'Загол. (0)';
+                        statusClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                      } else if (player.exit_type === 'voted_day') {
+                        statusLabel = 'Заголосован';
+                        statusClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                      } else if (player.exit_type === 'removed') {
+                        statusClass = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+                        if (player.removal_reason === '4th_foul') statusLabel = '4 фола';
+                        else if (player.removal_reason === '2nd_tech') statusLabel = '2 техфола';
+                        else if (player.removal_reason === 'direct') statusLabel = 'Удалён';
+                        else if ((player.removal_reason as unknown as string) === 'ppk') statusLabel = 'ППК';
+                        else statusLabel = 'Снят';
+                      }
+
                       return (
                         <div
                           key={player.participant_id}
-                          className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/80 space-y-2.5 transition hover:border-slate-600"
+                          className={`bg-slate-800/60 rounded-xl border transition overflow-hidden ${
+                            isExpanded ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-700/80 hover:border-slate-600'
+                          }`}
                         >
-                          {/* Top Row: Seat, Name, Role, Exit Status */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/30">
+                          {/* Compact Row Header */}
+                          <div
+                            data-testid={`player-row-${player.participant_id}`}
+                            onClick={() =>
+                              setExpandedPlayerId((prev) => (prev === player.participant_id ? null : player.participant_id))
+                            }
+                            className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2 min-h-[56px] cursor-pointer select-none hover:bg-slate-800/90 transition"
+                          >
+                            <div className="flex items-center space-x-2 min-w-0 flex-1">
+                              <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/30 shrink-0">
                                 #{player.seat_number}
                               </span>
-                              <span className="font-semibold text-sm text-slate-100">
+                              <span className="font-semibold text-sm text-slate-100 truncate min-w-0">
                                 {player.display_name}
                               </span>
-                            </div>
 
-                            <div className="flex items-center space-x-2 text-xs">
-                              <span className="text-slate-400">Роль:</span>
-                              <div className="bg-slate-900/40 border border-slate-700/50 rounded-lg px-2 py-1 text-slate-100 font-medium min-w-[70px] text-center">
-                                {player.role === 'citizen' && 'Мирный'}
-                                {player.role === 'sheriff' && 'Шериф'}
-                                {player.role === 'mafia' && 'Мафия'}
-                                {player.role === 'don' && 'Дон'}
-                                {!['citizen', 'sheriff', 'mafia', 'don'].includes(player.role || '') && (player.role || 'Не указана')}
-                              </div>
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border shrink-0 ${roleClass}`}>
+                                {roleLabel}
+                              </span>
 
-                              <span className="text-slate-400 ml-1">Статус:</span>
-                              <select
-                                disabled={protocol.status === 'completed' || !!player.removal_reason}
-                                value={player.exit_type}
-                                onChange={(e) => {
-                                  const val = e.target.value as any;
-                                  if (val === 'removed') {
-                                    handleDisciplineAction(player.participant_id, 'direct_removal');
-                                  } else {
-                                    updatePlayerResult(player.participant_id, {
-                                      exit_type: val
-                                    });
-                                  }
-                                }}
-                                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:border-amber-500 focus:outline-none disabled:opacity-60"
-                              >
-                                <option value="alive">Жив</option>
-                                <option value="killed">Убит (ночью)</option>
-                                <option value="voted_zero_round">Заголосован (0 круг)</option>
-                                <option value="voted_day">Заголосован (день)</option>
-                                <option value="removed">Снят (4 фола/дискв.)</option>
-                              </select>
-                              {!!player.removal_reason && (
-                                <span className="text-[10px] text-rose-400 font-bold ml-1 uppercase">
-                                  {player.removal_reason === '4th_foul' && '4 фола'}
-                                  {player.removal_reason === '2nd_tech' && '2 техфола'}
-                                  {player.removal_reason === 'direct' && 'Удаление'}
+                              {statusLabel && (
+                                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border shrink-0 ${statusClass}`}>
+                                  {statusLabel}
                                 </span>
                               )}
                             </div>
+
+                            <div className="flex items-center space-x-2 shrink-0">
+                              {/* Desktop/Tablet brief badges */}
+                              <div className="hidden sm:flex flex-wrap items-center gap-1.5 justify-end">
+                                {briefBadges.length > 0 ? (
+                                  briefBadges.map((badge) => (
+                                    <span
+                                      key={badge.key}
+                                      className={`text-[11px] px-2 py-0.5 rounded-md border whitespace-nowrap ${badge.className}`}
+                                    >
+                                      {badge.label}
+                                    </span>
+                                  ))
+                                ) : (
+                                  player.exit_type === 'alive' && (
+                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700/60 whitespace-nowrap">
+                                      Без отметок
+                                    </span>
+                                  )
+                                )}
+                              </div>
+
+                              <div className="text-slate-400 p-1 rounded-lg hover:text-slate-200 shrink-0">
+                                {isExpanded ? (
+                                  <ChevronUp className="w-5 h-5 text-amber-400" />
+                                ) : (
+                                  <ChevronDown className="w-5 h-5" />
+                                )}
+                              </div>
+                            </div>
                           </div>
+
+                          {/* Mobile brief badges sub-row */}
+                          <div
+                            className="sm:hidden px-3 pb-2 flex flex-wrap gap-1 items-center cursor-pointer"
+                            onClick={() =>
+                              setExpandedPlayerId((prev) => (prev === player.participant_id ? null : player.participant_id))
+                            }
+                          >
+                            {briefBadges.length > 0 ? (
+                              briefBadges.map((badge) => (
+                                <span
+                                  key={badge.key}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${badge.className}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              ))
+                            ) : (
+                              player.exit_type === 'alive' && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 whitespace-nowrap">
+                                  Без отметок
+                                </span>
+                              )
+                            )}
+                          </div>
+
+                          {/* Expanded Player Form */}
+                          {isExpanded && (
+                            <div className="border-t border-slate-700/60 p-3 sm:p-4 space-y-3 bg-slate-900/40">
+                              {/* Status Selector Row */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                                <div className="flex items-center space-x-2 text-xs">
+                                  <span className="text-slate-400 font-medium">Статус игрока:</span>
+                                  <select
+                                    disabled={protocol.status === 'completed' || !!player.removal_reason}
+                                    value={player.exit_type}
+                                    onChange={(e) => {
+                                      const val = e.target.value as any;
+                                      if (val === 'removed') {
+                                        handleDisciplineAction(player.participant_id, 'direct_removal');
+                                      } else {
+                                        updatePlayerResult(player.participant_id, {
+                                          exit_type: val
+                                        });
+                                      }
+                                    }}
+                                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-amber-500 focus:outline-none disabled:opacity-60"
+                                  >
+                                    <option value="alive">Жив</option>
+                                    <option value="killed">Убит (ночью)</option>
+                                    <option value="voted_zero_round">Заголосован (0 круг)</option>
+                                    <option value="voted_day">Заголосован (день)</option>
+                                    <option value="removed">Снят (4 фола/дискв.)</option>
+                                  </select>
+                                  {!!player.removal_reason && (
+                                    <span className="text-[10px] text-rose-400 font-bold ml-1 uppercase bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
+                                      {player.removal_reason === '4th_foul' && '4 фола'}
+                                      {player.removal_reason === '2nd_tech' && '2 техфола'}
+                                      {player.removal_reason === 'direct' && 'Удаление'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
 
                           {/* Middle Row: Fouls & Bonuses Grid */}
                           <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mt-3">
@@ -1780,7 +1976,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             </div>
                           )}
                         </div>
-                      );
+                      )}
+                    </div>
+                  );
                     })}
                   </div>
                 </div>
@@ -2475,19 +2673,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
         {/* Footer Action Bar */}
-        <div className="bg-slate-900 border-t border-slate-800 p-3 sm:p-4 flex items-center justify-between shrink-0">
-          <div className="text-xs text-slate-400">
+        <div className="bg-slate-900 border-t border-slate-800 px-3 py-2.5 sm:px-4 sm:py-4 flex items-center justify-between shrink-0 gap-2 min-w-0">
+          <div className="text-[11px] sm:text-xs text-slate-400 min-w-0 truncate">
             {protocol.status === 'completed' ? (
-              <span className="text-emerald-400 font-medium flex items-center space-x-1">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Протокол завершён</span>
+              <span className="text-emerald-400 font-medium flex items-center space-x-1 truncate">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">Протокол завершён</span>
               </span>
             ) : (
-              <span>Черновик сохраняется автоматически</span>
+              <span className="truncate">Черновик сохраняется автоматически</span>
             )}
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             {protocol.status === 'draft' ? (
               <button
                 type="button"
@@ -2500,18 +2698,18 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                     setShowCompleteConfirm(true);
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap"
               >
-                <FileCheck className="w-4 h-4" />
+                <FileCheck className="w-4 h-4 shrink-0" />
                 <span>Завершить протокол</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowRevertConfirm(true)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5"
+                className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4 shrink-0" />
                 <span>Вернуть в черновик</span>
               </button>
             )}

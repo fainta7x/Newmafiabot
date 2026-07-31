@@ -203,7 +203,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       player_results: mockPlayerResults as any
     });
 
-    const { getByText, getAllByText } = render(
+    const { getByText, getAllByText, getByTestId } = render(
       <GameProtocolModal
         tournamentId={tournamentId}
         gameId={gameId}
@@ -215,6 +215,9 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     await waitFor(() => {
       expect(getByText('Player 1')).toBeTruthy();
     });
+
+    // Expand player row to reveal detailed fields
+    fireEvent.click(getByTestId('player-row-p-1'));
 
     // Check for minor and major tech foul labels
     expect(getAllByText(/Малый тех/i).length).toBeGreaterThan(0);
@@ -266,6 +269,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
 
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
+
       const player1PenaltyInput = screen.getByTestId('penalty-p-1');
 
       fireEvent.change(player1PenaltyInput, { target: { value: '1abc' } });
@@ -289,6 +294,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId('player-row-p-2'));
 
       const p2Input = screen.getByTestId('penalty-p-2');
       fireEvent.change(p2Input, { target: { value: 'invalid' } });
@@ -316,6 +323,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
 
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
+
       const ppkBtn = screen.getAllByText('ППК')[0];
       fireEvent.click(ppkBtn);
 
@@ -338,6 +347,10 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
 
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
+
       await waitFor(() => expect(screen.getByText(/1 малый/)).toBeTruthy());
       const btn = screen.getByText(/1 малый/) as HTMLButtonElement;
       expect(btn.disabled).toBe(true);
@@ -356,6 +369,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
 
       // The status select should be disabled
       const selects = screen.getAllByRole('combobox');
@@ -378,12 +393,88 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
 
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
+
       const ppkBtns = screen.getAllByText('ППК');
       const ppkBtn = ppkBtns[0] as HTMLButtonElement;
       expect(ppkBtn.disabled).toBe(false);
 
       fireEvent.click(ppkBtn);
       expect(screen.getByText(/Победитель: Чёрные/i)).toBeTruthy();
+    });
+  });
+
+  describe('GameProtocolModal Compact Mobile UI', () => {
+    it('renders 10 compact player rows initially with forms collapsed', async () => {
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Check all 10 compact player rows exist
+      for (let i = 1; i <= 10; i++) {
+        expect(screen.getByTestId(`player-row-p-${i}`)).toBeTruthy();
+      }
+
+      // Detailed form inputs (like penalty-p-1) should not be visible before expansion
+      expect(screen.queryByTestId('penalty-p-1')).toBeNull();
+    });
+
+    it('toggles expansion when clicking a player row header', async () => {
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: mockPlayerResults as any
+      });
+
+      render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const row1 = screen.getByTestId('player-row-p-1');
+      fireEvent.click(row1);
+
+      // Detailed form input should now be visible
+      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+
+      // Click again to collapse
+      fireEvent.click(row1);
+      expect(screen.queryByTestId('penalty-p-1')).toBeNull();
+    });
+
+    it('displays brief badges for non-zero fouls, tech fouls, and bonuses in compact row', async () => {
+      const customResults = mockPlayerResults.map((p, idx) => {
+        if (idx === 0) {
+          return {
+            ...p,
+            regular_fouls: 2,
+            minor_technical_fouls: 1,
+            penalty_points: 0.2,
+            judge_bonus: 0.5
+          };
+        }
+        return p;
+      });
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: mockGame as any,
+        protocol: mockProtocol as any,
+        player_results: customResults as any
+      });
+
+      render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      expect(screen.getAllByText('Ф: 2').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('мТ: 1').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Игр. −0.2').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Судья +0.5').length).toBeGreaterThan(0);
     });
   });
 });

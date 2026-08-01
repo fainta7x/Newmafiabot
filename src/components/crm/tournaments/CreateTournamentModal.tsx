@@ -185,8 +185,8 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   };
 
   return (
-    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md">
-      <div className="keyboard-aware-panel bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full flex flex-col max-h-[calc(100dvh-16px)] text-text-primary relative shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md">
+      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full flex flex-col max-h-[calc(100dvh-16px)] text-text-primary relative shadow-2xl overflow-hidden">
         {/* Fixed Modal Header */}
         <div className="p-4 sm:p-5 border-b border-border-soft shrink-0 flex items-center justify-between">
           <div>
@@ -204,7 +204,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
         </div>
 
         {/* Scrollable Form Content (Only one scroll area in the modal) */}
-        <form noValidate onSubmit={handleSubmit} className="keyboard-aware-scroll flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-5 text-xs" data-keyboard-scroll-container>
+        <form noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-5 text-xs">
           {globalError && (
             <div className="p-3 bg-danger/10 border border-danger/30 rounded-2xl flex items-center gap-2 text-danger text-xs font-semibold">
               <AlertCircle className="w-4 h-4 shrink-0" />

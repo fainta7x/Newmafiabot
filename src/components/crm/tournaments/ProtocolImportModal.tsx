@@ -240,8 +240,8 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
   const targetGame = games.find((g) => g.id === gameMappings[selectedGameIdx]);
 
   return (
-    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 overflow-y-auto">
-      <div className="keyboard-aware-panel bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2">
@@ -265,7 +265,7 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
         )}
 
         {/* Modal Body */}
-        <div className="keyboard-aware-scroll p-4 overflow-y-auto flex-1 space-y-4" data-keyboard-scroll-container>
+        <div className="p-4 overflow-y-auto flex-1 space-y-4">
 
           {/* Hidden Inputs */}
           <input

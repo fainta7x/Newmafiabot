@@ -86,8 +86,8 @@ export const CorrectParticipantModal: React.FC<CorrectParticipantModalProps> = (
   };
 
   return (
-    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="keyboard-aware-panel keyboard-aware-scroll bg-surface-1 border border-border-soft rounded-3xl max-w-md w-full p-6 space-y-4 text-text-primary shadow-2xl overflow-y-auto" data-keyboard-scroll-container>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-md w-full p-6 space-y-4 text-text-primary shadow-2xl">
         <div className="flex items-center justify-between border-b border-border-soft pb-3">
           <div className="flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-accent" />

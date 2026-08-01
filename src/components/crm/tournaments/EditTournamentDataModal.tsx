@@ -70,8 +70,8 @@ export const EditTournamentDataModal: React.FC<EditTournamentDataModalProps> = (
   };
 
   return (
-    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="keyboard-aware-panel bg-surface-1 border border-border-soft rounded-3xl max-w-lg w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-lg w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-muted hover:text-text-primary p-2 rounded-full hover:bg-surface-hover cursor-pointer transition-colors"
@@ -92,7 +92,7 @@ export const EditTournamentDataModal: React.FC<EditTournamentDataModalProps> = (
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="keyboard-aware-scroll space-y-4 text-xs" data-keyboard-scroll-container>
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block text-text-secondary font-semibold mb-1">Название турнира *</label>
             <input

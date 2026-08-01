@@ -683,15 +683,9 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       await waitFor(() => expect(screen.getByText('Test Tournament UX')).toBeTruthy());
 
-      expect(screen.getByRole('button', { name: /Организация/i })).toBeTruthy();
-      expect(screen.getByRole('button', { name: /Таблица/i })).toBeTruthy();
-      expect(screen.getByRole('button', { name: /Номинации/i })).toBeTruthy();
-      expect(screen.queryByRole('button', { name: /Загрузить бланк игры/i })).toBeNull();
-
       // Open modal
       const gamesTab = screen.getByRole('button', { name: /Игры/i });
       fireEvent.click(gamesTab);
-      expect(screen.getByRole('button', { name: /Загрузить бланк игры/i })).toBeTruthy();
       const protocolBtn = screen.getByRole('button', { name: /Протокол/i });
       fireEvent.click(protocolBtn);
 

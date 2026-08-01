@@ -31,6 +31,7 @@ import { ProtocolVotingTab } from './protocol/ProtocolVotingTab';
 import { ProtocolNightsTab } from './protocol/ProtocolNightsTab';
 import { ProtocolSummaryTab } from './protocol/ProtocolSummaryTab';
 import { PlayerColorProtocolEditor } from './protocol/PlayerColorProtocolEditor';
+import { useMobileKeyboardViewport } from '../../../hooks/useMobileKeyboardViewport';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
   if (!entry || !entry.seat_numbers) return '';
@@ -126,6 +127,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   onClose,
   onProtocolUpdated
 }) => {
+  useMobileKeyboardViewport();
   const [activeTab, setActiveTab] = useState<'players' | 'votes' | 'nights' | 'summary'>('players');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1670,7 +1672,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       <div className="bg-slate-900 text-slate-100 rounded-none sm:rounded-2xl w-full max-w-4xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl border-0 sm:border sm:border-slate-800 overflow-hidden min-w-0">
 
         {/* Header */}
-        <div className="bg-slate-800/90 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0 min-h-[56px] sm:min-h-[64px] min-w-0">
+        <div className="bg-slate-800/90 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0 min-h-[56px] sm:min-h-[64px] min-w-0 protocol-modal-header">
           <div className="flex items-center space-x-2.5 min-w-0">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base sm:text-lg shrink-0">
               #{game?.game_number || 1}
@@ -1768,7 +1770,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         )}
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-800/40 border-b border-slate-800 p-1.5 sm:px-3 sm:py-2 shrink-0">
+        <div className="bg-slate-800/40 border-b border-slate-800 p-1.5 sm:px-3 sm:py-2 shrink-0 protocol-modal-tabs">
           <div className="grid grid-cols-4 gap-1 sm:flex sm:space-x-2">
             <button
               type="button"
@@ -2188,6 +2190,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   disabled={protocol.status === 'completed'}
                                   data-testid={`penalty-${player.participant_id}`}
                                   value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
                                   className={`w-full bg-slate-800 border ${decimalErrors[`${player.participant_id}_penalty_points`] ? 'border-rose-500' : 'border-slate-700'} rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50`}
                                 />
@@ -2277,6 +2280,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   inputMode="decimal"
                                   disabled={protocol.status === 'completed'}
                                   value={getDecimalInputValue(player.participant_id, 'protocol_bonus', player.protocol_bonus ?? 0)}
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'protocol_bonus', e.target.value)}
                                   className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
                                 />
@@ -2289,6 +2293,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   inputMode="decimal"
                                   disabled={protocol.status === 'completed'}
                                   value={getDecimalInputValue(player.participant_id, 'judge_bonus', player.judge_bonus ?? 0)}
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleDecimalChange(player.participant_id, 'judge_bonus', e.target.value)}
                                   className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
                                 />
@@ -2445,7 +2450,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
         {/* Footer Action Bar */}
-        <div className="bg-slate-900 border-t border-slate-800 px-3 py-2.5 sm:px-4 sm:py-4 flex items-center justify-between shrink-0 gap-2 min-w-0">
+        <div className="bg-slate-900 border-t border-slate-800 px-3 py-2.5 sm:px-4 sm:py-4 flex items-center justify-between shrink-0 gap-2 min-w-0 protocol-modal-footer">
           <div className="text-[11px] sm:text-xs text-slate-400 min-w-0 truncate">
             {protocol.status === 'completed' ? (
               <span className="text-emerald-400 font-medium flex items-center space-x-1 truncate">

@@ -227,3 +227,17 @@ html, body, #root {
     transform: translateY(0);
   }
 }
+
+/* Mobile Keyboard Open Hide Rules */
+.mobile-keyboard-open .organizer-bottom-nav,
+.mobile-keyboard-open .protocol-modal-header,
+.mobile-keyboard-open .protocol-modal-tabs,
+.mobile-keyboard-open .protocol-modal-footer {
+  display: none !important;
+}
+
+body.mobile-keyboard-open,
+html.mobile-keyboard-open {
+  overflow-x: hidden;
+}
+

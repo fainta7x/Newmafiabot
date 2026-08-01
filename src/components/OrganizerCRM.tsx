@@ -18,12 +18,14 @@ import { TasksCRM } from './crm/TasksCRM.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
 import { initTheme, ThemeId } from '../lib/theme.ts';
+import { useMobileKeyboardViewport } from '../hooks/useMobileKeyboardViewport.ts';
 
 interface OrganizerCRMProps {
   onReturnToGameEngine?: () => void;
 }
 
 export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine }) => {
+  useMobileKeyboardViewport();
   const [activeTab, setActiveTab] = useState<'overview' | 'evenings' | 'players' | 'tasks' | 'analytics'>('overview');
   const [activeEveningId, setActiveEveningId] = useState<string | null>(null);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -334,7 +336,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
       {/* Mobile Bottom Navigation Bar */}
       {isOrganizer && (
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav flex items-center justify-around px-1 z-40 pb-safe min-h-[60px] h-[calc(60px+env(safe-area-inset-bottom))] border-t border-border-soft shrink-0">
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav organizer-bottom-nav flex items-center justify-around px-1 z-40 pb-safe min-h-[60px] h-[calc(60px+env(safe-area-inset-bottom))] border-t border-border-soft shrink-0">
           {[
             { id: 'overview', label: 'Пульс', icon: LayoutGrid },
             { id: 'evenings', label: 'Вечера', icon: Calendar },

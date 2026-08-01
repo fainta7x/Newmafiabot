@@ -41,6 +41,18 @@ export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | '
   return `${sorted.join(' ')} ${markLabel}`;
 }
 
+export function formatSignedBonus(val: number | null | undefined): { formatted: string; sign: 'positive' | 'negative' | 'zero'; num: number } {
+  if (val == null) return { formatted: '0', sign: 'zero', num: 0 };
+  const rounded = Math.round(val * 10) / 10;
+  if (Math.abs(rounded) === 0 || Object.is(rounded, -0)) {
+    return { formatted: '0', sign: 'zero', num: 0 };
+  }
+  if (rounded > 0) {
+    return { formatted: `+${rounded}`, sign: 'positive', num: rounded };
+  }
+  return { formatted: `−${Math.abs(rounded)}`, sign: 'negative', num: rounded };
+}
+
 interface GameProtocolModalProps {
   tournamentId: string;
   gameId: string;
@@ -1815,31 +1827,42 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           className: 'bg-rose-600/10 text-rose-400 border-rose-600/30'
                         });
                       }
-                      if (discPen > 0) {
+                      const discPenRounded = Math.round(discPen * 10) / 10;
+                      if (discPenRounded > 0) {
                         briefBadges.push({
                           key: 'disc',
-                          label: `Дисц. −${discPen}`,
+                          label: `Дисц. −${discPenRounded}`,
                           className: 'bg-purple-500/10 text-purple-300 border-purple-500/30'
                         });
                       }
-                      if (player.judge_bonus && player.judge_bonus > 0) {
+
+                      const judgeFormatted = formatSignedBonus(player.judge_bonus);
+                      if (judgeFormatted.sign === 'positive') {
                         briefBadges.push({
                           key: 'judge',
-                          label: `Судья +${player.judge_bonus}`,
+                          label: `Судья ${judgeFormatted.formatted}`,
                           className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
                         });
-                      } else if (player.judge_bonus && player.judge_bonus < 0) {
+                      } else if (judgeFormatted.sign === 'negative') {
                         briefBadges.push({
                           key: 'judge',
-                          label: `Судья −${Math.abs(player.judge_bonus)}`,
+                          label: `Судья ${judgeFormatted.formatted}`,
                           className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
                         });
                       }
-                      if (player.protocol_bonus && player.protocol_bonus > 0) {
+
+                      const protoFormatted = formatSignedBonus(player.protocol_bonus);
+                      if (protoFormatted.sign === 'positive') {
                         briefBadges.push({
                           key: 'proto',
-                          label: `Прот. +${player.protocol_bonus}`,
+                          label: `Прот. ${protoFormatted.formatted}`,
                           className: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                        });
+                      } else if (protoFormatted.sign === 'negative') {
+                        briefBadges.push({
+                          key: 'proto',
+                          label: `Прот. ${protoFormatted.formatted}`,
+                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
                         });
                       }
                       if (isPpkCulprit) {
@@ -1949,11 +1972,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     </span>
                                   ))
                                 ) : (
-                                  player.exit_type === 'alive' && (
-                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700/60 whitespace-nowrap">
-                                      Без отметок
-                                    </span>
-                                  )
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700/60 whitespace-nowrap">
+                                    Без отметок
+                                  </span>
                                 )}
                               </div>
 
@@ -1984,11 +2005,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 </span>
                               ))
                             ) : (
-                              player.exit_type === 'alive' && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 whitespace-nowrap">
-                                  Без отметок
-                                </span>
-                              )
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 whitespace-nowrap">
+                                Без отметок
+                              </span>
                             )}
                           </div>
 

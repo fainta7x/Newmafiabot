@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, cleanup, fireEvent, screen } from '@testing-library/react';
-import { GameProtocolModal, formatColorMark, getProtocolPayload, buildLegacyTechFoulClassification } from '../components/crm/tournaments/GameProtocolModal';
+import { GameProtocolModal, formatColorMark, getProtocolPayload, buildLegacyTechFoulClassification, formatSignedBonus } from '../components/crm/tournaments/GameProtocolModal';
 import { TournamentDetailView } from '../components/crm/tournaments/TournamentDetailView';
 import { api } from '../lib/api';
 
@@ -1150,6 +1150,206 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
         expect(savedVotes[1].round_number).toBe(2);
         expect(savedVotes[1].parent_round_number).toBe(1);
       }
+    });
+  });
+
+  describe('Compact Player Badges Formatting', () => {
+    const badgeTournId = 'badge-tourn';
+    const badgeGameId = 'badge-game';
+    const badgeGame = {
+      id: badgeGameId,
+      tournament_id: badgeTournId,
+      game_number: 1,
+      table_number: 1,
+      status: 'active'
+    };
+    const baseProtocol = {
+      game_id: badgeGameId,
+      status: 'draft',
+      winner_team: 'red',
+      first_killed_participant_id: null,
+      zero_round_voted_participant_id: null,
+      best_move_participant_id: null,
+      best_move_source: null,
+      best_move_seats: [],
+      votes: [],
+      shots: [],
+      replacement: null,
+      judge_notes: null,
+      best_move_score: 0,
+      updated_at: '2026-01-01T00:00:00.000Z'
+    };
+
+    it('unit test formatSignedBonus helper', () => {
+      expect(formatSignedBonus(0.2)).toEqual({ formatted: '+0.2', sign: 'positive', num: 0.2 });
+      expect(formatSignedBonus(-0.2)).toEqual({ formatted: '−0.2', sign: 'negative', num: -0.2 });
+      expect(formatSignedBonus(-0.6)).toEqual({ formatted: '−0.6', sign: 'negative', num: -0.6 });
+      expect(formatSignedBonus(0)).toEqual({ formatted: '0', sign: 'zero', num: 0 });
+      expect(formatSignedBonus(-0)).toEqual({ formatted: '0', sign: 'zero', num: 0 });
+      expect(formatSignedBonus(null)).toEqual({ formatted: '0', sign: 'zero', num: 0 });
+    });
+
+    it('1. protocol_bonus = -0.2 -> visible Прот. −0.2, Без отметок is absent for this player', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: 'citizen',
+        exit_type: 'alive',
+        regular_fouls: 0,
+        minor_technical_fouls: 0,
+        major_technical_fouls: 0,
+        judge_bonus: 0,
+        protocol_bonus: i === 0 ? -0.2 : 0,
+        penalty_points: 0,
+        color_protocol: []
+      }));
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: badgeGame as any,
+        protocol: baseProtocol as any,
+        player_results: results as any
+      });
+
+      render(<GameProtocolModal tournamentId={badgeTournId} gameId={badgeGameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      // Player 1 has protocol_bonus = -0.2
+      const player1Row = screen.getByTestId('player-row-p-1');
+      expect(player1Row.textContent).toContain('Прот. −0.2');
+      expect(player1Row.textContent).not.toContain('Без отметок');
+
+      // Player 2 has no marks -> Bez otmetok
+      const player2Row = screen.getByTestId('player-row-p-2');
+      expect(player2Row.textContent).toContain('Без отметок');
+    });
+
+    it('2. protocol_bonus = +0.2 -> visible Прот. +0.2', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: 'citizen',
+        exit_type: 'alive',
+        regular_fouls: 0,
+        minor_technical_fouls: 0,
+        major_technical_fouls: 0,
+        judge_bonus: 0,
+        protocol_bonus: i === 0 ? 0.2 : 0,
+        penalty_points: 0,
+        color_protocol: []
+      }));
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: badgeGame as any,
+        protocol: baseProtocol as any,
+        player_results: results as any
+      });
+
+      render(<GameProtocolModal tournamentId={badgeTournId} gameId={badgeGameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const player1Row = screen.getByTestId('player-row-p-1');
+      expect(player1Row.textContent).toContain('Прот. +0.2');
+      expect(player1Row.textContent).not.toContain('Без отметок');
+    });
+
+    it('3. judge_bonus = -0.6 -> visible Судья −0.6', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: 'citizen',
+        exit_type: 'alive',
+        regular_fouls: 0,
+        minor_technical_fouls: 0,
+        major_technical_fouls: 0,
+        judge_bonus: i === 0 ? -0.6 : 0,
+        protocol_bonus: 0,
+        penalty_points: 0,
+        color_protocol: []
+      }));
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: badgeGame as any,
+        protocol: baseProtocol as any,
+        player_results: results as any
+      });
+
+      render(<GameProtocolModal tournamentId={badgeTournId} gameId={badgeGameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const player1Row = screen.getByTestId('player-row-p-1');
+      expect(player1Row.textContent).toContain('Судья −0.6');
+      expect(player1Row.textContent).not.toContain('Без отметок');
+    });
+
+    it('4. All values zero -> visible Без отметок', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: 'citizen',
+        exit_type: 'alive',
+        regular_fouls: 0,
+        minor_technical_fouls: 0,
+        major_technical_fouls: 0,
+        judge_bonus: 0,
+        protocol_bonus: 0,
+        penalty_points: 0,
+        color_protocol: []
+      }));
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: badgeGame as any,
+        protocol: baseProtocol as any,
+        player_results: results as any
+      });
+
+      render(<GameProtocolModal tournamentId={badgeTournId} gameId={badgeGameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      for (let i = 1; i <= 10; i++) {
+        const playerRow = screen.getByTestId(`player-row-p-${i}`);
+        expect(playerRow.textContent).toContain('Без отметок');
+      }
+    });
+
+    it('5. No +- or −- strings anywhere in the rendered modal', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        participant_id: `p-${i + 1}`,
+        seat_number: i + 1,
+        display_name: `Player ${i + 1}`,
+        role: 'citizen',
+        exit_type: 'alive',
+        regular_fouls: i % 2,
+        minor_technical_fouls: i % 2,
+        major_technical_fouls: 0,
+        judge_bonus: -0.6 + i * 0.1,
+        protocol_bonus: -0.4 + i * 0.1,
+        penalty_points: 0,
+        color_protocol: []
+      }));
+
+      vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
+        game: badgeGame as any,
+        protocol: baseProtocol as any,
+        player_results: results as any
+      });
+
+      const { container } = render(<GameProtocolModal tournamentId={badgeTournId} gameId={badgeGameId} isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
+
+      const html = container.innerHTML;
+      expect(html).not.toContain('+-');
+      expect(html).not.toContain('−−');
+      expect(html).not.toContain('−-');
+      expect(html).not.toContain('-−');
     });
   });
 });

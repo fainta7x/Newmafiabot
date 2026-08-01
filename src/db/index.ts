@@ -33,7 +33,15 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
   }
 
   const sqlite = new Database(resolvedDbPath);
-  sqlite.pragma('journal_mode = WAL');
+
+  const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.sqlite' && process.env.NODE_ENV !== 'production';
+  if (isPreviewTournamentDB) {
+    // Временно используем DELETE для безопасного Git-checkpoint турнирной Preview-базы
+    sqlite.pragma('journal_mode = DELETE');
+  } else {
+    sqlite.pragma('journal_mode = WAL');
+  }
+
   sqlite.pragma('foreign_keys = ON');
 
   const drizzleDb = drizzle(sqlite, { schema });

@@ -30,7 +30,7 @@ describe('PlayerColorProtocolEditor', () => {
     selectedColorSeats: [],
     selectedColorMarkType: 'red' as const,
     editingColorMarkState: undefined,
-    formatColorMark: (entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }) => 
+    formatColorMark: (entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }) =>
       `${entry.seat_numbers.join(',')} - ${entry.mark}`,
     onToggleEditColorSeat: vi.fn(),
     onSetEditColorMarkType: vi.fn(),
@@ -47,10 +47,10 @@ describe('PlayerColorProtocolEditor', () => {
   it('shows add form for killed player', () => {
     const player = { ...basePlayer, exit_type: 'killed' as const };
     render(<PlayerColorProtocolEditor {...defaultProps} player={player} />);
-    
+
     // Header should be visible
     expect(screen.getByText('Оставленный протокол:')).toBeDefined();
-    
+
     // Add form should be visible
     expect(screen.getByText('Выберите места (1-10):')).toBeDefined();
     expect(screen.getByText('Добавить')).toBeDefined();
@@ -59,22 +59,22 @@ describe('PlayerColorProtocolEditor', () => {
   it('renders nothing for voted_day player with no marks', () => {
     const player = { ...basePlayer, exit_type: 'voted_day' as const, color_protocol: [] };
     const { container } = render(<PlayerColorProtocolEditor {...defaultProps} player={player} />);
-    
+
     expect(container.firstChild).toBeNull();
   });
 
   it('shows saved marks but no add form for voted_day player with existing marks', () => {
-    const player = { 
-      ...basePlayer, 
-      exit_type: 'voted_day' as const, 
-      color_protocol: [{ seat_numbers: [2], mark: 'red' as const }] 
+    const player = {
+      ...basePlayer,
+      exit_type: 'voted_day' as const,
+      color_protocol: [{ seat_numbers: [2], mark: 'red' as const }]
     };
     render(<PlayerColorProtocolEditor {...defaultProps} player={player} />);
-    
+
     expect(screen.getByText('Оставленный протокол:')).toBeDefined();
     expect(screen.getByText('2 - red')).toBeDefined(); // custom format output
     expect(screen.getByText('(Статус изменён, но протокол сохранён)')).toBeDefined();
-    
+
     // Add form shouldn't be there
     expect(screen.queryByText('Выберите места (1-10):')).toBeNull();
     expect(screen.queryByText('Добавить')).toBeNull();

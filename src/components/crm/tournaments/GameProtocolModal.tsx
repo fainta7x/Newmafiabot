@@ -11,14 +11,17 @@ import {
   CheckCircle2,
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Image as ImageIcon
 } from 'lucide-react';
 import {
   api,
   TournamentGame,
   TournamentGameProtocolData,
-  PlayerResultData
+  PlayerResultData,
+  Tournament
 } from '../../../lib/api';
+import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { calculateDisciplinaryPenalty } from '../../../lib/gameDiscipline';
 import {
   determineVotingResult,
@@ -165,6 +168,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Color Protocol builder state per player
   const [selectedColorSeats, setSelectedColorSeats] = useState<Record<string, number[]>>({});
@@ -267,8 +272,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     let restoredBackupData: { protocol: any; playerResults: any } | null = null;
 
     api.getGameProtocol(tournamentId, gameId)
-      .then((res) => {
+      .then(async (res) => {
         if (!isMounted) return;
+        try {
+          const tRes = await api.getTournament(tournamentId);
+          if (isMounted) setTournament(tRes);
+        } catch (tErr) {
+          console.error('Failed to load tournament detail in GameProtocolModal:', tErr);
+        }
         isUpdatingFromServer.current = true;
         setGame(res.game);
         setProtocol(res.protocol);
@@ -2436,14 +2447,26 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 <span>Завершить протокол</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setShowRevertConfirm(true)}
-                className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap"
-              >
-                <RotateCcw className="w-4 h-4 shrink-0" />
-                <span>Вернуть в черновик</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  id={`btn-protocol-${game?.game_number || 'export'}-png-results-trigger`}
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <ImageIcon className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Результаты PNG</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowRevertConfirm(true)}
+                  className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap"
+                >
+                  <RotateCcw className="w-4 h-4 shrink-0" />
+                  <span>Вернуть в черновик</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -2749,6 +2772,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {tournament && isExportModalOpen && (
+        <ResultsImageExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          tournament={tournament}
+          exportType="game"
+          gameId={gameId}
+          gameNumber={game?.game_number}
+        />
       )}
     </div>
   );

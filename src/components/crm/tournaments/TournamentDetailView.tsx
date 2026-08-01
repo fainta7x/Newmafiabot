@@ -27,6 +27,7 @@ import { ConfirmStartTournamentModal } from './ConfirmStartTournamentModal.tsx';
 import { SeatingExportModal } from './SeatingExportModal.tsx';
 import { ProtocolImportModal } from './ProtocolImportModal.tsx';
 import { GameProtocolModal } from './GameProtocolModal.tsx';
+import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { TournamentStandingsView } from './TournamentStandingsView.tsx';
 import { TournamentNominationsView } from './TournamentNominationsView.tsx';
 import { CorrectParticipantModal } from './CorrectParticipantModal.tsx';
@@ -95,6 +96,11 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
+
+  // Results PNG export states
+  const [exportGameId, setExportGameId] = useState<string | undefined>(undefined);
+  const [exportGameNumber, setExportGameNumber] = useState<number | undefined>(undefined);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Judge edit state
   const [editingJudge, setEditingJudge] = useState(false);
@@ -942,6 +948,22 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   <span>Загрузить бланк игры</span>
                 </button>
 
+                {currentGame.status === 'completed' && (
+                  <button
+                    type="button"
+                    id={`btn-game-${currentGame.game_number}-png-results-trigger`}
+                    onClick={() => {
+                      setExportGameId(currentGame.id);
+                      setExportGameNumber(currentGame.game_number);
+                      setIsExportModalOpen(true);
+                    }}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Результаты PNG</span>
+                  </button>
+                )}
+
                 {/* Swap seats / Correct players on seats allowed in draft/planned or active game in correction mode with draft protocol */}
                 {canSwapSeatsCurrentGame && currentGame.status !== 'planned' && (
                   <button
@@ -1304,6 +1326,21 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         onClose={() => setShowReopenModal(false)}
         onConfirm={handleReopenTournament}
       />
+
+      {tournament && isExportModalOpen && (
+        <ResultsImageExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => {
+            setIsExportModalOpen(false);
+            setExportGameId(undefined);
+            setExportGameNumber(undefined);
+          }}
+          tournament={tournament}
+          exportType="game"
+          gameId={exportGameId}
+          gameNumber={exportGameNumber}
+        />
+      )}
     </div>
   );
 };

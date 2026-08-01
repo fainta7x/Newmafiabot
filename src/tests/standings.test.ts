@@ -458,4 +458,174 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(p0Stand2.ci_points).toBeGreaterThan(0); 
     expect(p1Stand2.ci_points).toBe(0);
   });
+
+  describe('Judge Bonus Classification and Penalty/Positive Segregation', () => {
+    it('properly segregates positive and negative judge bonuses and verifies all assertions', async () => {
+      // Choose players
+      const p1Id = game1Seats.find((s: any) => s.seat_number === 1).participant_id; // citizen
+      const p2Id = game1Seats.find((s: any) => s.seat_number === 2).participant_id; // citizen
+      const p3Id = game1Seats.find((s: any) => s.seat_number === 3).participant_id; // citizen
+
+      const playerResults = game1Seats.map((seat) => {
+        let jb = 0;
+        let minor_fouls = 0;
+        if (seat.participant_id === p1Id) {
+          jb = 0.5; // positive judge bonus
+        } else if (seat.participant_id === p2Id) {
+          jb = -0.3; // negative judge bonus
+          minor_fouls = 1; // 1 minor foul -> 0.3 disciplinary penalty
+        } else if (seat.participant_id === p3Id) {
+          jb = 0.0; // zero judge bonus
+        }
+        return {
+          participant_id: seat.participant_id,
+          role: seat.role,
+          exit_type: 'alive',
+          minor_technical_fouls: minor_fouls,
+          major_technical_fouls: 0,
+          regular_fouls: 0,
+          technical_fouls: 0,
+          protocol_bonus: 0,
+          judge_bonus: jb,
+          penalty_points: 0,
+        };
+      });
+
+      await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send({
+          protocol: { winner_team: 'red' },
+          player_results: playerResults,
+        });
+
+      // Fetch standings
+      const res = await request(app)
+        .get(`/api/tournaments/${tournamentId}/standings`)
+        .set('Cookie', organizerCookie);
+
+      expect(res.status).toBe(200);
+      const standings = res.body.standings;
+
+      const p1Standing = standings.find((s: any) => s.participant_id === p1Id);
+      const p2Standing = standings.find((s: any) => s.participant_id === p2Id);
+      const p3Standing = standings.find((s: any) => s.participant_id === p3Id);
+
+      // 1. judge_bonus +0.5 попадает только в допы.
+      expect(p1Standing.positive_points).toBe(0.5);
+      expect(p1Standing.game_penalty_points).toBe(0);
+
+      // 2. judge_bonus −0.3 попадает только в игровые минусы.
+      expect(p2Standing.positive_points).toBe(0);
+      expect(p2Standing.game_penalty_points).toBe(0.3);
+
+      // 3. judge_bonus 0 не влияет на категории.
+      expect(p3Standing.positive_points).toBe(0);
+      expect(p3Standing.game_penalty_points).toBe(0);
+
+      // 4 & 5. Отрицательный балл не учитывается дважды, total_points до и после классификации совпадает.
+      // Player 2 has win_point = 1, positive_points = 0, bm_points = 0, disc_penalty = 0.3, game_penalty = 0.3.
+      // Expected total: 1 + 0 + 0 - 0.3 - 0.3 = 0.4.
+      expect(p2Standing.total_points).toBe(0.4);
+
+      // 6. Дисциплинарный минус остаётся отдельным.
+      expect(p2Standing.disciplinary_penalty_points).toBe(0.3);
+      expect(p2Standing.penalty_points).toBe(0.6); // sum of both penalties: 0.3 + 0.3
+
+      // 7. В PNG и интерфейсе используются те же агрегаты backend.
+      expect(p2Standing).toHaveProperty('game_penalty_points');
+      expect(p2Standing).toHaveProperty('disciplinary_penalty_points');
+      expect(p2Standing).toHaveProperty('positive_points');
+    });
+
+    it('properly sums positive and negative judge_bonus over multiple games into different columns', async () => {
+      const p1Id = game1Seats.find((s: any) => s.seat_number === 1).participant_id;
+
+      // Complete game 1
+      const playerResultsComplete1 = game1Seats.map((seat) => {
+        let jb = 0;
+        if (seat.participant_id === p1Id) {
+          jb = 0.5; // positive judge bonus for player 0
+        }
+        return {
+          participant_id: seat.participant_id,
+          role: seat.role,
+          exit_type: 'alive',
+          regular_fouls: 0,
+          technical_fouls: 0,
+          protocol_bonus: 0,
+          judge_bonus: jb,
+          penalty_points: 0,
+        };
+      });
+
+      await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send({
+          protocol: { winner_team: 'red' },
+          player_results: playerResultsComplete1,
+        });
+
+      // Complete game 2
+      const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+      const game2Id = detailRes.body.games.find((g: any) => g.game_number === 2).id;
+
+      const roles = [
+        { seat_number: 1, role: 'citizen' },
+        { seat_number: 2, role: 'citizen' },
+        { seat_number: 3, role: 'citizen' },
+        { seat_number: 4, role: 'citizen' },
+        { seat_number: 5, role: 'citizen' },
+        { seat_number: 6, role: 'citizen' },
+        { seat_number: 7, role: 'sheriff' },
+        { seat_number: 8, role: 'mafia' },
+        { seat_number: 9, role: 'mafia' },
+        { seat_number: 10, role: 'don' },
+      ];
+      await request(app).patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`).set('Cookie', organizerCookie).send({ roles });
+      await request(app).post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`).set('Cookie', organizerCookie);
+
+      const detailRes2 = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
+      const game2Seats = detailRes2.body.games.find((g: any) => g.id === game2Id).seats;
+
+      const playerResultsComplete2 = game2Seats.map((seat: any) => {
+        let jb = 0;
+        if (seat.participant_id === p1Id) {
+          jb = -0.4;
+        }
+        return {
+          participant_id: seat.participant_id,
+          role: seat.role,
+          exit_type: 'alive',
+          regular_fouls: 0,
+          technical_fouls: 0,
+          protocol_bonus: 0,
+          judge_bonus: jb,
+          penalty_points: 0,
+        };
+      });
+
+      await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game2Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send({
+          protocol: { winner_team: 'red' },
+          player_results: playerResultsComplete2,
+        });
+
+      // Get standings
+      const res = await request(app)
+        .get(`/api/tournaments/${tournamentId}/standings`)
+        .set('Cookie', organizerCookie);
+
+      const p1Standing = res.body.standings.find((s: any) => s.participant_id === p1Id);
+
+      // 8. Для нескольких игр положительные и отрицательные judge_bonus правильно суммируются по разным колонкам.
+      expect(p1Standing.positive_points).toBe(0.5);
+      expect(p1Standing.game_penalty_points).toBe(0.4);
+      expect(p1Standing.penalty_points).toBe(0.4);
+      expect(p1Standing.total_points).toBe(2.1);
+    });
+  });
 });

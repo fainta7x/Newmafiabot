@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2 } from 'lucide-react';
-import { api, TournamentStandingItem } from '../../../lib/api.ts';
+import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2, Image as ImageIcon } from 'lucide-react';
+import { api, TournamentStandingItem, Tournament } from '../../../lib/api.ts';
+import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 
 interface TournamentStandingsViewProps {
   tournamentId: string;
@@ -14,6 +15,8 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tieRequiresDraw, setTieRequiresDraw] = useState<boolean>(false);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Expanded row state for main stats (< 640px)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -27,10 +30,14 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
     setError(null);
 
     try {
-      const res = await api.getTournamentStandings(tournamentId);
+      const [res, tRes] = await Promise.all([
+        api.getTournamentStandings(tournamentId),
+        api.getTournament(tournamentId),
+      ]);
       setCompletedGamesCount(res.completed_games_count ?? 0);
       setStandings(res.standings || []);
       setTieRequiresDraw(res.tie_requires_draw ?? false);
+      setTournament(tRes);
     } catch (err: any) {
       setError(err.message || 'Не удалось загрузить турнирную таблицу');
     } finally {
@@ -74,15 +81,29 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
             <h3 className="text-base font-extrabold text-text-primary tracking-tight">Турнирная таблица</h3>
           </div>
 
-          <button
-            type="button"
-            onClick={() => fetchStandings(true)}
-            disabled={refreshing}
-            className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Обновить таблицу</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchStandings(true)}
+              disabled={refreshing}
+              className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              <span>Обновить таблицу</span>
+            </button>
+
+            {completedGamesCount > 0 && (
+              <button
+                type="button"
+                id="btn-download-standings-png-trigger"
+                onClick={() => setIsExportModalOpen(true)}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Скачать таблицу PNG</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Ci note badge */}
@@ -836,6 +857,15 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
             </div>
           </div>
         </>
+      )}
+
+      {tournament && (
+        <ResultsImageExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          tournament={tournament}
+          exportType="standings"
+        />
       )}
     </div>
   );

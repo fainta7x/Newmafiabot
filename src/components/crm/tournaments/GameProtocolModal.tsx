@@ -1666,8 +1666,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto overflow-x-hidden">
-      <div className="bg-slate-900 text-slate-100 rounded-none sm:rounded-2xl w-full max-w-4xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl border-0 sm:border sm:border-slate-800 overflow-hidden min-w-0">
+    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto overflow-x-hidden">
+      <div className="keyboard-aware-panel bg-slate-900 text-slate-100 rounded-none sm:rounded-2xl w-full max-w-4xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl border-0 sm:border sm:border-slate-800 overflow-hidden min-w-0">
 
         {/* Header */}
         <div className="bg-slate-800/90 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0 min-h-[56px] sm:min-h-[64px] min-w-0">
@@ -1825,7 +1825,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 pb-24 sm:pb-6 max-w-full">
+        <div className="keyboard-aware-scroll flex-1 overflow-y-auto p-3 sm:p-5 pb-24 sm:pb-6 max-w-full" data-keyboard-scroll-container>
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
               <Clock className="w-8 h-8 animate-spin text-amber-500" />

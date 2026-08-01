@@ -357,7 +357,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   };
 
   return (
-    <div className="space-y-5 text-text-primary">
+    <div className="tournament-keyboard-scope space-y-5 overflow-x-hidden pb-4 text-text-primary">
       {/* Top Header & Navigation */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -565,18 +565,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedImportGameId(undefined);
-                  setShowProtocolImportModal(true);
-                }}
-                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Загрузить бланк игры</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setShowEditDataModal(true)}
                 className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
               >
@@ -603,12 +591,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <span>Перегенерировать рассадку</span>
               </button>
 
+            </div>
+
               <button
                 type="button"
                 onClick={handleOpenStartModal}
                 disabled={actionLoading || !tournament.start_readiness?.ready}
                 title={!tournament.start_readiness?.ready ? 'Исправьте ошибки перед запуском' : 'Запустить турнир'}
-                className={`font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] ml-auto ${
+                className={`w-full sm:w-auto font-bold px-5 py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[52px] ${
                   tournament.start_readiness?.ready
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
                     : 'bg-surface-2 text-text-muted border border-border-soft opacity-50 cursor-not-allowed'
@@ -617,7 +607,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Запустить турнир</span>
               </button>
-            </div>
           </div>
         ) : (
           <div className="space-y-3 pt-3 border-t border-border-soft">
@@ -842,7 +831,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           {/* Selected Game Selector & Navigator */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
         {/* Game Tabs / Nav */}
-        <div className="flex items-center justify-between gap-2 bg-surface-2 p-1.5 rounded-2xl border border-border-soft">
+        <div className="flex min-w-0 items-center justify-between gap-2 bg-surface-2 p-1.5 rounded-2xl border border-border-soft">
           <button
             onClick={() => setSelectedGameIdx(Math.max(0, selectedGameIdx - 1))}
             disabled={selectedGameIdx === 0}
@@ -851,7 +840,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 px-1">
             {games.map((g, idx) => {
               const isSel = idx === selectedGameIdx;
               const isDone = g.status === 'completed';

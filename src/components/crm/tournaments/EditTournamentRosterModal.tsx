@@ -130,8 +130,8 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl">
+    <div className="keyboard-aware-modal tournament-keyboard-scope fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="keyboard-aware-panel bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl overflow-hidden">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-muted hover:text-text-primary p-2 rounded-full hover:bg-surface-hover cursor-pointer transition-colors"
@@ -183,7 +183,7 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleInitialSubmit} className="space-y-4">
+          <form onSubmit={handleInitialSubmit} className="keyboard-aware-scroll space-y-4" data-keyboard-scroll-container>
             {/* Selected 10 players list */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">

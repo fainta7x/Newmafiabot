@@ -1,58 +1,108 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
+import { createDatabaseConnection } from '../db/index.ts';
+import { createPreviewCheckpoint } from '../db/previewDatabaseCheckpoint.ts';
 
-const cwd = process.cwd();
-const runtimeDbPath = path.join(cwd, 'mafia_crm.runtime.sqlite');
-const checkpointDbPath = path.join(cwd, 'mafia_crm.checkpoint.sqlite');
-const tempDbPath = path.join(cwd, `temp_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
+const TOURNAMENT_TITLE = 'Турнир Богдана 1.08';
 
-async function run() {
-  if (!fs.existsSync(runtimeDbPath)) {
-    console.error(`Runtime database not found at ${runtimeDbPath}`);
-    process.exit(1);
+async function run(): Promise<void> {
+  const baseDir = process.cwd();
+  const runtimePath = path.join(baseDir, 'mafia_crm.runtime.sqlite');
+  const checkpointPath = path.join(baseDir, 'mafia_crm.checkpoint.sqlite');
+
+  if (!fs.existsSync(runtimePath)) {
+    throw new Error(`Runtime database not found at ${runtimePath}`);
   }
 
-  let db: Database.Database | null = null;
+  const runtimeDb = createDatabaseConnection(runtimePath);
   try {
-    db = new Database(runtimeDbPath, { readonly: true });
-    console.log('Starting backup...');
-    await db.backup(tempDbPath);
-    db.close();
-    db = null;
-
-    console.log('Verifying backup...');
-    const checkDb = new Database(tempDbPath, { readonly: true });
-    const integrity = checkDb.pragma('integrity_check', { simple: false }) as any[];
-    
-    if (!Array.isArray(integrity) || integrity[0]?.integrity_check !== 'ok') {
-      console.error(`Integrity check failed: ${JSON.stringify(integrity)}`);
-      checkDb.close();
-      fs.unlinkSync(tempDbPath);
-      process.exit(1);
+    const result = await createPreviewCheckpoint(runtimeDb, { baseDir });
+    if (!result.success) {
+      throw new Error(result.message);
     }
-    
-    const pageSize = checkDb.pragma('page_size', { simple: true }) as number;
-    const pageCount = checkDb.pragma('page_count', { simple: true }) as number;
-    const expectedSize = pageSize * pageCount;
-    checkDb.close();
+  } finally {
+    runtimeDb.sqlite.close();
+  }
 
-    const actualSize = fs.statSync(tempDbPath).size;
-    if (actualSize !== expectedSize) {
-      console.error(`Size mismatch: expected ${expectedSize}, got ${actualSize}`);
-      fs.unlinkSync(tempDbPath);
-      process.exit(1);
+  const checkpointDb = new Database(checkpointPath, {
+    readonly: true,
+    fileMustExist: true,
+  });
+
+  try {
+    const integrityRows = checkpointDb.pragma('integrity_check', {
+      simple: false,
+    }) as Array<{ integrity_check?: string }>;
+    const integrity = integrityRows[0]?.integrity_check;
+    const pageSize = checkpointDb.pragma('page_size', { simple: true }) as number;
+    const pageCount = checkpointDb.pragma('page_count', { simple: true }) as number;
+    const size = fs.statSync(checkpointPath).size;
+
+    if (integrity !== 'ok') {
+      throw new Error(`Checkpoint integrity check failed: ${integrity ?? 'no result'}`);
+    }
+    if (size !== pageSize * pageCount) {
+      throw new Error(`Checkpoint size mismatch: expected ${pageSize * pageCount}, got ${size}`);
     }
 
-    fs.renameSync(tempDbPath, checkpointDbPath);
-    console.log(`Checkpoint created successfully at ${checkpointDbPath}. Size: ${actualSize}, Integrity: ok`);
-    process.exit(0);
-  } catch (err) {
-    console.error('Error:', err);
-    if (db) db.close();
-    if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
-    process.exit(1);
+    const tournament = checkpointDb
+      .prepare('SELECT id, status FROM tournaments WHERE title = ?')
+      .get(TOURNAMENT_TITLE) as { id: string; status: string } | undefined;
+    if (!tournament) {
+      throw new Error(`Tournament "${TOURNAMENT_TITLE}" was not found in checkpoint`);
+    }
+
+    const participantCount = (
+      checkpointDb
+        .prepare('SELECT count(*) AS count FROM tournament_participants WHERE tournament_id = ?')
+        .get(tournament.id) as { count: number }
+    ).count;
+    const gameCount = (
+      checkpointDb
+        .prepare('SELECT count(*) AS count FROM tournament_games WHERE tournament_id = ?')
+        .get(tournament.id) as { count: number }
+    ).count;
+    const seatCount = (
+      checkpointDb
+        .prepare(
+          `SELECT count(*) AS count
+           FROM tournament_game_seats
+           WHERE game_id IN (SELECT id FROM tournament_games WHERE tournament_id = ?)`
+        )
+        .get(tournament.id) as { count: number }
+    ).count;
+
+    if (participantCount !== 10 || gameCount !== 10 || seatCount !== 100) {
+      throw new Error(
+        `Unexpected tournament structure: participants=${participantCount}, games=${gameCount}, seats=${seatCount}`
+      );
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          checkpointPath,
+          integrity,
+          size,
+          pageSize,
+          pageCount,
+          tournament: TOURNAMENT_TITLE,
+          status: tournament.status,
+          participantCount,
+          gameCount,
+          seatCount,
+        },
+        null,
+        2
+      )
+    );
+  } finally {
+    checkpointDb.close();
   }
 }
 
-run();
+run().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+});

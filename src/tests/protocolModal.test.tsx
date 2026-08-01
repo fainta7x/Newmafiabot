@@ -684,6 +684,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       await waitFor(() => expect(screen.getByText('Test Tournament UX')).toBeTruthy());
 
       // Open modal
+      const gamesTab = screen.getByRole('button', { name: /Игры/i });
+      fireEvent.click(gamesTab);
       const protocolBtn = screen.getByRole('button', { name: /Протокол/i });
       fireEvent.click(protocolBtn);
 

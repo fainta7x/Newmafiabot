@@ -59,7 +59,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<'organization' | 'games' | 'standings' | 'nominations'>('organization');
-  const [showRoster, setShowRoster] = useState(false);
 
   // Edit draft modals state
   const [showEditDataModal, setShowEditDataModal] = useState(false);
@@ -235,7 +234,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
         text: 'Турнир успешно запущен! Статус изменён на «Турнир идёт». Состав и рассадка заблокированы.',
       });
       loadDetail();
-      setActiveTab('games');
     } catch (err: any) {
       setStartModalError(err.message || 'Ошибка запуска турнира');
     } finally {
@@ -369,7 +367,17 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               <ArrowLeft className="w-4 h-4" />
               <span>Назад</span>
             </button>
-            
+            {process.env.NODE_ENV !== 'production' && (
+              <button
+                onClick={handleCheckpoint}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-hover px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                title="Сохранить резервную копию (Git-checkpoint)"
+              >
+                <Save className="w-4 h-4" />
+                <span>Резервная копия</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -418,107 +426,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           )}
         </div>
 
-        
-      </div>
-
-      {/* Feedback banner */}
-      {feedbackMsg && (
-        <div
-          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-2 text-xs font-semibold ${
-            feedbackMsg.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-danger/10 border-danger/30 text-danger'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {feedbackMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-            <span>{feedbackMsg.text}</span>
-          </div>
-          <button onClick={() => setFeedbackMsg(null)} className="p-1 cursor-pointer">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Navigation Tabs */}
-      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setActiveTab('organization')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'organization'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <FileText className="w-4 h-4 shrink-0" />
-          <span className="line-clamp-2">Организация</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('games')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'games'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Users className="w-4 h-4 shrink-0" />
-          <span className="line-clamp-2">Игры</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('standings')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'standings'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Trophy className="w-4 h-4 shrink-0 text-amber-400" />
-          <span className="line-clamp-2">Таблица</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('nominations')}
-          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
-            activeTab === 'nominations'
-              ? 'bg-accent text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-          }`}
-        >
-          <Award className="w-4 h-4 shrink-0 text-cyan-400" />
-          <span className="line-clamp-2">Номинации</span>
-        </button>
-      </div>
-
-      {activeTab === 'organization' && (
-        <div className="space-y-5">
-          <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                <FileText className="w-4 h-4 text-accent" />
-                Управление турниром
-              </h3>
-              
-            {process.env.NODE_ENV !== 'production' && (
-              <button
-                type="button"
-                onClick={handleCheckpoint}
-                disabled={actionLoading}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] ml-auto"
-                title="Сохранить резервную копию (Git-checkpoint)"
-              >
-                <Save className="w-3.5 h-3.5 text-accent" />
-                <span>Резервная копия</span>
-              </button>
-            )}
-
-            </div>
-            
+        {/* Global actions row & readiness indicator */}
         {isDraft ? (
           <div className="space-y-3 pt-3 border-t border-border-soft">
             {/* Readiness Badge & Export Button */}
@@ -778,32 +686,106 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Feedback banner */}
+      {feedbackMsg && (
+        <div
+          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-2 text-xs font-semibold ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-danger/10 border-danger/30 text-danger'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedbackMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            <span>{feedbackMsg.text}</span>
           </div>
+          <button onClick={() => setFeedbackMsg(null)} className="p-1 cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 bg-surface-1 p-1.5 rounded-2xl border border-border-soft overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setActiveTab('organization')}
+          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
+            activeTab === 'organization'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <FileText className="w-4 h-4 shrink-0" />
+          <span className="line-clamp-2">Организация</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('games')}
+          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
+            activeTab === 'games'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Users className="w-4 h-4 shrink-0" />
+          <span className="line-clamp-2">Игры</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('standings')}
+          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
+            activeTab === 'standings'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Trophy className="w-4 h-4 shrink-0 text-amber-400" />
+          <span className="line-clamp-2">Таблица</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('nominations')}
+          className={`min-w-0 min-h-[44px] sm:flex-1 py-1.5 px-2 rounded-xl text-[11px] leading-tight sm:text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer text-center ${
+            activeTab === 'nominations'
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+          }`}
+        >
+          <Award className="w-4 h-4 shrink-0 text-cyan-400" />
+          <span className="line-clamp-2">Номинации</span>
+        </button>
+      </div>
+
+      {activeTab === 'standings' ? (
+        <TournamentStandingsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
+      ) : activeTab === 'nominations' ? (
+        <TournamentNominationsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
+      ) : (
+        <>
           {/* Roster / Participants Accordion */}
           <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowRoster(!showRoster)}>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-accent" />
-                <h3 className="text-sm font-bold text-text-primary">Состав участников ({tournament.participants?.length || 0} человек)</h3>
+                <h3 className="text-sm font-bold text-text-primary">Состав участников (10 человек)</h3>
               </div>
-              <div className="flex items-center gap-4">
-                {isDraft && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowEditRosterModal(true); }}
-                    className="text-xs text-accent hover:underline font-bold"
-                  >
-                    Изменить состав
-                  </button>
-                )}
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <span className="text-xs">{showRoster ? 'Скрыть' : 'Показать'}</span>
-                  {showRoster ? <ChevronLeft className="w-4 h-4 -rotate-90" /> : <ChevronRight className="w-4 h-4" />}
-                </div>
-              </div>
+              {isDraft && (
+                <button
+                  onClick={() => setShowEditRosterModal(true)}
+                  className="text-xs text-accent hover:underline font-bold"
+                >
+                  Изменить состав
+                </button>
+              )}
             </div>
 
-            {showRoster && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {tournament.participants?.map((p) => (
                 <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
                   <span className="w-5 h-5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold inline-flex items-center justify-center mb-1">
@@ -826,20 +808,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 </div>
               ))}
             </div>
-            )}
           </div>
 
-        </div>
-      )}
-
-
-      {activeTab === 'standings' ? (
-        <TournamentStandingsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
-      ) : activeTab === 'nominations' ? (
-        <TournamentNominationsView tournamentId={tournamentId} refreshTrigger={refreshTrigger} />
-      ) : activeTab === 'games' ? (
-        <div className="space-y-5">
-          {/* Selected Game Selector & Navigator */}
+      {/* Selected Game Selector & Navigator */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
         {/* Game Tabs / Nav */}
         <div className="flex items-center justify-between gap-2 bg-surface-2 p-1.5 rounded-2xl border border-border-soft">
@@ -1131,8 +1102,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           </div>
         )}
       </div>
-      </div>
-      ) : null}
+        </>
+      )}
 
       {/* EDIT TOURNAMENT DATA MODAL */}
       <EditTournamentDataModal

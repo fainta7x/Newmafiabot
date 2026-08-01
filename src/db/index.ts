@@ -21,7 +21,7 @@ let defaultDbInstance: DatabaseWrapper | null = null;
 export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
   let dbPath = dbPathOrMemory || process.env.DATABASE_PATH;
   
-  if (!dbPath) {
+  if (!dbPath || dbPath === "./mafia_crm.sqlite" || dbPath === "mafia_crm.sqlite") {
     if (process.env.NODE_ENV === 'production') {
       dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
     } else {

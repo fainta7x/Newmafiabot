@@ -34,6 +34,7 @@ import { UserCheck, FileSpreadsheet, FileCheck, Award } from 'lucide-react';
 import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal.tsx';
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
+import { TournamentGameSetup } from './TournamentGameSetup.tsx';
 import {
   validateRoleAssignmentChange,
   isRoleOptionDisabled,
@@ -186,12 +187,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     don: seats.filter((s) => s.role === 'don').length,
   };
 
-  const isRolesValid =
-    roleCounts.citizen === 6 &&
-    roleCounts.sheriff === 1 &&
-    roleCounts.mafia === 2 &&
-    roleCounts.don === 1;
-
   const isCorrection = tournament.status === 'correction';
   const canEditCurrentGameJudgeAndRoles = Boolean(
     currentGame &&
@@ -213,11 +208,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
           !isAnotherGameActive))
   );
 
-  const canStartCurrentGame =
-    tournament.status === 'active' &&
-    currentGame?.status === 'planned' &&
-    !isAnotherGameActive &&
-    isRolesValid;
+
 
   const handleOpenStartModal = () => {
     setStartModalError(null);
@@ -309,32 +300,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
       loadDetail();
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка обновления судьи' });
-    }
-  };
-
-  const handleStartGame = async () => {
-    if (!currentGame) return;
-    if (!canStartCurrentGame) {
-      if (tournament.status !== 'active') {
-        setFeedbackMsg({ type: 'error', text: 'Запуск игры разрешён только после старта турнира' });
-      } else if (isAnotherGameActive) {
-        setFeedbackMsg({ type: 'error', text: `Уже идет активная Игра №${activeGameInTournament?.game_number}` });
-      } else if (!isRolesValid) {
-        setFeedbackMsg({ type: 'error', text: 'Для запуска игры требуется ровно: 6 мирных, 1 Шериф, 2 мафии, 1 Дон' });
-      }
-      return;
-    }
-
-    setActionLoading(true);
-    setFeedbackMsg(null);
-    try {
-      await api.startTournamentGame(tournamentId, currentGame.id);
-      setFeedbackMsg({ type: 'success', text: `Игра №${currentGame.game_number} успешно запущена!` });
-      loadDetail();
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Не удалось запустить игру' });
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -978,7 +943,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 </button>
 
                 {/* Swap seats / Correct players on seats allowed in draft/planned or active game in correction mode with draft protocol */}
-                {canSwapSeatsCurrentGame && (
+                {canSwapSeatsCurrentGame && currentGame.status !== 'planned' && (
                   <button
                     onClick={() => {
                       setSwapSeat1(1);
@@ -991,143 +956,148 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                     <span>Исправить игроков на местах</span>
                   </button>
                 )}
-
-                {currentGame.status === 'planned' && (
-                  <button
-                    onClick={handleStartGame}
-                    disabled={actionLoading || !canStartCurrentGame}
-                    className={`font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 min-h-[40px] ${
-                      canStartCurrentGame
-                        ? 'bg-accent hover:bg-accent-hover text-white cursor-pointer shadow-lg shadow-accent/20'
-                        : 'bg-surface-1 text-text-muted border border-border-soft opacity-60 cursor-not-allowed'
-                    }`}
-                    title={
-                      tournament.status !== 'active'
-                        ? 'Запуск разрешен только в активном турнире (запустите турнир сначала)'
-                        : isAnotherGameActive
-                        ? `Сначала завершите игру №${activeGameInTournament?.game_number}`
-                        : !isRolesValid
-                        ? 'Назначьте ровно: 6 мирных, 1 Шериф, 2 мафии, 1 Дон'
-                        : ''
-                    }
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Запустить игру №{currentGame.game_number}</span>
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* Role Composition Summary Box */}
-            <div className="bg-surface-2/60 p-3 rounded-2xl border border-border-soft text-xs space-y-2">
-              <span className="font-bold text-text-secondary text-[11px] block">Проверка состава ролей перед запуском:</span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
-                <div className={`p-2 rounded-xl border ${roleCounts.citizen === 6 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                  <span>Мирные: {roleCounts.citizen} / 6</span>
-                </div>
-                <div className={`p-2 rounded-xl border ${roleCounts.sheriff === 1 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                  <span>Шериф: {roleCounts.sheriff} / 1</span>
-                </div>
-                <div className={`p-2 rounded-xl border ${roleCounts.mafia === 2 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                  <span>Мафия: {roleCounts.mafia} / 2</span>
-                </div>
-                <div className={`p-2 rounded-xl border ${roleCounts.don === 1 ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
-                  <span>Дон: {roleCounts.don} / 1</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 10 Seats Cards List */}
-            <div className="space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <span className="text-xs font-bold text-text-secondary block">
-                  Рассадка на игру №{currentGame.game_number}
-                  {!canEditCurrentGameJudgeAndRoles && ' (заблокирована для изменений)'}:
-                </span>
-                {isCorrection && currentGame.status === 'completed' && (
-                  <span className="text-[11px] text-amber-400 italic font-medium">
-                    Для изменения судьи/ролей верните протокол в черновик
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {seats.map((seat) => {
-                  const roleObj = ROLES_LIST.find((r) => r.id === seat.role);
-                  return (
-                    <div
-                      key={seat.id}
-                      className="bg-surface-2 p-3 rounded-2xl border border-border-soft flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
-                          {seat.seat_number}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-text-primary block truncate">
-                            {seat.display_name}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Role selection dropdown */}
-                      {canEditCurrentGameJudgeAndRoles ? (
-                        <select
-                          value={seat.role || ''}
-                          onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
-                          className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
-                            roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
-                          }`}
-                        >
-                          <option
-                            value=""
-                            disabled={isRoleOptionDisabled(seats, seat.seat_number, null)}
-                            className="bg-surface-1 text-text-muted disabled:opacity-40"
-                          >
-                            -- Роль не выбрана --
-                          </option>
-                          <option
-                            value="citizen"
-                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'citizen')}
-                            className="bg-surface-1 text-emerald-400 font-semibold disabled:opacity-40"
-                          >
-                            Мирный ({roleCounts.citizen}/6)
-                          </option>
-                          <option
-                            value="sheriff"
-                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'sheriff')}
-                            className="bg-surface-1 text-amber-400 font-semibold disabled:opacity-40"
-                          >
-                            Шериф ({roleCounts.sheriff}/1)
-                          </option>
-                          <option
-                            value="mafia"
-                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'mafia')}
-                            className="bg-surface-1 text-rose-400 font-semibold disabled:opacity-40"
-                          >
-                            Мафия ({roleCounts.mafia}/2)
-                          </option>
-                          <option
-                            value="don"
-                            disabled={isRoleOptionDisabled(seats, seat.seat_number, 'don')}
-                            className="bg-surface-1 text-purple-400 font-semibold disabled:opacity-40"
-                          >
-                            Дон ({roleCounts.don}/1)
-                          </option>
-                        </select>
-                      ) : (
-                        <span
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
-                            roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
-                          }`}
-                        >
-                          {roleObj ? roleObj.label : 'Без роли'}
-                        </span>
-                      )}
+            {currentGame.status === 'planned' ? (
+              <TournamentGameSetup
+                tournamentId={tournamentId}
+                game={currentGame}
+                tournamentStatus={tournament.status}
+                isAnotherGameActive={isAnotherGameActive}
+                activeGameNumber={activeGameInTournament?.game_number}
+                judgeName={currentGame.judge_name}
+                chiefJudgeName={tournament.chief_judge_name}
+                canEditJudgeAndRoles={canEditCurrentGameJudgeAndRoles}
+                canSwapSeats={canSwapSeatsCurrentGame}
+                onOpenSwapModal={() => {
+                  setSwapSeat1(1);
+                  setSwapSeat2(2);
+                  setShowSwapModal(true);
+                }}
+                onEditJudgeClick={() => {
+                  setJudgeInput(currentGame.judge_name || tournament.chief_judge_name || '');
+                  setEditingJudge(true);
+                }}
+                onGameStarted={() => {
+                  loadDetail();
+                }}
+                setFeedbackMsg={setFeedbackMsg}
+              />
+            ) : (
+              <>
+                {/* Role Composition Summary Box */}
+                <div className="bg-surface-2/60 p-3 rounded-2xl border border-border-soft text-xs space-y-2">
+                  <span className="font-bold text-text-secondary text-[11px] block">Проверка состава ролей перед запуском:</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+                    <div className={`p-2 rounded-xl border ${roleCounts.citizen === 6 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
+                      <span>Мирные: {roleCounts.citizen} / 6</span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    <div className={`p-2 rounded-xl border ${roleCounts.sheriff === 1 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
+                      <span>Шериф: {roleCounts.sheriff} / 1</span>
+                    </div>
+                    <div className={`p-2 rounded-xl border ${roleCounts.mafia === 2 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
+                      <span>Мафия: {roleCounts.mafia} / 2</span>
+                    </div>
+                    <div className={`p-2 rounded-xl border ${roleCounts.don === 1 ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 font-bold' : 'bg-surface-1 border-border-soft text-text-muted'}`}>
+                      <span>Дон: {roleCounts.don} / 1</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 10 Seats Cards List */}
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="text-xs font-bold text-text-secondary block">
+                      Рассадка на игру №{currentGame.game_number}
+                      {!canEditCurrentGameJudgeAndRoles && ' (заблокирована для изменений)'}:
+                    </span>
+                    {isCorrection && currentGame.status === 'completed' && (
+                      <span className="text-[11px] text-amber-400 italic font-medium">
+                        Для изменения судьи/ролей верните протокол в черновик
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {seats.map((seat) => {
+                      const roleObj = ROLES_LIST.find((r) => r.id === seat.role);
+                      return (
+                        <div
+                          key={seat.id}
+                          className="bg-surface-2 p-3 rounded-2xl border border-border-soft flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                              {seat.seat_number}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-text-primary block truncate">
+                                {seat.display_name}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Role selection dropdown */}
+                          {canEditCurrentGameJudgeAndRoles ? (
+                            <select
+                              value={seat.role || ''}
+                              onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
+                              className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
+                                roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
+                              }`}
+                            >
+                              <option
+                                value=""
+                                disabled={isRoleOptionDisabled(seats, seat.seat_number, null)}
+                                className="bg-surface-1 text-text-muted disabled:opacity-40"
+                              >
+                                -- Роль не выбрана --
+                              </option>
+                              <option
+                                value="citizen"
+                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'citizen')}
+                                className="bg-surface-1 text-emerald-400 font-semibold disabled:opacity-40"
+                              >
+                                Мирный ({roleCounts.citizen}/6)
+                              </option>
+                              <option
+                                value="sheriff"
+                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'sheriff')}
+                                className="bg-surface-1 text-amber-400 font-semibold disabled:opacity-40"
+                              >
+                                Шериф ({roleCounts.sheriff}/1)
+                              </option>
+                              <option
+                                value="mafia"
+                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'mafia')}
+                                className="bg-surface-1 text-rose-400 font-semibold disabled:opacity-40"
+                              >
+                                Мафия ({roleCounts.mafia}/2)
+                              </option>
+                              <option
+                                value="don"
+                                disabled={isRoleOptionDisabled(seats, seat.seat_number, 'don')}
+                                className="bg-surface-1 text-purple-400 font-semibold disabled:opacity-40"
+                              >
+                                Дон ({roleCounts.don}/1)
+                              </option>
+                            </select>
+                          ) : (
+                            <span
+                              className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                                roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
+                              }`}
+                            >
+                              {roleObj ? roleObj.label : 'Без роли'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

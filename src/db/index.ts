@@ -250,4 +250,16 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   } catch (e) {
     console.error('Failed to create tournament_final_resolutions table:', e);
   }
+
+  // Idempotent migration: transfer legacy positive penalty_points to judge_bonus if judge_bonus is 0
+  try {
+    dbWrapper.sqlite.exec(`
+      UPDATE tournament_game_player_results
+      SET judge_bonus = -penalty_points,
+          penalty_points = 0
+      WHERE penalty_points > 0 AND (judge_bonus = 0 OR judge_bonus IS NULL);
+    `);
+  } catch (e) {
+    console.error('Failed to migrate legacy penalty_points to judge_bonus:', e);
+  }
 }

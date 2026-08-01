@@ -107,7 +107,7 @@ export const getProtocolPayload = (proto: TournamentGameProtocolData, results: P
       technical_fouls: (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0),
       judge_bonus: pr.judge_bonus,
       protocol_bonus: pr.protocol_bonus,
-      penalty_points: pr.penalty_points,
+      penalty_points: 0,
       disciplinary_penalty_points: calculateDisciplinaryPenalty(
         pr.minor_technical_fouls || 0,
         pr.major_technical_fouls || 0,
@@ -1815,13 +1815,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           className: 'bg-rose-600/10 text-rose-400 border-rose-600/30'
                         });
                       }
-                      if (player.penalty_points && player.penalty_points > 0) {
-                        briefBadges.push({
-                          key: 'penalty',
-                          label: `Игр. −${player.penalty_points}`,
-                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                        });
-                      }
                       if (discPen > 0) {
                         briefBadges.push({
                           key: 'disc',
@@ -1834,6 +1827,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                           key: 'judge',
                           label: `Судья +${player.judge_bonus}`,
                           className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                        });
+                      } else if (player.judge_bonus && player.judge_bonus < 0) {
+                        briefBadges.push({
+                          key: 'judge',
+                          label: `Судья −${Math.abs(player.judge_bonus)}`,
+                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
                         });
                       }
                       if (player.protocol_bonus && player.protocol_bonus > 0) {
@@ -2065,7 +2064,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 </div>
                               </div>
 
-                              {/* Technical Fouls - Minor */}
+                               {/* Technical Fouls - Minor */}
                               <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
                                 <span className="text-slate-400 block mb-1">Малый тех −0.3</span>
                                 <div className="flex items-center space-x-1">
@@ -2115,27 +2114,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     +
                                   </button>
                                 </div>
-                              </div>
-
-                              {/* Game Penalty (Penalty points) */}
-                              <div data-testid={`penalty-${player.participant_id}`} className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
-                                <span className="text-slate-400 block mb-1 text-center">Игровой минус</span>
-                                <PointStepper
-                                  value={-(player.penalty_points ?? 0)}
-                                  min={-1.0}
-                                  max={0}
-                                  step={0.1}
-                                  disabled={protocol.status === 'completed'}
-                                  ariaLabelMinus="Увеличить игровой штраф"
-                                  ariaLabelPlus="Уменьшить игровой штраф"
-                                  formatValue={(v) => (roundTenths(v) === 0 ? '0' : `−${Math.abs(roundTenths(v))}`)}
-                                  onChange={(val) =>
-                                    updatePlayerResult(player.participant_id, {
-                                      penalty_points: roundTenths(Math.abs(val)),
-                                    })
-                                  }
-                                />
-                                <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Учитывается в номинациях</span>
                               </div>
 
                               {/* Disciplinary Penalty (Read-only) */}
@@ -2233,7 +2211,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 />
                               </div>
 
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
+                              <div data-testid={`judge-bonus-${player.participant_id}`} className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
                                 <span className="text-slate-400 block mb-1 text-center">Балл судьи</span>
                                 <PointStepper
                                   value={player.judge_bonus ?? 0}

@@ -577,15 +577,14 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
                   2. Фолы и бонусы игроков
                 </div>
                 <div className="p-2.5 space-y-2">
-                  <div className="grid grid-cols-5 text-[10px] font-bold text-slate-500 pb-1 border-b border-slate-100 text-center">
+                  <div className="grid grid-cols-4 text-[10px] font-bold text-slate-500 pb-1 border-b border-slate-100 text-center">
                     <div>Место</div>
                     <div>Фолы</div>
                     <div>Тех.</div>
-                    <div>Бон.</div>
-                    <div>Штр.</div>
+                    <div>Судья</div>
                   </div>
                   {currentDetectedGame.players.map((p, pIdx) => (
-                    <div key={p.seat_number} className="grid grid-cols-5 gap-1 items-center text-center">
+                    <div key={p.seat_number} className="grid grid-cols-4 gap-1 items-center text-center">
                       <span className="font-semibold text-slate-700 text-xs">#{p.seat_number}</span>
                       <input
                         type="number"
@@ -624,21 +623,7 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
                           const val = parseFloat(e.target.value) || 0;
                           handleUpdateDetectedGame(selectedGameIdx, (prev) => {
                             const players = [...prev.players];
-                            players[pIdx] = { ...players[pIdx], judge_bonus: { value: val, confidence: 1.0 } };
-                            return { ...prev, players };
-                          });
-                        }}
-                        className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={p.penalty_points.value}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          handleUpdateDetectedGame(selectedGameIdx, (prev) => {
-                            const players = [...prev.players];
-                            players[pIdx] = { ...players[pIdx], penalty_points: { value: val, confidence: 1.0 } };
+                            players[pIdx] = { ...players[pIdx], judge_bonus: { value: val, confidence: 1.0 }, penalty_points: { value: 0, confidence: 1.0 } };
                             return { ...prev, players };
                           });
                         }}

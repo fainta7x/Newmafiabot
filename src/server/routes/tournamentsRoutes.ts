@@ -1232,6 +1232,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         role: s.role,
         winner_team: g.winner_team,
         win_point: winPoint,
+        judge_bonus: judgeBonus,
+        protocol_bonus: protocolBonus,
         positive_points: posPoints,
         best_move_points: bmPoints,
         game_penalty_points: gamePenPoints,
@@ -1514,7 +1516,6 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
       let sumJudge = 0;
       let sumProtocol = 0;
       let sumBestMove = 0;
-      let sumPenalty = 0;
       const breakdown = [];
 
       for (const gData of gameDataList) {
@@ -1529,16 +1530,14 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
         const resRow = gData.resultsMap.get(p.participant_id);
         const jb = Number(resRow?.judge_bonus || 0);
         const pb = Number(resRow?.protocol_bonus || 0);
-        const pen = Number(resRow?.penalty_points || 0);
 
         const bm = gData.bmPointsMap.get(p.participant_id) || 0;
 
-        const gameNomPoints = roundToTwo(jb + pb + bm - pen);
+        const gameNomPoints = roundToTwo(jb + pb + bm);
 
         sumJudge = roundToTwo(sumJudge + jb);
         sumProtocol = roundToTwo(sumProtocol + pb);
         sumBestMove = roundToTwo(sumBestMove + bm);
-        sumPenalty = roundToTwo(sumPenalty + pen);
 
         breakdown.push({
           game_number: gData.game_number,
@@ -1546,13 +1545,12 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
           judge_bonus: jb,
           protocol_bonus: pb,
           best_move_points: bm,
-          penalty_points: pen,
           nomination_points: gameNomPoints,
         });
       }
 
       if (gamesInRole >= 1) {
-        const totalNomPoints = roundToTwo(sumJudge + sumProtocol + sumBestMove - sumPenalty);
+        const totalNomPoints = roundToTwo(sumJudge + sumProtocol + sumBestMove);
         candidateList.push({
           participant_id: p.participant_id,
           display_name: p.display_name,
@@ -1561,7 +1559,6 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
           judge_bonus: sumJudge,
           protocol_bonus: sumProtocol,
           best_move_points: sumBestMove,
-          penalty_points: sumPenalty,
           breakdown,
         });
       }

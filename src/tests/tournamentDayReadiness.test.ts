@@ -418,7 +418,8 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       expect(completeRes.status).toBe(200);
 
       const pr1 = completeRes.body.player_results.find((p: any) => p.participant_id === p1Id);
-      expect(pr1.penalty_points).toBe(0.2);
+      expect(pr1.judge_bonus).toBe(-0.2);
+      expect(pr1.penalty_points).toBe(0);
       expect(pr1.disciplinary_penalty_points).toBe(0.3);
 
       // 1. Check Standings
@@ -427,10 +428,10 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
         .set('Cookie', organizerCookie);
 
       const st1 = standingsRes.body.standings.find((s: any) => s.participant_id === p1Id);
-      expect(st1.game_penalty_points).toBe(0.2);
+      expect(st1.game_penalty_points).toBe(0);
       expect(st1.disciplinary_penalty_points).toBe(0.3);
-      expect(st1.penalty_points).toBe(0.5); // total penalty = 0.2 + 0.3 = 0.5
-      expect(st1.additional_total).toBe(-0.5);
+      expect(st1.penalty_points).toBe(0.3); // disciplinary penalty = 0.3
+      expect(st1.additional_total).toBe(-0.5); // -0.2 (judge_bonus) - 0.3 (disciplinary)
       expect(st1.total_points).toBe(0.5);
 
       // 2. Check Nominations API
@@ -446,14 +447,14 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
       const candidateP1 = bestCitizenCategory.candidates.find((c: any) => c.participant_id === p1Id);
       expect(candidateP1).toBeDefined();
 
-      // Check candidate's penalty_points is game penalty only (0.2), not total (0.5)
-      expect(candidateP1.penalty_points).toBe(0.2);
-      // nomination_points = 0 (win is not in nomination) - 0.2 = -0.2
+      // Check candidate's judge_bonus is -0.2
+      expect(candidateP1.judge_bonus).toBe(-0.2);
+      // nomination_points = -0.2
       expect(candidateP1.nomination_points).toBe(-0.2);
 
       // Check breakdown
       expect(candidateP1.breakdown).toHaveLength(1);
-      expect(candidateP1.breakdown[0].penalty_points).toBe(0.2);
+      expect(candidateP1.breakdown[0].judge_bonus).toBe(-0.2);
       expect(candidateP1.breakdown[0].nomination_points).toBe(-0.2);
     });
   });

@@ -436,11 +436,11 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                       </div>
                       <div>
                         <span className="text-[9px] block">Плюс</span>
-                        <strong className="text-emerald-400 font-bold">+{item.positive_points}</strong>
+                        <strong className="text-emerald-400 font-bold">{item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}</strong>
                       </div>
                       <div>
                         <span className="text-[9px] block">Штрафы</span>
-                        <strong className="text-[#C94F67] font-bold">-{item.penalty_points}</strong>
+                        <strong className="text-[#C94F67] font-bold">{item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}</strong>
                       </div>
                       <div>
                         <span className="text-[9px] block">ЛХ</span>

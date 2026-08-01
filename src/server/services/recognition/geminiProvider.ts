@@ -39,9 +39,9 @@ For EACH game protocol found on the photo, extract:
    - role: value ("citizen", "sheriff", "mafia", "don", or null) and confidence
    - regular_fouls: value (number, e.g. 0,1,2,3,4) and confidence
    - technical_fouls: value (number) and confidence
-   - judge_bonus: value (number, e.g. 0.2, 0.4) and confidence
+   - judge_bonus: value (number, e.g. 0.2, 0.4, or -0.3 for judge minus/penalty) and confidence
    - protocol_bonus: value (number) and confidence
-   - penalty_points: value (number) and confidence
+   - penalty_points: value (0) and confidence 1.0
 4. best_move (ЛХ / Лучший ход):
    - recipient_seat: seat number of first-night killed player who wrote best move (or null)
    - seat_numbers: array of up to 3 guessed mafia seat numbers (1..10)
@@ -135,15 +135,24 @@ Return ONLY a JSON object with schema:
           return { value: num, confidence: conf };
         };
 
+        const jb = parseNum(rawP.judge_bonus, 0);
+        const pp = parseNum(rawP.penalty_points, 0);
+        if (pp.value > 0 && jb.value === 0) {
+          jb.value = -Math.abs(pp.value);
+          pp.value = 0;
+        } else if (pp.value > 0) {
+          pp.value = 0;
+        }
+
         return {
           seat_number: seatNum,
           written_name: rawP.written_name || null,
           role: { value: roleVal, confidence: roleConf },
           regular_fouls: parseNum(rawP.regular_fouls, 0),
           technical_fouls: parseNum(rawP.technical_fouls, 0),
-          judge_bonus: parseNum(rawP.judge_bonus, 0),
+          judge_bonus: jb,
           protocol_bonus: parseNum(rawP.protocol_bonus, 0),
-          penalty_points: parseNum(rawP.penalty_points, 0),
+          penalty_points: pp,
         };
       });
 

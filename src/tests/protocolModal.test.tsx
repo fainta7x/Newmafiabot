@@ -272,7 +272,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       fireEvent.click(screen.getByTestId('player-row-p-1'));
 
-      const player1PenaltyContainer = screen.getByTestId('penalty-p-1');
+      const player1PenaltyContainer = screen.getByTestId('judge-bonus-p-1');
       expect(player1PenaltyContainer).toBeTruthy();
 
       // Ensure no text inputs exist for penalty_points, protocol_bonus, or judge_bonus in player card
@@ -280,7 +280,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(textInputs.length).toBe(0);
     });
 
-    it('Scenario 4: Game minus stepper adjusts penalty_points within range', async () => {
+    it('Scenario 4: Judge bonus stepper adjusts judge_bonus within range', async () => {
       const validResults = mockPlayerResults.map((p, i) => {
         if (i === 0) return { ...p, exit_type: 'killed' };
         return { ...p, exit_type: 'alive' };
@@ -298,7 +298,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       fireEvent.click(screen.getByTestId('player-row-p-1'));
 
-      const increasePenaltyBtn = screen.getByRole('button', { name: 'Увеличить игровой штраф' });
+      const increasePenaltyBtn = screen.getByRole('button', { name: 'Увеличить балл судьи' });
       expect(increasePenaltyBtn).toBeTruthy();
       fireEvent.click(increasePenaltyBtn);
     });
@@ -415,8 +415,8 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
         expect(screen.getByTestId(`player-row-p-${i}`)).toBeTruthy();
       }
 
-      // Detailed form inputs (like penalty-p-1) should not be visible before expansion
-      expect(screen.queryByTestId('penalty-p-1')).toBeNull();
+      // Detailed form inputs (like judge-bonus-p-1) should not be visible before expansion
+      expect(screen.queryByTestId('judge-bonus-p-1')).toBeNull();
     });
 
     it('toggles expansion when clicking a player row header', async () => {
@@ -434,11 +434,11 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       fireEvent.click(row1);
 
       // Detailed form input should now be visible
-      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+      expect(screen.getByTestId('judge-bonus-p-1')).toBeTruthy();
 
       // Click again to collapse
       fireEvent.click(row1);
-      expect(screen.queryByTestId('penalty-p-1')).toBeNull();
+      expect(screen.queryByTestId('judge-bonus-p-1')).toBeNull();
     });
 
     it('displays brief badges for non-zero fouls, tech fouls, and bonuses in compact row', async () => {
@@ -467,7 +467,6 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       expect(screen.getAllByText('Ф: 2').length).toBeGreaterThan(0);
       expect(screen.getAllByText('мТ: 1').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Игр. −0.2').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Судья +0.5').length).toBeGreaterThan(0);
     });
   });
@@ -559,7 +558,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       // Expand player row p-1
       const row1 = screen.getByTestId('player-row-p-1');
       fireEvent.click(row1);
-      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+      expect(screen.getByTestId('judge-bonus-p-1')).toBeTruthy();
 
       // Trigger field change by changing status of player 1 to voted_day
       const statusSelect = screen.getAllByRole('combobox')[0];
@@ -578,7 +577,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       // 4, 5, 6: Modal is still mounted, player p-1 is still expanded and input is present
       expect(screen.getByText('Player 1')).toBeTruthy();
-      expect(screen.getByTestId('penalty-p-1')).toBeTruthy();
+      expect(screen.getByTestId('judge-bonus-p-1')).toBeTruthy();
     });
 
     it('8: onProtocolUpdated is called exactly ONCE after successful protocol completion', async () => {

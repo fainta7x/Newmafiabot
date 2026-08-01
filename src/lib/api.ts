@@ -342,6 +342,8 @@ export interface TournamentStandingGame {
   role: string | null;
   winner_team: 'red' | 'black' | null;
   win_point: number;
+  judge_bonus?: number;
+  protocol_bonus?: number;
   positive_points: number;
   best_move_points: number;
   game_penalty_points?: number;

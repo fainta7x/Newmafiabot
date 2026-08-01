@@ -275,8 +275,8 @@ function validatePlayerResults(
       return 'Баллы протокола должны быть числом';
     }
 
-    if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points) || pr.penalty_points < 0)) {
-      return 'Штрафные баллы должны быть конечным неотрицательным числом';
+    if (pr.penalty_points !== undefined && (typeof pr.penalty_points !== 'number' || !Number.isFinite(pr.penalty_points))) {
+      return 'Штрафные баллы должны быть конечным числом';
     }
 
     if (pr.regular_fouls === 4 && pr.exit_type !== 'removed') {
@@ -896,7 +896,19 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
     if (ppkErr) return res.status(400).json({ error: ppkErr });
 
     if (player_results && Array.isArray(player_results)) {
-      player_results.forEach(pr => {
+      for (const pr of player_results) {
+        if (pr.penalty_points && pr.penalty_points > 0) {
+          if (!pr.judge_bonus || pr.judge_bonus === 0) {
+            pr.judge_bonus = -Math.abs(pr.penalty_points);
+            pr.penalty_points = 0;
+          } else if (pr.judge_bonus !== 0) {
+            return res.status(400).json({
+              error: 'Конфликт данных: одновременно зафиксированы позитивный penalty_points и балл судьи (judge_bonus)'
+            });
+          }
+        } else {
+          pr.penalty_points = 0;
+        }
         pr.technical_fouls = (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0);
         pr.disciplinary_penalty_points = calculateDisciplinaryPenalty(
           pr.minor_technical_fouls || 0,
@@ -904,7 +916,7 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
           pr.exit_type === 'removed',
           protocol?.end_reason === 'ppk' && protocol?.ppk_culprit_participant_id === pr.participant_id
         );
-      });
+      }
     }
 
     if (!player_results || !Array.isArray(player_results)) {
@@ -1178,9 +1190,20 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       return res.status(400).json({ error: 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)' });
     }
 
-
     if (player_results && Array.isArray(player_results)) {
-      player_results.forEach(pr => {
+      for (const pr of player_results) {
+        if (pr.penalty_points && pr.penalty_points > 0) {
+          if (!pr.judge_bonus || pr.judge_bonus === 0) {
+            pr.judge_bonus = -Math.abs(pr.penalty_points);
+            pr.penalty_points = 0;
+          } else if (pr.judge_bonus !== 0) {
+            return res.status(400).json({
+              error: 'Конфликт данных: одновременно зафиксированы позитивный penalty_points и балл судьи (judge_bonus)'
+            });
+          }
+        } else {
+          pr.penalty_points = 0;
+        }
         pr.technical_fouls = (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0);
         pr.disciplinary_penalty_points = calculateDisciplinaryPenalty(
           pr.minor_technical_fouls || 0,
@@ -1188,7 +1211,7 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
           pr.exit_type === 'removed',
           protocol?.end_reason === 'ppk' && protocol?.ppk_culprit_participant_id === pr.participant_id
         );
-      });
+      }
     }
 
     if (!player_results || !Array.isArray(player_results)) {

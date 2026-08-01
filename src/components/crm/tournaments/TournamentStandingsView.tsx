@@ -318,14 +318,24 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </span>
                                       </div>
                                       <div>
-                                        Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                        Балл судьи:{' '}
+                                        <span className={`font-mono ${(g.judge_bonus ?? 0) > 0 ? 'text-emerald-400' : (g.judge_bonus ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                          {(g.judge_bonus ?? 0) > 0 ? `+${g.judge_bonus}` : (g.judge_bonus ?? 0)}
+                                        </span>
                                       </div>
                                       <div>
                                         ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
                                       </div>
-                                      <div className="col-span-2">
-                                        Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
-                                      </div>
+                                      {!!g.protocol_bonus && (
+                                        <div>
+                                          Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                        </div>
+                                      )}
+                                      {!!g.disciplinary_penalty_points && (
+                                        <div>
+                                          Дисципл.: <span className="font-mono text-rose-400">-{g.disciplinary_penalty_points}</span>
+                                        </div>
+                                      )}
                                       <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
                                         <div className="flex justify-between">
                                           <span className="text-text-muted">Ставка Ci:</span>
@@ -532,14 +542,24 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                         </span>
                                       </div>
                                       <div>
-                                        Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                        Балл судьи:{' '}
+                                        <span className={`font-mono ${(g.judge_bonus ?? 0) > 0 ? 'text-emerald-400' : (g.judge_bonus ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                          {(g.judge_bonus ?? 0) > 0 ? `+${g.judge_bonus}` : (g.judge_bonus ?? 0)}
+                                        </span>
                                       </div>
                                       <div>
                                         ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
                                       </div>
-                                      <div className="col-span-2">
-                                        Штраф: <span className="font-mono text-danger">-{g.penalty_points}</span>
-                                      </div>
+                                      {!!g.protocol_bonus && (
+                                        <div>
+                                          Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                        </div>
+                                      )}
+                                      {!!g.disciplinary_penalty_points && (
+                                        <div>
+                                          Дисципл.: <span className="font-mono text-rose-400">-{g.disciplinary_penalty_points}</span>
+                                        </div>
+                                      )}
                                       <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
                                         <div className="flex justify-between">
                                           <span className="text-text-muted">Ставка Ci:</span>
@@ -760,14 +780,24 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                                             </span>
                                           </div>
                                           <div>
-                                            Бонус: <span className="font-mono text-emerald-400">+{g.positive_points}</span>
+                                            Балл судьи:{' '}
+                                            <span className={`font-mono ${(g.judge_bonus ?? 0) > 0 ? 'text-emerald-400' : (g.judge_bonus ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                              {(g.judge_bonus ?? 0) > 0 ? `+${g.judge_bonus}` : (g.judge_bonus ?? 0)}
+                                            </span>
                                           </div>
                                           <div>
-                                            ЛХ очки: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
+                                            ЛХ: <span className="font-mono text-amber-400">+{g.best_move_points}</span>
                                           </div>
-                                          <div>
-                                            Штрафы: <span className="font-mono text-danger">-{g.penalty_points}</span>
-                                          </div>
+                                          {!!g.protocol_bonus && (
+                                            <div>
+                                              Протокол: <span className="font-mono text-emerald-400">+{g.protocol_bonus}</span>
+                                            </div>
+                                          )}
+                                          {!!g.disciplinary_penalty_points && (
+                                            <div>
+                                              Дисципл.: <span className="font-mono text-rose-400">-{g.disciplinary_penalty_points}</span>
+                                            </div>
+                                          )}
                                           <div className="col-span-2 pt-1 border-t border-border-soft/40 mt-1 space-y-0.5 text-[10px]">
                                             <div className="flex justify-between">
                                               <span className="text-text-muted">Ставка Ci:</span>

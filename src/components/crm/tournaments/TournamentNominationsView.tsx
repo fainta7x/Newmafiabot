@@ -243,7 +243,6 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                              <div>Суд: <span className="text-text-primary">{candidate.judge_bonus > 0 ? `+${candidate.judge_bonus}` : candidate.judge_bonus}</span></div>
                              <div>Пр: <span className="text-text-primary">{candidate.protocol_bonus > 0 ? `+${candidate.protocol_bonus}` : candidate.protocol_bonus}</span></div>
                              <div>ЛХ: <span className="text-amber-400">{candidate.best_move_points > 0 ? `+${candidate.best_move_points}` : candidate.best_move_points}</span></div>
-                             <div>Штр: <span className="text-danger">{candidate.penalty_points > 0 ? `-${candidate.penalty_points}` : candidate.penalty_points}</span></div>
                           </div>
                         </button>
 
@@ -263,10 +262,9 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                                       <span className="text-accent font-mono text-xs">+{b.nomination_points}</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-text-muted font-mono">
-                                      <div>Судья: +{b.judge_bonus}</div>
-                                      <div>Протокол: +{b.protocol_bonus}</div>
-                                      <div>ЛХ: +{b.best_move_points}</div>
-                                      <div>Штрафы: -{b.penalty_points}</div>
+                                      <div>Судья: {b.judge_bonus > 0 ? `+${b.judge_bonus}` : b.judge_bonus}</div>
+                                      <div>Протокол: {b.protocol_bonus > 0 ? `+${b.protocol_bonus}` : b.protocol_bonus}</div>
+                                      <div>ЛХ: {b.best_move_points > 0 ? `+${b.best_move_points}` : b.best_move_points}</div>
                                     </div>
                                   </div>
                                 ))}
@@ -289,7 +287,6 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                         <th className="py-2 px-1 text-center">Судья</th>
                         <th className="py-2 px-1 text-center">Проток</th>
                         <th className="py-2 px-1 text-center">ЛХ</th>
-                        <th className="py-2 px-1 text-center">Штраф</th>
                         <th className="py-2 px-2 text-center text-accent font-extrabold w-14">Итого</th>
                       </tr>
                     </thead>
@@ -328,9 +325,6 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                               <td className="py-2 px-1 text-center text-amber-400">
                                 {candidate.best_move_points > 0 ? `+${candidate.best_move_points}` : candidate.best_move_points}
                               </td>
-                              <td className="py-2 px-1 text-center text-danger">
-                                {candidate.penalty_points > 0 ? `-${candidate.penalty_points}` : candidate.penalty_points}
-                              </td>
                               <td className="py-2 px-2 text-center text-accent font-black">
                                 {candidate.nomination_points > 0 ? `+${candidate.nomination_points}` : candidate.nomination_points}
                               </td>
@@ -339,7 +333,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                             {/* Collapsible detailed per-game breakdown row */}
                             {isExpanded && (
                               <tr className="bg-surface-2/40">
-                                <td colSpan={7} className="py-2 px-3">
+                                <td colSpan={6} className="py-2 px-3">
                                   <div className="space-y-1.5 text-[10px] py-1">
                                     <span className="font-bold text-text-secondary uppercase tracking-wider block font-sans">
                                       Детализация игр ({candidate.display_name}):
@@ -358,10 +352,9 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                                               <span className="text-accent font-mono">+{b.nomination_points} очков</span>
                                             </div>
                                             <div className="grid grid-cols-2 gap-x-2 text-[9px] text-text-muted font-mono">
-                                              <div>Судья: +{b.judge_bonus}</div>
-                                              <div>Протокол: +{b.protocol_bonus}</div>
-                                              <div>ЛХ: +{b.best_move_points}</div>
-                                              <div>Штрафы: -{b.penalty_points}</div>
+                                              <div>Судья: {b.judge_bonus > 0 ? `+${b.judge_bonus}` : b.judge_bonus}</div>
+                                              <div>Протокол: {b.protocol_bonus > 0 ? `+${b.protocol_bonus}` : b.protocol_bonus}</div>
+                                              <div>ЛХ: {b.best_move_points > 0 ? `+${b.best_move_points}` : b.best_move_points}</div>
                                             </div>
                                           </div>
                                         ))}

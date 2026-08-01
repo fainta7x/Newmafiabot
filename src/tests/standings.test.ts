@@ -166,7 +166,7 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
       technical_fouls: 0,
       protocol_bonus: idx === 0 ? 0.3 : 0,
       judge_bonus: idx === 0 ? 0.2 : 0,
-      penalty_points: idx === 0 ? 0.1 : 0,
+      penalty_points: 0,
       ci_points: idx === 0 ? 0.5 : 0,
     }));
 
@@ -197,10 +197,10 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
     expect(p0Standing.games_played).toBe(1);
     expect(p0Standing.wins).toBe(1);
     expect(p0Standing.positive_points).toBe(0.5);
-    expect(p0Standing.penalty_points).toBe(0.1);
+    expect(p0Standing.penalty_points).toBe(0);
     expect(p0Standing.ci_points).toBe(0);
-    expect(p0Standing.additional_total).toBe(0.4); // 0.5 - 0.1
-    expect(p0Standing.total_points).toBe(1.4); // 1 + 0.4 + 0 = 1.4
+    expect(p0Standing.additional_total).toBe(0.5);
+    expect(p0Standing.total_points).toBe(1.5);
   });
 
   it('only adds ci_points to first_killed_participant_id and ignores ci_points sent for other players', async () => {

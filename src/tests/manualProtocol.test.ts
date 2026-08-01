@@ -776,7 +776,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
           exit_type: 'alive',
           protocol_bonus: 0.5,
           judge_bonus: 0.25,
-          penalty_points: 0.5,
+          penalty_points: 0,
         })),
       });
 
@@ -784,7 +784,7 @@ describe('Manual Mobile Protocol Test Suite', () => {
     expect(res.body.protocol.replacement.replacement_name_or_comment).toBe('Замена Иванова');
     expect(res.body.player_results[0].protocol_bonus).toBe(0.5);
     expect(res.body.player_results[0].judge_bonus).toBe(0.25);
-    expect(res.body.player_results[0].penalty_points).toBe(0.5);
+    expect(res.body.player_results[0].penalty_points).toBe(0);
   });
 
   // BEST MOVES TESTS

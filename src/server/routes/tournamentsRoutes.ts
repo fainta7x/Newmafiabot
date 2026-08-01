@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
+import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { calculateBestMovePoints } from './tournamentProtocolRoutes.ts';
 import {
   normalizeRole,
@@ -18,6 +19,22 @@ import {
 } from '../../lib/tournamentRoleValidation.ts';
 
 const router = Router();
+
+// POST /api/tournaments/checkpoint
+router.post('/checkpoint', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Endpoint is not available in production' });
+  }
+
+  const db = (req as any).db as DatabaseWrapper;
+  const result = await createPreviewCheckpoint(db);
+
+  if (result.success) {
+    res.json({ message: result.message });
+  } else {
+    res.status(500).json({ error: result.message });
+  }
+});
 
 function shuffleArray<T>(arr: T[]): T[] {
   const result = [...arr];

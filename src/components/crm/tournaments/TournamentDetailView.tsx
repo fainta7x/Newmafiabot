@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   Trophy,
   RotateCcw,
+  Save,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
@@ -335,18 +336,49 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     }
   };
 
+  const handleCheckpoint = async () => {
+    setActionLoading(true);
+    setFeedbackMsg(null);
+    try {
+      const res = await fetch('/api/tournaments/checkpoint', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка при сохранении резервной копии');
+      setFeedbackMsg({ type: 'success', text: `Резервная копия сохранена: ${data.message}` });
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-5 text-text-primary">
       {/* Top Header & Navigation */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-hover px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Назад</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-hover px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Назад</span>
+            </button>
+            {process.env.NODE_ENV !== 'production' && (
+              <button
+                onClick={handleCheckpoint}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-hover px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                title="Сохранить резервную копию (Git-checkpoint)"
+              >
+                <Save className="w-4 h-4" />
+                <span>Резервная копия</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <span

@@ -4,6 +4,7 @@ import { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { determineVotingResult, validateVotingHierarchy } from '../../shared/tournamentVoting.ts';
+import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 
 const router = Router();
 
@@ -1363,7 +1364,15 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
       };
     });
 
-    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves2, best_move_score), player_results: playerResultsList, game: updatedGame, best_move_score: best_move_score });
+    const cpResult = await createPreviewCheckpoint(db);
+
+    res.json({
+      protocol: serializeProtocolOutput(savedProtocol, responseBestMoves2, best_move_score),
+      player_results: playerResultsList,
+      game: updatedGame,
+      best_move_score: best_move_score,
+      checkpoint_warning: cpResult.success ? undefined : cpResult.message
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка завершения протокола' });
   }
@@ -1457,7 +1466,15 @@ router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrga
       };
     });
 
-    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score), player_results: playerResultsList, game: updatedGame, best_move_score: best_move_score });
+    const cpResult = await createPreviewCheckpoint(db);
+
+    res.json({
+      protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score),
+      player_results: playerResultsList,
+      game: updatedGame,
+      best_move_score: best_move_score,
+      checkpoint_warning: cpResult.success ? undefined : cpResult.message
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка возврата в черновик' });
   }

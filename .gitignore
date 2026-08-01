@@ -18,7 +18,9 @@ vite.config.ts.timestamp-*.mjs
 *.sqlite
 *.sqlite3
 *.sqlite-*
-!mafia_crm.sqlite
+!mafia_crm.checkpoint.sqlite
+mafia_crm.runtime.sqlite
+mafia_crm.sqlite
 backups/
 temp/
 mafia_db.json

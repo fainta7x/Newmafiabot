@@ -1623,6 +1623,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       setSaveStatus('saved');
       setShowCompleteConfirm(false);
 
+      if (res.checkpoint_warning) {
+        alert('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
+      }
+
       // Clear local backup
       localStorage.removeItem(`tournament_protocol_backup_${gameId}`);
 
@@ -1646,6 +1650,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       if (res.game) setGame(res.game);
       setSaveStatus('saved');
       setShowRevertConfirm(false);
+
+      if (res.checkpoint_warning) {
+        alert('Протокол возвращён в черновик, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
+      }
+
       if (onProtocolUpdated) onProtocolUpdated();
     } catch (err: any) {
       setError(err.message || 'Не удалось вернуть в черновик');

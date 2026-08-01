@@ -19,7 +19,38 @@ export interface DatabaseWrapper {
 let defaultDbInstance: DatabaseWrapper | null = null;
 
 export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
-  const dbPath = dbPathOrMemory || process.env.DATABASE_PATH || path.join(process.cwd(), 'mafia_crm.sqlite');
+  let dbPath = dbPathOrMemory || process.env.DATABASE_PATH;
+  
+  if (!dbPath) {
+    if (process.env.NODE_ENV === 'production') {
+      dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
+    } else {
+      dbPath = path.join(process.cwd(), 'mafia_crm.runtime.sqlite');
+      
+      if (!fs.existsSync(dbPath)) {
+        const checkpointPath = path.join(process.cwd(), 'mafia_crm.checkpoint.sqlite');
+        if (fs.existsSync(checkpointPath)) {
+          // Verify checkpoint before copying
+          let tempDb: Database.Database | null = null;
+          try {
+            tempDb = new Database(checkpointPath, { readonly: true });
+            const integrityCheck = tempDb.pragma('integrity_check', { simple: false }) as any[];
+            if (Array.isArray(integrityCheck) && integrityCheck[0]?.integrity_check === 'ok') {
+               fs.copyFileSync(checkpointPath, dbPath);
+               console.log('Restored runtime database from valid checkpoint.');
+            } else {
+               throw new Error(`Checkpoint is corrupted. Integrity check: ${JSON.stringify(integrityCheck)}`);
+            }
+          } catch (err: any) {
+             throw new Error(`Checkpoint is corrupted. ${err.message}`);
+          } finally {
+            if (tempDb) tempDb.close();
+          }
+        }
+      }
+    }
+  }
+
   const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:'))
     ? dbPath
     : path.resolve(dbPath);
@@ -34,7 +65,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
 
   const sqlite = new Database(resolvedDbPath);
 
-  const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.sqlite' && process.env.NODE_ENV !== 'production';
+  const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.runtime.sqlite' && process.env.NODE_ENV !== 'production';
   if (isPreviewTournamentDB) {
     // Временно используем DELETE для безопасного Git-checkpoint турнирной Preview-базы
     sqlite.pragma('journal_mode = DELETE');

@@ -333,6 +333,7 @@ export interface FullGameProtocolResponse {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
   game: TournamentGame;
+  checkpoint_warning?: string;
 }
 
 export interface TournamentStandingGame {

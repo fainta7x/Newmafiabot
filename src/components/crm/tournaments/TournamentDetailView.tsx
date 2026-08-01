@@ -1045,14 +1045,14 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                   return (
                     <div
                       key={seat.id}
-                      className="bg-surface-2 p-3 rounded-2xl border border-border-soft flex items-center justify-between gap-3"
+                      className="bg-surface-2 p-3 rounded-2xl border border-border-soft flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 min-w-0"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0 w-full sm:w-auto">
                         <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
                           {seat.seat_number}
                         </span>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-text-primary block truncate">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-bold text-text-primary block break-words">
                             {seat.display_name}
                           </span>
                         </div>
@@ -1063,7 +1063,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         <select
                           value={seat.role || ''}
                           onChange={(e) => handleAssignRole(seat.seat_number, e.target.value || null)}
-                          className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
+                          aria-label={`Роль для места ${seat.seat_number}: ${seat.display_name || 'Игрок'}`}
+                          className={`w-full sm:w-auto min-h-[44px] sm:min-h-0 text-xs font-bold px-2.5 py-2.5 sm:py-1.5 rounded-xl border focus:outline-none cursor-pointer ${
                             roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
                           }`}
                         >
@@ -1072,7 +1073,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                             disabled={isRoleOptionDisabled(seats, seat.seat_number, null)}
                             className="bg-surface-1 text-text-muted disabled:opacity-40"
                           >
-                            -- Роль не выбрана --
+                            Роль не выбрана
                           </option>
                           <option
                             value="citizen"
@@ -1105,7 +1106,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                         </select>
                       ) : (
                         <span
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                          className={`w-full sm:w-auto min-h-[44px] sm:min-h-0 flex items-center justify-center text-xs font-bold px-3 py-2 sm:py-1.5 rounded-xl border ${
                             roleObj ? roleObj.color : 'bg-surface-1 text-text-muted border-border-soft'
                           }`}
                         >

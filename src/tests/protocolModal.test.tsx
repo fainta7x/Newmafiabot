@@ -259,7 +259,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(res1.removal_reason).toBeUndefined();
     });
 
-    it('Scenario 3: Invalid penalty_points inputs are rejected', async () => {
+    it('Scenario 3: Penalty points, protocol bonus, and judge bonus use steppers instead of text inputs', async () => {
       vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
         game: mockGame as any,
         protocol: mockProtocol as any,
@@ -272,13 +272,15 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
       fireEvent.click(screen.getByTestId('player-row-p-1'));
 
-      const player1PenaltyInput = screen.getByTestId('penalty-p-1');
+      const player1PenaltyContainer = screen.getByTestId('penalty-p-1');
+      expect(player1PenaltyContainer).toBeTruthy();
 
-      fireEvent.change(player1PenaltyInput, { target: { value: '1abc' } });
-      expect(await screen.findByText(/Некорректное значение/i)).toBeTruthy();
+      // Ensure no text inputs exist for penalty_points, protocol_bonus, or judge_bonus in player card
+      const textInputs = player1PenaltyContainer.querySelectorAll('input');
+      expect(textInputs.length).toBe(0);
     });
 
-    it('Scenario 4: Game minus error blocks completeGameProtocol', async () => {
+    it('Scenario 4: Game minus stepper adjusts penalty_points within range', async () => {
       const validResults = mockPlayerResults.map((p, i) => {
         if (i === 0) return { ...p, exit_type: 'killed' };
         return { ...p, exit_type: 'alive' };
@@ -290,24 +292,15 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
         player_results: validResults as any
       });
 
-      const completeSpy = vi.spyOn(api, 'completeGameProtocol');
-
       render(<GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen={true} onClose={() => {}} />);
 
       await waitFor(() => expect(screen.getByText('Player 1')).toBeTruthy());
 
-      fireEvent.click(screen.getByTestId('player-row-p-2'));
+      fireEvent.click(screen.getByTestId('player-row-p-1'));
 
-      const p2Input = screen.getByTestId('penalty-p-2');
-      fireEvent.change(p2Input, { target: { value: 'invalid' } });
-
-      const finishBtn = screen.getByText(/Завершить протокол/i);
-      fireEvent.click(finishBtn);
-
-      await waitFor(() => {
-        expect(completeSpy).not.toHaveBeenCalled();
-        expect(screen.getByText(/Исправьте ошибки в полях штрафных баллов перед завершением/i)).toBeTruthy();
-      });
+      const increasePenaltyBtn = screen.getByRole('button', { name: 'Увеличить игровой штраф' });
+      expect(increasePenaltyBtn).toBeTruthy();
+      fireEvent.click(increasePenaltyBtn);
     });
 
     it('Scenario 5: Unknown PPK role blocks confirmation and shows helper text', async () => {

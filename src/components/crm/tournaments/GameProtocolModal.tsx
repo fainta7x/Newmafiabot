@@ -31,6 +31,7 @@ import { ProtocolVotingTab } from './protocol/ProtocolVotingTab';
 import { ProtocolNightsTab } from './protocol/ProtocolNightsTab';
 import { ProtocolSummaryTab } from './protocol/ProtocolSummaryTab';
 import { PlayerColorProtocolEditor } from './protocol/PlayerColorProtocolEditor';
+import { PointStepper, roundTenths } from './protocol/PointStepper';
 import { useMobileKeyboardViewport } from '../../../hooks/useMobileKeyboardViewport';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
@@ -152,15 +153,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const [playerResults, setPlayerResults] = useState<PlayerResultData[]>([]);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
-  const [decimalErrors, setDecimalErrors] = useState<Record<string, string>>({});
-  const decimalErrorsRef = useRef(decimalErrors);
-
-  useEffect(() => {
-    decimalErrorsRef.current = decimalErrors;
-  }, [decimalErrors]);
-
-  // Decimal inputs state (strings)
-  const [playerInputStrings, setPlayerInputStrings] = useState<Record<string, string>>({});
 
   // Color Protocol builder state per player
   const [selectedColorSeats, setSelectedColorSeats] = useState<Record<string, number[]>>({});
@@ -251,49 +243,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     return null;
   };
 
-  const parseDecimalString = (val: string): number => {
-    const parsed = strictParseDecimal(val);
-    return parsed === null ? 0 : parsed;
-  };
-
-  const handleDecimalChange = (
-    participantId: string,
-    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points' | 'ci_points',
-    rawStr: string
-  ) => {
-    const key = `${participantId}_${field}`;
-    setPlayerInputStrings((prev) => ({ ...prev, [key]: rawStr }));
-
-    if (field === 'penalty_points') {
-      const parsed = strictParseDecimal(rawStr);
-      if (parsed === null) {
-        setDecimalErrors(prev => ({ ...prev, [key]: 'Некорректное значение' }));
-        return;
-      }
-      setDecimalErrors(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      updatePlayerResult(participantId, { [field]: parsed });
-    } else {
-      const numVal = parseDecimalString(rawStr);
-      updatePlayerResult(participantId, { [field]: numVal });
-    }
-  };
-
-  const getDecimalInputValue = (
-    participantId: string,
-    field: 'protocol_bonus' | 'judge_bonus' | 'penalty_points' | 'ci_points',
-    numVal: number
-  ): string => {
-    const key = `${participantId}_${field}`;
-    if (key in playerInputStrings) {
-      return playerInputStrings[key];
-    }
-    return numVal !== undefined && numVal !== null ? String(numVal) : '0';
-  };
-
   // Load Protocol Data
   useEffect(() => {
     if (!isOpen || !gameId) return;
@@ -302,7 +251,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     isLoadingRef.current = true;
     setLoading(true);
     setError(null);
-    setPlayerInputStrings({});
 
     let restoredBackupData: { protocol: any; playerResults: any } | null = null;
 
@@ -464,13 +412,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               timestamp: new Date().toISOString(),
               version: '1.0'
             }));
-            break;
-          }
-
-          // Check for decimal errors
-          if (Object.keys(decimalErrorsRef.current).length > 0) {
-            setSaveStatus('unsaved');
-            setSaveErrorMessage('Исправьте ошибки в полях штрафных баллов');
             break;
           }
 
@@ -1585,11 +1526,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       return 'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)';
     }
 
-    // Check for decimal errors
-    if (Object.keys(decimalErrors).length > 0) {
-      return 'Исправьте ошибки в полях штрафных баллов перед завершением';
-    }
-
     const votingVal = validateVotesLogic(protocol.votes || [], playerResults, protocol.zero_round_voted_participant_id);
     if (votingVal.errorMsg) {
       setActiveTab('votes');
@@ -2182,23 +2118,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </div>
 
                               {/* Game Penalty (Penalty points) */}
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-0.5">Игровой минус</span>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
+                              <div data-testid={`penalty-${player.participant_id}`} className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
+                                <span className="text-slate-400 block mb-1 text-center">Игровой минус</span>
+                                <PointStepper
+                                  value={-(player.penalty_points ?? 0)}
+                                  min={-1.0}
+                                  max={0}
+                                  step={0.1}
                                   disabled={protocol.status === 'completed'}
-                                  data-testid={`penalty-${player.participant_id}`}
-                                  value={getDecimalInputValue(player.participant_id, 'penalty_points', player.penalty_points ?? 0)}
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => handleDecimalChange(player.participant_id, 'penalty_points', e.target.value)}
-                                  className={`w-full bg-slate-800 border ${decimalErrors[`${player.participant_id}_penalty_points`] ? 'border-rose-500' : 'border-slate-700'} rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50`}
+                                  ariaLabelMinus="Увеличить игровой штраф"
+                                  ariaLabelPlus="Уменьшить игровой штраф"
+                                  formatValue={(v) => (roundTenths(v) === 0 ? '0' : `−${Math.abs(roundTenths(v))}`)}
+                                  onChange={(val) =>
+                                    updatePlayerResult(player.participant_id, {
+                                      penalty_points: roundTenths(Math.abs(val)),
+                                    })
+                                  }
                                 />
-                                {decimalErrors[`${player.participant_id}_penalty_points`] && (
-                                  <span className="text-[10px] text-rose-500 block mt-0.5 leading-none text-center">
-                                    {decimalErrors[`${player.participant_id}_penalty_points`]}
-                                  </span>
-                                )}
                                 <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Учитывается в номинациях</span>
                               </div>
 
@@ -2272,30 +2208,52 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             )}
 
                             {/* Bonuses and Ci Row */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mt-3">
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-1">Балл за прот.</span>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mt-3">
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
+                                <span className="text-slate-400 block mb-1 text-center">Балл за прот.</span>
+                                <PointStepper
+                                  value={player.protocol_bonus ?? 0}
+                                  min={-1.0}
+                                  max={1.0}
+                                  step={0.1}
                                   disabled={protocol.status === 'completed'}
-                                  value={getDecimalInputValue(player.participant_id, 'protocol_bonus', player.protocol_bonus ?? 0)}
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => handleDecimalChange(player.participant_id, 'protocol_bonus', e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                  ariaLabelMinus="Уменьшить балл за протокол"
+                                  ariaLabelPlus="Увеличить балл за протокол"
+                                  formatValue={(v) => {
+                                    const r = roundTenths(v);
+                                    if (r > 0) return `+${r}`;
+                                    if (r < 0) return `−${Math.abs(r)}`;
+                                    return '0';
+                                  }}
+                                  onChange={(val) =>
+                                    updatePlayerResult(player.participant_id, {
+                                      protocol_bonus: roundTenths(val),
+                                    })
+                                  }
                                 />
                               </div>
 
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-1">Балл судьи</span>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
+                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
+                                <span className="text-slate-400 block mb-1 text-center">Балл судьи</span>
+                                <PointStepper
+                                  value={player.judge_bonus ?? 0}
+                                  min={-1.0}
+                                  max={1.0}
+                                  step={0.1}
                                   disabled={protocol.status === 'completed'}
-                                  value={getDecimalInputValue(player.participant_id, 'judge_bonus', player.judge_bonus ?? 0)}
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => handleDecimalChange(player.participant_id, 'judge_bonus', e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 text-xs text-center focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                                  ariaLabelMinus="Уменьшить балл судьи"
+                                  ariaLabelPlus="Увеличить балл судьи"
+                                  formatValue={(v) => {
+                                    const r = roundTenths(v);
+                                    if (r > 0) return `+${r}`;
+                                    if (r < 0) return `−${Math.abs(r)}`;
+                                    return '0';
+                                  }}
+                                  onChange={(val) =>
+                                    updatePlayerResult(player.participant_id, {
+                                      judge_bonus: roundTenths(val),
+                                    })
+                                  }
                                 />
                               </div>
 

@@ -140,7 +140,11 @@ Return ONLY a JSON object with schema:
         if (pp.value > 0 && jb.value === 0) {
           jb.value = -Math.abs(pp.value);
           pp.value = 0;
-        } else if (pp.value > 0) {
+        } else if (pp.value > 0 && jb.value !== 0) {
+          // Conflict: both non-zero. Mark for manual review, do not sum and do not discard
+          jb.confidence = 0;
+          pp.confidence = 0;
+        } else {
           pp.value = 0;
         }
 

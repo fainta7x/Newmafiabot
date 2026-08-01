@@ -204,63 +204,73 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                 <th className="py-2 px-1 text-center" title="Обычные фолы">Ф</th>
                 <th className="py-2 px-1 text-center" title="Малые техфолы">мТ</th>
                 <th className="py-2 px-1 text-center" title="Большие техфолы">БТ</th>
-                <th className="py-2 px-1 text-right">Игр. м.</th>
-                <th className="py-2 px-1 text-right">Дисц. м.</th>
-                <th className="py-2 px-1 text-right">Судья</th>
-                <th className="py-2 px-1 text-right">Прот.</th>
+                <th className="py-2 px-1 text-right" title="Дисциплинарный минус">Дисц. минус</th>
+                <th className="py-2 px-1 text-right" title="Балл судьи">Балл судьи</th>
+                <th className="py-2 px-1 text-right" title="Балл за протокол">Протокол</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {playerResults.map((p) => (
-                <tr key={p.participant_id} className="hover:bg-slate-800/40">
-                  <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
-                  <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}</td>
-                  <td className="py-2 px-2 text-amber-300/90">
-                    {p.role === 'citizen' && 'Мирный'}
-                    {p.role === 'sheriff' && 'Шериф'}
-                    {p.role === 'mafia' && 'Мафия'}
-                    {p.role === 'don' && 'Дон'}
-                  </td>
-                  <td className="py-2 px-2 text-slate-300">
-                    {p.exit_type === 'alive' && <span className="text-emerald-400">Жив</span>}
-                    {p.exit_type === 'killed' && <span className="text-rose-400">Убит</span>}
-                    {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Загол. (0)</span>}
-                    {p.exit_type === 'voted_day' && <span className="text-amber-400">Загол.</span>}
-                    {p.exit_type === 'removed' && <span className="text-purple-400">Снят</span>}
-                  </td>
-                  <td className="py-2 px-1 text-center">
-                    {!protocol.winner_team ? (
-                      <span className="text-slate-500 font-bold">-</span>
-                    ) : (() => {
-                      const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
-                      const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
-                      return isWinner ? (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          +1
-                        </span>
-                      ) : (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
-                          0
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="py-2 px-1 text-center font-bold text-amber-400">{p.regular_fouls}</td>
-                  <td className="py-2 px-1 text-center font-bold text-rose-400">{p.minor_technical_fouls || 0}</td>
-                  <td className="py-2 px-1 text-center font-bold text-rose-600">{p.major_technical_fouls || 0}</td>
-                  <td className="py-2 px-1 text-right text-rose-300">{p.penalty_points || 0}</td>
-                  <td className="py-2 px-1 text-right text-slate-400">
-                    {calculateDisciplinaryPenalty(
-                      p.minor_technical_fouls || 0,
-                      p.major_technical_fouls || 0,
-                      p.exit_type === 'removed',
-                      protocol.ppk_culprit_participant_id === p.participant_id
-                    )}
-                  </td>
-                  <td className="py-2 px-1 text-right text-slate-300">{p.judge_bonus || 0}</td>
-                  <td className="py-2 px-1 text-right text-slate-300">{p.protocol_bonus || 0}</td>
-                </tr>
-              ))}
+              {playerResults.map((p) => {
+                const discPenalty = calculateDisciplinaryPenalty(
+                  p.minor_technical_fouls || 0,
+                  p.major_technical_fouls || 0,
+                  p.exit_type === 'removed',
+                  protocol.ppk_culprit_participant_id === p.participant_id
+                );
+                const jb = p.judge_bonus || 0;
+                const formattedJudgeBonus = jb > 0 ? `+${jb}` : jb < 0 ? `−${Math.abs(jb)}` : '0';
+                const pb = p.protocol_bonus || 0;
+                const formattedProtocolBonus = pb > 0 ? `+${pb}` : pb < 0 ? `−${Math.abs(pb)}` : '0';
+
+                return (
+                  <tr key={p.participant_id} className="hover:bg-slate-800/40">
+                    <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
+                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}</td>
+                    <td className="py-2 px-2 text-amber-300/90">
+                      {p.role === 'citizen' && 'Мирный'}
+                      {p.role === 'sheriff' && 'Шериф'}
+                      {p.role === 'mafia' && 'Мафия'}
+                      {p.role === 'don' && 'Дон'}
+                    </td>
+                    <td className="py-2 px-2 text-slate-300">
+                      {p.exit_type === 'alive' && <span className="text-emerald-400">Жив</span>}
+                      {p.exit_type === 'killed' && <span className="text-rose-400">Убит</span>}
+                      {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Загол. (0)</span>}
+                      {p.exit_type === 'voted_day' && <span className="text-amber-400">Загол.</span>}
+                      {p.exit_type === 'removed' && <span className="text-purple-400">Снят</span>}
+                    </td>
+                    <td className="py-2 px-1 text-center">
+                      {!protocol.winner_team ? (
+                        <span className="text-slate-500 font-bold">-</span>
+                      ) : (() => {
+                        const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
+                        const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
+                        return isWinner ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            +1
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
+                            0
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="py-2 px-1 text-center font-bold text-amber-400">{p.regular_fouls}</td>
+                    <td className="py-2 px-1 text-center font-bold text-rose-400">{p.minor_technical_fouls || 0}</td>
+                    <td className="py-2 px-1 text-center font-bold text-rose-600">{p.major_technical_fouls || 0}</td>
+                    <td className="py-2 px-1 text-right font-mono text-rose-400">
+                      {discPenalty > 0 ? `−${discPenalty}` : '0'}
+                    </td>
+                    <td className={`py-2 px-1 text-right font-mono ${jb > 0 ? 'text-emerald-400 font-bold' : jb < 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                      {formattedJudgeBonus}
+                    </td>
+                    <td className={`py-2 px-1 text-right font-mono ${pb > 0 ? 'text-emerald-400 font-bold' : pb < 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                      {formattedProtocolBonus}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -439,8 +439,16 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                         <strong className="text-emerald-400 font-bold">{item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] block">Штрафы</span>
-                        <strong className="text-[#C94F67] font-bold">{item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}</strong>
+                        <span className="text-[9px] block">Судья</span>
+                        <strong className={`font-bold ${(item.judge_bonus ?? 0) > 0 ? 'text-emerald-400' : (item.judge_bonus ?? 0) < 0 ? 'text-rose-400' : 'text-text-secondary'}`}>
+                          {(item.judge_bonus ?? 0) > 0 ? `+${item.judge_bonus}` : (item.judge_bonus ?? 0) < 0 ? `−${Math.abs(item.judge_bonus)}` : '0'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[9px] block">Дисципл. минус</span>
+                        <strong className="text-[#C94F67] font-bold">
+                          {(item.disciplinary_penalty_points ?? item.penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points ?? item.penalty_points}` : (item.disciplinary_penalty_points ?? item.penalty_points ?? 0)}
+                        </strong>
                       </div>
                       <div>
                         <span className="text-[9px] block">ЛХ</span>

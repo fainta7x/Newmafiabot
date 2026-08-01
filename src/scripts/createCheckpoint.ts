@@ -1,10 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 import Database from 'better-sqlite3';
 
 const cwd = process.cwd();
 const runtimeDbPath = path.join(cwd, 'mafia_crm.runtime.sqlite');
 const checkpointDbPath = path.join(cwd, 'mafia_crm.checkpoint.sqlite');
+const gzB64Path = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
 const tempDbPath = path.join(cwd, `temp_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
 
 async function run() {
@@ -44,8 +46,13 @@ async function run() {
       process.exit(1);
     }
 
+    const fileBuf = fs.readFileSync(tempDbPath);
+    const gzBuf = zlib.gzipSync(fileBuf);
+    const b64Str = gzBuf.toString('base64');
+    fs.writeFileSync(gzB64Path, b64Str, 'utf-8');
+
     fs.renameSync(tempDbPath, checkpointDbPath);
-    console.log(`Checkpoint created successfully at ${checkpointDbPath}. Size: ${actualSize}, Integrity: ok`);
+    console.log(`Checkpoint created successfully at ${checkpointDbPath} and ${gzB64Path}. Size: ${actualSize}, Integrity: ok`);
     process.exit(0);
   } catch (err) {
     console.error('Error:', err);

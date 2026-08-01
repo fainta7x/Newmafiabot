@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import zlib from 'zlib';
 import Database from 'better-sqlite3';
 import { DatabaseWrapper } from './index.ts';
 
@@ -19,6 +20,7 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
       const cwd = process.cwd();
       const tempFile = path.join(cwd, `temp_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
       const finalFile = path.join(cwd, 'mafia_crm.checkpoint.sqlite');
+      const gzB64File = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
 
       // Create online backup
       await wrapper.sqlite.backup(tempFile);
@@ -50,6 +52,12 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
         fs.unlinkSync(tempFile);
         throw new Error(`Size mismatch: expected ${expectedSize}, got ${actualSize}`);
       }
+
+      // Create compressed .gz.b64 copy
+      const fileBuf = fs.readFileSync(tempFile);
+      const gzBuf = zlib.gzipSync(fileBuf);
+      const b64Str = gzBuf.toString('base64');
+      fs.writeFileSync(gzB64File, b64Str, 'utf-8');
 
       // Atomically replace
       fs.renameSync(tempFile, finalFile);

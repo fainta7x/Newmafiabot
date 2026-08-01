@@ -167,7 +167,7 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
       if (p.technical_fouls.confidence < 0.85) count++;
       if (p.judge_bonus.confidence < 0.85) count++;
       if (p.protocol_bonus.confidence < 0.85) count++;
-      if (p.penalty_points.confidence < 0.85) count++;
+      if (p.penalty_points.value !== 0) count++;
     });
     if (g.best_move && g.best_move.confidence < 0.85) count++;
     return count;
@@ -573,10 +573,22 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
 
               {/* Section 2: Fouls & Bonuses */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-100 px-3 py-2 font-bold text-slate-900 border-b border-slate-200">
-                  2. Фолы и бонусы игроков
+                <div className="bg-slate-100 px-3 py-2 font-bold text-slate-900 border-b border-slate-200 flex items-center justify-between">
+                  <span>2. Фолы и бонусы игроков</span>
                 </div>
                 <div className="p-2.5 space-y-2">
+                  {currentDetectedGame.players.some((p) => p.penalty_points.value !== 0) && (
+                    <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-2.5 text-xs space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Обнаружен штраф в бланке</span>
+                      </div>
+                      <p>
+                        Для игроков с ненулевым штрафом проверьте и укажите итоговое значение в поле «Судья». После ручного редактирования или сброса штраф станет равен 0.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-4 text-[10px] font-bold text-slate-500 pb-1 border-b border-slate-100 text-center">
                     <div>Место</div>
                     <div>Фолы</div>
@@ -584,52 +596,79 @@ export const ProtocolImportModal: React.FC<ProtocolImportModalProps> = ({
                     <div>Судья</div>
                   </div>
                   {currentDetectedGame.players.map((p, pIdx) => (
-                    <div key={p.seat_number} className="grid grid-cols-4 gap-1 items-center text-center">
-                      <span className="font-semibold text-slate-700 text-xs">#{p.seat_number}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="4"
-                        value={p.regular_fouls.value}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          handleUpdateDetectedGame(selectedGameIdx, (prev) => {
-                            const players = [...prev.players];
-                            players[pIdx] = { ...players[pIdx], regular_fouls: { value: val, confidence: 1.0 } };
-                            return { ...prev, players };
-                          });
-                        }}
-                        className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        value={p.technical_fouls.value}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          handleUpdateDetectedGame(selectedGameIdx, (prev) => {
-                            const players = [...prev.players];
-                            players[pIdx] = { ...players[pIdx], technical_fouls: { value: val, confidence: 1.0 } };
-                            return { ...prev, players };
-                          });
-                        }}
-                        className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={p.judge_bonus.value}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          handleUpdateDetectedGame(selectedGameIdx, (prev) => {
-                            const players = [...prev.players];
-                            players[pIdx] = { ...players[pIdx], judge_bonus: { value: val, confidence: 1.0 }, penalty_points: { value: 0, confidence: 1.0 } };
-                            return { ...prev, players };
-                          });
-                        }}
-                        className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
-                      />
-                    </div>
+                    <React.Fragment key={p.seat_number}>
+                      <div className="grid grid-cols-4 gap-1 items-center text-center">
+                        <span className="font-semibold text-slate-700 text-xs">#{p.seat_number}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="4"
+                          value={p.regular_fouls.value}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            handleUpdateDetectedGame(selectedGameIdx, (prev) => {
+                              const players = [...prev.players];
+                              players[pIdx] = { ...players[pIdx], regular_fouls: { value: val, confidence: 1.0 } };
+                              return { ...prev, players };
+                            });
+                          }}
+                          className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={p.technical_fouls.value}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            handleUpdateDetectedGame(selectedGameIdx, (prev) => {
+                              const players = [...prev.players];
+                              players[pIdx] = { ...players[pIdx], technical_fouls: { value: val, confidence: 1.0 } };
+                              return { ...prev, players };
+                            });
+                          }}
+                          className="w-full text-center border border-slate-200 rounded-md py-0.5 font-medium text-xs"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={p.judge_bonus.value}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            handleUpdateDetectedGame(selectedGameIdx, (prev) => {
+                              const players = [...prev.players];
+                              players[pIdx] = { ...players[pIdx], judge_bonus: { value: val, confidence: 1.0 }, penalty_points: { value: 0, confidence: 1.0 } };
+                              return { ...prev, players };
+                            });
+                          }}
+                          className={`w-full text-center border rounded-md py-0.5 font-medium text-xs ${
+                            p.penalty_points.value !== 0 ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold' : 'border-slate-200'
+                          }`}
+                        />
+                      </div>
+                      {p.penalty_points.value !== 0 && (
+                        <div className="text-[10px] text-amber-800 bg-amber-100 border border-amber-300 px-2 py-1 rounded flex items-center justify-between">
+                          <span>
+                            Штраф из бланка ({p.penalty_points.value}). Оставьте одно итоговое значение в поле «Судья».
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleUpdateDetectedGame(selectedGameIdx, (prev) => {
+                                const players = [...prev.players];
+                                players[pIdx] = {
+                                  ...players[pIdx],
+                                  penalty_points: { value: 0, confidence: 1.0 },
+                                };
+                                return { ...prev, players };
+                              });
+                            }}
+                            className="font-bold underline text-amber-900 hover:text-amber-950 shrink-0 ml-2"
+                          >
+                            Сбросить штраф
+                          </button>
+                        </div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

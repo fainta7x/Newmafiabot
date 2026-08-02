@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import zlib from 'zlib';
 import Database from 'better-sqlite3';
 import { DatabaseWrapper } from './index.ts';
@@ -17,10 +18,14 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
 
   checkpointPromise = (async () => {
     try {
-      const cwd = process.cwd();
-      const tempFile = path.join(cwd, `temp_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
-      const finalFile = path.join(cwd, 'mafia_crm.checkpoint.sqlite');
-      const gzB64File = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
+      const recoveryDir = path.join(os.tmpdir(), 'newmafia-preview-recovery');
+      if (!fs.existsSync(recoveryDir)) {
+        fs.mkdirSync(recoveryDir, { recursive: true });
+      }
+
+      const tempFile = path.join(recoveryDir, `temp_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
+      const finalFile = path.join(recoveryDir, 'latest.sqlite');
+      const gzB64File = path.join(recoveryDir, 'latest.sqlite.gz.b64');
 
       // Create online backup
       await wrapper.sqlite.backup(tempFile);
@@ -43,23 +48,23 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
       }
 
       if (!Array.isArray(integrityCheck) || integrityCheck[0]?.integrity_check !== 'ok') {
-        fs.unlinkSync(tempFile);
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
         throw new Error(`Integrity check failed: ${JSON.stringify(integrityCheck)}`);
       }
 
       const actualSize = fs.statSync(tempFile).size;
       if (actualSize !== expectedSize) {
-        fs.unlinkSync(tempFile);
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
         throw new Error(`Size mismatch: expected ${expectedSize}, got ${actualSize}`);
       }
 
-      // Create compressed .gz.b64 copy
+      // Create compressed .gz.b64 copy in recoveryDir outside project root
       const fileBuf = fs.readFileSync(tempFile);
       const gzBuf = zlib.gzipSync(fileBuf);
       const b64Str = gzBuf.toString('base64');
       fs.writeFileSync(gzB64File, b64Str, 'utf-8');
 
-      // Atomically replace
+      // Atomically replace latest.sqlite in recoveryDir
       fs.renameSync(tempFile, finalFile);
 
       return { 
@@ -80,3 +85,4 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
 
   return checkpointPromise;
 }
+

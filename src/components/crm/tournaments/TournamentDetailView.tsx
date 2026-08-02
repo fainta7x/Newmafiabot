@@ -36,6 +36,7 @@ import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 import { TournamentGameSetup } from './TournamentGameSetup.tsx';
+import { TournamentBackupBlock } from './TournamentBackupBlock.tsx';
 import {
   validateRoleAssignmentChange,
   isRoleOptionDisabled,
@@ -391,6 +392,16 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
         
       </div>
+
+      {/* Tournament Backup Control & Warning Banner */}
+      {tournament && (
+        <TournamentBackupBlock
+          tournamentId={tournament.id}
+          serverCompletedProtocolsCount={tournament.games?.filter(g => g.status === 'completed' || (g as any).is_completed).length || 0}
+          serverTotalGamesCount={tournament.games?.length || 10}
+          onRestored={loadDetail}
+        />
+      )}
 
       {/* Feedback banner */}
       {feedbackMsg && (

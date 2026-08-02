@@ -1026,6 +1026,10 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       total_points: 0,
       additional_total: 0,
       positive_points: 0,
+      positive_judge_points: 0,
+      negative_judge_points: 0,
+      positive_protocol_points: 0,
+      negative_protocol_points: 0,
       game_penalty_points: 0,
       disciplinary_penalty_points: 0,
       penalty_points: 0,
@@ -1185,11 +1189,14 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         winPoint = 1;
       }
 
-      const posJudgeBonus = judgeBonus > 0 ? judgeBonus : 0;
-      const negJudgeBonus = judgeBonus < 0 ? judgeBonus : 0;
+      const positiveJudge = Math.max(judgeBonus, 0);
+      const negativeJudge = Math.max(-judgeBonus, 0);
 
-      const posPoints = roundToTwo(posJudgeBonus + protocolBonus);
-      const gamePenPoints = roundToTwo(-negJudgeBonus);
+      const positiveProtocol = Math.max(protocolBonus, 0);
+      const negativeProtocol = Math.max(-protocolBonus, 0);
+
+      const posPoints = roundToTwo(positiveJudge + positiveProtocol);
+      const gamePenPoints = roundToTwo(negativeJudge + negativeProtocol);
       const bmPoints = roundToTwo(bmPointsMap.get(s.participant_id) || 0);
       const discPenPoints = roundToTwo(discPenalty);
 
@@ -1217,6 +1224,11 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         pStats.first_killed_count += 1;
       }
 
+      pStats.positive_judge_points = roundToTwo(pStats.positive_judge_points + positiveJudge);
+      pStats.negative_judge_points = roundToTwo(pStats.negative_judge_points + negativeJudge);
+      pStats.positive_protocol_points = roundToTwo(pStats.positive_protocol_points + positiveProtocol);
+      pStats.negative_protocol_points = roundToTwo(pStats.negative_protocol_points + negativeProtocol);
+
       pStats.positive_points = roundToTwo(pStats.positive_points + posPoints);
       pStats.judge_bonus = roundToTwo((pStats.judge_bonus || 0) + judgeBonus);
       pStats.protocol_bonus = roundToTwo((pStats.protocol_bonus || 0) + protocolBonus);
@@ -1236,6 +1248,10 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
         win_point: winPoint,
         judge_bonus: judgeBonus,
         protocol_bonus: protocolBonus,
+        positive_judge_points: positiveJudge,
+        negative_judge_points: negativeJudge,
+        positive_protocol_points: positiveProtocol,
+        negative_protocol_points: negativeProtocol,
         positive_points: posPoints,
         best_move_points: bmPoints,
         game_penalty_points: gamePenPoints,

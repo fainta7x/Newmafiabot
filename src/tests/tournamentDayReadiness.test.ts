@@ -428,9 +428,9 @@ describe('Tournament Day Readiness - Critical User Scenario Integration Audit', 
         .set('Cookie', organizerCookie);
 
       const st1 = standingsRes.body.standings.find((s: any) => s.participant_id === p1Id);
-      expect(st1.game_penalty_points).toBe(0);
+      expect(st1.game_penalty_points).toBe(0.2);
       expect(st1.disciplinary_penalty_points).toBe(0.3);
-      expect(st1.penalty_points).toBe(0.3); // disciplinary penalty = 0.3
+      expect(st1.penalty_points).toBe(0.5); // sum of both penalties: 0.2 (game) + 0.3 (disciplinary)
       expect(st1.additional_total).toBe(-0.5); // -0.2 (judge_bonus) - 0.3 (disciplinary)
       expect(st1.total_points).toBe(0.5);
 

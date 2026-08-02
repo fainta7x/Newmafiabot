@@ -108,8 +108,8 @@ describe('Discipline API', () => {
       .get(`/api/tournaments/${tournamentId}/standings`)
       .set('Cookie', organizerCookie);
     const sp1 = standingsRes.body.standings.find((s: any) => s.participant_id === p1.participant_id);
-    expect(sp1.penalty_points).toBe(1.9); // disciplinary_penalty_points only
-    expect(sp1.game_penalty_points).toBe(0);
+    expect(sp1.penalty_points).toBe(2.15); // sum of both penalties: 0.25 (game) + 1.9 (disciplinary)
+    expect(sp1.game_penalty_points).toBe(0.25);
     expect(sp1.disciplinary_penalty_points).toBe(1.9);
 
     const nomsRes = await request(app)

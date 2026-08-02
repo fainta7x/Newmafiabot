@@ -569,22 +569,36 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
 
       // Complete game 2
       const detailRes = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
-      const game2Id = detailRes.body.games.find((g: any) => g.game_number === 2).id;
+      const game2Obj = detailRes.body.games.find((g: any) => g.game_number === 2);
+      const game2Id = game2Obj.id;
+      const game2SeatsInit = game2Obj.seats;
+      const p1SeatNum = game2SeatsInit.find((s: any) => s.participant_id === p1Id).seat_number;
+
+      const otherSeats = Array.from({ length: 10 }, (_, i) => i + 1).filter(s => s !== p1SeatNum);
+      const remainingRoles = [
+        'citizen', 'citizen', 'citizen', 'citizen', 'citizen',
+        'sheriff',
+        'mafia', 'mafia',
+        'don'
+      ];
 
       const roles = [
-        { seat_number: 1, role: 'citizen' },
-        { seat_number: 2, role: 'citizen' },
-        { seat_number: 3, role: 'citizen' },
-        { seat_number: 4, role: 'citizen' },
-        { seat_number: 5, role: 'citizen' },
-        { seat_number: 6, role: 'citizen' },
-        { seat_number: 7, role: 'sheriff' },
-        { seat_number: 8, role: 'mafia' },
-        { seat_number: 9, role: 'mafia' },
-        { seat_number: 10, role: 'don' },
+        { seat_number: p1SeatNum, role: 'citizen' },
+        ...otherSeats.map((seatNum, idx) => ({
+          seat_number: seatNum,
+          role: remainingRoles[idx]
+        }))
       ];
-      await request(app).patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`).set('Cookie', organizerCookie).send({ roles });
-      await request(app).post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`).set('Cookie', organizerCookie);
+
+      const patchRes = await request(app).patch(`/api/tournaments/${tournamentId}/games/${game2Id}/roles`).set('Cookie', organizerCookie).send({ roles });
+      const startRes = await request(app).post(`/api/tournaments/${tournamentId}/games/${game2Id}/start`).set('Cookie', organizerCookie);
+
+      console.log('START GAME 2 RESULT:', {
+        patchStatus: patchRes.status,
+        patchBody: patchRes.body,
+        startStatus: startRes.status,
+        startBody: startRes.body
+      });
 
       const detailRes2 = await request(app).get(`/api/tournaments/${tournamentId}`).set('Cookie', organizerCookie);
       const game2Seats = detailRes2.body.games.find((g: any) => g.id === game2Id).seats;
@@ -626,6 +640,49 @@ describe('Tournament Standings Endpoint & Formula Calculations', () => {
       expect(p1Standing.game_penalty_points).toBe(0.4);
       expect(p1Standing.penalty_points).toBe(0.4);
       expect(p1Standing.total_points).toBe(2.1);
+    });
+
+    it('properly splits protocol_bonus into positive and negative protocol points', async () => {
+      const p1Id = game1Seats.find((s: any) => s.seat_number === 1).participant_id;
+
+      const playerResultsComplete = game1Seats.map((seat: any) => {
+        let pb = 0;
+        if (seat.participant_id === p1Id) {
+          pb = -0.3;
+        } else if (seat.seat_number === 2) {
+          pb = 0.4;
+        }
+        return {
+          participant_id: seat.participant_id,
+          role: seat.role,
+          exit_type: 'alive',
+          regular_fouls: 0,
+          technical_fouls: 0,
+          protocol_bonus: pb,
+          judge_bonus: 0,
+          penalty_points: 0,
+        };
+      });
+
+      await request(app)
+        .post(`/api/tournaments/${tournamentId}/games/${game1Id}/protocol/complete`)
+        .set('Cookie', organizerCookie)
+        .send({
+          protocol: { winner_team: 'red' },
+          player_results: playerResultsComplete,
+        });
+
+      const res = await request(app)
+        .get(`/api/tournaments/${tournamentId}/standings`)
+        .set('Cookie', organizerCookie);
+
+      const p1Standing = res.body.standings.find((s: any) => s.participant_id === p1Id);
+      const p2Standing = res.body.standings.find((s: any) => s.participant_id === game1Seats.find((se: any) => se.seat_number === 2).participant_id);
+
+      expect(p1Standing.positive_protocol_points).toBe(0);
+      expect(p1Standing.negative_protocol_points).toBe(0.3);
+      expect(p2Standing.positive_protocol_points).toBe(0.4);
+      expect(p2Standing.negative_protocol_points).toBe(0);
     });
   });
 });

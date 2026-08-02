@@ -231,19 +231,39 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                         {/* Collapsible expanded stats (+, −, ЛХ, Ci, Д, Ш, У) */}
                         {isRowExpanded && (
-                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-7 gap-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
+                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-5 gap-y-2 gap-x-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">+</div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
                               <div className="font-bold text-emerald-400">
-                                {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                                {(item.positive_judge_points ?? 0) > 0 ? `+${item.positive_judge_points}` : (item.positive_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">−</div>
-                              <div className="font-bold text-danger">
-                                {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
+                              <div className="font-bold text-emerald-400/80">
+                                {(item.positive_protocol_points ?? 0) > 0 ? `+${item.positive_protocol_points}` : (item.positive_protocol_points ?? 0)}
                               </div>
                             </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
+                              <div className="font-bold text-danger">
+                                {(item.negative_judge_points ?? 0) > 0 ? `-${item.negative_judge_points}` : (item.negative_judge_points ?? 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
+                              <div className="font-bold text-danger/80">
+                                {(item.negative_protocol_points ?? 0) > 0 ? `-${item.negative_protocol_points}` : (item.negative_protocol_points ?? 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
+                              <div className="font-bold text-rose-400">
+                                {(item.disciplinary_penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points}` : (item.disciplinary_penalty_points ?? 0)}
+                              </div>
+                            </div>
+
+                            {/* Row 2 */}
                             <div>
                               <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
                               <div className="font-bold text-amber-400">
@@ -270,7 +290,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             </div>
 
                             {item.place !== item.calculated_place && (
-                              <div className="col-span-7 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
+                              <div className="col-span-5 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
                                 Исходное место по показателям: <span className="font-mono font-bold text-text-secondary">{item.calculated_place}</span>
                               </div>
                             )}
@@ -455,19 +475,39 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
 
                         {/* Collapsible expanded stats (+, −, ЛХ, Ci, Д, Ш, У) */}
                         {isRowExpanded && (
-                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-7 gap-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
+                          <div className="pt-2 border-t border-border-soft/60 grid grid-cols-5 gap-y-2 gap-x-1 text-center text-[11px] font-mono bg-surface-2/40 p-2 rounded-xl">
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">+</div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл судьи">+</div>
                               <div className="font-bold text-emerald-400">
-                                {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                                {(item.positive_judge_points ?? 0) > 0 ? `+${item.positive_judge_points}` : (item.positive_judge_points ?? 0)}
                               </div>
                             </div>
                             <div>
-                              <div className="text-[9px] text-text-muted uppercase">−</div>
-                              <div className="font-bold text-danger">
-                                {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                              <div className="text-[9px] text-text-muted uppercase" title="Доп. балл за протокол">+Пр</div>
+                              <div className="font-bold text-emerald-400/80">
+                                {(item.positive_protocol_points ?? 0) > 0 ? `+${item.positive_protocol_points}` : (item.positive_protocol_points ?? 0)}
                               </div>
                             </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Минусы по игре (штраф судьи)">−</div>
+                              <div className="font-bold text-danger">
+                                {(item.negative_judge_points ?? 0) > 0 ? `-${item.negative_judge_points}` : (item.negative_judge_points ?? 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Протокольный штраф">−Пр</div>
+                              <div className="font-bold text-danger/80">
+                                {(item.negative_protocol_points ?? 0) > 0 ? `-${item.negative_protocol_points}` : (item.negative_protocol_points ?? 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-text-muted uppercase" title="Дисциплинарный штраф">−Д</div>
+                              <div className="font-bold text-rose-400">
+                                {(item.disciplinary_penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points}` : (item.disciplinary_penalty_points ?? 0)}
+                              </div>
+                            </div>
+
+                            {/* Row 2 */}
                             <div>
                               <div className="text-[9px] text-text-muted uppercase">ЛХ</div>
                               <div className="font-bold text-amber-400">
@@ -494,7 +534,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             </div>
 
                             {item.place !== item.calculated_place && (
-                              <div className="col-span-7 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
+                              <div className="col-span-5 pt-2 text-left text-[10px] text-text-muted font-sans border-t border-border-soft/40 mt-1">
                                 Исходное место по показателям: <span className="font-mono font-bold text-text-secondary">{item.calculated_place}</span>
                               </div>
                             )}
@@ -630,8 +670,11 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                     <th className="py-3 px-3">Игрок</th>
                     <th className="py-3 px-2 text-center text-accent">Σ</th>
                     <th className="py-3 px-2 text-center">Σдб</th>
-                    <th className="py-3 px-2 text-center text-emerald-400">+</th>
-                    <th className="py-3 px-2 text-center text-danger">−</th>
+                    <th className="py-3 px-2 text-center text-emerald-400" title="Доп. балл судьи">+</th>
+                    <th className="py-3 px-2 text-center text-emerald-400/80" title="Доп. балл за протокол">+Пр</th>
+                    <th className="py-3 px-2 text-center text-danger" title="Минусы по игре (штраф судьи)">−</th>
+                    <th className="py-3 px-2 text-center text-danger/80" title="Протокольный штраф">−Пр</th>
+                    <th className="py-3 px-2 text-center text-rose-400/90" title="Дисциплинарный штраф">−Д</th>
                     <th className="py-3 px-2 text-center text-amber-400">ЛХ</th>
                     <th className="py-3 px-2 text-center text-cyan-400">Ci</th>
                     <th className="py-3 px-2 text-center text-emerald-400">П</th>
@@ -691,14 +734,29 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             {item.additional_total > 0 ? `+${item.additional_total}` : item.additional_total}
                           </td>
 
-                          {/* + (positive_points) */}
+                          {/* + (positive_judge_points) */}
                           <td className="py-3 px-2 text-center font-mono text-emerald-400 font-semibold">
-                            {item.positive_points > 0 ? `+${item.positive_points}` : item.positive_points}
+                            {(item.positive_judge_points ?? 0) > 0 ? `+${item.positive_judge_points}` : (item.positive_judge_points ?? 0)}
                           </td>
 
-                          {/* − (penalty_points) */}
+                          {/* +Пр (positive_protocol_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-emerald-400/80 font-semibold">
+                            {(item.positive_protocol_points ?? 0) > 0 ? `+${item.positive_protocol_points}` : (item.positive_protocol_points ?? 0)}
+                          </td>
+
+                          {/* − (negative_judge_points) */}
                           <td className="py-3 px-2 text-center font-mono text-danger font-semibold">
-                            {item.penalty_points > 0 ? `-${item.penalty_points}` : item.penalty_points}
+                            {(item.negative_judge_points ?? 0) > 0 ? `-${item.negative_judge_points}` : (item.negative_judge_points ?? 0)}
+                          </td>
+
+                          {/* −Пр (negative_protocol_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-danger/80 font-semibold">
+                            {(item.negative_protocol_points ?? 0) > 0 ? `-${item.negative_protocol_points}` : (item.negative_protocol_points ?? 0)}
+                          </td>
+
+                          {/* −Д (disciplinary_penalty_points) */}
+                          <td className="py-3 px-2 text-center font-mono text-rose-400 font-semibold">
+                            {(item.disciplinary_penalty_points ?? 0) > 0 ? `-${item.disciplinary_penalty_points}` : (item.disciplinary_penalty_points ?? 0)}
                           </td>
 
                           {/* ЛХ (best_move_points) */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Gamepad2, Image as ImageIcon } from 'lucide-react';
 import { api, TournamentStandingItem, Tournament } from '../../../lib/api.ts';
 import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
+import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
 interface TournamentStandingsViewProps {
   tournamentId: string;
@@ -191,6 +192,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             >
                               {item.place}
                             </span>
+                            <PlayerAvatar nickname={item.display_name} size="xs" />
 
                             <div className="min-w-0 truncate">
                               <span className="text-text-muted text-[11px] font-mono mr-1">
@@ -435,6 +437,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs shrink-0 font-semibold text-text-muted bg-surface-2 border border-border-soft">
                               {item.place}
                             </span>
+                            <PlayerAvatar nickname={item.display_name} size="xs" />
 
                             <div className="min-w-0 truncate">
                               <span className="text-text-muted text-[11px] font-mono mr-1">
@@ -717,6 +720,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                           {/* Игрок */}
                           <td className="py-3 px-3 font-extrabold text-text-primary">
                             <div className="flex items-center gap-1.5">
+                              <PlayerAvatar nickname={item.display_name} size="xs" />
                               <span className="text-text-muted text-[11px] font-mono">
                                 #{item.participant_number}
                               </span>

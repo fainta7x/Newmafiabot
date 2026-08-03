@@ -37,6 +37,7 @@ import { ProtocolSummaryTab } from './protocol/ProtocolSummaryTab';
 import { PlayerColorProtocolEditor } from './protocol/PlayerColorProtocolEditor';
 import { PointStepper, roundTenths } from './protocol/PointStepper';
 import { useMobileKeyboardViewport } from '../../../hooks/useMobileKeyboardViewport';
+import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
 export function formatColorMark(entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }): string {
   if (!entry || !entry.seat_numbers) return '';
@@ -1971,6 +1972,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/30 shrink-0">
                                 #{player.seat_number}
                               </span>
+                              <PlayerAvatar nickname={player.display_name} size="xs" />
                               <span className="font-semibold text-sm text-slate-100 truncate min-w-0">
                                 {player.display_name}
                               </span>

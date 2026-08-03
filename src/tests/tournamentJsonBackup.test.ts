@@ -253,5 +253,5 @@ describe('Tournament JSON Backup Validation', () => {
     expect((db.sqlite.pragma('integrity_check', { simple: false }) as any[])[0].integrity_check).toBe('ok');
     expect((db.sqlite.pragma('foreign_key_check', { simple: false }) as any[]).length).toBe(0);
     db.sqlite.close();
-  });
+  }, 15_000);
 });

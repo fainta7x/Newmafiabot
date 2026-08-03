@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Award, UserCheck, Crown, Shield } from 'lucide-react';
 import { api } from '../../../lib/api.ts';
+import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
 interface TournamentNominationsViewProps {
   tournamentId: string;
@@ -186,6 +187,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                             <Trophy className="w-4.5 h-4.5 fill-amber-500/10" />
                           )}
                         </span>
+                        <PlayerAvatar nickname={winner.display_name} size="sm" />
                         <div className="min-w-0">
                           <span className="text-sm font-black text-text-primary block truncate">
                             {winner.display_name}
@@ -229,6 +231,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                           <div className="flex items-center justify-between w-full min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-text-muted font-bold text-xs w-4 shrink-0">{idx + 1}</span>
+                              <PlayerAvatar nickname={candidate.display_name} size="xs" />
                               <span className="font-bold text-sm text-text-primary truncate">{candidate.display_name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -308,7 +311,10 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                               </td>
                               <td className="py-2 px-2 text-left font-sans font-bold text-text-primary">
                                 <div className="flex items-center gap-1.5 justify-between min-w-0">
-                                  <span className="truncate max-w-[80px]">{candidate.display_name}</span>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <PlayerAvatar nickname={candidate.display_name} size="xs" />
+                                    <span className="truncate max-w-[80px]">{candidate.display_name}</span>
+                                  </div>
                                   {isExpanded ? (
                                     <ChevronUp className="w-3.5 h-3.5 text-text-muted shrink-0" />
                                   ) : (

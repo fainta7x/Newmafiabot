@@ -127,7 +127,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     vi.useRealTimers();
   });
 
-  it('loads backup from localStorage, calls saveGameProtocol, and removes backup on success', async () => {
+  it('keeps localStorage backup until the full IndexedDB backup is confirmed', async () => {
     vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
       game: mockGame as any,
       protocol: mockProtocol as any,
@@ -160,9 +160,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
       expect(saveSpy).toHaveBeenCalled();
     });
 
-    await waitFor(() => {
-      expect(localStorage.getItem(backupKey)).toBeNull();
-    });
+    expect(localStorage.getItem(backupKey)).toBe(JSON.stringify(backupData));
   });
 
   it('retains backup in localStorage if saveGameProtocol fails', async () => {

@@ -450,8 +450,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             setPlayerResults(res.player_results);
             setSaveStatus('saved');
             const backupKey = `tournament_protocol_backup_${gameId}`;
-            localStorage.removeItem(backupKey);
-            debouncedSyncTournamentBackup(tournamentId);
+            const expectedBackupValue = localStorage.getItem(backupKey);
+            debouncedSyncTournamentBackup(
+              tournamentId,
+              2000,
+              expectedBackupValue ? { backupKey, expectedValue: expectedBackupValue } : undefined
+            );
           } else {
             setSaveStatus('unsaved');
           }
@@ -1591,9 +1595,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       }
 
       // Sync local IndexedDB backup FIRST, then clear localStorage backup
+      const protocolBackupKey = `tournament_protocol_backup_${gameId}`;
+      const expectedBackupValue = localStorage.getItem(protocolBackupKey);
       try {
         await fetchAndSaveTournamentBackup(tournamentId);
-        localStorage.removeItem(`tournament_protocol_backup_${gameId}`);
+        if (!expectedBackupValue || localStorage.getItem(protocolBackupKey) === expectedBackupValue) {
+          localStorage.removeItem(protocolBackupKey);
+        }
       } catch (idbErr: any) {
         console.warn('IndexedDB local backup failed:', idbErr);
         alert('Внимание: Протокол сохранён на сервере, но возникла ошибка при сохранении локальной копии в IndexedDB: ' + (idbErr?.message || String(idbErr)));

@@ -48,7 +48,10 @@ describe('Tournament JSON Backup Validation', () => {
       id: `proto-${i + 1}`,
       game_id: `game-${i + 1}`,
       status: i < 6 ? 'completed' : 'draft',
-      is_completed: i < 6 ? 1 : 0,
+      winner_team: i < 6 ? 'red' : null,
+      created_at: '2026-08-01T12:00:00.000Z',
+      updated_at: '2026-08-01T12:00:00.000Z',
+      completed_at: i < 6 ? '2026-08-01T12:00:00.000Z' : null,
     })),
     tournament_game_player_results: Array.from({ length: 60 }, (_, i) => {
       const gIdx = Math.floor(i / 10) + 1;
@@ -57,8 +60,9 @@ describe('Tournament JSON Backup Validation', () => {
         id: `res-${i + 1}`,
         game_id: `game-${gIdx}`,
         participant_id: `part-${pIdx}`,
-        is_winner: 1,
-        main_points: 1,
+        ci_points: 0,
+        judge_bonus: 0,
+        protocol_bonus: 0,
       };
     }),
     tournament_game_best_moves: [],
@@ -116,9 +120,25 @@ describe('Tournament JSON Backup Validation', () => {
     expect(result.error).toContain('мест');
   });
 
+  it('сломанные связи не проходят проверку до начала восстановления', () => {
+    const badPayload = {
+      ...mockPayload,
+      tournament_game_seats: mockPayload.tournament_game_seats.map((seat, index) =>
+        index === 0 ? { ...seat, participant_id: 'missing-participant' } : seat
+      ),
+    };
+    const checksum = computeChecksum(badPayload);
+    const result = validateTournamentBackupData({ ...badPayload, checksum }, tournamentId);
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('отсутствующую');
+  });
+
   it('полный цикл (export -> clear -> restore) сохраняет 100% равенство всех записей', async () => {
     const { createDatabaseConnection } = await import('../db/index.ts');
-    const { insertRowSafe } = await import('../server/routes/tournamentsRoutes.ts');
+    const { createApp } = await import('../app.ts');
+    const { generateOrganizerToken } = await import('../server/auth.ts');
+    const request = (await import('supertest')).default;
 
     const db = await createDatabaseConnection(':memory:');
     
@@ -205,30 +225,20 @@ describe('Tournament JSON Backup Validation', () => {
 
     expect(validateTournamentBackupData(backupObj, tournamentId).valid).toBe(true);
 
-    // Now clear non-player data and restore into DB using transaction
-    await db.transaction(async (tx) => {
-      await tx.run('DELETE FROM tournament_game_seats');
-      await tx.run('DELETE FROM tournament_game_player_results');
-      await tx.run('DELETE FROM tournament_game_protocols');
-      await tx.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
-      await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    // Clear tournament children, then exercise the real authenticated restore endpoint.
+    await db.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+    await db.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
 
-      for (const tp of backupObj.tournament_participants) {
-        await insertRowSafe(tx, 'tournament_participants', tp, { mode: 'insert' });
-      }
-      for (const g of backupObj.tournament_games) {
-        await insertRowSafe(tx, 'tournament_games', g, { mode: 'insert' });
-      }
-      for (const s of backupObj.tournament_game_seats) {
-        await insertRowSafe(tx, 'tournament_game_seats', s, { mode: 'insert' });
-      }
-      for (const pr of backupObj.tournament_game_protocols) {
-        await insertRowSafe(tx, 'tournament_game_protocols', pr, { mode: 'insert' });
-      }
-      for (const r of backupObj.tournament_game_player_results) {
-        await insertRowSafe(tx, 'tournament_game_player_results', r, { mode: 'insert' });
-      }
-    });
+    const app = await createApp(db);
+    const restoreResponse = await request(app)
+      .post(`/api/tournaments/${tournamentId}/backup/restore`)
+      .set('Authorization', `Bearer ${generateOrganizerToken()}`)
+      .send(backupObj)
+      .expect(200);
+
+    expect(restoreResponse.body.success).toBe(true);
+    expect(restoreResponse.body.counts.games).toBe(10);
+    expect(restoreResponse.body.counts.player_results).toBe(60);
 
     // Verify restored state
     const restoredGames = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
@@ -242,5 +252,6 @@ describe('Tournament JSON Backup Validation', () => {
     expect(restoredResults.length).toBe(60);
     expect((db.sqlite.pragma('integrity_check', { simple: false }) as any[])[0].integrity_check).toBe('ok');
     expect((db.sqlite.pragma('foreign_key_check', { simple: false }) as any[]).length).toBe(0);
+    db.sqlite.close();
   });
 });

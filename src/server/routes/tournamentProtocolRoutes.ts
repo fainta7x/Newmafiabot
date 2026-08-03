@@ -1089,7 +1089,17 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
       };
     });
 
-    res.json({ protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score), player_results: playerResultsList, game, best_move_score: best_move_score });
+    // Draft autosaves are real tournament data too. Without this checkpoint a
+    // Preview restart restored the last completed game and discarded later drafts.
+    const cpResult = await createPreviewCheckpoint(db);
+
+    res.json({
+      protocol: serializeProtocolOutput(savedProtocol, responseBestMoves, best_move_score),
+      player_results: playerResultsList,
+      game,
+      best_move_score,
+      checkpoint_warning: cpResult.success ? undefined : cpResult.message,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка сохранения протокола' });
   }

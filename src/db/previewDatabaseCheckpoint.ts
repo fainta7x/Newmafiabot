@@ -1,9 +1,9 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import zlib from 'zlib';
 import Database from 'better-sqlite3';
-import { DatabaseWrapper } from './index.ts';
+import type { DatabaseWrapper } from './index.ts';
+import { getPreviewRecoveryDir, verifySqliteFile } from './previewRecovery.ts';
 
 let checkpointPromise: Promise<{ success: boolean; message: string }> | null = null;
 
@@ -18,7 +18,7 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
 
   checkpointPromise = (async () => {
     try {
-      const recoveryDir = path.join(os.tmpdir(), 'newmafia-preview-recovery');
+      const recoveryDir = getPreviewRecoveryDir(wrapper.dbPath);
       if (!fs.existsSync(recoveryDir)) {
         fs.mkdirSync(recoveryDir, { recursive: true });
       }
@@ -58,16 +58,19 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
         throw new Error(`Size mismatch: expected ${expectedSize}, got ${actualSize}`);
       }
 
-      // Create compressed .gz.b64 copy in recoveryDir outside project root atomically
+      // Create both files from the same verified generation. latest.sqlite is
+      // replaced first because startup always prefers it over the compressed fallback.
       const tempGzFile = path.join(recoveryDir, `temp_gz_${Date.now()}_${Math.random().toString(36).substring(7)}.gz.b64`);
       const fileBuf = fs.readFileSync(tempFile);
       const gzBuf = zlib.gzipSync(fileBuf);
       const b64Str = gzBuf.toString('base64');
       fs.writeFileSync(tempGzFile, b64Str, 'utf-8');
+      fs.renameSync(tempFile, finalFile);
       fs.renameSync(tempGzFile, gzB64File);
 
-      // Atomically replace latest.sqlite in recoveryDir
-      fs.renameSync(tempFile, finalFile);
+      if (!verifySqliteFile(finalFile)) {
+        throw new Error('Published checkpoint failed the final integrity check');
+      }
 
       return { 
         success: true, 
@@ -87,4 +90,3 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
 
   return checkpointPromise;
 }
-

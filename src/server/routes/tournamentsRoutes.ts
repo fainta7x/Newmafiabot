@@ -2224,9 +2224,67 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
     return { valid: false, error: `В копии должно быть ровно 10 игр, найдено: ${games.length}` };
   }
 
+  const players = payload.players || [];
+  if (!Array.isArray(players)) {
+    return { valid: false, error: 'Список игроков имеет неверный формат' };
+  }
+  const playerIds = new Set(players.map((p: any) => p?.id).filter(Boolean));
+
+  const participantIds = new Set<string>();
+  const participantNumbers = new Set<number>();
+  for (const participant of participants) {
+    if (!participant?.id || participantIds.has(participant.id)) {
+      return { valid: false, error: `Дублирующийся или пустой ID участника: ${participant?.id || 'пусто'}` };
+    }
+    if (participant.tournament_id !== tournamentId || !playerIds.has(participant.player_id)) {
+      return { valid: false, error: `Участник ${participant.id} ссылается на неверный турнир или отсутствующего игрока` };
+    }
+    const number = Number(participant.participant_number);
+    if (!Number.isInteger(number) || number < 1 || number > 10 || participantNumbers.has(number)) {
+      return { valid: false, error: `Некорректный или повторяющийся номер участника: ${participant.participant_number}` };
+    }
+    participantIds.add(participant.id);
+    participantNumbers.add(number);
+  }
+
+  const gameIds = new Set<string>();
+  const gameNumbers = new Set<number>();
+  for (const game of games) {
+    const number = Number(game?.game_number);
+    if (!game?.id || gameIds.has(game.id) || game.tournament_id !== tournamentId) {
+      return { valid: false, error: `Игра содержит неверный турнир или повторяющийся ID: ${game?.id || 'пусто'}` };
+    }
+    if (!Number.isInteger(number) || number < 1 || number > 10 || gameNumbers.has(number)) {
+      return { valid: false, error: `Некорректный или повторяющийся номер игры: ${game?.game_number}` };
+    }
+    gameIds.add(game.id);
+    gameNumbers.add(number);
+  }
+
   const seats = payload.tournament_game_seats || [];
+  if (!Array.isArray(seats)) {
+    return { valid: false, error: 'Список рассадки имеет неверный формат' };
+  }
   const seatsByGame = new Map<string, number>();
+  const seatNumbersByGame = new Map<string, Set<number>>();
+  const seatedParticipantsByGame = new Map<string, Set<string>>();
   for (const s of seats) {
+    if (!gameIds.has(s?.game_id) || !participantIds.has(s?.participant_id)) {
+      return { valid: false, error: `Место ${s?.id || 'без ID'} ссылается на отсутствующую игру или участника` };
+    }
+    const seatNumber = Number(s.seat_number);
+    const seatNumbers = seatNumbersByGame.get(s.game_id) || new Set<number>();
+    const seatedParticipants = seatedParticipantsByGame.get(s.game_id) || new Set<string>();
+    if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 10 || seatNumbers.has(seatNumber)) {
+      return { valid: false, error: `В игре ${s.game_id} повторяется или некорректно место ${s.seat_number}` };
+    }
+    if (seatedParticipants.has(s.participant_id)) {
+      return { valid: false, error: `В игре ${s.game_id} участник ${s.participant_id} посажен дважды` };
+    }
+    seatNumbers.add(seatNumber);
+    seatedParticipants.add(s.participant_id);
+    seatNumbersByGame.set(s.game_id, seatNumbers);
+    seatedParticipantsByGame.set(s.game_id, seatedParticipants);
     seatsByGame.set(s.game_id, (seatsByGame.get(s.game_id) || 0) + 1);
   }
   for (const g of games) {
@@ -2238,9 +2296,37 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
 
   const protocols = payload.tournament_game_protocols || [];
   const results = payload.tournament_game_player_results || [];
+  if (!Array.isArray(protocols) || !Array.isArray(results)) {
+    return { valid: false, error: 'Протоколы или результаты игроков имеют неверный формат' };
+  }
+  const protocolGames = new Set<string>();
+  for (const protocol of protocols) {
+    if (!gameIds.has(protocol?.game_id) || protocolGames.has(protocol.game_id)) {
+      return { valid: false, error: `Протокол ссылается на отсутствующую игру или дублирует игру ${protocol?.game_id}` };
+    }
+    protocolGames.add(protocol.game_id);
+  }
+
   const resultsByGame = new Map<string, number>();
+  const resultKeys = new Set<string>();
   for (const r of results) {
+    const key = `${r?.game_id}:${r?.participant_id}`;
+    if (
+      !gameIds.has(r?.game_id) ||
+      !participantIds.has(r?.participant_id) ||
+      !seatedParticipantsByGame.get(r.game_id)?.has(r.participant_id) ||
+      resultKeys.has(key)
+    ) {
+      return { valid: false, error: `Некорректный или повторяющийся результат ${key}` };
+    }
+    resultKeys.add(key);
     resultsByGame.set(r.game_id, (resultsByGame.get(r.game_id) || 0) + 1);
+  }
+
+  for (const [gameId, count] of resultsByGame) {
+    if (!protocolGames.has(gameId) || count !== 10) {
+      return { valid: false, error: `Игра ${gameId} содержит ${count} результатов без полного протокола` };
+    }
   }
 
   for (const pr of protocols) {
@@ -2252,17 +2338,14 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
     }
   }
 
-  // Unique ID checks
-  const pIds = new Set<string>();
-  for (const p of participants) {
-    if (pIds.has(p.id)) return { valid: false, error: `Дублирующийся ID участника: ${p.id}` };
-    pIds.add(p.id);
+  const bestMoves = payload.tournament_game_best_moves || [];
+  if (!Array.isArray(bestMoves)) {
+    return { valid: false, error: 'Лучшие ходы имеют неверный формат' };
   }
-
-  const gIds = new Set<string>();
-  for (const g of games) {
-    if (gIds.has(g.id)) return { valid: false, error: `Дублирующийся ID игры: ${g.id}` };
-    gIds.add(g.id);
+  for (const bestMove of bestMoves) {
+    if (!gameIds.has(bestMove?.game_id) || !participantIds.has(bestMove?.participant_id)) {
+      return { valid: false, error: `Лучший ход ${bestMove?.id || 'без ID'} содержит неверную ссылку` };
+    }
   }
 
   return { valid: true };
@@ -2324,6 +2407,19 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
       schema_version: 1,
       metadata: {
         created_at: new Date().toISOString(),
+        data_updated_at: [
+          tournament,
+          ...games,
+          ...protocols,
+          ...bestMoves,
+          ...finalResolutions,
+          ...protocolImports,
+        ].reduce((latest: string | null, row: any) => {
+          for (const value of [row?.updated_at, row?.completed_at, row?.created_at]) {
+            if (typeof value === 'string' && (!latest || Date.parse(value) > Date.parse(latest))) latest = value;
+          }
+          return latest;
+        }, null),
         tournament_id: tournamentId,
         games_count: games.length,
         protocols_count: protocols.length,
@@ -2512,6 +2608,39 @@ router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: A
         await insertRowSafe(tx, 'tournament_protocol_imports', pi, { mode: 'insert' });
       }
 
+      // Verify the destructive restore before COMMIT so any mismatch rolls back
+      // automatically to the untouched tournament state.
+      const restoredGamesCount = (await tx.get<any>(
+        'SELECT COUNT(*) as c FROM tournament_games WHERE tournament_id = ?',
+        [tournamentId]
+      ))?.c || 0;
+      const restoredProtocolsCount = (await tx.get<any>(
+        `SELECT COUNT(*) as c FROM tournament_game_protocols p
+         JOIN tournament_games g ON g.id = p.game_id
+         WHERE g.tournament_id = ?`,
+        [tournamentId]
+      ))?.c || 0;
+      const restoredResultsCount = (await tx.get<any>(
+        `SELECT COUNT(*) as c FROM tournament_game_player_results r
+         JOIN tournament_games g ON g.id = r.game_id
+         WHERE g.tournament_id = ?`,
+        [tournamentId]
+      ))?.c || 0;
+
+      const expectedGames = (backupData.tournament_games || []).length;
+      const expectedProtocols = (backupData.tournament_game_protocols || []).length;
+      const expectedResults = (backupData.tournament_game_player_results || []).length;
+      if (
+        restoredGamesCount !== expectedGames ||
+        restoredProtocolsCount !== expectedProtocols ||
+        restoredResultsCount !== expectedResults
+      ) {
+        throw new Error(
+          `Restore verification failed before commit: expected ${expectedGames}/${expectedProtocols}/${expectedResults}, ` +
+          `got ${restoredGamesCount}/${restoredProtocolsCount}/${restoredResultsCount}`
+        );
+      }
+
       // Foreign key & Integrity check before committing transaction
       const fkCheck = tx.sqlite.pragma('foreign_key_check', { simple: false }) as any[];
       if (Array.isArray(fkCheck) && fkCheck.length > 0) {
@@ -2541,16 +2670,25 @@ router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: A
     const expectedGamesCount = (backupData.tournament_games || []).length;
     const expectedCompletedProtocolsCount = (backupData.tournament_game_protocols || []).filter((p: any) => p.status === 'completed').length;
 
-    if (gamesCount !== expectedGamesCount || completedProtocolsCount !== expectedCompletedProtocolsCount) {
-      throw new Error(`Restored counts mismatch: expected ${expectedGamesCount} games / ${expectedCompletedProtocolsCount} protocols, got ${gamesCount} games / ${completedProtocolsCount} protocols`);
+    const expectedPlayerResultsCount = (backupData.tournament_game_player_results || []).length;
+    if (
+      gamesCount !== expectedGamesCount ||
+      completedProtocolsCount !== expectedCompletedProtocolsCount ||
+      playerResultsCount !== expectedPlayerResultsCount
+    ) {
+      throw new Error(
+        `Restored counts mismatch: expected ${expectedGamesCount} games / ${expectedCompletedProtocolsCount} completed protocols / ${expectedPlayerResultsCount} results, ` +
+        `got ${gamesCount} games / ${completedProtocolsCount} completed protocols / ${playerResultsCount} results`
+      );
     }
 
     // Trigger recovery checkpoint in os.tmpdir()
-    await createPreviewCheckpoint(db);
+    const checkpointResult = await createPreviewCheckpoint(db);
 
     res.json({
       success: true,
       message: 'Турнир успешно восстановлен из резервной копии.',
+      checkpoint_warning: checkpointResult.success ? undefined : checkpointResult.message,
       integrity: integrityCheckResult[0]?.integrity_check || 'ok',
       counts: {
         players: playersCount,

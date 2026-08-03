@@ -5,6 +5,7 @@ import os from 'os';
 import Database from 'better-sqlite3';
 import { createDatabaseConnection, resetDbInstanceForTesting } from '../db/index';
 import { createPreviewCheckpoint } from '../db/previewDatabaseCheckpoint';
+import { getPreviewRecoveryDir } from '../db/previewRecovery';
 
 describe('Preview Database Checkpoint', () => {
   let tmpDir: string;
@@ -21,7 +22,7 @@ describe('Preview Database Checkpoint', () => {
     process.chdir(tmpDir); // change cwd to temp dir so database is created here
 
     dbPath = path.join(tmpDir, 'mafia_crm.runtime.sqlite');
-    checkpointPath = path.join(os.tmpdir(), 'newmafia-preview-recovery', 'latest.sqlite');
+    checkpointPath = path.join(getPreviewRecoveryDir(dbPath), 'latest.sqlite');
 
     if (fs.existsSync(checkpointPath)) {
       try { fs.unlinkSync(checkpointPath); } catch (_) {}
@@ -77,6 +78,23 @@ describe('Preview Database Checkpoint', () => {
     fs.writeFileSync(path.join(tmpDir, 'mafia_crm.checkpoint.sqlite.gz.b64'), Buffer.from('corrupted data').toString('base64'));
     await expect(Promise.resolve().then(() => createDatabaseConnection())).rejects.toThrow(/Bootstrap checkpoint/);
     expect(fs.existsSync(dbPath)).toBe(false);
+  });
+
+  it('runtime восстанавливается только из checkpoint своего проекта', async () => {
+    const initialDb = await createDatabaseConnection();
+    await initialDb.exec('CREATE TABLE recovery_marker (value TEXT NOT NULL); INSERT INTO recovery_marker VALUES (\'safe-project\');');
+    expect((await createPreviewCheckpoint(initialDb)).success).toBe(true);
+    initialDb.sqlite.close();
+    fs.unlinkSync(dbPath);
+
+    const restoredDb = createDatabaseConnection();
+    const marker = restoredDb.sqlite.prepare('SELECT value FROM recovery_marker').get() as { value: string };
+    expect(marker.value).toBe('safe-project');
+  });
+
+  it('разные пути runtime-базы используют разные каталоги восстановления', () => {
+    const otherPath = path.join(tmpDir, 'other-project', 'mafia_crm.runtime.sqlite');
+    expect(getPreviewRecoveryDir(otherPath)).not.toBe(getPreviewRecoveryDir(dbPath));
   });
 
   it('существующая runtime-база не перезаписывается', async () => {

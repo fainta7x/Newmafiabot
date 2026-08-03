@@ -1590,12 +1590,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         alert('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
       }
 
-      // Clear local backup
-      localStorage.removeItem(`tournament_protocol_backup_${gameId}`);
-
-      // Sync local IndexedDB backup
+      // Sync local IndexedDB backup FIRST, then clear localStorage backup
       try {
         await fetchAndSaveTournamentBackup(tournamentId);
+        localStorage.removeItem(`tournament_protocol_backup_${gameId}`);
       } catch (idbErr: any) {
         console.warn('IndexedDB local backup failed:', idbErr);
         alert('Внимание: Протокол сохранён на сервере, но возникла ошибка при сохранении локальной копии в IndexedDB: ' + (idbErr?.message || String(idbErr)));

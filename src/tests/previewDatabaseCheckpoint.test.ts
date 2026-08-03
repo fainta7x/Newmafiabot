@@ -40,8 +40,8 @@ describe('Preview Database Checkpoint', () => {
   });
 
   it('создаётся валидный checkpoint вне проекта', async () => {
-    const db = createDatabaseConnection();
-    await db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY); INSERT INTO test DEFAULT VALUES;');
+    const db = await createDatabaseConnection();
+    await db.exec('CREATE TABLE IF NOT EXISTS test_chk (id INTEGER PRIMARY KEY); INSERT INTO test_chk DEFAULT VALUES;');
     
     const result = await createPreviewCheckpoint(db);
     expect(result.success).toBe(true);
@@ -51,14 +51,14 @@ describe('Preview Database Checkpoint', () => {
     const integrity = checkDb.pragma('integrity_check', { simple: false }) as any[];
     expect(integrity[0].integrity_check).toBe('ok');
     
-    const rows = checkDb.prepare('SELECT * FROM test').all();
+    const rows = checkDb.prepare('SELECT * FROM test_chk').all();
     expect(rows.length).toBe(1);
     checkDb.close();
   });
 
   it('production и явный DATABASE_PATH не затрагиваются', async () => {
     process.env.NODE_ENV = 'production';
-    const db = createDatabaseConnection();
+    const db = await createDatabaseConnection();
     const result = await createPreviewCheckpoint(db);
     expect(result.success).toBe(false);
     expect(result.message).toContain('disabled in production');
@@ -66,26 +66,27 @@ describe('Preview Database Checkpoint', () => {
 
     process.env.NODE_ENV = 'development';
     process.env.DATABASE_PATH = 'custom.sqlite';
-    const db2 = createDatabaseConnection();
+    const db2 = await createDatabaseConnection();
     const result2 = await createPreviewCheckpoint(db2);
     expect(result2.success).toBe(false);
     expect(result2.message).toContain('explicit DATABASE_PATH');
   });
 
   it('повреждённый bootstrap не используется для восстановления runtime', async () => {
+    resetDbInstanceForTesting();
     fs.writeFileSync(path.join(tmpDir, 'mafia_crm.checkpoint.sqlite.gz.b64'), Buffer.from('corrupted data').toString('base64'));
-    expect(() => createDatabaseConnection()).toThrow(/Bootstrap checkpoint/);
+    await expect(Promise.resolve().then(() => createDatabaseConnection())).rejects.toThrow(/Bootstrap checkpoint/);
     expect(fs.existsSync(dbPath)).toBe(false);
   });
 
   it('существующая runtime-база не перезаписывается', async () => {
-    const initialDb = createDatabaseConnection();
-    await initialDb.exec('CREATE TABLE test_runtime (id INTEGER PRIMARY KEY);');
+    const initialDb = await createDatabaseConnection();
+    await initialDb.exec('CREATE TABLE IF NOT EXISTS test_runtime (id INTEGER PRIMARY KEY);');
     initialDb.sqlite.close();
     
     fs.writeFileSync(path.join(tmpDir, 'mafia_crm.checkpoint.sqlite.gz.b64'), Buffer.from('some other data').toString('base64'));
     
-    const nextDb = createDatabaseConnection();
+    const nextDb = await createDatabaseConnection();
     const tables = nextDb.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[];
     const tableNames = tables.map(t => t.name);
     
@@ -93,8 +94,8 @@ describe('Preview Database Checkpoint', () => {
   });
   
   it('параллельные checkpoint-запросы выполняются последовательно и успешно', async () => {
-    const db = createDatabaseConnection();
-    await db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY);');
+    const db = await createDatabaseConnection();
+    await db.exec('CREATE TABLE IF NOT EXISTS test_par (id INTEGER PRIMARY KEY);');
     
     const p1 = createPreviewCheckpoint(db);
     const p2 = createPreviewCheckpoint(db);

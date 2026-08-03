@@ -49,7 +49,8 @@ export function restoreCheckpointFromGzB64(targetPath: string): boolean {
     const decompressedBuf = zlib.gunzipSync(gzBuf);
     fs.writeFileSync(tempBootFile, decompressedBuf);
     if (verifySqliteIntegrity(tempBootFile)) {
-      fs.renameSync(tempBootFile, targetPath);
+      fs.copyFileSync(tempBootFile, targetPath);
+      try { fs.unlinkSync(tempBootFile); } catch (_) {}
       return true;
     } else {
       if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
@@ -80,29 +81,70 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
       dbPath = path.join(process.cwd(), 'mafia_crm.runtime.sqlite');
       
       if (!fs.existsSync(dbPath)) {
-        const cwd = process.cwd();
-        const gzPath1 = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
-        const gzPath2 = path.join(cwd, 'mafia_crm.checkpoint.gz.b64');
-        const gzB64Path = fs.existsSync(gzPath1) ? gzPath1 : fs.existsSync(gzPath2) ? gzPath2 : null;
+        const recoveryDir = path.join(os.tmpdir(), 'newmafia-preview-recovery');
+        const tmpLatestSqlite = path.join(recoveryDir, 'latest.sqlite');
+        const tmpLatestGzB64 = path.join(recoveryDir, 'latest.sqlite.gz.b64');
+        let restored = false;
 
-        if (gzB64Path) {
-          const tempBootFile = path.join(os.tmpdir(), `temp_bootstrap_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
+        // 1. Check /tmp latest.sqlite
+        if (fs.existsSync(tmpLatestSqlite) && verifySqliteIntegrity(tmpLatestSqlite)) {
+          const tempBootFile = path.join(os.tmpdir(), `temp_restore_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
           try {
-            const b64Str = fs.readFileSync(gzB64Path, 'utf-8').trim();
+            fs.copyFileSync(tmpLatestSqlite, tempBootFile);
+            if (verifySqliteIntegrity(tempBootFile)) {
+              fs.renameSync(tempBootFile, dbPath);
+              restored = true;
+              console.log('Restored runtime database from /tmp latest.sqlite checkpoint.');
+            }
+          } catch (err) {
+            if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
+          }
+        }
+
+        // 2. Check /tmp latest.sqlite.gz.b64 if not yet restored
+        if (!restored && fs.existsSync(tmpLatestGzB64)) {
+          const tempBootFile = path.join(os.tmpdir(), `temp_restore_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
+          try {
+            const b64Str = fs.readFileSync(tmpLatestGzB64, 'utf-8').trim();
             const gzBuf = Buffer.from(b64Str, 'base64');
             const decompressedBuf = zlib.gunzipSync(gzBuf);
             fs.writeFileSync(tempBootFile, decompressedBuf);
-
             if (verifySqliteIntegrity(tempBootFile)) {
               fs.renameSync(tempBootFile, dbPath);
-              console.log('Restored runtime database from valid bootstrap.');
-            } else {
-              if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
-              throw new Error('Bootstrap checkpoint is corrupted or invalid.');
+              restored = true;
+              console.log('Restored runtime database from /tmp compressed checkpoint.');
             }
-          } catch (err: any) {
+          } catch (err) {
             if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
-            throw new Error(`Bootstrap checkpoint restoration failed: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
+        // 3. Fallback to Git bootstrap in root if /tmp checkpoints unavailable or corrupted
+        if (!restored) {
+          const cwd = process.cwd();
+          const gzPath1 = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
+          const gzPath2 = path.join(cwd, 'mafia_crm.checkpoint.gz.b64');
+          const gzB64Path = fs.existsSync(gzPath1) ? gzPath1 : fs.existsSync(gzPath2) ? gzPath2 : null;
+
+          if (gzB64Path) {
+            const tempBootFile = path.join(os.tmpdir(), `temp_bootstrap_${Date.now()}_${Math.random().toString(36).substring(7)}.sqlite`);
+            try {
+              const b64Str = fs.readFileSync(gzB64Path, 'utf-8').trim();
+              const gzBuf = Buffer.from(b64Str, 'base64');
+              const decompressedBuf = zlib.gunzipSync(gzBuf);
+              fs.writeFileSync(tempBootFile, decompressedBuf);
+
+              if (verifySqliteIntegrity(tempBootFile)) {
+                fs.renameSync(tempBootFile, dbPath);
+                console.log('Restored runtime database from valid bootstrap.');
+              } else {
+                if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
+                throw new Error('Bootstrap checkpoint is corrupted or invalid.');
+              }
+            } catch (err: any) {
+              if (fs.existsSync(tempBootFile)) try { fs.unlinkSync(tempBootFile); } catch (_) {}
+              throw new Error(`Bootstrap checkpoint restoration failed: ${err instanceof Error ? err.message : String(err)}`);
+            }
           }
         }
       }

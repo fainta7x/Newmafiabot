@@ -31,9 +31,38 @@ function openDB(): Promise<IDBDatabase> {
 export async function saveLocalTournamentBackup(tournamentId: string, backupData: any): Promise<void> {
   try {
     const db = await openDB();
+    const existing = await getLocalTournamentBackup(tournamentId);
+
     const completedCount = backupData?.metadata?.completed_protocols_count ?? 
-      (backupData?.tournament_game_protocols || []).filter((p: any) => p.status === 'completed' || p.is_completed === 1).length;
+      (backupData?.tournament_game_protocols || []).filter((p: any) => p.status === 'completed').length;
+    const playerResultsCount = backupData?.metadata?.player_results_count ??
+      (backupData?.tournament_game_player_results || []).length;
     const totalCount = backupData?.metadata?.games_count ?? (backupData?.tournament_games || []).length;
+    const createdAt = backupData?.metadata?.created_at || new Date().toISOString();
+
+    if (existing) {
+      const existingCompleted = existing.completed_protocols_count ?? 0;
+      const existingResults = existing.backupData?.metadata?.player_results_count ??
+        (existing.backupData?.tournament_game_player_results || []).length;
+
+      if (completedCount < existingCompleted) {
+        console.warn(`[Monotonicity] Ignoring backup update: incoming completed count (${completedCount}) < existing (${existingCompleted})`);
+        return;
+      }
+
+      if (completedCount === existingCompleted && playerResultsCount < existingResults) {
+        console.warn(`[Monotonicity] Ignoring backup update: incoming player_results_count (${playerResultsCount}) < existing (${existingResults})`);
+        return;
+      }
+
+      if (completedCount === existingCompleted && playerResultsCount === existingResults) {
+        const existingCreatedAt = existing.backupData?.metadata?.created_at || existing.saved_at;
+        if (existingCreatedAt && new Date(createdAt).getTime() < new Date(existingCreatedAt).getTime()) {
+          console.warn(`[Monotonicity] Ignoring backup update: incoming timestamp (${createdAt}) older than existing (${existingCreatedAt})`);
+          return;
+        }
+      }
+    }
 
     const record: LocalTournamentBackup = {
       tournament_id: tournamentId,

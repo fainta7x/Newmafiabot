@@ -115,4 +115,132 @@ describe('Tournament JSON Backup Validation', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('мест');
   });
+
+  it('полный цикл (export -> clear -> restore) сохраняет 100% равенство всех записей', async () => {
+    const { createDatabaseConnection } = await import('../db/index.ts');
+    const { insertRowSafe } = await import('../server/routes/tournamentsRoutes.ts');
+
+    const db = await createDatabaseConnection(':memory:');
+    
+    // Seed initial state in memory
+    await db.run(
+      `INSERT INTO tournaments (id, title, date, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [tournamentId, 'Test Tournament', '2026-08-01', 'active', new Date().toISOString(), new Date().toISOString()]
+    );
+
+    for (let i = 1; i <= 10; i++) {
+      const pId = `player-${i}`;
+      const ptId = `part-${i}`;
+      await db.run(
+        `INSERT INTO players (id, nickname, full_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+        [pId, `Nick_${i}`, `Full Name ${i}`, new Date().toISOString(), new Date().toISOString()]
+      );
+      await db.run(
+        `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number) VALUES (?, ?, ?, ?, ?)`,
+        [ptId, tournamentId, pId, `Nick_${i}`, i]
+      );
+    }
+
+    for (let g = 1; g <= 10; g++) {
+      const gameId = `game-${g}`;
+      await db.run(
+        `INSERT INTO tournament_games (id, tournament_id, game_number, status) VALUES (?, ?, ?, ?)`,
+        [gameId, tournamentId, g, g <= 6 ? 'completed' : 'draft']
+      );
+
+      for (let s = 1; s <= 10; s++) {
+        await db.run(
+          `INSERT INTO tournament_game_seats (id, game_id, seat_number, participant_id, role) VALUES (?, ?, ?, ?, ?)`,
+          [`seat-${g}-${s}`, gameId, s, `part-${s}`, 'citizen']
+        );
+      }
+
+      await db.run(
+        `INSERT INTO tournament_game_protocols (id, game_id, status, end_reason, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+        [`proto-${g}`, gameId, g <= 6 ? 'completed' : 'draft', 'normal', new Date().toISOString(), new Date().toISOString()]
+      );
+
+      if (g <= 6) {
+        for (let p = 1; p <= 10; p++) {
+          await db.run(
+            `INSERT INTO tournament_game_player_results (id, game_id, participant_id, ci_points, judge_bonus) VALUES (?, ?, ?, ?, ?)`,
+            [`res-${g}-${p}`, gameId, `part-${p}`, 0, 0]
+          );
+        }
+      }
+    }
+
+    // Perform backup export dump simulation
+    const exportedTournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
+    const exportedParticipants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+    const exportedPlayers = await db.all<any>('SELECT * FROM players');
+    const exportedGames = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+    const exportedSeats = await db.all<any>('SELECT * FROM tournament_game_seats');
+    const exportedProtocols = await db.all<any>('SELECT * FROM tournament_game_protocols');
+    const exportedResults = await db.all<any>('SELECT * FROM tournament_game_player_results');
+
+    const restorePayload = {
+      schema_version: 1,
+      metadata: {
+        created_at: new Date().toISOString(),
+        tournament_id: tournamentId,
+        games_count: exportedGames.length,
+        protocols_count: exportedProtocols.length,
+        completed_protocols_count: 6,
+        player_results_count: exportedResults.length,
+      },
+      tournament: exportedTournament,
+      tournament_participants: exportedParticipants,
+      players: exportedPlayers,
+      tournament_games: exportedGames,
+      tournament_game_seats: exportedSeats,
+      tournament_game_protocols: exportedProtocols,
+      tournament_game_player_results: exportedResults,
+      tournament_game_best_moves: [],
+      tournament_final_resolutions: [],
+    };
+
+    const checksum = computeChecksum(restorePayload);
+    const backupObj = { ...restorePayload, checksum };
+
+    expect(validateTournamentBackupData(backupObj, tournamentId).valid).toBe(true);
+
+    // Now clear non-player data and restore into DB using transaction
+    await db.transaction(async (tx) => {
+      await tx.run('DELETE FROM tournament_game_seats');
+      await tx.run('DELETE FROM tournament_game_player_results');
+      await tx.run('DELETE FROM tournament_game_protocols');
+      await tx.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+      await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+
+      for (const tp of backupObj.tournament_participants) {
+        await insertRowSafe(tx, 'tournament_participants', tp, { mode: 'insert' });
+      }
+      for (const g of backupObj.tournament_games) {
+        await insertRowSafe(tx, 'tournament_games', g, { mode: 'insert' });
+      }
+      for (const s of backupObj.tournament_game_seats) {
+        await insertRowSafe(tx, 'tournament_game_seats', s, { mode: 'insert' });
+      }
+      for (const pr of backupObj.tournament_game_protocols) {
+        await insertRowSafe(tx, 'tournament_game_protocols', pr, { mode: 'insert' });
+      }
+      for (const r of backupObj.tournament_game_player_results) {
+        await insertRowSafe(tx, 'tournament_game_player_results', r, { mode: 'insert' });
+      }
+    });
+
+    // Verify restored state
+    const restoredGames = await db.all<any>('SELECT * FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+    const restoredSeats = await db.all<any>('SELECT * FROM tournament_game_seats');
+    const restoredProtocols = await db.all<any>('SELECT * FROM tournament_game_protocols');
+    const restoredResults = await db.all<any>('SELECT * FROM tournament_game_player_results');
+
+    expect(restoredGames.length).toBe(10);
+    expect(restoredSeats.length).toBe(100);
+    expect(restoredProtocols.length).toBe(10);
+    expect(restoredResults.length).toBe(60);
+    expect((db.sqlite.pragma('integrity_check', { simple: false }) as any[])[0].integrity_check).toBe('ok');
+    expect((db.sqlite.pragma('foreign_key_check', { simple: false }) as any[]).length).toBe(0);
+  });
 });

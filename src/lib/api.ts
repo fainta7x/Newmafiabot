@@ -926,4 +926,19 @@ export const api = {
       standings: any[];
       nominations: any[];
     }>(`/api/public/tournaments/results/${token}`),
+
+  getTournamentBackup: (tournamentId: string) =>
+    request<any>(`/api/tournaments/${tournamentId}/backup`),
+
+  validateTournamentBackup: (tournamentId: string, backupData: any) =>
+    request<any>(`/api/tournaments/${tournamentId}/backup/validate`, {
+      method: 'POST',
+      body: JSON.stringify(backupData),
+    }),
+
+  restoreTournamentBackup: (tournamentId: string, backupData: any) =>
+    request<any>(`/api/tournaments/${tournamentId}/backup/restore`, {
+      method: 'POST',
+      body: JSON.stringify(backupData),
+    }),
 };

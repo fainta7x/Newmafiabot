@@ -58,11 +58,13 @@ export async function createPreviewCheckpoint(wrapper: DatabaseWrapper): Promise
         throw new Error(`Size mismatch: expected ${expectedSize}, got ${actualSize}`);
       }
 
-      // Create compressed .gz.b64 copy in recoveryDir outside project root
+      // Create compressed .gz.b64 copy in recoveryDir outside project root atomically
+      const tempGzFile = path.join(recoveryDir, `temp_gz_${Date.now()}_${Math.random().toString(36).substring(7)}.gz.b64`);
       const fileBuf = fs.readFileSync(tempFile);
       const gzBuf = zlib.gzipSync(fileBuf);
       const b64Str = gzBuf.toString('base64');
-      fs.writeFileSync(gzB64File, b64Str, 'utf-8');
+      fs.writeFileSync(tempGzFile, b64Str, 'utf-8');
+      fs.renameSync(tempGzFile, gzB64File);
 
       // Atomically replace latest.sqlite in recoveryDir
       fs.renameSync(tempFile, finalFile);

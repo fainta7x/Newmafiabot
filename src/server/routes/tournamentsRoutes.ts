@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DatabaseWrapper } from '../../db/index.ts';
@@ -2123,6 +2124,72 @@ router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedReque
   }
 });
 
+// Helper for dynamic safe insertion using whitelist and PRAGMA table_info
+const ALLOWED_BACKUP_TABLES = new Set([
+  'players',
+  'tournaments',
+  'tournament_participants',
+  'tournament_games',
+  'tournament_game_seats',
+  'tournament_game_protocols',
+  'tournament_game_player_results',
+  'tournament_game_best_moves',
+  'tournament_final_resolutions',
+  'tournament_protocol_imports',
+]);
+
+const cachedTableColumns = new Map<string, Set<string>>();
+
+export async function insertRowSafe(
+  tx: DatabaseWrapper,
+  tableName: string,
+  row: Record<string, any>,
+  options: { upsertKey?: string; mode?: 'insert' | 'update' | 'upsert' } = {}
+) {
+  if (!ALLOWED_BACKUP_TABLES.has(tableName)) {
+    throw new Error(`Таблица ${tableName} не входит в белый список разрешённых таблиц`);
+  }
+
+  let validColumns = cachedTableColumns.get(tableName);
+  if (!validColumns) {
+    const columnsInfo = await tx.all<any>(`PRAGMA table_info(${tableName})`);
+    validColumns = new Set<string>(columnsInfo.map((c: any) => c.name));
+    cachedTableColumns.set(tableName, validColumns);
+  }
+
+  const keysToInsert = Object.keys(row).filter((key) => validColumns!.has(key));
+  if (keysToInsert.length === 0) return;
+
+  const mode = options.mode || 'insert';
+  const keyColumn = options.upsertKey || 'id';
+
+  if (mode === 'update') {
+    const setKeys = keysToInsert.filter((k) => k !== keyColumn);
+    if (setKeys.length === 0) return;
+    const setClause = setKeys.map((k) => `${k} = ?`).join(', ');
+    const params = [...setKeys.map((k) => row[k] ?? null), row[keyColumn]];
+    await tx.run(`UPDATE ${tableName} SET ${setClause} WHERE ${keyColumn} = ?`, params);
+  } else if (mode === 'upsert') {
+    const placeholders = keysToInsert.map(() => '?').join(', ');
+    const updateKeys = keysToInsert.filter((k) => k !== keyColumn);
+    if (updateKeys.length > 0) {
+      const updateClause = updateKeys.map((k) => `${k} = excluded.${k}`).join(', ');
+      const sql = `INSERT INTO ${tableName} (${keysToInsert.join(', ')}) VALUES (${placeholders}) ON CONFLICT(${keyColumn}) DO UPDATE SET ${updateClause}`;
+      const params = keysToInsert.map((k) => row[k] ?? null);
+      await tx.run(sql, params);
+    } else {
+      const sql = `INSERT OR IGNORE INTO ${tableName} (${keysToInsert.join(', ')}) VALUES (${placeholders})`;
+      const params = keysToInsert.map((k) => row[k] ?? null);
+      await tx.run(sql, params);
+    }
+  } else {
+    const placeholders = keysToInsert.map(() => '?').join(', ');
+    const sql = `INSERT INTO ${tableName} (${keysToInsert.join(', ')}) VALUES (${placeholders})`;
+    const params = keysToInsert.map((k) => row[k] ?? null);
+    await tx.run(sql, params);
+  }
+}
+
 // Helper for backup validation
 export function validateTournamentBackupData(backupData: any, tournamentId: string) {
   if (!backupData || typeof backupData !== 'object') {
@@ -2177,7 +2244,7 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
   }
 
   for (const pr of protocols) {
-    if (pr.status === 'completed' || pr.is_completed === 1) {
+    if (pr.status === 'completed') {
       const resCount = resultsByGame.get(pr.game_id) || 0;
       if (resCount !== 10) {
         return { valid: false, error: `Завершённый протокол содержит ${resCount} результатов вместо 10` };
@@ -2248,6 +2315,11 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
       [tournamentId]
     );
 
+    const protocolImports = await db.all<any>(
+      'SELECT * FROM tournament_protocol_imports WHERE tournament_id = ?',
+      [tournamentId]
+    );
+
     const payload = {
       schema_version: 1,
       metadata: {
@@ -2255,7 +2327,7 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
         tournament_id: tournamentId,
         games_count: games.length,
         protocols_count: protocols.length,
-        completed_protocols_count: protocols.filter((p: any) => p.status === 'completed' || p.is_completed === 1).length,
+        completed_protocols_count: protocols.filter((p: any) => p.status === 'completed').length,
         player_results_count: playerResults.length,
       },
       tournament,
@@ -2267,6 +2339,7 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
       tournament_game_player_results: playerResults,
       tournament_game_best_moves: bestMoves,
       tournament_final_resolutions: finalResolutions,
+      tournament_protocol_imports: protocolImports,
     };
 
     const checksum = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
@@ -2306,7 +2379,7 @@ router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: 
     if (gameIds.length > 0) {
       const gPlaceholders = gameIds.map(() => '?').join(',');
       const prRes = await db.get<any>(
-        `SELECT COUNT(*) as c FROM tournament_game_protocols WHERE game_id IN (${gPlaceholders}) AND (status = 'completed' OR is_completed = 1)`,
+        `SELECT COUNT(*) as c FROM tournament_game_protocols WHERE game_id IN (${gPlaceholders}) AND status = 'completed'`,
         gameIds
       );
       serverCompletedProtocols = prRes?.c || 0;
@@ -2319,7 +2392,7 @@ router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: 
     }
 
     const backupCompletedProtocols = (backupData.tournament_game_protocols || []).filter(
-      (p: any) => p.status === 'completed' || p.is_completed === 1
+      (p: any) => p.status === 'completed'
     ).length;
 
     res.json({
@@ -2361,159 +2434,103 @@ router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: A
       return res.status(400).json({ error: validation.error });
     }
 
-    // Create online backup of current runtime database to os.tmpdir() first
-    const safetyBackupPath = path.join(os.tmpdir(), `pre_restore_${Date.now()}_${tournamentId}.sqlite`);
+    // Create online safety backup of current runtime database to os.tmpdir() first
+    const safetyDir = path.join(os.tmpdir(), 'newmafia-safety-backups');
+    if (!fs.existsSync(safetyDir)) {
+      fs.mkdirSync(safetyDir, { recursive: true });
+    }
+    const safetyBackupPath = path.join(safetyDir, `safety_${Date.now()}_${tournamentId}.sqlite`);
     await db.sqlite.backup(safetyBackupPath);
 
     // Single transaction restore
     await db.transaction(async (tx) => {
       // 1. Upsert players safely by ID
       for (const p of backupData.players || []) {
-        const existingPlayer = await tx.get('SELECT id FROM players WHERE id = ?', [p.id]);
-        if (existingPlayer) {
-          await tx.run(
-            `UPDATE players SET 
-              nickname = ?, full_name = ?, phone = ?, notes = ?, 
-              preferred_format = ?, referred_by = ?, do_not_invite_until = ?, 
-              pause_reason = ?, contact_status = ?, updated_at = ?
-            WHERE id = ?`,
-            [
-              p.nickname, p.full_name, p.phone || null, p.notes || null,
-              p.preferred_format || null, p.referred_by || null, p.do_not_invite_until || null,
-              p.pause_reason || null, p.contact_status || 'normal', p.updated_at || new Date().toISOString(),
-              p.id,
-            ]
-          );
-        } else {
-          await tx.run(
-            `INSERT INTO players (id, nickname, full_name, phone, notes, preferred_format, referred_by, do_not_invite_until, pause_reason, contact_status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              p.id, p.nickname, p.full_name, p.phone || null, p.notes || null,
-              p.preferred_format || null, p.referred_by || null, p.do_not_invite_until || null,
-              p.pause_reason || null, p.contact_status || 'normal', p.created_at || new Date().toISOString(), p.updated_at || new Date().toISOString(),
-            ]
-          );
-        }
+        await insertRowSafe(tx, 'players', p, { mode: 'upsert', upsertKey: 'id' });
       }
 
-      // 2. Update tournament metadata (do not delete other tournaments)
-      const t = backupData.tournament;
-      await tx.run(
-        `INSERT OR REPLACE INTO tournaments (id, title, date, venue, stage, status, chief_judge_name, notes, public_token, results_published_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          t.id, t.title, t.date, t.venue, t.stage, t.status,
-          t.chief_judge_name || null, t.notes || null, t.public_token || null,
-          t.results_published_at || null, t.created_at, t.updated_at,
-        ]
-      );
-
-      // 3. Clear and insert tournament_participants for this tournament only
-      await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
-      for (const tp of backupData.tournament_participants || []) {
-        await tx.run(
-          `INSERT INTO tournament_participants (id, tournament_id, player_id, display_name, participant_number)
-           VALUES (?, ?, ?, ?, ?)`,
-          [tp.id, tp.tournament_id, tp.player_id, tp.display_name, tp.participant_number]
-        );
+      // 2. Update existing tournament metadata (do not delete or recreate tournament row)
+      if (backupData.tournament) {
+        await insertRowSafe(tx, 'tournaments', backupData.tournament, { mode: 'update', upsertKey: 'id' });
       }
 
-      // 4. Delete existing game children & games for this tournament only
+      // 3. Clear child rows for this tournament only
       const existingGames = await tx.all<any>('SELECT id FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
-      for (const g of existingGames) {
-        await tx.run('DELETE FROM tournament_game_seats WHERE game_id = ?', [g.id]);
-        await tx.run('DELETE FROM tournament_game_protocols WHERE game_id = ?', [g.id]);
-        await tx.run('DELETE FROM tournament_game_player_results WHERE game_id = ?', [g.id]);
-        await tx.run('DELETE FROM tournament_game_best_moves WHERE game_id = ?', [g.id]);
+      if (existingGames.length > 0) {
+        const gIds = existingGames.map((g: any) => g.id);
+        const gPlaceholders = gIds.map(() => '?').join(',');
+        await tx.run(`DELETE FROM tournament_game_seats WHERE game_id IN (${gPlaceholders})`, gIds);
+        await tx.run(`DELETE FROM tournament_game_protocols WHERE game_id IN (${gPlaceholders})`, gIds);
+        await tx.run(`DELETE FROM tournament_game_player_results WHERE game_id IN (${gPlaceholders})`, gIds);
+        await tx.run(`DELETE FROM tournament_game_best_moves WHERE game_id IN (${gPlaceholders})`, gIds);
       }
-      await tx.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
 
-      // 5. Insert games
+      await tx.run('DELETE FROM tournament_games WHERE tournament_id = ?', [tournamentId]);
+      await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
+      await tx.run('DELETE FROM tournament_final_resolutions WHERE tournament_id = ?', [tournamentId]);
+      if (Array.isArray(backupData.tournament_protocol_imports)) {
+        await tx.run('DELETE FROM tournament_protocol_imports WHERE tournament_id = ?', [tournamentId]);
+      }
+
+      // 4. Insert restored tournament participants
+      for (const tp of backupData.tournament_participants || []) {
+        await insertRowSafe(tx, 'tournament_participants', tp, { mode: 'insert' });
+      }
+
+      // 5. Insert restored games
       for (const g of backupData.tournament_games || []) {
-        await tx.run(
-          `INSERT INTO tournament_games (id, tournament_id, game_number, judge_name, status, winner_team, draft_protocol_json, protocol_import_id, started_at, completed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            g.id, g.tournament_id, g.game_number, g.judge_name || null,
-            g.status, g.winner_team || null, g.draft_protocol_json || null,
-            g.protocol_import_id || null, g.started_at || null, g.completed_at || null,
-          ]
-        );
+        await insertRowSafe(tx, 'tournament_games', g, { mode: 'insert' });
       }
 
       // 6. Insert seats
       for (const s of backupData.tournament_game_seats || []) {
-        await tx.run(
-          `INSERT INTO tournament_game_seats (id, game_id, seat_number, participant_id, role)
-           VALUES (?, ?, ?, ?, ?)`,
-          [s.id, s.game_id, s.seat_number, s.participant_id, s.role]
-        );
+        await insertRowSafe(tx, 'tournament_game_seats', s, { mode: 'insert' });
       }
 
       // 7. Insert protocols
       for (const pr of backupData.tournament_game_protocols || []) {
-        await tx.run(
-          `INSERT INTO tournament_game_protocols (id, game_id, status, is_completed, end_reason, ppk_culprit_participant_id, win_type, winner_team, notes, best_move_seats_json, voting_history_json, nominations_json, fouls_json, created_at, updated_at, completed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            pr.id, pr.game_id, pr.status, pr.is_completed ?? (pr.status === 'completed' ? 1 : 0),
-            pr.end_reason || 'normal', pr.ppk_culprit_participant_id || null,
-            pr.win_type || null, pr.winner_team || null, pr.notes || null,
-            pr.best_move_seats_json || '[]', pr.voting_history_json || '[]',
-            pr.nominations_json || '[]', pr.fouls_json || '[]',
-            pr.created_at, pr.updated_at, pr.completed_at || null,
-          ]
-        );
+        await insertRowSafe(tx, 'tournament_game_protocols', pr, { mode: 'insert' });
       }
 
       // 8. Insert player results
       for (const r of backupData.tournament_game_player_results || []) {
-        await tx.run(
-          `INSERT INTO tournament_game_player_results (id, game_id, participant_id, is_winner, main_points, ci_points, extra_points, judge_bonus, penalty_points, fouls_count, minor_technical_fouls, major_technical_fouls, disciplinary_penalty_points, removal_reason)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            r.id, r.game_id, r.participant_id, r.is_winner ?? 0,
-            r.main_points ?? 0, r.ci_points ?? 0, r.extra_points ?? 0,
-            r.judge_bonus ?? 0, r.penalty_points ?? 0, r.fouls_count ?? 0,
-            r.minor_technical_fouls ?? 0, r.major_technical_fouls ?? 0,
-            r.disciplinary_penalty_points ?? 0, r.removal_reason || null,
-          ]
-        );
+        await insertRowSafe(tx, 'tournament_game_player_results', r, { mode: 'insert' });
       }
 
       // 9. Insert best moves
       for (const bm of backupData.tournament_game_best_moves || []) {
-        await tx.run(
-          `INSERT INTO tournament_game_best_moves (id, game_id, participant_id, source, seat_numbers_json, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [bm.id, bm.game_id, bm.participant_id, bm.source, bm.seat_numbers_json || '[]', bm.created_at]
-        );
+        await insertRowSafe(tx, 'tournament_game_best_moves', bm, { mode: 'insert' });
       }
 
-      // 10. Clear and restore final resolutions
-      await tx.run('DELETE FROM tournament_final_resolutions WHERE tournament_id = ?', [tournamentId]);
+      // 10. Insert final resolutions
       for (const fr of backupData.tournament_final_resolutions || []) {
-        await tx.run(
-          `INSERT INTO tournament_final_resolutions (id, tournament_id, type, category, participant_ids_json, ordered_participant_ids_json, winner_participant_id, resolution_method, comment, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            fr.id, fr.tournament_id, fr.type, fr.category || null,
-            fr.participant_ids_json, fr.ordered_participant_ids_json || null,
-            fr.winner_participant_id || null, fr.resolution_method,
-            fr.comment || null, fr.created_at, fr.updated_at,
-          ]
-        );
+        await insertRowSafe(tx, 'tournament_final_resolutions', fr, { mode: 'insert' });
+      }
+
+      // 11. Insert protocol imports if present in backup
+      for (const pi of backupData.tournament_protocol_imports || []) {
+        await insertRowSafe(tx, 'tournament_protocol_imports', pi, { mode: 'insert' });
+      }
+
+      // Foreign key & Integrity check before committing transaction
+      const fkCheck = tx.sqlite.pragma('foreign_key_check', { simple: false }) as any[];
+      if (Array.isArray(fkCheck) && fkCheck.length > 0) {
+        throw new Error(`Foreign key constraint check failed: ${JSON.stringify(fkCheck)}`);
+      }
+
+      const integrityCheck = tx.sqlite.pragma('integrity_check', { simple: false }) as any[];
+      if (!Array.isArray(integrityCheck) || integrityCheck[0]?.integrity_check !== 'ok') {
+        throw new Error(`Integrity check failed: ${JSON.stringify(integrityCheck)}`);
       }
     });
 
-    // Integrity check after transaction
-    const integrityCheck = db.sqlite.pragma('integrity_check', { simple: false }) as any[];
+    // Verification after transaction
+    const integrityCheckResult = db.sqlite.pragma('integrity_check', { simple: false }) as any[];
     const playersCount = (await db.get<any>('SELECT COUNT(*) as c FROM players'))?.c || 0;
     const tournamentsCount = (await db.get<any>('SELECT COUNT(*) as c FROM tournaments'))?.c || 0;
     const gamesCount = (await db.get<any>('SELECT COUNT(*) as c FROM tournament_games WHERE tournament_id = ?', [tournamentId]))?.c || 0;
     const completedProtocolsCount = (await db.get<any>(
-      `SELECT COUNT(*) as c FROM tournament_game_protocols pr JOIN tournament_games g ON pr.game_id = g.id WHERE g.tournament_id = ? AND (pr.status = 'completed' OR pr.is_completed = 1)`,
+      `SELECT COUNT(*) as c FROM tournament_game_protocols pr JOIN tournament_games g ON pr.game_id = g.id WHERE g.tournament_id = ? AND pr.status = 'completed'`,
       [tournamentId]
     ))?.c || 0;
     const playerResultsCount = (await db.get<any>(
@@ -2521,13 +2538,20 @@ router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: A
       [tournamentId]
     ))?.c || 0;
 
+    const expectedGamesCount = (backupData.tournament_games || []).length;
+    const expectedCompletedProtocolsCount = (backupData.tournament_game_protocols || []).filter((p: any) => p.status === 'completed').length;
+
+    if (gamesCount !== expectedGamesCount || completedProtocolsCount !== expectedCompletedProtocolsCount) {
+      throw new Error(`Restored counts mismatch: expected ${expectedGamesCount} games / ${expectedCompletedProtocolsCount} protocols, got ${gamesCount} games / ${completedProtocolsCount} protocols`);
+    }
+
     // Trigger recovery checkpoint in os.tmpdir()
     await createPreviewCheckpoint(db);
 
     res.json({
       success: true,
       message: 'Турнир успешно восстановлен из резервной копии.',
-      integrity: integrityCheck[0]?.integrity_check || 'ok',
+      integrity: integrityCheckResult[0]?.integrity_check || 'ok',
       counts: {
         players: playersCount,
         tournaments: tournamentsCount,

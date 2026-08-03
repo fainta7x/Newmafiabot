@@ -30,7 +30,13 @@ export async function createApp(customDb?: DatabaseWrapper) {
     })
   );
 
-  app.use(express.json());
+  app.use(express.json({ limit: '2mb' }));
+  app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err && (err.status === 413 || err.type === 'entity.too.large' || err.code === 'LIMIT_FILE_SIZE')) {
+      return res.status(413).json({ error: 'Размер резервной копии превышает допустимый лимит (2 MB)' });
+    }
+    next(err);
+  });
   app.use(cookieParser());
 
   // Attach database instance to request

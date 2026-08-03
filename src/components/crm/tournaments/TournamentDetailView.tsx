@@ -41,6 +41,7 @@ import {
   validateRoleAssignmentChange,
   isRoleOptionDisabled,
 } from '../../../lib/tournamentRoleValidation.ts';
+import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -382,7 +383,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
             )}
             {tournament.stage && <span className="text-accent font-semibold">{tournament.stage}</span>}
             {tournament.chief_judge_name && (
-              <span className="text-text-muted">Главный судья: {tournament.chief_judge_name}</span>
+              <span className="text-text-muted flex items-center gap-1.5">
+                <PlayerAvatar nickname={tournament.chief_judge_name} size="xs" />
+                Главный судья: {tournament.chief_judge_name}
+              </span>
             )}
           </div>
           {tournament.notes && (
@@ -788,6 +792,11 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
               {tournament.participants?.map((p) => (
                 <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
+                  <PlayerAvatar
+                    nickname={p.player_nickname || p.display_name}
+                    size="md"
+                    className="mx-auto mb-1"
+                  />
                   <span className="w-5 h-5 rounded-full bg-accent/20 text-accent font-mono text-[10px] font-bold inline-flex items-center justify-center mb-1">
                     {p.participant_number}
                   </span>
@@ -890,6 +899,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 {/* Judge info */}
                 <div className="flex items-center gap-2 mt-1 text-xs text-text-secondary">
                   <span>Судья:</span>
+                  {!editingJudge && (currentGame.judge_name || tournament.chief_judge_name) && (
+                    <PlayerAvatar nickname={currentGame.judge_name || tournament.chief_judge_name} size="xs" />
+                  )}
                   {editingJudge && canEditCurrentGameJudgeAndRoles ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -1063,6 +1075,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                             <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
                               {seat.seat_number}
                             </span>
+                            <PlayerAvatar nickname={seat.display_name} size="sm" />
                             <div className="min-w-0">
                               <span className="text-xs font-bold text-text-primary block truncate">
                                 {seat.display_name}

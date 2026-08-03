@@ -26,6 +26,7 @@ import {
   getRussianEngagementStageLabel,
   ContactStatus,
 } from '../../lib/playerUtils.ts';
+import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -677,9 +678,12 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 className="bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-3xl p-5 space-y-3 cursor-pointer transition-all hover:shadow-lg hover:shadow-rose-500/5"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-base font-bold text-white leading-snug">{p.nickname}</h3>
-                    {p.full_name && <p className="text-xs text-slate-400">{p.full_name}</p>}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <PlayerAvatar nickname={p.nickname} size="md" />
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold text-white leading-snug truncate">{p.nickname}</h3>
+                      {p.full_name && <p className="text-xs text-slate-400 truncate">{p.full_name}</p>}
+                    </div>
                   </div>
 
                   <div className="flex flex-col items-end gap-1">
@@ -766,9 +770,12 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 {/* Header Profile & Status */}
                 <div className="space-y-3 border-b border-slate-800 pb-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-2xl font-black text-white">{playerDetails.nickname}</h3>
-                      {playerDetails.full_name && <p className="text-xs text-slate-400">{playerDetails.full_name}</p>}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <PlayerAvatar nickname={playerDetails.nickname} size="lg" />
+                      <div className="min-w-0">
+                        <h3 className="text-2xl font-black text-white truncate">{playerDetails.nickname}</h3>
+                        {playerDetails.full_name && <p className="text-xs text-slate-400 truncate">{playerDetails.full_name}</p>}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">

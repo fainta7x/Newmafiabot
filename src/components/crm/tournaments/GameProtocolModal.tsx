@@ -21,7 +21,6 @@ import {
   PlayerResultData,
   Tournament
 } from '../../../lib/api';
-import { debouncedSyncTournamentBackup, fetchAndSaveTournamentBackup } from '../../../lib/tournamentBackupStorage.ts';
 import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 import { calculateDisciplinaryPenalty } from '../../../lib/gameDiscipline';
 import {
@@ -378,13 +377,6 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             setProtocol(res.protocol);
             setPlayerResults(res.player_results);
             setSaveStatus('saved');
-            const backupKey = getProtocolBackupKey(gameId);
-            const expectedBackupValue = localStorage.getItem(backupKey);
-            debouncedSyncTournamentBackup(
-              tournamentId,
-              2000,
-              expectedBackupValue ? { backupKey, expectedValue: expectedBackupValue } : undefined
-            );
           } else {
             setSaveStatus('unsaved');
           }
@@ -1309,18 +1301,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         alert('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
       }
 
-      // Sync local IndexedDB backup FIRST, then clear localStorage backup
+      // Clear localStorage backup for this game upon successful protocol completion
       const protocolBackupKey = getProtocolBackupKey(gameId);
-      const expectedBackupValue = localStorage.getItem(protocolBackupKey);
-      try {
-        await fetchAndSaveTournamentBackup(tournamentId);
-        if (!expectedBackupValue || localStorage.getItem(protocolBackupKey) === expectedBackupValue) {
-          localStorage.removeItem(protocolBackupKey);
-        }
-      } catch (idbErr: any) {
-        console.warn('IndexedDB local backup failed:', idbErr);
-        alert('Внимание: Протокол сохранён на сервере, но возникла ошибка при сохранении локальной копии в IndexedDB: ' + (idbErr?.message || String(idbErr)));
-      }
+      localStorage.removeItem(protocolBackupKey);
 
       if (onProtocolUpdated) onProtocolUpdated();
     } catch (err: any) {

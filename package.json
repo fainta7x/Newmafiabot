@@ -14,7 +14,8 @@
     "test:integration": "vitest run",
     "migrate:legacy": "tsx src/db/migrateLegacyData.ts",
     "restore:tournament-bogdana": "tsx scripts/restoreTournamentBogdana.ts",
-    "checkpoint:preview-db": "tsx src/scripts/createCheckpoint.ts"
+    "checkpoint:preview-db": "tsx src/scripts/createCheckpoint.ts",
+    "checkpoint:git-db": "tsx src/scripts/createGitCheckpoint.ts"
   },
   "dependencies": {
     "@google/genai": "^2.14.0",

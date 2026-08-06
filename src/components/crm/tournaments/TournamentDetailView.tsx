@@ -18,7 +18,6 @@ import {
   Image as ImageIcon,
   Trophy,
   RotateCcw,
-  Save,
 } from 'lucide-react';
 import { api, Tournament, TournamentGame, TournamentGameSeat, TournamentParticipant } from '../../../lib/api.ts';
 import { EditTournamentDataModal } from './EditTournamentDataModal.tsx';
@@ -36,7 +35,6 @@ import { ConfirmCompleteTournamentModal } from './ConfirmCompleteTournamentModal
 import { ConfirmReopenTournamentModal } from './ConfirmReopenTournamentModal.tsx';
 import { TournamentOfficialResults } from './TournamentOfficialResults.tsx';
 import { TournamentGameSetup } from './TournamentGameSetup.tsx';
-import { TournamentBackupBlock } from './TournamentBackupBlock.tsx';
 import {
   validateRoleAssignmentChange,
   isRoleOptionDisabled,
@@ -311,24 +309,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     }
   };
 
-  const handleCheckpoint = async () => {
-    setActionLoading(true);
-    setFeedbackMsg(null);
-    try {
-      const res = await fetch('/api/tournaments/checkpoint', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Ошибка при сохранении резервной копии');
-      setFeedbackMsg({ type: 'success', text: `Резервная копия сохранена: ${data.message}` });
-    } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-5 text-text-primary">
       {/* Top Header & Navigation */}
@@ -396,16 +376,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 
         
       </div>
-
-      {/* Tournament Backup Control & Warning Banner */}
-      {tournament && (
-        <TournamentBackupBlock
-          tournamentId={tournament.id}
-          serverCompletedProtocolsCount={tournament.games?.filter(g => g.status === 'completed' || (g as any).is_completed).length || 0}
-          serverTotalGamesCount={tournament.games?.length || 10}
-          onRestored={loadDetail}
-        />
-      )}
 
       {/* Feedback banner */}
       {feedbackMsg && (
@@ -489,20 +459,6 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                 <FileText className="w-4 h-4 text-accent" />
                 Управление турниром
               </h3>
-              
-            {process.env.NODE_ENV !== 'production' && (
-              <button
-                type="button"
-                onClick={handleCheckpoint}
-                disabled={actionLoading}
-                className="bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px] ml-auto"
-                title="Сохранить резервную копию (Git-checkpoint)"
-              >
-                <Save className="w-3.5 h-3.5 text-accent" />
-                <span>Резервная копия</span>
-              </button>
-            )}
-
             </div>
             
         {isDraft ? (

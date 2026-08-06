@@ -49,6 +49,13 @@ import {
   recalculateVoteRemainder,
   syncAllEventsToResults
 } from './protocol/protocolStateUtils';
+import {
+  type DisciplineActionType,
+  type TechFoulType,
+  getConfirmedPlayerDisciplineUpdates,
+  getRegularFoulChange,
+  getTechFoulChange
+} from './protocol/protocolDisciplineUtils';
 
 export {
   buildLegacyTechFoulClassification,
@@ -173,10 +180,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   // Discipline confirmations
   const [pendingDisciplineAction, setPendingDisciplineAction] = useState<{
     participantId: string;
-    type: 'foul_4' | 'tech_2' | 'direct_removal' | 'ppk' | 'cancel_ppk' | 'cancel_direct';
+    type: DisciplineActionType;
     playerName: string;
     seatNum: number;
-    techType?: 'minor' | 'major';
+    techType?: TechFoulType;
   } | null>(null);
 
   const [oldTechFoulsToFix, setOldTechFoulsToFix] = useState<Record<string, number>>({});
@@ -447,71 +454,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     const player = playerResults.find(p => p.participant_id === participantId);
     if (!player) return;
 
-    const newValue = Math.max(0, Math.min(4, player.regular_fouls + delta));
-
-    if (delta > 0 && newValue === 4) {
-      handleDisciplineAction(participantId, 'foul_4');
-      return;
+    const change = getRegularFoulChange(player, delta);
+    if (change.kind === 'confirm') {
+      handleDisciplineAction(participantId, change.action);
+    } else if (change.kind === 'update') {
+      updatePlayerResult(participantId, change.updates);
     }
-
-    if (delta < 0 && player.regular_fouls === 4 && player.removal_reason === '4th_foul') {
-      updatePlayerResult(participantId, {
-        regular_fouls: 3,
-        exit_type: 'alive',
-        removal_reason: null
-      });
-      return;
-    }
-
-    updatePlayerResult(participantId, { regular_fouls: newValue });
   };
 
-  const handleTechFoulChange = (participantId: string, techType: 'minor' | 'major', delta: number) => {
+  const handleTechFoulChange = (participantId: string, techType: TechFoulType, delta: number) => {
     const player = playerResults.find(p => p.participant_id === participantId);
     if (!player) return;
 
-    const currentMinor = player.minor_technical_fouls || 0;
-    const currentMajor = player.major_technical_fouls || 0;
-    const currentTotal = currentMinor + currentMajor;
-
-    if (delta > 0) {
-      if (currentTotal >= 2) return;
-      if (currentTotal === 1) {
-        setPendingDisciplineAction({
-          participantId,
-          type: 'tech_2',
-          playerName: player.display_name,
-          seatNum: player.seat_number,
-          techType
-        });
-        return;
-      }
-
-      const updates: Partial<PlayerResultData> = techType === 'minor'
-        ? { minor_technical_fouls: currentMinor + 1 }
-        : { major_technical_fouls: currentMajor + 1 };
-
-      updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
-      updatePlayerResult(participantId, updates);
-    } else {
-      const updates: Partial<PlayerResultData> = {};
-      if (techType === 'minor' && currentMinor > 0) {
-        updates.minor_technical_fouls = currentMinor - 1;
-      } else if (techType === 'major' && currentMajor > 0) {
-        updates.major_technical_fouls = currentMajor - 1;
-      } else {
-        return;
-      }
-
-      const newTotal = (updates.minor_technical_fouls ?? currentMinor) + (updates.major_technical_fouls ?? currentMajor);
-      updates.technical_fouls = newTotal;
-
-      if (newTotal === 1 && player.removal_reason === '2nd_tech') {
-        updates.exit_type = 'alive';
-        updates.removal_reason = null;
-      }
-
-      updatePlayerResult(participantId, updates);
+    const change = getTechFoulChange(player, techType, delta);
+    if (change.kind === 'confirm') {
+      handleDisciplineAction(participantId, change.action, change.techType);
+    } else if (change.kind === 'update') {
+      updatePlayerResult(participantId, change.updates);
     }
   };
 
@@ -531,8 +490,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const handleDisciplineAction = (
     participantId: string,
-    type: 'foul_4' | 'tech_2' | 'direct_removal' | 'ppk' | 'cancel_ppk' | 'cancel_direct',
-    techType?: 'minor' | 'major'
+    type: DisciplineActionType,
+    techType?: TechFoulType
   ) => {
     const player = playerResults.find(p => p.participant_id === participantId);
     if (!player) return;
@@ -572,25 +531,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         ppk_culprit_participant_id: null,
         winner_team: null
       }));
-    } else if (type === 'direct_removal') {
-      updatePlayerResult(participantId, { exit_type: 'removed', removal_reason: 'direct' });
-    } else if (type === 'cancel_direct') {
-      updatePlayerResult(participantId, { exit_type: 'alive', removal_reason: null });
-    } else if (type === 'foul_4') {
-      updatePlayerResult(participantId, { regular_fouls: 4, exit_type: 'removed', removal_reason: '4th_foul' });
-    } else if (type === 'tech_2') {
+    } else {
       const player = playerResults.find(p => p.participant_id === participantId);
-      if (player && techType) {
-        const currentMinor = player.minor_technical_fouls || 0;
-        const currentMajor = player.major_technical_fouls || 0;
-        const updates: Partial<PlayerResultData> = techType === 'minor'
-          ? { minor_technical_fouls: currentMinor + 1 }
-          : { major_technical_fouls: currentMajor + 1 };
-
-        updates.technical_fouls = (updates.minor_technical_fouls || currentMinor) + (updates.major_technical_fouls || currentMajor);
-        updates.exit_type = 'removed';
-        updates.removal_reason = '2nd_tech';
-        updatePlayerResult(participantId, updates);
+      if (player) {
+        const updates = getConfirmedPlayerDisciplineUpdates(player, type, techType);
+        if (updates) {
+          updatePlayerResult(participantId, updates);
+        }
       }
     }
 

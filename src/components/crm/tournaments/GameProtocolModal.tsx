@@ -68,6 +68,15 @@ import {
   toggleColorMarkEditSeat,
   toggleColorSeatInList
 } from './protocol/protocolColorUtils';
+import {
+  type ProtocolLocalBackup,
+  findUnclassifiedTechFouls,
+  getProtocolBackupKey,
+  hasUnclassifiedTechFouls,
+  parseRestorableProtocolBackup,
+  serializeBlockedProtocolBackup,
+  serializeProtocolLocalBackup
+} from './protocol/protocolPersistenceUtils';
 
 export {
   buildLegacyTechFoulClassification,
@@ -211,7 +220,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setLoading(true);
     setError(null);
 
-    let restoredBackupData: { protocol: any; playerResults: any } | null = null;
+    let restoredBackupData: ProtocolLocalBackup | null = null;
 
     api.getGameProtocol(tournamentId, gameId)
       .then(async (res) => {
@@ -233,26 +242,20 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         lastSavedRevision.current = 0;
 
         // Restore backup from localStorage if available and draft is newer
-        const backupKey = `tournament_protocol_backup_${gameId}`;
-        const savedBackup = localStorage.getItem(backupKey);
-        if (savedBackup && res.protocol.status === 'draft') {
-          try {
-            const parsed = JSON.parse(savedBackup);
-            if (
-              parsed.updatedAt &&
-              new Date(parsed.updatedAt).getTime() > new Date(res.protocol.updated_at || 0).getTime()
-            ) {
-              if (parsed.protocol && parsed.playerResults) {
-                restoredBackupData = parsed;
-                setProtocol(parsed.protocol);
-                setPlayerResults(parsed.playerResults);
-                protocolRef.current = parsed.protocol;
-                playerResultsRef.current = parsed.playerResults;
-                dirtyRevision.current = 1;
-                setSaveStatus('unsaved');
-              }
-            }
-          } catch (_) {}
+        const backupKey = getProtocolBackupKey(gameId);
+        const restoredBackup = parseRestorableProtocolBackup(
+          localStorage.getItem(backupKey),
+          res.protocol.status,
+          res.protocol.updated_at
+        );
+        if (restoredBackup) {
+          restoredBackupData = restoredBackup;
+          setProtocol(restoredBackup.protocol);
+          setPlayerResults(restoredBackup.playerResults);
+          protocolRef.current = restoredBackup.protocol;
+          playerResultsRef.current = restoredBackup.playerResults;
+          dirtyRevision.current = 1;
+          setSaveStatus('unsaved');
         }
       })
       .catch((err) => {
@@ -278,15 +281,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   // Detect unclassified tech fouls from old versions
   useEffect(() => {
     if (!loading && playerResults.length > 0) {
-      const toFix: Record<string, number> = {};
-      playerResults.forEach(pr => {
-        const total = pr.technical_fouls || 0;
-        const sum = (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0);
-        if (total > sum) {
-          toFix[pr.participant_id] = total;
-        }
-      });
-      setOldTechFoulsToFix(toFix);
+      setOldTechFoulsToFix(findUnclassifiedTechFouls(playerResults));
     }
   }, [loading, playerResults]);
 
@@ -314,14 +309,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setSaveStatus('unsaved');
 
     // Save backup to localStorage immediately
-    const backupKey = `tournament_protocol_backup_${gameId}`;
     localStorage.setItem(
-      backupKey,
-      JSON.stringify({
-        updatedAt: new Date().toISOString(),
-        protocol,
-        playerResults
-      })
+      getProtocolBackupKey(gameId),
+      serializeProtocolLocalBackup(protocol, playerResults)
     );
 
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
@@ -365,18 +355,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           const currentResults = playerResultsRef.current;
 
           // Check for unclassified tech fouls
-          const hasUnclassified = currentResults.some(pr => pr.technical_fouls > (pr.minor_technical_fouls || 0) + (pr.major_technical_fouls || 0));
-          if (hasUnclassified) {
+          if (hasUnclassifiedTechFouls(currentResults)) {
             setSaveStatus('unsaved');
             setSaveErrorMessage('Сначала классифицируйте старые техфолы');
             // Backup locally anyway
-            const backupKey = `tournament_protocol_backup_${gameId}`;
-            localStorage.setItem(backupKey, JSON.stringify({
-              protocol: currentProto,
-              player_results: currentResults,
-              timestamp: new Date().toISOString(),
-              version: '1.0'
-            }));
+            localStorage.setItem(
+              getProtocolBackupKey(gameId),
+              serializeBlockedProtocolBackup(currentProto, currentResults)
+            );
             break;
           }
 
@@ -390,7 +376,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             setProtocol(res.protocol);
             setPlayerResults(res.player_results);
             setSaveStatus('saved');
-            const backupKey = `tournament_protocol_backup_${gameId}`;
+            const backupKey = getProtocolBackupKey(gameId);
             const expectedBackupValue = localStorage.getItem(backupKey);
             debouncedSyncTournamentBackup(
               tournamentId,
@@ -1322,7 +1308,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       }
 
       // Sync local IndexedDB backup FIRST, then clear localStorage backup
-      const protocolBackupKey = `tournament_protocol_backup_${gameId}`;
+      const protocolBackupKey = getProtocolBackupKey(gameId);
       const expectedBackupValue = localStorage.getItem(protocolBackupKey);
       try {
         await fetchAndSaveTournamentBackup(tournamentId);

@@ -677,16 +677,18 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 onClick={() => handleOpenCard(p.id)}
                 className="bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-3xl p-5 space-y-3 cursor-pointer transition-all hover:shadow-lg hover:shadow-rose-500/5"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
                   <div className="flex items-center gap-3 min-w-0">
                     <PlayerAvatar nickname={p.nickname} size="md" />
-                    <div className="min-w-0">
-                      <h3 className="text-base font-bold text-white leading-snug truncate">{p.nickname}</h3>
-                      {p.full_name && <p className="text-xs text-slate-400 truncate">{p.full_name}</p>}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-white leading-snug whitespace-normal break-words">
+                        {p.nickname}
+                      </h3>
+                      {p.full_name && <p className="text-xs text-slate-400 whitespace-normal break-words line-clamp-2">{p.full_name}</p>}
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {/* Contact status badge */}
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${

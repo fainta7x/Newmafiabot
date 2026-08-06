@@ -2,6 +2,16 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
 import { VotingRound, determineVotingResult } from '../../../../shared/tournamentVoting';
+import {
+  moveNominatedSeat,
+  parseOptionalVoteInput,
+  parseVoteCountInput,
+  setTableLeaveVotes,
+  setVotingSeatCount,
+  toggleNominatedSeat,
+  updateEligibleVoters,
+  updateVotingDay
+} from './protocolVotingEditorUtils';
 
 export interface ProtocolVotingTabProps {
   protocol: TournamentGameProtocolData;
@@ -97,12 +107,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   disabled={protocol.status === 'completed' || isConfirmed || round.is_revote}
                   value={dayNum}
                   onChange={(e) => {
-                    const d = parseInt(e.target.value) || 0;
-                    onRoundChange(rIdx, (r) => ({
-                      ...r,
-                      day_number: d,
-                      eligible_voters: d === 0 ? 10 : r.eligible_voters
-                    }));
+                    onRoundChange(rIdx, (r) =>
+                      updateVotingDay(r, e.target.value)
+                    );
                   }}
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                 >
@@ -123,8 +130,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   disabled={protocol.status === 'completed' || isConfirmed || round.is_revote || dayNum === 0}
                   value={eligibleVoters}
                   onChange={(e) => {
-                    const ev = parseInt(e.target.value) || 10;
-                    onRoundChange(rIdx, (r) => ({ ...r, eligible_voters: ev }));
+                    onRoundChange(rIdx, (r) =>
+                      updateEligibleVoters(r, e.target.value)
+                    );
                   }}
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                 >
@@ -170,25 +178,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   type="button"
                   disabled={protocol.status === 'completed' || isConfirmed || (round.is_revote && !!round.parent_round_number)}
                   onClick={() => {
-                    onRoundChange(rIdx, (r) => {
-                      const currentNoms = r.nominated_seats || [];
-                      let updatedNoms: number[];
-                      let updatedCounts = { ...(r.vote_counts || {}) };
-
-                      if (currentNoms.includes(seatNum)) {
-                        updatedNoms = currentNoms.filter((s: number) => s !== seatNum);
-                        delete updatedCounts[seatNum];
-                      } else {
-                        updatedNoms = Array.from(new Set([...currentNoms, seatNum]));
-                        updatedCounts[seatNum] = updatedCounts[seatNum] || 0;
-                      }
-
-                      return {
-                        ...r,
-                        nominated_seats: updatedNoms,
-                        vote_counts: updatedCounts
-                      };
-                    });
+                    onRoundChange(rIdx, (r) =>
+                      toggleNominatedSeat(r, seatNum)
+                    );
                   }}
                   className={`w-full h-11 sm:w-8 sm:h-8 rounded-lg text-sm font-bold border transition ${
                     isNominated
@@ -232,16 +224,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              onRoundChange(rIdx, (r) => {
-                                const noms = [...(r.nominated_seats || [])];
-                                const idx = noms.indexOf(seatNum);
-                                if (idx > 0) {
-                                  const temp = noms[idx];
-                                  noms[idx] = noms[idx - 1];
-                                  noms[idx - 1] = temp;
-                                }
-                                return { ...r, nominated_seats: noms };
-                              });
+                              onRoundChange(rIdx, (r) =>
+                                moveNominatedSeat(r, seatNum, 'earlier')
+                              );
                             }}
                             className="text-slate-400 hover:text-amber-400 p-0.5 text-[11px] leading-none"
                             title="Сдвинуть раньше"
@@ -251,16 +236,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              onRoundChange(rIdx, (r) => {
-                                const noms = [...(r.nominated_seats || [])];
-                                const idx = noms.indexOf(seatNum);
-                                if (idx >= 0 && idx < noms.length - 1) {
-                                  const temp = noms[idx];
-                                  noms[idx] = noms[idx + 1];
-                                  noms[idx + 1] = temp;
-                                }
-                                return { ...r, nominated_seats: noms };
-                              });
+                              onRoundChange(rIdx, (r) =>
+                                moveNominatedSeat(r, seatNum, 'later')
+                              );
                             }}
                             className="text-slate-400 hover:text-amber-400 p-0.5 text-[11px] leading-none"
                             title="Сдвинуть позже"
@@ -279,29 +257,17 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => {
                         if (isReadOnlyCandidate) return;
-                        const raw = e.target.value.replace(/\D/g, '');
-                        if (raw === '') {
-                          setVoteDrafts(prev => ({ ...prev, [draftKey]: '' }));
-                          onRoundChange(rIdx, (r) => ({
-                            ...r,
-                            vote_counts: {
-                              ...(r.vote_counts || {}),
-                              [seatNum]: 0
-                            }
-                          }));
-                        } else {
-                          let val = parseInt(raw, 10);
-                          if (val > eligibleVoters) val = eligibleVoters;
-                          const cleanStr = String(val);
-                          setVoteDrafts(prev => ({ ...prev, [draftKey]: cleanStr }));
-                          onRoundChange(rIdx, (r) => ({
-                            ...r,
-                            vote_counts: {
-                              ...(r.vote_counts || {}),
-                              [seatNum]: val
-                            }
-                          }));
-                        }
+                        const parsed = parseVoteCountInput(
+                          e.target.value,
+                          eligibleVoters
+                        );
+                        setVoteDrafts(prev => ({
+                          ...prev,
+                          [draftKey]: parsed.draftValue
+                        }));
+                        onRoundChange(rIdx, (r) =>
+                          setVotingSeatCount(r, seatNum, parsed.value)
+                        );
                       }}
                       onBlur={() => {
                         setVoteDrafts(prev => {
@@ -337,23 +303,17 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   value={voteDrafts[`${rIdx}-leave`] !== undefined ? voteDrafts[`${rIdx}-leave`] : (round.table_leave_votes !== null && round.table_leave_votes !== undefined ? String(round.table_leave_votes) : '')}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    if (raw === '') {
-                      setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: '' }));
-                      onRoundChange(rIdx, (r) => ({
-                        ...r,
-                        table_leave_votes: null
-                      }));
-                    } else {
-                      let val = parseInt(raw, 10);
-                      if (val > eligibleVoters) val = eligibleVoters;
-                      const cleanStr = String(val);
-                      setVoteDrafts(prev => ({ ...prev, [`${rIdx}-leave`]: cleanStr }));
-                      onRoundChange(rIdx, (r) => ({
-                        ...r,
-                        table_leave_votes: val
-                      }));
-                    }
+                    const parsed = parseOptionalVoteInput(
+                      e.target.value,
+                      eligibleVoters
+                    );
+                    setVoteDrafts(prev => ({
+                      ...prev,
+                      [`${rIdx}-leave`]: parsed.draftValue
+                    }));
+                    onRoundChange(rIdx, (r) =>
+                      setTableLeaveVotes(r, parsed.value)
+                    );
                   }}
                   onBlur={() => {
                     setVoteDrafts(prev => {

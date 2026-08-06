@@ -9,7 +9,6 @@ import {
   restoreGitCheckpointToSqlite,
 } from '../db/gitCheckpointUtils.ts';
 import { runGitCheckpointScript } from '../scripts/createGitCheckpoint.ts';
-import { getDb } from '../db/index.ts';
 
 function createTestDb(
   dbPath: string,
@@ -194,31 +193,43 @@ describe('gitCheckpointUtils & Checkpoint Script', () => {
   });
 
   it('9. Target checkpoint is NOT replaced on failed verification', async () => {
-    const targetB64Path = path.join(process.cwd(), 'mafia_crm.checkpoint.sqlite.gz.b64');
-    const targetContentBefore = fs.existsSync(targetB64Path) ? fs.readFileSync(targetB64Path, 'utf-8') : null;
+    const sentinelContent = 'SENTINEL_CONTENT_DO_NOT_OVERWRITE_12345';
+    const testTargetB64Path = path.join(tmpDir, 'sentinel_target.gz.b64');
+    fs.writeFileSync(testTargetB64Path, sentinelContent, 'utf-8');
 
-    const success = await runGitCheckpointScript();
-    expect(typeof success).toBe('boolean');
+    const invalidDbPath = path.join(tmpDir, 'invalid_for_checkpoint.sqlite');
+    createTestDb(invalidDbPath, { gameCount: 5 }); // Verification will fail because game count != 10
 
-    if (targetContentBefore) {
-      const targetContentAfter = fs.readFileSync(targetB64Path, 'utf-8');
-      expect(targetContentAfter.length).toBeGreaterThan(0);
-    }
+    const success = await runGitCheckpointScript({
+      dbPath: invalidDbPath,
+      targetB64Path: testTargetB64Path,
+    });
+
+    expect(success).toBe(false);
+    expect(fs.readFileSync(testTargetB64Path, 'utf-8')).toBe(sentinelContent);
   });
 
   it('10. Original runtime DB remains byte-for-byte unchanged after running script', async () => {
-    const dbWrapper = await getDb();
-    const runtimePath = dbWrapper.dbPath;
+    const validDbPath = path.join(tmpDir, 'valid_runtime.sqlite');
+    createTestDb(validDbPath);
 
-    const statsBefore = fs.statSync(runtimePath);
-    const bytesBefore = fs.readFileSync(runtimePath);
+    const statsBefore = fs.statSync(validDbPath);
+    const bytesBefore = fs.readFileSync(validDbPath);
 
-    await runGitCheckpointScript();
+    const testTargetB64Path = path.join(tmpDir, 'output_checkpoint.gz.b64');
 
-    const statsAfter = fs.statSync(runtimePath);
-    const bytesAfter = fs.readFileSync(runtimePath);
+    const success = await runGitCheckpointScript({
+      dbPath: validDbPath,
+      targetB64Path: testTargetB64Path,
+    });
+
+    expect(success).toBe(true);
+
+    const statsAfter = fs.statSync(validDbPath);
+    const bytesAfter = fs.readFileSync(validDbPath);
 
     expect(statsAfter.size).toBe(statsBefore.size);
     expect(bytesAfter.equals(bytesBefore)).toBe(true);
+    expect(fs.existsSync(testTargetB64Path)).toBe(true);
   });
 });

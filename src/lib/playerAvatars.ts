@@ -1,4 +1,4 @@
-const AVATAR_ROOT = '/player-avatars';
+const AVATAR_ROOT = '/api/public/player-avatars';
 
 const avatarByNickname: Record<string, string> = {
   'богдан': `${AVATAR_ROOT}/bogdanchik.jpg`,

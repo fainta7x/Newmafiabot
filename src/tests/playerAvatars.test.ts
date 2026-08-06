@@ -9,7 +9,7 @@ describe('player avatar mapping and serving', () => {
     expect(normalizeAvatarNickname('Фёдор')).toBe('федор');
   });
 
-  it('maps every tournament participant and the judge to /player-avatars/...', () => {
+  it('maps every tournament participant and the judge to /api/public/player-avatars/...', () => {
     const nicknames = [
       'Богданчик',
       'Фандорин',
@@ -26,7 +26,7 @@ describe('player avatar mapping and serving', () => {
     for (const nickname of nicknames) {
       const url = getPlayerAvatarUrl(nickname);
       expect(typeof url).toBe('string');
-      expect(url).toMatch(/^\/player-avatars\/[a-z0-9_]+\.jpg$/);
+      expect(url).toMatch(/^\/api\/public\/player-avatars\/[a-z0-9_]+\.jpg$/);
     }
   });
 
@@ -35,13 +35,13 @@ describe('player avatar mapping and serving', () => {
     const bogdanchikUrl = getPlayerAvatarUrl('Богданчик');
     expect(bogdanUrl).toBe(bogdanchikUrl);
     expect(typeof bogdanUrl).toBe('string');
-    expect(bogdanUrl).toBe('/player-avatars/bogdanchik.jpg');
+    expect(bogdanUrl).toBe('/api/public/player-avatars/bogdanchik.jpg');
 
     const chagaUrl = getPlayerAvatarUrl('Чага');
     const evgeniyChaginUrl = getPlayerAvatarUrl('Евгений Чагин');
     expect(chagaUrl).toBe(evgeniyChaginUrl);
     expect(typeof chagaUrl).toBe('string');
-    expect(chagaUrl).toBe('/player-avatars/chagin.jpg');
+    expect(chagaUrl).toBe('/api/public/player-avatars/chagin.jpg');
 
     expect(getPlayerAvatarUrl('Новый игрок')).toBeNull();
   });
@@ -49,13 +49,13 @@ describe('player avatar mapping and serving', () => {
   it('serves static avatar file via Express route and returns 404 for missing image', async () => {
     const app = await createApp();
 
-    const response = await request(app).get('/player-avatars/vid.jpg');
+    const response = await request(app).get('/api/public/player-avatars/vid.jpg');
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toContain('image/jpeg');
     expect(response.body).toBeDefined();
     expect(Buffer.isBuffer(response.body) ? response.body.length : Object.keys(response.body).length).toBeGreaterThan(0);
 
-    const notFound = await request(app).get('/player-avatars/unknown.jpg');
+    const notFound = await request(app).get('/api/public/player-avatars/unknown.jpg');
     expect(notFound.status).toBe(404);
   });
 });

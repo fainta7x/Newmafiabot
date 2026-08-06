@@ -56,7 +56,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
       : path.join(process.cwd(), 'public', 'player-avatars');
 
   app.use(
-    '/player-avatars',
+    '/api/public/player-avatars',
     express.static(playerAvatarsPath, {
       fallthrough: false,
       maxAge: '1d',

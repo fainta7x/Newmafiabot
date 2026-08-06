@@ -40,7 +40,6 @@ import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import {
   buildLegacyTechFoulClassification,
   formatColorMark,
-  formatSignedBonus,
   getProtocolPayload
 } from './protocol/protocolUtils';
 import {
@@ -77,6 +76,9 @@ import {
   serializeBlockedProtocolBackup,
   serializeProtocolLocalBackup
 } from './protocol/protocolPersistenceUtils';
+import {
+  getProtocolPlayerPresentation
+} from './protocol/protocolPlayerPresentationUtils';
 
 export {
   buildLegacyTechFoulClassification,
@@ -1534,136 +1536,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   <div className="space-y-3">
                     {playerResults.map((player) => {
                       const isExpanded = expandedPlayerId === player.participant_id;
-                      const hasColorProtocol = player.color_protocol && player.color_protocol.length > 0;
-
-                      const isPpkCulprit = protocol.ppk_culprit_participant_id === player.participant_id || (player.removal_reason as unknown as string) === 'ppk';
-                      const discPen = calculateDisciplinaryPenalty(
-                        player.minor_technical_fouls || 0,
-                        player.major_technical_fouls || 0,
-                        player.exit_type === 'removed',
-                        isPpkCulprit
+                      const {
+                        briefBadges,
+                        roleLabel,
+                        roleClass,
+                        statusLabel,
+                        statusClass
+                      } = getProtocolPlayerPresentation(
+                        player,
+                        protocol.ppk_culprit_participant_id
                       );
-
-                      // Badges for collapsed header
-                      const briefBadges: { key: string; label: string; className: string }[] = [];
-                      if (player.regular_fouls > 0) {
-                        briefBadges.push({
-                          key: 'fouls',
-                          label: `Ф: ${player.regular_fouls}`,
-                          className: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        });
-                      }
-                      if ((player.minor_technical_fouls || 0) > 0) {
-                        briefBadges.push({
-                          key: 'minor_tech',
-                          label: `мТ: ${player.minor_technical_fouls}`,
-                          className: 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                        });
-                      }
-                      if ((player.major_technical_fouls || 0) > 0) {
-                        briefBadges.push({
-                          key: 'major_tech',
-                          label: `бТ: ${player.major_technical_fouls}`,
-                          className: 'bg-rose-600/10 text-rose-400 border-rose-600/30'
-                        });
-                      }
-                      const discPenRounded = Math.round(discPen * 10) / 10;
-                      if (discPenRounded > 0) {
-                        briefBadges.push({
-                          key: 'disc',
-                          label: `Дисц. −${discPenRounded}`,
-                          className: 'bg-purple-500/10 text-purple-300 border-purple-500/30'
-                        });
-                      }
-
-                      const judgeFormatted = formatSignedBonus(player.judge_bonus);
-                      if (judgeFormatted.sign === 'positive') {
-                        briefBadges.push({
-                          key: 'judge',
-                          label: `Судья ${judgeFormatted.formatted}`,
-                          className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                        });
-                      } else if (judgeFormatted.sign === 'negative') {
-                        briefBadges.push({
-                          key: 'judge',
-                          label: `Судья ${judgeFormatted.formatted}`,
-                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                        });
-                      }
-
-                      const protoFormatted = formatSignedBonus(player.protocol_bonus);
-                      if (protoFormatted.sign === 'positive') {
-                        briefBadges.push({
-                          key: 'proto',
-                          label: `Прот. ${protoFormatted.formatted}`,
-                          className: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
-                        });
-                      } else if (protoFormatted.sign === 'negative') {
-                        briefBadges.push({
-                          key: 'proto',
-                          label: `Прот. ${protoFormatted.formatted}`,
-                          className: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                        });
-                      }
-                      if (isPpkCulprit) {
-                        briefBadges.push({
-                          key: 'ppk',
-                          label: 'ППК',
-                          className: 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
-                        });
-                      }
-                      if (player.removal_reason === 'direct') {
-                        briefBadges.push({
-                          key: 'direct',
-                          label: 'Удалён',
-                          className: 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
-                        });
-                      }
-                      if (hasColorProtocol) {
-                        briefBadges.push({
-                          key: 'color_proto',
-                          label: 'Есть цветовой протокол',
-                          className: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
-                        });
-                      }
-
-                      // Role formatting
-                      let roleLabel = 'Не указана';
-                      let roleClass = 'bg-slate-800 text-slate-400 border-slate-700';
-                      if (player.role === 'citizen') {
-                        roleLabel = 'Мирный';
-                        roleClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-                      } else if (player.role === 'sheriff') {
-                        roleLabel = 'Шериф';
-                        roleClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-                      } else if (player.role === 'mafia') {
-                        roleLabel = 'Мафия';
-                        roleClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-                      } else if (player.role === 'don') {
-                        roleLabel = 'Дон';
-                        roleClass = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
-                      }
-
-                      // Exit status badge formatting (only if not alive)
-                      let statusLabel: string | null = null;
-                      let statusClass = 'bg-slate-800 text-slate-400 border-slate-700';
-                      if (player.exit_type === 'killed') {
-                        statusLabel = 'Убит';
-                        statusClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30';
-                      } else if (player.exit_type === 'voted_zero_round') {
-                        statusLabel = 'Загол. (0)';
-                        statusClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-                      } else if (player.exit_type === 'voted_day') {
-                        statusLabel = 'Заголосован';
-                        statusClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-                      } else if (player.exit_type === 'removed') {
-                        statusClass = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-                        if (player.removal_reason === '4th_foul') statusLabel = '4 фола';
-                        else if (player.removal_reason === '2nd_tech') statusLabel = '2 техфола';
-                        else if (player.removal_reason === 'direct') statusLabel = 'Удалён';
-                        else if ((player.removal_reason as unknown as string) === 'ppk') statusLabel = 'ППК';
-                        else statusLabel = 'Снят';
-                      }
 
                       return (
                         <div

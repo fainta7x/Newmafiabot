@@ -49,20 +49,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
   // Global Auth Session Parser
   app.use(parseUserSession);
 
-  // Serve player avatars statically before API routes and Vite middleware
-  const playerAvatarsPath =
-    process.env.NODE_ENV === 'production'
-      ? path.join(process.cwd(), 'dist', 'player-avatars')
-      : path.join(process.cwd(), 'public', 'player-avatars');
-
-  app.use(
-    '/api/public/player-avatars',
-    express.static(playerAvatarsPath, {
-      fallthrough: false,
-      maxAge: '1d',
-    })
-  );
-
   // Registered Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/crm', crmRoutes);

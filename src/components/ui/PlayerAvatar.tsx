@@ -17,13 +17,51 @@ interface PlayerAvatarProps {
   className?: string;
 }
 
+const avatarCache = new Map<string, string>();
+
 export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ nickname, size = 'sm', className = '' }) => {
-  const avatarUrl = getPlayerAvatarUrl(nickname);
+  const avatarApiUrl = getPlayerAvatarUrl(nickname);
+  const [dataUrl, setDataUrl] = useState<string | null>(() => (avatarApiUrl ? avatarCache.get(avatarApiUrl) || null : null));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setFailed(false);
-  }, [avatarUrl]);
+    if (!avatarApiUrl) {
+      setDataUrl(null);
+      setFailed(false);
+      return;
+    }
+
+    const cached = avatarCache.get(avatarApiUrl);
+    if (cached) {
+      setDataUrl(cached);
+      setFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(avatarApiUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load avatar');
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data && typeof data.dataUrl === 'string') {
+          avatarCache.set(avatarApiUrl, data.dataUrl);
+          setDataUrl(data.dataUrl);
+          setFailed(false);
+        } else {
+          setFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarApiUrl]);
 
   const initial = (nickname || '?').trim().charAt(0).toLocaleUpperCase('ru-RU') || '?';
 
@@ -33,9 +71,9 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({ nickname, size = 'sm
       title={nickname || 'Игрок'}
       aria-label={`Аватар: ${nickname || 'игрок'}`}
     >
-      {avatarUrl && !failed ? (
+      {dataUrl && !failed ? (
         <img
-          src={avatarUrl}
+          src={dataUrl}
           alt=""
           loading="lazy"
           decoding="async"

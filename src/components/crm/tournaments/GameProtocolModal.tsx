@@ -56,6 +56,18 @@ import {
   getRegularFoulChange,
   getTechFoulChange
 } from './protocol/protocolDisciplineUtils';
+import {
+  type ColorMarkEditState,
+  type ColorMarkType,
+  addColorMarkToResults,
+  createColorMarkEditState,
+  deleteColorMarkFromResults,
+  moveColorMarkInResults,
+  saveEditedColorMarkToResults,
+  setColorMarkEditType,
+  toggleColorMarkEditSeat,
+  toggleColorSeatInList
+} from './protocol/protocolColorUtils';
 
 export {
   buildLegacyTechFoulClassification,
@@ -110,7 +122,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Color Protocol builder state per player
   const [selectedColorSeats, setSelectedColorSeats] = useState<Record<string, number[]>>({});
-  const [selectedColorMark, setSelectedColorMark] = useState<Record<string, 'red' | 'black' | 'sheriff'>>({});
+  const [selectedColorMark, setSelectedColorMark] = useState<Record<string, ColorMarkType>>({});
 
   // Voting states
   const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
@@ -167,7 +179,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Color protocol entry editing state
   const [editingColorMarkMap, setEditingColorMarkMap] = useState<
-    Record<string, { index: number; seats: number[]; mark: 'red' | 'black' | 'sheriff' } | null>
+    Record<string, ColorMarkEditState | null>
   >({});
 
   const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<{
@@ -546,14 +558,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Color protocol handlers per player
   const toggleColorSeatSelection = (participantId: string, seatNum: number) => {
-    setSelectedColorSeats((prev) => {
-      const current = prev[participantId] || [];
-      if (current.includes(seatNum)) {
-        return { ...prev, [participantId]: current.filter((s) => s !== seatNum) };
-      } else {
-        return { ...prev, [participantId]: [...current, seatNum].sort((a, b) => a - b) };
-      }
-    });
+    setSelectedColorSeats((prev) => ({
+      ...prev,
+      [participantId]: toggleColorSeatInList(prev[participantId] || [], seatNum)
+    }));
   };
 
   const handleAddColorMark = (participantId: string) => {
@@ -562,16 +570,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     const mark = selectedColorMark[participantId] || 'red';
 
     setPlayerResults((prev) =>
-      prev.map((pr) => {
-        if (pr.participant_id === participantId) {
-          const list = pr.color_protocol || [];
-          return {
-            ...pr,
-            color_protocol: [...list, { seat_numbers: [...seats].sort((a, b) => a - b), mark }]
-          };
-        }
-        return pr;
-      })
+      addColorMarkToResults(prev, participantId, seats, mark)
     );
 
     setSelectedColorSeats((prev) => ({ ...prev, [participantId]: [] }));
@@ -579,35 +578,24 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   const handleMoveColorMark = (participantId: string, fromIndex: number, toIndex: number) => {
     setPlayerResults((prev) =>
-      prev.map((pr) => {
-        if (pr.participant_id === participantId) {
-          const list = [...(pr.color_protocol || [])];
-          if (toIndex < 0 || toIndex >= list.length) return pr;
-          const [moved] = list.splice(fromIndex, 1);
-          list.splice(toIndex, 0, moved);
-          return { ...pr, color_protocol: list };
-        }
-        return pr;
-      })
+      moveColorMarkInResults(prev, participantId, fromIndex, toIndex)
     );
   };
 
   const handleDeleteColorMark = (participantId: string, index: number) => {
     setPlayerResults((prev) =>
-      prev.map((pr) => {
-        if (pr.participant_id === participantId) {
-          const list = (pr.color_protocol || []).filter((_, i) => i !== index);
-          return { ...pr, color_protocol: list };
-        }
-        return pr;
-      })
+      deleteColorMarkFromResults(prev, participantId, index)
     );
   };
 
-  const startEditColorMark = (participantId: string, index: number, entry: { seat_numbers: number[]; mark: 'red' | 'black' | 'sheriff' }) => {
+  const startEditColorMark = (
+    participantId: string,
+    index: number,
+    entry: { seat_numbers: number[]; mark: ColorMarkType }
+  ) => {
     setEditingColorMarkMap((prev) => ({
       ...prev,
-      [participantId]: { index, seats: [...entry.seat_numbers], mark: entry.mark }
+      [participantId]: createColorMarkEditState(index, entry)
     }));
   };
 
@@ -619,18 +607,21 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     setEditingColorMarkMap((prev) => {
       const current = prev[participantId];
       if (!current) return prev;
-      const seats = current.seats.includes(seatNum)
-        ? current.seats.filter((s) => s !== seatNum)
-        : [...current.seats, seatNum].sort((a, b) => a - b);
-      return { ...prev, [participantId]: { ...current, seats } };
+      return {
+        ...prev,
+        [participantId]: toggleColorMarkEditSeat(current, seatNum)
+      };
     });
   };
 
-  const setEditColorMarkType = (participantId: string, mark: 'red' | 'black' | 'sheriff') => {
+  const setEditColorMarkType = (participantId: string, mark: ColorMarkType) => {
     setEditingColorMarkMap((prev) => {
       const current = prev[participantId];
       if (!current) return prev;
-      return { ...prev, [participantId]: { ...current, mark } };
+      return {
+        ...prev,
+        [participantId]: setColorMarkEditType(current, mark)
+      };
     });
   };
 
@@ -639,19 +630,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     if (!editState || editState.seats.length === 0) return;
 
     setPlayerResults((prev) =>
-      prev.map((pr) => {
-        if (pr.participant_id === participantId) {
-          const list = [...(pr.color_protocol || [])];
-          if (editState.index >= 0 && editState.index < list.length) {
-            list[editState.index] = {
-              seat_numbers: [...editState.seats].sort((a, b) => a - b),
-              mark: editState.mark
-            };
-          }
-          return { ...pr, color_protocol: list };
-        }
-        return pr;
-      })
+      saveEditedColorMarkToResults(prev, participantId, editState)
     );
 
     cancelEditColorMark(participantId);

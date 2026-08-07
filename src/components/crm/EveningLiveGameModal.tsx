@@ -37,9 +37,6 @@ const buildLegacyPlayers = (game: ClubGameRecord): LegacyPlayer[] => {
     last_visit: null,
   }));
 
-  // LiveGameEngine historically requires a numeric judge id from the same Player[] list.
-  // The club evening stores a free-form judge name, so a non-persisted synthetic judge is added
-  // after the 10 seated players. It is never saved into CRM/player data.
   seated.push({
     id: 10001,
     user_id: 10001,
@@ -76,16 +73,12 @@ const mapEngineResultToProtocol = (
   const zeroRoundVoted = markers.zeroRoundVotedSlot ? bySeat.get(Number(markers.zeroRoundVotedSlot)) : null;
 
   const bestMoves: NonNullable<TournamentGameProtocolData['best_moves']> = [];
-  const firstKilledSlotResult = slots.find((slot) => slot.slot_num === Number(markers.firstKilledSlot));
-  const zeroRoundSlotResult = slots.find((slot) => slot.slot_num === Number(markers.zeroRoundVotedSlot));
-
-  const firstGuesses = ((firstKilledSlotResult as any)?.best_move_guesses || []) as number[];
-  if (firstKilled && firstGuesses.length > 0) {
-    bestMoves.push({ participant_id: firstKilled.participant_id, source: 'first_killed', seat_numbers: firstGuesses.slice(0, 3) });
-  }
-  const zeroGuesses = ((zeroRoundSlotResult as any)?.best_move_guesses || []) as number[];
-  if (zeroRoundVoted && zeroGuesses.length > 0) {
-    bestMoves.push({ participant_id: zeroRoundVoted.participant_id, source: 'zero_round_voted', seat_numbers: zeroGuesses.slice(0, 3) });
+  const confirmedSource = markers.bestMoveSource as 'first_killed' | 'zero_round_voted' | null | undefined;
+  const confirmedSourceSlot = Number(markers.bestMoveSourceSlot || 0);
+  const confirmedSeats = Array.isArray(markers.bestMoveSeats) ? markers.bestMoveSeats.slice(0, 3) : [];
+  const confirmedPlayer = confirmedSourceSlot ? bySeat.get(confirmedSourceSlot) : null;
+  if (confirmedSource && confirmedPlayer && confirmedSeats.length > 0) {
+    bestMoves.push({ participant_id: confirmedPlayer.participant_id, source: confirmedSource, seat_numbers: confirmedSeats });
   }
 
   const playerResults = previousResults.map((previous) => {

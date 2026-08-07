@@ -1,4 +1,5 @@
 import type { PlayerResultData, TournamentGameProtocolData } from './api';
+import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from './liveDeathProtocol';
 
 export interface ClubGameProtocolEnvelope {
   version: 1;
@@ -66,14 +67,21 @@ export const clubGamesApi = {
       body: JSON.stringify(data),
     }),
 
-  saveProtocol: (
+  saveProtocol: async (
     gameId: number,
     data: { protocol: TournamentGameProtocolData; player_results: PlayerResultData[] }
-  ) =>
-    request<ClubGameRecord>(`/api/games/${gameId}/evening-protocol`, {
+  ) => {
+    const payload = {
+      ...data,
+      player_results: applyStoredDeathProtocolsToResults(data.player_results),
+    };
+    const result = await request<ClubGameRecord>(`/api/games/${gameId}/evening-protocol`, {
       method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+      body: JSON.stringify(payload),
+    });
+    clearStoredDeathProtocols();
+    return result;
+  },
 
   deleteDraft: (gameId: number) =>
     request<{ success: boolean }>(`/api/games/${gameId}/evening-draft`, { method: 'DELETE' }),

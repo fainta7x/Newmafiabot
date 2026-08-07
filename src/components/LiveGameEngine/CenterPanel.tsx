@@ -288,7 +288,6 @@ export default function CenterPanel({
 
     if (votingStage === 'revote_speeches') {
       const winners = result.winners;
-      const speaker = winners[revoteSpeakerIndex];
       const isLastSpeaker = revoteSpeakerIndex >= winners.length - 1;
       const advanceSpeech = () => {
         setIsTimerRunning(false);

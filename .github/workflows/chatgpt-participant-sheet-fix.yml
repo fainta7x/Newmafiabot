@@ -1,0 +1,45 @@
+name: ChatGPT participant sheet fix
+
+on:
+  push:
+    branches: [chatgpt-write-test]
+    paths:
+      - '.github/workflows/chatgpt-participant-sheet-fix.yml'
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt-write-test
+          fetch-depth: 0
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply participant sheet fix
+        run: python3 scripts/chatgpt_fix_evening_participant_sheet.py
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Remove one-off patch machinery
+        run: |
+          rm scripts/chatgpt_fix_evening_participant_sheet.py
+          rm .github/workflows/chatgpt-participant-sheet-fix.yml
+      - name: Commit verified fix
+        run: |
+          git config user.name 'ChatGPT Patch Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(evenings): make participant controls tappable'
+          git push origin HEAD:chatgpt-write-test

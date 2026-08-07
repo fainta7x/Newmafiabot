@@ -5,6 +5,7 @@ on:
     branches: [chatgpt-write-test]
     paths:
       - scripts/chatgpt_apply_safety_archive_patch.py
+      - .github/workflows/chatgpt-safety-archive-patch.yml
 
 permissions:
   contents: write

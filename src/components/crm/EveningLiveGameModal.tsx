@@ -137,15 +137,22 @@ const MobileLiveGameStyles = () => (
         display: none !important;
       }
 
-      /* Exact phone table requested by the organizer:
+      /*
+       * Exact phone table:
        *  9  10   1   2
        *  8  [ CONTROL ] 3
        *  7   6   5   4
+       *
+       * The whole board scales with the available phone viewport instead of
+       * using short fixed rows. This keeps it readable and removes dead space.
        */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        grid-template-rows: repeat(3, 132px) !important;
+        grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+        height: clamp(500px, calc(100dvh - 44px), 610px) !important;
+        min-height: 500px !important;
+        max-height: 610px !important;
         gap: 4px !important;
         padding: 0 !important;
         align-items: stretch !important;
@@ -166,15 +173,15 @@ const MobileLiveGameStyles = () => (
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 3; grid-row: 3; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4; grid-row: 3; }
 
-      /* Every player tile is the same exact size. */
+      /* All ten player tiles fully occupy their grid cell. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
         width: 100% !important;
         min-width: 0 !important;
-        height: 132px !important;
-        min-height: 132px !important;
-        max-height: 132px !important;
-        padding: 24px 1px 0 !important;
-        border-radius: 10px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        padding: 28px 2px 0 !important;
+        border-radius: 11px !important;
         transform: none !important;
         overflow: hidden !important;
       }
@@ -184,9 +191,9 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 34px !important;
-        height: 34px !important;
-        padding: 2px !important;
+        min-height: 40px !important;
+        height: 40px !important;
+        padding: 3px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Выставить на голосование"] span,
@@ -195,15 +202,15 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button {
-        min-width: 18px !important;
-        max-height: 22px !important;
-        padding: 1px 3px !important;
-        font-size: 8px !important;
+        min-width: 20px !important;
+        max-height: 24px !important;
+        padding: 2px 4px !important;
+        font-size: 9px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) span[class*="font-black"][class*="truncate"] {
-        font-size: 9px !important;
-        line-height: 10px !important;
+        font-size: 10px !important;
+        line-height: 11px !important;
       }
 
       .evening-live-engine-shell [title="Красный"],
@@ -214,17 +221,17 @@ const MobileLiveGameStyles = () => (
         pointer-events: none !important;
       }
 
-      /* Control HUD uses exactly the same middle-row height and spans two columns. */
+      /* The HUD occupies the same row height as the surrounding players. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
-        height: 132px !important;
-        min-height: 132px !important;
-        max-height: 132px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
         position: relative !important;
         top: auto !important;
         z-index: 20 !important;
-        padding: 4px !important;
-        border-radius: 10px !important;
+        padding: 6px !important;
+        border-radius: 11px !important;
         overflow: hidden !important;
       }
 
@@ -233,15 +240,15 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
-        padding-top: 1px !important;
-        padding-bottom: 1px !important;
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
         min-height: 0 !important;
         overflow-y: auto !important;
       }
 
-      /* Keep protocol/events below the fold; they never occupy live-table space. */
+      /* The event/protocol area follows the full-height board naturally below the fold. */
       .evening-live-engine-shell > div > div.space-y-4 > :last-child {
-        margin-top: max(12px, calc(100dvh - 34px - 410px)) !important;
+        margin-top: 8px !important;
       }
 
       .evening-live-mobile-title-secondary { display: none !important; }

@@ -1,6 +1,14 @@
 from pathlib import Path
 import re
 
+sheet_path = Path('src/components/crm/EveningGameCreateSheet.tsx')
+sheet_text = sheet_path.read_text(encoding='utf-8')
+old_sheet_import = "import { Check, Search, Shuffle, Users, X } from 'lucide-react';"
+new_sheet_import = "import { Search, Shuffle, Users, X } from 'lucide-react';"
+if old_sheet_import not in sheet_text:
+    raise SystemExit('game create sheet import not found')
+sheet_path.write_text(sheet_text.replace(old_sheet_import, new_sheet_import, 1), encoding='utf-8')
+
 path = Path('src/components/crm/EveningGamesView.tsx')
 text = path.read_text(encoding='utf-8')
 
@@ -67,4 +75,4 @@ for forbidden in ['tableParticipants', 'selectedTableId', 'seatParticipantIds', 
         raise SystemExit(f'old table-bound setup still present: {forbidden}')
 
 path.write_text(text, encoding='utf-8')
-print('EveningGamesView patched successfully')
+print('EveningGamesView and create sheet patched successfully')

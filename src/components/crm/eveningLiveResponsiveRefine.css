@@ -1,20 +1,14 @@
 @media (max-width: 767px) {
-  /* Keep discipline counters physically tied to the avatar instead of card edges. */
+  /* Discipline counters belong to the card corner, not to avatar geometry. */
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
-    --live-avatar-size: clamp(38px, 11.5vw, 58px);
     --live-rail-width: clamp(12px, 3vw, 15px);
-  }
-
-  html body .evening-live-engine-shell .evening-live-player-avatar {
-    width: var(--live-avatar-size) !important;
-    height: var(--live-avatar-size) !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline {
     position: absolute !important;
-    top: 50% !important;
-    left: calc(50% - clamp(19px, 5.75vw, 29px) - var(--live-rail-width) - clamp(2px, 0.7vw, 4px)) !important;
-    transform: translateY(-62%) !important;
+    top: clamp(5px, 1.4vw, 8px) !important;
+    left: clamp(5px, 1.4vw, 8px) !important;
+    transform: none !important;
     width: var(--live-rail-width) !important;
     max-width: var(--live-rail-width) !important;
     grid-template-columns: var(--live-rail-width) !important;
@@ -27,6 +21,13 @@
     min-width: var(--live-rail-width) !important;
     height: clamp(11px, 2.8vw, 14px) !important;
     font-size: clamp(5px, 1.35vw, 6.5px) !important;
+  }
+
+  /* Player-card feedback while the table votes whether all tied players leave. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > [data-table-vote-selected="true"] {
+    border-color: rgb(244 63 94) !important;
+    background: rgb(136 19 55 / 0.18) !important;
+    box-shadow: inset 0 0 0 1px rgb(244 63 94 / 0.5), 0 0 16px rgb(244 63 94 / 0.28) !important;
   }
 
   /*

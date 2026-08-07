@@ -40,7 +40,6 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
 
   const tables = evening?.tables || [];
   const participants = evening?.participants || [];
-  const selectedTable = tables.find((table) => table.id === selectedTableId) || null;
 
   const tableParticipants = useMemo(() => participants.filter((participant) => {
     if (!selectedTableId || participant.table_id !== selectedTableId) return false;

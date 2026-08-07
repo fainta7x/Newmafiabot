@@ -124,150 +124,108 @@ const MobileLiveGameStyles = () => (
 
       .evening-live-engine-shell > div {
         max-width: none !important;
-        padding: 2px 3px 6px !important;
+        padding: 3px !important;
+        padding-bottom: 12px !important;
       }
 
       .evening-live-engine-shell > div > div.space-y-4,
       .evening-live-engine-shell > div > div.space-y-6 {
-        gap: 3px !important;
+        gap: 4px !important;
       }
 
-      /* Hide the desktop judging toolbar on phone. */
+      /* The full desktop judging toolbar is intentionally hidden on phone. */
       .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
         display: none !important;
       }
 
-      /* Two columns x five rows. */
+      /* Restore the original table geometry on phone: 5 players, center HUD, 5 players. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        grid-template-rows: 68px minmax(150px, auto) 68px !important;
         gap: 3px !important;
         padding: 0 !important;
+        align-items: stretch !important;
       }
 
-      /* Target SeatCard itself, not grid position classes. This keeps all ten seats identical. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] {
-        height: 54px !important;
-        min-height: 54px !important;
-        max-height: 54px !important;
-        padding: 16px 0 0 !important;
-        border-radius: 9px !important;
-        overflow: hidden !important;
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1) { grid-column: 1; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2) { grid-column: 2; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3) { grid-column: 3; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4) { grid-column: 4; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5) { grid-column: 5; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6) { grid-column: 5; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7) { grid-column: 4; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8) { grid-column: 3; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9) { grid-column: 2; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 1; grid-row: 1; }
+
+      /* All ten player cards use exactly the same compact geometry. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
+        width: 100% !important;
+        height: 68px !important;
+        min-height: 68px !important;
+        max-height: 68px !important;
+        padding: 19px 1px 0 !important;
+        border-radius: 10px !important;
         transform: none !important;
+        overflow: hidden !important;
       }
 
-      /* Verbose player-body text is not needed while running a game on a phone. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.flex-1 {
+      /* Remove the verbose card body; number/name/role and quick actions remain. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
         display: none !important;
       }
 
-      /* Quick foul/remove buttons stay at the top-right but become smaller. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] {
-        top: 1px !important;
-        left: 3px !important;
-        right: 3px !important;
-        height: 14px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] button,
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] div {
-        min-height: 14px !important;
-        height: 14px !important;
-        line-height: 12px !important;
-        font-size: 7px !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-      }
-
-      /* Night selection markers (victim / Don / Sheriff) become a small chip instead of a full banner. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] {
-        top: 1px !important;
-        left: 3px !important;
-        right: auto !important;
-        width: auto !important;
-        max-width: 72px !important;
-        z-index: 30 !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] span {
-        height: 14px !important;
-        min-height: 14px !important;
-        padding: 0 4px !important;
-        font-size: 7px !important;
-        line-height: 12px !important;
-        gap: 2px !important;
-        white-space: nowrap !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] svg {
-        width: 8px !important;
-        height: 8px !important;
-      }
-
-      /* Identity strip is the main mobile seat content. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] {
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
         min-height: 28px !important;
         height: 28px !important;
-        padding: 1px 4px !important;
-        margin-top: auto !important;
+        padding: 1px 2px !important;
+        gap: 0 !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] span[class*="text-[11px]"] {
-        font-size: 10px !important;
-        line-height: 11px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] span[class*="text-[7.5px]"] {
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Выставить на голосование"] span,
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Снять с голосования"] span {
         display: none !important;
       }
 
-      /* Compact phone HUD. */
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] {
-        top: 0 !important;
-        min-height: 0 !important;
-        height: auto !important;
-        max-height: 160px !important;
-        border-radius: 11px !important;
-        padding: 4px !important;
-        z-index: 60 !important;
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button {
+        min-width: 16px !important;
+        max-height: 19px !important;
+        padding: 1px 3px !important;
+        font-size: 8px !important;
       }
 
-      /* Prev/Next describe night navigation, so duplicate tabs are hidden. */
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex.flex-wrap {
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) span[class*="font-black"][class*="truncate"] {
+        font-size: 8px !important;
+        line-height: 9px !important;
+      }
+
+      /* The center panel is the middle of the table, never a sticky overlay. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+        grid-column: 1 / span 5 !important;
+        grid-row: 2 !important;
+        order: 0 !important;
+        position: relative !important;
+        top: auto !important;
+        z-index: 20 !important;
+        width: 100% !important;
+        min-height: 150px !important;
+        max-height: 190px !important;
+        padding: 6px !important;
+        border-radius: 14px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex.flex-wrap {
         display: none !important;
       }
 
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div:first-child {
-        padding-bottom: 2px !important;
-      }
-
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 {
-        padding-top: 1px !important;
-        padding-bottom: 1px !important;
-        min-height: 0 !important;
-      }
-
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 div[class*="text-2xl"],
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 div[class*="text-3xl"] {
-        font-size: 22px !important;
-        line-height: 26px !important;
-      }
-
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] button[class*="h-9"],
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] button[class*="h-10"] {
-        height: 29px !important;
-      }
-
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] div[class*="min-h-[36px]"] {
-        min-height: 29px !important;
-      }
-
-      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div:last-child {
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
         padding-top: 2px !important;
-        gap: 2px !important;
+        padding-bottom: 2px !important;
+        min-height: 0 !important;
       }
 
-      .evening-live-mobile-title-secondary {
-        display: none !important;
-      }
+      .evening-live-mobile-title-secondary { display: none !important; }
     }
   `}</style>
 );

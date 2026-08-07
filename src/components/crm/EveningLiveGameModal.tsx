@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
@@ -353,6 +353,52 @@ const MobileLiveGameStyles = () => (
         scrollbar-width: none !important;
       }
 
+      /* Player actions: icon-first 4x2 control pad, ordered by usage frequency. */
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+      }
+
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button {
+        min-height: 58px !important;
+        height: 58px !important;
+        padding: 0 !important;
+        border-radius: 14px !important;
+        font-size: 0 !important;
+        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        user-select: none !important;
+        touch-action: manipulation !important;
+      }
+
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button::before {
+        font-size: 27px !important;
+        line-height: 1 !important;
+        font-weight: 900 !important;
+      }
+
+      /* Existing DOM order: foul+, foul-, minor tech, major tech, nomination, remove, PPK, note. */
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(5) { order: 1; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(1) { order: 2; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(2) { order: 3; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(3) { order: 4; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(4) { order: 5; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(6) { order: 6; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7) { order: 7; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8) { order: 8; }
+
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(5)::before { content: "👍"; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(1)::before { content: "✓+"; color: rgb(251, 191, 36); }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(2)::before { content: "✓−"; color: rgb(203, 213, 225); }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(3)::before { content: "!"; color: rgb(250, 204, 21); font-size: 34px !important; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(4)::before { content: "!"; color: rgb(248, 113, 113); font-size: 34px !important; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(6)::before { content: "🚪"; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7)::before { content: "🏳️"; }
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8)::before { content: "🗒️"; }
+
       /* CRM identity overlay: avatar and nickname use the otherwise empty card area. */
       .evening-live-identity-layer {
         position: absolute;
@@ -427,6 +473,24 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
     [game],
   );
+
+  useEffect(() => {
+    const originalConfirm = window.confirm;
+    window.confirm = (message?: string) => {
+      const text = String(message || '');
+      const isDisciplineAction =
+        text.includes('Удалить игрока') ||
+        text.includes('ППК') ||
+        text.includes('4-й фол') ||
+        text.includes('второй технический фол');
+      if (isDisciplineAction) return true;
+      return originalConfirm.call(window, text);
+    };
+
+    return () => {
+      window.confirm = originalConfirm;
+    };
+  }, []);
 
   if (!game.club_protocol) return null;
 

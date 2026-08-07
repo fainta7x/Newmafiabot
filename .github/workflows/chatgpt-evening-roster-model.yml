@@ -2,24 +2,27 @@ name: ChatGPT evening roster model
 
 on:
   push:
-    branches: [chatgpt-write-test]
+    branches:
+      - chatgpt-write-test
     paths:
-      - '.github/workflows/chatgpt-evening-roster-model.yml'
+      - .github/workflows/chatgpt-evening-roster-model.yml
+
+permissions:
+  contents: write
 
 jobs:
   apply-and-verify:
-    if: github.event.head_commit.message != 'refactor(evenings): decouple roster from tables'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: chatgpt-write-test
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - name: Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '24'
           cache: npm
       - name: Apply final game setup patch
         run: python3 scripts/chatgpt_evening_roster_model.py

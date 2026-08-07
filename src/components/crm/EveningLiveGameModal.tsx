@@ -140,7 +140,7 @@ const MobileLiveGameStyles = () => (
         display: none !important;
       }
 
-      /* Fixed table layout — do not change without an explicit UI redesign. */
+      /* Fixed approved table layout — do not change without explicit request. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -179,7 +179,7 @@ const MobileLiveGameStyles = () => (
         overflow: hidden !important;
       }
 
-      /* Mobile cards are clean: all discipline/nomination actions live in the tap menu. */
+      /* Mobile cards are clean: discipline/nomination actions live in the tap menu. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"] {
         display: none !important;
       }
@@ -207,7 +207,7 @@ const MobileLiveGameStyles = () => (
         pointer-events: none !important;
       }
 
-      /* Center HUD is fixed in place. Nothing inside it scrolls. */
+      /* Center HUD: strict three-zone mobile layout, no internal scroll. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
         height: 100% !important;
@@ -216,8 +216,17 @@ const MobileLiveGameStyles = () => (
         position: relative !important;
         top: auto !important;
         z-index: 20 !important;
-        padding: 6px !important;
+        padding: 4px !important;
         border-radius: 11px !important;
+        overflow: hidden !important;
+        display: grid !important;
+        grid-template-rows: 24px minmax(0, 1fr) 38px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
+        min-height: 0 !important;
+        height: 24px !important;
+        padding: 0 2px 2px !important;
         overflow: hidden !important;
       }
 
@@ -226,10 +235,85 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
-        padding-top: 2px !important;
-        padding-bottom: 2px !important;
         min-height: 0 !important;
+        height: 100% !important;
+        padding: 2px 0 !important;
         overflow: hidden !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      /* Normalize vertical rhythm of whatever current phase renders in the HUD. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 2px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div > * + * {
+        margin-top: 3px !important;
+      }
+
+      /* Timer: compact but readable, designed to fit the fixed middle cell. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 span[class*="tracking-widest"] {
+        font-size: 8px !important;
+        line-height: 9px !important;
+        min-height: 9px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 div[class*="text-xs"][class*="font-black"] {
+        font-size: 10px !important;
+        line-height: 11px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 div[class*="font-mono"][class*="font-black"] {
+        font-size: 28px !important;
+        line-height: 34px !important;
+        height: 38px !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 div[class*="h-1.5"] {
+        height: 4px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 button[class*="h-9"] {
+        height: 28px !important;
+        min-height: 28px !important;
+        border-radius: 8px !important;
+        font-size: 9px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 button[class*="h-9"] svg {
+        width: 13px !important;
+        height: 13px !important;
+      }
+
+      /* Bottom navigation is a fixed, clean row. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
+        min-height: 0 !important;
+        height: 38px !important;
+        padding-top: 3px !important;
+        overflow: hidden !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div[class*="grid-cols-12"] {
+        min-height: 31px !important;
+        height: 31px !important;
+        gap: 4px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child button {
+        min-height: 31px !important;
+        height: 31px !important;
+        padding: 2px 4px !important;
+        font-size: 8px !important;
+        line-height: 10px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) * {

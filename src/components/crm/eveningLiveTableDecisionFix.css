@@ -7,7 +7,7 @@
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
     --live-avatar-size-final: clamp(38px, 11.5vw, 58px);
     --live-avatar-half-final: clamp(19px, 5.75vw, 29px);
-    --live-discipline-w-final: clamp(12px, 3vw, 15px);
+    --live-discipline-w-final: clamp(15px, 3.8vw, 18px);
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) var(--live-avatar-size-final) auto minmax(0, 1fr) !important;
@@ -50,7 +50,7 @@
     transform: translateX(calc(-1 * var(--live-avatar-half-final) - var(--live-discipline-w-final) - 3px)) !important;
     display: grid !important;
     grid-template-columns: var(--live-discipline-w-final) !important;
-    grid-auto-rows: clamp(11px, 2.8vw, 14px) !important;
+    grid-auto-rows: clamp(14px, 3.5vw, 17px) !important;
     gap: clamp(1px, 0.3vw, 2px) !important;
     width: var(--live-discipline-w-final) !important;
     max-width: var(--live-discipline-w-final) !important;
@@ -62,9 +62,9 @@
     box-sizing: border-box !important;
     width: var(--live-discipline-w-final) !important;
     min-width: var(--live-discipline-w-final) !important;
-    height: clamp(11px, 2.8vw, 14px) !important;
+    height: clamp(14px, 3.5vw, 17px) !important;
     padding: 0 !important;
-    font-size: clamp(5px, 1.35vw, 6.5px) !important;
+    font-size: clamp(6.5px, 1.75vw, 8px) !important;
   }
 
   /*

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Search, Shuffle, Users, X } from 'lucide-react';
+import { Search, Shuffle, Users, X } from 'lucide-react';
 import type { EveningParticipant, EveningTable, GameEvening } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { isEveningGameEligible, sortEveningRoster, toggleParticipantInSeats } from '../../lib/eveningRoster';

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2, Users, X } from 'lucide-react';
+import { Archive, ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { EveningGameProtocolModal } from './EveningGameProtocolModal';
 import { EveningLiveGameModal } from './EveningLiveGameModal';
+import { EveningGameCreateSheet } from './EveningGameCreateSheet';
 
 interface EveningGamesViewProps {
   eveningId: string;
@@ -17,13 +18,9 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const [showArchive, setShowArchive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [selectedTableId, setSelectedTableId] = useState('');
-  const [judgeName, setJudgeName] = useState('');
-  const [seatParticipantIds, setSeatParticipantIds] = useState<string[]>(Array(10).fill(''));
   const [activeProtocolGame, setActiveProtocolGame] = useState<ClubGameRecord | null>(null);
   const [activeLiveGame, setActiveLiveGame] = useState<ClubGameRecord | null>(null);
   const [modeChoiceGame, setModeChoiceGame] = useState<ClubGameRecord | null>(null);
-  const [creating, setCreating] = useState(false);
   const [pendingGameAction, setPendingGameAction] = useState<{ type: 'archive' | 'delete'; game: ClubGameRecord } | null>(null);
   const [processingGameAction, setProcessingGameAction] = useState(false);
 
@@ -50,57 +47,8 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const tables = evening?.tables || [];
   const participants = evening?.participants || [];
 
-  const tableParticipants = useMemo(() => participants.filter((participant) => {
-    if (!selectedTableId || participant.table_id !== selectedTableId) return false;
-    if (participant.registration_status === 'cancelled' || participant.registration_status === 'waitlist') return false;
-    if (participant.attendance_status === 'no_show') return false;
-    return true;
-  }), [participants, selectedTableId]);
 
-  const openCreate = () => {
-    const initialTable = tables[0] || null;
-    const initialParticipants = initialTable
-      ? participants.filter((participant) => participant.table_id === initialTable.id && participant.registration_status !== 'cancelled' && participant.registration_status !== 'waitlist' && participant.attendance_status !== 'no_show')
-      : [];
-    setSelectedTableId(initialTable?.id || '');
-    setJudgeName(initialTable?.host_name || '');
-    setSeatParticipantIds(Array.from({ length: 10 }, (_, index) => initialParticipants[index]?.id || ''));
-    setShowCreate(true);
-  };
-
-  const handleTableChange = (tableId: string) => {
-    const table = tables.find((item) => item.id === tableId) || null;
-    const eligible = participants.filter((participant) => participant.table_id === tableId && participant.registration_status !== 'cancelled' && participant.registration_status !== 'waitlist' && participant.attendance_status !== 'no_show');
-    setSelectedTableId(tableId);
-    setJudgeName(table?.host_name || '');
-    setSeatParticipantIds(Array.from({ length: 10 }, (_, index) => eligible[index]?.id || ''));
-  };
-
-  const updateSeat = (seatIndex: number, participantId: string) => {
-    setSeatParticipantIds((previous) => previous.map((value, index) => index === seatIndex ? participantId : value));
-  };
-
-  const createGame = async () => {
-    if (!selectedTableId) return alert('Выберите игровой стол');
-    if (seatParticipantIds.some((id) => !id) || new Set(seatParticipantIds).size !== 10) {
-      return alert('Для игры нужно выбрать 10 разных игроков');
-    }
-    setCreating(true);
-    try {
-      const created = await clubGamesApi.create(eveningId, {
-        evening_table_id: selectedTableId,
-        judge_name: judgeName || null,
-        seats: seatParticipantIds.map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
-      });
-      setGames((previous) => [created, ...previous]);
-      setShowCreate(false);
-      setModeChoiceGame(created);
-    } catch (err: any) {
-      alert(err.message || 'Не удалось создать игру');
-    } finally {
-      setCreating(false);
-    }
-  };
+  const openCreate = () => setShowCreate(true);
 
   const archiveGame = (game: ClubGameRecord) => {
     setPendingGameAction({ type: 'archive', game });
@@ -174,7 +122,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
               <p className="text-xs text-slate-400 mt-1">{new Date(evening.starts_at).toLocaleDateString('ru-RU')} {evening.venue ? `• ${evening.venue}` : ''}</p>
             </div>
           </div>
-          <button type="button" onClick={openCreate} disabled={tables.length === 0} className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-40">
+          <button type="button" onClick={openCreate} className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase flex items-center justify-center gap-2">
             <Plus className="w-4 h-4" />Новая игра
           </button>
         </div>
@@ -313,31 +261,17 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
       )}
 
       {showCreate && (
-        <div className="fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-3xl p-5 space-y-5 relative my-auto">
-            <button type="button" onClick={() => setShowCreate(false)} className="absolute top-4 right-4 p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400"><X className="w-4 h-4" /></button>
-            <div><h3 className="text-lg font-black text-white">Новая игра</h3><p className="text-xs text-slate-400">Выбери стол и рассадку. После создания можно провести игру пошагово или заполнить протокол вручную.</p></div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="text-xs text-slate-400 font-bold">Стол<select value={selectedTableId} onChange={(e) => handleTableChange(e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="">Выбрать стол</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
-              <label className="text-xs text-slate-400 font-bold">Ведущий<input value={judgeName} onChange={(e) => setJudgeName(e.target.value)} placeholder="Имя ведущего" className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" /></label>
-            </div>
-
-            {selectedTableId && tableParticipants.length < 10 && <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs">На столе сейчас доступно только {tableParticipants.length} игроков. Для создания игры нужно 10.</div>}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {Array.from({ length: 10 }, (_, index) => {
-                const selectedElsewhere = new Set(seatParticipantIds.filter((_, selectedIndex) => selectedIndex !== index));
-                return <label key={index} className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl p-2"><span className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-xs font-black text-rose-400">{index + 1}</span><select value={seatParticipantIds[index]} onChange={(e) => updateSeat(index, e.target.value)} className="flex-1 bg-transparent text-xs text-white min-w-0"><option value="">— выбрать игрока —</option>{tableParticipants.map((participant) => <option key={participant.id} value={participant.id} disabled={selectedElsewhere.has(participant.id)}>{participant.nickname}</option>)}</select></label>;
-              })}
-            </div>
-
-            <div className="flex justify-between items-center gap-3 pt-2 border-t border-slate-800">
-              <div className="text-[10px] text-slate-500 flex items-center gap-1"><Users className="w-3.5 h-3.5" />Выбрано {seatParticipantIds.filter(Boolean).length}/10</div>
-              <button type="button" disabled={creating || tableParticipants.length < 10} onClick={createGame} className="min-h-[44px] px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black uppercase">{creating ? 'Создание…' : 'Создать игру'}</button>
-            </div>
-          </div>
-        </div>
+        <EveningGameCreateSheet
+          evening={evening}
+          tables={tables}
+          participants={participants}
+          onClose={() => setShowCreate(false)}
+          onCreated={(created) => {
+            setGames((previous) => [created, ...previous.filter((game) => game.id !== created.id)]);
+            setShowCreate(false);
+            setModeChoiceGame(created);
+          }}
+        />
       )}
 
       {modeChoiceGame && (

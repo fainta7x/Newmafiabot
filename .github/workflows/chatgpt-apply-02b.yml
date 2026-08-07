@@ -1,0 +1,67 @@
+name: ChatGPT apply PATCH 02B
+
+on:
+  push:
+    branches:
+      - preview/live-game-voting-02b
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Apply source edits
+        run: python3 scripts/chatgpt_apply_02b.py
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused protocol and voting tests
+        run: npx vitest run src/tests/gameProtocolCore.test.ts src/tests/liveVoting.test.ts
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Guard database checkpoint
+        run: |
+          if ! git diff --quiet HEAD -- mafia_crm.checkpoint.sqlite.gz.b64; then
+            echo 'ERROR: checkpoint changed unexpectedly'
+            exit 1
+          fi
+
+      - name: Commit verified source changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/LiveGameEngine.tsx \
+                  src/components/LiveGameEngine/types.ts \
+                  src/components/LiveGameEngine/CenterPanel.tsx \
+                  src/lib/gameProtocolCore.ts \
+                  src/lib/liveVoting.ts \
+                  src/tests/gameProtocolCore.test.ts \
+                  src/tests/liveVoting.test.ts
+          git commit -m 'fix(live-game): finish tournament voting parity'
+          git push origin HEAD:preview/live-game-voting-02b

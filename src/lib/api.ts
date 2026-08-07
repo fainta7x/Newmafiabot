@@ -27,6 +27,71 @@ export interface Player {
   days_since_last_visit?: number | null;
   open_tasks_count?: number;
   outstanding_debt?: number;
+ }
+
+export interface PlayerGameHistoryItem {
+  id: string;
+  source: 'club' | 'tournament';
+  evening_id: string | null;
+  tournament_id: string | null;
+  title: string;
+  date: string | null;
+  game_number: number;
+  global_game_number: number | null;
+  table_name: string | null;
+  judge_name: string | null;
+  seat_number: number;
+  role: 'citizen' | 'sheriff' | 'mafia' | 'don' | null;
+  team: 'red' | 'black' | null;
+  winner_team: 'red' | 'black' | null;
+  status: string;
+  won: boolean | null;
+  exit_type: string | null;
+  regular_fouls: number;
+  minor_technical_fouls: number;
+  major_technical_fouls: number;
+  judge_bonus: number;
+  protocol_bonus: number;
+  ci_points: number;
+  penalty_points: number;
+  disciplinary_penalty_points: number;
+  best_move: boolean;
+  best_move_source: 'first_killed' | 'zero_round_voted' | null;
+  first_killed: boolean;
+  zero_round_voted: boolean;
+}
+
+export interface PlayerGameProfileStats {
+  totalGames: number;
+  completedGames: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  clubGames: number;
+  tournamentGames: number;
+  redGames: number;
+  blackGames: number;
+  bestMoves: number;
+  firstKilled: number;
+  zeroRoundVoted: number;
+  lastGameAt: string | null;
+  roleCounts: { citizen: number; sheriff: number; mafia: number; don: number; unknown: number };
+}
+
+export interface PlayerDetails extends Player {
+  stats: any;
+  futureBookings: EveningParticipant[];
+  attendedEvenings: EveningParticipant[];
+  cancelledEvenings: EveningParticipant[];
+  noShowEvenings: EveningParticipant[];
+  eveningHistory: EveningParticipant[];
+  tasks: OrganizerTask[];
+  nextTask: OrganizerTask | null;
+  transactions: any[];
+  activities: PlayerActivity[];
+  clubGames: PlayerGameHistoryItem[];
+  tournamentGames: PlayerGameHistoryItem[];
+  gameStats: PlayerGameProfileStats;
 }
 
 export interface EveningTable {
@@ -561,20 +626,7 @@ export const api = {
     });
     return request<Player[]>(`/api/players?${query.toString()}`);
   },
-  getPlayer: (id: string) =>
-    request<
-      Player & {
-        stats: any;
-        futureBookings: EveningParticipant[];
-        attendedEvenings: EveningParticipant[];
-        cancelledEvenings: EveningParticipant[];
-        noShowEvenings: EveningParticipant[];
-        eveningHistory: EveningParticipant[];
-        tasks: OrganizerTask[];
-        nextTask: OrganizerTask | null;
-        transactions: any[];
-      }
-    >(`/api/players/${id}`),
+  getPlayer: (id: string) => request<PlayerDetails>(`/api/players/${id}`),
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),

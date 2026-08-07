@@ -7,6 +7,7 @@ import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
+import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 
 const router = Router();
 
@@ -196,6 +197,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const engagement_stage = calculateEngagementStage(attendanceCount, lastVisit);
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
+    const gameProfile = await loadPlayerGameProfile(db, req.params.id);
 
     res.json({
       ...player,
@@ -221,6 +223,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       nextTask,
       transactions,
       activities,
+      ...gameProfile,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

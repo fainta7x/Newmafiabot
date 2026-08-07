@@ -28,6 +28,7 @@ import {
 } from '../../lib/playerUtils.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
+import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -57,6 +58,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [activePlayerCardId, setActivePlayerCardId] = useState<string | null>(selectedPlayerId || null);
   const [playerDetails, setPlayerDetails] = useState<any | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [playerCardView, setPlayerCardView] = useState<'profile' | 'crm'>('profile');
 
   // Edit Mode state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -132,6 +134,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
   useEffect(() => {
     if (selectedPlayerId) {
+      setPlayerCardView('profile');
       setActivePlayerCardId(selectedPlayerId);
       loadPlayerDetails(selectedPlayerId);
     }
@@ -192,6 +195,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   };
 
   const handleOpenCard = (id: string) => {
+    setPlayerCardView('profile');
     setActivePlayerCardId(id);
     loadPlayerDetails(id);
   };
@@ -199,6 +203,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const handleCloseCard = () => {
     setActivePlayerCardId(null);
     setPlayerDetails(null);
+    setPlayerCardView('profile');
     setIsEditMode(false);
     if (onClosePlayerCard) onClosePlayerCard();
   };
@@ -805,9 +810,34 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       </div>
 
       {/* DRAWER / MODAL: Player Detailed Card */}
-      {activePlayerCardId && (
+      {activePlayerCardId && playerCardView === 'profile' && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm p-0 sm:p-4">
+          <div className="mx-auto flex h-full w-full max-w-2xl flex-col bg-slate-950 sm:rounded-3xl sm:border sm:border-slate-800 overflow-hidden">
+            <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-3 py-2.5 flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1 flex-1">
+                <button type="button" className="min-h-9 rounded-lg bg-rose-600 text-[10px] font-black text-white">ПРОФИЛЬ</button>
+                <button type="button" onClick={() => setPlayerCardView('crm')} className="min-h-9 rounded-lg text-[10px] font-black text-slate-400">CRM</button>
+              </div>
+              <button type="button" aria-label="Закрыть профиль" onClick={handleCloseCard} className="w-11 h-11 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 flex items-center justify-center"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+              {loadingDetails || !playerDetails ? <div className="py-20 text-center text-xs text-slate-500">Загрузка профиля…</div> : <PlayerProfileContent player={playerDetails} />}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activePlayerCardId && playerCardView === 'crm' && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm p-0 sm:p-4">
           <div className="bg-slate-900 border-l sm:border border-slate-800 w-full max-w-xl h-full sm:h-auto sm:rounded-3xl p-6 overflow-y-auto space-y-6 text-white relative">
+            <button
+              type="button"
+              onClick={() => setPlayerCardView('profile')}
+              className="sticky top-0 z-10 mb-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black text-rose-300"
+            >
+              ← Игровой профиль
+            </button>
+
             <button
               onClick={handleCloseCard}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-full bg-slate-800 cursor-pointer"

@@ -27,6 +27,7 @@ import {
   ContactStatus,
 } from '../../lib/playerUtils.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -200,6 +201,50 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     setPlayerDetails(null);
     setIsEditMode(false);
     if (onClosePlayerCard) onClosePlayerCard();
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !playerDetails) return;
+
+    setSaveStatusMessage('Загрузка...');
+    try {
+      const prepared = await preparePlayerAvatar(file);
+      await api.uploadPlayerAvatar(playerDetails.id, prepared);
+      
+      setSaveStatusMessage('Аватарка сохранена');
+      setTimeout(() => setSaveStatusMessage(null), 3000);
+
+      await loadPlayerDetails(playerDetails.id);
+      await loadPlayers();
+      if (onCrmChanged) onCrmChanged();
+    } catch (err: any) {
+      setSaveStatusMessage(`Ошибка: ${err.message}`);
+      setTimeout(() => setSaveStatusMessage(null), 5000);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!playerDetails) return;
+    
+    if (window.confirm('Удалить аватарку игрока?')) {
+      try {
+        setSaveStatusMessage('Удаление...');
+        await api.deletePlayerAvatar(playerDetails.id);
+        
+        setSaveStatusMessage('Аватарка удалена');
+        setTimeout(() => setSaveStatusMessage(null), 3000);
+
+        await loadPlayerDetails(playerDetails.id);
+        await loadPlayers();
+        if (onCrmChanged) onCrmChanged();
+      } catch (err: any) {
+        setSaveStatusMessage(`Ошибка: ${err.message}`);
+        setTimeout(() => setSaveStatusMessage(null), 5000);
+      }
+    }
   };
 
   const handleSavePlayerDetails = async () => {
@@ -679,7 +724,12 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               >
                 <div className="space-y-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <PlayerAvatar nickname={p.nickname} size="md" />
+                    <PlayerAvatar
+                      playerId={p.id}
+                      avatarVersion={p.avatar_updated_at}
+                      nickname={p.nickname}
+                      size="md"
+                    />
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-bold text-white leading-snug whitespace-normal break-words">
                         {p.nickname}
@@ -773,10 +823,55 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 <div className="space-y-3 border-b border-slate-800 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <PlayerAvatar nickname={playerDetails.nickname} size="lg" />
-                      <div className="min-w-0">
-                        <h3 className="text-2xl font-black text-white truncate">{playerDetails.nickname}</h3>
-                        {playerDetails.full_name && <p className="text-xs text-slate-400 truncate">{playerDetails.full_name}</p>}
+                      <div className="flex flex-col items-center gap-2 shrink-0">
+                        <div
+                          onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
+                          className="cursor-pointer hover:opacity-80 transition-opacity relative group"
+                          title="Нажмите, чтобы загрузить или заменить фото"
+                        >
+                          <PlayerAvatar
+                            playerId={playerDetails.id}
+                            avatarVersion={playerDetails.avatar_updated_at}
+                            nickname={playerDetails.nickname}
+                            size="lg"
+                          />
+                        </div>
+                        <input
+                          type="file"
+                          id="player-avatar-upload-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarFileChange}
+                        />
+                        <div className="flex gap-1.5">
+                          {!playerDetails.avatar_updated_at ? (
+                            <button
+                              onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-500 hover:bg-rose-400 text-white cursor-pointer transition-colors"
+                            >
+                              Загрузить фото
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer transition-colors"
+                              >
+                                Заменить фото
+                              </button>
+                              <button
+                                onClick={handleDeleteAvatar}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 cursor-pointer transition-colors"
+                              >
+                                Удалить
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl font-black text-white truncate leading-snug whitespace-normal break-words">{playerDetails.nickname}</h3>
+                        {playerDetails.full_name && <p className="text-xs text-slate-400 whitespace-normal break-words leading-normal line-clamp-2">{playerDetails.full_name}</p>}
                       </div>
                     </div>
 

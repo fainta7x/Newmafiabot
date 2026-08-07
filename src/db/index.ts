@@ -324,4 +324,23 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   } catch (e) {
     console.error('Failed to migrate legacy penalty_points to judge_bonus:', e);
   }
+
+  // Create player_avatars table and index
+  try {
+    dbWrapper.sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS player_avatars (
+        player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+        mime_type TEXT NOT NULL,
+        image_data BLOB NOT NULL,
+        byte_size INTEGER NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at
+      ON player_avatars(updated_at);
+    `);
+  } catch (e) {
+    console.error('Failed to create player_avatars table:', e);
+  }
 }

@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import path from 'path';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
+import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 
 const router = Router();
 
@@ -27,6 +29,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     // Query base player data with aggregated evening stats
     const players = await db.all(`
       SELECT p.*,
+        (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
         (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as attendance_count,
         (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'no_show' AND e.status = 'completed') as no_show_count,
         (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as last_visit,
@@ -125,7 +128,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 router.get('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
-    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    const player = await db.get(`
+      SELECT p.*,
+        (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at
+      FROM players p WHERE p.id = ?
+    `, [req.params.id]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -615,6 +622,130 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
     const db = (req as any).db || (await getDb());
     await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), req.params.id]);
     res.json({ success: true, message: 'Игрок переведен в архив/заблокирован' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// GET /api/players/:id/avatar - Retrieve player avatar
+router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [req.params.id]);
+    if (!avatar) {
+      return res.status(404).json({ error: 'Аватар не найден' });
+    }
+
+    res.json({
+      data_url: `data:${avatar.mime_type};base64,${avatar.image_data.toString('base64')}`,
+      mime_type: avatar.mime_type,
+      byte_size: avatar.byte_size,
+      width: avatar.width,
+      height: avatar.height,
+      updated_at: avatar.updated_at
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// PUT /api/players/:id/avatar - Upload/Update player avatar
+router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    
+    // First verify if the player actually exists
+    const playerExists = await db.get('SELECT 1 FROM players WHERE id = ?', [req.params.id]);
+    if (!playerExists) {
+      return res.status(404).json({ error: 'Игрок не найден' });
+    }
+
+    const { data_url, width, height } = req.body;
+
+    if (typeof data_url !== 'string') {
+      return res.status(400).json({ error: 'Неверный формат данных' });
+    }
+
+    // 1. Prefix validation: only data:image/jpeg;base64,
+    if (!data_url.startsWith('data:image/jpeg;base64,')) {
+      return res.status(400).json({ error: 'Разрешен только формат JPEG (Base64)' });
+    }
+
+    // Extract base64 part
+    const base64Data = data_url.substring('data:image/jpeg;base64,'.length);
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(base64Data, 'base64');
+      const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+      const cleanBase64 = base64Data.replace(/\s/g, '');
+      if (!base64Regex.test(cleanBase64) || buffer.length === 0) {
+        return res.status(400).json({ error: 'Некорректный Base64' });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Некорректный Base64' });
+    }
+
+    // 2. Maximum decoded size 700 KB
+    const MAX_BYTES = 700 * 1024;
+    if (buffer.length > MAX_BYTES) {
+      return res.status(400).json({ error: 'Размер изображения превышает 700 КБ' });
+    }
+
+    // 3. Width and height from 1 to 1024
+    const w = Number(width);
+    const h = Number(height);
+    if (isNaN(w) || isNaN(h) || w < 1 || w > 1024 || h < 1 || h > 1024) {
+      return res.status(400).json({ error: 'Неверные размеры изображения (должны быть от 1 до 1024)' });
+    }
+
+    // 4. JPEG starts with FF D8 FF and ends with FF D9
+    if (buffer.length < 4) {
+      return res.status(400).json({ error: 'Некорректные данные JPEG (слишком короткие)' });
+    }
+    const startsWithFFD8FF = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+    const endsWithFFD9 = buffer[buffer.length - 2] === 0xFF && buffer[buffer.length - 1] === 0xD9;
+
+    if (!startsWithFFD8FF || !endsWithFFD9) {
+      return res.status(400).json({ error: 'Изображение не является валидным JPEG' });
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Upsert by player_id
+    await db.run(
+      `INSERT OR REPLACE INTO player_avatars (player_id, mime_type, image_data, byte_size, width, height, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.params.id, 'image/jpeg', buffer, buffer.length, w, h, nowIso]
+    );
+
+    // Call checkpoint only for runtime DB
+    const dbName = path.basename(db.dbPath);
+    if (dbName === 'mafia_crm.runtime.sqlite') {
+      await createPreviewCheckpoint(db);
+    }
+
+    res.json({ success: true, updated_at: nowIso });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// DELETE /api/players/:id/avatar - Delete player avatar
+router.delete('/:id/avatar', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    
+    // Idempotent deletion
+    await db.run('DELETE FROM player_avatars WHERE player_id = ?', [req.params.id]);
+
+    // Call checkpoint only for runtime DB
+    const dbName = path.basename(db.dbPath);
+    if (dbName === 'mafia_crm.runtime.sqlite') {
+      await createPreviewCheckpoint(db);
+    }
+
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

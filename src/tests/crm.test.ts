@@ -784,8 +784,28 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
     });
 
     it('4. Overdue, today, and no-deadline tasks are correctly separated', async () => {
-      const todayStr = new Date().toISOString().substring(0, 10);
-      const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Moscow',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date());
+      const year = parts.find((p) => p.type === 'year')?.value;
+      const month = parts.find((p) => p.type === 'month')?.value;
+      const day = parts.find((p) => p.type === 'day')?.value;
+      const todayStr = `${year}-${month}-${day}`;
+
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const yParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Moscow',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(yesterday);
+      const yYear = yParts.find((p) => p.type === 'year')?.value;
+      const yMonth = yParts.find((p) => p.type === 'month')?.value;
+      const yDay = yParts.find((p) => p.type === 'day')?.value;
+      const yesterdayStr = `${yYear}-${yMonth}-${yDay}`;
 
       // Create an overdue task
       await request(app)

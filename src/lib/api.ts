@@ -2,6 +2,7 @@ export interface Player {
   id: string;
   telegram_user_id?: string | null;
   nickname: string;
+  avatar_updated_at?: string | null;
   full_name?: string | null;
   telegram_username?: string | null;
   phone?: string | null;
@@ -577,6 +578,21 @@ export const api = {
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),
+  getPlayerAvatar: (playerId: string) => request<{
+    data_url: string;
+    mime_type: string;
+    byte_size: number;
+    width: number;
+    height: number;
+    updated_at: string;
+  }>(`/api/players/${playerId}/avatar`),
+  uploadPlayerAvatar: (playerId: string, data: { data_url: string; width: number; height: number }) =>
+    request<{ success: boolean; updated_at: string }>(`/api/players/${playerId}/avatar`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deletePlayerAvatar: (playerId: string) =>
+    request<{ success: boolean }>(`/api/players/${playerId}/avatar`, { method: 'DELETE' }),
   invitePlayer: (playerId: string, eveningId: string, tableId?: string | null, createFollowupTask: boolean = true) =>
     request<{
       success: boolean;

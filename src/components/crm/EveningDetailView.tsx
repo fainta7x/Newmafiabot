@@ -23,12 +23,14 @@ interface EveningDetailViewProps {
   eveningId: string;
   onBack: () => void;
   onOpenPlayerCard?: (id: string) => void;
+  view?: 'participants' | 'tables';
 }
 
 export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
   eveningId,
   onBack,
   onOpenPlayerCard,
+  view = 'participants',
 }) => {
   const [evening, setEvening] = useState<GameEvening | null>(null);
   const [participants, setParticipants] = useState<EveningParticipant[]>([]);
@@ -500,136 +502,131 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Core Evening Information */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="p-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white cursor-pointer transition-all"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+      {/* Compact mobile-first evening summary */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-5 space-y-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <button
+            onClick={onBack}
+            className="w-10 h-10 shrink-0 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-white flex items-center justify-center"
+            aria-label="Назад к вечерам"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-white">{evening.title}</h2>
-                {isReadonly && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-slate-400" /> Завершён / Рассчитан
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                📅 {new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'full', timeStyle: 'short' })}
-                {evening.venue && ` • 📍 ${evening.venue}`}
-              </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-lg sm:text-xl font-black text-white truncate">{evening.title}</h2>
+              {isReadonly && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Закрыт
+                </span>
+              )}
             </div>
-          </div>
-
-          {/* Core Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => {
-                const joinUrl = `${window.location.origin}/join/${evening.id}`;
-                navigator.clipboard.writeText(joinUrl);
-                alert(`Ссылка для записи скопирована:\n${joinUrl}`);
-              }}
-              className="bg-slate-850 hover:bg-slate-800 text-rose-300 border border-slate-750 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>🔗 Ссылка для игроков</span>
-            </button>
-
-            {!isReadonly && (
-              <>
-                <button
-                  onClick={() => setShowBulkAddModal(true)}
-                  className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Добавить игроков</span>
-                </button>
-
-                <button
-                  onClick={() => setShowQuickGuestModal(true)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-emerald-400" />
-                  <span>Быстрый Гость</span>
-                </button>
-
-                {!evening.settled_at && (
-                  <button
-                    onClick={() => setShowSettleModal(true)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Рассчитать вечер</span>
-                  </button>
-                )}
-              </>
-            )}
-
-            {evening.settled_at && (
-              <div className="px-3 py-2 bg-slate-950 border border-slate-850 rounded-2xl text-xs text-slate-400 font-mono">
-                Расчёт закрыт: {new Date(evening.settled_at).toLocaleDateString('ru-RU')}
-              </div>
-            )}
+            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+              {new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
+              {evening.venue && ` · ${evening.venue}`}
+            </p>
           </div>
         </div>
 
-        {/* Dashboard Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center font-mono pt-2 border-t border-slate-800/80">
-          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Запись</span>
-            <span className="text-base font-bold text-white">{registeredCount} / {evening.capacity}</span>
+        <div className="grid grid-cols-5 gap-1.5">
+          <div className="rounded-xl bg-slate-950 border border-slate-850 px-1 py-2 text-center min-w-0">
+            <span className="text-[8px] uppercase text-slate-500 font-bold block truncate">Запись</span>
+            <strong className="text-[13px] text-white">{registeredCount}/{evening.capacity}</strong>
           </div>
-          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Подтверждено</span>
-            <span className="text-base font-bold text-emerald-400">{confirmedCount}</span>
+          <div className="rounded-xl bg-slate-950 border border-slate-850 px-1 py-2 text-center min-w-0">
+            <span className="text-[8px] uppercase text-slate-500 font-bold block truncate">Подтв.</span>
+            <strong className="text-[13px] text-emerald-400">{confirmedCount}</strong>
           </div>
-          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Пришло</span>
-            <span className="text-base font-bold text-amber-400">{attendedCount}</span>
+          <div className="rounded-xl bg-slate-950 border border-slate-850 px-1 py-2 text-center min-w-0">
+            <span className="text-[8px] uppercase text-slate-500 font-bold block truncate">Пришли</span>
+            <strong className="text-[13px] text-amber-400">{attendedCount}</strong>
           </div>
-          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Оплачено</span>
-            <span className="text-base font-bold text-emerald-400">{totalRevenue} ₽</span>
+          <div className="rounded-xl bg-slate-950 border border-slate-850 px-1 py-2 text-center min-w-0">
+            <span className="text-[8px] uppercase text-slate-500 font-bold block truncate">Оплач.</span>
+            <strong className="text-[13px] text-emerald-400">{totalRevenue}₽</strong>
           </div>
-          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Ожидается долг</span>
-            <span className="text-base font-bold text-rose-400">{Math.max(0, totalDue - totalRevenue)} ₽</span>
+          <div className="rounded-xl bg-slate-950 border border-slate-850 px-1 py-2 text-center min-w-0">
+            <span className="text-[8px] uppercase text-slate-500 font-bold block truncate">Долг</span>
+            <strong className="text-[13px] text-rose-400">{Math.max(0, totalDue - totalRevenue)}₽</strong>
           </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            onClick={() => {
+              const joinUrl = `${window.location.origin}/join/${evening.id}`;
+              navigator.clipboard.writeText(joinUrl);
+              alert(`Ссылка для записи скопирована:\n${joinUrl}`);
+            }}
+            className="min-h-[58px] rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 flex flex-col items-center justify-center gap-1"
+          >
+            <span className="text-lg leading-none">🔗</span>
+            <span className="text-[9px] font-bold">Ссылка</span>
+          </button>
+
+          {!isReadonly && (
+            <button
+              onClick={() => setShowBulkAddModal(true)}
+              className="min-h-[58px] rounded-xl bg-rose-600 text-white flex flex-col items-center justify-center gap-1 shadow-lg shadow-rose-600/15"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="text-[9px] font-black">Игроки</span>
+            </button>
+          )}
+
+          {!isReadonly && (
+            <button
+              onClick={() => setShowQuickGuestModal(true)}
+              className="min-h-[58px] rounded-xl bg-slate-800 border border-slate-700 text-slate-200 flex flex-col items-center justify-center gap-1"
+            >
+              <Plus className="w-4 h-4 text-emerald-400" />
+              <span className="text-[9px] font-bold">Гость</span>
+            </button>
+          )}
+
+          {!isReadonly && !evening.settled_at ? (
+            <button
+              onClick={() => setShowSettleModal(true)}
+              className="min-h-[58px] rounded-xl bg-emerald-600 text-white flex flex-col items-center justify-center gap-1 shadow-lg shadow-emerald-600/15"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-[9px] font-black">Расчёт</span>
+            </button>
+          ) : (
+            <div className="min-h-[58px] rounded-xl bg-slate-950 border border-slate-800 text-slate-500 flex flex-col items-center justify-center gap-1">
+              <Lock className="w-4 h-4" />
+              <span className="text-[9px] font-bold">Закрыт</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 2. Management Mode Switcher */}
-      {!isReadonly && (
-        <div className="bg-slate-950 p-1.5 border border-slate-850 rounded-2xl flex gap-1">
+      {/* Compact participant workflow switch */}
+      {view === 'participants' && !isReadonly && (
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
           <button
             onClick={() => setMode('rsvp')}
-            className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
-              mode === 'rsvp'
-                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/15'
-                : 'text-slate-400 hover:text-white'
+            className={`min-h-[38px] rounded-lg text-[11px] font-black transition-all ${
+              mode === 'rsvp' ? 'bg-rose-600 text-white' : 'text-slate-500 hover:text-white hover:bg-slate-900'
             }`}
           >
-            📝 Набор участников
+            Запись
           </button>
           <button
             onClick={() => setMode('active')}
-            className={`flex-1 py-3 text-center rounded-xl font-bold uppercase tracking-wider text-xs transition-all cursor-pointer ${
-              mode === 'active'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/15'
-                : 'text-slate-400 hover:text-white'
+            className={`min-h-[38px] rounded-lg text-[11px] font-black transition-all ${
+              mode === 'active' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-white hover:bg-slate-900'
             }`}
           >
-            📱 Вечер идет (Управление явкой и кассой)
+            Вечер идёт
           </button>
         </div>
       )}
 
       {/* 3. Table UI: Display cards for each table */}
+      {view === 'tables' && (
+        <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
@@ -715,8 +712,13 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       </div>
 
+        </>
+      )}
+
       {/* 4. Filter Tabs per Table & Participant List Selection */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+      {view === 'participants' && (
+        <>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Table Filters tabs */}
           <div className="flex flex-wrap gap-1.5">
@@ -834,7 +836,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
               return (
                 <div
                   key={p.id}
-                  className={`p-4 bg-slate-950 border rounded-2xl space-y-3.5 transition-all relative ${
+                  className={`p-3 sm:p-4 bg-slate-950 border rounded-2xl space-y-3 transition-all relative ${
                     isSelected ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-850 hover:border-slate-800'
                   }`}
                 >
@@ -1198,10 +1200,13 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
         </div>
       </div>
 
+        </>
+      )}
+
       {/* MODAL 1: Bulk Add Players Modal */}
       {showBulkAddModal && !isReadonly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 relative text-white max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-3 sm:space-y-5 relative text-white max-h-[92dvh] flex flex-col">
             <button
               onClick={() => setShowBulkAddModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
@@ -1215,8 +1220,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             </div>
 
             {/* Controls Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="relative col-span-1 sm:col-span-2 lg:col-span-1">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="relative col-span-2">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                 <input
                   type="text"
@@ -1271,7 +1276,7 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             </div>
 
             {/* Players List with Multi-select */}
-            <div className="flex-1 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950 p-3 space-y-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border border-slate-800 rounded-2xl bg-slate-950 p-2 space-y-1.5">
               {availablePlayers.length > 0 ? (
                 availablePlayers.map((p) => {
                   const isChecked = selectedPlayerIds.includes(p.id);
@@ -1306,20 +1311,20 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
               <span className="text-xs text-slate-400 font-bold">Выбрано: {selectedPlayerIds.length} чел.</span>
 
               <div className="flex gap-2">
                 <button
                   onClick={handleBulkAdd}
                   disabled={selectedPlayerIds.length === 0}
-                  className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                  className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black px-3 min-h-[44px] rounded-xl text-[10px] cursor-pointer flex-1"
                 >
                   Добавить выбранных ({selectedPlayerIds.length})
                 </button>
                 <button
                   onClick={() => setShowBulkAddModal(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                  className="bg-slate-800 text-slate-300 font-bold px-3 min-h-[44px] rounded-xl text-[10px] cursor-pointer"
                 >
                   Отмена
                 </button>
@@ -1331,8 +1336,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
       {/* MODAL 2: Create / Edit Table Modal */}
       {showTableModal && !isReadonly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 relative text-white max-h-[92dvh] overflow-y-auto">
             <button
               onClick={() => setShowTableModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
@@ -1439,8 +1444,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
       {/* MODAL 3: Quick Guest Modal */}
       {showQuickGuestModal && !isReadonly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 relative text-white max-h-[92dvh] overflow-y-auto">
             <button
               onClick={() => setShowQuickGuestModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
@@ -1537,8 +1542,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
       {/* MODAL 4: Settlement Confirmation Modal */}
       {showSettleModal && !isReadonly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-emerald-500/40 rounded-t-[28px] sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-5 relative text-white max-h-[92dvh] overflow-y-auto">
             <button
               onClick={() => setShowSettleModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
@@ -1582,8 +1587,8 @@ export const EveningDetailView: React.FC<EveningDetailViewProps> = ({
 
       {/* MODAL 5: Create Task for Participant Modal */}
       {taskTargetParticipant && !isReadonly && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 relative text-white max-h-[92dvh] overflow-y-auto">
             <button
               onClick={() => setTaskTargetParticipant(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"

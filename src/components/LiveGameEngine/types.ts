@@ -7,6 +7,9 @@ export interface ActivePlayerState {
   role: "Мирный" | "Шериф" | "Мафия" | "Дон";
   team: "Красные" | "Чёрные";
   fouls: number;
+  minor_tech_fouls?: number;
+  major_tech_fouls?: number;
+  removal_reason?: '4th_foul' | '2nd_tech' | 'direct' | null;
   alive: boolean;
   nominated_this_round: boolean;
   has_spoken_this_round: boolean;

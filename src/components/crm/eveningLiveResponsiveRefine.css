@@ -1,0 +1,134 @@
+@media (max-width: 767px) {
+  /* Discipline counters belong to the card corner, not to avatar geometry. */
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
+    --live-rail-width: clamp(12px, 3vw, 15px);
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline {
+    position: absolute !important;
+    top: clamp(5px, 1.4vw, 8px) !important;
+    left: clamp(5px, 1.4vw, 8px) !important;
+    transform: none !important;
+    width: var(--live-rail-width) !important;
+    max-width: var(--live-rail-width) !important;
+    grid-template-columns: var(--live-rail-width) !important;
+    grid-auto-rows: clamp(11px, 2.8vw, 14px) !important;
+    gap: clamp(1px, 0.3vw, 2px) !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span {
+    width: var(--live-rail-width) !important;
+    min-width: var(--live-rail-width) !important;
+    height: clamp(11px, 2.8vw, 14px) !important;
+    font-size: clamp(5px, 1.35vw, 6.5px) !important;
+  }
+
+  /* Player-card feedback while the table votes whether all tied players leave. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > [data-table-vote-selected="true"] {
+    border-color: rgb(244 63 94) !important;
+    background: rgb(136 19 55 / 0.18) !important;
+    box-shadow: inset 0 0 0 1px rgb(244 63 94 / 0.5), 0 0 16px rgb(244 63 94 / 0.28) !important;
+  }
+
+  /*
+   * Revote speeches have an extra heading and an extra action button around
+   * the normal timer. Give that state its own responsive three-zone layout.
+   */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    align-content: stretch !important;
+    gap: clamp(2px, 1cqh, 4px) !important;
+    padding: 0 clamp(1px, 0.6cqw, 3px) !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div:first-child {
+    min-height: 0 !important;
+    font-size: clamp(7px, 3.2cqw, 9px) !important;
+    line-height: 1.05 !important;
+  }
+
+  /* The outer revote heading already says “30 секунд”, so the timer label is duplicate. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] > span[class*="tracking-widest"] {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) clamp(46px, 25cqw, 66px) !important;
+    grid-template-rows: minmax(26px, auto) 3px minmax(34px, auto) !important;
+    align-content: center !important;
+    column-gap: clamp(3px, 1.6cqw, 6px) !important;
+    row-gap: clamp(2px, 1cqh, 4px) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] > div[class*="text-xs"][class*="font-black"] {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    align-self: center !important;
+    font-size: clamp(9px, 4.8cqw, 12px) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] > div[class*="font-mono"][class*="font-black"] {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    align-self: center !important;
+    width: 100% !important;
+    height: clamp(28px, 18cqh, 36px) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    font-size: clamp(18px, 11cqw, 25px) !important;
+    line-height: 1 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] > div[class*="rounded-full"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    height: 3px !important;
+    min-height: 3px !important;
+    margin: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > div[class~="space-y-1.5"] > div.flex[class*="gap-1.5"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    display: grid !important;
+    grid-template-columns: clamp(32px, 18cqw, 42px) minmax(0, 1fr) clamp(32px, 18cqw, 42px) clamp(32px, 18cqw, 42px) !important;
+    gap: clamp(2px, 1.4cqw, 5px) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div[class~="space-y-2"]:has(> div[class~="space-y-1.5"]):has(> button:last-child) > button:last-child {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: clamp(30px, 17cqh, 38px) !important;
+    height: clamp(30px, 17cqh, 38px) !important;
+    padding: 2px 6px !important;
+    margin: 0 !important;
+    font-size: clamp(8px, 4cqw, 10px) !important;
+    line-height: 1.05 !important;
+  }
+}

@@ -1,0 +1,96 @@
+@media (max-width: 767px) {
+  /*
+   * Final alignment for player identity overlays.
+   * Avatar, nickname and discipline rail share one grid, so the rail is tied
+   * to the avatar row instead of to the board row or viewport coordinates.
+   */
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
+    --live-avatar-size-final: clamp(38px, 11.5vw, 58px);
+    --live-avatar-half-final: clamp(19px, 5.75vw, 29px);
+    --live-discipline-w-final: clamp(15px, 3.8vw, 18px);
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) var(--live-avatar-size-final) auto minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-items: center !important;
+    align-content: stretch !important;
+    gap: 0 !important;
+    padding: 0 4px 43px !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-player-avatar {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: var(--live-avatar-size-final) !important;
+    height: var(--live-avatar-size-final) !important;
+    max-width: 58% !important;
+    max-height: 100% !important;
+    align-self: center !important;
+    justify-self: center !important;
+    margin: 0 !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-identity-name {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    align-self: start !important;
+    justify-self: center !important;
+    margin-top: 4px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    align-self: start !important;
+    justify-self: center !important;
+    transform: translateX(calc(-1 * var(--live-avatar-half-final) - var(--live-discipline-w-final) - 3px)) !important;
+    display: grid !important;
+    grid-template-columns: var(--live-discipline-w-final) !important;
+    grid-auto-rows: clamp(14px, 3.5vw, 17px) !important;
+    gap: clamp(1px, 0.3vw, 2px) !important;
+    width: var(--live-discipline-w-final) !important;
+    max-width: var(--live-discipline-w-final) !important;
+    margin: 0 !important;
+    z-index: 18 !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span {
+    box-sizing: border-box !important;
+    width: var(--live-discipline-w-final) !important;
+    min-width: var(--live-discipline-w-final) !important;
+    height: clamp(14px, 3.5vw, 17px) !important;
+    padding: 0 !important;
+    font-size: clamp(6.5px, 1.75vw, 8px) !important;
+  }
+
+  /*
+   * Table-decision mode is recognizable by its coloured majority counter
+   * (<strong>) inside the central panel. In this mode ordinary nominee/current
+   * nominee highlights must not look like votes for lifting all tied players.
+   */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+    > :nth-child(11) > div.flex-1 strong[class*="text-amber-400"],
+    > :nth-child(11) > div.flex-1 strong[class*="text-emerald-400"]
+  ) > :nth-child(-n+10) {
+    border-color: rgb(30 41 59) !important;
+    background: rgb(15 23 42 / 0.5) !important;
+    box-shadow: none !important;
+    transform: none !important;
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Only a player explicitly tapped as a table voter receives a highlight. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+    > :nth-child(11) > div.flex-1 strong[class*="text-amber-400"],
+    > :nth-child(11) > div.flex-1 strong[class*="text-emerald-400"]
+  ) > [data-table-vote-selected="true"] {
+    border-color: rgb(16 185 129) !important;
+    background: rgb(6 78 59 / 0.24) !important;
+    box-shadow: inset 0 0 0 1px rgb(16 185 129 / 0.65), 0 0 18px rgb(16 185 129 / 0.32) !important;
+  }
+}

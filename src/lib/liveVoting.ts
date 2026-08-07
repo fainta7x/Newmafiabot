@@ -1,43 +1,74 @@
-/**
- * Live voting helper functions.
- */
+export function getExplicitVoteCounts(
+  nominatedSeats: number[],
+  votesByPlayer: Record<number, number>,
+  eligibleVoterSeats?: number[]
+): Record<number, number> {
+  const counts: Record<number, number> = {};
+  nominatedSeats.forEach((seat) => { counts[seat] = 0; });
+  const eligible = eligibleVoterSeats ? new Set(eligibleVoterSeats) : null;
+
+  Object.entries(votesByPlayer).forEach(([voterRaw, nominee]) => {
+    const voter = Number(voterRaw);
+    if (eligible && !eligible.has(voter)) return;
+    if (!nominatedSeats.includes(nominee)) return;
+    counts[nominee] = (counts[nominee] || 0) + 1;
+  });
+
+  return counts;
+}
 
 /**
- * Detects when the current sequential vote is mathematically already decided
- * and a unique candidate cannot be caught by any remaining votes.
+ * Detects when a sequential vote is mathematically decided from EXPLICIT votes only.
+ * Automatic remainder for the last candidate must not be included here.
  */
 export function isVoteDecided(
   nominatedSeats: number[],
-  voteCounts: Record<number, number>,
+  explicitVoteCounts: Record<number, number>,
   eligibleVoters: number
 ): boolean {
-  if (nominatedSeats.length === 0) return false;
+  if (nominatedSeats.length === 0 || eligibleVoters <= 0) return false;
 
-  // Compute allocated votes
-  const allocatedSum = nominatedSeats.reduce((sum, seat) => sum + (voteCounts[seat] || 0), 0);
-  const remaining = Math.max(0, eligibleVoters - allocatedSum);
+  const allocated = nominatedSeats.reduce((sum, seat) => sum + (explicitVoteCounts[seat] || 0), 0);
+  const remaining = Math.max(0, eligibleVoters - allocated);
+  const sorted = nominatedSeats
+    .map((seat) => explicitVoteCounts[seat] || 0)
+    .sort((a, b) => b - a);
 
-  // Find highest and second highest
-  let highest = -1;
-  let uniqueLeader = false;
-  let secondHighest = 0;
+  if (sorted.length === 0) return false;
+  const highest = sorted[0];
+  const secondHighest = sorted[1] ?? 0;
+  const leaders = sorted.filter((count) => count === highest).length;
 
-  for (const seat of nominatedSeats) {
-    const count = voteCounts[seat] || 0;
-    if (count > highest) {
-      secondHighest = highest;
-      highest = count;
-      uniqueLeader = true;
-    } else if (count === highest) {
-      uniqueLeader = false;
-    } else if (count > secondHighest) {
-      secondHighest = count;
-    }
-  }
-
-  if (!uniqueLeader || highest === -1) {
-    return false;
-  }
-
+  if (leaders !== 1) return false;
   return highest > Math.max(secondHighest, remaining);
+}
+
+export function isVoteDecidedFromAssignments(
+  nominatedSeats: number[],
+  votesByPlayer: Record<number, number>,
+  eligibleVoterSeats: number[]
+): boolean {
+  const counts = getExplicitVoteCounts(nominatedSeats, votesByPlayer, eligibleVoterSeats);
+  return isVoteDecided(nominatedSeats, counts, eligibleVoterSeats.length);
+}
+
+export function liveRoundToTournamentDay(roundNumber: number): number {
+  return Math.max(0, Math.trunc(roundNumber) - 1);
+}
+
+export function canRegisterFirstKilled(
+  roundNumber: number,
+  role: string,
+  wasActuallyKilled: boolean
+): boolean {
+  return roundNumber === 1 && wasActuallyKilled && (role === 'Мирный' || role === 'Шериф');
+}
+
+export function getSingularZeroRoundElimination(
+  dayNumber: number,
+  eliminatedSeats: number[]
+): number | null {
+  if (dayNumber !== 0 || eliminatedSeats.length !== 1) return null;
+  const seat = eliminatedSeats[0];
+  return Number.isInteger(seat) && seat >= 1 && seat <= 10 ? seat : null;
 }

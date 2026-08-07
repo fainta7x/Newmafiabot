@@ -64,18 +64,50 @@
   }
 
   /*
-   * The old dead-card body contains a desktop-sized LH row and status block.
-   * On the compact table it only creates overflow, so the mobile identity layer
-   * remains the single source of visual identity for players who left the table.
+   * Keep a confirmed LH readable on an eliminated player's own card without
+   * letting the old desktop status block spill into neighbouring mobile cells.
    */
-  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] {
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > span:first-child,
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > .bg-rose-950\/40 {
     display: none !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > .bg-slate-950\/50 {
+    position: absolute !important;
+    left: 5px !important;
+    right: 5px !important;
+    bottom: 48px !important;
+    margin: 0 !important;
+    padding: 3px 4px !important;
+    gap: 2px !important;
+    border-radius: 7px !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > .bg-slate-950\/50 > span {
+    margin-right: 1px !important;
+    font-size: 7px !important;
+    line-height: 9px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > .bg-slate-950\/50 > div {
+    gap: 2px !important;
+    min-width: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] > div.flex-1 > .bg-slate-950\/50 > div > div {
+    width: 17px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    font-size: 8px !important;
+    border-radius: 5px !important;
   }
 
   /*
    * Any player with alive=false uses the burgundy dead-card branch in SeatCard.
-   * Add a translucent veil above the whole cell (including the separate avatar
-   * overlay) so killed, voted-out and removed players recede from attention.
+   * A veil above the entire cell makes killed, voted-out and removed players
+   * visually secondary without removing their seat number, role or LH summary.
    */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10):has(> .bg-\[\#160a0f\])::after {
     content: "";

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Gamepad2, Plus, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, Trash2, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { EveningGameProtocolModal } from './EveningGameProtocolModal';
+import { EveningLiveGameModal } from './EveningLiveGameModal';
 
 interface EveningGamesViewProps {
   eveningId: string;
@@ -17,7 +18,9 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const [selectedTableId, setSelectedTableId] = useState('');
   const [judgeName, setJudgeName] = useState('');
   const [seatParticipantIds, setSeatParticipantIds] = useState<string[]>(Array(10).fill(''));
-  const [activeGame, setActiveGame] = useState<ClubGameRecord | null>(null);
+  const [activeProtocolGame, setActiveProtocolGame] = useState<ClubGameRecord | null>(null);
+  const [activeLiveGame, setActiveLiveGame] = useState<ClubGameRecord | null>(null);
+  const [modeChoiceGame, setModeChoiceGame] = useState<ClubGameRecord | null>(null);
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
@@ -85,7 +88,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
       });
       setGames((previous) => [created, ...previous]);
       setShowCreate(false);
-      setActiveGame(created);
+      setModeChoiceGame(created);
     } catch (err: any) {
       alert(err.message || 'Не удалось создать игру');
     } finally {
@@ -101,6 +104,12 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
     } catch (err: any) {
       alert(err.message || 'Не удалось удалить черновик');
     }
+  };
+
+  const applyUpdatedGame = (updated: ClubGameRecord) => {
+    setGames((previous) => previous.map((game) => game.id === updated.id ? updated : game));
+    setActiveProtocolGame((current) => current?.id === updated.id ? updated : current);
+    setActiveLiveGame((current) => current?.id === updated.id ? updated : current);
   };
 
   const localNumberById = useMemo(() => {
@@ -145,7 +154,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
           <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl p-10 text-center space-y-2">
             <Gamepad2 className="w-10 h-10 text-slate-700 mx-auto" />
             <div className="text-sm font-bold text-slate-300">На этом вечере ещё нет игр</div>
-            <div className="text-xs text-slate-500">Создай первую игру, выбери стол и рассадку — дальше откроется тот же формат протокола: игроки, голосования, ночи/ЛХ и итог.</div>
+            <div className="text-xs text-slate-500">Создай первую игру, затем выбери: провести её пошагово в игровом движке или внести готовый протокол вручную.</div>
           </div>
         ) : games.map((game) => {
           const protocol = game.club_protocol?.protocol;
@@ -163,9 +172,16 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">{game.table_name || 'Без стола'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 justify-end">
                   {game.status === 'draft' && <button type="button" onClick={() => deleteDraft(game)} className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-4 h-4" /></button>}
-                  <button type="button" onClick={() => setActiveGame(game)} className="min-h-[40px] px-4 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white text-xs font-black flex items-center gap-1.5">{game.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Gamepad2 className="w-4 h-4 text-rose-400" />}{game.status === 'completed' ? 'Открыть протокол' : 'Продолжить игру'}</button>
+                  {game.status === 'draft' && (
+                    <button type="button" onClick={() => setActiveLiveGame(game)} className="min-h-[40px] px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center gap-1.5">
+                      <Play className="w-4 h-4" />Провести
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setActiveProtocolGame(game)} className="min-h-[40px] px-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-white text-xs font-black flex items-center gap-1.5">
+                    {game.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4 text-amber-400" />}{game.status === 'completed' ? 'Протокол' : 'Заполнить протокол'}
+                  </button>
                 </div>
               </div>
 
@@ -187,7 +203,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
         <div className="fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 overflow-y-auto">
           <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-3xl p-5 space-y-5 relative my-auto">
             <button type="button" onClick={() => setShowCreate(false)} className="absolute top-4 right-4 p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400"><X className="w-4 h-4" /></button>
-            <div><h3 className="text-lg font-black text-white">Новая игра</h3><p className="text-xs text-slate-400">Выбери стол и рассадку. Роли задаются уже внутри игрового протокола.</p></div>
+            <div><h3 className="text-lg font-black text-white">Новая игра</h3><p className="text-xs text-slate-400">Выбери стол и рассадку. После создания можно провести игру пошагово или заполнить протокол вручную.</p></div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-xs text-slate-400 font-bold">Стол<select value={selectedTableId} onChange={(e) => handleTableChange(e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="">Выбрать стол</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
@@ -205,23 +221,25 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
 
             <div className="flex justify-between items-center gap-3 pt-2 border-t border-slate-800">
               <div className="text-[10px] text-slate-500 flex items-center gap-1"><Users className="w-3.5 h-3.5" />Выбрано {seatParticipantIds.filter(Boolean).length}/10</div>
-              <button type="button" disabled={creating || tableParticipants.length < 10} onClick={createGame} className="min-h-[44px] px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black uppercase">{creating ? 'Создание…' : 'Создать и открыть протокол'}</button>
+              <button type="button" disabled={creating || tableParticipants.length < 10} onClick={createGame} className="min-h-[44px] px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black uppercase">{creating ? 'Создание…' : 'Создать игру'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {activeGame && (
-        <EveningGameProtocolModal
-          game={activeGame}
-          isOpen={true}
-          onClose={() => setActiveGame(null)}
-          onUpdated={(updated) => {
-            setGames((previous) => previous.map((game) => game.id === updated.id ? updated : game));
-            setActiveGame(updated);
-          }}
-        />
+      {modeChoiceGame && (
+        <div className="fixed inset-0 z-[85] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-5 space-y-4">
+            <div><h3 className="text-lg font-black text-white">Игра создана</h3><p className="text-xs text-slate-400 mt-1">Как будем вносить эту игру?</p></div>
+            <button type="button" onClick={() => { const game = modeChoiceGame; setModeChoiceGame(null); setActiveLiveGame(game); }} className="w-full min-h-[58px] rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black flex items-center justify-center gap-2"><Play className="w-5 h-5" />Провести игру в движке</button>
+            <button type="button" onClick={() => { const game = modeChoiceGame; setModeChoiceGame(null); setActiveProtocolGame(game); }} className="w-full min-h-[58px] rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-black flex items-center justify-center gap-2"><FileText className="w-5 h-5" />Заполнить протокол вручную</button>
+            <button type="button" onClick={() => setModeChoiceGame(null)} className="w-full py-2 text-xs text-slate-500">Вернуться к списку игр</button>
+          </div>
+        </div>
       )}
+
+      {activeProtocolGame && <EveningGameProtocolModal game={activeProtocolGame} isOpen={true} onClose={() => setActiveProtocolGame(null)} onUpdated={applyUpdatedGame} />}
+      {activeLiveGame && <EveningLiveGameModal game={activeLiveGame} onClose={() => setActiveLiveGame(null)} onUpdated={applyUpdatedGame} />}
     </div>
   );
 };

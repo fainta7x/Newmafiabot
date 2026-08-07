@@ -13,6 +13,19 @@ import {
   getSingularZeroRoundElimination,
   liveRoundToTournamentDay,
 } from "../lib/liveVoting.js";
+import {
+  GameDiscipline,
+  addMajorTechFoul,
+  addMinorTechFoul,
+  addRegularFoul,
+  cancelAction,
+  confirmAction,
+  consumeNextSpeech,
+  createInitialGameDiscipline,
+  requestDirectRemoval,
+  requestPpk,
+  resetNextVotingCancelled,
+} from "../lib/gameDiscipline.js";
 import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
@@ -68,6 +81,7 @@ type LiveSnapshot = {
   timeLeft: number;
   timerMax: number;
   isTimerRunning: boolean;
+  discipline: GameDiscipline;
 };
 
 const emptyPlayer = (slot: number): ActivePlayerState => ({
@@ -77,6 +91,9 @@ const emptyPlayer = (slot: number): ActivePlayerState => ({
   role: "Мирный",
   team: "Красные",
   fouls: 0,
+  minor_tech_fouls: 0,
+  major_tech_fouls: 0,
+  removal_reason: null,
   alive: true,
   nominated_this_round: false,
   has_spoken_this_round: false,
@@ -95,6 +112,10 @@ const emptyPlayer = (slot: number): ActivePlayerState => ({
   exit_reason: "alive",
 });
 
+const initialDiscipline = () => createInitialGameDiscipline(
+  Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), team: 'red' as const }))
+);
+
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
@@ -104,6 +125,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [activePlayers, setActivePlayers] = useState<ActivePlayerState[]>(
     Array.from({ length: 10 }, (_, index) => emptyPlayer(index + 1))
   );
+  const [discipline, setDiscipline] = useState<GameDiscipline>(initialDiscipline);
+  const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
 
   const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
   const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
@@ -210,6 +233,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     timeLeft,
     timerMax,
     isTimerRunning,
+    discipline: JSON.parse(JSON.stringify(discipline)),
   });
 
   const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
@@ -238,6 +262,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setTimeLeft(snapshot.timeLeft ?? 60);
     setTimerMax(snapshot.timerMax ?? 60);
     setIsTimerRunning(Boolean(snapshot.isTimerRunning));
+    setDiscipline(snapshot.discipline || initialDiscipline());
   };
 
   const handleUndoAction = () => {
@@ -253,9 +278,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       const raw = localStorage.getItem("mafia_live_session");
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (parsed?.phase && parsed.phase !== 'setup' && parsed.activePlayers?.length === 10) {
-        setRestorableSession(parsed);
-      }
+      if (parsed?.phase && parsed.phase !== 'setup' && parsed.activePlayers?.length === 10) setRestorableSession(parsed);
     } catch {}
   }, []);
 
@@ -277,7 +300,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
-    activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning,
+    activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
   ]);
 
   const handleRestoreSession = () => {
@@ -298,6 +321,34 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setRestorableSession(null);
   };
 
+  const syncDisciplinePlayer = (state: GameDiscipline, slot: number) => {
+    const d = state.players[String(slot)];
+    if (!d) return;
+    setActivePlayers((previous) => previous.map((p) => {
+      if (p.slot_num !== slot) return p;
+      const removalLabel = d.removedReason === '4th_foul'
+        ? `Удалён: 4-й фол (Д${roundNumber})`
+        : d.removedReason === '2nd_tech'
+          ? `Удалён: 2-й техфол (Д${roundNumber})`
+          : d.removedReason === 'direct'
+            ? `Удалён судьёй (Д${roundNumber})`
+            : p.eliminated_phase;
+      return {
+        ...p,
+        fouls: d.regularFouls,
+        minor_tech_fouls: d.minorTechFouls,
+        major_tech_fouls: d.majorTechFouls,
+        has_foul_penalty: d.has30SecPenalty,
+        kick: d.isRemoved || p.kick,
+        ppk: d.ppkCaused || p.ppk,
+        removal_reason: d.removedReason,
+        alive: d.isRemoved ? false : p.alive,
+        exit_reason: d.isRemoved ? 'removed' : p.exit_reason,
+        eliminated_phase: d.isRemoved ? removalLabel : p.eliminated_phase,
+      };
+    }));
+  };
+
   const handleAdjustTime = (amount: number) => setTimeLeft((value) => Math.max(0, value + amount));
 
   const handleStartTimer = (slot: number, duration = 60) => {
@@ -307,8 +358,14 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       markPlayerSpoken(slot);
       return showToast(`Игрок #${slot} пропускает речь`, "warning");
     }
-    const actual = player.has_foul_penalty || player.fouls === 3 ? 30 : duration;
-    setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, has_foul_penalty: false } : p));
+
+    const consumed = consumeNextSpeech(discipline, String(slot));
+    const actual = consumed.duration ?? duration;
+    if (consumed.newState !== discipline) {
+      setDiscipline(consumed.newState);
+      syncDisciplinePlayer(consumed.newState, slot);
+    }
+
     setActiveSpeakerSlot(slot);
     setCustomTimerLabel(null);
     setTimerMax(actual);
@@ -386,6 +443,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (roleCounts['Мирный'] !== 6 || roleCounts['Шериф'] !== 1 || roleCounts['Мафия'] !== 2 || roleCounts['Дон'] !== 1) {
       return showToast("Нужны роли ФСМ: 6 мирных, Шериф, 2 мафии и Дон", "error");
     }
+    setDiscipline(createInitialGameDiscipline(activePlayers.map((p) => ({
+      id: String(p.slot_num),
+      team: p.team === 'Чёрные' ? 'black' : 'red',
+    }))));
     localStorage.removeItem("mafia_live_session");
     setPhase('zero_night');
   };
@@ -400,23 +461,79 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return;
     }
     const nominator = activeSpeakerSlot || 0;
-    if (nominator > 0 && Object.values(nominationsMap).includes(nominator)) {
+    if (nominator <= 0) return showToast("Выставление возможно только во время речи игрока", "warning");
+    if (Object.values(nominationsMap).includes(nominator)) {
       return showToast(`Игрок #${nominator} уже выставлял кандидата в эту речь`, "warning");
     }
     setNominations((previous) => [...previous, slot]);
     setNominationsMap((previous) => ({ ...previous, [slot]: nominator }));
+    showToast(`#${slot} выставлен ${nominations.length + 1}-м на речи #${nominator}`, "success");
+  };
+
+  const removeRegularFoul = (slot: number) => {
+    const id = String(slot);
+    const current = discipline.players[id];
+    if (!current || current.regularFouls <= 0 || current.isRemoved) return;
+    saveSnapshot();
+    const regularFouls = current.regularFouls - 1;
+    const next: GameDiscipline = {
+      ...discipline,
+      players: {
+        ...discipline.players,
+        [id]: { ...current, regularFouls, has30SecPenalty: regularFouls === 3 ? current.has30SecPenalty : false },
+      },
+    };
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+    showToast(`С игрока #${slot} снят фол`, "info");
+  };
+
+  const addRegularFoulFromMenu = (slot: number) => {
+    const id = String(slot);
+    saveSnapshot();
+    let next = addRegularFoul(discipline, id);
+    const pending = next.players[id]?.pendingAction;
+    if (pending === 'removal_4th_foul') {
+      if (window.confirm(`4-й фол удалит игрока #${slot} и отменит ближайшее голосование. Подтвердить?`)) {
+        next = confirmAction(next, id);
+      } else {
+        next = cancelAction(next, id);
+      }
+    }
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+  };
+
+  const addTechFoulFromMenu = (slot: number, kind: 'minor' | 'major') => {
+    const id = String(slot);
+    saveSnapshot();
+    let next = kind === 'minor' ? addMinorTechFoul(discipline, id) : addMajorTechFoul(discipline, id);
+    const pending = next.players[id]?.pendingAction;
+    if (pending === 'minor_tech_causing_removal' || pending === 'major_tech_causing_removal') {
+      if (window.confirm(`Это второй технический фол игрока #${slot}: игрок будет удалён, а ближайшее голосование отменится. Подтвердить?`)) {
+        next = confirmAction(next, id);
+      } else {
+        next = cancelAction(next, id);
+      }
+    }
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+  };
+
+  const directRemoveFromMenu = (slot: number) => {
+    if (!window.confirm(`Удалить игрока #${slot} решением судьи? Ближайшее голосование будет отменено.`)) return;
+    const id = String(slot);
+    saveSnapshot();
+    let next = requestDirectRemoval(discipline, id);
+    next = confirmAction(next, id);
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+    setActionPlayerSlot(null);
   };
 
   const handleFoulChange = (slot: number, direction: "up" | "down") => {
-    saveSnapshot();
-    setActivePlayers((previous) => previous.map((p) => {
-      if (p.slot_num !== slot) return p;
-      const fouls = Math.max(0, Math.min(4, p.fouls + (direction === 'up' ? 1 : -1)));
-      if (fouls === 4) {
-        return { ...p, fouls, alive: false, kick: true, is_pu: false, exit_reason: 'removed', eliminated_phase: `Фолы (День ${roundNumber})` };
-      }
-      return { ...p, fouls, has_foul_penalty: fouls === 3, alive: p.fouls === 4 && fouls < 4 ? true : p.alive, kick: false, exit_reason: p.fouls === 4 && fouls < 4 ? 'alive' : p.exit_reason, eliminated_phase: p.fouls === 4 && fouls < 4 ? '' : p.eliminated_phase };
-    }));
+    if (direction === 'up') addRegularFoulFromMenu(slot);
+    else removeRegularFoul(slot);
   };
 
   const eliminatePlayer = (slot: number, reason: string, exitReason: NonNullable<ActivePlayerState['exit_reason']>) => {
@@ -429,8 +546,20 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const restorePlayer = (slot: number) => {
     saveSnapshot();
+    const id = String(slot);
+    const d = discipline.players[id];
+    if (d) {
+      const next: GameDiscipline = {
+        ...discipline,
+        players: {
+          ...discipline.players,
+          [id]: { ...d, isRemoved: false, removedReason: null, pendingAction: null },
+        },
+      };
+      setDiscipline(next);
+    }
     setActivePlayers((previous) => previous.map((p) => p.slot_num === slot
-      ? { ...p, alive: true, eliminated_phase: '', exit_reason: 'alive', is_pu: false, best_move_guesses: [] }
+      ? { ...p, alive: true, kick: false, removal_reason: null, eliminated_phase: '', exit_reason: 'alive', is_pu: false, best_move_guesses: [] }
       : p));
     setProtocolMarkers((previous) => clearBestMove(previous, slot));
     if (activeBestMoveSlot === slot) {
@@ -438,6 +567,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setActiveBestMoveSlot(null);
       setPendingBestMoveSeats([]);
     }
+    setActionPlayerSlot(null);
   };
 
   const updateCurrentRoundVotes = (assignments: Record<number, number>) => {
@@ -479,9 +609,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       const next = { ...previous };
       const assigned = eligible.filter((slot) => next[slot] === nominee);
       const desired = Math.max(0, Math.min(desiredCount, eligible.length));
-      if (desired < assigned.length) {
-        assigned.slice(desired).forEach((slot) => delete next[slot]);
-      } else if (desired > assigned.length) {
+      if (desired < assigned.length) assigned.slice(desired).forEach((slot) => delete next[slot]);
+      else if (desired > assigned.length) {
         const free = eligible.filter((slot) => next[slot] === undefined);
         free.slice(0, desired - assigned.length).forEach((slot) => { next[slot] = nominee; });
       }
@@ -505,6 +634,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const handleTransitionToVoting = () => {
+    if (discipline.isNextVotingCancelled) {
+      setDiscipline(resetNextVotingCancelled(discipline));
+      setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: голосование отменено из-за удаления игрока.` }]);
+      showToast("Ближайшее голосование отменено из-за удаления", "warning");
+      startNightPhase();
+      return;
+    }
     if (nominations.length === 0) return startNightPhase();
     const eligible = activePlayers.filter((p) => p.alive).length;
     const explicit: Record<number, number> = Object.fromEntries(nominations.map((slot) => [slot, 0]));
@@ -607,9 +743,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const votesCount = Math.max(0, Math.min(eligible, tableVotes));
     const updated: VotingRound = { ...current, table_leave_votes: votesCount };
     const result = determineVotingResult(updated);
-    if (result.outcome !== 'requires_table_decision' || !result.resolvedOutcome) {
-      return showToast('Не удалось определить решение стола', 'error');
-    }
+    if (result.outcome !== 'requires_table_decision' || !result.resolvedOutcome) return showToast('Не удалось определить решение стола', 'error');
     saveSnapshot();
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? {
       ...updated,
@@ -637,6 +771,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingStage('setup');
     setCurrentVotingNomineeIndex(0);
     setActiveSpeakerSlot(null);
+    setActionPlayerSlot(null);
     setIsTimerRunning(false);
     setActivePlayers((previous) => previous.map((p) => ({ ...p, nominated_this_round: false, has_spoken_this_round: false, mute_this_round: false })));
     setPhase('night');
@@ -689,11 +824,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleAdvanceNightSubPhase = (sub: NightSubPhase) => {
     setNightSubPhase(sub);
     const labels: Partial<Record<NightSubPhase, string>> = {
-      intro: 'Запуск ночи',
-      shooting: 'Стрельба мафии',
-      don: 'Проверка Дона',
-      sheriff: 'Проверка Шерифа',
-      morning: 'Итоги ночи',
+      intro: 'Запуск ночи', shooting: 'Стрельба мафии', don: 'Проверка Дона', sheriff: 'Проверка Шерифа', morning: 'Итоги ночи',
     };
     if (sub === 'morning' || sub === 'best_move') {
       setCustomTimerLabel(null);
@@ -713,6 +844,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPostNightStage('none');
     setCustomTimerLabel(null);
     setActiveSpeakerSlot(null);
+    setActionPlayerSlot(null);
     setIsTimerRunning(false);
     setShotPlayerSlot(null);
     setDonCheckSlot(null);
@@ -761,18 +893,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         killedSlot = shotPlayerSlot;
         eliminatePlayer(shotPlayerSlot, `Убит ночью (Ночь ${roundNumber})`, 'killed');
         logs.push(`Н${roundNumber}: выстрел в #${shotPlayerSlot} — убит.`);
-
         if (protocolMarkers.firstKilledSlot === null && canRegisterFirstKilled(roundNumber, target.role, true)) {
           const nextMarkers = registerFirstKilled(protocolMarkers, shotPlayerSlot);
           setProtocolMarkers(nextMarkers);
           setActivePlayers((previous) => previous.map((p) => p.slot_num === shotPlayerSlot ? { ...p, is_pu: true } : p));
         }
-      } else {
-        logs.push(`Н${roundNumber}: выстрел в #${shotPlayerSlot} — промах.`);
-      }
-    } else {
-      logs.push(`Н${roundNumber}: промах мафии.`);
-    }
+      } else logs.push(`Н${roundNumber}: выстрел в #${shotPlayerSlot} — промах.`);
+    } else logs.push(`Н${roundNumber}: промах мафии.`);
 
     if (donCheckSlot) logs.push(`Дон: #${donCheckSlot} — ${donCheckResult ? 'Шериф' : 'не Шериф'}.`);
     if (sheriffCheckSlot) logs.push(`Шериф: #${sheriffCheckSlot} — ${sheriffCheckResult || '—'}.`);
@@ -782,7 +909,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       startFarewellSpeech(killedSlot);
       return;
     }
-
     finishNightToDay();
   };
 
@@ -790,8 +916,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player) return;
     if (phase === 'night') {
-      if (postNightStage !== 'none') return;
-      if (!player.alive) return;
+      if (postNightStage !== 'none' || !player.alive) return;
       if (nightSubPhase === 'shooting') setShotPlayerSlot((value) => value === slot ? null : slot);
       else if (nightSubPhase === 'don') { setDonCheckSlot(slot); setDonCheckResult(player.role === 'Шериф'); }
       else if (nightSubPhase === 'sheriff') { setSheriffCheckSlot(slot); setSheriffCheckResult(player.team === 'Чёрные' ? 'ЧЁРНЫЙ!' : 'Красный'); }
@@ -801,9 +926,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleInteractiveVoteToggle(slot);
       return;
     }
-    if (phase === 'day_speeches' && player.alive) {
-      if (activeSpeakerSlot === slot) markPlayerSpoken(slot);
-      else handleStartTimer(slot, 60);
+    if (phase === 'day_speeches') {
+      setActionPlayerSlot(slot);
     }
   };
 
@@ -875,7 +999,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return black === 0 ? 'Красные' as const : black >= red ? 'Чёрные' as const : null;
   })();
 
-  const handleEndGameWithWinner = (winner: "Красные" | "Чёрные") => {
+  const handleEndGameWithWinner = (winner: "Красные" | "Чёрные", endReason: 'normal' | 'ppk' = 'normal', ppkSlot: number | null = null) => {
     const slots: GameSlot[] = activePlayers.map((p) => ({
       slot_num: p.slot_num,
       user_id: p.user_id,
@@ -888,7 +1012,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       will_opinion_points: p.will_opinion_points,
       dc_points: p.dc_points,
       kick: p.kick,
-      ppk: p.ppk,
+      ppk: p.ppk || p.slot_num === ppkSlot,
       fouls: p.fouls,
       pu: p.is_pu,
       alive: p.alive,
@@ -896,6 +1020,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       base_points: 0,
       elo_change: 0,
       exit_reason: p.exit_reason,
+      minor_tech_fouls: p.minor_tech_fouls || 0,
+      major_tech_fouls: p.major_tech_fouls || 0,
+      removal_reason: p.removal_reason || null,
     } as any));
     localStorage.removeItem("mafia_live_session");
     onGameFinished({
@@ -904,7 +1031,21 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       slots,
       judge_id: judgeId,
       protocol_markers: protocolMarkers,
+      end_reason: endReason,
     } as any);
+  };
+
+  const handlePpkFromMenu = (slot: number) => {
+    if (!window.confirm(`Зафиксировать ППК игрока #${slot}? Игра немедленно завершится победой противоположной команды.`)) return;
+    const id = String(slot);
+    saveSnapshot();
+    let next = requestPpk(discipline, id);
+    next = confirmAction(next, id);
+    setDiscipline(next);
+    syncDisciplinePlayer(next, slot);
+    setActionPlayerSlot(null);
+    const winner = next.ppkWinnerTeam === 'red' ? 'Красные' : 'Чёрные';
+    handleEndGameWithWinner(winner, 'ppk', slot);
   };
 
   const legacyBestMoveGuesses: number[] = [];
@@ -1019,10 +1160,62 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
   }
 
+  const actionPlayer = actionPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === actionPlayerSlot) || null;
+  const actionDiscipline = actionPlayerSlot === null ? null : discipline.players[String(actionPlayerSlot)] || null;
+  const nominationBlockedBySpeaker = Boolean(
+    actionPlayerSlot !== null &&
+    activeSpeakerSlot &&
+    !nominations.includes(actionPlayerSlot) &&
+    Object.values(nominationsMap).includes(activeSpeakerSlot)
+  );
+
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
+      {actionPlayer && phase === 'day_speeches' && (
+        <div className="fixed inset-0 z-[112] bg-slate-950/55 flex items-end md:items-center justify-center p-2 md:p-4" onClick={() => setActionPlayerSlot(null)}>
+          <div className="w-full max-w-md rounded-t-3xl md:rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl p-4 space-y-3" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-black text-white truncate">#{actionPlayer.slot_num} · {actionPlayer.nickname}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Фолы: {actionDiscipline?.regularFouls ?? actionPlayer.fouls} · Мал. тех: {actionDiscipline?.minorTechFouls ?? 0} · Бол. тех: {actionDiscipline?.majorTechFouls ?? 0}
+                </div>
+                {activeSpeakerSlot && <div className="text-[10px] text-amber-300 mt-0.5">Сейчас речь #{activeSpeakerSlot}</div>}
+              </div>
+              <button type="button" onClick={() => setActionPlayerSlot(null)} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black">×</button>
+            </div>
+
+            {actionPlayer.alive ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { addRegularFoulFromMenu(actionPlayer.slot_num); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-amber-950/70 border border-amber-700 text-amber-200 text-xs font-black">+ Обычный фол</button>
+                <button type="button" disabled={(actionDiscipline?.regularFouls ?? 0) <= 0} onClick={() => { removeRegularFoul(actionPlayer.slot_num); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
+                <button type="button" onClick={() => { addTechFoulFromMenu(actionPlayer.slot_num, 'minor'); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-orange-950/60 border border-orange-700 text-orange-200 text-xs font-black">Малый тех</button>
+                <button type="button" onClick={() => { addTechFoulFromMenu(actionPlayer.slot_num, 'major'); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-rose-950/60 border border-rose-700 text-rose-200 text-xs font-black">Большой тех</button>
+                <button
+                  type="button"
+                  disabled={!nominations.includes(actionPlayer.slot_num) && (!activeSpeakerSlot || nominationBlockedBySpeaker)}
+                  onClick={() => { handleNominateCandidate(actionPlayer.slot_num); setActionPlayerSlot(null); }}
+                  className={`min-h-12 rounded-xl border text-xs font-black disabled:opacity-30 ${nominations.includes(actionPlayer.slot_num) ? 'bg-slate-950 border-slate-600 text-slate-300' : 'bg-fuchsia-950/60 border-fuchsia-700 text-fuchsia-200'}`}
+                >
+                  {nominations.includes(actionPlayer.slot_num) ? 'Снять выставление' : `Выставить${activeSpeakerSlot ? ` · речь #${activeSpeakerSlot}` : ''}`}
+                </button>
+                <button type="button" onClick={() => directRemoveFromMenu(actionPlayer.slot_num)} className="min-h-12 rounded-xl bg-red-950/70 border border-red-700 text-red-200 text-xs font-black">Удалить судьёй</button>
+                <button type="button" onClick={() => handlePpkFromMenu(actionPlayer.slot_num)} className="min-h-12 rounded-xl bg-purple-950/70 border border-purple-700 text-purple-200 text-xs font-black">ППК</button>
+                <button type="button" onClick={() => {
+                  const note = window.prompt(`Заметка ведущего для #${actionPlayer.slot_num}:`, actionPlayer.note || '');
+                  if (note !== null) setActivePlayers((previous) => previous.map((p) => p.slot_num === actionPlayer.slot_num ? { ...p, note: note.trim() } : p));
+                  setActionPlayerSlot(null);
+                }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => restorePlayer(actionPlayer.slot_num)} className="w-full min-h-12 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-200 text-xs font-black">Вернуть за стол</button>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeBestMoveSource && activeBestMoveSlot !== null && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
+        <div className="fixed inset-0 z-[120] bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
           <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl">
             <div className="text-center space-y-1.5">
               <div className="text-[10px] uppercase font-black text-amber-400">{activeBestMoveSource === 'first_killed' ? 'Первый убитый' : 'Слом нулевого круга'}</div>
@@ -1058,7 +1251,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         </div>
       )}
 
-      {toast && <div className={`fixed bottom-4 right-4 z-[120] px-4 py-2.5 rounded-xl border shadow-2xl text-xs font-bold ${toast.type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-300' : toast.type === 'warning' ? 'bg-amber-950 border-amber-500 text-amber-300' : toast.type === 'success' ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>{toast.message}</div>}
+      {toast && <div className={`fixed bottom-4 right-4 z-[130] px-4 py-2.5 rounded-xl border shadow-2xl text-xs font-bold ${toast.type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-300' : toast.type === 'warning' ? 'bg-amber-950 border-amber-500 text-amber-300' : toast.type === 'success' ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>{toast.message}</div>}
 
       {phase === 'setup' && restorableSession && (
         <div className="bg-amber-950/70 border border-amber-500/50 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3 text-xs text-amber-200">

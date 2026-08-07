@@ -89,7 +89,10 @@ const mapEngineResultToProtocol = (
       role: roleToProtocol(slot.role),
       exit_type: slot.exit_reason || (slot.alive ? 'alive' : previous.exit_type),
       regular_fouls: Number(slot.fouls || 0),
-      removal_reason: slot.kick && Number(slot.fouls || 0) >= 4 ? '4th_foul' : previous.removal_reason,
+      minor_tech_fouls: Number(slot.minor_tech_fouls || 0),
+      major_tech_fouls: Number(slot.major_tech_fouls || 0),
+      removal_reason: slot.removal_reason || (slot.kick && Number(slot.fouls || 0) >= 4 ? '4th_foul' : previous.removal_reason),
+      ppk: Boolean(slot.ppk),
       notes: slot.status_reason && !slot.alive ? slot.status_reason : previous.notes,
     } as PlayerResultData;
   });
@@ -99,7 +102,7 @@ const mapEngineResultToProtocol = (
     ...previousProtocol,
     status: 'completed',
     winner_team: winnerTeam,
-    end_reason: 'normal',
+    end_reason: (gameData.end_reason || 'normal') as any,
     first_killed_participant_id: firstKilled?.participant_id || null,
     zero_round_voted_participant_id: zeroRoundVoted?.participant_id || null,
     best_moves: bestMoves,
@@ -137,15 +140,7 @@ const MobileLiveGameStyles = () => (
         display: none !important;
       }
 
-      /*
-       * Exact phone table:
-       *  9  10   1   2
-       *  8  [ CONTROL ] 3
-       *  7   6   5   4
-       *
-       * The whole board scales with the available phone viewport instead of
-       * using short fixed rows. This keeps it readable and removes dead space.
-       */
+      /* Fixed table layout — do not change without an explicit UI redesign. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -159,31 +154,34 @@ const MobileLiveGameStyles = () => (
         width: 100% !important;
       }
 
+      /* 9 10 1 2 / 8 [CONTROL] 3 / 7 6 5 4 */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 1; grid-row: 1; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 2; grid-row: 1; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 3; grid-row: 1; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 4; grid-row: 1; }
-
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 1; grid-row: 2; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) { grid-column: 2 / span 2; grid-row: 2; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 4; grid-row: 2; }
-
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 1; grid-row: 3; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 2; grid-row: 3; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 3; grid-row: 3; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4; grid-row: 3; }
 
-      /* All ten player tiles fully occupy their grid cell. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
         width: 100% !important;
         min-width: 0 !important;
         height: 100% !important;
         min-height: 0 !important;
         max-height: none !important;
-        padding: 28px 2px 0 !important;
+        padding: 8px 2px 0 !important;
         border-radius: 11px !important;
         transform: none !important;
         overflow: hidden !important;
+      }
+
+      /* Mobile cards are clean: all discipline/nomination actions live in the tap menu. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"] {
+        display: none !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
@@ -191,26 +189,14 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 40px !important;
-        height: 40px !important;
-        padding: 3px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Выставить на голосование"] span,
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Снять с голосования"] span {
-        display: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button {
-        min-width: 20px !important;
-        max-height: 24px !important;
-        padding: 2px 4px !important;
-        font-size: 9px !important;
+        min-height: 46px !important;
+        height: 46px !important;
+        padding: 4px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) span[class*="font-black"][class*="truncate"] {
-        font-size: 10px !important;
-        line-height: 11px !important;
+        font-size: 11px !important;
+        line-height: 12px !important;
       }
 
       .evening-live-engine-shell [title="Красный"],
@@ -221,7 +207,7 @@ const MobileLiveGameStyles = () => (
         pointer-events: none !important;
       }
 
-      /* The HUD occupies the same row height as the surrounding players. */
+      /* Center HUD is fixed in place. Nothing inside it scrolls. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
         height: 100% !important;
@@ -243,10 +229,13 @@ const MobileLiveGameStyles = () => (
         padding-top: 2px !important;
         padding-bottom: 2px !important;
         min-height: 0 !important;
-        overflow-y: auto !important;
+        overflow: hidden !important;
       }
 
-      /* The event/protocol area follows the full-height board naturally below the fold. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) * {
+        scrollbar-width: none !important;
+      }
+
       .evening-live-engine-shell > div > div.space-y-4 > :last-child {
         margin-top: 8px !important;
       }

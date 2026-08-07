@@ -1,52 +1,12 @@
 import React from 'react';
-
-export type DeathProtocolSelection = {
-  red: number[];
-  black: number[];
-  sheriff: number[];
-};
-
-export type StoredDeathProtocols = Record<number, DeathProtocolSelection>;
-
-export const emptyDeathProtocolSelection = (): DeathProtocolSelection => ({
-  red: [],
-  black: [],
-  sheriff: [],
-});
-
-const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
-const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
-const storageKey = (gameId: string) => `mafia_live_death_protocols:${gameId}`;
-
-const normalizeSelection = (value: any): DeathProtocolSelection => ({
-  red: Array.isArray(value?.red) ? value.red.map(Number).filter((seat: number) => seat >= 1 && seat <= 10) : [],
-  black: Array.isArray(value?.black) ? value.black.map(Number).filter((seat: number) => seat >= 1 && seat <= 10) : [],
-  sheriff: Array.isArray(value?.sheriff) ? value.sheriff.map(Number).filter((seat: number) => seat >= 1 && seat <= 10).slice(0, 1) : [],
-});
-
-export const readStoredDeathProtocols = (gameId: string): StoredDeathProtocols => {
-  try {
-    const raw = localStorage.getItem(storageKey(gameId));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    const next: StoredDeathProtocols = {};
-    Object.entries(parsed || {}).forEach(([rawSlot, value]) => {
-      const slot = Number(rawSlot);
-      if (Number.isInteger(slot) && slot >= 1 && slot <= 10) next[slot] = normalizeSelection(value);
-    });
-    return next;
-  } catch {
-    return {};
-  }
-};
-
-export const clearStoredDeathProtocols = (gameId: string) => {
-  try { localStorage.removeItem(storageKey(gameId)); } catch {}
-};
-
-const writeStoredDeathProtocols = (gameId: string, value: StoredDeathProtocols) => {
-  try { localStorage.setItem(storageKey(gameId), JSON.stringify(value)); } catch {}
-};
+import {
+  type DeathProtocolSelection,
+  emptyDeathProtocolSelection,
+  normalizeDeathProtocolSelection,
+  readStoredDeathProtocols,
+  storeDeathProtocol,
+  clearStoredDeathProtocols,
+} from '../../lib/liveDeathProtocol';
 
 interface EveningDeathProtocolOverlayProps {
   killedSlot: number;
@@ -58,6 +18,9 @@ interface EveningDeathProtocolOverlayProps {
   onBack: () => void;
   error?: string | null;
 }
+
+const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
+const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
 
 export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayProps> = ({
   killedSlot,
@@ -80,10 +43,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   };
 
   const toggleSheriff = (seat: number) => {
-    onChange({
-      ...value,
-      sheriff: value.sheriff[0] === seat ? [] : [seat],
-    });
+    onChange({ ...value, sheriff: value.sheriff[0] === seat ? [] : [seat] });
   };
 
   const renderRow = (
@@ -109,9 +69,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
               onClick={() => onToggle(seat)}
               aria-pressed={selected}
               className={`min-w-0 aspect-square rounded-lg sm:rounded-xl border font-mono font-black text-[11px] sm:text-sm transition active:scale-95 ${
-                selected
-                  ? activeClass
-                  : 'bg-slate-950/80 border-slate-700 text-slate-400 hover:border-slate-500'
+                selected ? activeClass : 'bg-slate-950/80 border-slate-700 text-slate-400 hover:border-slate-500'
               }`}
             >
               {seat}
@@ -143,25 +101,13 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
         {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-[10px] font-bold text-rose-200">{error}</div>}
 
         <div className="grid grid-cols-12 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onBack}
-            className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black"
-          >
+          <button type="button" onClick={onBack} className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black">
             ← Прощальная
           </button>
-          <button
-            type="button"
-            onClick={() => onChange(emptyDeathProtocolSelection())}
-            className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black"
-          >
+          <button type="button" onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black">
             Сбросить
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase"
-          >
+          <button type="button" onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase">
             Сохранить → день
           </button>
         </div>
@@ -170,15 +116,11 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   );
 };
 
-interface EveningDeathProtocolBridgeProps {
-  gameId: string;
-  players: Array<{ seat_number: number; display_name: string }>;
-}
-
 type LiveSessionView = {
   postNightStage: string;
   shotPlayerSlot: number | null;
   timeLeft: number;
+  killedName: string;
 };
 
 const findEngineButton = (label: string): HTMLButtonElement | null => {
@@ -189,13 +131,15 @@ const findEngineButton = (label: string): HTMLButtonElement | null => {
   ) || null;
 };
 
-export const EveningDeathProtocolBridge: React.FC<EveningDeathProtocolBridgeProps> = ({ gameId, players }) => {
-  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0 });
+export const EveningDeathProtocolBridge: React.FC = () => {
+  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0, killedName: '' });
   const [editingSlot, setEditingSlot] = React.useState<number | null>(null);
   const [value, setValue] = React.useState<DeathProtocolSelection>(emptyDeathProtocolSelection());
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (!localStorage.getItem('mafia_live_session')) clearStoredDeathProtocols();
+
     let lastSignature = '';
     const sync = () => {
       try {
@@ -203,10 +147,14 @@ export const EveningDeathProtocolBridge: React.FC<EveningDeathProtocolBridgeProp
         if (!raw) return;
         const parsed = JSON.parse(raw);
         const shot = Number(parsed?.shotPlayerSlot);
+        const shotPlayerSlot = Number.isInteger(shot) && shot >= 1 && shot <= 10 ? shot : null;
+        const activePlayers = Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : [];
+        const killedPlayer = shotPlayerSlot === null ? null : activePlayers.find((player: any) => Number(player?.slot_num) === shotPlayerSlot);
         const next: LiveSessionView = {
           postNightStage: String(parsed?.postNightStage || 'none'),
-          shotPlayerSlot: Number.isInteger(shot) && shot >= 1 && shot <= 10 ? shot : null,
+          shotPlayerSlot,
           timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
+          killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
         };
         const signature = JSON.stringify(next);
         if (signature !== lastSignature) {
@@ -229,24 +177,21 @@ export const EveningDeathProtocolBridge: React.FC<EveningDeathProtocolBridgeProp
       return;
     }
     if (editingSlot === slot) return;
-    const saved = readStoredDeathProtocols(gameId)[slot] || emptyDeathProtocolSelection();
+    const saved = readStoredDeathProtocols()[slot] || emptyDeathProtocolSelection();
     setEditingSlot(slot);
     setValue(saved);
     setError(null);
-  }, [session.postNightStage, session.shotPlayerSlot, editingSlot, gameId]);
+  }, [session.postNightStage, session.shotPlayerSlot, editingSlot]);
 
   if (session.postNightStage !== 'death_protocol' || session.shotPlayerSlot === null || editingSlot === null) return null;
 
   const killedSlot = session.shotPlayerSlot;
-  const killedName = players.find((player) => player.seat_number === killedSlot)?.display_name || `Игрок ${killedSlot}`;
 
   const handleConfirm = () => {
-    const stored = readStoredDeathProtocols(gameId);
-    const next: StoredDeathProtocols = { ...stored, [killedSlot]: normalizeSelection(value) };
-    writeStoredDeathProtocols(gameId, next);
+    storeDeathProtocol(killedSlot, normalizeDeathProtocolSelection(value));
     const nextButton = findEngineButton('К дневным речам');
     if (!nextButton) {
-      setError('Протокол сохранён, но не найдена кнопка перехода к дневным речам. Закройте форму кнопкой «Прощальная» и повторите переход.');
+      setError('Протокол сохранён, но не найдена кнопка перехода к дневным речам.');
       return;
     }
     setError(null);
@@ -266,7 +211,7 @@ export const EveningDeathProtocolBridge: React.FC<EveningDeathProtocolBridgeProp
   return (
     <EveningDeathProtocolOverlay
       killedSlot={killedSlot}
-      killedName={killedName}
+      killedName={session.killedName || `Игрок ${killedSlot}`}
       timeLeft={session.timeLeft}
       value={value}
       onChange={setValue}

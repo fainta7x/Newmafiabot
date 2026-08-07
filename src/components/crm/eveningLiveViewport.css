@@ -1,0 +1,22 @@
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+    height: calc(100dvh - 2.4rem) !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer {
+    height: calc(100dvh - 2.4rem) !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  @supports (height: 100svh) {
+    @media (max-height: 520px) {
+      html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"],
+      html body .evening-live-engine-shell .evening-live-identity-layer {
+        height: calc(100svh - 2.4rem) !important;
+      }
+    }
+  }
+}

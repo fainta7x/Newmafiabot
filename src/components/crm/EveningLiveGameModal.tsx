@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
@@ -11,6 +11,12 @@ interface EveningLiveGameModalProps {
   onClose: () => void;
   onUpdated: (game: ClubGameRecord) => void;
 }
+
+type LiveVisualDiscipline = {
+  fouls: number;
+  minorTech: number;
+  majorTech: number;
+};
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
@@ -155,12 +161,12 @@ const MobileLiveGameStyles = () => (
         gap: 3px !important;
       }
 
-      /* Hide only the desktop judge toolbar. Do not touch fixed overlays/bottom sheets. */
+      /* Hide desktop judge toolbar only. */
       .evening-live-engine-shell > div > div.space-y-4 > div:first-child {
         display: none !important;
       }
 
-      /* Approved mobile table layout: 9 10 1 2 / 8 [HUD] 3 / 7 6 5 4. */
+      /* Approved layout: 9 10 1 2 / 8 [HUD] 3 / 7 6 5 4. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -192,46 +198,42 @@ const MobileLiveGameStyles = () => (
         height: 100% !important;
         min-height: 0 !important;
         max-height: none !important;
-        padding: 8px 2px 0 !important;
+        padding: 4px 2px 0 !important;
         border-radius: 11px !important;
         transform: none !important;
         overflow: hidden !important;
       }
 
-      /* Mobile cards stay visually clean; actions live in the tap menu. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"] {
-        display: none !important;
-      }
-
+      /* Quick desktop card controls/body are replaced by tap-menu + identity overlay on mobile. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"],
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
         display: none !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 46px !important;
-        height: 46px !important;
+        min-height: 42px !important;
+        height: 42px !important;
         padding: 4px !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) span[class*="font-black"][class*="truncate"] {
-        font-size: 10px !important;
-        line-height: 11px !important;
+      /* Nickname already lives with the avatar: hide only the duplicated bottom nickname/note block. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] > div:first-child > div[class*="flex-col"] {
+        display: none !important;
       }
 
-      /* The note pencil moved to the tap menu, so it should not steal nickname width. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button[title*="заметку"] {
         display: none !important;
       }
 
-      .evening-live-engine-shell [title="Красный"],
-      .evening-live-engine-shell [title="Дон"],
-      .evening-live-engine-shell [title="Мафия"],
-      .evening-live-engine-shell [title="Шериф"],
-      .evening-live-engine-shell [title="Скрыто"] {
-        pointer-events: none !important;
+      /* Global role privacy switch in the modal header. */
+      .evening-live-roles-hidden .evening-live-engine-shell [title="Красный"],
+      .evening-live-roles-hidden .evening-live-engine-shell [title="Дон"],
+      .evening-live-roles-hidden .evening-live-engine-shell [title="Мафия"],
+      .evening-live-roles-hidden .evening-live-engine-shell [title="Шериф"] {
+        opacity: 0 !important;
       }
 
-      /* Center HUD: three fixed zones; nothing inside scrolls or overlaps. */
+      /* Center HUD: compact fixed zones, no internal scroll. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
         height: 100% !important;
@@ -244,13 +246,13 @@ const MobileLiveGameStyles = () => (
         border-radius: 11px !important;
         overflow: hidden !important;
         display: grid !important;
-        grid-template-rows: 22px minmax(0, 1fr) 36px !important;
+        grid-template-rows: 20px minmax(0, 1fr) 42px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
         min-height: 0 !important;
-        height: 22px !important;
-        padding: 0 2px 2px !important;
+        height: 20px !important;
+        padding: 0 2px 1px !important;
         overflow: hidden !important;
       }
 
@@ -261,10 +263,10 @@ const MobileLiveGameStyles = () => (
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
         min-height: 0 !important;
         height: 100% !important;
-        padding: 1px 0 !important;
+        padding: 0 !important;
         overflow: hidden !important;
         display: flex !important;
-        align-items: stretch !important;
+        align-items: center !important;
         justify-content: center !important;
       }
 
@@ -275,7 +277,7 @@ const MobileLiveGameStyles = () => (
         padding: 0 2px !important;
       }
 
-      /* Timer gets its own compact vertical layout instead of being vertically clipped. */
+      /* Timer: number is secondary, control buttons become the main touch targets. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(span[class*="tracking-widest"]) {
         height: 100% !important;
         display: flex !important;
@@ -297,63 +299,86 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="text-xs"][class*="font-black"] {
-        font-size: 10px !important;
-        line-height: 11px !important;
-        min-height: 11px !important;
+        font-size: 9px !important;
+        line-height: 10px !important;
+        min-height: 10px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"] {
-        font-size: 27px !important;
-        line-height: 34px !important;
-        height: 36px !important;
+        font-size: 23px !important;
+        line-height: 26px !important;
+        height: 28px !important;
+        min-height: 28px !important;
         padding: 0 !important;
+        border-radius: 8px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="h-1.5"] {
-        height: 3px !important;
+        height: 2px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="flex"][class*="gap-1.5"]:has(button[class*="h-9"]) {
+        display: grid !important;
+        grid-template-columns: 38px minmax(54px, 1fr) 38px 38px !important;
+        gap: 4px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"] {
-        height: 26px !important;
-        min-height: 26px !important;
-        border-radius: 7px !important;
-        font-size: 9px !important;
+        width: auto !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        border-radius: 9px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"]:first-child {
+        font-size: 11px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"] svg {
-        width: 12px !important;
-        height: 12px !important;
+        width: 17px !important;
+        height: 17px !important;
+        margin: 0 !important;
+      }
+
+      /* Zero-night / compact stage buttons must also stay inside the middle zone. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 button:not([class*="h-9"]) {
+        min-height: 28px !important;
+        padding-top: 3px !important;
+        padding-bottom: 3px !important;
+        line-height: 11px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
         min-height: 0 !important;
-        height: 36px !important;
-        padding-top: 2px !important;
+        height: 42px !important;
+        padding-top: 3px !important;
         overflow: hidden !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div[class*="grid-cols-12"] {
-        min-height: 31px !important;
-        height: 31px !important;
+        min-height: 36px !important;
+        height: 36px !important;
         gap: 4px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child button {
-        min-height: 31px !important;
-        height: 31px !important;
-        padding: 2px 4px !important;
-        font-size: 8px !important;
-        line-height: 10px !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        padding: 2px 5px !important;
+        font-size: 9px !important;
+        line-height: 11px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) * {
         scrollbar-width: none !important;
       }
 
-      /* Player actions: icon-first 4x2 control pad, ordered by usage frequency. */
+      /* Action sheet: icon-first 4x2 pad. */
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 8px !important;
@@ -399,7 +424,21 @@ const MobileLiveGameStyles = () => (
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7)::before { content: "🏳️"; }
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8)::before { content: "🗒️"; }
 
-      /* CRM identity overlay: avatar and nickname use the otherwise empty card area. */
+      /* Make discipline totals unmistakable inside the opened player sheet. */
+      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] div[class*="text-[10px]"][class*="text-slate-400"][class*="mt-0.5"] {
+        display: inline-flex !important;
+        margin-top: 5px !important;
+        padding: 4px 7px !important;
+        border-radius: 8px !important;
+        border: 1px solid rgb(51 65 85) !important;
+        background: rgb(2 6 23 / 0.75) !important;
+        color: rgb(226 232 240) !important;
+        font-size: 11px !important;
+        line-height: 13px !important;
+        font-weight: 800 !important;
+      }
+
+      /* CRM identity overlay: avatar + one nickname + live discipline counters. */
       .evening-live-identity-layer {
         position: absolute;
         z-index: 16;
@@ -421,8 +460,8 @@ const MobileLiveGameStyles = () => (
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 5px;
-        padding: 26px 5px 48px;
+        gap: 4px;
+        padding: 18px 4px 43px;
         overflow: hidden;
       }
 
@@ -452,6 +491,33 @@ const MobileLiveGameStyles = () => (
         text-align: center;
       }
 
+      .evening-live-discipline {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        max-width: 100%;
+      }
+
+      .evening-live-discipline > span {
+        min-width: 22px;
+        height: 17px;
+        padding: 0 3px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 23, 0.9);
+        border: 1px solid rgba(71, 85, 105, 0.9);
+        font-size: 8px;
+        line-height: 1;
+        font-weight: 900;
+      }
+
+      .evening-live-discipline-foul { color: rgb(251, 191, 36); }
+      .evening-live-discipline-minor { color: rgb(250, 204, 21); }
+      .evening-live-discipline-major { color: rgb(248, 113, 113); }
+
       .evening-live-engine-shell > div > div.space-y-4 > :last-child {
         margin-top: 8px !important;
       }
@@ -468,6 +534,8 @@ const MobileLiveGameStyles = () => (
 export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated }) => {
   const [saving, setSaving] = useState(false);
   const [livePhase, setLivePhase] = useState('setup');
+  const [rolesHidden, setRolesHidden] = useState(false);
+  const [liveDiscipline, setLiveDiscipline] = useState<Record<number, LiveVisualDiscipline>>({});
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
@@ -492,10 +560,46 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     };
   }, []);
 
+  useEffect(() => {
+    if (livePhase === 'setup') {
+      setLiveDiscipline({});
+      return;
+    }
+
+    let lastSignature = '';
+    const syncFromLiveSession = () => {
+      try {
+        const raw = localStorage.getItem('mafia_live_session');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const activePlayers = Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : [];
+        const next: Record<number, LiveVisualDiscipline> = {};
+        for (const player of activePlayers) {
+          const slot = Number(player?.slot_num);
+          if (!Number.isInteger(slot) || slot < 1 || slot > 10) continue;
+          next[slot] = {
+            fouls: Number(player?.fouls || 0),
+            minorTech: Number(player?.minor_tech_fouls || 0),
+            majorTech: Number(player?.major_tech_fouls || 0),
+          };
+        }
+        const signature = JSON.stringify(next);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          setLiveDiscipline(next);
+        }
+      } catch {}
+    };
+
+    syncFromLiveSession();
+    const intervalId = window.setInterval(syncFromLiveSession, 300);
+    return () => window.clearInterval(intervalId);
+  }, [livePhase]);
+
   if (!game.club_protocol) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-950 overflow-hidden">
+    <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
       <MobileLiveGameStyles />
 
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
@@ -505,14 +609,24 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             {game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0"
-          title="Закрыть движок"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setRolesHidden((value) => !value)}
+            className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${rolesHidden ? 'bg-amber-950/70 border-amber-700 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+            title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}
+          >
+            {rolesHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0"
+            title="Закрыть движок"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {saving && (
@@ -544,18 +658,29 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
         {livePhase !== 'setup' && (
           <div className="evening-live-identity-layer" aria-hidden="true">
-            {livePlayers.map((player) => (
-              <div key={player.seat_number} className="evening-live-identity" style={seatPlacement[player.seat_number]}>
-                <PlayerAvatar
-                  playerId={player.player_id}
-                  nickname={player.display_name}
-                  size="xl"
-                  forceStoredLookup
-                  className="evening-live-player-avatar"
-                />
-                <span className="evening-live-identity-name">{player.display_name}</span>
-              </div>
-            ))}
+            {livePlayers.map((player) => {
+              const current = liveDiscipline[player.seat_number];
+              const fouls = current?.fouls ?? Number((player as any).regular_fouls || 0);
+              const minorTech = current?.minorTech ?? Number((player as any).minor_tech_fouls || 0);
+              const majorTech = current?.majorTech ?? Number((player as any).major_tech_fouls || 0);
+              return (
+                <div key={player.seat_number} className="evening-live-identity" style={seatPlacement[player.seat_number]}>
+                  <PlayerAvatar
+                    playerId={player.player_id}
+                    nickname={player.display_name}
+                    size="xl"
+                    forceStoredLookup
+                    className="evening-live-player-avatar"
+                  />
+                  <span className="evening-live-identity-name">{player.display_name}</span>
+                  <div className="evening-live-discipline" aria-label={`Фолы ${fouls}, малые техфолы ${minorTech}, большие техфолы ${majorTech}`}>
+                    <span className="evening-live-discipline-foul">✓{fouls}</span>
+                    <span className="evening-live-discipline-minor">!{minorTech}</span>
+                    <span className="evening-live-discipline-major">!{majorTech}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ on:
     branches: [chatgpt-write-test]
     paths:
       - scripts/chatgpt_apply_live_flow_patch.py
+      - .github/workflows/chatgpt-live-flow-patch.yml
 
 permissions:
   contents: write
@@ -19,7 +20,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - name: Apply targeted patch
         run: python3 scripts/chatgpt_apply_live_flow_patch.py

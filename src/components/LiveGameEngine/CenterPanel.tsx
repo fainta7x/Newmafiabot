@@ -4,6 +4,8 @@ import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { isVoteDecidedFromAssignments } from "../../lib/liveVoting.js";
 
+type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
+
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
   activeSpeakerSlot: number | null;
@@ -37,42 +39,21 @@ interface CenterPanelProps {
   shotPlayerSlot: number | null;
   getPrevStepAction: () => { label: string; onClick: () => void } | null;
   getNextStepInfo: () => { label: string; onClick: () => void } | null;
-  addLogEntry?: (logText: string) => void;
   onCancel?: () => void;
-  handleAdvanceNightSubPhase?: (sub: NightSubPhase) => void;
-  handleResolveNight?: () => void;
   isMuted?: boolean;
   setIsMuted?: React.Dispatch<React.SetStateAction<boolean>>;
   votingRounds?: VotingRound[];
   activeVotingRoundIndex?: number;
-  votingStage?: 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
-  setVotingStage?: React.Dispatch<React.SetStateAction<'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved'>>;
+  votingStage?: VotingStage;
+  setVotingStage?: React.Dispatch<React.SetStateAction<VotingStage>>;
   revoteSpeakerIndex?: number;
   setRevoteSpeakerIndex?: React.Dispatch<React.SetStateAction<number>>;
-  tableLeaveVotesInput?: number | null;
   setTableLeaveVotesInput?: React.Dispatch<React.SetStateAction<number | null>>;
   handleConfirmSingleElimination?: (slotNum: number) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
-
-  handleTransitionToVoting?: () => void;
-  markPlayerSpoken?: (slot: number) => void;
-  isInteractiveVoting?: boolean;
-  setIsInteractiveVoting?: (value: boolean) => void;
-  votingSubPhase?: string;
-  setVotingSubPhase?: React.Dispatch<React.SetStateAction<any>>;
-  shootoutNominees?: number[];
-  votingAttempt?: number;
-  handleStartReVoting?: () => void;
-  handleResolveShootoutVotes?: (...args: any[]) => void;
-  shootoutSubPhase?: string;
-  setShootoutSubPhase?: React.Dispatch<React.SetStateAction<any>>;
-  bothLeaveVotes?: number[];
-  setBothLeaveVotes?: React.Dispatch<React.SetStateAction<number[]>>;
-  bestMoveGuesses?: number[];
-  getSeatColor?: (player: ActivePlayerState) => string;
 }
 
 export default function CenterPanel({
@@ -200,28 +181,30 @@ export default function CenterPanel({
   };
 
   const renderTimer = () => (
-    <div className="space-y-1.5 w-full max-w-[300px] mx-auto">
-      <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block">
+    <div className="live-hud-timer w-full max-w-[300px] mx-auto">
+      <span className="live-hud-timer-label text-[9px] font-black text-amber-400 uppercase tracking-widest block">
         {customTimerLabel || (activeSpeakerSlot ? `Сейчас говорит #${activeSpeakerSlot}` : 'Таймер')}
       </span>
-      {activeSpeaker && <div className="text-xs font-black text-white truncate">{activeSpeaker.nickname || `Игрок ${activeSpeaker.slot_num}`}</div>}
-      <div className={`text-2xl sm:text-3xl font-mono font-black py-0.5 rounded-xl border ${timeLeft <= 10 ? 'text-rose-400 border-rose-500/60 bg-rose-950/60' : 'text-emerald-400 border-slate-800 bg-slate-950'}`}>
-        {timeLeft}с
+      <div className="live-hud-timer-main">
+        {activeSpeaker && <div className="live-hud-speaker text-xs font-black text-white truncate">{activeSpeaker.nickname || `Игрок ${activeSpeaker.slot_num}`}</div>}
+        <div className={`live-hud-time text-2xl sm:text-3xl font-mono font-black rounded-xl border ${timeLeft <= 10 ? 'text-rose-400 border-rose-500/60 bg-rose-950/60' : 'text-emerald-400 border-slate-800 bg-slate-950'}`}>
+          {timeLeft}с
+        </div>
       </div>
-      <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+      <div className="live-hud-progress w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
         <div className="h-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} />
       </div>
-      <div className="flex gap-1.5">
-        <button type="button" onClick={() => handleAdjustTime(-10)} className="w-10 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold">-10</button>
+      <div className="live-hud-timer-controls">
+        <button type="button" onClick={() => handleAdjustTime(-10)} className="live-hud-control bg-slate-900 border border-slate-800 text-slate-300 font-bold">-10</button>
         {isTimerRunning ? (
-          <button type="button" onClick={() => setIsTimerRunning(false)} className="flex-1 h-9 rounded-xl bg-amber-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1"><Pause className="w-4 h-4" />Пауза</button>
+          <button type="button" aria-label="Пауза" onClick={() => setIsTimerRunning(false)} className="live-hud-control live-hud-control-primary bg-amber-600 text-slate-950 font-black"><Pause /></button>
         ) : (
-          <button type="button" onClick={() => setIsTimerRunning(true)} className="flex-1 h-9 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center gap-1"><Play className="w-4 h-4" />Старт</button>
+          <button type="button" aria-label="Старт" onClick={() => setIsTimerRunning(true)} className="live-hud-control live-hud-control-primary bg-emerald-600 text-white font-black"><Play /></button>
         )}
-        <button type="button" onClick={() => { setIsTimerRunning(false); setTimeLeft(effectiveTimerMax); }} className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 flex items-center justify-center"><RotateCcw className="w-4 h-4" /></button>
+        <button type="button" aria-label="Сбросить таймер" onClick={() => { setIsTimerRunning(false); setTimeLeft(effectiveTimerMax); }} className="live-hud-control bg-slate-900 border border-slate-800 text-slate-300"><RotateCcw /></button>
         {setIsMuted && (
-          <button type="button" onClick={() => setIsMuted((v) => !v)} className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 flex items-center justify-center">
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          <button type="button" aria-label={isMuted ? 'Включить звук' : 'Выключить звук'} onClick={() => setIsMuted((v) => !v)} className="live-hud-control bg-slate-900 border border-slate-800 text-slate-300">
+            {isMuted ? <VolumeX /> : <Volume2 />}
           </button>
         )}
       </div>
@@ -229,9 +212,7 @@ export default function CenterPanel({
   );
 
   const renderVoting = () => {
-    if (!currentRound) {
-      return <div className="text-xs text-slate-400">Подготовка голосования…</div>;
-    }
+    if (!currentRound) return <div className="live-voting-empty text-xs text-slate-400">Подготовка голосования…</div>;
 
     const result = determineVotingResult(currentRound);
     const eligiblePlayers = activePlayers.filter((p) => p.alive);
@@ -245,38 +226,34 @@ export default function CenterPanel({
       const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
       const remaining = Math.max(0, eligible - explicitAssigned);
       const isLast = currentVotingNomineeIndex === candidates.length - 1;
+
       return (
-        <div className="space-y-2 w-full max-w-[300px] mx-auto">
-          <div className="text-[9px] uppercase font-black text-slate-400">
+        <div className="live-voting live-voting-collecting w-full max-w-[300px] mx-auto">
+          <div className="live-voting-meta text-[9px] uppercase font-black text-slate-400">
             {currentRound.is_revote ? `Переголосование #${activeVotingRoundIndex}` : 'Основное голосование'} · {eligible} голосующих
           </div>
-          <div className="text-xs font-black text-white">
+          <div className="live-voting-question text-xs font-black text-white">
             Кто против <span className="text-rose-400 font-mono">#{nominee}</span>?
           </div>
-          <div className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 flex justify-between text-[10px]">
+          <div className="live-voting-score bg-slate-950 border border-slate-800 rounded-xl flex justify-between items-center">
             <span className="text-slate-400">Текущий итог</span>
             <strong className="text-rose-400 font-mono">{votes[nominee] || 0}</strong>
           </div>
-          {decided && (
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-2 py-1 text-[9px] font-black text-emerald-400 uppercase">
-              ✓ Голосование решено
+          {(decided || (isLast && remaining > 0)) && (
+            <div className={`live-voting-hint ${decided ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {decided ? '✓ Голосование уже решено' : `Последнему автоматически: ${remaining}`}
             </div>
           )}
-          {isLast && remaining > 0 && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-[9px] text-amber-300">
-              Последнему кандидату автоматически: {remaining}
-            </div>
-          )}
-          <div className="flex justify-center gap-1.5">
-            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-xs">−1</button>
-            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-xs">+1</button>
+          <div className="live-voting-stepper">
+            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)}>−1</button>
+            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)}>+1</button>
           </div>
-          <div className="flex justify-between gap-1.5">
-            <button type="button" disabled={currentVotingNomineeIndex === 0} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] disabled:opacity-30">← Назад</button>
+          <div className="live-voting-nav">
+            <button type="button" disabled={currentVotingNomineeIndex === 0} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)}>← Назад</button>
             {isLast ? (
-              <button type="button" onClick={() => { if (remaining > 0) handleInteractiveAutoRemainder(); handleResolveVoting(); }} className="flex-1 py-1.5 rounded-lg bg-emerald-600 text-white font-black text-[9px] uppercase">Подвести итог</button>
+              <button type="button" onClick={() => { if (remaining > 0) handleInteractiveAutoRemainder(); handleResolveVoting(); }} className="live-voting-nav-primary bg-emerald-600 text-white">Итог</button>
             ) : (
-              <button type="button" onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-black text-[9px] uppercase">Следующий →</button>
+              <button type="button" onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-voting-nav-primary bg-rose-600 text-white">Следующий →</button>
             )}
           </div>
         </div>
@@ -299,13 +276,13 @@ export default function CenterPanel({
       };
 
       return (
-        <div className="space-y-2 w-full max-w-[300px] mx-auto">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-black text-amber-400 uppercase">Спорная речь · 30 секунд</div>
-            <div className="text-[9px] text-slate-500">{revoteSpeakerIndex + 1}/{winners.length}</div>
+        <div className="live-voting live-voting-revote w-full max-w-[300px] mx-auto">
+          <div className="live-voting-revote-head">
+            <span>Спорная речь · 30с</span>
+            <span>{revoteSpeakerIndex + 1}/{winners.length}</span>
           </div>
           {renderTimer()}
-          <button type="button" onClick={advanceSpeech} className={`w-full py-2 rounded-xl text-white font-black text-[10px] uppercase ${isLastSpeaker ? 'bg-rose-600' : 'bg-amber-600'}`}>
+          <button type="button" onClick={advanceSpeech} className={`live-voting-revote-next ${isLastSpeaker ? 'bg-rose-600' : 'bg-amber-600'} text-white font-black uppercase`}>
             {isLastSpeaker ? 'К переголосованию' : 'Следующий спорный'}
           </button>
         </div>
@@ -315,27 +292,27 @@ export default function CenterPanel({
     if (votingStage === 'round_result') {
       if (result.outcome === 'single_eliminated') {
         return (
-          <div className="space-y-2 max-w-[300px] mx-auto">
-            <div className="text-xs font-black text-rose-400">Игрок #{result.winners[0]} покидает стол</div>
-            <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="w-full py-2 rounded-xl bg-rose-600 text-white font-black text-[10px] uppercase">Подтвердить</button>
+          <div className="live-voting-result">
+            <div className="text-rose-400 font-black">Игрок #{result.winners[0]} покидает стол</div>
+            <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="bg-rose-600 text-white font-black">Подтвердить</button>
           </div>
         );
       }
 
       if (result.outcome === 'needs_revote') {
         return (
-          <div className="space-y-2 max-w-[300px] mx-auto">
-            <div className="text-[10px] font-black text-amber-300">Ничья: {result.winners.map((s) => `#${s}`).join(', ')}</div>
-            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="w-full py-2 rounded-xl bg-amber-600 text-white font-black text-[10px] uppercase">Речи по 30 секунд</button>
+          <div className="live-voting-result">
+            <div className="text-amber-300 font-black">Ничья: {result.winners.map((s) => `#${s}`).join(', ')}</div>
+            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="bg-amber-600 text-white font-black">Речи по 30 секунд</button>
           </div>
         );
       }
 
       if (result.outcome === 'auto_no_elimination') {
         return (
-          <div className="space-y-2 max-w-[300px] mx-auto">
-            <div className="text-[10px] text-emerald-300">Спорных игроков больше половины стола. Никто не покидает стол.</div>
-            <button type="button" onClick={() => handleConfirmAutoNoElimination?.()} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Подтвердить и перейти в ночь</button>
+          <div className="live-voting-result">
+            <div className="text-emerald-300">Спорных больше половины стола. Никто не уходит.</div>
+            <button type="button" onClick={() => handleConfirmAutoNoElimination?.()} className="bg-emerald-600 text-white font-black">В ночь</button>
           </div>
         );
       }
@@ -345,27 +322,20 @@ export default function CenterPanel({
         const majority = Math.floor(eligible / 2) + 1;
         const entered = tableVoterSlots.length;
         return (
-          <div className="space-y-2 w-full max-w-[340px] mx-auto">
-            <div className="text-[10px] text-amber-300 font-black">Повторная ничья: {result.winners.map((s) => `#${s}`).join(', ')}</div>
-            <div className="text-[9px] text-slate-400">Нажимайте на окна игроков, которые голосуют за уход всех спорных.</div>
-            <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/60 border border-slate-800 text-[10px]">
-              <span className="text-slate-400">За уход всех</span>
-              <strong className={entered >= majority ? 'text-emerald-400' : 'text-amber-400'}>{entered}/{eligible} · нужно {majority}</strong>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
+          <div className="live-voting live-voting-table-decision w-full max-w-[340px] mx-auto">
+            <div className="live-voting-table-title">Повторная ничья: {result.winners.map((s) => `#${s}`).join(', ')}</div>
+            <div className="live-voting-table-count">За уход всех: <strong>{entered}/{eligible}</strong> · нужно {majority}</div>
+            <div className="live-voting-table-seats">
               {eligiblePlayers.map((player) => {
                 const selected = tableVoterSlots.includes(player.slot_num);
                 return (
-                  <button key={player.slot_num} type="button" onClick={() => toggleTableVoter(player.slot_num)} className={`min-w-0 px-2 py-2 rounded-xl border text-left transition-all ${selected ? 'bg-rose-950/80 border-rose-500 ring-1 ring-rose-500/40' : 'bg-slate-950/70 border-slate-800'}`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-black text-xs shrink-0 ${selected ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{player.slot_num}</span>
-                      <span className={`truncate text-[10px] font-black ${selected ? 'text-rose-200' : 'text-slate-300'}`}>{player.nickname || `Игрок ${player.slot_num}`}</span>
-                    </div>
+                  <button key={player.slot_num} type="button" onClick={() => toggleTableVoter(player.slot_num)} className={selected ? 'is-selected' : ''}>
+                    {player.slot_num}
                   </button>
                 );
               })}
             </div>
-            <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className="w-full py-2 rounded-xl bg-amber-600 text-white font-black text-[10px] uppercase">Подтвердить голосование стола</button>
+            <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className="live-voting-table-confirm bg-amber-600 text-white font-black">Подтвердить решение стола</button>
           </div>
         );
       }
@@ -377,21 +347,21 @@ export default function CenterPanel({
   const renderIdleBody = () => {
     if (phase === 'zero_night') {
       return (
-        <div className="space-y-2 max-w-[300px] mx-auto">
-          <div className="text-xs font-black text-white uppercase">Подготовка игры</div>
-          <button type="button" onClick={() => handleStartZeroNightTimer('agreement')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">1. Договорка · 75с</button>
-          <button type="button" onClick={() => handleStartZeroNightTimer('sheriff')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">2. Вызов шерифа · 10с</button>
-          <button type="button" onClick={() => handleStartZeroNightTimer('seating')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">3. Посадка · 40с</button>
-          {zeroNightSubPhase === 'agreement' && <div className="text-[9px] text-slate-400">Дон #{donPlayer?.slot_num || '—'} · Мафия {mafiaPlayers.map((p) => `#${p.slot_num}`).join(', ') || '—'}</div>}
+        <div className="live-zero-night w-full max-w-[300px] mx-auto">
+          <div className="live-zero-night-title font-black text-white uppercase">Подготовка игры</div>
+          <button type="button" onClick={() => handleStartZeroNightTimer('agreement')}>1. Договорка · 75с</button>
+          <button type="button" onClick={() => handleStartZeroNightTimer('sheriff')}>2. Вызов шерифа · 10с</button>
+          <button type="button" onClick={() => handleStartZeroNightTimer('seating')}>3. Посадка · 40с</button>
+          {zeroNightSubPhase === 'agreement' && <div className="live-zero-night-note">Дон #{donPlayer?.slot_num || '—'} · Мафия {mafiaPlayers.map((p) => `#${p.slot_num}`).join(', ') || '—'}</div>}
         </div>
       );
     }
 
     if (phase === 'day_speeches') {
       return nextSpeaker ? (
-        <div className="space-y-2">
-          <div className="text-xs font-black text-white uppercase">Круг обсуждения</div>
-          <button type="button" onClick={handleStartNextSpeaker} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase flex items-center gap-1.5 mx-auto"><Mic className="w-4 h-4" />Речь #{nextSpeaker.slot_num}</button>
+        <div className="live-day-idle">
+          <div className="live-day-idle-title">Круг обсуждения</div>
+          <button type="button" onClick={handleStartNextSpeaker} className="bg-emerald-600 text-white font-black uppercase"><Mic />Речь #{nextSpeaker.slot_num}</button>
         </div>
       ) : <div className="text-xs font-black text-emerald-400">Все выступили ✓</div>;
     }
@@ -407,27 +377,29 @@ export default function CenterPanel({
         best_move: 'ЛХ первого убитого',
         morning: 'Итоги ночи',
       };
-      return <div className="text-xs font-black text-purple-300">{labels[nightSubPhase] || 'Ночь'}</div>;
+      return <div className="live-night-status text-purple-300 font-black">{labels[nightSubPhase] || 'Ночь'}</div>;
     }
 
     return null;
   };
 
+  const showFooter = Boolean(prevStep || nextStep);
+
   return (
-    <div className="col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none sticky top-[72px] md:static z-40 md:z-auto min-h-[210px] md:min-h-[300px] max-h-[360px] md:max-h-none bg-slate-900/98 border-2 border-slate-800 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex flex-col justify-between text-center shadow-2xl">
-      <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 gap-2">
-        <span className="text-[10px] font-black uppercase text-slate-300 truncate">{phaseLabel}</span>
-        <div className="flex items-center gap-2 shrink-0">
+    <div className={`live-hud live-hud-phase-${phase} live-hud-voting-${votingStage} col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none sticky top-[72px] md:static z-40 md:z-auto bg-slate-900/98 border-2 border-slate-800 rounded-2xl sm:rounded-3xl text-center shadow-2xl`}>
+      <div className="live-hud-header flex justify-between items-center border-b border-slate-800 gap-2">
+        <span className="live-hud-phase-label font-black uppercase text-slate-300 truncate">{phaseLabel}</span>
+        <div className="live-hud-header-actions flex items-center gap-2 shrink-0">
           {canUseVotingBack && (
-            <button type="button" onClick={handleVotingBack} className="text-[9px] text-slate-300 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800">
-              <ArrowLeft className="w-3 h-3" />Назад
+            <button type="button" onClick={handleVotingBack} className="live-hud-back text-slate-300 flex items-center gap-1 rounded-lg bg-slate-950 border border-slate-800">
+              <ArrowLeft />Назад
             </button>
           )}
-          {onCancel && <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="text-[9px] text-slate-400 flex items-center gap-1"><LogOut className="w-3 h-3" />Выйти</button>}
+          {onCancel && <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="live-hud-exit text-slate-400 flex items-center gap-1"><LogOut />Выйти</button>}
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center py-2 overflow-y-auto overscroll-contain">
+      <div className="live-hud-body flex items-center justify-center">
         {phase === 'day_voting' && votingStage === 'revote_speeches'
           ? renderVoting()
           : (activeSpeakerSlot !== null || customTimerLabel !== null)
@@ -435,16 +407,14 @@ export default function CenterPanel({
             : renderIdleBody()}
       </div>
 
-      <div className="border-t border-slate-800 pt-1.5 space-y-1.5">
-        <div className="hidden sm:flex justify-between text-[9px] text-slate-500">
-          <span>Выставлены: {nominations.length ? nominations.map((n) => `#${n}`).join(', ') : '—'}</span>
-          <span>Живых: {activePlayers.filter((p) => p.alive).length}/10</span>
+      {showFooter && (
+        <div className="live-hud-footer border-t border-slate-800">
+          <div className="live-hud-nav grid grid-cols-12">
+            {prevStep ? <button type="button" onClick={prevStep.onClick} className="live-hud-nav-back col-span-4 bg-slate-950 border border-slate-800 text-slate-300 font-bold flex items-center justify-center gap-1"><ArrowLeft />{prevStep.label}</button> : <div className="col-span-4" />}
+            {nextStep ? <button type="button" onClick={nextStep.onClick} className="live-hud-nav-next col-span-8 bg-rose-600 text-white font-black uppercase flex items-center justify-center gap-1">{nextStep.label}<ArrowRight /></button> : <div className="col-span-8" />}
+          </div>
         </div>
-        <div className="grid grid-cols-12 gap-1.5 min-h-[36px]">
-          {prevStep ? <button type="button" onClick={prevStep.onClick} className="col-span-4 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] font-bold flex items-center justify-center gap-1"><ArrowLeft className="w-3 h-3" />{prevStep.label}</button> : <div className="col-span-4" />}
-          {nextStep ? <button type="button" onClick={nextStep.onClick} className="col-span-8 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase flex items-center justify-center gap-1">{nextStep.label}<ArrowRight className="w-3 h-3" /></button> : <div className="col-span-8 rounded-lg bg-slate-950/40 border border-slate-850 text-slate-600 text-[10px] flex items-center justify-center">Ожидание</div>}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

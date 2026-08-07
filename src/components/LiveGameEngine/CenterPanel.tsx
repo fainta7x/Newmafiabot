@@ -1,7 +1,6 @@
 import React from "react";
 import { Pause, Play, RotateCcw, Mic, LogOut, ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
-import { PistolIcon, MafiaHatIcon } from "./Icons.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { isVoteDecidedFromAssignments } from "../../lib/liveVoting.js";
 
@@ -118,7 +117,6 @@ export default function CenterPanel({
   votingRounds = [],
   activeVotingRoundIndex = 0,
   votingStage = 'setup',
-  setVotingStage,
   revoteSpeakerIndex = 0,
   setRevoteSpeakerIndex,
   tableLeaveVotesInput = null,

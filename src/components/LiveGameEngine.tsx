@@ -642,6 +642,16 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return;
     }
     if (nominations.length === 0) return startNightPhase();
+    if (roundNumber === 1 && nominations.length === 1) {
+      const onlyNominee = nominations[0];
+      setNightLogs((previous) => [...previous, {
+        round: roundNumber,
+        log: `Д1: в нулевом круге выставлена только одна кандидатура #${onlyNominee}; голосование не проводится, наступает ночь.`,
+      }]);
+      showToast(`Нулевой круг: одна кандидатура #${onlyNominee} — сразу ночь`, "info");
+      startNightPhase();
+      return;
+    }
     const eligible = activePlayers.filter((p) => p.alive).length;
     const explicit: Record<number, number> = Object.fromEntries(nominations.map((slot) => [slot, 0]));
     const initialRound: VotingRound = {

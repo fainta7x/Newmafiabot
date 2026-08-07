@@ -1,115 +1,172 @@
 @media (max-width: 767px) {
   /*
-   * Final mobile polish layer for the approved table geometry.
-   * Keep layout positioning in EveningLiveGameModal.tsx; this file only controls
-   * visual density inside player cards and the central HUD.
+   * Mobile live-game visual system.
+   * The approved table geometry stays in EveningLiveGameModal.tsx:
+   * 9 10 1 2 / 8 [HUD] 3 / 7 6 5 4.
+   * This file owns only the visual hierarchy inside those cells.
    */
 
-  /* Discipline counters: top-left, vertical, away from avatar/nickname. */
+  /* ---------- Player cards ---------- */
   .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
     position: relative !important;
-  }
-
-  .evening-live-engine-shell .evening-live-identity-layer .evening-live-discipline {
-    position: absolute !important;
-    top: 7px !important;
-    left: 5px !important;
-    z-index: 4 !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: stretch !important;
-    justify-content: flex-start !important;
-    gap: 3px !important;
-    width: 22px !important;
-    max-width: 22px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 14px 5px 52px !important;
+    overflow: hidden !important;
   }
 
-  .evening-live-engine-shell .evening-live-identity-layer .evening-live-discipline > span {
-    width: 22px !important;
-    min-width: 22px !important;
-    height: 16px !important;
-    padding: 0 !important;
-    border-radius: 5px !important;
-    font-size: 8px !important;
-    line-height: 16px !important;
-    text-align: center !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  .evening-live-engine-shell .evening-live-player-avatar {
+    width: clamp(44px, 12vw, 54px) !important;
+    height: clamp(44px, 12vw, 54px) !important;
+    border-width: 2px !important;
+    border-color: rgba(100, 116, 139, 0.7) !important;
+    background: rgba(15, 23, 42, 0.96) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28) !important;
   }
 
-  /* Avatar/name remain the visual focus; no second nickname at the bottom. */
-  .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity-name {
-    max-width: calc(100% - 8px) !important;
+  .evening-live-engine-shell .evening-live-identity-name {
+    max-width: calc(100% - 10px) !important;
+    padding: 2px 6px !important;
+    border-radius: 7px !important;
+    border: 1px solid rgba(71, 85, 105, 0.7) !important;
+    background: rgba(2, 6, 23, 0.82) !important;
+    color: rgb(241, 245, 249) !important;
     font-size: 9px !important;
     line-height: 11px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
   }
 
-  /*
-   * Speaking badge: the old full-card amber overlay used to sit behind the
-   * avatar/name. Turn it into a small badge just above the seat strip.
-   */
+  /* Compact discipline rail: always in the upper-left, never in the content flow. */
+  .evening-live-engine-shell .evening-live-discipline {
+    position: absolute !important;
+    top: 7px !important;
+    left: 6px !important;
+    z-index: 7 !important;
+    display: grid !important;
+    grid-template-columns: 20px !important;
+    grid-auto-rows: 18px !important;
+    gap: 3px !important;
+    width: 20px !important;
+    max-width: 20px !important;
+  }
+
+  .evening-live-engine-shell .evening-live-discipline > span {
+    box-sizing: border-box !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 18px !important;
+    padding: 0 !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(71, 85, 105, 0.85) !important;
+    background: rgba(2, 6, 23, 0.88) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 8px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .evening-live-discipline-foul { color: rgb(251, 191, 36) !important; }
+  .evening-live-discipline-minor { color: rgb(250, 204, 21) !important; }
+  .evening-live-discipline-major { color: rgb(248, 113, 113) !important; }
+
+  /* The old full-card speaking layer becomes a small status pill near the bottom. */
   .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] {
     top: auto !important;
-    left: 6px !important;
-    right: 6px !important;
-    bottom: 47px !important;
+    left: 7px !important;
+    right: 7px !important;
+    bottom: 49px !important;
     width: auto !important;
-    height: 30px !important;
-    min-height: 30px !important;
-    padding: 0 6px !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(245, 158, 11, 0.55) !important;
-    background: rgba(120, 53, 15, 0.82) !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 7px !important;
+    border-radius: 9px !important;
+    border: 1px solid rgba(245, 158, 11, 0.58) !important;
+    background: rgba(120, 53, 15, 0.88) !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
-    z-index: 18 !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    gap: 5px !important;
+    z-index: 19 !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(8px) !important;
   }
 
   .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 13px !important;
+    height: 13px !important;
     margin: 0 !important;
-    animation: pulse 1.2s ease-in-out infinite !important;
+    animation: pulse 1.1s ease-in-out infinite !important;
   }
 
   .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] span {
     font-size: 8px !important;
     line-height: 9px !important;
-    letter-spacing: 0.07em !important;
+    letter-spacing: 0.05em !important;
     white-space: nowrap !important;
   }
 
-  /* ----- Central HUD ----- */
+  /* Bottom seat strip stays minimal: number + role only. */
+  .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 4px 6px !important;
+  }
+
+  /* ---------- Central HUD ---------- */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
     box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 5px !important;
+    border-radius: 13px !important;
+    overflow: hidden !important;
     display: grid !important;
-    grid-template-rows: 18px minmax(0, 1fr) 38px !important;
-    height: 100% !important;
-    min-height: 0 !important;
-    padding: 4px !important;
-    gap: 2px !important;
-    overflow: hidden !important;
+    grid-template-rows: 20px minmax(0, 1fr) 38px !important;
+    gap: 3px !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.32), 0 8px 24px rgba(0, 0, 0, 0.24) !important;
   }
 
+  /* HUD header */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
-    height: 18px !important;
-    min-height: 18px !important;
-    padding: 0 2px !important;
+    box-sizing: border-box !important;
+    height: 20px !important;
+    min-height: 20px !important;
+    padding: 0 2px 2px !important;
+    border-bottom-color: rgba(71, 85, 105, 0.55) !important;
     overflow: hidden !important;
   }
 
-  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child span {
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child > span {
     font-size: 9px !important;
-    line-height: 17px !important;
+    line-height: 16px !important;
+    letter-spacing: 0.02em !important;
     white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button:has(svg[class*="lucide-log-out"]) {
+    display: none !important;
+  }
+
+  /* HUD body owns the remaining space and never scrolls. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
-    height: 100% !important;
     min-height: 0 !important;
+    height: 100% !important;
     padding: 0 !important;
     overflow: hidden !important;
     display: flex !important;
@@ -125,25 +182,27 @@
     padding: 0 2px !important;
   }
 
-  /* Timer layout: label | nickname+time | progress | large controls. */
+  /* Timer card: label -> speaker/time -> progress -> touch controls. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) {
+    box-sizing: border-box !important;
+    height: 94px !important;
+    max-height: 94px !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) 54px !important;
-    grid-template-rows: 11px 30px 3px 38px !important;
-    column-gap: 4px !important;
-    row-gap: 2px !important;
-    height: 88px !important;
-    max-height: 88px !important;
+    grid-template-rows: 12px 31px 3px 36px !important;
+    column-gap: 5px !important;
+    row-gap: 3px !important;
     align-content: center !important;
   }
 
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > span[class*="tracking-widest"] {
     grid-column: 1 / -1 !important;
     grid-row: 1 !important;
-    min-height: 0 !important;
-    height: 11px !important;
+    height: 12px !important;
+    min-height: 12px !important;
     font-size: 8px !important;
-    line-height: 11px !important;
+    line-height: 12px !important;
+    text-align: left !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -152,28 +211,32 @@
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div[class*="text-xs"][class*="font-black"] {
     grid-column: 1 !important;
     grid-row: 2 !important;
-    align-self: center !important;
     min-width: 0 !important;
-    min-height: 0 !important;
-    height: auto !important;
-    font-size: 10px !important;
-    line-height: 12px !important;
+    height: 31px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 11px !important;
+    line-height: 13px !important;
+    text-align: left !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
-    text-align: left !important;
   }
 
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div[class*="font-mono"][class*="font-black"] {
     grid-column: 2 !important;
     grid-row: 2 !important;
+    box-sizing: border-box !important;
     width: 54px !important;
-    height: 30px !important;
-    min-height: 30px !important;
+    height: 31px !important;
+    min-height: 31px !important;
     padding: 0 !important;
-    border-radius: 8px !important;
+    border-radius: 9px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     font-size: 22px !important;
-    line-height: 30px !important;
+    line-height: 31px !important;
   }
 
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]):not(:has(> div[class*="text-xs"][class*="font-black"])) > div[class*="font-mono"][class*="font-black"] {
@@ -188,28 +251,34 @@
     height: 3px !important;
     min-height: 3px !important;
     margin: 0 !important;
+    border: 0 !important;
   }
 
+  /* The frequently used controls are the largest touch targets in the HUD. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] {
     grid-column: 1 / -1 !important;
     grid-row: 4 !important;
     display: grid !important;
-    grid-template-columns: 32px minmax(44px, 1fr) 36px 36px !important;
-    gap: 3px !important;
+    grid-template-columns: 38px minmax(56px, 1fr) 38px 38px !important;
+    gap: 4px !important;
     width: 100% !important;
-    height: 38px !important;
+    height: 36px !important;
     min-width: 0 !important;
   }
 
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] > button {
+    box-sizing: border-box !important;
     width: 100% !important;
     min-width: 0 !important;
-    height: 38px !important;
-    min-height: 38px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     padding: 0 !important;
-    border-radius: 9px !important;
+    border-radius: 10px !important;
     font-size: 0 !important;
     overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] > button:first-child {
@@ -222,20 +291,26 @@
     margin: 0 !important;
   }
 
-  /* Other stage content gets a predictable compact vertical rhythm. */
+  /* Non-timer stages use a compact rhythm instead of arbitrary scroll. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) {
     max-height: 100% !important;
     overflow: hidden !important;
   }
 
-  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) button {
-    min-height: 30px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-    line-height: 11px !important;
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) > div:first-child {
+    font-size: 10px !important;
+    line-height: 12px !important;
   }
 
-  /* Navigation always owns the bottom strip and never gets squeezed by the timer. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) button {
+    min-height: 26px !important;
+    padding: 3px 6px !important;
+    border-radius: 8px !important;
+    font-size: 9px !important;
+    line-height: 10px !important;
+  }
+
+  /* Navigation owns its own bottom strip and can never be squeezed by body content. */
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
     box-sizing: border-box !important;
     height: 38px !important;
@@ -254,10 +329,20 @@
     box-sizing: border-box !important;
     height: 34px !important;
     min-height: 34px !important;
-    padding: 2px 5px !important;
-    border-radius: 8px !important;
+    padding: 2px 6px !important;
+    border-radius: 9px !important;
     font-size: 8px !important;
     line-height: 10px !important;
     overflow: hidden !important;
+  }
+
+  /* Keep every nested element from creating its own scroll context. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11),
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) * {
+    scrollbar-width: none !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) *::-webkit-scrollbar {
+    display: none !important;
   }
 }

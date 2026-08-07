@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Shield, EyeOff, Eye, RotateCcw } from "lucide-react";
 import { Player, GameSlot } from "../types.js";
+import { 
+  VotingRound, 
+  determineVotingResult, 
+  calculateVoteRemainder, 
+  createNextRevoteRound, 
+  cleanAndSyncVotes, 
+  safeRenumberVotes 
+} from "../shared/tournamentVoting.js";
+import { isVoteDecided } from "../lib/liveVoting.js";
 
 // Modularized subcomponents
 import SetupPhase from "./LiveGameEngine/SetupPhase.js";
@@ -103,6 +112,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [currentVotingNomineeIndex, setCurrentVotingNomineeIndex] = useState<number>(0);
   const [isInteractiveVoting, setIsInteractiveVoting] = useState<boolean>(true);
 
+  // Dynamic voting chain state
+  const [votingRounds, setVotingRounds] = useState<VotingRound[]>([]);
+  const [activeVotingRoundIndex, setActiveVotingRoundIndex] = useState<number>(0);
+  const [votingStage, setVotingStage] = useState<'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved'>('setup');
+  const [revoteSpeakerIndex, setRevoteSpeakerIndex] = useState<number>(0);
+  const [tableLeaveVotesInput, setTableLeaveVotesInput] = useState<number | null>(null);
+
   // Linear Voting & Shootout subphase state managers
   const [votingSubPhase, setVotingSubPhase] = useState<"voting_intro" | "voting_active" | "voting_results">("voting_intro");
   const [shootoutSubPhase, setShootoutSubPhase] = useState<"shootout_intro" | "shootout_speeches" | "shootout_revote_intro" | "shootout_revote_active" | "shootout_revote_results" | "shootout_both_results">("shootout_intro");
@@ -116,6 +132,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     roundNumber: number;
     nightSubPhase: "intro" | "shooting" | "don" | "sheriff" | "best_move" | "morning";
     protocolMarkers: LiveProtocolMarkers;
+    votingRounds: VotingRound[];
+    activeVotingRoundIndex: number;
+    votesByPlayer: Record<number, number>;
+    votingStage: 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
+    revoteSpeakerIndex: number;
+    tableLeaveVotesInput: number | null;
   }[]>([]);
 
   const saveSnapshot = () => {
@@ -128,6 +150,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         roundNumber,
         nightSubPhase,
         protocolMarkers: JSON.parse(JSON.stringify(protocolMarkers)),
+        votingRounds: JSON.parse(JSON.stringify(votingRounds)),
+        activeVotingRoundIndex,
+        votesByPlayer: { ...votesByPlayer },
+        votingStage,
+        revoteSpeakerIndex,
+        tableLeaveVotesInput,
       }
     ]);
   };
@@ -144,6 +172,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setRoundNumber(last.roundNumber);
     setNightSubPhase(last.nightSubPhase);
     setProtocolMarkers(last.protocolMarkers || createEmptyLiveProtocolMarkers());
+    setVotingRounds(last.votingRounds || []);
+    setActiveVotingRoundIndex(last.activeVotingRoundIndex || 0);
+    setVotesByPlayer(last.votesByPlayer || {});
+    setVotingStage(last.votingStage || 'collecting');
+    setRevoteSpeakerIndex(last.revoteSpeakerIndex || 0);
+    setTableLeaveVotesInput(last.tableLeaveVotesInput);
     setHistoryStack((prev) => prev.slice(0, -1));
     showToast("Последнее действие ведущего отменено ↺", "info");
   };
@@ -178,6 +212,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           votes,
           shootoutNominees,
           protocolMarkers,
+          votingRounds,
+          activeVotingRoundIndex,
+          votesByPlayer,
+          votingStage,
+          revoteSpeakerIndex,
+          tableLeaveVotesInput,
           savedAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
         };
         localStorage.setItem("mafia_live_session", JSON.stringify(sessionData));
@@ -185,7 +225,23 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     } else {
       localStorage.removeItem("mafia_live_session");
     }
-  }, [activePlayers, nominations, phase, roundNumber, nightSubPhase, nightLogs, votes, shootoutNominees, protocolMarkers]);
+  }, [
+    activePlayers, 
+    nominations, 
+    phase, 
+    roundNumber, 
+    nightSubPhase, 
+    nightLogs, 
+    votes, 
+    shootoutNominees, 
+    protocolMarkers,
+    votingRounds,
+    activeVotingRoundIndex,
+    votesByPlayer,
+    votingStage,
+    revoteSpeakerIndex,
+    tableLeaveVotesInput
+  ]);
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
@@ -199,6 +255,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setVotes(restorableSession.votes || {});
       setShootoutNominees(restorableSession.shootoutNominees || []);
       setProtocolMarkers(restorableSession.protocolMarkers || createEmptyLiveProtocolMarkers());
+      setVotingRounds(restorableSession.votingRounds || []);
+      setActiveVotingRoundIndex(restorableSession.activeVotingRoundIndex || 0);
+      setVotesByPlayer(restorableSession.votesByPlayer || {});
+      setVotingStage(restorableSession.votingStage || 'setup');
+      setRevoteSpeakerIndex(restorableSession.revoteSpeakerIndex || 0);
+      setTableLeaveVotesInput(restorableSession.tableLeaveVotesInput !== undefined ? restorableSession.tableLeaveVotesInput : null);
       setRestorableSession(null);
       showToast("Прерванная игра успешно восстановлена! 🔄", "success");
     } catch {
@@ -214,41 +276,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [shootoutSpeakerIndex, setShootoutSpeakerIndex] = useState(0);
 
   const recalculateVotesAndSet = (voterMap: { [voterSlot: number]: number }, customNominations?: number[]) => {
-    const nomis = customNominations || nominations;
-    if (nomis.length === 0) return;
-
-    const lastNominee = nomis[nomis.length - 1];
-    const alivePlayers = activePlayers.filter(p => p.alive);
-    const computedVotes: { [slot: number]: number } = {};
-
-    // Initialize all nominees with 0
-    nomis.forEach((n) => {
-      computedVotes[n] = 0;
-    });
-
-    // Sum explicit votes for all nominees except the last one
-    nomis.forEach((n) => {
-      if (n !== lastNominee) {
-        computedVotes[n] = Object.entries(voterMap).filter(([voter, nominee]) => {
-          const voterSlot = parseInt(voter);
-          const pl = alivePlayers.find(p => p.slot_num === voterSlot);
-          return pl && nominee === n;
-        }).length;
-      }
-    });
-
-    // Remainder for the last nominee
-    const otherVotesSum = nomis.reduce((sum, n) => {
-      if (n === lastNominee) return sum;
-      return sum + (computedVotes[n] || 0);
-    }, 0);
-
-    computedVotes[lastNominee] = Math.max(0, alivePlayers.length - otherVotesSum);
-    setVotes(computedVotes);
+    updateCurrentRoundVotes(voterMap);
   };
 
   const selectVotingNomineeIndex = (idx: number, customNominations?: number[]) => {
-    const nomis = customNominations || nominations;
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    const nomis = customNominations || (currentRound ? currentRound.nominated_seats : nominations);
     if (nomis.length === 0) return;
 
     setCurrentVotingNomineeIndex(idx);
@@ -273,7 +306,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         }
       });
 
-      recalculateVotesAndSet(copy, nomis);
+      updateCurrentRoundVotes(copy);
       return copy;
     });
   };
@@ -827,8 +860,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const handleInteractiveAutoRemainder = () => {
-    const lastNominee = nominations[nominations.length - 1];
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const nominatedSeats = currentRound.nominated_seats;
+    const lastNominee = nominatedSeats[nominatedSeats.length - 1];
     if (!lastNominee) return;
+
     const alivePlayers = activePlayers.filter(p => p.alive);
     setVotesByPlayer((prev) => {
       const copy = { ...prev };
@@ -838,38 +876,147 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         }
       });
       
-      recalculateVotesAndSet(copy, nominations);
+      updateCurrentRoundVotes(copy);
       return copy;
     });
     playBeep(523, 0.05);
     showToast("Оставшиеся голоса распределены за последнего кандидата!", "success");
   };
 
-  const handleResolveShootoutVotes = (act: "eliminate_one" | "eliminate_all" | "no_one_leaves", slot?: number) => {
-    if (act === "no_one_leaves") {
-      handleCompleteShootout("leave_none");
-    } else if (act === "eliminate_all") {
-      handleCompleteShootout("leave_all");
-    } else if (act === "eliminate_one" && slot !== undefined) {
-      handleCompleteShootout("leave_one", slot);
+  const handleConfirmSingleElimination = (slotNum: number) => {
+    saveSnapshot();
+    setVotingRounds(prev => {
+      const copy = [...prev];
+      if (copy[activeVotingRoundIndex]) {
+        copy[activeVotingRoundIndex] = {
+          ...copy[activeVotingRoundIndex],
+          outcome: 'single_eliminated',
+          eliminated_seats: [slotNum]
+        };
+      }
+      return copy;
+    });
+
+    eliminatePlayer(slotNum, `Голосование (День ${roundNumber})`, false);
+
+    setNightLogs(prev => [...prev, {
+      round: roundNumber,
+      log: `Д${roundNumber}: Голосование. Стол покинул игрок #${slotNum} (${votes[slotNum] || 0} голосов).`
+    }]);
+
+    setVotingStage('resolved');
+    startNightPhase();
+  };
+
+  const handleGoToRevoteSpeeches = (winners: number[]) => {
+    setVotingRounds(prev => {
+      const copy = [...prev];
+      if (copy[activeVotingRoundIndex]) {
+        copy[activeVotingRoundIndex] = {
+          ...copy[activeVotingRoundIndex],
+          outcome: 'tie_revote'
+        };
+      }
+      return copy;
+    });
+
+    setNightLogs(prev => [...prev, {
+      round: roundNumber,
+      log: `Д${roundNumber}: Голосование. Ничья между игроками: ${winners.join(", ")} (${votes[winners[0]] || 0} голосов). Объявлена автокатастрофа.`
+    }]);
+
+    setVotingStage('revote_speeches');
+    setRevoteSpeakerIndex(0);
+    handleStartTimer(winners[0], 30);
+  };
+
+  const handleLaunchNextRevote = (winners: number[]) => {
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const nextRound = createNextRevoteRound(currentRound, winners);
+    nextRound.round_number = votingRounds.length + 1;
+
+    setVotingRounds(prev => [...prev, nextRound]);
+    setActiveVotingRoundIndex(votingRounds.length);
+    setVotesByPlayer({});
+    setIsInteractiveVoting(true);
+    setVotingStage('collecting');
+    
+    selectVotingNomineeIndex(0, winners);
+
+    setNightLogs(prev => [...prev, {
+      round: roundNumber,
+      log: `Д${roundNumber}: Автокатастрофа. Запущено повторное голосование между ${winners.map(n => `#${n}`).join(", ")}`
+    }]);
+  };
+
+  const handleConfirmAutoNoElimination = () => {
+    setVotingRounds(prev => {
+      const copy = [...prev];
+      if (copy[activeVotingRoundIndex]) {
+        copy[activeVotingRoundIndex] = {
+          ...copy[activeVotingRoundIndex],
+          outcome: 'no_elimination',
+          eliminated_seats: []
+        };
+      }
+      return copy;
+    });
+
+    setNightLogs(prev => [...prev, {
+      round: roundNumber,
+      log: `Д${roundNumber}: Автокатастрофа. Спорных игроков больше половины стола — никто не покидает стол.`
+    }]);
+
+    setVotingStage('resolved');
+    startNightPhase();
+  };
+
+  const handleConfirmTableDecision = (leavesTable: boolean, winners: number[]) => {
+    saveSnapshot();
+
+    const votesCount = tableLeaveVotesInput ?? 0;
+
+    setVotingRounds(prev => {
+      const copy = [...prev];
+      if (copy[activeVotingRoundIndex]) {
+        copy[activeVotingRoundIndex] = {
+          ...copy[activeVotingRoundIndex],
+          outcome: leavesTable ? 'all_tied_eliminated' : 'no_elimination',
+          eliminated_seats: leavesTable ? [...winners] : [],
+          table_leave_votes: votesCount
+        };
+      }
+      return copy;
+    });
+
+    if (leavesTable) {
+      winners.forEach(s => {
+        eliminatePlayer(s, `Автокатастрофа (День ${roundNumber})`, true);
+      });
+
+      setNightLogs(prev => [...prev, {
+        round: roundNumber,
+        log: `Д${roundNumber}: Автокатастрофа. Решение стола за уход всех спорных игроков: ${votesCount} голосов. Игроки ${winners.map(n => `#${n}`).join(", ")} покидают стол.`
+      }]);
+    } else {
+      setNightLogs(prev => [...prev, {
+        round: roundNumber,
+        log: `Д${roundNumber}: Автокатастрофа. Решение стола против ухода всех спорных игроков: ${votesCount} голосов. Никто не покидает стол.`
+      }]);
     }
+
+    setVotingStage('resolved');
+    startNightPhase();
+  };
+
+  const handleResolveShootoutVotes = (act: "eliminate_one" | "eliminate_all" | "no_one_leaves", slot?: number) => {
+    // Keep legacy stub to prevent compilation errors
   };
 
   const handleStartReVoting = () => {
-    setVotingAttempt(2);
-    const iv: { [s: number]: number } = {};
-    shootoutNominees.forEach((n) => {
-      iv[n] = 0;
-    });
-    setVotes(iv);
-    setVotesByPlayer({});
-    setIsInteractiveVoting(true);
-    setPhase("shootout");
-    setShootoutSubPhase("shootout_revote_active");
-    setCurrentVotingNomineeIndex(0);
-    setBothLeaveVotes([]);
-    selectVotingNomineeIndex(0, shootoutNominees);
-    showToast("Запущен второй круг голосования по автокатастрофе!", "success");
+    // Keep legacy stub to prevent compilation errors
   };
 
   const handleAutoFillSetupPlayers = () => {
@@ -999,20 +1146,59 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
   };
 
+  const updateCurrentRoundVotes = (newVotesByPlayer: Record<number, number>) => {
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const nominatedSeats = currentRound.nominated_seats;
+    const alivePlayers = activePlayers.filter(p => p.alive).map(p => p.slot_num);
+
+    // Calculate explicit counts
+    const explicitCounts: Record<number, number> = {};
+    nominatedSeats.forEach(s => { explicitCounts[s] = 0; });
+
+    Object.entries(newVotesByPlayer).forEach(([voterStr, nomineeSlot]) => {
+      const voter = parseInt(voterStr);
+      if (alivePlayers.includes(voter) && nominatedSeats.includes(nomineeSlot)) {
+        explicitCounts[nomineeSlot]++;
+      }
+    });
+
+    const finalCounts = calculateVoteRemainder(
+      nominatedSeats,
+      currentRound.eligible_voters ?? alivePlayers.length,
+      explicitCounts
+    );
+
+    // Update state variables: `votes`
+    setVotes(finalCounts);
+
+    // Update the round itself inside `votingRounds` list
+    setVotingRounds(prev => {
+      const copy = [...prev];
+      if (copy[activeVotingRoundIndex]) {
+        copy[activeVotingRoundIndex] = {
+          ...copy[activeVotingRoundIndex],
+          vote_counts: finalCounts
+        };
+      }
+      return copy;
+    });
+  };
+
   const handleInteractiveVoteToggle = (voterSlot: number) => {
-    const currentNominee = nominations[currentVotingNomineeIndex];
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const nominatedSeats = currentRound.nominated_seats;
+    const currentNominee = nominatedSeats[currentVotingNomineeIndex];
     if (!currentNominee) return;
 
-    if (voterSlot === currentNominee) {
-      showToast("Игрок не может голосовать против самого себя!", "warning");
-      return;
-    }
-
-    const lastNominee = nominations[nominations.length - 1];
+    const lastNominee = nominatedSeats[nominatedSeats.length - 1];
 
     const alreadyVotedNominee = votesByPlayer[voterSlot];
     if (alreadyVotedNominee && alreadyVotedNominee !== currentNominee && alreadyVotedNominee !== lastNominee) {
-      const nomineeIndex = nominations.indexOf(alreadyVotedNominee);
+      const nomineeIndex = nominatedSeats.indexOf(alreadyVotedNominee);
       showToast(`Игрок #${voterSlot} уже проголосовал против #${alreadyVotedNominee} (Кандидат №${nomineeIndex + 1})!`, "warning");
       return;
     }
@@ -1027,16 +1213,15 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       }
 
       // Clear any dead players
-      const alivePlayers = activePlayers.filter(p => p.alive);
+      const alivePlayers = activePlayers.filter(p => p.alive).map(p => p.slot_num);
       Object.keys(copy).forEach((slotStr) => {
         const slot = parseInt(slotStr);
-        const pl = alivePlayers.find(p => p.slot_num === slot);
-        if (!pl || !pl.alive) {
+        if (!alivePlayers.includes(slot)) {
           delete copy[slot];
         }
       });
 
-      recalculateVotesAndSet(copy, nominations);
+      updateCurrentRoundVotes(copy);
       return copy;
     });
     playBeep(523, 0.05);
@@ -1051,21 +1236,37 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (nominations.length === 0) {
       showToast("Нет кандидатов. Переходим в Ночь.", "info"); startNightPhase(); return;
     }
-    const iv: { [s: number]: number } = {}; nominations.forEach((n) => { iv[n] = 0; });
-    setVotes(iv);
+    const initialRound: VotingRound = {
+      round_number: 1,
+      is_revote: false,
+      nominated_seats: [...nominations],
+      vote_counts: nominations.reduce<Record<number, number>>((acc, s) => { acc[s] = 0; return acc; }, {}),
+      day_number: roundNumber,
+      eligible_voters: activePlayers.filter(p => p.alive).length,
+      parent_round_number: null,
+      outcome: 'pending',
+      eliminated_seats: [],
+      table_leave_votes: null
+    };
+
+    setVotingRounds([initialRound]);
+    setActiveVotingRoundIndex(0);
     setVotesByPlayer({});
     setIsInteractiveVoting(true);
-    setVotingAttempt(1);
+    setVotingStage('collecting');
     setPhase("day_voting");
     setVotingSubPhase("voting_intro");
-    setShootoutSubPhase("shootout_intro");
     setBothLeaveVotes([]);
     selectVotingNomineeIndex(0, nominations);
   };
 
   const handleAllocateVotes = (nominee: number, count: number) => {
-    const lastNominee = nominations[nominations.length - 1];
-    const totalAlive = activePlayers.filter((p) => p.alive).length;
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const nominatedSeats = currentRound.nominated_seats;
+    const lastNominee = nominatedSeats[nominatedSeats.length - 1];
+    const totalAlive = currentRound.eligible_voters ?? activePlayers.filter((p) => p.alive).length;
 
     setVotes((prev) => {
       const copy = { ...prev };
@@ -1088,73 +1289,42 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         const maxAllowed = totalAlive - currentAllocated;
         copy[nominee] = Math.max(0, Math.min(count, maxAllowed));
       }
+
+      setVotingRounds(prevRounds => {
+        const copyRounds = [...prevRounds];
+        if (copyRounds[activeVotingRoundIndex]) {
+          copyRounds[copyRounds.length - 1] = {
+            ...copyRounds[copyRounds.length - 1],
+            vote_counts: copy
+          };
+        }
+        return copyRounds;
+      });
+
       return copy;
     });
   };
 
   const handleResolveVoting = () => {
-    const pairs = Object.entries(votes).map(([s, c]) => ({ slot: parseInt(s), count: c }));
-    const totalAlloc = pairs.reduce((sum, p) => sum + p.count, 0);
-    const totalAlive = activePlayers.filter((p) => p.alive).length;
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (!currentRound) return;
+
+    const result = determineVotingResult(currentRound);
 
     const goResolve = () => {
-      const maxVotes = Math.max(...pairs.map((p) => p.count));
-      const highest = pairs.filter((p) => p.count === maxVotes);
-      if (highest.length === 1) {
-        eliminatePlayer(highest[0].slot, `Голосование (День ${roundNumber})`);
-        setNightLogs(prev => [...prev, {
-          round: roundNumber,
-          log: `Д${roundNumber}: Голосование. Стол покинул игрок #${highest[0].slot} (${highest[0].count} голосов).`
-        }]);
-        startNightPhase();
-      } else {
-        const tied = highest.map((p) => p.slot);
-        setShootoutNominees(tied);
-        setPhase("shootout");
-        setShootoutSubPhase("shootout_intro");
-        setShootoutSpeakerIndex(0);
-        setNightLogs(prev => [...prev, {
-          round: roundNumber,
-          log: `Д${roundNumber}: Голосование. Ничья между игроками: ${tied.join(", ")} (${maxVotes} голосов). Объявлена автокатастрофа.`
-        }]);
-        if (votingAttempt === 1) {
-          showToast(`Ничья! Перестрелка: ${tied.join(", ")}`, "warning");
-        } else {
-          showToast(`Повторная ничья: ${tied.join(", ")}! Выберите решение`, "warning");
-        }
-      }
+      setVotingStage('round_result');
     };
 
-    if (totalAlloc < totalAlive) {
-      setConfirmDialog({ message: `Распределено ${totalAlloc} голосов из ${totalAlive}. Подтвердить подсчет?`, onConfirm: goResolve });
-    } else goResolve();
+    if (result.outcome === 'pending') {
+      showToast(result.description, "warning");
+      return;
+    }
+
+    goResolve();
   };
 
   const handleCompleteShootout = (action: "leave_all" | "leave_none" | "leave_one", singleSlot?: number) => {
-    if (action === "leave_all") {
-      shootoutNominees.forEach((s) => {
-        eliminatePlayer(s, `Автокатастрофа (День ${roundNumber})`);
-      });
-      setNightLogs(prev => [...prev, {
-        round: roundNumber,
-        log: `Д${roundNumber}: Автокатастрофа. По решению стола ВСЕ кандидаты (${shootoutNominees.map(n => `#${n}`).join(", ")}) покинули стол. Город уходит в ночь.`
-      }]);
-      startNightPhase();
-    } else if (action === "leave_one" && singleSlot) {
-      eliminatePlayer(singleSlot, `Автокатастрофа (День ${roundNumber})`);
-      setNightLogs(prev => [...prev, {
-        round: roundNumber,
-        log: `Д${roundNumber}: Автокатастрофа. По результатам переголосования стол покинул игрок #${singleSlot}.`
-      }]);
-      startNightPhase();
-    } else {
-      showToast("Все игроки остались за столом", "success");
-      setNightLogs(prev => [...prev, {
-        round: roundNumber,
-        log: `Д${roundNumber}: Автокатастрофа. Решением стола все перестрелочники остались за столом. Город уходит в ночь.`
-      }]);
-      startNightPhase();
-    }
+    // Keep legacy signature as stub to prevent external breakage
   };
 
   const getExitReason = (reason: string, rNum: number): 'killed' | 'voted_zero_round' | 'voted_day' | 'removed' => {
@@ -1169,7 +1339,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return 'voted_day';
   };
 
-  const eliminatePlayer = (slotNum: number, reason: string) => {
+  const eliminatePlayer = (slotNum: number, reason: string, isMultipleElimination: boolean = false) => {
     saveSnapshot();
     const player = activePlayers.find((p) => p.slot_num === slotNum);
     if (!player) return;
@@ -1201,7 +1371,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         showBmStep = true;
         bmSource = "first_killed";
       }
-    } else if (extReason === "voted_zero_round") {
+    } else if (extReason === "voted_zero_round" && !isMultipleElimination) {
       if (protocolMarkers.zeroRoundVotedSlot === null) {
         updatedMarkers = registerZeroRoundVoted(protocolMarkers, slotNum);
         showBmStep = true;

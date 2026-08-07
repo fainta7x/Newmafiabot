@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Debug CenterPanel around generated voting block
+        run: nl -ba src/components/LiveGameEngine/CenterPanel.tsx | sed -n '800,880p'
+
       - name: Typecheck
         run: npm run typecheck
 

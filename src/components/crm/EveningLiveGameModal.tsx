@@ -112,6 +112,90 @@ const mapEngineResultToProtocol = (
   return { protocol, player_results: playerResults };
 };
 
+const MobileLiveGameStyles = () => (
+  <style>{`
+    @media (max-width: 767px) {
+      .evening-live-engine-shell {
+        height: calc(100dvh - 48px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .evening-live-engine-shell > div {
+        max-width: none !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        padding-bottom: 24px !important;
+      }
+
+      .evening-live-engine-shell > div > div.space-y-4,
+      .evening-live-engine-shell > div > div.space-y-6 {
+        gap: 6px !important;
+      }
+
+      /* The desktop judging toolbar consumes too much vertical space on a phone. */
+      .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
+        display: none !important;
+      }
+
+      /* Main table: compact gaps and no decorative outer padding. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+        gap: 5px !important;
+        padding: 0 !important;
+      }
+
+      /* Compact player windows. Keep the quick top actions and bottom identity strip. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) {
+        height: 78px !important;
+        min-height: 78px !important;
+        max-height: 78px !important;
+        padding-top: 23px !important;
+        padding-bottom: 0 !important;
+        border-radius: 12px !important;
+      }
+
+      /* Hide the verbose middle body of a seat on mobile; tap/highlight semantics remain. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) > div.flex-1 {
+        display: none !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) > div[class*="min-h-[36px]"] {
+        min-height: 31px !important;
+        height: 31px !important;
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
+      }
+
+      /* The live control card stays visible, but must behave like a compact phone HUD. */
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] {
+        top: 0 !important;
+        min-height: 0 !important;
+        max-height: 205px !important;
+        border-radius: 14px !important;
+        padding: 6px !important;
+        z-index: 60 !important;
+      }
+
+      /* On phone the Prev/Next buttons already describe the night stage, so hide duplicate tabs. */
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex.flex-wrap {
+        display: none !important;
+      }
+
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 {
+        padding-top: 3px !important;
+        padding-bottom: 3px !important;
+        min-height: 0 !important;
+      }
+
+      /* The modal itself gets a one-line header. */
+      .evening-live-mobile-title-secondary {
+        display: none !important;
+      }
+    }
+  `}</style>
+);
+
 export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated }) => {
   const [saving, setSaving] = useState(false);
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game.id]);
@@ -119,13 +203,15 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   if (!game.club_protocol) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-950 overflow-y-auto">
-      <div className="sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-3 py-2 flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-xs font-black text-white truncate">Проведение игры #{game.global_game_number}</div>
-          <div className="text-[10px] text-slate-500 truncate">{game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}</div>
+    <div className="fixed inset-0 z-[95] bg-slate-950 overflow-hidden">
+      <MobileLiveGameStyles />
+
+      <div className="h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-3 flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <div className="text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
+          <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">{game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}</div>
         </div>
-        <button type="button" onClick={onClose} className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center" title="Закрыть движок">
+        <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0" title="Закрыть движок">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -136,7 +222,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
-      <div className="py-3">
+      <div className="evening-live-engine-shell py-1 md:py-3">
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={10001}

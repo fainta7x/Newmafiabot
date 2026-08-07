@@ -1,0 +1,263 @@
+@media (max-width: 767px) {
+  /*
+   * Final mobile polish layer for the approved table geometry.
+   * Keep layout positioning in EveningLiveGameModal.tsx; this file only controls
+   * visual density inside player cards and the central HUD.
+   */
+
+  /* Discipline counters: top-left, vertical, away from avatar/nickname. */
+  .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
+    position: relative !important;
+  }
+
+  .evening-live-engine-shell .evening-live-identity-layer .evening-live-discipline {
+    position: absolute !important;
+    top: 7px !important;
+    left: 5px !important;
+    z-index: 4 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 3px !important;
+    width: 22px !important;
+    max-width: 22px !important;
+  }
+
+  .evening-live-engine-shell .evening-live-identity-layer .evening-live-discipline > span {
+    width: 22px !important;
+    min-width: 22px !important;
+    height: 16px !important;
+    padding: 0 !important;
+    border-radius: 5px !important;
+    font-size: 8px !important;
+    line-height: 16px !important;
+    text-align: center !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  /* Avatar/name remain the visual focus; no second nickname at the bottom. */
+  .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity-name {
+    max-width: calc(100% - 8px) !important;
+    font-size: 9px !important;
+    line-height: 11px !important;
+  }
+
+  /*
+   * Speaking badge: the old full-card amber overlay used to sit behind the
+   * avatar/name. Turn it into a small badge just above the seat strip.
+   */
+  .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] {
+    top: auto !important;
+    left: 6px !important;
+    right: 6px !important;
+    bottom: 47px !important;
+    width: auto !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 6px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(245, 158, 11, 0.55) !important;
+    background: rgba(120, 53, 15, 0.82) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    z-index: 18 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    animation: pulse 1.2s ease-in-out infinite !important;
+  }
+
+  .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.absolute.inset-0[class*="bg-amber-500"] span {
+    font-size: 8px !important;
+    line-height: 9px !important;
+    letter-spacing: 0.07em !important;
+    white-space: nowrap !important;
+  }
+
+  /* ----- Central HUD ----- */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+    box-sizing: border-box !important;
+    display: grid !important;
+    grid-template-rows: 18px minmax(0, 1fr) 38px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 4px !important;
+    gap: 2px !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
+    height: 18px !important;
+    min-height: 18px !important;
+    padding: 0 2px !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child span {
+    font-size: 9px !important;
+    line-height: 17px !important;
+    white-space: nowrap !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 2px !important;
+  }
+
+  /* Timer layout: label | nickname+time | progress | large controls. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 54px !important;
+    grid-template-rows: 11px 30px 3px 38px !important;
+    column-gap: 4px !important;
+    row-gap: 2px !important;
+    height: 88px !important;
+    max-height: 88px !important;
+    align-content: center !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > span[class*="tracking-widest"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    min-height: 0 !important;
+    height: 11px !important;
+    font-size: 8px !important;
+    line-height: 11px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div[class*="text-xs"][class*="font-black"] {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    align-self: center !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    font-size: 10px !important;
+    line-height: 12px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div[class*="font-mono"][class*="font-black"] {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    width: 54px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    font-size: 22px !important;
+    line-height: 30px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]):not(:has(> div[class*="text-xs"][class*="font-black"])) > div[class*="font-mono"][class*="font-black"] {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div[class*="rounded-full"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    width: 100% !important;
+    height: 3px !important;
+    min-height: 3px !important;
+    margin: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 4 !important;
+    display: grid !important;
+    grid-template-columns: 32px minmax(44px, 1fr) 36px 36px !important;
+    gap: 3px !important;
+    width: 100% !important;
+    height: 38px !important;
+    min-width: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] > button {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    font-size: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] > button:first-child {
+    font-size: 10px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]) > div.flex[class*="gap-1.5"] > button svg {
+    width: 19px !important;
+    height: 19px !important;
+    margin: 0 !important;
+  }
+
+  /* Other stage content gets a predictable compact vertical rhythm. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) {
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:not(:has(> span[class*="tracking-widest"])) button {
+    min-height: 30px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    line-height: 11px !important;
+  }
+
+  /* Navigation always owns the bottom strip and never gets squeezed by the timer. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
+    box-sizing: border-box !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding-top: 2px !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div[class*="grid-cols-12"] {
+    height: 34px !important;
+    min-height: 34px !important;
+    gap: 4px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child button {
+    box-sizing: border-box !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 2px 5px !important;
+    border-radius: 8px !important;
+    font-size: 8px !important;
+    line-height: 10px !important;
+    overflow: hidden !important;
+  }
+}

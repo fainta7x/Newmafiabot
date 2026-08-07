@@ -5,6 +5,7 @@ import "./index.css";
 import "./components/crm/eveningLiveMobilePolish.css";
 import "./components/crm/eveningLiveResponsiveSafe.css";
 import "./components/crm/eveningLiveResponsiveRefine.css";
+import "./components/crm/eveningLiveTableDecisionFix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

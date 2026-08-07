@@ -4,7 +4,7 @@ on:
   push:
     branches: [chatgpt-write-test]
     paths:
-      - scripts/chatgpt_apply_death_protocol_fix.py
+      - scripts/chatgpt_apply_death_protocol_fix_v2.py
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ jobs:
           node-version: 24
           cache: npm
       - name: Apply targeted patch
-        run: python3 scripts/chatgpt_apply_death_protocol_fix.py
+        run: python3 scripts/chatgpt_apply_death_protocol_fix_v2.py
       - name: Install
         run: npm ci
       - name: Typecheck
@@ -32,7 +32,7 @@ jobs:
       - name: Build
         run: npm run build
       - name: Remove one-off patch machinery
-        run: rm -f scripts/chatgpt_apply_death_protocol_fix.py .github/workflows/chatgpt-death-protocol-fix.yml
+        run: rm -f scripts/chatgpt_apply_death_protocol_fix.py scripts/chatgpt_apply_death_protocol_fix_v2.py .github/workflows/chatgpt-death-protocol-fix.yml
       - name: Commit verified patch
         run: |
           git config user.name "ChatGPT Patch Bot"

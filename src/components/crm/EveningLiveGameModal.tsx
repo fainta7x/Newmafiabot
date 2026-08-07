@@ -116,7 +116,7 @@ const MobileLiveGameStyles = () => (
   <style>{`
     @media (max-width: 767px) {
       .evening-live-engine-shell {
-        height: calc(100dvh - 48px);
+        height: calc(100dvh - 40px);
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
@@ -124,71 +124,147 @@ const MobileLiveGameStyles = () => (
 
       .evening-live-engine-shell > div {
         max-width: none !important;
-        padding-left: 5px !important;
-        padding-right: 5px !important;
-        padding-bottom: 24px !important;
+        padding: 2px 3px 6px !important;
       }
 
       .evening-live-engine-shell > div > div.space-y-4,
       .evening-live-engine-shell > div > div.space-y-6 {
-        gap: 6px !important;
+        gap: 3px !important;
       }
 
-      /* The desktop judging toolbar consumes too much vertical space on a phone. */
+      /* Hide the desktop judging toolbar on phone. */
       .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
         display: none !important;
       }
 
-      /* Main table: compact gaps and no decorative outer padding. */
+      /* Two columns x five rows. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
-        gap: 5px !important;
+        gap: 3px !important;
         padding: 0 !important;
       }
 
-      /* Compact player windows. Keep the quick top actions and bottom identity strip. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) {
-        height: 78px !important;
-        min-height: 78px !important;
-        max-height: 78px !important;
-        padding-top: 23px !important;
-        padding-bottom: 0 !important;
-        border-radius: 12px !important;
+      /* Target SeatCard itself, not grid position classes. This keeps all ten seats identical. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] {
+        height: 54px !important;
+        min-height: 54px !important;
+        max-height: 54px !important;
+        padding: 16px 0 0 !important;
+        border-radius: 9px !important;
+        overflow: hidden !important;
+        transform: none !important;
       }
 
-      /* Hide the verbose middle body of a seat on mobile; tap/highlight semantics remain. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) > div.flex-1 {
+      /* Verbose player-body text is not needed while running a game on a phone. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.flex-1 {
         display: none !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div:not([class*="md:col-start-2"]) > div[class*="min-h-[36px]"] {
-        min-height: 31px !important;
-        height: 31px !important;
-        padding-top: 2px !important;
-        padding-bottom: 2px !important;
+      /* Quick foul/remove buttons stay at the top-right but become smaller. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] {
+        top: 1px !important;
+        left: 3px !important;
+        right: 3px !important;
+        height: 14px !important;
       }
 
-      /* The live control card stays visible, but must behave like a compact phone HUD. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] button,
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-1.5"] div {
+        min-height: 14px !important;
+        height: 14px !important;
+        line-height: 12px !important;
+        font-size: 7px !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+      }
+
+      /* Night selection markers (victim / Don / Sheriff) become a small chip instead of a full banner. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] {
+        top: 1px !important;
+        left: 3px !important;
+        right: auto !important;
+        width: auto !important;
+        max-width: 72px !important;
+        z-index: 30 !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] span {
+        height: 14px !important;
+        min-height: 14px !important;
+        padding: 0 4px !important;
+        font-size: 7px !important;
+        line-height: 12px !important;
+        gap: 2px !important;
+        white-space: nowrap !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div.absolute[class*="top-2.5"] svg {
+        width: 8px !important;
+        height: 8px !important;
+      }
+
+      /* Identity strip is the main mobile seat content. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] {
+        min-height: 28px !important;
+        height: 28px !important;
+        padding: 1px 4px !important;
+        margin-top: auto !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] span[class*="text-[11px]"] {
+        font-size: 10px !important;
+        line-height: 11px !important;
+      }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > div.relative[class*="aspect-auto"] > div[class*="min-h-[36px]"] span[class*="text-[7.5px]"] {
+        display: none !important;
+      }
+
+      /* Compact phone HUD. */
       .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] {
         top: 0 !important;
         min-height: 0 !important;
-        max-height: 205px !important;
-        border-radius: 14px !important;
-        padding: 6px !important;
+        height: auto !important;
+        max-height: 160px !important;
+        border-radius: 11px !important;
+        padding: 4px !important;
         z-index: 60 !important;
       }
 
-      /* On phone the Prev/Next buttons already describe the night stage, so hide duplicate tabs. */
+      /* Prev/Next describe night navigation, so duplicate tabs are hidden. */
       .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex.flex-wrap {
         display: none !important;
       }
 
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div:first-child {
+        padding-bottom: 2px !important;
+      }
+
       .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 {
-        padding-top: 3px !important;
-        padding-bottom: 3px !important;
+        padding-top: 1px !important;
+        padding-bottom: 1px !important;
         min-height: 0 !important;
       }
 
-      /* The modal itself gets a one-line header. */
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 div[class*="text-2xl"],
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div.flex-1 div[class*="text-3xl"] {
+        font-size: 22px !important;
+        line-height: 26px !important;
+      }
+
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] button[class*="h-9"],
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] button[class*="h-10"] {
+        height: 29px !important;
+      }
+
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] div[class*="min-h-[36px]"] {
+        min-height: 29px !important;
+      }
+
+      .evening-live-engine-shell div[class*="md:col-start-2"][class*="sticky"] > div:last-child {
+        padding-top: 2px !important;
+        gap: 2px !important;
+      }
+
       .evening-live-mobile-title-secondary {
         display: none !important;
       }
@@ -206,12 +282,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     <div className="fixed inset-0 z-[95] bg-slate-950 overflow-hidden">
       <MobileLiveGameStyles />
 
-      <div className="h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-3 flex items-center justify-between gap-2">
+      <div className="h-10 md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <div className="text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
           <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">{game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}</div>
         </div>
-        <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0" title="Закрыть движок">
+        <button type="button" onClick={onClose} className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0" title="Закрыть движок">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -222,7 +298,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
-      <div className="evening-live-engine-shell py-1 md:py-3">
+      <div className="evening-live-engine-shell py-0.5 md:py-3">
         <LiveGameEngine
           players={legacyPlayers}
           initialJudgeId={10001}

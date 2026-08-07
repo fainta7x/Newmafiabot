@@ -45,3 +45,5 @@ jobs:
           git add -A
           git commit -m 'refactor(evenings): decouple roster from tables'
           git push origin HEAD:chatgpt-write-test
+
+# verification rerun after TypeScript cleanup

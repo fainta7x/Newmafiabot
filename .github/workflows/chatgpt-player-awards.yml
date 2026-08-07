@@ -1,0 +1,49 @@
+name: ChatGPT player awards
+
+on:
+  push:
+    branches: [chatgpt-write-test]
+    paths:
+      - '.github/workflows/chatgpt-player-awards.yml'
+      - 'scripts/chatgpt_add_player_awards.py'
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt-write-test
+          fetch-depth: 0
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply player awards
+        run: python3 scripts/chatgpt_add_player_awards.py
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Guard data files
+        run: |
+          git diff --name-only HEAD | grep -E '(^|/)(mafia_crm.*|.*\.sqlite.*)$' && exit 1 || true
+      - name: Remove one-off patch machinery
+        run: |
+          rm scripts/chatgpt_add_player_awards.py
+          rm .github/workflows/chatgpt-player-awards.yml
+      - name: Commit verified player awards
+        run: |
+          git config user.name 'ChatGPT Patch Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(players): add tournament award history and manual corrections'
+          git push origin HEAD:chatgpt-write-test

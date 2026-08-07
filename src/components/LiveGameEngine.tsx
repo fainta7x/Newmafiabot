@@ -8,6 +8,15 @@ import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
 import { ActivePlayerState, Phase } from "./LiveGameEngine/types.js";
+import {
+  LiveProtocolMarkers,
+  BestMoveSource,
+  createEmptyLiveProtocolMarkers,
+  registerFirstKilled,
+  registerZeroRoundVoted,
+  setBestMove,
+  clearBestMove
+} from "../lib/gameProtocolCore.js";
 
 interface LiveGameEngineProps {
   players: Player[];
@@ -23,6 +32,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [roundNumber, setRoundNumber] = useState(1);
   const [nightSubPhase, setNightSubPhase] = useState<"intro" | "shooting" | "don" | "sheriff" | "best_move" | "morning">("intro");
 
+  const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
+  const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
+  const [activeBestMoveSlot, setActiveBestMoveSlot] = useState<number | null>(null);
+  const [pendingBestMoveSeats, setPendingBestMoveSeats] = useState<number[]>([]);
+  const [onConfirmBestMove, setOnConfirmBestMove] = useState<(() => void) | null>(null);
+
   useEffect(() => {
     onPhaseChange?.(phase);
   }, [phase, onPhaseChange]);
@@ -32,7 +47,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       slot_num: i + 1, user_id: 0, nickname: "", role: "Мирный", team: "Красные", fouls: 0, alive: true,
       nominated_this_round: false, has_spoken_this_round: false, mute_this_round: false, is_pu: false,
       best_move_guesses: [], kick: false, ppk: false, bonus_points: 0, lh_points: 0, will_protocol_points: 0,
-      will_opinion_points: 0, dc_points: 0, eliminated_phase: "", has_foul_penalty: false
+      will_opinion_points: 0, dc_points: 0, eliminated_phase: "", has_foul_penalty: false, exit_reason: "alive"
     }))
   );
 
@@ -100,6 +115,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     phase: Phase;
     roundNumber: number;
     nightSubPhase: "intro" | "shooting" | "don" | "sheriff" | "best_move" | "morning";
+    protocolMarkers: LiveProtocolMarkers;
   }[]>([]);
 
   const saveSnapshot = () => {
@@ -111,6 +127,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         phase,
         roundNumber,
         nightSubPhase,
+        protocolMarkers: JSON.parse(JSON.stringify(protocolMarkers)),
       }
     ]);
   };
@@ -126,6 +143,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPhase(last.phase);
     setRoundNumber(last.roundNumber);
     setNightSubPhase(last.nightSubPhase);
+    setProtocolMarkers(last.protocolMarkers || createEmptyLiveProtocolMarkers());
     setHistoryStack((prev) => prev.slice(0, -1));
     showToast("Последнее действие ведущего отменено ↺", "info");
   };
@@ -159,6 +177,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           nightLogs,
           votes,
           shootoutNominees,
+          protocolMarkers,
           savedAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
         };
         localStorage.setItem("mafia_live_session", JSON.stringify(sessionData));
@@ -166,7 +185,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     } else {
       localStorage.removeItem("mafia_live_session");
     }
-  }, [activePlayers, nominations, phase, roundNumber, nightSubPhase, nightLogs, votes, shootoutNominees]);
+  }, [activePlayers, nominations, phase, roundNumber, nightSubPhase, nightLogs, votes, shootoutNominees, protocolMarkers]);
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
@@ -179,6 +198,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setNightLogs(restorableSession.nightLogs || []);
       setVotes(restorableSession.votes || {});
       setShootoutNominees(restorableSession.shootoutNominees || []);
+      setProtocolMarkers(restorableSession.protocolMarkers || createEmptyLiveProtocolMarkers());
       setRestorableSession(null);
       showToast("Прерванная игра успешно восстановлена! 🔄", "success");
     } catch {
@@ -1137,24 +1157,69 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
   };
 
+  const getExitReason = (reason: string, rNum: number): 'killed' | 'voted_zero_round' | 'voted_day' | 'removed' => {
+    const r = reason.toLowerCase();
+    if (r.includes("убит ночью") || r.includes("убит")) return 'killed';
+    if (r.includes("голосование") || r.includes("автокатастрофа")) {
+      return rNum === 1 ? 'voted_zero_round' : 'voted_day';
+    }
+    if (r.includes("дисквалификация") || r.includes("удален") || r.includes("фолы") || r.includes("ппк")) {
+      return 'removed';
+    }
+    return 'voted_day';
+  };
+
   const eliminatePlayer = (slotNum: number, reason: string) => {
     saveSnapshot();
     const player = activePlayers.find((p) => p.slot_num === slotNum);
     if (!player) return;
     let isFirst = false;
 
+    const extReason = getExitReason(reason, roundNumber);
+
     setActivePlayers((prev) => {
       const alreadyKilled = prev.some((p) => p.is_pu);
       isFirst = !alreadyKilled;
-      return prev.map((p) => p.slot_num === slotNum ? { ...p, alive: false, eliminated_phase: reason, is_pu: isFirst } : p);
+      return prev.map((p) =>
+        p.slot_num === slotNum
+          ? { ...p, alive: false, eliminated_phase: reason, is_pu: isFirst, exit_reason: extReason }
+          : p
+      );
     });
 
     showToast(`Игрок #${slotNum} (${player.nickname}) покидает стол!`, "info");
     handleStartTimer(slotNum, 60);
 
-    const alreadyKilled = activePlayers.some((p) => p.is_pu);
-    if (!alreadyKilled && player.team === "Красные" && !reason.includes("Ночь 1")) {
-      setBestMovePlayerSlot(slotNum); setBestMoveGuesses([]);
+    // Update protocol markers and trigger Best Move step if eligible
+    let updatedMarkers = { ...protocolMarkers };
+    let showBmStep = false;
+    let bmSource: BestMoveSource = "first_killed";
+
+    if (extReason === "killed") {
+      if (protocolMarkers.firstKilledSlot === null) {
+        updatedMarkers = registerFirstKilled(protocolMarkers, slotNum);
+        showBmStep = true;
+        bmSource = "first_killed";
+      }
+    } else if (extReason === "voted_zero_round") {
+      if (protocolMarkers.zeroRoundVotedSlot === null) {
+        updatedMarkers = registerZeroRoundVoted(protocolMarkers, slotNum);
+        showBmStep = true;
+        bmSource = "zero_round_voted";
+      }
+    }
+
+    setProtocolMarkers(updatedMarkers);
+
+    if (showBmStep) {
+      setActiveBestMoveSource(bmSource);
+      setActiveBestMoveSlot(slotNum);
+      setPendingBestMoveSeats([]);
+    } else {
+      const alreadyKilled = activePlayers.some((p) => p.is_pu);
+      if (!alreadyKilled && player.team === "Красные" && !reason.includes("Ночь 1")) {
+        setBestMovePlayerSlot(slotNum); setBestMoveGuesses([]);
+      }
     }
   };
 
@@ -1395,16 +1460,18 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         bonus_points: p.bonus_points, lh_points: p.lh_points, will_protocol_points: p.will_protocol_points,
         will_opinion_points: p.will_opinion_points, dc_points: p.dc_points, kick: p.kick || p.eliminated_phase.includes("Фолы"),
         ppk: p.ppk || p.eliminated_phase.includes("ППК"), fouls: p.fouls, pu: p.is_pu, alive: p.alive,
-        status_reason: p.alive ? "Жив" : p.eliminated_phase || "Убит", base_points: 0, elo_change: 0
-      };
+        status_reason: p.alive ? "Жив" : p.eliminated_phase || "Убит", base_points: 0, elo_change: 0,
+        exit_reason: p.exit_reason || (p.alive ? "alive" : getExitReason(p.eliminated_phase || "Убит", roundNumber))
+      } as any;
     });
 
     onGameFinished({
       winning_team: winner,
       protocol_text: `Спортивная игра ФСМ. Победили ${winner}.${protocolNotes.trim() ? " Примечания: " + protocolNotes.trim() : ""}`,
       slots: slotsToSubmit,
-      judge_id: judgeId
-    });
+      judge_id: judgeId,
+      protocol_markers: protocolMarkers
+    } as any);
   };
 
   const getSeatColor = (slotNum: number) => {
@@ -1917,8 +1984,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
                   type="button"
                   onClick={() => {
                     setActivePlayers((prev) =>
-                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, alive: true, eliminated_phase: "", is_pu: false } : pl))
+                      prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, alive: true, eliminated_phase: "", is_pu: false, exit_reason: "alive" } : pl))
                     );
+                    setProtocolMarkers((prev) => clearBestMove(prev, slotNum));
                     showToast(`Игрок #${slotNum} возвращен за стол!`, "success");
                     setSelectedMobileSlot(null);
                   }}
@@ -1982,6 +2050,108 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none" id="live-game-root">
+      {activeBestMoveSource && activeBestMoveSlot !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md" id="best-move-protocol-overlay">
+          <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full space-y-6 shadow-2xl relative">
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/25 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider">
+                {activeBestMoveSource === "first_killed" ? "Первый убитый" : "Слом нулевого круга"}
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                Ввод Лучшего Хода
+              </h2>
+              <p className="text-sm font-bold text-slate-300">
+                Протокол игрока #{activeBestMoveSlot} — {activePlayers.find(pl => pl.slot_num === activeBestMoveSlot)?.nickname || "Неизвестный"}
+              </p>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Выберите до 3 номеров игроков, которых покинувший стол считает мафией. Порядок выбора важен и отображается цифрами.
+              </p>
+            </div>
+
+            {/* SELECTION GRID */}
+            <div className="grid grid-cols-5 gap-3 max-w-md mx-auto">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => {
+                const idx = pendingBestMoveSeats.indexOf(num);
+                const isSelected = idx !== -1;
+                const p = activePlayers.find(pl => pl.slot_num === num);
+                return (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setPendingBestMoveSeats(prev => prev.filter(n => n !== num));
+                      } else {
+                        if (pendingBestMoveSeats.length < 3) {
+                          setPendingBestMoveSeats(prev => [...prev, num]);
+                        } else {
+                          showToast("Максимум 3 игрока в лучшем ходе!", "warning");
+                        }
+                      }
+                    }}
+                    className={`h-16 rounded-2xl flex flex-col items-center justify-center border-2 transition-all relative cursor-pointer select-none group ${
+                      isSelected
+                        ? "bg-slate-950 border-white text-white shadow-lg shadow-white/5"
+                        : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="text-lg font-black font-mono leading-none">{num}</span>
+                    <span className="text-[9px] text-slate-500 font-medium truncate max-w-[50px] mt-1">{p?.nickname || `Игрок ${num}`}</span>
+                    {isSelected && (
+                      <div className="absolute top-1 right-1.5 w-4 h-4 rounded-full bg-white text-slate-950 text-[10px] font-black flex items-center justify-center leading-none">
+                        {idx + 1}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingBestMoveSeats([])}
+                className="px-6 py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wide cursor-pointer transition-all border border-slate-700/50"
+              >
+                Сбросить выбор
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Confirm Best Move
+                  const nextMarkers = setBestMove(protocolMarkers, activeBestMoveSource, pendingBestMoveSeats);
+                  setProtocolMarkers(nextMarkers);
+                  
+                  // Save to activePlayers state for backward compatibility
+                  setActivePlayers(prev =>
+                    prev.map(p =>
+                      p.slot_num === activeBestMoveSlot
+                        ? { ...p, best_move_guesses: [...pendingBestMoveSeats] }
+                        : p
+                    )
+                  );
+
+                  // Show feedback
+                  showToast(`Лучший ход для игрока #${activeBestMoveSlot} зафиксирован: ${pendingBestMoveSeats.join(", ") || "нет"}`, "success");
+
+                  // Reset states and trigger callback if any
+                  setActiveBestMoveSource(null);
+                  setActiveBestMoveSlot(null);
+                  setPendingBestMoveSeats([]);
+                  if (onConfirmBestMove) {
+                    onConfirmBestMove();
+                    setOnConfirmBestMove(null);
+                  }
+                }}
+                className="px-8 py-3 bg-white hover:bg-slate-100 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-xl transition-all"
+              >
+                Подтвердить протокол ЛХ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* HEADER / NAVIGATION OVERVIEW (Shown only during Setup) */}
       {phase === "setup" && (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/80 shadow-2xl backdrop-blur-md" id="game-header-panel">

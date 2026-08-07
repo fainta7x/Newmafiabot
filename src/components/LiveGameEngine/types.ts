@@ -23,6 +23,7 @@ export interface ActivePlayerState {
   eliminated_phase: string;
   has_foul_penalty?: boolean;
   note?: string;
+  exit_reason?: 'alive' | 'killed' | 'voted_zero_round' | 'voted_day' | 'removed';
 }
 
 export type Phase = "setup" | "zero_night" | "day_speeches" | "day_voting" | "shootout" | "night";

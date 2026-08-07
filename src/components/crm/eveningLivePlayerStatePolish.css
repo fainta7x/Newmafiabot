@@ -1,0 +1,90 @@
+@media (max-width: 767px) {
+  /*
+   * Discipline counters belong to the card, not to the avatar geometry.
+   * Keep the rail safely inside the top-left corner for every seat position.
+   */
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline {
+    position: absolute !important;
+    top: 7px !important;
+    left: 7px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    align-self: auto !important;
+    justify-self: auto !important;
+    display: grid !important;
+    grid-template-columns: clamp(16px, 4.2vw, 19px) !important;
+    grid-auto-rows: clamp(15px, 3.9vw, 18px) !important;
+    gap: 2px !important;
+    width: clamp(16px, 4.2vw, 19px) !important;
+    max-width: clamp(16px, 4.2vw, 19px) !important;
+    margin: 0 !important;
+    z-index: 24 !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span {
+    box-sizing: border-box !important;
+    width: clamp(16px, 4.2vw, 19px) !important;
+    min-width: clamp(16px, 4.2vw, 19px) !important;
+    height: clamp(15px, 3.9vw, 18px) !important;
+    padding: 0 !important;
+    border-radius: 5px !important;
+    font-size: clamp(7px, 1.8vw, 8.5px) !important;
+    line-height: 1 !important;
+  }
+
+  /*
+   * A confirmed Best Move is protocol data, not a permanent board state.
+   * Remove the legacy amber card glow and trophy overlays after confirmation.
+   */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > [class*="ring-amber-500/20"] {
+    border-color: rgb(30 41 59) !important;
+    background: rgb(15 23 42 / 0.5) !important;
+    box-shadow: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    transform: none !important;
+  }
+
+  html body .evening-live-engine-shell [title^="Выбор ЛХ #"] {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell div:has(> [title^="Выбор ЛХ #"]) {
+    box-shadow: none !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+
+  /*
+   * The old dead-card body contains a desktop-sized LH row and status block.
+   * On the compact table it only creates overflow, so the mobile identity layer
+   * remains the single source of visual identity for players who left the table.
+   */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > .bg-\[\#160a0f\] {
+    display: none !important;
+  }
+
+  /*
+   * Any player with alive=false uses the burgundy dead-card branch in SeatCard.
+   * Add a translucent veil above the whole cell (including the separate avatar
+   * overlay) so killed, voted-out and removed players recede from attention.
+   */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10):has(> .bg-\[\#160a0f\])::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+    border-radius: inherit;
+    background: rgb(2 6 23 / 0.46);
+    backdrop-filter: grayscale(0.45) saturate(0.55);
+  }
+}

@@ -108,18 +108,18 @@
   }
 
   html body .evening-live-engine-shell .evening-live-player-avatar {
-    width: clamp(38px, 11.5vw, 58px) !important;
-    height: clamp(38px, 11.5vw, 58px) !important;
-    max-width: 58% !important;
-    max-height: 40% !important;
+    width: clamp(46px, 13.5vw, 66px) !important;
+    height: clamp(46px, 13.5vw, 66px) !important;
+    max-width: 68% !important;
+    max-height: 48% !important;
     flex: 0 0 auto !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity-name {
-    max-width: 90% !important;
-    padding: 0.18em 0.55em !important;
-    font-size: clamp(8px, 2.25vw, 11px) !important;
-    line-height: 1.15 !important;
+    max-width: 96% !important;
+    padding: 0.22em 0.6em !important;
+    font-size: clamp(9.5px, 2.65vw, 12px) !important;
+    line-height: 1.18 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;

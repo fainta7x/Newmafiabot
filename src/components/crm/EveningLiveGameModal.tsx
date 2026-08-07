@@ -5,6 +5,7 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -92,7 +93,7 @@ const mapEngineResultToProtocol = (
     });
   }
 
-  const playerResults = previousResults.map((previous) => {
+  const playerResults = applyStoredDeathProtocolsToResults(previousResults.map((previous) => {
     const slot = slots.find((candidate) => candidate.slot_num === previous.seat_number) as any;
     if (!slot) return previous;
     return {
@@ -106,7 +107,7 @@ const mapEngineResultToProtocol = (
       ppk: Boolean(slot.ppk),
       notes: slot.status_reason && !slot.alive ? slot.status_reason : previous.notes,
     } as PlayerResultData;
-  });
+  }));
 
   const winnerTeam = gameData.winning_team === 'Красные' ? 'red' : 'black';
   const protocol: TournamentGameProtocolData = {
@@ -646,6 +647,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             try {
               const next = mapEngineResultToProtocol(game, gameData);
               const updated = await clubGamesApi.saveProtocol(game.id, next);
+              clearStoredDeathProtocols();
               onUpdated(updated);
               onClose();
             } catch (err: any) {

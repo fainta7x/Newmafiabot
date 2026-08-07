@@ -1,4 +1,5 @@
 import React from 'react';
+import { determineLiveWinner, type LiveFlowPlayer, type LiveWinnerTeam } from '../../lib/liveGameFlow';
 import {
   type DeathProtocolSelection,
   emptyDeathProtocolSelection,
@@ -17,6 +18,7 @@ interface EveningDeathProtocolOverlayProps {
   onConfirm: () => void;
   onBack: () => void;
   error?: string | null;
+  finishGame?: boolean;
 }
 
 const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
@@ -31,6 +33,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   onConfirm,
   onBack,
   error,
+  finishGame = false,
 }) => {
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
     const other = mark === 'red' ? 'black' : 'red';
@@ -108,7 +111,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
             Сбросить
           </button>
           <button type="button" onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase">
-            Сохранить → день
+            {finishGame ? 'Сохранить → протокол' : 'Сохранить → день'}
           </button>
         </div>
       </div>
@@ -121,6 +124,7 @@ type LiveSessionView = {
   shotPlayerSlot: number | null;
   timeLeft: number;
   killedName: string;
+  winner: LiveWinnerTeam | null;
 };
 
 const findEngineButton = (label: string): HTMLButtonElement | null => {
@@ -132,7 +136,7 @@ const findEngineButton = (label: string): HTMLButtonElement | null => {
 };
 
 export const EveningDeathProtocolBridge: React.FC = () => {
-  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0, killedName: '' });
+  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0, killedName: '', winner: null });
   const [editingSlot, setEditingSlot] = React.useState<number | null>(null);
   const [value, setValue] = React.useState<DeathProtocolSelection>(emptyDeathProtocolSelection());
   const [error, setError] = React.useState<string | null>(null);
@@ -150,11 +154,20 @@ export const EveningDeathProtocolBridge: React.FC = () => {
         const shotPlayerSlot = Number.isInteger(shot) && shot >= 1 && shot <= 10 ? shot : null;
         const activePlayers = Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : [];
         const killedPlayer = shotPlayerSlot === null ? null : activePlayers.find((player: any) => Number(player?.slot_num) === shotPlayerSlot);
+        const flowPlayers: LiveFlowPlayer[] = [];
+        for (const player of activePlayers) {
+          const slot = Number(player?.slot_num);
+          const team = player?.team;
+          if (!Number.isInteger(slot) || (team !== 'Красные' && team !== 'Чёрные')) continue;
+          flowPlayers.push({ slot_num: slot, team, alive: Boolean(player?.alive) });
+        }
+        const winner = flowPlayers.length ? determineLiveWinner(flowPlayers) : null;
         const next: LiveSessionView = {
           postNightStage: String(parsed?.postNightStage || 'none'),
           shotPlayerSlot,
           timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
           killedName: String(killedPlayer?.nickname || (shotPlayerSlot ? `Игрок ${shotPlayerSlot}` : '')),
+          winner,
         };
         const signature = JSON.stringify(next);
         if (signature !== lastSignature) {
@@ -189,9 +202,13 @@ export const EveningDeathProtocolBridge: React.FC = () => {
 
   const handleConfirm = () => {
     storeDeathProtocol(killedSlot, normalizeDeathProtocolSelection(value));
-    const nextButton = findEngineButton('К дневным речам');
+    const nextButton = session.winner
+      ? (findEngineButton('Завершить игру') || findEngineButton('Применить авто-победу'))
+      : findEngineButton('К дневным речам');
     if (!nextButton) {
-      setError('Протокол сохранён, но не найдена кнопка перехода к дневным речам.');
+      setError(session.winner
+        ? 'Протокол сохранён, но не найдена команда завершения игры.'
+        : 'Протокол сохранён, но не найдена кнопка перехода к дневным речам.');
       return;
     }
     setError(null);
@@ -218,6 +235,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       onConfirm={handleConfirm}
       onBack={handleBack}
       error={error}
+      finishGame={session.winner !== null}
     />
   );
 };

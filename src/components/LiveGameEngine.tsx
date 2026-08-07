@@ -1054,7 +1054,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     if (phase === 'night') {
       if (postNightStage === 'farewell') return { label: 'Протокол убитого · 15с', onClick: startDeathProtocol };
-      if (postNightStage === 'death_protocol') return { label: 'К дневным речам', onClick: finishNightToDay };
+      if (postNightStage === 'death_protocol') {
+        const winnerAfterNight = determineLiveWinner(activePlayers);
+        if (winnerAfterNight) {
+          return { label: 'Завершить игру', onClick: () => handleEndGameWithWinner(winnerAfterNight) };
+        }
+        return { label: 'К дневным речам', onClick: finishNightToDay };
+      }
       if (nightSubPhase === 'intro') return { label: 'Стрельба мафии', onClick: () => handleAdvanceNightSubPhase('shooting') };
       if (nightSubPhase === 'shooting') return { label: 'Проверка Дона', onClick: () => handleAdvanceNightSubPhase('don') };
       if (nightSubPhase === 'don') return { label: 'Проверка Шерифа', onClick: () => handleAdvanceNightSubPhase('sheriff') };

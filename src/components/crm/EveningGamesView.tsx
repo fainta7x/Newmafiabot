@@ -239,7 +239,14 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
       )}
 
       {activeProtocolGame && <EveningGameProtocolModal game={activeProtocolGame} isOpen={true} onClose={() => setActiveProtocolGame(null)} onUpdated={applyUpdatedGame} />}
-      {activeLiveGame && <EveningLiveGameModal game={activeLiveGame} onClose={() => setActiveLiveGame(null)} onUpdated={applyUpdatedGame} />}
+      {activeLiveGame && <EveningLiveGameModal
+        game={activeLiveGame}
+        onClose={() => setActiveLiveGame(null)}
+        onUpdated={(updated) => {
+          applyUpdatedGame(updated);
+          if (updated.status === 'completed') setActiveProtocolGame(updated);
+        }}
+      />}
     </div>
   );
 };

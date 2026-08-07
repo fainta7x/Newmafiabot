@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Check,
@@ -62,6 +63,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   const [activeParticipant, setActiveParticipant] = useState<EveningParticipant | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EveningParticipant | null>(null);
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
+  const [savingParticipant, setSavingParticipant] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -109,12 +111,24 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   }, [allPlayers, existingPlayerIds, addSearch]);
 
   const updateParticipant = async (participant: EveningParticipant, patch: Partial<EveningParticipant>) => {
+    if (savingParticipant) return;
+
+    const previous = participant;
+    const optimistic = { ...participant, ...patch };
+    setSavingParticipant(true);
+    setParticipants((prev) => prev.map((item) => item.id === participant.id ? optimistic : item));
+    setActiveParticipant((current) => current?.id === participant.id ? optimistic : current);
+
     try {
       const updated = await api.updateParticipant(participant.id, patch);
       setParticipants((prev) => prev.map((item) => item.id === updated.id ? updated : item));
       setActiveParticipant((current) => current?.id === updated.id ? updated : current);
     } catch (err: any) {
+      setParticipants((prev) => prev.map((item) => item.id === previous.id ? previous : item));
+      setActiveParticipant((current) => current?.id === previous.id ? previous : current);
       alert(err.message || 'Не удалось обновить игрока');
+    } finally {
+      setSavingParticipant(false);
     }
   };
 
@@ -281,27 +295,93 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </div>
       )}
 
-      {activeParticipant && (
-        <div className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setActiveParticipant(null)}>
-          <div className="w-full sm:max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3"><PlayerAvatar nickname={activeParticipant.nickname} playerId={activeParticipant.player_id} forceStoredLookup size="lg" /><div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white truncate">{activeParticipant.nickname}</h3><button type="button" onClick={() => onOpenPlayerCard?.(activeParticipant.player_id)} className="text-[10px] text-rose-400 font-bold">Открыть карточку игрока</button></div><button type="button" onClick={() => setActiveParticipant(null)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button></div>
+      {activeParticipant && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center touch-manipulation"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Управление игроком ${activeParticipant.nickname}`}
+          onClick={() => setActiveParticipant(null)}
+        >
+          <div
+            className="w-full sm:max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl p-4 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <PlayerAvatar nickname={activeParticipant.nickname} playerId={activeParticipant.player_id} forceStoredLookup size="lg" />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-black text-white truncate">{activeParticipant.nickname}</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const playerId = activeParticipant.player_id;
+                    setActiveParticipant(null);
+                    onOpenPlayerCard?.(playerId);
+                  }}
+                  className="text-[10px] text-rose-400 font-bold touch-manipulation"
+                >
+                  Открыть карточку игрока
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label="Закрыть"
+                onClick={() => setActiveParticipant(null)}
+                className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center touch-manipulation"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
             {!isReadonly && <>
-              <div className="space-y-1.5"><span className="text-[9px] uppercase font-black text-slate-500">Запись</span><div className="grid grid-cols-3 gap-1.5"><button onClick={() => updateParticipant(activeParticipant, { registration_status: 'confirmed' })} className={`min-h-10 rounded-xl text-[10px] font-black border ${activeParticipant.registration_status === 'confirmed' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Подтвердить</button><button onClick={() => updateParticipant(activeParticipant, { registration_status: 'waitlist' })} className={`min-h-10 rounded-xl text-[10px] font-black border ${activeParticipant.registration_status === 'waitlist' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Резерв</button><button onClick={() => updateParticipant(activeParticipant, { registration_status: 'cancelled' })} className={`min-h-10 rounded-xl text-[10px] font-black border ${activeParticipant.registration_status === 'cancelled' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Отменил</button></div></div>
-              <div className="space-y-1.5"><span className="text-[9px] uppercase font-black text-slate-500">Явка</span><div className="grid grid-cols-3 gap-1.5"><button onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'on_time' })} className="min-h-11 rounded-xl bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black flex items-center justify-center gap-1"><Check className="w-3.5 h-3.5" />Пришёл</button><button onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'late' })} className="min-h-11 rounded-xl bg-amber-600/15 border border-amber-500/30 text-amber-300 text-[10px] font-black flex items-center justify-center gap-1"><Clock className="w-3.5 h-3.5" />Опоздал</button><button onClick={() => updateParticipant(activeParticipant, { attendance_status: 'no_show', arrival_status: 'unknown' })} className="min-h-11 rounded-xl bg-rose-600/15 border border-rose-500/30 text-rose-300 text-[10px] font-black flex items-center justify-center gap-1"><UserX className="w-3.5 h-3.5" />Не пришёл</button></div></div>
-              <div className="space-y-1.5"><span className="text-[9px] uppercase font-black text-slate-500">Оплата</span><div className="grid grid-cols-3 gap-1.5"><button onClick={() => updateParticipant(activeParticipant, { payment_status: 'paid', amount_paid: activeParticipant.amount_due })} className="min-h-11 rounded-xl bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black">100%</button><button onClick={() => updateParticipant(activeParticipant, { payment_status: 'partial', amount_paid: Math.round(activeParticipant.amount_due / 2) })} className="min-h-11 rounded-xl bg-amber-600/15 border border-amber-500/30 text-amber-300 text-[10px] font-black">50%</button><button onClick={() => updateParticipant(activeParticipant, { payment_status: 'waived', amount_paid: 0 })} className="min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black">Бесплатно</button></div></div>
-              <button type="button" onClick={() => setPendingDelete(activeParticipant)} className="w-full min-h-11 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-300 text-xs font-black flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" />Убрать с вечера</button>
+              <div className="space-y-1.5">
+                <span className="text-[9px] uppercase font-black text-slate-500">Запись</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'confirmed' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'confirmed' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Подтвердить</button>
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'waitlist' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'waitlist' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Резерв</button>
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'cancelled' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'cancelled' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Отменил</button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[9px] uppercase font-black text-slate-500">Явка</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'on_time' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'attended' && activeParticipant.arrival_status !== 'late' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-emerald-600/15 border-emerald-500/30 text-emerald-300'}`}><Check className="w-3.5 h-3.5" />Пришёл</button>
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'late' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'attended' && activeParticipant.arrival_status === 'late' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-amber-600/15 border-amber-500/30 text-amber-300'}`}><Clock className="w-3.5 h-3.5" />Опоздал</button>
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'no_show', arrival_status: 'unknown' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'no_show' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-rose-600/15 border-rose-500/30 text-rose-300'}`}><UserX className="w-3.5 h-3.5" />Не пришёл</button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[9px] uppercase font-black text-slate-500">Оплата</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { payment_status: 'paid', amount_paid: activeParticipant.amount_due })} className={`min-h-11 rounded-xl border text-[10px] font-black touch-manipulation disabled:opacity-60 ${activeParticipant.payment_status === 'paid' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-emerald-600/15 border-emerald-500/30 text-emerald-300'}`}>100%</button>
+                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { payment_status: 'waived', amount_paid: 0 })} className={`min-h-11 rounded-xl border text-[10px] font-black touch-manipulation disabled:opacity-60 ${activeParticipant.payment_status === 'waived' ? 'bg-slate-600 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}>Бесплатно</button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDelete(activeParticipant);
+                  setActiveParticipant(null);
+                }}
+                className="w-full min-h-11 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-300 text-xs font-black flex items-center justify-center gap-2 touch-manipulation"
+              >
+                <Trash2 className="w-4 h-4" />Убрать с вечера
+              </button>
             </>}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-rose-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Убрать {pendingDelete.nickname} с вечера?</h3><p className="text-xs text-slate-400 mt-1">Это удалит только запись на этот вечер, сам игрок останется в CRM.</p></div><div className="grid grid-cols-2 gap-2"><button onClick={() => setPendingDelete(null)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button onClick={deleteParticipant} className="min-h-11 rounded-xl bg-rose-600 text-white text-xs font-black">Убрать</button></div></div></div>
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-rose-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Убрать {pendingDelete.nickname} с вечера?</h3><p className="text-xs text-slate-400 mt-1">Это удалит только запись на этот вечер, сам игрок останется в CRM.</p></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setPendingDelete(null)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button type="button" onClick={deleteParticipant} className="min-h-11 rounded-xl bg-rose-600 text-white text-xs font-black">Убрать</button></div></div></div>
       )}
 
       {showSettleConfirm && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-emerald-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Рассчитать вечер?</h3><p className="text-xs text-slate-400 mt-1">Оплачено {paidTotal}₽ · долг {Math.max(0, dueTotal - paidTotal)}₽. После расчёта вечер станет доступен только для просмотра.</p></div><div className="grid grid-cols-2 gap-2"><button onClick={() => setShowSettleConfirm(false)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button onClick={settleEvening} className="min-h-11 rounded-xl bg-emerald-600 text-white text-xs font-black">Рассчитать</button></div></div></div>
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-emerald-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Рассчитать вечер?</h3><p className="text-xs text-slate-400 mt-1">Оплачено {paidTotal}₽ · долг {Math.max(0, dueTotal - paidTotal)}₽. После расчёта вечер станет доступен только для просмотра.</p></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setShowSettleConfirm(false)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button type="button" onClick={settleEvening} className="min-h-11 rounded-xl bg-emerald-600 text-white text-xs font-black">Рассчитать</button></div></div></div>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Gamepad2, Users } from 'lucide-react';
+import { Gamepad2, Sliders, Users } from 'lucide-react';
 import { EveningDetailView } from './EveningDetailView';
 import { EveningGamesView } from './EveningGamesView';
 
@@ -9,32 +9,51 @@ interface EveningWorkspaceProps {
   onOpenPlayerCard?: (id: string) => void;
 }
 
+type EveningSection = 'participants' | 'tables' | 'games';
+
 export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({ eveningId, onBack, onOpenPlayerCard }) => {
-  const [section, setSection] = useState<'management' | 'games'>('management');
+  const [section, setSection] = useState<EveningSection>('participants');
+
+  const tabs: Array<{ id: EveningSection; label: string; icon: React.ReactNode }> = [
+    { id: 'participants', label: 'Состав', icon: <Users className="w-4 h-4" /> },
+    { id: 'tables', label: 'Столы', icon: <Sliders className="w-4 h-4" /> },
+    { id: 'games', label: 'Игры', icon: <Gamepad2 className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="space-y-3">
-      <div className="bg-slate-950 border border-slate-850 rounded-2xl p-1.5 grid grid-cols-2 gap-1 sticky top-[62px] z-30 shadow-xl">
-        <button
-          type="button"
-          onClick={() => setSection('management')}
-          className={`min-h-[44px] rounded-xl text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${section === 'management' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
-        >
-          <Users className="w-4 h-4" />Участники и касса
-        </button>
-        <button
-          type="button"
-          onClick={() => setSection('games')}
-          className={`min-h-[44px] rounded-xl text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${section === 'games' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
-        >
-          <Gamepad2 className="w-4 h-4" />Игры
-        </button>
+      <div className="sticky top-[62px] z-30 px-1">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl backdrop-blur-xl">
+          {tabs.map((tab) => {
+            const active = section === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSection(tab.id)}
+                className={`min-h-[42px] rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-black transition-all ${
+                  active
+                    ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700'
+                    : 'text-slate-500 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {section === 'management' ? (
-        <EveningDetailView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} />
-      ) : (
+      {section === 'games' ? (
         <EveningGamesView eveningId={eveningId} onBack={onBack} />
+      ) : (
+        <EveningDetailView
+          eveningId={eveningId}
+          onBack={onBack}
+          onOpenPlayerCard={onOpenPlayerCard}
+          view={section}
+        />
       )}
     </div>
   );

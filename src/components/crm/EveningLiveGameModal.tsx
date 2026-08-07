@@ -116,7 +116,7 @@ const MobileLiveGameStyles = () => (
   <style>{`
     @media (max-width: 767px) {
       .evening-live-engine-shell {
-        height: calc(100dvh - 40px);
+        height: calc(100dvh - 34px);
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
@@ -124,63 +124,78 @@ const MobileLiveGameStyles = () => (
 
       .evening-live-engine-shell > div {
         max-width: none !important;
-        padding: 3px !important;
-        padding-bottom: 12px !important;
+        padding: 2px !important;
+        padding-bottom: 16px !important;
       }
 
       .evening-live-engine-shell > div > div.space-y-4,
       .evening-live-engine-shell > div > div.space-y-6 {
-        gap: 4px !important;
+        gap: 3px !important;
       }
 
-      /* The full desktop judging toolbar is intentionally hidden on phone. */
+      /* During a game the board is the whole first screen. */
       .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
         display: none !important;
       }
 
-      /* Restore the original table geometry on phone: 5 players, center HUD, 5 players. */
+      /*
+       * Phone table layout based on the reference:
+       * 10 9 8 7
+       *  6 [ CONTROL ] 5
+       * 1  2 3 4
+       */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-        grid-template-rows: 68px minmax(150px, auto) 68px !important;
-        gap: 3px !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-template-rows: 86px 238px 86px !important;
+        gap: 4px !important;
         padding: 0 !important;
         align-items: stretch !important;
+        width: 100% !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1) { grid-column: 1; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2) { grid-column: 2; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3) { grid-column: 3; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4) { grid-column: 4; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5) { grid-column: 5; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6) { grid-column: 5; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7) { grid-column: 4; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8) { grid-column: 3; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9) { grid-column: 2; grid-row: 1; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 1; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 2; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 3; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 4; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 1; grid-row: 2; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) { grid-column: 2 / span 2; grid-row: 2; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 4; grid-row: 2; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 1; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 2; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 3; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4; grid-row: 3; }
 
-      /* All ten player cards use exactly the same compact geometry. */
+      /* Uniform compact cards. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
         width: 100% !important;
-        height: 68px !important;
-        min-height: 68px !important;
-        max-height: 68px !important;
-        padding: 19px 1px 0 !important;
-        border-radius: 10px !important;
+        min-width: 0 !important;
+        height: 86px !important;
+        min-height: 86px !important;
+        max-height: 86px !important;
+        padding: 22px 1px 0 !important;
+        border-radius: 9px !important;
         transform: none !important;
         overflow: hidden !important;
       }
 
-      /* Remove the verbose card body; number/name/role and quick actions remain. */
+      /* Side players flank the center panel just like video tiles. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5),
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6) {
+        height: 238px !important;
+        min-height: 238px !important;
+        max-height: 238px !important;
+      }
+
+      /* Hide verbose status copy inside cards; keep quick actions and identity. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
         display: none !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 28px !important;
-        height: 28px !important;
-        padding: 1px 2px !important;
-        gap: 0 !important;
+        min-height: 31px !important;
+        height: 31px !important;
+        padding: 2px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) [title="Выставить на голосование"] span,
@@ -189,33 +204,42 @@ const MobileLiveGameStyles = () => (
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button {
-        min-width: 16px !important;
-        max-height: 19px !important;
+        min-width: 18px !important;
+        max-height: 21px !important;
         padding: 1px 3px !important;
         font-size: 8px !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) span[class*="font-black"][class*="truncate"] {
-        font-size: 8px !important;
-        line-height: 9px !important;
+        font-size: 9px !important;
+        line-height: 10px !important;
       }
 
-      /* The center panel is the middle of the table, never a sticky overlay. */
+      /* Role icon is part of the hit area: tapping it selects shot/check/vote target. */
+      .evening-live-engine-shell [title="Красный"],
+      .evening-live-engine-shell [title="Дон"],
+      .evening-live-engine-shell [title="Мафия"],
+      .evening-live-engine-shell [title="Шериф"],
+      .evening-live-engine-shell [title="Скрыто"] {
+        pointer-events: none !important;
+      }
+
+      /* Center is the only control panel in the middle. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
-        grid-column: 1 / span 5 !important;
-        grid-row: 2 !important;
-        order: 0 !important;
+        width: 100% !important;
+        height: 238px !important;
+        min-height: 238px !important;
+        max-height: 238px !important;
         position: relative !important;
         top: auto !important;
         z-index: 20 !important;
-        width: 100% !important;
-        min-height: 150px !important;
-        max-height: 190px !important;
-        padding: 6px !important;
-        border-radius: 14px !important;
+        padding: 5px !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex.flex-wrap {
+      /* Modal already has X; remove duplicate Exit inside the center HUD. */
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button:has(svg[class*="lucide-log-out"]) {
         display: none !important;
       }
 
@@ -223,6 +247,12 @@ const MobileLiveGameStyles = () => (
         padding-top: 2px !important;
         padding-bottom: 2px !important;
         min-height: 0 !important;
+        overflow-y: auto !important;
+      }
+
+      /* Event log remains below the board but starts outside the live viewport. */
+      .evening-live-engine-shell > div > div.space-y-4 > :last-child {
+        margin-top: 48vh !important;
       }
 
       .evening-live-mobile-title-secondary { display: none !important; }
@@ -240,12 +270,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     <div className="fixed inset-0 z-[95] bg-slate-950 overflow-hidden">
       <MobileLiveGameStyles />
 
-      <div className="h-10 md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
+      <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
-          <div className="text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
+          <div className="text-[11px] md:text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
           <div className="evening-live-mobile-title-secondary text-[10px] text-slate-500 truncate">{game.table_name || 'Стол'}{game.judge_name ? ` • ${game.judge_name}` : ''}</div>
         </div>
-        <button type="button" onClick={onClose} className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0" title="Закрыть движок">
+        <button type="button" onClick={onClose} className="w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0" title="Закрыть движок">
           <X className="w-4 h-4" />
         </button>
       </div>

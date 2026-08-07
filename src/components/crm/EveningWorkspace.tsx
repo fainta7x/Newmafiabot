@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Gamepad2, Sliders, Users } from 'lucide-react';
-import { EveningDetailView } from './EveningDetailView';
+import { EveningParticipantsView } from './EveningParticipantsView';
+import { EveningTablesView } from './EveningTablesView';
 import { EveningGamesView } from './EveningGamesView';
 
 interface EveningWorkspaceProps {
@@ -45,16 +46,11 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({ eveningId, o
         </div>
       </div>
 
-      {section === 'games' ? (
-        <EveningGamesView eveningId={eveningId} onBack={onBack} />
-      ) : (
-        <EveningDetailView
-          eveningId={eveningId}
-          onBack={onBack}
-          onOpenPlayerCard={onOpenPlayerCard}
-          view={section}
-        />
+      {section === 'participants' && (
+        <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} />
       )}
+      {section === 'tables' && <EveningTablesView eveningId={eveningId} onBack={onBack} />}
+      {section === 'games' && <EveningGamesView eveningId={eveningId} onBack={onBack} />}
     </div>
   );
 };

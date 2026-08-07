@@ -78,6 +78,64 @@ export interface PlayerGameProfileStats {
   roleCounts: { citizen: number; sheriff: number; mafia: number; don: number; unknown: number };
 }
 
+export type PlayerAwardKey =
+  | 'place_1'
+  | 'place_2'
+  | 'place_3'
+  | 'nomination_best_citizen'
+  | 'nomination_best_mafia'
+  | 'nomination_best_sheriff'
+  | 'nomination_best_don'
+  | 'nomination_mvp';
+
+export interface PlayerTournamentAward {
+  id: string;
+  key: PlayerAwardKey;
+  kind: 'placement' | 'nomination';
+  title: string;
+  place: number | null;
+  category: string | null;
+  tournament_id: string;
+  tournament_title: string;
+  tournament_date: string | null;
+  source: 'automatic' | 'manual';
+  comment: string | null;
+}
+
+export interface PlayerAwardStats {
+  firstPlaces: number;
+  secondPlaces: number;
+  thirdPlaces: number;
+  nominations: number;
+}
+
+export interface PlayerAwardTournament {
+  id: string;
+  title: string;
+  date: string | null;
+}
+
+export interface TournamentAwardSlot {
+  key: PlayerAwardKey;
+  kind: 'placement' | 'nomination';
+  title: string;
+  place: number | null;
+  category: string | null;
+  player_id: string | null;
+  player_nickname: string | null;
+  participant_id: string | null;
+  source: 'automatic' | 'manual' | 'suppressed' | 'unresolved';
+  comment: string | null;
+  calculated_player_id: string | null;
+  calculated_player_nickname: string | null;
+}
+
+export interface TournamentAwardsResponse {
+  tournament: { id: string; title: string; date: string | null; status: string };
+  slots: TournamentAwardSlot[];
+  checkpoint_warning?: string;
+}
+
 export interface PlayerDetails extends Player {
   stats: any;
   futureBookings: EveningParticipant[];
@@ -92,6 +150,9 @@ export interface PlayerDetails extends Player {
   clubGames: PlayerGameHistoryItem[];
   tournamentGames: PlayerGameHistoryItem[];
   gameStats: PlayerGameProfileStats;
+  tournamentAwards: PlayerTournamentAward[];
+  awardStats: PlayerAwardStats;
+  awardTournaments: PlayerAwardTournament[];
 }
 
 export interface EveningTable {
@@ -627,6 +688,18 @@ export const api = {
     return request<Player[]>(`/api/players?${query.toString()}`);
   },
   getPlayer: (id: string) => request<PlayerDetails>(`/api/players/${id}`),
+  getTournamentAwards: (tournamentId: string) =>
+    request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards`),
+  setTournamentAwardOverride: (
+    tournamentId: string,
+    awardKey: PlayerAwardKey,
+    data: { player_id?: string; mode?: 'assign' | 'suppress'; comment?: string }
+  ) => request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards/${awardKey}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  resetTournamentAwardOverride: (tournamentId: string, awardKey: PlayerAwardKey) =>
+    request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards/${awardKey}`, { method: 'DELETE' }),
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),

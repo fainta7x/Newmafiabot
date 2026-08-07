@@ -1,3 +1,5 @@
+import { loadPlayerTournamentAwards } from './tournamentAwardsService.ts';
+
 export type PlayerGameSource = 'club' | 'tournament';
 export type PlayerGameTeam = 'red' | 'black' | null;
 
@@ -258,9 +260,14 @@ export const loadPlayerGameProfile = async (db: any, playerId: string) => {
     return bTime - aTime;
   });
 
+  const awardProfile = await loadPlayerTournamentAwards(db, playerId);
+
   return {
     clubGames,
     tournamentGames,
     gameStats: buildPlayerProfileStats(allGames),
+    tournamentAwards: awardProfile.awards,
+    awardStats: awardProfile.stats,
+    awardTournaments: awardProfile.tournaments,
   };
 };

@@ -133,68 +133,59 @@ const MobileLiveGameStyles = () => (
         gap: 3px !important;
       }
 
-      /* During a game the board is the whole first screen. */
       .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
         display: none !important;
       }
 
-      /*
-       * Phone table layout based on the reference:
-       * 10 9 8 7
-       *  6 [ CONTROL ] 5
-       * 1  2 3 4
+      /* Exact phone table requested by the organizer:
+       *  9  10   1   2
+       *  8  [ CONTROL ] 3
+       *  7   6   5   4
        */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        grid-template-rows: 86px 238px 86px !important;
+        grid-template-rows: repeat(3, 132px) !important;
         gap: 4px !important;
         padding: 0 !important;
         align-items: stretch !important;
         width: 100% !important;
       }
 
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 1; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 2; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 3; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 4; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 1; grid-row: 2; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 1; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 2; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 3; grid-row: 1; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 4; grid-row: 1; }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 1; grid-row: 2; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) { grid-column: 2 / span 2; grid-row: 2; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 4; grid-row: 2; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 1; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 2; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 3; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 4; grid-row: 2; }
+
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 1; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 2; grid-row: 3; }
+      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 3; grid-row: 3; }
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4; grid-row: 3; }
 
-      /* Uniform compact cards. */
+      /* Every player tile is the same exact size. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
         width: 100% !important;
         min-width: 0 !important;
-        height: 86px !important;
-        min-height: 86px !important;
-        max-height: 86px !important;
-        padding: 22px 1px 0 !important;
-        border-radius: 9px !important;
+        height: 132px !important;
+        min-height: 132px !important;
+        max-height: 132px !important;
+        padding: 24px 1px 0 !important;
+        border-radius: 10px !important;
         transform: none !important;
         overflow: hidden !important;
       }
 
-      /* Side players flank the center panel just like video tiles. */
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5),
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6) {
-        height: 238px !important;
-        min-height: 238px !important;
-        max-height: 238px !important;
-      }
-
-      /* Hide verbose status copy inside cards; keep quick actions and identity. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
         display: none !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 31px !important;
-        height: 31px !important;
+        min-height: 34px !important;
+        height: 34px !important;
         padding: 2px !important;
       }
 
@@ -205,7 +196,7 @@ const MobileLiveGameStyles = () => (
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button {
         min-width: 18px !important;
-        max-height: 21px !important;
+        max-height: 22px !important;
         padding: 1px 3px !important;
         font-size: 8px !important;
       }
@@ -215,7 +206,6 @@ const MobileLiveGameStyles = () => (
         line-height: 10px !important;
       }
 
-      /* Role icon is part of the hit area: tapping it selects shot/check/vote target. */
       .evening-live-engine-shell [title="Красный"],
       .evening-live-engine-shell [title="Дон"],
       .evening-live-engine-shell [title="Мафия"],
@@ -224,35 +214,34 @@ const MobileLiveGameStyles = () => (
         pointer-events: none !important;
       }
 
-      /* Center is the only control panel in the middle. */
+      /* Control HUD uses exactly the same middle-row height and spans two columns. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
-        height: 238px !important;
-        min-height: 238px !important;
-        max-height: 238px !important;
+        height: 132px !important;
+        min-height: 132px !important;
+        max-height: 132px !important;
         position: relative !important;
         top: auto !important;
         z-index: 20 !important;
-        padding: 5px !important;
-        border-radius: 12px !important;
+        padding: 4px !important;
+        border-radius: 10px !important;
         overflow: hidden !important;
       }
 
-      /* Modal already has X; remove duplicate Exit inside the center HUD. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button:has(svg[class*="lucide-log-out"]) {
         display: none !important;
       }
 
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
-        padding-top: 2px !important;
-        padding-bottom: 2px !important;
+        padding-top: 1px !important;
+        padding-bottom: 1px !important;
         min-height: 0 !important;
         overflow-y: auto !important;
       }
 
-      /* Event log remains below the board but starts outside the live viewport. */
+      /* Keep protocol/events below the fold; they never occupy live-table space. */
       .evening-live-engine-shell > div > div.space-y-4 > :last-child {
-        margin-top: 48vh !important;
+        margin-top: max(12px, calc(100dvh - 34px - 410px)) !important;
       }
 
       .evening-live-mobile-title-secondary { display: none !important; }

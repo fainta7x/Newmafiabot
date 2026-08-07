@@ -18,6 +18,12 @@ interface PlayerAvatarProps {
   className?: string;
   playerId?: string | null;
   avatarVersion?: string | null;
+  /**
+   * Used by compact live-game views that know the CRM player id but do not carry
+   * avatar_updated_at in their protocol payload. When enabled we optimistically
+   * request the stored avatar and gracefully fall back to the initial on 404.
+   */
+  forceStoredLookup?: boolean;
 }
 
 const avatarCache = new Map<string, string>();
@@ -29,19 +35,20 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
   className = '',
   playerId,
   avatarVersion,
+  forceStoredLookup = false,
 }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (playerId !== undefined && playerId !== null) {
-      if (!avatarVersion) {
+      if (!avatarVersion && !forceStoredLookup) {
         setDataUrl(null);
         setFailed(false);
         return;
       }
 
-      const cacheKey = `${playerId}_${avatarVersion}`;
+      const cacheKey = `${playerId}_${avatarVersion || 'live-lookup'}`;
       const cached = storedAvatarCache.get(cacheKey);
       if (cached) {
         setDataUrl(cached);
@@ -50,6 +57,7 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
       }
 
       let cancelled = false;
+      setFailed(false);
       api.getPlayerAvatar(playerId)
         .then((res) => {
           if (cancelled) return;
@@ -58,58 +66,60 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
             setDataUrl(res.data_url);
             setFailed(false);
           } else {
+            setDataUrl(null);
             setFailed(true);
           }
         })
         .catch(() => {
           if (!cancelled) {
+            setDataUrl(null);
             setFailed(true);
           }
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    } else {
-      const avatarApiUrl = getPlayerAvatarUrl(nickname);
-      if (!avatarApiUrl) {
-        setDataUrl(null);
-        setFailed(false);
-        return;
-      }
-
-      const cached = avatarCache.get(avatarApiUrl);
-      if (cached) {
-        setDataUrl(cached);
-        setFailed(false);
-        return;
-      }
-
-      let cancelled = false;
-      fetch(avatarApiUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to load avatar');
-          return res.json();
-        })
-        .then((data) => {
-          if (cancelled) return;
-          if (data && typeof data.dataUrl === 'string') {
-            avatarCache.set(avatarApiUrl, data.dataUrl);
-            setDataUrl(data.dataUrl);
-            setFailed(false);
-          } else {
-            setFailed(true);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true);
         });
 
       return () => {
         cancelled = true;
       };
     }
-  }, [playerId, avatarVersion, nickname]);
+
+    const avatarApiUrl = getPlayerAvatarUrl(nickname);
+    if (!avatarApiUrl) {
+      setDataUrl(null);
+      setFailed(false);
+      return;
+    }
+
+    const cached = avatarCache.get(avatarApiUrl);
+    if (cached) {
+      setDataUrl(cached);
+      setFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(avatarApiUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load avatar');
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data && typeof data.dataUrl === 'string') {
+          avatarCache.set(avatarApiUrl, data.dataUrl);
+          setDataUrl(data.dataUrl);
+          setFailed(false);
+        } else {
+          setFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, avatarVersion, nickname, forceStoredLookup]);
 
   const initial = (nickname || '?').trim().charAt(0).toLocaleUpperCase('ru-RU') || '?';
 

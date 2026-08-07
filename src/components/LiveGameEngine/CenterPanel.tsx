@@ -234,16 +234,31 @@ export default function CenterPanel({
     if (votingStage === 'revote_speeches') {
       const winners = result.winners;
       const speaker = winners[revoteSpeakerIndex];
+      const isLastSpeaker = revoteSpeakerIndex >= winners.length - 1;
+      const advanceSpeech = () => {
+        setIsTimerRunning(false);
+        if (isLastSpeaker) {
+          setActiveSpeakerSlot(null);
+          handleLaunchNextRevote?.(winners);
+          return;
+        }
+        const next = winners[revoteSpeakerIndex + 1];
+        setRevoteSpeakerIndex?.((i) => i + 1);
+        handleStartTimer(next, 30);
+      };
+
       return (
-        <div className="space-y-2.5 w-full max-w-[245px] mx-auto">
+        <div className="space-y-3 w-full max-w-[260px] mx-auto">
           <div className="text-xs font-black text-amber-400 uppercase">30 секунд спорным игрокам</div>
-          <div className="text-sm font-black text-white">#{speaker} · {activePlayers.find((p) => p.slot_num === speaker)?.nickname || 'Игрок'}</div>
-          <div className="text-[9px] text-slate-400">Спикер {revoteSpeakerIndex + 1} из {winners.length}</div>
-          {revoteSpeakerIndex < winners.length - 1 ? (
-            <button type="button" onClick={() => { const next = winners[revoteSpeakerIndex + 1]; setRevoteSpeakerIndex?.((i) => i + 1); handleStartTimer(next, 30); }} className="w-full py-2 rounded-xl bg-amber-600 text-white font-black text-[10px] uppercase">Следующая речь</button>
-          ) : (
-            <button type="button" onClick={() => handleLaunchNextRevote?.(winners)} className="w-full py-2 rounded-xl bg-rose-600 text-white font-black text-[10px] uppercase">Переголосование</button>
-          )}
+          <div className="text-[9px] text-slate-400">Спикер {revoteSpeakerIndex + 1} из {winners.length} · #{speaker}</div>
+          {renderTimer()}
+          <button
+            type="button"
+            onClick={advanceSpeech}
+            className={`w-full py-2.5 rounded-xl text-white font-black text-[10px] uppercase ${isLastSpeaker ? 'bg-rose-600' : 'bg-amber-600'}`}
+          >
+            {isLastSpeaker ? 'Завершить речь и перейти к переголосованию' : 'Завершить речь · следующий спорный'}
+          </button>
         </div>
       );
     }
@@ -352,7 +367,11 @@ export default function CenterPanel({
       )}
 
       <div className="flex-1 flex items-center justify-center py-3 overflow-y-auto">
-        {(activeSpeakerSlot !== null || customTimerLabel !== null) ? renderTimer() : renderIdleBody()}
+        {phase === 'day_voting' && votingStage === 'revote_speeches'
+          ? renderVoting()
+          : (activeSpeakerSlot !== null || customTimerLabel !== null)
+            ? renderTimer()
+            : renderIdleBody()}
       </div>
 
       <div className="border-t border-slate-800 pt-2 space-y-2">

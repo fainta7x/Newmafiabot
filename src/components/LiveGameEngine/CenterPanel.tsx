@@ -57,7 +57,6 @@ interface CenterPanelProps {
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
 
-  // Deprecated PATCH-02 props retained temporarily so old callers remain type-safe.
   handleTransitionToVoting?: () => void;
   markPlayerSpoken?: (slot: number) => void;
   isInteractiveVoting?: boolean;
@@ -110,8 +109,6 @@ export default function CenterPanel({
   getPrevStepAction,
   getNextStepInfo,
   onCancel,
-  handleAdvanceNightSubPhase,
-  handleResolveNight,
   isMuted = false,
   setIsMuted,
   votingRounds = [],
@@ -308,11 +305,7 @@ export default function CenterPanel({
             <div className="text-[9px] text-slate-500">{revoteSpeakerIndex + 1}/{winners.length}</div>
           </div>
           {renderTimer()}
-          <button
-            type="button"
-            onClick={advanceSpeech}
-            className={`w-full py-2 rounded-xl text-white font-black text-[10px] uppercase ${isLastSpeaker ? 'bg-rose-600' : 'bg-amber-600'}`}
-          >
+          <button type="button" onClick={advanceSpeech} className={`w-full py-2 rounded-xl text-white font-black text-[10px] uppercase ${isLastSpeaker ? 'bg-rose-600' : 'bg-amber-600'}`}>
             {isLastSpeaker ? 'К переголосованию' : 'Следующий спорный'}
           </button>
         </div>
@@ -363,12 +356,7 @@ export default function CenterPanel({
               {eligiblePlayers.map((player) => {
                 const selected = tableVoterSlots.includes(player.slot_num);
                 return (
-                  <button
-                    key={player.slot_num}
-                    type="button"
-                    onClick={() => toggleTableVoter(player.slot_num)}
-                    className={`min-w-0 px-2 py-2 rounded-xl border text-left transition-all ${selected ? 'bg-rose-950/80 border-rose-500 ring-1 ring-rose-500/40' : 'bg-slate-950/70 border-slate-800'}`}
-                  >
+                  <button key={player.slot_num} type="button" onClick={() => toggleTableVoter(player.slot_num)} className={`min-w-0 px-2 py-2 rounded-xl border text-left transition-all ${selected ? 'bg-rose-950/80 border-rose-500 ring-1 ring-rose-500/40' : 'bg-slate-950/70 border-slate-800'}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-black text-xs shrink-0 ${selected ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{player.slot_num}</span>
                       <span className={`truncate text-[10px] font-black ${selected ? 'text-rose-200' : 'text-slate-300'}`}>{player.nickname || `Игрок ${player.slot_num}`}</span>
@@ -416,6 +404,7 @@ export default function CenterPanel({
         shooting: shotPlayerSlot ? `Выстрел: #${shotPlayerSlot}` : 'Стрельба мафии — выберите цель',
         don: donCheckSlot ? `Дон проверил #${donCheckSlot}: ${donCheckResult ? 'Шериф' : 'не Шериф'}` : 'Проверка Дона',
         sheriff: sheriffCheckSlot ? `Шериф проверил #${sheriffCheckSlot}: ${sheriffCheckResult || '—'}` : 'Проверка Шерифа',
+        best_move: 'ЛХ первого убитого',
         morning: 'Итоги ночи',
       };
       return <div className="text-xs font-black text-purple-300">{labels[nightSubPhase] || 'Ночь'}</div>;
@@ -438,14 +427,6 @@ export default function CenterPanel({
         </div>
       </div>
 
-      {phase === 'night' && handleAdvanceNightSubPhase && (
-        <div className="flex flex-wrap justify-center gap-1 py-1.5">
-          {(['intro','shooting','don','sheriff','morning'] as NightSubPhase[]).map((sub) => (
-            <button key={sub} type="button" onClick={() => handleAdvanceNightSubPhase(sub)} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase border ${nightSubPhase === sub ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>{sub === 'intro' ? 'Старт' : sub === 'shooting' ? 'Стрельба' : sub === 'don' ? 'Дон' : sub === 'sheriff' ? 'Шериф' : 'Утро'}</button>
-          ))}
-        </div>
-      )}
-
       <div className="flex-1 flex items-center justify-center py-2 overflow-y-auto overscroll-contain">
         {phase === 'day_voting' && votingStage === 'revote_speeches'
           ? renderVoting()
@@ -463,9 +444,6 @@ export default function CenterPanel({
           {prevStep ? <button type="button" onClick={prevStep.onClick} className="col-span-4 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] font-bold flex items-center justify-center gap-1"><ArrowLeft className="w-3 h-3" />{prevStep.label}</button> : <div className="col-span-4" />}
           {nextStep ? <button type="button" onClick={nextStep.onClick} className="col-span-8 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase flex items-center justify-center gap-1">{nextStep.label}<ArrowRight className="w-3 h-3" /></button> : <div className="col-span-8 rounded-lg bg-slate-950/40 border border-slate-850 text-slate-600 text-[10px] flex items-center justify-center">Ожидание</div>}
         </div>
-        {phase === 'night' && handleResolveNight && nightSubPhase === 'morning' && (
-          <button type="button" onClick={handleResolveNight} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Зафиксировать ночь и разбудить город</button>
-        )}
       </div>
     </div>
   );

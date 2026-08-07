@@ -129,6 +129,7 @@ export const games = sqliteTable('games', {
   protocol_text: text('protocol_text'),
   slots_json: text('slots_json').notNull(),
   created_at: text('created_at').notNull(),
+  archived_at: text('archived_at'),
 });
 
 export const migrationHistory = sqliteTable('migration_history', {

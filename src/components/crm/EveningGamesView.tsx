@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, Trash2, Users, X } from 'lucide-react';
+import { Archive, ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { EveningGameProtocolModal } from './EveningGameProtocolModal';
@@ -13,6 +13,8 @@ interface EveningGamesViewProps {
 export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, onBack }) => {
   const [evening, setEvening] = useState<(GameEvening & { participants?: EveningParticipant[]; tables?: EveningTable[] }) | null>(null);
   const [games, setGames] = useState<ClubGameRecord[]>([]);
+  const [archivedGames, setArchivedGames] = useState<ClubGameRecord[]>([]);
+  const [showArchive, setShowArchive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState('');
@@ -26,12 +28,14 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const load = async () => {
     setLoading(true);
     try {
-      const [eveningData, gameData] = await Promise.all([
+      const [eveningData, gameData, archivedData] = await Promise.all([
         api.getEvening(eveningId) as any,
         clubGamesApi.list(eveningId),
+        clubGamesApi.listArchived(eveningId),
       ]);
       setEvening(eveningData);
       setGames(gameData.filter((game) => Boolean(game.club_protocol)));
+      setArchivedGames(archivedData.filter((game) => Boolean(game.club_protocol)));
     } catch (err: any) {
       alert(err.message || 'Не удалось загрузить игры вечера');
     } finally {
@@ -96,13 +100,36 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
     }
   };
 
-  const deleteDraft = async (game: ClubGameRecord) => {
-    if (!confirm('Удалить черновик этой игры?')) return;
+  const archiveGame = async (game: ClubGameRecord) => {
+    if (!confirm(`Перенести игру #${game.global_game_number} в архив? Данные и протокол сохранятся.`)) return;
     try {
-      await clubGamesApi.deleteDraft(game.id);
+      const archived = await clubGamesApi.archive(game.id);
       setGames((previous) => previous.filter((item) => item.id !== game.id));
+      setArchivedGames((previous) => [archived, ...previous.filter((item) => item.id !== game.id)]);
+      setActiveProtocolGame((current) => current?.id === game.id ? null : current);
+      setActiveLiveGame((current) => current?.id === game.id ? null : current);
     } catch (err: any) {
-      alert(err.message || 'Не удалось удалить черновик');
+      alert(err.message || 'Не удалось перенести игру в архив');
+    }
+  };
+
+  const restoreArchivedGame = async (game: ClubGameRecord) => {
+    try {
+      const restored = await clubGamesApi.restoreArchived(game.id);
+      setArchivedGames((previous) => previous.filter((item) => item.id !== game.id));
+      setGames((previous) => [restored, ...previous.filter((item) => item.id !== game.id)]);
+    } catch (err: any) {
+      alert(err.message || 'Не удалось восстановить игру');
+    }
+  };
+
+  const permanentlyDeleteArchivedGame = async (game: ClubGameRecord) => {
+    if (!confirm(`Удалить игру #${game.global_game_number} НАВСЕГДА из архива? Восстановить её после этого будет нельзя.`)) return;
+    try {
+      await clubGamesApi.deleteArchived(game.id);
+      setArchivedGames((previous) => previous.filter((item) => item.id !== game.id));
+    } catch (err: any) {
+      alert(err.message || 'Не удалось окончательно удалить игру');
     }
   };
 
@@ -113,9 +140,9 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   };
 
   const localNumberById = useMemo(() => {
-    const chronological = [...games].sort((a, b) => a.id - b.id);
+    const chronological = [...games, ...archivedGames].sort((a, b) => a.id - b.id);
     return new Map(chronological.map((game, index) => [game.id, index + 1]));
-  }, [games]);
+  }, [games, archivedGames]);
 
   if (loading || !evening) {
     return <div className="py-16 text-center text-sm text-slate-400">Загрузка игр вечера…</div>;
@@ -142,10 +169,11 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-slate-950 border border-slate-850 rounded-2xl p-2.5"><span className="text-[9px] uppercase text-slate-500 block">Всего игр</span><strong className="text-lg text-white">{games.length}</strong></div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+          <div className="bg-slate-950 border border-slate-850 rounded-2xl p-2.5"><span className="text-[9px] uppercase text-slate-500 block">Активные</span><strong className="text-lg text-white">{games.length}</strong></div>
           <div className="bg-slate-950 border border-slate-850 rounded-2xl p-2.5"><span className="text-[9px] uppercase text-slate-500 block">Завершено</span><strong className="text-lg text-emerald-400">{games.filter((game) => game.status === 'completed').length}</strong></div>
           <div className="bg-slate-950 border border-slate-850 rounded-2xl p-2.5"><span className="text-[9px] uppercase text-slate-500 block">Черновики</span><strong className="text-lg text-amber-400">{games.filter((game) => game.status === 'draft').length}</strong></div>
+          <button type="button" onClick={() => setShowArchive((value) => !value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-2.5 hover:border-slate-600"><span className="text-[9px] uppercase text-slate-500 block">Архив</span><strong className="text-lg text-slate-300">{archivedGames.length}</strong></button>
         </div>
       </div>
 
@@ -173,7 +201,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
                   <p className="text-[11px] text-slate-400 mt-1">{game.table_name || 'Без стола'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-end">
-                  {game.status === 'draft' && <button type="button" onClick={() => deleteDraft(game)} className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 text-slate-500 hover:text-rose-400 flex items-center justify-center"><Trash2 className="w-4 h-4" /></button>}
+                  <button type="button" onClick={() => archiveGame(game)} title="Перенести в архив" className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 text-slate-500 hover:text-amber-300 hover:border-amber-700 flex items-center justify-center"><Archive className="w-4 h-4" /></button>
                   {game.status === 'draft' && (
                     <button type="button" onClick={() => setActiveLiveGame(game)} className="min-h-[40px] px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center gap-1.5">
                       <Play className="w-4 h-4" />Провести
@@ -198,6 +226,42 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
           );
         })}
       </div>
+
+
+      {showArchive && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2"><Archive className="w-4 h-4 text-amber-400" />Архив игр</h3>
+              <p className="text-[10px] text-slate-500 mt-1">Архивные игры не показываются в основном списке и не редактируются. Здесь их можно восстановить или удалить навсегда вручную.</p>
+            </div>
+            <button type="button" onClick={() => setShowArchive(false)} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 text-slate-400">×</button>
+          </div>
+          {archivedGames.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">Архив пуст</div>
+          ) : archivedGames.map((game) => {
+            const protocol = game.club_protocol?.protocol;
+            const localNumber = localNumberById.get(game.id) || 1;
+            return (
+              <div key={game.id} className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <strong className="text-sm text-slate-200">Игра {localNumber}</strong>
+                    <span className="text-[9px] font-mono text-slate-600">#{game.global_game_number}</span>
+                    <span className="px-2 py-0.5 rounded-full border border-slate-700 text-[9px] font-black uppercase text-slate-400">В архиве</span>
+                    {protocol?.winner_team && <span className="text-[9px] text-slate-500">Победа {protocol.winner_team === 'red' ? 'красных' : 'чёрных'}</span>}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">{game.table_name || 'Без стола'}{game.judge_name ? ` · ${game.judge_name}` : ''}</div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button type="button" onClick={() => restoreArchivedGame(game)} className="min-h-10 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-black flex items-center gap-1.5"><RotateCcw className="w-3.5 h-3.5" />Восстановить</button>
+                  <button type="button" onClick={() => permanentlyDeleteArchivedGame(game)} className="min-h-10 px-3 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-[10px] font-black flex items-center gap-1.5"><Trash2 className="w-3.5 h-3.5" />Навсегда</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {showCreate && (
         <div className="fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 overflow-y-auto">

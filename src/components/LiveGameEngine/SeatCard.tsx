@@ -31,6 +31,7 @@ interface SeatCardProps {
   handleNominateCandidate: (slotNum: number) => void;
   handleSeatClick: (slotNum: number) => void;
   handleFoulChange: (slotNum: number, dir: "up" | "down") => void;
+  onRequestDirectRemoval: (slotNum: number) => void;
   markPlayerSpoken: (slotNum: number) => void;
   setBestMovePlayerSlot: (slot: number | null) => void;
   setBestMoveGuesses: (guesses: number[]) => void;
@@ -89,6 +90,7 @@ export default function SeatCard({
   handleNominateCandidate,
   handleSeatClick,
   handleFoulChange,
+  onRequestDirectRemoval,
   markPlayerSpoken,
   setBestMovePlayerSlot,
   setBestMoveGuesses,
@@ -264,21 +266,7 @@ export default function SeatCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (window.confirm(`Дисквалифицировать игрока #${slotNum} (${p.nickname})?`)) {
-                      setActivePlayers((prev) =>
-                        prev.map((pl) =>
-                          pl.slot_num === slotNum
-                            ? {
-                                ...pl,
-                                fouls: 4,
-                                alive: false,
-                                eliminated_phase: `Удален (Д${roundNumber})`,
-                              }
-                            : pl
-                        )
-                      );
-                      showToast(`Игрок #${slotNum} (${p.nickname}) дисквалифицирован!`, "error");
-                    }
+                    onRequestDirectRemoval(slotNum);
                   }}
                   className="bg-slate-950/90 hover:bg-rose-900 text-rose-400 hover:text-white border border-slate-800 hover:border-rose-600/60 w-4 h-4 rounded text-[8px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all ml-0.5"
                   title="Дисквалификация / Удалить из игры"

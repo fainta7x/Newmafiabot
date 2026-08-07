@@ -22,6 +22,7 @@ export interface ClubGameRecord {
   status: 'draft' | 'completed';
   club_protocol: ClubGameProtocolEnvelope | null;
   created_at: string;
+  archived_at?: string | null;
 }
 
 const organizerHeaders = () => {
@@ -54,6 +55,9 @@ export const clubGamesApi = {
   list: (eveningId: string) =>
     request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}`),
 
+  listArchived: (eveningId: string) =>
+    request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}&archived=1`),
+
   create: (
     eveningId: string,
     data: {
@@ -82,6 +86,15 @@ export const clubGamesApi = {
     clearStoredDeathProtocols();
     return result;
   },
+
+  archive: (gameId: number) =>
+    request<ClubGameRecord>(`/api/games/${gameId}/archive`, { method: 'POST' }),
+
+  restoreArchived: (gameId: number) =>
+    request<ClubGameRecord>(`/api/games/${gameId}/archive/restore`, { method: 'POST' }),
+
+  deleteArchived: (gameId: number) =>
+    request<{ success: boolean }>(`/api/games/${gameId}/archive`, { method: 'DELETE' }),
 
   deleteDraft: (gameId: number) =>
     request<{ success: boolean }>(`/api/games/${gameId}/evening-draft`, { method: 'DELETE' }),

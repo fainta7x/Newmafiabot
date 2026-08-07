@@ -229,6 +229,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
 
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
+  addColumnIfNotExists('games', 'archived_at', 'TEXT');
   addColumnIfNotExists('organizer_tasks', 'automation_key', 'TEXT');
   addColumnIfNotExists('players', 'preferred_format', 'TEXT');
   addColumnIfNotExists('players', 'referred_by', 'TEXT');

@@ -142,7 +142,7 @@ const clubSlotsFromResults = (playerResults: any[]) => (playerResults || [])
 // GET /api/games - list games; evening games include structured club_protocol when available.
 router.get('/', async (req, res) => {
   try {
-    const { evening_id } = req.query;
+    const { evening_id, archived } = req.query;
     const db = (req as any).db || (await getDb());
 
     let query = `SELECT g.*, et.name AS table_name
@@ -155,6 +155,9 @@ router.get('/', async (req, res) => {
       query += ' AND g.evening_id = ?';
       params.push(evening_id);
     }
+
+    if (archived === '1' || archived === 'true') query += ' AND g.archived_at IS NOT NULL';
+    else query += ' AND g.archived_at IS NULL';
 
     query += ' ORDER BY g.global_game_number DESC, g.id DESC';
     const games = await db.all(query, params);
@@ -228,6 +231,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
+    if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
 
     const incomingProtocol = req.body?.protocol;
     const incomingResults = req.body?.player_results;
@@ -290,7 +294,85 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
   }
 });
 
-// DELETE /api/games/:gameId/evening-draft - delete only an unfinished club draft.
+
+// POST /api/games/:gameId/archive - soft-delete any club evening game.
+router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    const db = (req as any).db || (await getDb());
+    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
+    if (!existing.evening_id) return res.status(400).json({ error: 'Архив доступен только для игр обычного вечера' });
+    const protocol = safeJsonParse<any>(existing.protocol_text, null);
+    if (!protocol || protocol.kind !== 'club_evening_protocol') {
+      return res.status(400).json({ error: 'Архив доступен только для клубных игр вечера' });
+    }
+    if (!existing.archived_at) {
+      await db.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), gameId]);
+    }
+    const row = await db.get(
+      `SELECT g.*, et.name AS table_name
+         FROM games g
+    LEFT JOIN evening_tables et ON et.id = g.evening_table_id
+        WHERE g.id = ?`,
+      [gameId]
+    );
+    res.json(normalizeGame(row));
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Не удалось перенести игру в архив' });
+  }
+});
+
+// POST /api/games/:gameId/archive/restore - restore a soft-deleted club evening game.
+router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    const db = (req as any).db || (await getDb());
+    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
+    const protocol = safeJsonParse<any>(existing.protocol_text, null);
+    if (!existing.evening_id || !protocol || protocol.kind !== 'club_evening_protocol') {
+      return res.status(400).json({ error: 'Это не клубная игра обычного вечера' });
+    }
+    await db.run('UPDATE games SET archived_at = NULL WHERE id = ?', [gameId]);
+    const row = await db.get(
+      `SELECT g.*, et.name AS table_name
+         FROM games g
+    LEFT JOIN evening_tables et ON et.id = g.evening_table_id
+        WHERE g.id = ?`,
+      [gameId]
+    );
+    res.json(normalizeGame(row));
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Не удалось восстановить игру' });
+  }
+});
+
+// DELETE /api/games/:gameId/archive - permanent deletion is allowed only from archive.
+router.delete('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    const db = (req as any).db || (await getDb());
+    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
+    const protocol = safeJsonParse<any>(existing.protocol_text, null);
+    if (!existing.evening_id || !protocol || protocol.kind !== 'club_evening_protocol') {
+      return res.status(400).json({ error: 'Это не клубная игра обычного вечера' });
+    }
+    if (!existing.archived_at) {
+      return res.status(409).json({ error: 'Сначала перенесите игру в архив' });
+    }
+    await db.run('DELETE FROM games WHERE id = ?', [gameId]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Не удалось окончательно удалить игру' });
+  }
+});
+
+// DELETE /api/games/:gameId/evening-draft - legacy hard-delete for unfinished drafts.
 router.delete('/:gameId/evening-draft', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);

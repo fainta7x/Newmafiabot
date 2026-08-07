@@ -15,10 +15,10 @@ import {
 } from "../lib/liveVoting.js";
 import {
   GameDiscipline,
+  PendingActionType,
   addMajorTechFoul,
   addMinorTechFoul,
   addRegularFoul,
-  cancelAction,
   confirmAction,
   consumeNextSpeech,
   createInitialGameDiscipline,
@@ -57,6 +57,34 @@ interface LiveGameEngineProps {
 
 type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
 type PostNightStage = 'none' | 'farewell' | 'death_protocol';
+
+type PendingDisciplineConfirmation = {
+  slot: number;
+  action: PendingActionType;
+};
+
+const dangerousActionCopy = (action: PendingActionType) => {
+  if (action === 'removal_4th_foul') return {
+    title: 'Удаление по 4-му фолу',
+    description: 'Игрок будет удалён из игры, а ближайшее голосование будет отменено.',
+    confirmLabel: 'Подтвердить 4-й фол',
+  };
+  if (action === 'minor_tech_causing_removal' || action === 'major_tech_causing_removal') return {
+    title: 'Удаление по второму техфолу',
+    description: 'Технический фол будет зафиксирован, игрок будет удалён, а ближайшее голосование будет отменено.',
+    confirmLabel: 'Подтвердить техфол',
+  };
+  if (action === 'direct_removal') return {
+    title: 'Удаление решением судьи',
+    description: 'Игрок будет удалён из игры, а ближайшее голосование будет отменено.',
+    confirmLabel: 'Подтвердить удаление',
+  };
+  return {
+    title: 'Зафиксировать ППК',
+    description: 'Игра немедленно завершится победой противоположной команды, а ППК попадёт в итоговый протокол.',
+    confirmLabel: 'Подтвердить ППК',
+  };
+};
 
 type LiveSnapshot = {
   activePlayers: ActivePlayerState[];
@@ -138,6 +166,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   );
   const [discipline, setDiscipline] = useState<GameDiscipline>(initialDiscipline);
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
+  const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
 
   const [protocolMarkers, setProtocolMarkers] = useState<LiveProtocolMarkers>(createEmptyLiveProtocolMarkers());
   const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
@@ -527,47 +556,71 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast(`С игрока #${slot} снят фол`, "info");
   };
 
+  const requestDisciplineConfirmation = (slot: number, action: PendingActionType) => {
+    setActionPlayerSlot(null);
+    setPendingDisciplineConfirmation({ slot, action });
+  };
+
   const addRegularFoulFromMenu = (slot: number) => {
     const id = String(slot);
-    saveSnapshot();
-    let next = addRegularFoul(discipline, id);
+    const next = addRegularFoul(discipline, id);
     const pending = next.players[id]?.pendingAction;
     if (pending === 'removal_4th_foul') {
-      if (window.confirm(`4-й фол удалит игрока #${slot} и отменит ближайшее голосование. Подтвердить?`)) {
-        next = confirmAction(next, id);
-      } else {
-        next = cancelAction(next, id);
-      }
+      requestDisciplineConfirmation(slot, pending);
+      return;
     }
+    if (next === discipline) return;
+    saveSnapshot();
     setDiscipline(next);
     syncDisciplinePlayer(next, slot);
   };
 
   const addTechFoulFromMenu = (slot: number, kind: 'minor' | 'major') => {
     const id = String(slot);
-    saveSnapshot();
-    let next = kind === 'minor' ? addMinorTechFoul(discipline, id) : addMajorTechFoul(discipline, id);
+    const next = kind === 'minor' ? addMinorTechFoul(discipline, id) : addMajorTechFoul(discipline, id);
     const pending = next.players[id]?.pendingAction;
     if (pending === 'minor_tech_causing_removal' || pending === 'major_tech_causing_removal') {
-      if (window.confirm(`Это второй технический фол игрока #${slot}: игрок будет удалён, а ближайшее голосование отменится. Подтвердить?`)) {
-        next = confirmAction(next, id);
-      } else {
-        next = cancelAction(next, id);
-      }
+      requestDisciplineConfirmation(slot, pending);
+      return;
     }
+    if (next === discipline) return;
+    saveSnapshot();
     setDiscipline(next);
     syncDisciplinePlayer(next, slot);
   };
 
   const directRemoveFromMenu = (slot: number) => {
-    if (!window.confirm(`Удалить игрока #${slot} решением судьи? Ближайшее голосование будет отменено.`)) return;
-    const id = String(slot);
+    requestDisciplineConfirmation(slot, 'direct_removal');
+  };
+
+  const confirmPendingDisciplineAction = () => {
+    const pending = pendingDisciplineConfirmation;
+    if (!pending) return;
+    const id = String(pending.slot);
+    let next = discipline;
+
+    if (pending.action === 'removal_4th_foul') next = addRegularFoul(next, id);
+    else if (pending.action === 'minor_tech_causing_removal') next = addMinorTechFoul(next, id);
+    else if (pending.action === 'major_tech_causing_removal') next = addMajorTechFoul(next, id);
+    else if (pending.action === 'direct_removal') next = requestDirectRemoval(next, id);
+    else if (pending.action === 'ppk') next = requestPpk(next, id);
+
+    if (next.players[id]?.pendingAction !== pending.action) {
+      setPendingDisciplineConfirmation(null);
+      showToast('Действие уже недоступно — состояние игрока изменилось', 'warning');
+      return;
+    }
+
     saveSnapshot();
-    let next = requestDirectRemoval(discipline, id);
     next = confirmAction(next, id);
     setDiscipline(next);
-    syncDisciplinePlayer(next, slot);
-    setActionPlayerSlot(null);
+    syncDisciplinePlayer(next, pending.slot);
+    setPendingDisciplineConfirmation(null);
+
+    if (pending.action === 'ppk') {
+      const winner = next.ppkWinnerTeam === 'red' ? 'Красные' : 'Чёрные';
+      handleEndGameWithWinner(winner, 'ppk', pending.slot);
+    }
   };
 
   const handleFoulChange = (slot: number, direction: "up" | "down") => {
@@ -1145,16 +1198,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   }, [activePlayers, phase, activeBestMoveSource, votingFarewellQueue.length, postNightStage]);
 
   const handlePpkFromMenu = (slot: number) => {
-    if (!window.confirm(`Зафиксировать ППК игрока #${slot}? Игра немедленно завершится победой противоположной команды.`)) return;
-    const id = String(slot);
-    saveSnapshot();
-    let next = requestPpk(discipline, id);
-    next = confirmAction(next, id);
-    setDiscipline(next);
-    syncDisciplinePlayer(next, slot);
-    setActionPlayerSlot(null);
-    const winner = next.ppkWinnerTeam === 'red' ? 'Красные' : 'Чёрные';
-    handleEndGameWithWinner(winner, 'ppk', slot);
+    requestDisciplineConfirmation(slot, 'ppk');
   };
 
   const legacyBestMoveGuesses: number[] = [];
@@ -1192,6 +1236,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           handleNominateCandidate={handleNominateCandidate}
           handleSeatClick={handleSeatClick}
           handleFoulChange={handleFoulChange}
+          onRequestDirectRemoval={directRemoveFromMenu}
           markPlayerSpoken={markPlayerSpoken}
           setBestMovePlayerSlot={deprecatedNoop}
           setBestMoveGuesses={deprecatedNoop}
@@ -1280,6 +1325,30 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
+      {pendingDisciplineConfirmation && (() => {
+        const copy = dangerousActionCopy(pendingDisciplineConfirmation.action);
+        const player = activePlayers.find((item) => item.slot_num === pendingDisciplineConfirmation.slot);
+        return (
+          <div className="fixed inset-0 z-[126] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-3xl border-2 border-rose-700/70 bg-slate-900 shadow-2xl p-5 space-y-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-rose-400">Требуется подтверждение</div>
+                <h3 className="text-lg font-black text-white mt-1">{copy.title}</h3>
+                <p className="text-sm font-bold text-slate-200 mt-2">#{pendingDisciplineConfirmation.slot} · {player?.nickname || 'Игрок'}</p>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">{copy.description}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 px-3 py-2 text-[11px] text-amber-200">
+                Первое нажатие ничего не меняет. Действие будет применено только после кнопки ниже.
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setPendingDisciplineConfirmation(null)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black">Отмена</button>
+                <button type="button" onClick={confirmPendingDisciplineAction} className="min-h-12 rounded-xl bg-rose-600 border border-rose-500 text-white text-xs font-black uppercase tracking-wide">{copy.confirmLabel}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {actionPlayer && phase === 'day_speeches' && (
         <div className="fixed inset-0 z-[112] bg-slate-950/55 flex items-end md:items-center justify-center p-2 md:p-4" onClick={() => setActionPlayerSlot(null)}>
           <div className="w-full max-w-md rounded-t-3xl md:rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl p-4 space-y-3" onClick={(event) => event.stopPropagation()}>

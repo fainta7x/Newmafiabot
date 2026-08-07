@@ -78,19 +78,6 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     firstRender.current = true;
   }, [game.id, isOpen]);
 
-  const syncEvents = (
-    nextProtocol: TournamentGameProtocolData,
-    currentResults: PlayerResultData[] = playerResults
-  ) => {
-    return syncAllEventsToResults(
-      nextProtocol.votes || [],
-      nextProtocol.shots || [],
-      nextProtocol.first_killed_participant_id,
-      currentResults,
-      nextProtocol
-    );
-  };
-
   const save = async (
     nextProtocol: TournamentGameProtocolData = protocol,
     nextResults: PlayerResultData[] = playerResults

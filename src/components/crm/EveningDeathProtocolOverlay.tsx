@@ -6,11 +6,47 @@ export type DeathProtocolSelection = {
   sheriff: number[];
 };
 
+export type StoredDeathProtocols = Record<number, DeathProtocolSelection>;
+
 export const emptyDeathProtocolSelection = (): DeathProtocolSelection => ({
   red: [],
   black: [],
   sheriff: [],
 });
+
+const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
+const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
+const storageKey = (gameId: string) => `mafia_live_death_protocols:${gameId}`;
+
+const normalizeSelection = (value: any): DeathProtocolSelection => ({
+  red: Array.isArray(value?.red) ? value.red.map(Number).filter((seat: number) => seat >= 1 && seat <= 10) : [],
+  black: Array.isArray(value?.black) ? value.black.map(Number).filter((seat: number) => seat >= 1 && seat <= 10) : [],
+  sheriff: Array.isArray(value?.sheriff) ? value.sheriff.map(Number).filter((seat: number) => seat >= 1 && seat <= 10).slice(0, 1) : [],
+});
+
+export const readStoredDeathProtocols = (gameId: string): StoredDeathProtocols => {
+  try {
+    const raw = localStorage.getItem(storageKey(gameId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const next: StoredDeathProtocols = {};
+    Object.entries(parsed || {}).forEach(([rawSlot, value]) => {
+      const slot = Number(rawSlot);
+      if (Number.isInteger(slot) && slot >= 1 && slot <= 10) next[slot] = normalizeSelection(value);
+    });
+    return next;
+  } catch {
+    return {};
+  }
+};
+
+export const clearStoredDeathProtocols = (gameId: string) => {
+  try { localStorage.removeItem(storageKey(gameId)); } catch {}
+};
+
+const writeStoredDeathProtocols = (gameId: string, value: StoredDeathProtocols) => {
+  try { localStorage.setItem(storageKey(gameId), JSON.stringify(value)); } catch {}
+};
 
 interface EveningDeathProtocolOverlayProps {
   killedSlot: number;
@@ -20,11 +56,8 @@ interface EveningDeathProtocolOverlayProps {
   onChange: (value: DeathProtocolSelection) => void;
   onConfirm: () => void;
   onBack: () => void;
+  error?: string | null;
 }
-
-const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
-
-const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
 
 export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayProps> = ({
   killedSlot,
@@ -34,6 +67,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   onChange,
   onConfirm,
   onBack,
+  error,
 }) => {
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
     const other = mark === 'red' ? 'black' : 'red';
@@ -106,6 +140,8 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
         {renderRow('Чёрные', 'black', 'bg-slate-950 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]', (seat) => toggleTeam('black', seat))}
         {renderRow('Шериф', 'sheriff', 'bg-emerald-700 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)]', toggleSheriff)}
 
+        {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-[10px] font-bold text-rose-200">{error}</div>}
+
         <div className="grid grid-cols-12 gap-2 pt-1">
           <button
             type="button"
@@ -131,5 +167,112 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
         </div>
       </div>
     </div>
+  );
+};
+
+interface EveningDeathProtocolBridgeProps {
+  gameId: string;
+  players: Array<{ seat_number: number; display_name: string }>;
+}
+
+type LiveSessionView = {
+  postNightStage: string;
+  shotPlayerSlot: number | null;
+  timeLeft: number;
+};
+
+const findEngineButton = (label: string): HTMLButtonElement | null => {
+  const root = document.querySelector('.evening-live-engine-shell');
+  if (!root) return null;
+  return Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
+    (button.textContent || '').replace(/\s+/g, ' ').trim().includes(label),
+  ) || null;
+};
+
+export const EveningDeathProtocolBridge: React.FC<EveningDeathProtocolBridgeProps> = ({ gameId, players }) => {
+  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0 });
+  const [editingSlot, setEditingSlot] = React.useState<number | null>(null);
+  const [value, setValue] = React.useState<DeathProtocolSelection>(emptyDeathProtocolSelection());
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let lastSignature = '';
+    const sync = () => {
+      try {
+        const raw = localStorage.getItem('mafia_live_session');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const shot = Number(parsed?.shotPlayerSlot);
+        const next: LiveSessionView = {
+          postNightStage: String(parsed?.postNightStage || 'none'),
+          shotPlayerSlot: Number.isInteger(shot) && shot >= 1 && shot <= 10 ? shot : null,
+          timeLeft: Math.max(0, Number(parsed?.timeLeft || 0)),
+        };
+        const signature = JSON.stringify(next);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          setSession(next);
+        }
+      } catch {}
+    };
+
+    sync();
+    const intervalId = window.setInterval(sync, 250);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  React.useEffect(() => {
+    const slot = session.postNightStage === 'death_protocol' ? session.shotPlayerSlot : null;
+    if (slot === null) {
+      if (editingSlot !== null) setEditingSlot(null);
+      setError(null);
+      return;
+    }
+    if (editingSlot === slot) return;
+    const saved = readStoredDeathProtocols(gameId)[slot] || emptyDeathProtocolSelection();
+    setEditingSlot(slot);
+    setValue(saved);
+    setError(null);
+  }, [session.postNightStage, session.shotPlayerSlot, editingSlot, gameId]);
+
+  if (session.postNightStage !== 'death_protocol' || session.shotPlayerSlot === null || editingSlot === null) return null;
+
+  const killedSlot = session.shotPlayerSlot;
+  const killedName = players.find((player) => player.seat_number === killedSlot)?.display_name || `Игрок ${killedSlot}`;
+
+  const handleConfirm = () => {
+    const stored = readStoredDeathProtocols(gameId);
+    const next: StoredDeathProtocols = { ...stored, [killedSlot]: normalizeSelection(value) };
+    writeStoredDeathProtocols(gameId, next);
+    const nextButton = findEngineButton('К дневным речам');
+    if (!nextButton) {
+      setError('Протокол сохранён, но не найдена кнопка перехода к дневным речам. Закройте форму кнопкой «Прощальная» и повторите переход.');
+      return;
+    }
+    setError(null);
+    nextButton.click();
+  };
+
+  const handleBack = () => {
+    const backButton = findEngineButton('Прощальная');
+    if (!backButton) {
+      setError('Не найдена кнопка возврата к прощальной речи.');
+      return;
+    }
+    setError(null);
+    backButton.click();
+  };
+
+  return (
+    <EveningDeathProtocolOverlay
+      killedSlot={killedSlot}
+      killedName={killedName}
+      timeLeft={session.timeLeft}
+      value={value}
+      onChange={setValue}
+      onConfirm={handleConfirm}
+      onBack={handleBack}
+      error={error}
+    />
   );
 };

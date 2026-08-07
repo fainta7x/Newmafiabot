@@ -42,6 +42,7 @@ interface LiveGameEngineProps {
 }
 
 type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
+type PostNightStage = 'none' | 'farewell' | 'death_protocol';
 
 type LiveSnapshot = {
   activePlayers: ActivePlayerState[];
@@ -50,6 +51,7 @@ type LiveSnapshot = {
   phase: Phase;
   roundNumber: number;
   nightSubPhase: NightSubPhase;
+  postNightStage: PostNightStage;
   protocolMarkers: LiveProtocolMarkers;
   activeBestMoveSource: BestMoveSource | null;
   activeBestMoveSlot: number | null;
@@ -61,6 +63,11 @@ type LiveSnapshot = {
   votingStage: VotingStage;
   revoteSpeakerIndex: number;
   tableLeaveVotesInput: number | null;
+  activeSpeakerSlot: number | null;
+  customTimerLabel: string | null;
+  timeLeft: number;
+  timerMax: number;
+  isTimerRunning: boolean;
 };
 
 const emptyPlayer = (slot: number): ActivePlayerState => ({
@@ -93,6 +100,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
   const [nightSubPhase, setNightSubPhase] = useState<NightSubPhase>("intro");
+  const [postNightStage, setPostNightStage] = useState<PostNightStage>('none');
   const [activePlayers, setActivePlayers] = useState<ActivePlayerState[]>(
     Array.from({ length: 10 }, (_, index) => emptyPlayer(index + 1))
   );
@@ -185,6 +193,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     phase,
     roundNumber,
     nightSubPhase,
+    postNightStage,
     protocolMarkers: JSON.parse(JSON.stringify(protocolMarkers)),
     activeBestMoveSource,
     activeBestMoveSlot,
@@ -196,6 +205,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     votingStage,
     revoteSpeakerIndex,
     tableLeaveVotesInput,
+    activeSpeakerSlot,
+    customTimerLabel,
+    timeLeft,
+    timerMax,
+    isTimerRunning,
   });
 
   const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
@@ -207,6 +221,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPhase(snapshot.phase);
     setRoundNumber(snapshot.roundNumber);
     setNightSubPhase(snapshot.nightSubPhase);
+    setPostNightStage(snapshot.postNightStage || 'none');
     setProtocolMarkers(snapshot.protocolMarkers || createEmptyLiveProtocolMarkers());
     setActiveBestMoveSource(snapshot.activeBestMoveSource || null);
     setActiveBestMoveSlot(snapshot.activeBestMoveSlot ?? null);
@@ -218,6 +233,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingStage(snapshot.votingStage || 'setup');
     setRevoteSpeakerIndex(snapshot.revoteSpeakerIndex || 0);
     setTableLeaveVotesInput(snapshot.tableLeaveVotesInput ?? null);
+    setActiveSpeakerSlot(snapshot.activeSpeakerSlot ?? null);
+    setCustomTimerLabel(snapshot.customTimerLabel ?? null);
+    setTimeLeft(snapshot.timeLeft ?? 60);
+    setTimerMax(snapshot.timerMax ?? 60);
+    setIsTimerRunning(Boolean(snapshot.isTimerRunning));
   };
 
   const handleUndoAction = () => {
@@ -253,10 +273,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
     try { localStorage.setItem("mafia_live_session", JSON.stringify(data)); } catch {}
   }, [
-    activePlayers, nominations, nominationsMap, phase, roundNumber, nightSubPhase, protocolMarkers,
+    activePlayers, nominations, nominationsMap, phase, roundNumber, nightSubPhase, postNightStage, protocolMarkers,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
+    activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning,
   ]);
 
   const handleRestoreSession = () => {
@@ -402,7 +423,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player?.alive) return;
     setActivePlayers((previous) => previous.map((p) => p.slot_num === slot
-      ? { ...p, alive: false, eliminated_phase: reason, exit_reason: exitReason, is_pu: false }
+      ? { ...p, alive: false, eliminated_phase: reason, exit_reason: exitReason }
       : p));
   };
 
@@ -444,7 +465,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotesByPlayer((previous) => {
       const next = { ...previous };
       if (next[voterSlot] === nominee) delete next[voterSlot];
-      else next[voterSlot] = nominee; // self-vote is intentionally allowed
+      else next[voterSlot] = nominee;
       updateCurrentRoundVotes(next);
       return next;
     });
@@ -517,10 +538,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingStage('round_result');
   };
 
-  const openBestMoveProtocol = (source: BestMoveSource, slot: number) => {
+  const openBestMoveProtocol = (source: BestMoveSource, slot: number, initialSeats: number[] = []) => {
     setActiveBestMoveSource(source);
     setActiveBestMoveSlot(slot);
-    setPendingBestMoveSeats([]);
+    setPendingBestMoveSeats([...initialSeats]);
   };
 
   const handleConfirmSingleElimination = (slot: number) => {
@@ -600,7 +621,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       const exitReason: NonNullable<ActivePlayerState['exit_reason']> = current.day_number === 0 ? 'voted_zero_round' : 'voted_day';
       result.eliminatedSeats.forEach((slot) => eliminatePlayer(slot, `Решение стола (День ${roundNumber})`, exitReason));
       setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; спорные ${winners.map((s) => `#${s}`).join(', ')} покинули стол.` }]);
-      // Intentionally no zeroRoundVotedSlot here when more than one player leaves.
     } else {
       setNightLogs((previous) => [...previous, { round: roundNumber, log: `Д${roundNumber}: ${votesCount}/${eligible} за уход; большинство не набрано, все остаются.` }]);
     }
@@ -621,6 +641,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setActivePlayers((previous) => previous.map((p) => ({ ...p, nominated_this_round: false, has_spoken_this_round: false, mute_this_round: false })));
     setPhase('night');
     setNightSubPhase('intro');
+    setPostNightStage('none');
     setShotPlayerSlot(null);
     setDonCheckSlot(null);
     setDonCheckResult(null);
@@ -631,14 +652,50 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setTimeLeft(15);
   };
 
+  const getNightTarget = () => shotPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === shotPlayerSlot) || null;
+
+  const targetCanGiveFirstKilledBestMove = () => {
+    const target = getNightTarget();
+    if (!target) return false;
+    if (protocolMarkers.firstKilledSlot !== null && protocolMarkers.firstKilledSlot !== target.slot_num) return false;
+    return canRegisterFirstKilled(roundNumber, target.role, true);
+  };
+
+  const handleStartFirstKilledBestMove = () => {
+    const target = getNightTarget();
+    if (!target || !targetCanGiveFirstKilledBestMove()) {
+      setNightSubPhase('morning');
+      setCustomTimerLabel(null);
+      setIsTimerRunning(false);
+      return;
+    }
+
+    let nextMarkers = protocolMarkers;
+    if (nextMarkers.firstKilledSlot === null) {
+      nextMarkers = registerFirstKilled(nextMarkers, target.slot_num);
+      setProtocolMarkers(nextMarkers);
+    }
+
+    setActivePlayers((previous) => previous.map((p) => p.slot_num === target.slot_num ? { ...p, is_pu: true } : p));
+    setNightSubPhase('best_move');
+    setCustomTimerLabel(null);
+    setIsTimerRunning(false);
+    const savedSeats = nextMarkers.bestMoveSource === 'first_killed' && nextMarkers.bestMoveSourceSlot === target.slot_num
+      ? nextMarkers.bestMoveSeats
+      : [];
+    openBestMoveProtocol('first_killed', target.slot_num, savedSeats);
+  };
+
   const handleAdvanceNightSubPhase = (sub: NightSubPhase) => {
-    // Best Move is no longer a night subphase. It is a protocol overlay.
-    if (sub === 'best_move') return;
     setNightSubPhase(sub);
     const labels: Partial<Record<NightSubPhase, string>> = {
-      intro: 'Запуск ночи', shooting: 'Стрельба мафии', don: 'Проверка Дона', sheriff: 'Проверка Шерифа', morning: 'Итоги ночи',
+      intro: 'Запуск ночи',
+      shooting: 'Стрельба мафии',
+      don: 'Проверка Дона',
+      sheriff: 'Проверка Шерифа',
+      morning: 'Итоги ночи',
     };
-    if (sub === 'morning') {
+    if (sub === 'morning' || sub === 'best_move') {
       setCustomTimerLabel(null);
       setIsTimerRunning(false);
       return;
@@ -649,19 +706,66 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(true);
   };
 
+  const finishNightToDay = () => {
+    setRoundNumber((value) => value + 1);
+    setPhase('day_speeches');
+    setNightSubPhase('intro');
+    setPostNightStage('none');
+    setCustomTimerLabel(null);
+    setActiveSpeakerSlot(null);
+    setIsTimerRunning(false);
+    setShotPlayerSlot(null);
+    setDonCheckSlot(null);
+    setDonCheckResult(null);
+    setSheriffCheckSlot(null);
+    setSheriffCheckResult(null);
+  };
+
+  const startFarewellSpeech = (slot: number) => {
+    setPostNightStage('farewell');
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(`Прощальная речь #${slot}`);
+    setTimerMax(60);
+    setTimeLeft(60);
+    setIsTimerRunning(true);
+  };
+
+  const startDeathProtocol = () => {
+    if (shotPlayerSlot === null) return finishNightToDay();
+    setPostNightStage('death_protocol');
+    setActiveSpeakerSlot(shotPlayerSlot);
+    setCustomTimerLabel(`Протокол убитого #${shotPlayerSlot}`);
+    setTimerMax(15);
+    setTimeLeft(15);
+    setIsTimerRunning(true);
+  };
+
+  const backToFarewellSpeech = () => {
+    if (shotPlayerSlot === null) return;
+    setPostNightStage('farewell');
+    setActiveSpeakerSlot(shotPlayerSlot);
+    setCustomTimerLabel(`Прощальная речь #${shotPlayerSlot}`);
+    setTimerMax(60);
+    setTimeLeft(60);
+    setIsTimerRunning(false);
+  };
+
   const handleResolveNight = () => {
     saveSnapshot();
     const logs: string[] = [];
+    let killedSlot: number | null = null;
+
     if (shotPlayerSlot) {
       const target = activePlayers.find((p) => p.slot_num === shotPlayerSlot);
       if (target?.alive) {
+        killedSlot = shotPlayerSlot;
         eliminatePlayer(shotPlayerSlot, `Убит ночью (Ночь ${roundNumber})`, 'killed');
         logs.push(`Н${roundNumber}: выстрел в #${shotPlayerSlot} — убит.`);
+
         if (protocolMarkers.firstKilledSlot === null && canRegisterFirstKilled(roundNumber, target.role, true)) {
           const nextMarkers = registerFirstKilled(protocolMarkers, shotPlayerSlot);
           setProtocolMarkers(nextMarkers);
-          setActivePlayers((previous) => previous.map((p) => ({ ...p, is_pu: p.slot_num === shotPlayerSlot })));
-          openBestMoveProtocol('first_killed', shotPlayerSlot);
+          setActivePlayers((previous) => previous.map((p) => p.slot_num === shotPlayerSlot ? { ...p, is_pu: true } : p));
         }
       } else {
         logs.push(`Н${roundNumber}: выстрел в #${shotPlayerSlot} — промах.`);
@@ -669,20 +773,24 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     } else {
       logs.push(`Н${roundNumber}: промах мафии.`);
     }
+
     if (donCheckSlot) logs.push(`Дон: #${donCheckSlot} — ${donCheckResult ? 'Шериф' : 'не Шериф'}.`);
     if (sheriffCheckSlot) logs.push(`Шериф: #${sheriffCheckSlot} — ${sheriffCheckResult || '—'}.`);
     setNightLogs((previous) => [...previous, { round: roundNumber, log: logs.join(' ') }]);
-    setRoundNumber((value) => value + 1);
-    setPhase('day_speeches');
-    setNightSubPhase('intro');
-    setCustomTimerLabel(null);
-    setIsTimerRunning(false);
+
+    if (killedSlot !== null) {
+      startFarewellSpeech(killedSlot);
+      return;
+    }
+
+    finishNightToDay();
   };
 
   const handleSeatClick = (slot: number) => {
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player) return;
     if (phase === 'night') {
+      if (postNightStage !== 'none') return;
       if (!player.alive) return;
       if (nightSubPhase === 'shooting') setShotPlayerSlot((value) => value === slot ? null : slot);
       else if (nightSubPhase === 'don') { setDonCheckSlot(slot); setDonCheckResult(player.role === 'Шериф'); }
@@ -714,11 +822,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     if (phase === 'day_voting') return null;
     if (phase === 'night') {
+      if (postNightStage === 'farewell') return { label: 'Протокол убитого · 15с', onClick: startDeathProtocol };
+      if (postNightStage === 'death_protocol') return { label: 'К дневным речам', onClick: finishNightToDay };
       if (nightSubPhase === 'intro') return { label: 'Стрельба мафии', onClick: () => handleAdvanceNightSubPhase('shooting') };
       if (nightSubPhase === 'shooting') return { label: 'Проверка Дона', onClick: () => handleAdvanceNightSubPhase('don') };
       if (nightSubPhase === 'don') return { label: 'Проверка Шерифа', onClick: () => handleAdvanceNightSubPhase('sheriff') };
-      if (nightSubPhase === 'sheriff') return { label: 'Итоги ночи', onClick: () => handleAdvanceNightSubPhase('morning') };
-      if (nightSubPhase === 'morning') return { label: 'Разбудить город', onClick: handleResolveNight };
+      if (nightSubPhase === 'sheriff') {
+        if (targetCanGiveFirstKilledBestMove()) return { label: 'ЛХ первого убитого', onClick: handleStartFirstKilledBestMove };
+        return { label: 'Итоги ночи', onClick: () => handleAdvanceNightSubPhase('morning') };
+      }
+      if (nightSubPhase === 'best_move') return null;
+      if (nightSubPhase === 'morning') return { label: 'Зафиксировать ночь', onClick: handleResolveNight };
     }
     return null;
   };
@@ -728,10 +842,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (phase === 'day_speeches' && roundNumber === 1) return { label: 'Нулевая ночь', onClick: () => setPhase('zero_night') };
     if (phase === 'day_speeches' && roundNumber > 1) return { label: 'Ночь', onClick: () => { setRoundNumber((r) => Math.max(1, r - 1)); setPhase('night'); setNightSubPhase('morning'); } };
     if (phase === 'night') {
+      if (postNightStage === 'death_protocol') return { label: 'Прощальная', onClick: backToFarewellSpeech };
+      if (postNightStage === 'farewell') return null;
       if (nightSubPhase === 'shooting') return { label: 'Старт ночи', onClick: () => handleAdvanceNightSubPhase('intro') };
       if (nightSubPhase === 'don') return { label: 'Стрельба', onClick: () => handleAdvanceNightSubPhase('shooting') };
       if (nightSubPhase === 'sheriff') return { label: 'Дон', onClick: () => handleAdvanceNightSubPhase('don') };
-      if (nightSubPhase === 'morning') return { label: 'Шериф', onClick: () => handleAdvanceNightSubPhase('sheriff') };
+      if (nightSubPhase === 'morning') {
+        if (targetCanGiveFirstKilledBestMove() && shotPlayerSlot !== null && protocolMarkers.firstKilledSlot === shotPlayerSlot) {
+          return { label: 'ЛХ', onClick: handleStartFirstKilledBestMove };
+        }
+        return { label: 'Шериф', onClick: () => handleAdvanceNightSubPhase('sheriff') };
+      }
     }
     return null;
   };
@@ -918,12 +1039,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             <div className="flex gap-2 justify-center">
               <button type="button" onClick={() => setPendingBestMoveSeats([])} className="px-5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Сбросить</button>
               <button type="button" onClick={() => {
-                const next = setBestMove(protocolMarkers, activeBestMoveSource, pendingBestMoveSeats);
+                const source = activeBestMoveSource;
+                const slot = activeBestMoveSlot;
+                const next = setBestMove(protocolMarkers, source, pendingBestMoveSeats);
                 setProtocolMarkers(next);
-                setActivePlayers((previous) => previous.map((p) => p.slot_num === activeBestMoveSlot ? { ...p, best_move_guesses: [...pendingBestMoveSeats] } : p));
+                setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, best_move_guesses: [...pendingBestMoveSeats] } : p));
                 setActiveBestMoveSource(null);
                 setActiveBestMoveSlot(null);
                 setPendingBestMoveSeats([]);
+                if (phase === 'night' && nightSubPhase === 'best_move' && source === 'first_killed') {
+                  setNightSubPhase('morning');
+                  setCustomTimerLabel(null);
+                  setIsTimerRunning(false);
+                }
               }} className="px-6 py-2 rounded-xl bg-white text-slate-950 text-xs font-black">Подтвердить протокол</button>
             </div>
           </div>

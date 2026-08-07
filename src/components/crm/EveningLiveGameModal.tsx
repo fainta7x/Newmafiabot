@@ -136,7 +136,8 @@ const MobileLiveGameStyles = () => (
         gap: 3px !important;
       }
 
-      .evening-live-engine-shell > div > div > div:first-child[class*="bg-slate-900"] {
+      /* Hide only the desktop judging toolbar. Do not hide modal sheets. */
+      .evening-live-engine-shell > div > div.space-y-4 > div:first-child[class*="bg-slate-900"] {
         display: none !important;
       }
 

@@ -520,14 +520,6 @@ export interface OfficialScoreComponent {
   show_plus: boolean;
 }
 
-interface OfficialAwardAchievement {
-  participant_id: string | null;
-  display_name: string;
-  avatar_data_url: string | null;
-  titles: string[];
-  is_mvp: boolean;
-}
-
 const splitLongToken = (token: string, maxChars: number): string[] => {
   if (token.length <= maxChars) return [token];
   const parts: string[] = [];
@@ -807,51 +799,8 @@ const getUsefulVenue = (venue: string | null | undefined): string | null => {
   return value;
 };
 
-const awardTitleOrder = ['MVP', 'Лучший мирный', 'Лучшая мафия', 'Лучший Шериф', 'Лучший Дон'];
-
-function buildAwardAchievements(nominations: OfficialAwardPresentation[]): {
-  assigned: OfficialAwardAchievement[];
-  unawarded: string[];
-} {
-  const byOwner = new Map<string, OfficialAwardAchievement>();
-  const unawarded: string[] = [];
-
-  nominations.forEach((award) => {
-    if (!award.participant_id || award.source === 'suppressed' || award.source === 'unresolved') {
-      unawarded.push(`${award.title} — ${award.source === 'suppressed' ? 'не присуждена' : 'не определена'}`);
-      return;
-    }
-    const key = award.participant_id;
-    const existing = byOwner.get(key);
-    if (existing) {
-      existing.titles.push(award.title);
-      existing.is_mvp = existing.is_mvp || award.key === 'nomination_mvp' || award.title === 'MVP';
-      return;
-    }
-    byOwner.set(key, {
-      participant_id: award.participant_id,
-      display_name: award.display_name,
-      avatar_data_url: award.avatar_data_url,
-      titles: [award.title],
-      is_mvp: award.key === 'nomination_mvp' || award.title === 'MVP',
-    });
-  });
-
-  const assigned = [...byOwner.values()].map((group) => ({
-    ...group,
-    titles: [...group.titles].sort((a, b) => {
-      const ai = awardTitleOrder.indexOf(a);
-      const bi = awardTitleOrder.indexOf(b);
-      if (ai === -1 && bi === -1) return a.localeCompare(b, 'ru');
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    }),
-  }));
-
-  assigned.sort((a, b) => Number(b.is_mvp) - Number(a.is_mvp));
-  return { assigned, unawarded };
-}
+const isMvpAward = (award: OfficialAwardPresentation): boolean =>
+  award.key === 'nomination_mvp' || award.title.trim().toLocaleUpperCase('ru-RU') === 'MVP';
 
 const getStandingForAward = (
   award: OfficialAwardPresentation | undefined,
@@ -879,7 +828,7 @@ const buildChampionFacts = (
   const championAwards = nominations.filter((award) =>
     award.participant_id === champion.participant_id && award.source !== 'suppressed' && award.source !== 'unresolved'
   );
-  if (championAwards.some((award) => award.key === 'nomination_mvp' || award.title === 'MVP')) {
+  if (championAwards.some(isMvpAward)) {
     facts.push('MVP турнира');
   } else if (championAwards.length > 0) {
     facts.push(`${championAwards.length} ${russianPlural(championAwards.length, 'награда', 'награды', 'наград')} турнира`);
@@ -908,53 +857,123 @@ const scoreComponentDisplay = (component: OfficialScoreComponent): string => {
   return `${component.label} ${value}`;
 };
 
-function scoreComponentLineCount(components: OfficialScoreComponent[], maxWidth: number, fontSize = 27): number {
-  if (!components.length) return 0;
-  let lines = 1;
-  let used = 0;
+interface OfficialScoreLayoutItem {
+  text: string;
+  tone: OfficialScoreComponent['tone'];
+  width: number;
+}
+
+interface OfficialScoreLayout {
+  lines: OfficialScoreLayoutItem[][];
+  fontSize: number;
+  lineHeight: number;
+  columnGap: number;
+}
+
+const estimateOfficialTextWidth = (text: string, fontSize: number): number =>
+  Math.ceil(text.length * fontSize * 0.53 + 10);
+
+function splitScoreComponentForWidth(
+  component: OfficialScoreComponent,
+  maxWidth: number,
+  fontSize: number,
+): OfficialScoreLayoutItem[] {
+  const token = scoreComponentDisplay(component);
+  if (estimateOfficialTextWidth(token, fontSize) <= maxWidth) {
+    return [{ text: token, tone: component.tone, width: estimateOfficialTextWidth(token, fontSize) }];
+  }
+
+  const maxChars = Math.max(12, Math.floor((maxWidth - 10) / (fontSize * 0.53)));
+  return wrapExportText(token, maxChars, 6).map((line) => ({
+    text: line,
+    tone: component.tone,
+    width: Math.min(maxWidth, estimateOfficialTextWidth(line, fontSize)),
+  }));
+}
+
+function layoutOfficialScoreComponents(
+  components: OfficialScoreComponent[],
+  maxWidth: number,
+): OfficialScoreLayout {
+  const fontSize = 29;
+  const lineHeight = 38;
+  const columnGap = 24;
+  const lines: OfficialScoreLayoutItem[][] = [];
+  let current: OfficialScoreLayoutItem[] = [];
+  let usedWidth = 0;
+
+  const flush = () => {
+    if (!current.length) return;
+    lines.push(current);
+    current = [];
+    usedWidth = 0;
+  };
+
   components.forEach((component) => {
-    const token = scoreComponentDisplay(component);
-    const estimated = Math.max(150, token.length * fontSize * 0.53 + 18);
-    if (used > 0 && used + estimated > maxWidth) {
-      lines += 1;
-      used = estimated;
-    } else {
-      used += estimated;
-    }
-    used += 24;
+    const fragments = splitScoreComponentForWidth(component, maxWidth, fontSize);
+    fragments.forEach((fragment, fragmentIndex) => {
+      if (fragmentIndex > 0) flush();
+      const required = current.length ? columnGap + fragment.width : fragment.width;
+      if (current.length && usedWidth + required > maxWidth) flush();
+      current.push(fragment);
+      usedWidth += (current.length > 1 ? columnGap : 0) + fragment.width;
+      if (fragments.length > 1 && fragmentIndex < fragments.length - 1) flush();
+    });
   });
-  return lines;
+  flush();
+
+  return { lines, fontSize, lineHeight, columnGap };
 }
 
 function officialScoreComponentsSvg(
-  components: OfficialScoreComponent[],
+  layout: OfficialScoreLayout,
   x: number,
   y: number,
-  maxX: number,
 ): string {
-  if (!components.length) return '';
-  const fontSize = 29;
-  const lineHeight = 36;
-  let cx = x;
-  let cy = y;
   let svg = '';
-
-  components.forEach((component) => {
-    const token = scoreComponentDisplay(component);
-    const estimated = Math.max(150, token.length * fontSize * 0.53 + 18);
-    if (cx > x && cx + estimated > maxX) {
-      cx = x;
-      cy += lineHeight;
-    }
-    const color = component.tone === 'penalty'
-      ? '#B96870'
-      : component.tone === 'bonus'
-        ? '#C79AA5'
-        : '#D8D2C9';
-    svg += `<text x="${cx}" y="${cy}" font-family="${officialSvgFont}" font-size="${fontSize}" font-weight="650" fill="${color}">${escapeXml(token)}</text>`;
-    cx += estimated + 24;
+  layout.lines.forEach((line, lineIndex) => {
+    let cx = x;
+    line.forEach((item) => {
+      const color = item.tone === 'penalty'
+        ? '#B96870'
+        : item.tone === 'bonus'
+          ? '#C79AA5'
+          : '#D8D2C9';
+      svg += `<text x="${cx}" y="${y + lineIndex * layout.lineHeight}" font-family="${officialSvgFont}" font-size="${layout.fontSize}" font-weight="650" fill="${color}">${escapeXml(item.text)}</text>`;
+      cx += item.width + layout.columnGap;
+    });
   });
   return svg;
+}
+
+interface SecondaryPodiumLayout {
+  nameLines: string[];
+  avatarOffsetX: number;
+  avatarSize: number;
+  infoOffsetX: number;
+  scoreRightOffset: number;
+  nameY: number;
+  nameLineHeight: number;
+  winsY: number;
+  height: number;
+}
+
+function layoutSecondaryPodium(name: string, width: number): SecondaryPodiumLayout {
+  const avatarOffsetX = 54;
+  const avatarSize = 82;
+  const infoOffsetX = 150;
+  const scoreColumnWidth = 90;
+  const scoreRightOffset = width - 6;
+  const scoreLeft = scoreRightOffset - scoreColumnWidth;
+  const infoWidth = Math.max(96, scoreLeft - infoOffsetX - 20);
+  const nameFontSize = 34;
+  const maxChars = Math.max(7, Math.floor(infoWidth / (nameFontSize * 0.53)));
+  const nameLines = wrapExportText(name, maxChars, 2);
+  const nameY = 84;
+  const nameLineHeight = 36;
+  const winsY = nameY + Math.max(0, nameLines.length - 1) * nameLineHeight + 43;
+  const height = Math.max(190, winsY + 34);
+  return { nameLines, avatarOffsetX, avatarSize, infoOffsetX, scoreRightOffset, nameY, nameLineHeight, winsY, height };
 }
 
 function renderSecondaryPodium(
@@ -963,22 +982,40 @@ function renderSecondaryPodium(
   place: 2 | 3,
   x: number,
   y: number,
-  width: number,
+  layout: SecondaryPodiumLayout,
 ): string {
   const accent = place === 2 ? '#BFC3C9' : '#B77951';
   const number = `0${place}`;
   const name = award?.display_name || 'Не определено';
-  const nameLines = wrapExportText(name, 18, 2);
   const points = award?.points ?? standing?.total_points ?? null;
   return `<g>
     <text x="${x}" y="${y + 96}" font-family="${officialSvgFont}" font-size="94" font-weight="900" fill="${accent}" opacity="0.16" letter-spacing="-4">${number}</text>
-    ${officialAvatarSvg(award?.avatar_data_url, name, x + 92, y + 22, 108, `podium-${place}`, accent, 2.5)}
-    <text x="${x + 224}" y="${y + 42}" font-family="${officialSvgFont}" font-size="18" font-weight="850" fill="${accent}" letter-spacing="1.7">${place === 2 ? 'ВТОРОЕ МЕСТО' : 'ТРЕТЬЕ МЕСТО'}</text>
-    ${officialSvgTextLines(nameLines, x + 224, y + 85, 38, `font-family="${officialSvgFont}" font-size="34" font-weight="900" fill="#F3EDE4"`)}
-    <text x="${x + width}" y="${y + 88}" text-anchor="end" font-family="${officialSvgFont}" font-size="46" font-weight="900" fill="#F3EDE4" font-variant-numeric="tabular-nums">${formatPosterNumber(points)}</text>
-    <text x="${x + width}" y="${y + 119}" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="800" fill="#79736D" letter-spacing="1.2">БАЛЛЫ</text>
-    ${standing ? `<text x="${x + 224}" y="${y + 164}" font-family="${officialSvgFont}" font-size="24" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(standing.wins, standing.games_played))}</text>` : ''}
+    ${officialAvatarSvg(award?.avatar_data_url, name, x + layout.avatarOffsetX, y + 24, layout.avatarSize, `podium-${place}`, accent, 2.5)}
+    <text x="${x + layout.infoOffsetX}" y="${y + 40}" font-family="${officialSvgFont}" font-size="18" font-weight="850" fill="${accent}" letter-spacing="1.7">${place === 2 ? 'ВТОРОЕ МЕСТО' : 'ТРЕТЬЕ МЕСТО'}</text>
+    ${officialSvgTextLines(layout.nameLines, x + layout.infoOffsetX, y + layout.nameY, layout.nameLineHeight, `font-family="${officialSvgFont}" font-size="34" font-weight="900" fill="#F3EDE4"`)}
+    <text x="${x + layout.scoreRightOffset}" y="${y + 88}" text-anchor="end" font-family="${officialSvgFont}" font-size="46" font-weight="900" fill="#F3EDE4" font-variant-numeric="tabular-nums">${formatPosterNumber(points)}</text>
+    <text x="${x + layout.scoreRightOffset}" y="${y + 119}" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="800" fill="#79736D" letter-spacing="1.2">БАЛЛЫ</text>
+    ${standing ? `<text x="${x + layout.infoOffsetX}" y="${y + layout.winsY}" font-family="${officialSvgFont}" font-size="24" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(standing.wins, standing.games_played))}</text>` : ''}
   </g>`;
+}
+
+const awardDisplayTitle = (award: OfficialAwardPresentation): string =>
+  isMvpAward(award) ? 'MVP ТУРНИРА' : award.title.toLocaleUpperCase('ru-RU');
+
+interface AwardTileLayout {
+  titleLines: string[];
+  nameLines: string[];
+  height: number;
+}
+
+function layoutAwardTile(award: OfficialAwardPresentation, width: number): AwardTileLayout {
+  const titleFontSize = 22;
+  const titleChars = Math.max(16, Math.floor((width - 36) / (titleFontSize * 0.53)));
+  const titleLines = wrapExportText(awardDisplayTitle(award), titleChars, 2);
+  const nameLines = wrapExportText(award.display_name, 20, 2);
+  const extraTitle = Math.max(0, titleLines.length - 1) * 27;
+  const extraName = Math.max(0, nameLines.length - 1) * 32;
+  return { titleLines, nameLines, height: 166 + extraTitle + extraName };
 }
 
 export function generateOfficialTournamentResultsSvg(
@@ -1006,25 +1043,57 @@ export function generateOfficialTournamentResultsSvg(
 
   const heroTopHeight = 338 + titleExtra;
   const championHeight = 430 + championNameExtra;
-  const secondaryPodiumHeight = 230;
+  const secondaryGap = 48;
+  const secondaryWidth = (width - margin * 2 - secondaryGap) / 2;
+  const secondPodiumLayout = layoutSecondaryPodium(secondAward?.display_name || 'Не определено', secondaryWidth);
+  const thirdPodiumLayout = layoutSecondaryPodium(thirdAward?.display_name || 'Не определено', secondaryWidth);
+  const secondaryPodiumHeight = 40 + Math.max(secondPodiumLayout.height, thirdPodiumLayout.height);
   const heroHeight = heroTopHeight + championHeight + secondaryPodiumHeight + 48;
 
+  const scoreX = margin + 184;
+  const scoreMaxX = width - margin;
+  const scoreWidth = scoreMaxX - scoreX;
   const rankingLayouts = presentation.standings.map((item) => {
     const components = getOfficialScoreComponents(item);
-    const componentLines = scoreComponentLineCount(components, width - (margin + 150) - margin);
+    const scoreLayout = layoutOfficialScoreComponents(components, scoreWidth);
     const tieBreakStats = buildTieBreakStats(item);
-    const tieLines = tieBreakStats.length ? wrapExportText(tieBreakStats.join(' · '), 66, 2) : [];
-    const rowHeight = 168 + Math.max(0, componentLines - 1) * 36 + tieLines.length * 30;
-    return { item, components, componentLines, tieLines, rowHeight };
+    const tieLines = tieBreakStats.length ? wrapExportText(tieBreakStats.join(' · '), 66, 3) : [];
+    const scoreStartOffset = 140;
+    const scoreLastBaseline = scoreLayout.lines.length
+      ? scoreStartOffset + (scoreLayout.lines.length - 1) * scoreLayout.lineHeight
+      : 0;
+    const tieStartOffset = tieLines.length
+      ? (scoreLayout.lines.length ? scoreLastBaseline + 44 : scoreStartOffset)
+      : 0;
+    const tieLastBaseline = tieLines.length ? tieStartOffset + (tieLines.length - 1) * 31 : 0;
+    const contentBottom = tieLines.length
+      ? tieLastBaseline + 20
+      : scoreLayout.lines.length
+        ? scoreLastBaseline + 24
+        : 118;
+    const rowHeight = Math.max(168, contentBottom + 34);
+    return { item, scoreLayout, tieLines, rowHeight, scoreStartOffset, tieStartOffset };
   });
 
   const rankingTitleHeight = 104;
   const rankingHeight = rankingTitleHeight + rankingLayouts.reduce((sum, row) => sum + row.rowHeight, 0);
-  const awards = buildAwardAchievements(presentation.nominations);
-  const featuredAward = awards.assigned.find((group) => group.is_mvp) || null;
-  const compactAwards = awards.assigned.filter((group) => group !== featuredAward);
+
+  const featuredAward = presentation.nominations.find(isMvpAward) || null;
+  const awardTiles = presentation.nominations.filter((award) => award !== featuredAward);
+  const awardGap = 24;
+  const awardTileWidth = (width - margin * 2 - awardGap) / 2;
+  const awardTileLayouts = awardTiles.map((award) => layoutAwardTile(award, awardTileWidth));
+  const awardRows: { items: { award: OfficialAwardPresentation; layout: AwardTileLayout; index: number }[]; height: number }[] = [];
+  for (let index = 0; index < awardTiles.length; index += 2) {
+    const items = [index, index + 1]
+      .filter((itemIndex) => itemIndex < awardTiles.length)
+      .map((itemIndex) => ({ award: awardTiles[itemIndex], layout: awardTileLayouts[itemIndex], index: itemIndex }));
+    awardRows.push({ items, height: Math.max(...items.map((item) => item.layout.height)) });
+  }
+  const featuredAwardHeight = featuredAward ? 190 : 0;
+  const awardsGridHeight = awardRows.reduce((sum, row, index) => sum + row.height + (index > 0 ? 22 : 0), 0);
   const awardsHeight = presentation.nominations.length
-    ? 98 + (featuredAward ? 202 : 0) + compactAwards.length * 112 + awards.unawarded.length * 42 + 36
+    ? 98 + featuredAwardHeight + (featuredAward && awardRows.length ? 24 : 0) + awardsGridHeight + 38
     : 0;
   const footerHeight = 132;
   const height = heroHeight + rankingHeight + awardsHeight + footerHeight;
@@ -1064,6 +1133,11 @@ export function generateOfficialTournamentResultsSvg(
       <stop offset="0%" stop-color="#7B1835" stop-opacity="0.26"/>
       <stop offset="100%" stop-color="#150E12" stop-opacity="0"/>
     </linearGradient>
+    <linearGradient id="awardWash" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5B1329" stop-opacity="0.12"/>
+      <stop offset="70%" stop-color="#160F13" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#0A090B" stop-opacity="0"/>
+    </linearGradient>
     <linearGradient id="monogramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#4E1728"/>
       <stop offset="48%" stop-color="#261018"/>
@@ -1098,15 +1172,18 @@ export function generateOfficialTournamentResultsSvg(
     <text x="382" y="${championScoreY + 38}" font-family="${officialSvgFont}" font-size="21" font-weight="850" fill="#A28A57" letter-spacing="2.2">БАЛЛЫ</text>`;
 
   championFacts.forEach((fact, index) => {
-    const x = 382 + index * 300;
-    svg += `<text x="${x}" y="${championFactsY}" font-family="${officialSvgFont}" font-size="27" font-weight="700" fill="#CDC6BC">${escapeXml(fact)}</text>`;
+    const factX = 382 + index * 300;
+    svg += `<text x="${factX}" y="${championFactsY}" font-family="${officialSvgFont}" font-size="27" font-weight="700" fill="#CDC6BC">${escapeXml(fact)}</text>`;
   });
 
   y += championHeight;
+  const secondX = margin;
+  const thirdX = margin + secondaryWidth + secondaryGap;
+  const dividerX = margin + secondaryWidth + secondaryGap / 2;
   svg += `<line x1="${margin}" y1="${y + 10}" x2="${width - margin}" y2="${y + 10}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
-    ${renderSecondaryPodium(secondAward, secondStanding, 2, margin, y + 24, 405)}
-    <line x1="540" y1="${y + 42}" x2="540" y2="${y + 204}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
-    ${renderSecondaryPodium(thirdAward, thirdStanding, 3, 564, y + 24, 456)}
+    ${renderSecondaryPodium(secondAward, secondStanding, 2, secondX, y + 24, secondPodiumLayout)}
+    <line x1="${dividerX}" y1="${y + 42}" x2="${dividerX}" y2="${y + secondaryPodiumHeight - 26}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+    ${renderSecondaryPodium(thirdAward, thirdStanding, 3, thirdX, y + 24, thirdPodiumLayout)}
     <line x1="${margin}" y1="${y + secondaryPodiumHeight}" x2="${width - margin}" y2="${y + secondaryPodiumHeight}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>`;
 
   y = heroHeight;
@@ -1115,7 +1192,7 @@ export function generateOfficialTournamentResultsSvg(
   y += rankingTitleHeight;
 
   rankingLayouts.forEach((layout, index) => {
-    const { item, components, tieLines, rowHeight } = layout;
+    const { item, scoreLayout, tieLines, rowHeight, scoreStartOffset, tieStartOffset } = layout;
     const rowY = y;
     const accent = item.display_place === 1 ? gold : item.display_place === 2 ? silver : item.display_place === 3 ? bronze : '#8B8580';
     const name = wrapExportText(item.display_name, 24, 1)[0];
@@ -1125,14 +1202,13 @@ export function generateOfficialTournamentResultsSvg(
     svg += `<line x1="${margin}" y1="${rowY}" x2="${width - margin}" y2="${rowY}" stroke="rgba(255,255,255,0.085)" stroke-width="1"/>
       <text x="${margin + 32}" y="${rowY + 73}" text-anchor="middle" font-family="${officialSvgFont}" font-size="40" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(item.display_place).padStart(2, '0')}</text>
       ${officialAvatarSvg(item.avatar_data_url, item.display_name, margin + 78, rowY + 26, 82, `standing-${index}`, item.display_place <= 3 ? accent : '#39353B', item.display_place <= 3 ? 2.5 : 1.5)}
-      <text x="${margin + 184}" y="${rowY + 56}" font-family="${officialSvgFont}" font-size="36" font-weight="900" fill="${warmWhite}">${escapeXml(name)}</text>
-      <text x="${margin + 184}" y="${rowY + 96}" font-family="${officialSvgFont}" font-size="27" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>
+      <text x="${scoreX}" y="${rowY + 56}" font-family="${officialSvgFont}" font-size="36" font-weight="900" fill="${warmWhite}">${escapeXml(name)}</text>
+      <text x="${scoreX}" y="${rowY + 96}" font-family="${officialSvgFont}" font-size="27" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>
       <text x="${width - margin}" y="${rowY + 66}" text-anchor="end" font-family="${officialSvgFont}" font-size="50" font-weight="900" fill="${item.display_place <= 3 ? accent : warmWhite}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
-      ${officialScoreComponentsSvg(components, margin + 184, rowY + 140, width - margin)}`;
+      ${officialScoreComponentsSvg(scoreLayout, scoreX, rowY + scoreStartOffset)}`;
 
     if (tieLines.length) {
-      const tieStartY = rowY + 140 + Math.max(0, layout.componentLines - 1) * 36 + 38;
-      svg += officialSvgTextLines(tieLines, margin + 184, tieStartY, 30, `font-family="${officialSvgFont}" font-size="23" font-weight="600" fill="#746E68"`);
+      svg += officialSvgTextLines(tieLines, scoreX, rowY + tieStartOffset, 31, `font-family="${officialSvgFont}" font-size="23" font-weight="600" fill="#746E68"`);
     }
     y += rowHeight;
   });
@@ -1143,32 +1219,34 @@ export function generateOfficialTournamentResultsSvg(
     y += 98;
 
     if (featuredAward) {
-      const featuredTitles = featuredAward.titles.join(' · ');
-      const featuredTitleLines = wrapExportText(featuredTitles, 44, 2);
-      svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="178" fill="url(#mvpWash)"/>
-        <rect x="${margin}" y="${y}" width="4" height="178" fill="#A93C5D"/>
-        ${officialAvatarSvg(featuredAward.avatar_data_url, featuredAward.display_name, margin + 34, y + 28, 122, 'award-mvp', '#A95169', 3)}
-        <text x="${margin + 190}" y="${y + 48}" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="#D6A1AE" letter-spacing="2">MVP</text>
-        <text x="${margin + 190}" y="${y + 96}" font-family="${officialSvgFont}" font-size="44" font-weight="900" fill="${warmWhite}">${escapeXml(wrapExportText(featuredAward.display_name, 24, 1)[0])}</text>
-        ${officialSvgTextLines(featuredTitleLines, margin + 190, y + 136, 29, `font-family="${officialSvgFont}" font-size="25" font-weight="650" fill="#AFA7A0"`)}`;
-      y += 202;
+      const featuredName = featuredAward.display_name;
+      svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="166" fill="url(#mvpWash)"/>
+        <rect x="${margin}" y="${y}" width="4" height="166" fill="#A93C5D"/>
+        <text x="${margin + 34}" y="${y + 42}" font-family="${officialSvgFont}" font-size="25" font-weight="900" fill="#D6A1AE" letter-spacing="2.2">MVP ТУРНИРА</text>
+        ${officialAvatarSvg(featuredAward.avatar_data_url, featuredAward.participant_id ? featuredName : featuredAward.title, margin + 34, y + 58, 88, 'award-mvp', '#A95169', 3)}
+        <text x="${margin + 150}" y="${y + 112}" font-family="${officialSvgFont}" font-size="44" font-weight="900" fill="${warmWhite}">${escapeXml(wrapExportText(featuredName, 25, 1)[0])}</text>`;
+      y += featuredAwardHeight;
+      if (awardRows.length) y += 24;
     }
 
-    compactAwards.forEach((group, index) => {
-      const rowY = y;
-      const titles = wrapExportText(group.titles.join(' · '), 48, 2);
-      svg += `<line x1="${margin}" y1="${rowY}" x2="${width - margin}" y2="${rowY}" stroke="rgba(255,255,255,0.075)" stroke-width="1"/>
-        ${officialAvatarSvg(group.avatar_data_url, group.display_name, margin + 8, rowY + 18, 72, `award-${index}`, '#4C3940', 1.5)}
-        <text x="${margin + 104}" y="${rowY + 50}" font-family="${officialSvgFont}" font-size="32" font-weight="900" fill="${warmWhite}">${escapeXml(wrapExportText(group.display_name, 25, 1)[0])}</text>
-        ${officialSvgTextLines(titles, margin + 104, rowY + 84, 27, `font-family="${officialSvgFont}" font-size="24" font-weight="650" fill="#9F9790"`)}`;
-      y += 112;
+    awardRows.forEach((row, rowIndex) => {
+      row.items.forEach(({ award, layout, index }) => {
+        const col = index % 2;
+        const tileX = margin + col * (awardTileWidth + awardGap);
+        const titleY = y + 34;
+        const titleBottom = titleY + Math.max(0, layout.titleLines.length - 1) * 27;
+        const avatarY = titleBottom + 24;
+        const nameY = avatarY + 51;
+        svg += `<rect x="${tileX}" y="${y}" width="${awardTileWidth}" height="${row.height}" fill="url(#awardWash)"/>
+          <rect x="${tileX}" y="${y}" width="${awardTileWidth}" height="3" fill="#7E1736" opacity="0.9"/>
+          ${officialSvgTextLines(layout.titleLines, tileX + 18, titleY, 27, `font-family="${officialSvgFont}" font-size="22" font-weight="900" fill="#D6A1AE" letter-spacing="1.2"`)}
+          ${officialAvatarSvg(award.avatar_data_url, award.participant_id ? award.display_name : award.title, tileX + 18, avatarY, 76, `award-tile-${index}`, '#69414D', 2)}
+          ${officialSvgTextLines(layout.nameLines, tileX + 116, nameY, 32, `font-family="${officialSvgFont}" font-size="31" font-weight="900" fill="${warmWhite}"`)}`;
+      });
+      y += row.height;
+      if (rowIndex < awardRows.length - 1) y += 22;
     });
-
-    awards.unawarded.forEach((label) => {
-      svg += `<text x="${margin}" y="${y + 28}" font-family="${officialSvgFont}" font-size="23" font-weight="600" fill="#6F6964">${escapeXml(label)}</text>`;
-      y += 42;
-    });
-    y += 36;
+    y += 38;
   }
 
   const footerY = height - footerHeight;

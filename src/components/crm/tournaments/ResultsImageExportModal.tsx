@@ -60,6 +60,10 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
   }, [revokePreviewUrl]);
 
   useEffect(() => {
+    // React.StrictMode intentionally runs effect setup -> cleanup -> setup again in dev.
+    // Re-arm the mounted flag on every setup so the second PNG generation is allowed
+    // to publish its Blob URL and clear the loading state.
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       requestSeqRef.current += 1;

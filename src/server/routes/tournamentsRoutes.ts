@@ -214,7 +214,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const participants = await db.all<any>(`
-      SELECT tp.*, p.nickname as player_nickname, p.telegram_username, p.phone, p.avatar_updated_at
+      SELECT tp.*, p.nickname as player_nickname, p.telegram_username, p.phone, (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at
       FROM tournament_participants tp
       LEFT JOIN players p ON p.id = tp.player_id
       WHERE tp.tournament_id = ?
@@ -230,7 +230,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const games = [];
     for (const game of gamesList) {
       const seats = await db.all<any>(`
-        SELECT tgs.*, tp.display_name, tp.player_id, p.nickname as original_nickname, p.avatar_updated_at
+        SELECT tgs.*, tp.display_name, tp.player_id, p.nickname as original_nickname, (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at
         FROM tournament_game_seats tgs
         JOIN tournament_participants tp ON tp.id = tgs.participant_id
         LEFT JOIN players p ON p.id = tp.player_id
@@ -1008,7 +1008,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
   }
 
   const participants = await db.all<any>(
-    `SELECT tp.id as participant_id, tp.player_id, tp.participant_number, p.avatar_updated_at,
+    `SELECT tp.id as participant_id, tp.player_id, tp.participant_number, (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at,
             COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
      FROM tournament_participants tp
      LEFT JOIN players p ON tp.player_id = p.id

@@ -59,6 +59,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
 }) => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{ status: number | null; message: string } | null>(null);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<'organization' | 'games' | 'standings' | 'nominations'>('organization');
   const [showRoster, setShowRoster] = useState(false);
@@ -116,12 +117,23 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
     const silent = opts?.silent ?? false;
     if (!silent) {
       setLoading(true);
+      setLoadError(null);
     }
     try {
       const data = await api.getTournament(tournamentId);
       setTournament(data);
+      setLoadError(null);
     } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Ошибка загрузки турнира' });
+      const message = err?.message || 'Ошибка загрузки турнира';
+      if (silent && tournament) {
+        setFeedbackMsg({ type: 'error', text: message });
+      } else {
+        setTournament(null);
+        setLoadError({
+          status: typeof err?.status === 'number' ? err.status : null,
+          message,
+        });
+      }
     } finally {
       if (!silent) {
         setLoading(false);
@@ -161,15 +173,35 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
   }
 
   if (!tournament) {
+    const isNotFound = loadError?.status === 404;
     return (
-      <div className="py-20 text-center text-danger text-xs space-y-3">
-        <p>Турнир не найден</p>
-        <button
-          onClick={onBack}
-          className="bg-surface-2 hover:bg-surface-hover text-text-primary px-4 py-2 rounded-xl text-xs font-bold"
-        >
-          Назад к списку
-        </button>
+      <div className="py-20 text-center text-xs space-y-3">
+        <p className={isNotFound ? 'text-danger' : 'text-text-primary font-bold'}>
+          {isNotFound ? 'Турнир не найден' : 'Не удалось загрузить турнир'}
+        </p>
+        {!isNotFound && (
+          <p className="mx-auto max-w-sm px-4 text-text-secondary">
+            Попробуйте загрузить данные ещё раз. Сам турнир и его результаты при ошибке загрузки не изменяются.
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {!isNotFound && (
+            <button
+              type="button"
+              onClick={() => loadDetail()}
+              className="min-h-[44px] bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-xl text-xs font-bold"
+            >
+              Повторить
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onBack}
+            className="min-h-[44px] bg-surface-2 hover:bg-surface-hover text-text-primary px-4 py-2 rounded-xl text-xs font-bold"
+          >
+            Назад к списку
+          </button>
+        </div>
       </div>
     );
   }

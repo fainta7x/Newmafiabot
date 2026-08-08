@@ -749,6 +749,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
               {tournament.participants?.map((p) => (
                 <div key={p.id} className="bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center space-y-0.5">
                   <PlayerAvatar
+                    playerId={p.player_id || undefined}
+                    avatarVersion={p.avatar_updated_at}
+                    forceStoredLookup
                     nickname={p.player_nickname || p.display_name}
                     size="md"
                     className="mx-auto mb-1"
@@ -1031,7 +1034,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                             <span className="w-7 h-7 rounded-xl bg-accent text-white font-mono font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
                               {seat.seat_number}
                             </span>
-                            <PlayerAvatar nickname={seat.display_name} size="sm" />
+                            <PlayerAvatar playerId={seat.player_id || undefined} avatarVersion={seat.avatar_updated_at} forceStoredLookup nickname={seat.display_name} size="sm" />
                             <div className="min-w-0">
                               <span className="text-xs font-bold text-text-primary block truncate">
                                 {seat.display_name}

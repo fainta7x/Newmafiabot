@@ -191,7 +191,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
   }, [shareFile]);
 
   const handleDownload = () => {
-    if (!pngUrl || downloadBusyRef.current) return;
+    if (!pngUrl || !pngBlob || downloadBusyRef.current) return;
     downloadBusyRef.current = true;
     setDownloading(true);
     setActionError(null);
@@ -199,11 +199,18 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
       const anchor = document.createElement('a');
       anchor.href = pngUrl;
       anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
+      anchor.rel = 'noopener';
+
+      if ('download' in anchor) {
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      } else {
+        const opened = window.open(pngUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) throw new Error('Браузер заблокировал сохранение PNG. Откройте изображение из предпросмотра.');
+      }
     } catch (err: any) {
-      setActionError(err?.message || 'Не удалось скачать PNG');
+      setActionError(err?.message || 'Не удалось сохранить PNG');
     } finally {
       window.setTimeout(() => {
         downloadBusyRef.current = false;

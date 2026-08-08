@@ -211,11 +211,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
-      <header className="sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
+      <header className="sticky top-0 z-40 flex min-h-[52px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:min-h-[60px] sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-[17px] font-black leading-tight tracking-tight text-text-primary">{screenTitle}</h1>
-            <span className="mt-0.5 block truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">2LA noire · NEWMAFIA</span>
+            <h1 className="truncate text-[16px] font-black leading-tight tracking-tight text-text-primary sm:text-[17px]">{screenTitle}</h1>
+            <span className="mt-0.5 hidden truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted sm:block">2LA noire · NEWMAFIA</span>
           </div>
 
           {isOrganizer ? (
@@ -239,7 +239,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-3 py-4 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pb-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-3 pt-2.5 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pb-8">
         {loading ? (
           <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-accent" />

@@ -350,6 +350,7 @@ export interface TournamentParticipant {
   player_nickname?: string;
   telegram_username?: string;
   phone?: string;
+  avatar_updated_at?: string | null;
 }
 
 export interface TournamentGameSeat {
@@ -359,7 +360,8 @@ export interface TournamentGameSeat {
   seat_number: number;
   role: string | null;
   display_name?: string;
-  player_id?: string;
+  player_id?: string | null;
+  avatar_updated_at?: string | null;
 }
 
 export interface TournamentGame {
@@ -523,6 +525,8 @@ export interface TournamentStandingItem {
   official_place: number;
   tie_group_id: string | null;
   participant_id: string;
+  player_id?: string | null;
+  avatar_updated_at?: string | null;
   participant_number: number;
   display_name: string;
   total_points: number;

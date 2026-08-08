@@ -793,31 +793,53 @@ export function generateOfficialTournamentResultsSvg(
 export function renderSvgToPngBlob(svgString: string, width: number, height: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
+    img.decoding = 'async';
+
+    const fail = (message: string) => reject(new Error(message));
 
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        URL.revokeObjectURL(svgUrl);
-        reject(new Error('Canvas 2D context not available'));
-        return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          fail('Браузер не поддерживает Canvas 2D для PNG-экспорта');
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        if (typeof canvas.toBlob === 'function') {
+          canvas.toBlob(
+            (blob) => blob ? resolve(blob) : fail('Не удалось сформировать PNG-файл'),
+            'image/png',
+          );
+          return;
+        }
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const [header, payload] = dataUrl.split(',', 2);
+        if (!payload) {
+          fail('Не удалось сформировать PNG-файл');
+          return;
+        }
+        const mime = /data:([^;]+)/.exec(header)?.[1] || 'image/png';
+        const binary = atob(payload);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        resolve(new Blob([bytes], { type: mime }));
+      } catch (error: any) {
+        fail(error?.message || 'Ошибка при отрисовке PNG');
       }
-      ctx.drawImage(img, 0, 0, width, height);
-      URL.revokeObjectURL(svgUrl);
-      canvas.toBlob(
-        (blob) => blob ? resolve(blob) : reject(new Error('Не удалось сформировать PNG Blob')),
-        'image/png',
-      );
     };
 
     img.onerror = () => {
-      URL.revokeObjectURL(svgUrl);
-      reject(new Error('Failed to load SVG into image element'));
+      fail('Браузер не смог подготовить изображение для PNG-экспорта');
     };
-    img.src = svgUrl;
+
+    // The generated SVG contains only local vector/text data. Encoding it directly
+    // avoids ObjectURL lifecycle/CORS quirks and is reliable in desktop and mobile browsers.
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
   });
 }

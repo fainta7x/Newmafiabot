@@ -214,9 +214,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const participants = await db.all<any>(`
-      SELECT tp.*, p.nickname as player_nickname, p.telegram_username, p.phone
+      SELECT tp.*, p.nickname as player_nickname, p.telegram_username, p.phone, p.avatar_updated_at
       FROM tournament_participants tp
-      JOIN players p ON p.id = tp.player_id
+      LEFT JOIN players p ON p.id = tp.player_id
       WHERE tp.tournament_id = ?
       ORDER BY tp.participant_number ASC
     `, [tournamentId]);
@@ -230,10 +230,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const games = [];
     for (const game of gamesList) {
       const seats = await db.all<any>(`
-        SELECT tgs.*, tp.display_name, tp.player_id, p.nickname as original_nickname
+        SELECT tgs.*, tp.display_name, tp.player_id, p.nickname as original_nickname, p.avatar_updated_at
         FROM tournament_game_seats tgs
         JOIN tournament_participants tp ON tp.id = tgs.participant_id
-        JOIN players p ON p.id = tp.player_id
+        LEFT JOIN players p ON p.id = tp.player_id
         WHERE tgs.game_id = ?
         ORDER BY tgs.seat_number ASC
       `, [game.id]);
@@ -1008,7 +1008,7 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
   }
 
   const participants = await db.all<any>(
-    `SELECT tp.id as participant_id, tp.participant_number,
+    `SELECT tp.id as participant_id, tp.player_id, tp.participant_number, p.avatar_updated_at,
             COALESCE(tp.display_name, p.nickname, 'Участник') as display_name
      FROM tournament_participants tp
      LEFT JOIN players p ON tp.player_id = p.id
@@ -1024,6 +1024,8 @@ export async function internalGetStandings(db: DatabaseWrapper, tournamentId: st
       calculated_place: 0,
       official_place: 0,
       participant_id: p.participant_id,
+      player_id: p.player_id || null,
+      avatar_updated_at: p.avatar_updated_at || null,
       participant_number: p.participant_number,
       display_name: p.display_name,
       total_points: 0,

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Download, Image as ImageIcon, RefreshCw, Share2 } from 'lucide-react';
-import { api, type Tournament } from '../../../lib/api.ts';
+import { api, type Tournament, type TournamentStandingItem } from '../../../lib/api.ts';
 import {
   buildGameExportRows,
   buildOfficialTournamentResultsPresentation,
@@ -13,6 +13,78 @@ import {
   renderSvgToPngBlob,
 } from '../../../lib/tournamentResultsExport.ts';
 import { MobileSheet } from '../../ui/MobileSheet.tsx';
+
+const OFFICIAL_PNG_SCALE = 1.25;
+const EXPORT_AVATAR_SIZE = 160;
+const exportAvatarPromiseCache = new Map<string, Promise<string | null>>();
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timer: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error('avatar-timeout')), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer);
+  }
+};
+
+const compactAvatarForOfficialSvg = async (dataUrl: string): Promise<string | null> => {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) return null;
+  try {
+    const image = await withTimeout(new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('avatar-decode-failed'));
+      img.src = dataUrl;
+    }), 2500);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = EXPORT_AVATAR_SIZE;
+    canvas.height = EXPORT_AVATAR_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    if (!sourceWidth || !sourceHeight) return null;
+    const crop = Math.min(sourceWidth, sourceHeight);
+    const sx = Math.max(0, (sourceWidth - crop) / 2);
+    const sy = Math.max(0, (sourceHeight - crop) * 0.28);
+    ctx.drawImage(image, sx, sy, crop, crop, 0, 0, EXPORT_AVATAR_SIZE, EXPORT_AVATAR_SIZE);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  } catch {
+    return null;
+  }
+};
+
+const loadOfficialAvatar = (standing: TournamentStandingItem): Promise<string | null> => {
+  if (!standing.player_id || !standing.avatar_updated_at) return Promise.resolve(null);
+  const cacheKey = `${standing.player_id}:${standing.avatar_updated_at}`;
+  const cached = exportAvatarPromiseCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    try {
+      const avatar = await withTimeout(api.getPlayerAvatar(standing.player_id!), 2500);
+      return await compactAvatarForOfficialSvg(avatar.data_url);
+    } catch {
+      return null;
+    }
+  })();
+  exportAvatarPromiseCache.set(cacheKey, promise);
+  return promise;
+};
+
+const loadOfficialAvatarMap = async (standings: TournamentStandingItem[]): Promise<Record<string, string>> => {
+  const entries = await Promise.all(standings.map(async (standing) => {
+    const dataUrl = await loadOfficialAvatar(standing);
+    return dataUrl ? [standing.participant_id, dataUrl] as const : null;
+  }));
+  return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry)));
+};
 
 interface ResultsImageExportModalProps {
   isOpen: boolean;
@@ -106,14 +178,21 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           throw new Error('Сначала разрешите все равенства мест и номинаций.');
         }
 
+        const freshStandings = standingsRes.standings || [];
+        const avatarDataByParticipant = await loadOfficialAvatarMap(freshStandings);
         const presentation = buildOfficialTournamentResultsPresentation(
           freshTournament,
-          standingsRes.standings || [],
+          freshStandings,
           awardsRes.slots || [],
           new Date(),
+          avatarDataByParticipant,
         );
         const rendered = generateOfficialTournamentResultsSvg(presentation);
-        blob = await renderSvgToPngBlob(rendered.svg, rendered.width, rendered.height);
+        blob = await renderSvgToPngBlob(
+          rendered.svg,
+          Math.round(rendered.width * OFFICIAL_PNG_SCALE),
+          Math.round(rendered.height * OFFICIAL_PNG_SCALE),
+        );
         nextFileName = getSafeFilenameForOfficial(freshTournament.title, freshTournament.date);
       } else if (exportType === 'game') {
         if (!gameId) throw new Error('Не указан идентификатор игры для экспорта');

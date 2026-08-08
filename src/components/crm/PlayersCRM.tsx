@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -26,7 +26,6 @@ import {
   type GameEvening,
   type Player,
   type PlayerDetails,
-  type PlayerGameHistoryItem,
 } from '../../lib/api.ts';
 import { formatEveningDateTime, getSortedFutureEvenings } from '../../lib/dateUtils.ts';
 import {
@@ -39,6 +38,7 @@ import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { PlayerGameCard } from './PlayerGameCard.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 
 interface PlayersCRMProps {
@@ -71,18 +71,6 @@ const fmtDate = (value?: string | null, withTime = false) => {
     : { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const roleLabel = (role: PlayerGameHistoryItem['role']) =>
-  role === 'don' ? 'Дон' : role === 'mafia' ? 'Мафия' : role === 'sheriff' ? 'Шериф' : role === 'citizen' ? 'Мирный' : 'Роль не указана';
-
-const exitLabel = (exitType: string | null) => {
-  if (exitType === 'killed') return 'Убит ночью';
-  if (exitType === 'voted_zero_round') return 'Заголосован в 0 круге';
-  if (exitType === 'voted_day') return 'Заголосован';
-  if (exitType === 'removed') return 'Удалён';
-  if (exitType === 'alive') return 'Дожил до конца';
-  return exitType || 'Без отметки';
-};
-
 const statusTone = (status?: string | null) => {
   if (status === 'blocked') return 'bg-danger-soft text-danger border-danger/20';
   if (status === 'paused') return 'bg-warning-soft text-warning border-warning/20';
@@ -101,6 +89,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [listError, setListError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const playerListRequestSeq = useRef(0);
   const [lifecycleStatus, setLifecycleStatus] = useState('');
   const [contactStatusFilter, setContactStatusFilter] = useState('');
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('all');
@@ -174,8 +164,9 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
 
   useEffect(() => {
-    void loadPlayers();
-  }, [search, lifecycleStatus, contactStatusFilter, activeQuickFilter]);
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     if (selectedPlayerId) {
@@ -185,12 +176,14 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     }
   }, [selectedPlayerId]);
 
-  const loadPlayers = async () => {
+  const loadPlayers = useCallback(async () => {
+    const requestId = ++playerListRequestSeq.current;
     setLoading(true);
     setListError(null);
+
     try {
       const params: Record<string, string | number | boolean> = {};
-      if (search.trim()) params.search = search.trim();
+      if (debouncedSearch) params.search = debouncedSearch;
       if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
       if (contactStatusFilter) params.contact_status = contactStatusFilter;
       if (activeQuickFilter === 'newcomers1') params.first_visit_only = true;
@@ -198,13 +191,21 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       if (activeQuickFilter === 'absent30') params.inactive_days = 30;
       if (activeQuickFilter === 'absent60') params.inactive_days = 60;
       if (activeQuickFilter === 'open_tasks') params.has_open_tasks = true;
-      setPlayers(await api.getPlayers(params));
+
+      const nextPlayers = await api.getPlayers(params);
+      if (requestId !== playerListRequestSeq.current) return;
+      setPlayers(nextPlayers);
     } catch (err: any) {
+      if (requestId !== playerListRequestSeq.current) return;
       setListError(err.message || 'Не удалось загрузить игроков');
     } finally {
-      setLoading(false);
+      if (requestId === playerListRequestSeq.current) setLoading(false);
     }
-  };
+  }, [debouncedSearch, lifecycleStatus, contactStatusFilter, activeQuickFilter]);
+
+  useEffect(() => {
+    void loadPlayers();
+  }, [loadPlayers]);
 
   const initEditForm = (data: PlayerDetails) => {
     setEditForm({
@@ -552,49 +553,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
   const inviteInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: false, reason: '' };
 
-  const renderGame = (game: PlayerGameHistoryItem) => (
-    <article key={game.id} className="rounded-[16px] border border-border-soft bg-surface-2 p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h4 className="text-[14px] font-semibold leading-5 text-text-primary break-words">{game.title}</h4>
-          <p className="mt-1 text-[11px] text-text-secondary">
-            {fmtDate(game.date)} · Игра #{game.game_number || '—'}{game.table_name ? ` · ${game.table_name}` : ''}
-          </p>
-        </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-          game.status !== 'completed' ? 'bg-surface-1 text-text-muted' : game.won ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'
-        }`}>
-          {game.status !== 'completed' ? game.status : game.won ? 'Победа' : 'Поражение'}
-        </span>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-[12px] bg-surface-1 p-2.5">
-          <span className="block text-[10px] text-text-muted">Роль</span>
-          <strong className="mt-0.5 block text-[12px] text-text-primary">{roleLabel(game.role)}</strong>
-        </div>
-        <div className="rounded-[12px] bg-surface-1 p-2.5">
-          <span className="block text-[10px] text-text-muted">Место</span>
-          <strong className="mt-0.5 block text-[12px] text-text-primary">#{game.seat_number || '—'}</strong>
-        </div>
-        <div className="col-span-2 rounded-[12px] bg-surface-1 p-2.5">
-          <span className="block text-[10px] text-text-muted">Итог для игрока</span>
-          <strong className="mt-0.5 block text-[12px] text-text-primary">{exitLabel(game.exit_type)}</strong>
-        </div>
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-        {game.best_move && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">Лучший ход</span>}
-        {game.first_killed && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">ПУ</span>}
-        {game.zero_round_voted && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">0 круг</span>}
-        {game.regular_fouls > 0 && <span className="rounded-full bg-surface-1 px-2.5 py-1 text-text-secondary">Фолы: {game.regular_fouls}</span>}
-        {(game.minor_technical_fouls + game.major_technical_fouls) > 0 && (
-          <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">Тех: {game.minor_technical_fouls + game.major_technical_fouls}</span>
-        )}
-      </div>
-    </article>
-  );
-
   return (
     <div className="min-w-0 space-y-4">
       <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4 sm:p-5 space-y-4">
@@ -760,8 +718,32 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       <MobileSheet
         open={Boolean(activePlayerCardId)}
         onClose={handleCloseCard}
-        title={playerDetails?.nickname || 'Профиль игрока'}
-        subtitle={playerDetails ? `${getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)} · ${getRussianContactStatusLabel(playerDetails.contact_status)}` : 'Загрузка данных'}
+        title={playerDetails ? (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <PlayerAvatar
+              playerId={playerDetails.id}
+              avatarVersion={playerDetails.avatar_updated_at}
+              nickname={playerDetails.nickname}
+              size="sm"
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-bold text-text-primary">{playerDetails.nickname}</div>
+              {playerDetails.full_name ? (
+                <div className="mt-0.5 truncate text-[11px] font-medium text-text-secondary">{playerDetails.full_name}</div>
+              ) : null}
+            </div>
+          </div>
+        ) : 'Профиль игрока'}
+        subtitle={playerDetails ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(playerDetails.contact_status)}`}>
+              {getRussianContactStatusLabel(playerDetails.contact_status)}
+            </span>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+              {getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}
+            </span>
+          </div>
+        ) : 'Загрузка данных'}
         widthClass="sm:max-w-2xl"
         bodyClassName="p-0"
       >
@@ -804,9 +786,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               {profileMessage && <div className="mb-3 rounded-[14px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div>}
 
               {playerSection === 'overview' && (
-                <div className="player-overview-embedded">
-                  <PlayerProfileContent player={playerDetails} />
-                </div>
+                <PlayerProfileContent
+                  player={playerDetails}
+                  onOpenGames={() => setPlayerSection('games')}
+                />
               )}
 
               {playerSection === 'games' && (
@@ -831,7 +814,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                       ))}
                     </div>
                   </div>
-                  {shownGames.length ? shownGames.map(renderGame) : (
+                  {shownGames.length ? shownGames.map((game) => <PlayerGameCard key={game.id} game={game} />) : (
                     <div className="rounded-[16px] border border-border-soft bg-surface-1 py-12 text-center text-[13px] text-text-secondary">В этой категории пока нет игр.</div>
                   )}
                 </div>
@@ -840,34 +823,62 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               {playerSection === 'crm' && (
                 <div className="space-y-4">
                   <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="relative shrink-0">
-                        <PlayerAvatar playerId={playerDetails.id} avatarVersion={playerDetails.avatar_updated_at} nickname={playerDetails.nickname} size="lg" />
-                        {avatarBusy && <div className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-[10px] text-white">…</div>}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-[14px] font-bold text-text-primary">Данные игрока</h3>
+                        <p className="mt-1 text-[11px] leading-4 text-text-secondary">Фото, контакты и настройки профиля.</p>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-[18px] font-bold text-text-primary break-words">{playerDetails.nickname}</h3>
-                        {playerDetails.full_name && <p className="mt-0.5 text-[12px] text-text-secondary break-words">{playerDetails.full_name}</p>}
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</span>
-                          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold text-text-secondary">{getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}</span>
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => setIsEditMode((value) => !value)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft text-text-secondary" aria-label="Редактировать игрока">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditMode((value) => !value)}
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary"
+                        aria-label="Редактировать данные игрока"
+                        title="Редактировать данные игрока"
+                      >
                         <Edit3 className="h-4.5 w-4.5" />
                       </button>
                     </div>
 
+                    <div className="mt-3 flex items-center gap-3 rounded-[14px] bg-surface-2 p-3">
+                      <div className="relative shrink-0">
+                        <PlayerAvatar
+                          playerId={playerDetails.id}
+                          avatarVersion={playerDetails.avatar_updated_at}
+                          nickname={playerDetails.nickname}
+                          size="md"
+                        />
+                        {avatarBusy ? (
+                          <div className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-[10px] text-white">…</div>
+                        ) : null}
+                      </div>
+                      <div className="min-w-0">
+                        <strong className="block text-[12px] text-text-primary">Фото профиля</strong>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">
+                          {playerDetails.avatar_updated_at ? 'Фото загружено' : 'Используется инициала никнейма'}
+                        </span>
+                      </div>
+                    </div>
+
                     <input id="player-avatar-upload-input" type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button type="button" disabled={avatarBusy} onClick={() => document.getElementById('player-avatar-upload-input')?.click()} className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-semibold text-text-secondary inline-flex items-center gap-1.5 disabled:opacity-50">
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        disabled={avatarBusy}
+                        onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
+                        className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-semibold text-text-secondary inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
                         <Upload className="h-4 w-4" /> {playerDetails.avatar_updated_at ? 'Заменить фото' : 'Загрузить фото'}
                       </button>
-                      {playerDetails.avatar_updated_at && (
-                        <button type="button" disabled={avatarBusy} onClick={() => setConfirmDeleteAvatar(true)} className="min-h-[44px] rounded-[11px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger inline-flex items-center gap-1.5 disabled:opacity-50">
+                      {playerDetails.avatar_updated_at ? (
+                        <button
+                          type="button"
+                          disabled={avatarBusy}
+                          onClick={() => setConfirmDeleteAvatar(true)}
+                          className="min-h-[44px] rounded-[11px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
                           <Trash2 className="h-4 w-4" /> Удалить фото
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </section>
 

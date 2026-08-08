@@ -4,6 +4,7 @@ import {
   BarChart3,
   Calendar,
   Clock,
+  Gamepad2,
   LayoutGrid,
   Lock,
   LogOut,
@@ -192,9 +193,25 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               <Palette className="w-5 h-5" />
             </button>
             {onReturnToGameEngine ? (
-              <button onClick={onReturnToGameEngine} className="hidden sm:inline-flex min-h-11 bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 rounded-[12px] text-[12px] items-center">
-                Игровой движок
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={onReturnToGameEngine}
+                  aria-label="Игровой движок"
+                  title="Игровой движок"
+                  className="sm:hidden grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                >
+                  <Gamepad2 className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onReturnToGameEngine}
+                  title="Игровой движок"
+                  className="hidden sm:inline-flex min-h-11 bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 rounded-[12px] text-[12px] items-center"
+                >
+                  Игровой движок
+                </button>
+              </>
             ) : null}
             {isOrganizer ? (
               <button aria-label="Выйти" onClick={() => void handleLogout()} className="w-11 h-11 bg-surface-1 border border-border-soft hover:border-border-strong rounded-[12px] text-text-secondary hover:text-danger flex items-center justify-center transition-colors">

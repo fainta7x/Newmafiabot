@@ -291,42 +291,6 @@ body,
   padding-right: env(safe-area-inset-right);
 }
 
-.player-overview-embedded [data-profile-hero],
-.player-overview-embedded [data-profile-tabs],
-.player-overview-embedded [data-profile-all-games] {
-  display: none;
-}
-
-.player-overview-embedded .bg-slate-950,
-.player-overview-embedded .bg-slate-950\/70,
-.player-overview-embedded .bg-slate-900 {
-  background-color: var(--surface-1);
-}
-
-.player-overview-embedded .bg-slate-800,
-.player-overview-embedded .bg-slate-800\/40 {
-  background-color: var(--surface-2);
-}
-
-.player-overview-embedded .border-slate-700,
-.player-overview-embedded .border-slate-800 {
-  border-color: var(--border-soft);
-}
-
-.player-overview-embedded .text-white,
-.player-overview-embedded .text-slate-200 {
-  color: var(--text-primary);
-}
-
-.player-overview-embedded .text-slate-300,
-.player-overview-embedded .text-slate-400 {
-  color: var(--text-secondary);
-}
-
-.player-overview-embedded .text-slate-500,
-.player-overview-embedded .text-slate-600 {
-  color: var(--text-muted);
-}
 
 @media (max-width: 639px) {
   .mobile-sheet {
@@ -339,9 +303,5 @@ body,
   select,
   textarea {
     font-size: 16px;
-  }
-
-  .player-overview-embedded > div {
-    padding-bottom: 0;
   }
 }

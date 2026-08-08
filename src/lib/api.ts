@@ -86,7 +86,8 @@ export type PlayerAwardKey =
   | 'nomination_best_mafia'
   | 'nomination_best_sheriff'
   | 'nomination_best_don'
-  | 'nomination_mvp';
+  | 'nomination_mvp'
+  | 'nomination_other';
 
 export interface PlayerTournamentAward {
   id: string;
@@ -95,11 +96,32 @@ export interface PlayerTournamentAward {
   title: string;
   place: number | null;
   category: string | null;
-  tournament_id: string;
+  tournament_id: string | null;
   tournament_title: string;
   tournament_date: string | null;
-  source: 'automatic' | 'manual';
+  source: 'automatic' | 'manual' | 'historical';
   comment: string | null;
+  historical_award_id: string | null;
+}
+
+export interface PlayerHistoricalAwardInput {
+  award_key: PlayerAwardKey;
+  tournament_title: string;
+  tournament_date?: string | null;
+  title?: string;
+  comment?: string;
+}
+
+export interface PlayerHistoricalAwardRecord {
+  id: string;
+  player_id: string;
+  award_key: PlayerAwardKey;
+  title: string;
+  tournament_title: string;
+  tournament_date: string | null;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PlayerAwardStats {
@@ -700,6 +722,18 @@ export const api = {
   }),
   resetTournamentAwardOverride: (tournamentId: string, awardKey: PlayerAwardKey) =>
     request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards/${awardKey}`, { method: 'DELETE' }),
+  createPlayerHistoricalAward: (playerId: string, data: PlayerHistoricalAwardInput) =>
+    request<{ award: PlayerHistoricalAwardRecord; checkpoint_warning?: string }>(`/api/players/${playerId}/historical-awards`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePlayerHistoricalAward: (playerId: string, awardId: string, data: PlayerHistoricalAwardInput) =>
+    request<{ award: PlayerHistoricalAwardRecord; checkpoint_warning?: string }>(`/api/players/${playerId}/historical-awards/${awardId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deletePlayerHistoricalAward: (playerId: string, awardId: string) =>
+    request<{ success: boolean; checkpoint_warning?: string }>(`/api/players/${playerId}/historical-awards/${awardId}`, { method: 'DELETE' }),
   createPlayer: (data: Partial<Player>) => request<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) }),
   updatePlayer: (id: string, data: Partial<Player>) => request<Player>(`/api/players/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePlayer: (id: string) => request<{ success: boolean }>(`/api/players/${id}`, { method: 'DELETE' }),

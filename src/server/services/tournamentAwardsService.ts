@@ -16,6 +16,7 @@ export const TOURNAMENT_AWARD_DEFINITIONS = [
 ] as const;
 
 export type TournamentAwardKey = typeof TOURNAMENT_AWARD_DEFINITIONS[number]['key'];
+export type HistoricalAwardKey = TournamentAwardKey | 'nomination_other';
 
 export interface TournamentAwardSlot {
   key: TournamentAwardKey;
@@ -34,16 +35,17 @@ export interface TournamentAwardSlot {
 
 export interface PlayerTournamentAward {
   id: string;
-  key: TournamentAwardKey;
+  key: HistoricalAwardKey;
   kind: TournamentAwardKind;
   title: string;
   place: number | null;
   category: string | null;
-  tournament_id: string;
+  tournament_id: string | null;
   tournament_title: string;
   tournament_date: string | null;
-  source: 'automatic' | 'manual';
+  source: 'automatic' | 'manual' | 'historical';
   comment: string | null;
+  historical_award_id: string | null;
 }
 
 export interface PlayerAwardStats {
@@ -56,8 +58,16 @@ export interface PlayerAwardStats {
 export const isTournamentAwardKey = (value: string): value is TournamentAwardKey =>
   TOURNAMENT_AWARD_DEFINITIONS.some((item) => item.key === value);
 
+export const isHistoricalAwardKey = (value: string): value is HistoricalAwardKey =>
+  isTournamentAwardKey(value) || value === 'nomination_other';
+
 export const getTournamentAwardDefinition = (key: string) =>
   TOURNAMENT_AWARD_DEFINITIONS.find((item) => item.key === key) || null;
+
+export const getHistoricalAwardDefaultTitle = (key: HistoricalAwardKey) => {
+  if (key === 'nomination_other') return 'Номинация';
+  return getTournamentAwardDefinition(key)?.title || 'Награда';
+};
 
 export const buildPlayerAwardStats = (awards: Array<Pick<PlayerTournamentAward, 'key' | 'kind'>>): PlayerAwardStats => ({
   firstPlaces: awards.filter((award) => award.key === 'place_1').length,
@@ -188,8 +198,38 @@ export async function loadPlayerTournamentAwards(db: DatabaseWrapper, playerId: 
         tournament_date: tournament.date || null,
         source: slot.source,
         comment: slot.comment,
+        historical_award_id: null,
       });
     }
+  }
+
+  const historicalRows = await db.all<any>(`
+    SELECT id, award_key, title, tournament_title, tournament_date, comment, created_at
+      FROM player_historical_awards
+     WHERE player_id = ?
+     ORDER BY COALESCE(tournament_date, created_at) DESC, created_at DESC
+  `, [playerId]);
+
+  for (const row of historicalRows) {
+    const key = String(row.award_key || '');
+    if (!isHistoricalAwardKey(key)) continue;
+    const definition = getTournamentAwardDefinition(key);
+    const place = key === 'place_1' ? 1 : key === 'place_2' ? 2 : key === 'place_3' ? 3 : null;
+
+    awards.push({
+      id: `historical:${row.id}`,
+      key,
+      kind: place ? 'placement' : 'nomination',
+      title: row.title || getHistoricalAwardDefaultTitle(key),
+      place,
+      category: definition?.category || null,
+      tournament_id: null,
+      tournament_title: row.tournament_title || 'Турнир',
+      tournament_date: row.tournament_date || null,
+      source: 'historical',
+      comment: row.comment || null,
+      historical_award_id: String(row.id),
+    });
   }
 
   awards.sort((a, b) => {

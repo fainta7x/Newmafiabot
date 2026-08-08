@@ -287,6 +287,12 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     dbWrapper.sqlite.exec(migration6Sql);
   }
 
+  const migration7SqlPath = path.join(process.cwd(), 'drizzle', '0007_player_historical_awards.sql');
+  if (fs.existsSync(migration7SqlPath)) {
+    const migration7Sql = fs.readFileSync(migration7SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration7Sql);
+  }
+
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');

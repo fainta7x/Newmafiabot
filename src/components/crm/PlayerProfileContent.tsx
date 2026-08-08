@@ -36,6 +36,10 @@ const nominationOptions: Array<{ key: PlayerAwardKey; label: string }> = [
   { key: 'nomination_best_don', label: 'Лучший Дон' },
   { key: 'nomination_mvp', label: 'MVP' },
 ];
+const historicalNominationOptions: Array<{ key: PlayerAwardKey; label: string }> = [
+  ...nominationOptions,
+  { key: 'nomination_other', label: 'Другая номинация' },
+];
 
 const roleInfo = (role: string | null) => {
   if (role === 'don') return { label: 'Дон', icon: '🎩', cls: 'text-purple-300 border-purple-500/30 bg-purple-500/10' };
@@ -109,6 +113,13 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
   const [awardComment, setAwardComment] = useState('');
   const [awardSaving, setAwardSaving] = useState(false);
   const [awardError, setAwardError] = useState<string | null>(null);
+  const [showHistoricalEditor, setShowHistoricalEditor] = useState(false);
+  const [historicalEditingId, setHistoricalEditingId] = useState<string | null>(null);
+  const [historicalTournamentTitle, setHistoricalTournamentTitle] = useState('');
+  const [historicalTournamentDate, setHistoricalTournamentDate] = useState('');
+  const [historicalAwardKey, setHistoricalAwardKey] = useState<PlayerAwardKey>('place_1');
+  const [historicalCustomTitle, setHistoricalCustomTitle] = useState('');
+  const [historicalComment, setHistoricalComment] = useState('');
 
   const stats = player.gameStats;
   const allGames = useMemo(() => [...(player.clubGames || []), ...(player.tournamentGames || [])].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()), [player.clubGames, player.tournamentGames]);
@@ -132,10 +143,21 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
   const openAwardHistory = (filter: AwardFilter) => {
     setAwardFilter(filter);
     setShowAwardEditor(false);
+    setShowHistoricalEditor(false);
+    setHistoricalEditingId(null);
+    setHistoricalTournamentTitle('');
+    setHistoricalTournamentDate('');
+    setHistoricalCustomTitle('');
+    setHistoricalComment('');
     setAwardError(null);
     setAwardComment('');
-    if (filter === 'nominations') setAwardKey('nomination_best_citizen');
-    else setAwardKey(filter);
+    if (filter === 'nominations') {
+      setAwardKey('nomination_best_citizen');
+      setHistoricalAwardKey('nomination_best_citizen');
+    } else {
+      setAwardKey(filter);
+      setHistoricalAwardKey(filter);
+    }
     if (!awardTournamentId && awardTournaments[0]) setAwardTournamentId(awardTournaments[0].id);
   };
 
@@ -165,6 +187,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
   };
 
   const handleSuppressAward = async (award: PlayerTournamentAward) => {
+    if (!award.tournament_id) return;
     if (!window.confirm(`Убрать «${award.title}» за турнир «${award.tournament_title}»?`)) return;
     setAwardSaving(true);
     setAwardError(null);
@@ -182,6 +205,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
   };
 
   const handleResetAward = async (award: PlayerTournamentAward) => {
+    if (!award.tournament_id) return;
     setAwardSaving(true);
     setAwardError(null);
     try {
@@ -189,6 +213,91 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
       await refreshAwards();
     } catch (err: any) {
       setAwardError(err.message || 'Не удалось вернуть автоматический результат');
+    } finally {
+      setAwardSaving(false);
+    }
+  };
+
+
+  const openHistoricalEditor = () => {
+    setShowAwardEditor(false);
+    setShowHistoricalEditor(true);
+    setHistoricalEditingId(null);
+    setHistoricalTournamentTitle('');
+    setHistoricalTournamentDate('');
+    setHistoricalCustomTitle('');
+    setHistoricalComment('');
+    setHistoricalAwardKey(awardFilter === 'nominations' ? 'nomination_best_citizen' : (awardFilter || 'place_1'));
+    setAwardError(null);
+  };
+
+  const editHistoricalAward = (award: PlayerTournamentAward) => {
+    if (!award.historical_award_id) return;
+    setShowAwardEditor(false);
+    setShowHistoricalEditor(true);
+    setHistoricalEditingId(award.historical_award_id);
+    setHistoricalTournamentTitle(award.tournament_title || '');
+    setHistoricalTournamentDate(award.tournament_date ? award.tournament_date.slice(0, 10) : '');
+    setHistoricalAwardKey(award.key);
+    setHistoricalCustomTitle(award.key === 'nomination_other' ? award.title : '');
+    setHistoricalComment(award.comment || '');
+    setAwardError(null);
+  };
+
+  const closeHistoricalEditor = () => {
+    setShowHistoricalEditor(false);
+    setHistoricalEditingId(null);
+    setHistoricalTournamentTitle('');
+    setHistoricalTournamentDate('');
+    setHistoricalCustomTitle('');
+    setHistoricalComment('');
+  };
+
+  const handleSaveHistoricalAward = async () => {
+    if (!historicalTournamentTitle.trim()) {
+      setAwardError('Укажи название турнира');
+      return;
+    }
+    if (historicalAwardKey === 'nomination_other' && !historicalCustomTitle.trim()) {
+      setAwardError('Укажи название номинации');
+      return;
+    }
+
+    setAwardSaving(true);
+    setAwardError(null);
+    const payload = {
+      award_key: historicalAwardKey,
+      tournament_title: historicalTournamentTitle.trim(),
+      tournament_date: historicalTournamentDate || null,
+      title: historicalAwardKey === 'nomination_other' ? historicalCustomTitle.trim() : undefined,
+      comment: historicalComment.trim() || undefined,
+    };
+
+    try {
+      if (historicalEditingId) {
+        await api.updatePlayerHistoricalAward(player.id, historicalEditingId, payload);
+      } else {
+        await api.createPlayerHistoricalAward(player.id, payload);
+      }
+      await refreshAwards();
+      closeHistoricalEditor();
+    } catch (err: any) {
+      setAwardError(err.message || 'Не удалось сохранить историческую награду');
+    } finally {
+      setAwardSaving(false);
+    }
+  };
+
+  const handleDeleteHistoricalAward = async (award: PlayerTournamentAward) => {
+    if (!award.historical_award_id) return;
+    if (!window.confirm(`Удалить «${award.title}» за турнир «${award.tournament_title}» из истории?`)) return;
+    setAwardSaving(true);
+    setAwardError(null);
+    try {
+      await api.deletePlayerHistoricalAward(player.id, award.historical_award_id);
+      await refreshAwards();
+    } catch (err: any) {
+      setAwardError(err.message || 'Не удалось удалить историческую награду');
     } finally {
       setAwardSaving(false);
     }
@@ -321,7 +430,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-black text-white flex items-center gap-2"><Award className="w-5 h-5 text-amber-400" /> {awardHistoryTitle}</h3>
-                <p className="text-[10px] text-slate-500 mt-1">История официальных наград по турнирам</p>
+                <p className="text-[10px] text-slate-500 mt-1">Автоматические результаты и добавленная вручную история</p>
               </div>
               <button type="button" aria-label="Закрыть" onClick={() => setAwardFilter(null)} className="w-10 h-10 rounded-xl bg-slate-900 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
@@ -335,15 +444,24 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                       <div className="text-[11px] font-bold text-amber-300 mt-0.5 break-words">{award.tournament_title}</div>
                       <div className="text-[9px] text-slate-500 mt-0.5">{fmtDate(award.tournament_date)}</div>
                     </div>
-                    <span className={`shrink-0 rounded-lg border px-2 py-1 text-[8px] font-black ${award.source === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
-                      {award.source === 'manual' ? 'РУЧНАЯ ПРАВКА' : 'ПО ИТОГАМ'}
+                    <span className={`shrink-0 rounded-lg border px-2 py-1 text-[8px] font-black ${award.source === 'historical' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : award.source === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
+                      {award.source === 'historical' ? 'ДОБАВЛЕНО ВРУЧНУЮ' : award.source === 'manual' ? 'РУЧНАЯ ПРАВКА' : 'ПО ИТОГАМ'}
                     </span>
                   </div>
                   {award.comment && <div className="rounded-xl bg-slate-950 px-2.5 py-2 text-[10px] text-slate-400">{award.comment}</div>}
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    <button type="button" disabled={awardSaving} onClick={() => handleSuppressAward(award)} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-bold text-rose-300 disabled:opacity-50">Убрать</button>
-                    {award.source === 'manual' && (
-                      <button type="button" disabled={awardSaving} onClick={() => handleResetAward(award)} className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[9px] font-bold text-slate-300 flex items-center gap-1 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Вернуть расчёт</button>
+                    {award.source === 'historical' ? (
+                      <>
+                        <button type="button" disabled={awardSaving} onClick={() => editHistoricalAward(award)} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[9px] font-bold text-amber-300 disabled:opacity-50">Изменить</button>
+                        <button type="button" disabled={awardSaving} onClick={() => handleDeleteHistoricalAward(award)} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-bold text-rose-300 disabled:opacity-50">Удалить</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" disabled={awardSaving} onClick={() => handleSuppressAward(award)} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-bold text-rose-300 disabled:opacity-50">Убрать</button>
+                        {award.source === 'manual' && (
+                          <button type="button" disabled={awardSaving} onClick={() => handleResetAward(award)} className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[9px] font-bold text-slate-300 flex items-center gap-1 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Вернуть расчёт</button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -354,11 +472,54 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
 
             {awardError && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-[10px] text-rose-300">{awardError}</div>}
 
-            {!showAwardEditor ? (
-              <button type="button" onClick={() => setShowAwardEditor(true)} className="w-full min-h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-black flex items-center justify-center gap-2"><Plus className="w-4 h-4" />Добавить / исправить награду</button>
-            ) : (
+            {!showAwardEditor && !showHistoricalEditor && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button type="button" onClick={openHistoricalEditor} className="min-h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-black flex items-center justify-center gap-2"><Plus className="w-4 h-4" />Добавить прошлую награду</button>
+                {awardTournaments.length > 0 && (
+                  <button type="button" onClick={() => setShowAwardEditor(true)} className="min-h-11 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-300 text-xs font-black">Исправить турнир в базе</button>
+                )}
+              </div>
+            )}
+
+            {showHistoricalEditor && (
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-3">
-                <div className="flex items-center justify-between"><strong className="text-xs text-white">Ручная корректировка</strong><button type="button" onClick={() => setShowAwardEditor(false)} className="text-[10px] text-slate-500">Закрыть</button></div>
+                <div className="flex items-center justify-between"><strong className="text-xs text-white">{historicalEditingId ? 'Изменить прошлую награду' : 'Добавить прошлую награду'}</strong><button type="button" onClick={closeHistoricalEditor} className="text-[10px] text-slate-500">Закрыть</button></div>
+                <div>
+                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Название турнира</label>
+                  <input value={historicalTournamentTitle} onChange={(event) => setHistoricalTournamentTitle(event.target.value)} maxLength={180} placeholder="Например: Кубок города 2023" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Дата, если известна</label>
+                  <input type="date" value={historicalTournamentDate} onChange={(event) => setHistoricalTournamentDate(event.target.value)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white" />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Награда</label>
+                  {awardFilter === 'nominations' ? (
+                    <select value={historicalAwardKey} onChange={(event) => setHistoricalAwardKey(event.target.value as PlayerAwardKey)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white">
+                      {historicalNominationOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                    </select>
+                  ) : (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-bold text-amber-300">{awardHistoryTitle.replace('Первые места', '1 место').replace('Вторые места', '2 место').replace('Третьи места', '3 место')}</div>
+                  )}
+                </div>
+                {historicalAwardKey === 'nomination_other' && (
+                  <div>
+                    <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Название номинации</label>
+                    <input value={historicalCustomTitle} onChange={(event) => setHistoricalCustomTitle(event.target.value)} maxLength={120} placeholder="Например: Лучший дебют" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
+                  </div>
+                )}
+                <div>
+                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
+                  <input value={historicalComment} onChange={(event) => setHistoricalComment(event.target.value)} maxLength={500} placeholder="Откуда взята информация или уточнение" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
+                </div>
+                <p className="text-[9px] leading-relaxed text-slate-500">Эта запись существует только в профиле игрока и не меняет результаты турниров в базе.</p>
+                <button type="button" disabled={awardSaving || !historicalTournamentTitle.trim()} onClick={handleSaveHistoricalAward} className="w-full min-h-11 rounded-xl bg-amber-500 text-slate-950 text-xs font-black disabled:opacity-50">{awardSaving ? 'Сохранение…' : historicalEditingId ? 'Сохранить изменения' : `Добавить: ${player.nickname}`}</button>
+              </div>
+            )}
+
+            {showAwardEditor && (
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-3 space-y-3">
+                <div className="flex items-center justify-between"><strong className="text-xs text-white">Исправить результат турнира в базе</strong><button type="button" onClick={() => setShowAwardEditor(false)} className="text-[10px] text-slate-500">Закрыть</button></div>
                 <div>
                   <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Турнир</label>
                   <select value={awardTournamentId} onChange={(event) => setAwardTournamentId(event.target.value)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white">
@@ -373,15 +534,15 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                       {nominationOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
                     </select>
                   ) : (
-                    <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-bold text-amber-300">{awardHistoryTitle.replace('ые места', 'ое место').replace('Первые места', '1 место').replace('Вторые места', '2 место').replace('Третьи места', '3 место')}</div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-bold text-sky-300">{awardHistoryTitle.replace('Первые места', '1 место').replace('Вторые места', '2 место').replace('Третьи места', '3 место')}</div>
                   )}
                 </div>
                 <div>
                   <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
                   <input value={awardComment} onChange={(event) => setAwardComment(event.target.value)} maxLength={500} placeholder="Например: решение главного судьи" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
                 </div>
-                <p className="text-[9px] leading-relaxed text-slate-500">Назначение заменит текущего обладателя этой награды. Для призовых мест, если оба игрока уже в топ-3, система автоматически поменяет их местами.</p>
-                <button type="button" disabled={awardSaving || !awardTournamentId} onClick={handleAssignAward} className="w-full min-h-11 rounded-xl bg-amber-500 text-slate-950 text-xs font-black disabled:opacity-50">{awardSaving ? 'Сохранение…' : `Назначить: ${player.nickname}`}</button>
+                <p className="text-[9px] leading-relaxed text-slate-500">Это меняет официальный результат существующего турнира. Для призовых мест система сохраняет уникальные 1–3 места и при необходимости переставляет игроков.</p>
+                <button type="button" disabled={awardSaving || !awardTournamentId} onClick={handleAssignAward} className="w-full min-h-11 rounded-xl bg-sky-500 text-slate-950 text-xs font-black disabled:opacity-50">{awardSaving ? 'Сохранение…' : `Назначить: ${player.nickname}`}</button>
               </div>
             )}
           </div>

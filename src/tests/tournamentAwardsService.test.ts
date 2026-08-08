@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPlayerAwardStats,
+  getHistoricalAwardDefaultTitle,
   getTournamentAwardDefinition,
+  isHistoricalAwardKey,
   isTournamentAwardKey,
   TOURNAMENT_AWARD_DEFINITIONS,
 } from '../server/services/tournamentAwardsService.ts';
@@ -17,6 +19,13 @@ describe('tournament awards service', () => {
     expect(isTournamentAwardKey('place_1')).toBe(true);
     expect(isTournamentAwardKey('nomination_best_don')).toBe(true);
     expect(isTournamentAwardKey('place_4')).toBe(false);
+  });
+
+  it('accepts custom historical nominations without adding them to official tournament slots', () => {
+    expect(isHistoricalAwardKey('nomination_other')).toBe(true);
+    expect(isTournamentAwardKey('nomination_other')).toBe(false);
+    expect(getHistoricalAwardDefaultTitle('nomination_other')).toBe('Номинация');
+    expect(getHistoricalAwardDefaultTitle('place_1')).toBe('1 место');
   });
 
   it('counts podium places and nominations independently', () => {

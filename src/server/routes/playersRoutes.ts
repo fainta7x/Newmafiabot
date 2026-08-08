@@ -7,8 +7,58 @@ import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
+import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
+import {
+  getHistoricalAwardDefaultTitle,
+  isHistoricalAwardKey,
+  type HistoricalAwardKey,
+} from '../services/tournamentAwardsService.ts';
 
 const router = Router();
+
+type HistoricalAwardPayload = {
+  awardKey: HistoricalAwardKey;
+  title: string;
+  tournamentTitle: string;
+  tournamentDate: string | null;
+  comment: string | null;
+};
+
+const parseHistoricalAwardPayload = (body: any): { value?: HistoricalAwardPayload; error?: string } => {
+  const awardKey = String(body?.award_key || '').trim();
+  if (!isHistoricalAwardKey(awardKey)) return { error: 'Неизвестный тип награды' };
+
+  const tournamentTitle = typeof body?.tournament_title === 'string' ? body.tournament_title.trim().slice(0, 180) : '';
+  if (!tournamentTitle) return { error: 'Укажи название турнира' };
+
+  const rawDate = typeof body?.tournament_date === 'string' ? body.tournament_date.trim() : '';
+  if (rawDate && (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate) || Number.isNaN(new Date(`${rawDate}T00:00:00Z`).getTime()))) {
+    return { error: 'Некорректная дата турнира' };
+  }
+
+  const customTitle = typeof body?.title === 'string' ? body.title.trim().slice(0, 120) : '';
+  if (awardKey === 'nomination_other' && !customTitle) return { error: 'Укажи название номинации' };
+
+  const comment = typeof body?.comment === 'string' && body.comment.trim()
+    ? body.comment.trim().slice(0, 500)
+    : null;
+
+  return {
+    value: {
+      awardKey,
+      title: awardKey === 'nomination_other' ? customTitle : getHistoricalAwardDefaultTitle(awardKey),
+      tournamentTitle,
+      tournamentDate: rawDate || null,
+      comment,
+    },
+  };
+};
+
+const checkpointAfterPlayerMutation = async (db: any) => {
+  if (path.basename(db.dbPath) !== 'mafia_crm.runtime.sqlite') return undefined;
+  const result = await createPreviewCheckpoint(db);
+  return result.success ? undefined : result.message;
+};
 
 // GET /api/players - List all players with advanced CRM filters (Auth required)
 router.get('/', requireOrganizerAuth, async (req, res) => {
@@ -196,6 +246,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const engagement_stage = calculateEngagementStage(attendanceCount, lastVisit);
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
+    const gameProfile = await loadPlayerGameProfile(db, req.params.id);
 
     res.json({
       ...player,
@@ -221,6 +272,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       nextTask,
       transactions,
       activities,
+      ...gameProfile,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -553,6 +605,82 @@ router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => 
       activity,
       task: createdTask,
     });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+
+// POST /api/players/:id/historical-awards - Add an award from a tournament absent from the current DB
+router.post('/:id/historical-awards', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const player = await db.get('SELECT id FROM players WHERE id = ?', [req.params.id]);
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+
+    const parsed = parseHistoricalAwardPayload(req.body);
+    if (!parsed.value) return res.status(400).json({ error: parsed.error || 'Некорректные данные награды' });
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const value = parsed.value;
+    await db.run(
+      `INSERT INTO player_historical_awards
+        (id, player_id, award_key, title, tournament_title, tournament_date, comment, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.id, value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, now]
+    );
+
+    const award = await db.get('SELECT * FROM player_historical_awards WHERE id = ?', [id]);
+    const checkpoint_warning = await checkpointAfterPlayerMutation(db);
+    res.status(201).json({ award, checkpoint_warning });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// PATCH /api/players/:id/historical-awards/:awardId - Edit a historical award
+router.patch('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const existing = await db.get(
+      'SELECT id FROM player_historical_awards WHERE id = ? AND player_id = ?',
+      [req.params.awardId, req.params.id]
+    );
+    if (!existing) return res.status(404).json({ error: 'Историческая награда не найдена' });
+
+    const parsed = parseHistoricalAwardPayload(req.body);
+    if (!parsed.value) return res.status(400).json({ error: parsed.error || 'Некорректные данные награды' });
+
+    const value = parsed.value;
+    const now = new Date().toISOString();
+    await db.run(
+      `UPDATE player_historical_awards
+          SET award_key = ?, title = ?, tournament_title = ?, tournament_date = ?, comment = ?, updated_at = ?
+        WHERE id = ? AND player_id = ?`,
+      [value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, req.params.awardId, req.params.id]
+    );
+
+    const award = await db.get('SELECT * FROM player_historical_awards WHERE id = ?', [req.params.awardId]);
+    const checkpoint_warning = await checkpointAfterPlayerMutation(db);
+    res.json({ award, checkpoint_warning });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
+// DELETE /api/players/:id/historical-awards/:awardId - Remove a historical award
+router.delete('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const result = await db.run(
+      'DELETE FROM player_historical_awards WHERE id = ? AND player_id = ?',
+      [req.params.awardId, req.params.id]
+    );
+    if (!result.changes) return res.status(404).json({ error: 'Историческая награда не найдена' });
+
+    const checkpoint_warning = await checkpointAfterPlayerMutation(db);
+    res.json({ success: true, checkpoint_warning });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }

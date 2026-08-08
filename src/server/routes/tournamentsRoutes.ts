@@ -1712,6 +1712,18 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
         );
       }
 
+      const awardOverrides = await tx.all<any>(
+        'SELECT id FROM tournament_award_overrides WHERE tournament_id = ?',
+        [tournamentId]
+      );
+      const invalidatedAwardOverridesCount = awardOverrides.length;
+      if (invalidatedAwardOverridesCount > 0) {
+        await tx.run(
+          'DELETE FROM tournament_award_overrides WHERE tournament_id = ?',
+          [tournamentId]
+        );
+      }
+
       const now = new Date().toISOString();
       await tx.run(
         "UPDATE tournaments SET status = 'correction', results_published_at = NULL, updated_at = ? WHERE id = ?",
@@ -1720,6 +1732,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
 
       return {
         invalidated_resolutions_count: invalidatedCount,
+        invalidated_award_overrides_count: invalidatedAwardOverridesCount,
       };
     });
 
@@ -1729,6 +1742,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
       status: 'correction',
       public_results_hidden: true,
       invalidated_resolutions_count: result.invalidated_resolutions_count,
+      invalidated_award_overrides_count: result.invalidated_award_overrides_count,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Ошибка возврата турнира на корректировку' });

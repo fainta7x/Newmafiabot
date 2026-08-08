@@ -487,3 +487,337 @@ export function renderSvgToPngDataUrl(svgString: string, width = 1080, height = 
     img.src = url;
   });
 }
+
+export interface OfficialAwardPresentation {
+  key: string;
+  title: string;
+  place: number | null;
+  source: 'automatic' | 'manual' | 'suppressed' | 'unresolved';
+  participant_id: string | null;
+  display_name: string;
+  points: number | null;
+}
+
+export interface OfficialStandingPresentation extends TournamentStandingItem {
+  display_place: number;
+}
+
+export interface OfficialTournamentResultsPresentation {
+  tournament: Tournament;
+  podium: OfficialAwardPresentation[];
+  standings: OfficialStandingPresentation[];
+  nominations: OfficialAwardPresentation[];
+  generated_at: Date;
+}
+
+const splitLongToken = (token: string, maxChars: number): string[] => {
+  if (token.length <= maxChars) return [token];
+  const parts: string[] = [];
+  for (let i = 0; i < token.length; i += maxChars) parts.push(token.slice(i, i + maxChars));
+  return parts;
+};
+
+export function wrapExportText(value: string | null | undefined, maxChars: number, maxLines = 2): string[] {
+  const normalized = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!normalized) return ['—'];
+
+  const words = normalized.split(' ').flatMap((word) => splitLongToken(word, maxChars));
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length >= maxLines) break;
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+
+  const consumed = lines.join(' ').replace(/…$/, '');
+  if (normalized.length > consumed.length && lines.length > 0) {
+    const last = lines.length - 1;
+    lines[last] = `${lines[last].slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+  }
+  return lines.slice(0, maxLines);
+}
+
+function resolveOfficialAward(
+  slot: import('./api').TournamentAwardSlot | undefined,
+  standings: TournamentStandingItem[],
+  fallbackTitle: string,
+  fallbackPlace: number | null,
+): OfficialAwardPresentation {
+  if (!slot) {
+    return {
+      key: fallbackPlace ? `place_${fallbackPlace}` : fallbackTitle,
+      title: fallbackTitle,
+      place: fallbackPlace,
+      source: 'unresolved',
+      participant_id: null,
+      display_name: 'Не определено',
+      points: null,
+    };
+  }
+
+  if (slot.source === 'suppressed') {
+    return {
+      key: slot.key,
+      title: slot.title || fallbackTitle,
+      place: slot.place ?? fallbackPlace,
+      source: slot.source,
+      participant_id: null,
+      display_name: 'Не присуждена',
+      points: null,
+    };
+  }
+
+  const standing = slot.participant_id
+    ? standings.find((item) => item.participant_id === slot.participant_id)
+    : undefined;
+
+  return {
+    key: slot.key,
+    title: slot.title || fallbackTitle,
+    place: slot.place ?? fallbackPlace,
+    source: slot.source,
+    participant_id: slot.participant_id || null,
+    display_name: standing?.display_name || slot.player_nickname || 'Не определено',
+    points: standing?.total_points ?? null,
+  };
+}
+
+export function buildOfficialTournamentResultsPresentation(
+  tournament: Tournament,
+  standings: TournamentStandingItem[],
+  awardSlots: import('./api').TournamentAwardSlot[],
+  generatedAt = new Date(),
+): OfficialTournamentResultsPresentation {
+  const podium = [1, 2, 3].map((place) => {
+    const slot = awardSlots.find((item) => item.key === `place_${place}`);
+    return resolveOfficialAward(slot, standings, `${place} место`, place);
+  });
+
+  const nominations = awardSlots
+    .filter((item) => item.kind === 'nomination')
+    .map((slot) => resolveOfficialAward(slot, standings, slot.title, null));
+
+  const podiumPlaceByParticipant = new Map<string, number>();
+  for (const award of podium) {
+    if (award.participant_id && award.place && award.source !== 'suppressed') {
+      podiumPlaceByParticipant.set(award.participant_id, award.place);
+    }
+  }
+
+  const podiumParticipants = [1, 2, 3]
+    .map((place) => podium.find((award) => award.place === place)?.participant_id)
+    .filter((id): id is string => Boolean(id))
+    .map((id) => standings.find((item) => item.participant_id === id))
+    .filter((item): item is TournamentStandingItem => Boolean(item));
+
+  const used = new Set(podiumParticipants.map((item) => item.participant_id));
+  const remaining = standings.filter((item) => !used.has(item.participant_id));
+  const ordered = [...podiumParticipants, ...remaining];
+
+  const reservedPlaces = new Set<number>([...podiumPlaceByParticipant.values()]);
+  let nextPlace = 1;
+  const officialStandings: OfficialStandingPresentation[] = ordered.map((item) => {
+    const forcedPlace = podiumPlaceByParticipant.get(item.participant_id);
+    if (forcedPlace) return { ...item, display_place: forcedPlace };
+    while (reservedPlaces.has(nextPlace)) nextPlace += 1;
+    const displayPlace = nextPlace;
+    nextPlace += 1;
+    return { ...item, display_place: displayPlace };
+  });
+  officialStandings.sort((a, b) => a.display_place - b.display_place);
+
+  return { tournament, podium, standings: officialStandings, nominations, generated_at: generatedAt };
+}
+
+export function getSafeFilenameForOfficial(title: string, tournamentDate?: string | null): string {
+  const safeTitle = title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9а-яё]+/gi, '_')
+    .replace(/^_+|_+$/g, '') || 'tournament';
+
+  const parsed = tournamentDate ? new Date(tournamentDate) : new Date();
+  const datePart = Number.isNaN(parsed.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : parsed.toISOString().slice(0, 10);
+
+  return `${safeTitle}-official-results-${datePart}.png`;
+}
+
+const officialSvgFont = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+const formatOfficialDate = (value: string | Date | null | undefined, includeTime = false): string => {
+  const date = value instanceof Date ? value : value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return includeTime
+    ? date.toLocaleString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
+function officialSvgTextLines(lines: string[], x: number, y: number, lineHeight: number, attrs: string): string {
+  return `<text x="${x}" y="${y}" ${attrs}>${lines
+    .map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`)
+    .join('')}</text>`;
+}
+
+export function generateOfficialTournamentResultsSvg(
+  presentation: OfficialTournamentResultsPresentation,
+): { svg: string; width: number; height: number } {
+  const width = 1080;
+  const titleLines = wrapExportText(presentation.tournament.title, 38, 2);
+  const headerHeight = 330 + Math.max(0, titleLines.length - 1) * 42;
+  const podiumTitleHeight = 64;
+  const podiumRowHeight = 116;
+  const podiumGap = 12;
+  const podiumHeight = podiumTitleHeight + presentation.podium.length * (podiumRowHeight + podiumGap);
+  const standingsTitleHeight = 78;
+  const standingsRowHeight = 108;
+  const standingsGap = 10;
+  const standingsHeight = standingsTitleHeight + presentation.standings.length * (standingsRowHeight + standingsGap);
+  const nominationTitleHeight = presentation.nominations.length ? 82 : 0;
+  const nominationRowHeight = 78;
+  const nominationGap = 10;
+  const nominationsHeight = presentation.nominations.length
+    ? nominationTitleHeight + presentation.nominations.length * (nominationRowHeight + nominationGap)
+    : 0;
+  const footerHeight = 130;
+  const height = headerHeight + podiumHeight + standingsHeight + nominationsHeight + footerHeight;
+
+  const tournamentDate = formatOfficialDate(presentation.tournament.date);
+  const generatedAt = formatOfficialDate(presentation.generated_at, true);
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="officialBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0A0A0C"/>
+      <stop offset="100%" stop-color="#17151A"/>
+    </linearGradient>
+    <linearGradient id="officialAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E13458"/>
+      <stop offset="100%" stop-color="#9E2441"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#officialBg)"/>
+  <rect x="0" y="0" width="${width}" height="18" fill="url(#officialAccent)"/>
+  <text x="54" y="78" font-family="${officialSvgFont}" font-size="26" font-weight="800" fill="#E13458">2LA noire</text>
+  <text x="54" y="122" font-family="${officialSvgFont}" font-size="22" font-weight="800" fill="#B8B3AC" letter-spacing="1.5">ОФИЦИАЛЬНЫЕ РЕЗУЛЬТАТЫ</text>
+  ${officialSvgTextLines(titleLines, 54, 184, 46, `font-family="${officialSvgFont}" font-size="42" font-weight="900" fill="#F7F3EC"`)}
+  <text x="54" y="${248 + Math.max(0, titleLines.length - 1) * 42}" font-family="${officialSvgFont}" font-size="17" font-weight="650" fill="#9E9A93">Дата турнира: <tspan fill="#F7F3EC" font-weight="800">${escapeXml(tournamentDate)}</tspan></text>`;
+
+  let metaY = 280 + Math.max(0, titleLines.length - 1) * 42;
+  if (presentation.tournament.venue) {
+    svg += `<text x="54" y="${metaY}" font-family="${officialSvgFont}" font-size="17" font-weight="650" fill="#9E9A93">Место: <tspan fill="#F7F3EC" font-weight="800">${escapeXml(presentation.tournament.venue)}</tspan></text>`;
+    metaY += 30;
+  }
+  if (presentation.tournament.chief_judge_name) {
+    svg += `<text x="54" y="${metaY}" font-family="${officialSvgFont}" font-size="17" font-weight="650" fill="#9E9A93">Главный судья: <tspan fill="#F7F3EC" font-weight="800">${escapeXml(presentation.tournament.chief_judge_name)}</tspan></text>`;
+  }
+
+  let y = headerHeight;
+  svg += `<text x="54" y="${y + 36}" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="#F7F3EC">Призовые места</text>`;
+  y += podiumTitleHeight;
+
+  const podiumPalette = [
+    ['#F6C453', 'rgba(246,196,83,0.12)', 'rgba(246,196,83,0.35)'],
+    ['#C4CAD2', 'rgba(196,202,210,0.10)', 'rgba(196,202,210,0.28)'],
+    ['#D68A52', 'rgba(214,138,82,0.10)', 'rgba(214,138,82,0.28)'],
+  ];
+
+  presentation.podium.forEach((award, index) => {
+    const [accent, bg, border] = podiumPalette[index] || podiumPalette[2];
+    const rowY = y + index * (podiumRowHeight + podiumGap);
+    const nameLines = wrapExportText(award.display_name, 30, 2);
+    svg += `<rect x="54" y="${rowY}" width="972" height="${podiumRowHeight}" rx="22" fill="${bg}" stroke="${border}" stroke-width="2"/>
+      <rect x="76" y="${rowY + 25}" width="66" height="66" rx="18" fill="${bg}" stroke="${accent}" stroke-width="2"/>
+      <text x="109" y="${rowY + 68}" text-anchor="middle" font-family="${officialSvgFont}" font-size="28" font-weight="900" fill="${accent}">${award.place || index + 1}</text>
+      ${officialSvgTextLines(nameLines, 166, rowY + 48, 29, `font-family="${officialSvgFont}" font-size="23" font-weight="900" fill="#F7F3EC"`)}
+      <text x="996" y="${rowY + 67}" text-anchor="end" font-family="${officialSvgFont}" font-size="29" font-weight="900" fill="${award.points === null ? '#9E9A93' : accent}">${award.points === null ? '—' : formatPoints(award.points)}</text>`;
+  });
+
+  y += presentation.podium.length * (podiumRowHeight + podiumGap);
+  svg += `<text x="54" y="${y + 42}" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="#F7F3EC">Итоговая таблица</text>
+    <text x="1026" y="${y + 42}" text-anchor="end" font-family="${officialSvgFont}" font-size="15" font-weight="700" fill="#77736D">Все участники · ${presentation.standings.length}</text>`;
+  y += standingsTitleHeight;
+
+  presentation.standings.forEach((item, index) => {
+    const rowY = y + index * (standingsRowHeight + standingsGap);
+    const nameLines = wrapExportText(item.display_name, 31, 2);
+    const extraParts = [
+      `Игр: ${item.games_played}`,
+      `Побед: ${item.wins}`,
+      `Σ доп.: ${formatPoints(item.additional_total)}`,
+      `ЛХ: ${formatPoints(item.best_move_points)}`,
+      `Ci: ${formatPoints(item.ci_points)}`,
+      `Д+Ш: ${item.don_wins + item.sheriff_wins}`,
+      `ПУ: ${item.first_killed_count}`,
+    ];
+    const totalColor = item.total_points > 0 ? '#42C293' : item.total_points < 0 ? '#E85555' : '#D5D0C8';
+    svg += `<rect x="54" y="${rowY}" width="972" height="${standingsRowHeight}" rx="18" fill="#151519" stroke="rgba(255,255,255,0.09)" stroke-width="1.5"/>
+      <rect x="72" y="${rowY + 25}" width="58" height="58" rx="15" fill="#211F24"/>
+      <text x="101" y="${rowY + 63}" text-anchor="middle" font-family="${officialSvgFont}" font-size="22" font-weight="900" fill="#F7F3EC">${item.display_place}</text>
+      ${officialSvgTextLines(nameLines, 154, rowY + 40, 25, `font-family="${officialSvgFont}" font-size="20" font-weight="850" fill="#F7F3EC"`)}
+      <text x="154" y="${rowY + 88}" font-family="${officialSvgFont}" font-size="13" font-weight="650" fill="#8E8982">${escapeXml(extraParts.join('  •  '))}</text>
+      <text x="998" y="${rowY + 64}" text-anchor="end" font-family="${officialSvgFont}" font-size="28" font-weight="900" fill="${totalColor}">${formatPoints(item.total_points)}</text>`;
+  });
+
+  y += presentation.standings.length * (standingsRowHeight + standingsGap);
+  if (presentation.nominations.length) {
+    svg += `<text x="54" y="${y + 46}" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="#F7F3EC">Номинации</text>`;
+    y += nominationTitleHeight;
+    presentation.nominations.forEach((award, index) => {
+      const rowY = y + index * (nominationRowHeight + nominationGap);
+      const winnerLines = wrapExportText(award.display_name, 31, 2);
+      svg += `<rect x="54" y="${rowY}" width="972" height="${nominationRowHeight}" rx="18" fill="#151519" stroke="rgba(225,52,88,0.22)" stroke-width="1.5"/>
+        <text x="78" y="${rowY + 31}" font-family="${officialSvgFont}" font-size="14" font-weight="800" fill="#B8B3AC">${escapeXml(award.title)}</text>
+        ${officialSvgTextLines(winnerLines, 78, rowY + 57, 22, `font-family="${officialSvgFont}" font-size="19" font-weight="900" fill="${award.source === 'suppressed' ? '#9E9A93' : '#F7F3EC'}"`)}
+        <text x="998" y="${rowY + 51}" text-anchor="end" font-family="${officialSvgFont}" font-size="20" font-weight="900" fill="#E13458">${award.points === null ? '—' : formatPoints(award.points)}</text>`;
+    });
+  }
+
+  svg += `<line x1="54" y1="${height - 104}" x2="1026" y2="${height - 104}" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+    <text x="54" y="${height - 65}" font-family="${officialSvgFont}" font-size="14" font-weight="650" fill="#77736D">Сформировано: ${escapeXml(generatedAt)}</text>
+    <text x="1026" y="${height - 65}" text-anchor="end" font-family="${officialSvgFont}" font-size="14" font-weight="750" fill="#9E9A93">2LA noire</text>
+  </svg>`;
+
+  return { svg, width, height };
+}
+
+export function renderSvgToPngBlob(svgString: string, width: number, height: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(svgUrl);
+        reject(new Error('Canvas 2D context not available'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(svgUrl);
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('Не удалось сформировать PNG Blob')),
+        'image/png',
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(svgUrl);
+      reject(new Error('Failed to load SVG into image element'));
+    };
+    img.src = svgUrl;
+  });
+}

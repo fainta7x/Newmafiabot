@@ -1241,4 +1241,53 @@ describe('Tournament Module API Tests', () => {
     expect(resP1After.participant_id).toBe(p2);
     expect(resP2After.participant_id).toBe(p1);
   });
+
+  it('15. Public results are fresh after correction and republish', async () => {
+    const validParticipants = playerIds.map((id) => ({ player_id: id }));
+    const createRes = await request(app)
+      .post('/api/tournaments')
+      .set('Cookie', organizerCookie)
+      .send({
+        title: 'Версия до корректировки',
+        date: new Date().toISOString(),
+        participants: validParticipants,
+      });
+
+    const tournamentId = createRes.body.id;
+    await db.run("UPDATE tournaments SET status = 'completed' WHERE id = ?", [tournamentId]);
+
+    const firstPublish = await request(app)
+      .post(`/api/tournaments/${tournamentId}/publish`)
+      .set('Cookie', organizerCookie);
+    expect(firstPublish.status).toBe(200);
+    const token = firstPublish.body.public_token;
+
+    const firstPublic = await request(app).get(`/api/public/tournaments/results/${token}`);
+    expect(firstPublic.status).toBe(200);
+    expect(firstPublic.body.tournament.title).toBe('Версия до корректировки');
+
+    const reopen = await request(app)
+      .post(`/api/tournaments/${tournamentId}/reopen-for-correction`)
+      .set('Cookie', organizerCookie);
+    expect(reopen.status).toBe(200);
+
+    const hidden = await request(app).get(`/api/public/tournaments/results/${token}`);
+    expect(hidden.status).toBe(404);
+
+    await db.run(
+      "UPDATE tournaments SET title = ?, status = 'completed', updated_at = ? WHERE id = ?",
+      ['Версия после корректировки', new Date().toISOString(), tournamentId],
+    );
+
+    const secondPublish = await request(app)
+      .post(`/api/tournaments/${tournamentId}/publish`)
+      .set('Cookie', organizerCookie);
+    expect(secondPublish.status).toBe(200);
+    expect(secondPublish.body.public_token).toBe(token);
+
+    const secondPublic = await request(app).get(`/api/public/tournaments/results/${token}`);
+    expect(secondPublic.status).toBe(200);
+    expect(secondPublic.body.tournament.title).toBe('Версия после корректировки');
+  });
+
 });

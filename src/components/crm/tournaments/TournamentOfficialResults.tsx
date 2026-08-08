@@ -10,9 +10,9 @@ import {
   UserCheck,
   RefreshCw,
   ArrowDown,
-  Copy,
 } from 'lucide-react';
 import { api, TournamentStandingItem } from '../../../lib/api.ts';
+import { ResultsImageExportModal } from './ResultsImageExportModal.tsx';
 
 interface TournamentOfficialResultsProps {
   tournamentId: string;
@@ -26,8 +26,7 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
   refreshTrigger,
 }) => {
   const [tournament, setTournament] = useState<any>(null);
-  const [publishing, setPublishing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [showOfficialExport, setShowOfficialExport] = useState(false);
 
   const [readiness, setReadiness] = useState<any>(null);
   const [resolutions, setResolutions] = useState<any[]>([]);
@@ -71,29 +70,6 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
     } finally {
       setLoading(false);
     }
-  };
-
-  const handlePublish = async () => {
-    setPublishing(true);
-    try {
-      await api.publishTournamentResults(tournamentId);
-      await loadData();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка публикации результатов');
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  const handleCopyLink = () => {
-    if (!tournament?.public_token) return;
-    const url = `${window.location.origin}/tournaments/results/${tournament.public_token}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      alert('Не удалось скопировать ссылку');
-    });
   };
 
   useEffect(() => {
@@ -281,67 +257,34 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
           </p>
         )}
 
-        {/* Publication Block */}
-        <div className="pt-3 border-t border-border-soft/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="text-xs">
-            {tournament?.public_token ? (
-              <span className="text-emerald-400 font-extrabold flex items-center gap-1.5">
-                <Check className="w-4 h-4" />
-                <span>Результаты турнира опубликованы!</span>
-              </span>
+        {/* Fresh official PNG card. Legacy public-link state is intentionally ignored here. */}
+        <div className="pt-3 border-t border-border-soft/60 flex flex-col gap-3">
+          <div>
+            <div className="text-[13px] font-extrabold text-text-primary">Итоговая карточка турнира</div>
+            {tournament?.status === 'correction' ? (
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                Завершите корректировку турнира и повторно зафиксируйте итоги — после этого можно будет сформировать новое изображение.
+              </p>
+            ) : tournament?.status === 'completed' && isReady ? (
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                PNG будет сформирован заново из актуальной таблицы и официальных наград. Генерация не меняет данные турнира.
+              </p>
             ) : (
-              <span className="text-text-muted font-medium">
-                {isReady 
-                  ? 'Вы можете опубликовать официальные результаты для всеобщего доступа.' 
-                  : 'Для публикации необходимо сначала разрешить все равенства.'}
-              </span>
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                Итоговый PNG станет доступен после завершения турнира и разрешения всех равенств.
+              </p>
             )}
           </div>
-
-          <div className="shrink-0">
-            {tournament?.public_token ? (
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="bg-accent hover:bg-accent-hover text-white font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 min-h-[38px] cursor-pointer"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Ссылка скопирована!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Скопировать ссылку</span>
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handlePublish}
-                disabled={!isReady || publishing}
-                className={`font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 min-h-[38px] ${
-                  isReady && !publishing
-                    ? 'bg-accent hover:bg-accent-hover text-white cursor-pointer'
-                    : 'bg-surface-3 text-text-muted border border-border-soft cursor-not-allowed opacity-60'
-                }`}
-              >
-                {publishing ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Публикация...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Опубликовать результаты</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          {tournament?.status === 'completed' && isReady ? (
+            <button
+              type="button"
+              onClick={() => setShowOfficialExport(true)}
+              className="min-h-[48px] w-full sm:w-auto sm:self-start bg-accent hover:bg-accent-hover text-white font-black text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <Trophy className="w-4 h-4 text-amber-300" />
+              Сформировать итоговый PNG
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -780,6 +723,15 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
           </div>
         </div>
       )}
+
+      {tournament ? (
+        <ResultsImageExportModal
+          isOpen={showOfficialExport}
+          onClose={() => setShowOfficialExport(false)}
+          tournament={tournament}
+          exportType="official"
+        />
+      ) : null}
     </div>
   );
 };

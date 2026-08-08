@@ -1,22 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { X, Download, Share2, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
-import { api, Tournament } from '../../../lib/api.ts';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Download, Image as ImageIcon, RefreshCw, Share2 } from 'lucide-react';
+import { api, type Tournament } from '../../../lib/api.ts';
 import {
   buildGameExportRows,
+  buildOfficialTournamentResultsPresentation,
   generateGameResultsSvg,
+  generateOfficialTournamentResultsSvg,
   generateStandingsSvg,
-  renderSvgToPngDataUrl,
   getSafeFilenameForGame,
+  getSafeFilenameForOfficial,
   getSafeFilenameForStandings,
+  renderSvgToPngBlob,
 } from '../../../lib/tournamentResultsExport.ts';
+import { MobileSheet } from '../../ui/MobileSheet.tsx';
 
 interface ResultsImageExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   tournament: Tournament;
-  exportType: 'game' | 'standings';
-  gameId?: string; // Required if exportType === 'game'
-  gameNumber?: number; // Optional metadata
+  exportType: 'game' | 'standings' | 'official';
+  gameId?: string;
+  gameNumber?: number;
 }
 
 export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = ({
@@ -29,215 +33,290 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
 }) => {
   const [loading, setLoading] = useState(true);
   const [pngUrl, setPngUrl] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [pngBlob, setPngBlob] = useState<Blob | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [fileName, setFileName] = useState<string>('export.png');
+  const [downloading, setDownloading] = useState(false);
+  const [fileName, setFileName] = useState('export.png');
+
+  const requestSeqRef = useRef(0);
+  const objectUrlRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+  const shareBusyRef = useRef(false);
+  const downloadBusyRef = useRef(false);
+
+  const revokePreviewUrl = useCallback(() => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setPngUrl(null);
+  }, []);
+
+  const clearPreview = useCallback(() => {
+    revokePreviewUrl();
+    setPngBlob(null);
+  }, [revokePreviewUrl]);
 
   useEffect(() => {
-    if (isOpen) {
-      const originalStyle = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalStyle;
-      };
+    return () => {
+      mountedRef.current = false;
+      requestSeqRef.current += 1;
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const prepareImage = useCallback(async () => {
+    if (!isOpen) return;
+
+    const requestSeq = ++requestSeqRef.current;
+    clearPreview();
+    setGenerationError(null);
+    setActionError(null);
+    setLoading(true);
+
+    try {
+      let blob: Blob;
+      let nextFileName = 'export.png';
+
+      if (exportType === 'official') {
+        const [freshTournament, readiness, standingsRes, awardsRes] = await Promise.all([
+          api.getTournament(tournament.id),
+          api.getTournamentFinalReadiness(tournament.id),
+          api.getTournamentStandings(tournament.id),
+          api.getTournamentAwards(tournament.id),
+        ]);
+
+        if (freshTournament.status !== 'completed') {
+          throw new Error(
+            freshTournament.status === 'correction'
+              ? 'Завершите корректировку турнира и повторно зафиксируйте итоги — после этого можно будет сформировать новое изображение.'
+              : 'Официальный PNG доступен только после завершения турнира.'
+          );
+        }
+        if (!readiness?.ready) {
+          throw new Error('Сначала разрешите все равенства мест и номинаций.');
+        }
+
+        const presentation = buildOfficialTournamentResultsPresentation(
+          freshTournament,
+          standingsRes.standings || [],
+          awardsRes.slots || [],
+          new Date(),
+        );
+        const rendered = generateOfficialTournamentResultsSvg(presentation);
+        blob = await renderSvgToPngBlob(rendered.svg, rendered.width, rendered.height);
+        nextFileName = getSafeFilenameForOfficial(freshTournament.title, freshTournament.date);
+      } else if (exportType === 'game') {
+        if (!gameId) throw new Error('Не указан идентификатор игры для экспорта');
+
+        const [protocolRes, standingsRes] = await Promise.all([
+          api.getGameProtocol(tournament.id, gameId),
+          api.getTournamentStandings(tournament.id),
+        ]);
+        const exportRows = buildGameExportRows(
+          protocolRes.player_results || [],
+          standingsRes.standings || [],
+          protocolRes.game.game_number,
+        );
+        const svg = generateGameResultsSvg(tournament, protocolRes.game, exportRows);
+        blob = await renderSvgToPngBlob(svg, 1080, 1600);
+        nextFileName = getSafeFilenameForGame(tournament.title, protocolRes.game.game_number);
+      } else {
+        const standingsRes = await api.getTournamentStandings(tournament.id);
+        const completedGames = standingsRes.completed_games_count ?? 0;
+        const totalGames = tournament.total_games_count ?? 10;
+        const svg = generateStandingsSvg(tournament, standingsRes.standings || [], completedGames, totalGames);
+        blob = await renderSvgToPngBlob(svg, 1080, 1600);
+        nextFileName = getSafeFilenameForStandings(tournament.title, completedGames);
+      }
+
+      if (!mountedRef.current || requestSeq !== requestSeqRef.current || !isOpen) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (!mountedRef.current || requestSeq !== requestSeqRef.current || !isOpen) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      objectUrlRef.current = objectUrl;
+      setPngBlob(blob);
+      setPngUrl(objectUrl);
+      setFileName(nextFileName);
+    } catch (err: any) {
+      if (!mountedRef.current || requestSeq !== requestSeqRef.current || !isOpen) return;
+      setGenerationError(err?.message || 'Ошибка генерации PNG-изображения');
+    } finally {
+      if (mountedRef.current && requestSeq === requestSeqRef.current && isOpen) setLoading(false);
     }
-  }, [isOpen]);
+  }, [clearPreview, exportType, gameId, isOpen, tournament]);
 
   useEffect(() => {
     if (!isOpen) {
-      setPngUrl(null);
-      setErrorMsg(null);
+      requestSeqRef.current += 1;
+      clearPreview();
+      setGenerationError(null);
+      setActionError(null);
       setLoading(true);
+      shareBusyRef.current = false;
+      downloadBusyRef.current = false;
+      setSharing(false);
+      setDownloading(false);
       return;
     }
 
-    const prepareImage = async () => {
-      setLoading(true);
-      setErrorMsg(null);
-
-      try {
-        if (exportType === 'game') {
-          if (!gameId) {
-            throw new Error('Не указан идентификатор игры для экспорта');
-          }
-
-          // Fetch game protocol and standings in parallel
-          const [protocolRes, standingsRes] = await Promise.all([
-            api.getGameProtocol(tournament.id, gameId),
-            api.getTournamentStandings(tournament.id),
-          ]);
-
-          const exportRows = buildGameExportRows(
-            protocolRes.player_results || [],
-            standingsRes.standings || [],
-            protocolRes.game.game_number
-          );
-
-          const svg = generateGameResultsSvg(tournament, protocolRes.game, exportRows);
-          const url = await renderSvgToPngDataUrl(svg, 1080, 1600);
-          setPngUrl(url);
-          setFileName(getSafeFilenameForGame(tournament.title, protocolRes.game.game_number));
-        } else {
-          // standings export
-          const standingsRes = await api.getTournamentStandings(tournament.id);
-          const totalGames = tournament.total_games_count ?? 10;
-          const completedGames = standingsRes.completed_games_count ?? 0;
-
-          const svg = generateStandingsSvg(
-            tournament,
-            standingsRes.standings || [],
-            completedGames,
-            totalGames
-          );
-          const url = await renderSvgToPngDataUrl(svg, 1080, 1600);
-          setPngUrl(url);
-          setFileName(getSafeFilenameForStandings(tournament.title, completedGames));
-        }
-      } catch (err: any) {
-        console.error('Failed to generate results image:', err);
-        setErrorMsg(err.message || 'Ошибка генерации PNG-изображения');
-      } finally {
-        setLoading(false);
-      }
+    void prepareImage();
+    return () => {
+      requestSeqRef.current += 1;
     };
+  }, [clearPreview, isOpen, prepareImage]);
 
-    prepareImage();
-  }, [isOpen, tournament, exportType, gameId]);
+  const shareFile = useMemo(() => {
+    if (!pngBlob || typeof File === 'undefined') return null;
+    return new File([pngBlob], fileName, { type: 'image/png' });
+  }, [fileName, pngBlob]);
 
-  if (!isOpen) return null;
-
-  const canWebShare = typeof navigator !== 'undefined' && Boolean(navigator.share);
+  const canShareFile = useMemo(() => {
+    if (!shareFile || typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
+      return false;
+    }
+    try {
+      return navigator.canShare({ files: [shareFile] });
+    } catch {
+      return false;
+    }
+  }, [shareFile]);
 
   const handleDownload = () => {
-    if (!pngUrl) return;
-    const a = document.createElement('a');
-    a.href = pngUrl;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handleShare = async () => {
-    if (!pngUrl || sharing) return;
-    setSharing(true);
+    if (!pngUrl || downloadBusyRef.current) return;
+    downloadBusyRef.current = true;
+    setDownloading(true);
+    setActionError(null);
     try {
-      const res = await fetch(pngUrl);
-      const blob = await res.blob();
-      const file = new File([blob], fileName, { type: 'image/png' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: exportType === 'game' ? `Результаты игры №${gameNumber}` : `Турнирная таблица`,
-          text: exportType === 'game' ? `Итоговый протокол игры №${gameNumber}` : `Промежуточная турнирная таблица турнира "${tournament.title}"`,
-          files: [file],
-        });
-      } else if (navigator.share) {
-        await navigator.share({
-          title: exportType === 'game' ? `Результаты игры №${gameNumber}` : `Турнирная таблица`,
-          url: window.location.href,
-        });
-      }
+      const anchor = document.createElement('a');
+      anchor.href = pngUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('Share failed:', err);
-      }
+      setActionError(err?.message || 'Не удалось скачать PNG');
     } finally {
-      setSharing(false);
+      window.setTimeout(() => {
+        downloadBusyRef.current = false;
+        if (mountedRef.current) setDownloading(false);
+      }, 0);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md" id="results-export-overlay">
-      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full flex flex-col max-h-[calc(100dvh-16px)] text-text-primary shadow-2xl relative overflow-hidden" id="results-export-modal-container">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-border-soft shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent shrink-0">
-              <ImageIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold">
-                {exportType === 'game' ? `Результаты игры №${gameNumber || '—'} (PNG)` : 'Турнирная таблица (PNG)'}
-              </h3>
-              <p className="text-[11px] text-text-secondary">
-                {exportType === 'game' ? 'Итоговый вертикальный протокол с баллами' : 'Вертикальная турнирная таблица по правилам ФСМ'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            id="btn-close-results-export"
-            className="text-text-muted hover:text-text-primary p-2 rounded-full hover:bg-surface-hover cursor-pointer transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+  const handleShare = async () => {
+    if (!shareFile || !canShareFile || shareBusyRef.current) return;
+    shareBusyRef.current = true;
+    setSharing(true);
+    setActionError(null);
+    try {
+      await navigator.share({
+        title: exportType === 'game'
+          ? `Результаты игры №${gameNumber || '—'}`
+          : exportType === 'official'
+            ? `Официальные результаты: ${tournament.title}`
+            : 'Турнирная таблица',
+        files: [shareFile],
+      });
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') setActionError(err?.message || 'Не удалось поделиться PNG-файлом');
+    } finally {
+      shareBusyRef.current = false;
+      if (mountedRef.current) setSharing(false);
+    }
+  };
 
-        {/* Content Preview Body */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 flex flex-col items-center justify-center">
-          {loading ? (
-            <div className="py-16 flex flex-col items-center gap-3 text-text-muted">
-              <RefreshCw className="w-8 h-8 animate-spin text-accent" />
-              <p className="text-xs font-semibold">Формируем изображение высокого разрешения…</p>
-            </div>
-          ) : errorMsg ? (
-            <div className="p-5 bg-danger/10 border border-danger/30 rounded-2xl text-center max-w-md space-y-2">
-              <AlertCircle className="w-8 h-8 text-danger mx-auto" />
-              <h4 className="text-sm font-bold text-danger">Не удалось экспортировать результаты</h4>
-              <p className="text-xs text-text-secondary">{errorMsg}</p>
-            </div>
-          ) : pngUrl ? (
-            <div className="w-full max-w-lg bg-surface-2 p-3 rounded-2xl border border-border-soft flex flex-col items-center space-y-3">
-              <div className="w-full max-h-[50vh] overflow-y-auto rounded-xl border border-border-soft shadow-inner bg-black/40 p-2 flex justify-center">
-                <img
-                  src={pngUrl}
-                  alt={exportType === 'game' ? `Итоговый протокол игры №${gameNumber}` : `Турнирная таблица`}
-                  className="w-full h-auto max-w-full rounded-lg shadow-md object-contain"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <p className="text-[11px] text-text-muted text-center font-mono break-all max-w-full">
-                Имя файла: {fileName}
-              </p>
-            </div>
-          ) : null}
-        </div>
+  const title = exportType === 'game'
+    ? `Результаты игры №${gameNumber || '—'}`
+    : exportType === 'official'
+      ? 'Официальные результаты'
+      : 'Турнирная таблица';
 
-        {/* Footer actions */}
-        {!loading && !errorMsg && pngUrl && (
-          <div className="p-4 sm:p-5 border-t border-border-soft bg-surface-2/40 shrink-0 flex flex-col sm:flex-row gap-2.5">
-            <button
-              onClick={handleDownload}
-              id="btn-download-results-png"
-              className="flex-1 bg-accent hover:bg-accent-hover text-white font-bold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-accent/10"
-            >
-              <Download className="w-4 h-4" />
-              <span>Скачать PNG</span>
-            </button>
+  const subtitle = exportType === 'official'
+    ? 'Каждое открытие формируется заново из актуальных данных турнира.'
+    : exportType === 'game'
+      ? 'Итоговый вертикальный протокол с баллами.'
+      : 'Вертикальная турнирная таблица по правилам ФСМ.';
 
-            {canWebShare && (
-              <button
-                onClick={handleShare}
-                id="btn-share-results-png"
-                disabled={sharing}
-                className="flex-1 bg-surface-2 hover:bg-surface-3 text-text-primary border border-border-soft font-bold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                {sharing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4 text-accent" />}
-                <span>Поделиться</span>
-              </button>
-            )}
-
-            <button
-              onClick={onClose}
-              id="btn-cancel-results-export"
-              className="bg-surface-3 hover:bg-surface-4 text-text-secondary font-bold py-3 px-4 rounded-2xl text-xs transition-all cursor-pointer"
-            >
-              Закрыть
-            </button>
-          </div>
-        )}
-      </div>
+  const footer = generationError ? (
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" onClick={() => void prepareImage()} className="min-h-[48px] rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2">
+        <RefreshCw className="h-4 w-4" /> Повторить
+      </button>
+      <button type="button" onClick={onClose} className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-semibold text-text-secondary">
+        Закрыть
+      </button>
     </div>
+  ) : !loading && pngUrl && pngBlob ? (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <button type="button" onClick={handleDownload} disabled={downloading} className="min-h-[48px] rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50">
+        {downloading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        Скачать PNG
+      </button>
+      {canShareFile ? (
+        <button type="button" onClick={() => void handleShare()} disabled={sharing} className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary inline-flex items-center justify-center gap-2 disabled:opacity-50">
+          {sharing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4 text-accent" />}
+          Поделиться PNG
+        </button>
+      ) : null}
+      <button type="button" onClick={onClose} className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-semibold text-text-secondary">
+        Закрыть
+      </button>
+    </div>
+  ) : undefined;
+
+  return (
+    <MobileSheet
+      open={isOpen}
+      onClose={onClose}
+      title={
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <ImageIcon className="h-4.5 w-4.5 shrink-0 text-accent" />
+          <span className="truncate">{title}</span>
+        </span>
+      }
+      subtitle={subtitle}
+      widthClass="sm:max-w-2xl"
+      bodyClassName="p-4 sm:p-5"
+      footer={footer}
+    >
+      <div className="min-w-0">
+        {loading ? (
+          <div className="py-20 flex flex-col items-center gap-3 text-center text-text-secondary">
+            <RefreshCw className="h-8 w-8 animate-spin text-accent" />
+            <p className="text-[13px] font-semibold">Формируем PNG из актуальных данных…</p>
+          </div>
+        ) : generationError ? (
+          <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-5 text-center">
+            <AlertCircle className="mx-auto h-8 w-8 text-danger" />
+            <h4 className="mt-3 text-[14px] font-bold text-text-primary">Не удалось сформировать изображение</h4>
+            <p className="mt-2 text-[12px] leading-relaxed text-text-secondary">{generationError}</p>
+          </div>
+        ) : pngUrl ? (
+          <div className="min-w-0 space-y-3">
+            <div className="w-full overflow-x-hidden rounded-[16px] border border-border-soft bg-black/30 p-2">
+              <img data-testid="results-preview-image" src={pngUrl} alt={exportType === 'official' ? 'Официальные результаты турнира' : title} className="block h-auto w-full max-w-full rounded-[10px] object-contain" />
+            </div>
+            <p className="max-w-full break-all text-center font-mono text-[11px] text-text-muted">{fileName}</p>
+            {actionError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{actionError}</div> : null}
+            {!canShareFile && exportType === 'official' ? (
+              <p className="text-center text-[11px] leading-4 text-text-muted">
+                На этом устройстве отправка PNG-файла через системное меню не поддерживается. Используйте «Скачать PNG» или сохраните изображение из Preview.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </MobileSheet>
   );
 };
+
+export default ResultsImageExportModal;

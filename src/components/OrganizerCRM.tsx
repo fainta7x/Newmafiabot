@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening, type Player } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
@@ -22,7 +22,13 @@ type MainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
 type PlayerReturnContext = {
   tab: MainTab;
   eveningId: string | null;
+  scrollY: number;
 } | null;
+
+const moveWindowScroll = (top: number) => {
+  if (typeof window === 'undefined') return;
+  window.requestAnimationFrame(() => window.scrollTo({ top, left: 0, behavior: 'auto' }));
+};
 
 export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine }) => {
   useMobileKeyboardViewport();
@@ -32,6 +38,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [playerReturnContext, setPlayerReturnContext] = useState<PlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
+  const eveningListScrollRef = useRef(0);
 
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -129,33 +136,43 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   };
 
   const handleOpenEvening = (id: string) => {
+    eveningListScrollRef.current = activeTab === 'evenings' && !activeEveningId && typeof window !== 'undefined' ? window.scrollY : 0;
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(id);
     setEveningIntent(null);
     setActiveTab('evenings');
+    moveWindowScroll(0);
   };
 
   const handleOpenEveningAdd = (id: string) => {
+    eveningListScrollRef.current = activeTab === 'evenings' && !activeEveningId && typeof window !== 'undefined' ? window.scrollY : 0;
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(id);
     setEveningIntent('add');
     setActiveTab('evenings');
+    moveWindowScroll(0);
   };
 
   const handleOpenPlayer = (id: string) => {
-    setPlayerReturnContext({ tab: activeTab, eveningId: activeEveningId });
+    setPlayerReturnContext({
+      tab: activeTab,
+      eveningId: activeEveningId,
+      scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+    });
     setActivePlayerId(id);
     setActiveTab('players');
   };
 
   const handleCloseExternalPlayer = () => {
+    const returnContext = playerReturnContext;
     setActivePlayerId(null);
-    if (playerReturnContext) {
-      setActiveTab(playerReturnContext.tab);
-      setActiveEveningId(playerReturnContext.eveningId);
+    if (returnContext) {
+      setActiveTab(returnContext.tab);
+      setActiveEveningId(returnContext.eveningId);
       setPlayerReturnContext(null);
+      moveWindowScroll(returnContext.scrollY);
     }
   };
 
@@ -172,14 +189,22 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   };
 
   const switchPrimaryTab = (tab: OrganizerPrimaryTab) => {
+    const opensNewRoot = activeTab !== tab || activeEveningId !== null || activePlayerId !== null;
     setActivePlayerId(null);
     setPlayerReturnContext(null);
-    if (tab === 'overview') {
-      setActiveEveningId(null);
-      setEveningIntent(null);
-    }
-    if (tab === 'evenings') setEveningIntent(null);
+    setActiveEveningId(null);
+    if (tab === 'overview' || tab === 'evenings') setEveningIntent(null);
     setActiveTab(tab);
+    if (opensNewRoot) moveWindowScroll(0);
+  };
+
+  const openSecondaryTab = (tab: 'tasks' | 'analytics') => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
+    setActiveEveningId(null);
+    setEveningIntent(null);
+    setActiveTab(tab);
+    moveWindowScroll(0);
   };
 
   const primaryActive = activeTab === 'tasks' || activeTab === 'analytics' ? 'more' : activeTab;
@@ -211,7 +236,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
-      <header className={`${activeTab === 'overview' && !activePlayerId && !activeEveningId ? 'hidden sm:flex' : 'flex'} sticky top-0 z-40 min-h-[52px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:min-h-[60px] sm:px-4`}>
+      <header className="sticky top-0 z-40 hidden min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-4 backdrop-blur-xl sm:flex">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-[16px] font-black leading-tight tracking-tight text-text-primary sm:text-[17px]">{screenTitle}</h1>
@@ -271,7 +296,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onOpenEvening={handleOpenEvening}
                 onOpenEveningAdd={handleOpenEveningAdd}
                 onOpenPlayer={handleOpenPlayer}
-                onNavigateTab={(tab) => setActiveTab(tab as MainTab)}
+                onNavigateTab={(tab) => openSecondaryTab(tab as 'tasks' | 'analytics')}
                 onCreateEvening={openCreateEvening}
                 onRefresh={retryLoad}
                 onCompleteTask={async (taskId) => {
@@ -285,7 +310,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               activeEveningId ? (
                 <EveningWorkspace
                   eveningId={activeEveningId}
-                  onBack={() => { setActiveEveningId(null); setEveningIntent(null); }}
+                  onBack={() => {
+                    setActiveEveningId(null);
+                    setEveningIntent(null);
+                    moveWindowScroll(eveningListScrollRef.current);
+                  }}
                   onOpenPlayerCard={handleOpenPlayer}
                   initialAddOpen={eveningIntent === 'add'}
                   onInitialAddHandled={() => setEveningIntent(null)}
@@ -315,8 +344,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
-                onOpenTasks={() => setActiveTab('tasks')}
-                onOpenAnalytics={() => setActiveTab('analytics')}
+                onOpenTasks={() => openSecondaryTab('tasks')}
+                onOpenAnalytics={() => openSecondaryTab('analytics')}
                 onOpenTheme={() => setShowThemeModal(true)}
                 onOpenGameEngine={onReturnToGameEngine}
                 onLogout={handleLogout}

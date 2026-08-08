@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Check, Palette } from 'lucide-react';
 import { THEMES, ThemeId, applyTheme } from '../../lib/theme.ts';
 
@@ -15,6 +15,13 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   currentTheme,
   onSelectTheme,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSelect = (id: ThemeId) => {
@@ -23,8 +30,8 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-surface-1 border border-border-strong rounded-[20px] max-w-md w-full p-6 space-y-5 text-text-primary shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md animate-fadeIn sm:items-center sm:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-[20px] border border-border-strong bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary shadow-2xl relative sm:max-h-[92dvh] sm:max-w-md sm:rounded-[20px] sm:p-6 sm:pb-6 space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-border-soft">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-[10px] bg-accent-soft border border-accent/30 flex items-center justify-center text-accent">
@@ -37,7 +44,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-[10px] bg-surface-2 hover:bg-surface-hover border border-border-soft flex items-center justify-center text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+            className="w-11 h-11 sm:w-8 sm:h-8 rounded-[10px] bg-surface-2 hover:bg-surface-hover border border-border-soft flex items-center justify-center text-text-secondary hover:text-text-primary transition-all cursor-pointer"
           >
             <X className="w-4 h-4 stroke-[1.8]" />
           </button>
@@ -109,7 +116,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
 
         <button
           onClick={onClose}
-          className="w-full py-3 bg-surface-2 hover:bg-surface-hover border border-border-soft rounded-[12px] text-xs font-semibold text-text-primary transition-all cursor-pointer"
+          className="min-h-11 w-full py-3 bg-surface-2 hover:bg-surface-hover border border-border-soft rounded-[12px] text-xs font-semibold text-text-primary transition-all cursor-pointer"
         >
           Готово
         </button>

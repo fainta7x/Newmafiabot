@@ -38,6 +38,13 @@ export const EditTournamentDataModal: React.FC<EditTournamentDataModalProps> = (
     }
   }, [isOpen, tournament]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,8 +77,8 @@ export const EditTournamentDataModal: React.FC<EditTournamentDataModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-lg w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary relative shadow-2xl sm:max-h-[92dvh] sm:max-w-lg sm:rounded-3xl sm:p-6 sm:pb-6 space-y-5">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-muted hover:text-text-primary p-2 rounded-full hover:bg-surface-hover cursor-pointer transition-colors"

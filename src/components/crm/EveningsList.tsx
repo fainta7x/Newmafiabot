@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
@@ -21,6 +21,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<'evenings' | 'tournaments'>('evenings');
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
+  const tournamentListScrollRef = useRef(0);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
@@ -38,6 +39,18 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     setShowCreateModal(true);
     onInitialCreateHandled?.();
   }, [initialCreateOpen, onInitialCreateHandled]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [showCreateModal]);
+
+  const moveScroll = (top: number) => {
+    if (typeof window === 'undefined') return;
+    window.requestAnimationFrame(() => window.scrollTo({ top, left: 0, behavior: 'auto' }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +84,10 @@ export const EveningsList: React.FC<EveningsListProps> = ({
       <div className="flex items-center gap-1.5 bg-surface-1 p-1 rounded-2xl border border-border-soft w-full sm:w-auto self-start text-xs font-bold">
         <button
           onClick={() => {
+            const changed = subTab !== 'evenings' || activeTournamentId !== null;
             setSubTab('evenings');
             setActiveTournamentId(null);
+            if (changed) moveScroll(0);
           }}
           className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
             subTab === 'evenings'
@@ -86,7 +101,10 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
         <button
           onClick={() => {
+            const changed = subTab !== 'tournaments';
             setSubTab('tournaments');
+            setActiveTournamentId(null);
+            if (changed) moveScroll(0);
           }}
           className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
             subTab === 'tournaments'
@@ -103,10 +121,13 @@ export const EveningsList: React.FC<EveningsListProps> = ({
         activeTournamentId ? (
           <TournamentDetailView
             tournamentId={activeTournamentId}
-            onBack={() => setActiveTournamentId(null)}
+            onBack={() => {
+              setActiveTournamentId(null);
+              moveScroll(tournamentListScrollRef.current);
+            }}
           />
         ) : (
-          <TournamentsList onOpenTournament={(id) => setActiveTournamentId(id)} />
+          <TournamentsList onOpenTournament={(id) => { tournamentListScrollRef.current = typeof window !== 'undefined' ? window.scrollY : 0; setActiveTournamentId(id); moveScroll(0); }} />
         )
       ) : (
         <>
@@ -219,11 +240,11 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
       {/* Create Evening Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 relative text-white">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-800 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white sm:max-h-[92dvh] sm:max-w-lg sm:rounded-3xl sm:p-6 sm:pb-6 space-y-5 relative">
             <button
               onClick={() => setShowCreateModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
+              className="absolute top-3 right-3 grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-400 hover:text-white sm:top-4 sm:right-4 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -246,7 +267,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-slate-400 font-bold uppercase mb-1">Дата и время начала</label>
                   <input
@@ -309,14 +330,14 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  className="min-h-11 flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
                 >
                   {saving ? 'Сохранение...' : 'Запланировать вечер'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                  className="min-h-11 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
                 >
                   Отмена
                 </button>

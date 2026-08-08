@@ -56,6 +56,13 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const toggleSelectPlayer = (player: Player) => {
@@ -130,8 +137,8 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full p-5 sm:p-6 my-8 space-y-5 text-text-primary relative shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary relative shadow-2xl sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-3xl sm:p-6 sm:pb-6 space-y-5">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-muted hover:text-text-primary p-2 rounded-full hover:bg-surface-hover cursor-pointer transition-colors"
@@ -198,7 +205,7 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
                   Участники не выбраны. Выберите 10 игроков из списка ниже.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {selectedParticipants.map((p, idx) => (
                     <div
                       key={p.player_id}
@@ -239,9 +246,9 @@ export const EditTournamentRosterModal: React.FC<EditTournamentRosterModalProps>
 
             {/* Available Players Selection Grid */}
             <div className="space-y-2 pt-2 border-t border-border-soft">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-bold text-text-primary">Выбор игроков из CRM</span>
-                <div className="relative w-48">
+                <div className="relative w-full sm:w-48">
                   <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"

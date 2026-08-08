@@ -150,7 +150,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
             </div>
           ) : pngUrl ? (
             <div className="w-full max-w-lg bg-surface-2 p-3 rounded-2xl border border-border-soft flex flex-col items-center space-y-3">
-              <div className="w-full max-h-[60vh] overflow-y-auto rounded-xl border border-border-soft shadow-inner bg-black/40 p-2 flex justify-center">
+              <div className="w-full rounded-xl border border-border-soft shadow-inner bg-black/40 p-2 flex justify-center">
                 <img
                   src={pngUrl}
                   alt={`Рассадка ${tournament.title}`}
@@ -165,23 +165,23 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-border-soft bg-surface-1 shrink-0 flex items-center justify-between gap-2">
+        <div className="shrink-0 border-t border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 sm:pb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             onClick={onClose}
-            className="bg-surface-2 hover:bg-surface-hover text-text-secondary font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider cursor-pointer min-h-[44px]"
+            className="min-h-[44px] w-full rounded-2xl bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-secondary hover:bg-surface-hover cursor-pointer sm:w-auto"
           >
             Закрыть
           </button>
 
           {!loading && !errorMsg && pngUrl && (
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
               {canWebShare && (
                 <button
                   type="button"
                   onClick={handleShare}
                   disabled={sharing}
-                  className="bg-surface-2 hover:bg-surface-hover border border-border-soft text-text-primary font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 min-h-[44px]"
+                  className="min-h-[44px] w-full rounded-2xl border border-border-soft bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-primary transition-all hover:bg-surface-hover cursor-pointer flex items-center justify-center gap-2 sm:w-auto"
                 >
                   <Share2 className="w-4 h-4 text-accent" />
                   <span>Поделиться</span>
@@ -191,7 +191,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="bg-accent hover:bg-accent-hover text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-lg shadow-accent/20 min-h-[44px]"
+                className="min-h-[44px] w-full rounded-2xl bg-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-all hover:bg-accent-hover cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-accent/20 sm:w-auto"
               >
                 <Download className="w-4 h-4" />
                 <span>Скачать PNG</span>

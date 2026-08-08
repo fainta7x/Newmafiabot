@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Shuffle, Users, X } from 'lucide-react';
 import type { EveningParticipant, EveningTable, GameEvening } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
@@ -37,6 +37,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   }, [eligible, filter, query]);
 
   const selectedCount = seats.filter(Boolean).length;
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
 
   const changeTable = (tableId: string) => {
     setSelectedTableId(tableId);
@@ -82,10 +88,10 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
   return (
     <div className="fixed inset-0 z-[85] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-2xl max-h-[92dvh] rounded-t-3xl sm:rounded-3xl border border-slate-700 bg-slate-900 p-4 flex flex-col gap-3">
+      <div className="w-full max-h-[100dvh] sm:max-w-2xl sm:max-h-[92dvh] rounded-t-3xl sm:rounded-3xl border border-slate-700 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4 flex flex-col gap-3 overscroll-contain">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="text-[10px] text-slate-400 mt-0.5">Выбери площадку и 10 игроков из общего состава вечера. Никакой привязки игрока к столу.</p></div>
-          <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center shrink-0"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center shrink-0"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -105,7 +111,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </div>
 
         <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
-          {([['all', `Все ${eligible.length}`], ['attended', 'Пришли'], ['confirmed', 'Подтв.']] as Array<[PlayerFilter, string]>).map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-9 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>)}
+          {([['all', `Все ${eligible.length}`], ['attended', 'Пришли'], ['confirmed', 'Подтв.']] as Array<[PlayerFilter, string]>).map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-11 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>)}
         </div>
 
         <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск игрока" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" /></div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface MobileSheetProps {
@@ -22,6 +22,13 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   widthClass = 'sm:max-w-2xl',
   bodyClassName = 'px-4 py-4',
 }) => {
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -47,7 +54,7 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
             <X className="w-5 h-5" />
           </button>
         </header>
-        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName} pb-[max(1rem,env(safe-area-inset-bottom))]`}>
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName} ${footer ? '' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'}`}>
           {children}
         </div>
         {footer ? (

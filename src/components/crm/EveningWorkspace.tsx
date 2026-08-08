@@ -31,7 +31,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="sticky top-[60px] z-30 -mx-1 px-1 py-1 bg-app-bg/92 backdrop-blur-xl">
+      <div className="sticky top-0 z-30 -mx-1 px-1 py-1 bg-app-bg/92 backdrop-blur-xl sm:top-[60px]">
         <div className="grid grid-cols-3 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
           {tabs.map((tab) => {
             const active = section === tab.id;

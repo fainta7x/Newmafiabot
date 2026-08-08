@@ -1,388 +1,566 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   Check,
   CheckCircle2,
-  Clock,
-  Copy,
-  Plus,
+  ClipboardCopy,
+  MoreHorizontal,
   Search,
   Trash2,
   UserPlus,
-  UserX,
   Wallet,
-  X,
 } from 'lucide-react';
-import { api, type EveningParticipant, type GameEvening, type Player } from '../../lib/api';
-import { PlayerAvatar } from '../ui/PlayerAvatar';
+import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api.ts';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { MobileSheet } from '../ui/MobileSheet.tsx';
+import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
 interface EveningParticipantsViewProps {
   eveningId: string;
   onBack: () => void;
   onOpenPlayerCard?: (id: string) => void;
+  initialAddOpen?: boolean;
+  onInitialAddHandled?: () => void;
 }
 
-type RosterFilter = 'all' | 'attended' | 'expected' | 'waitlist';
+type EveningData = GameEvening & { tables: EveningTable[]; participants: EveningParticipant[] };
+type RosterFilter = 'all' | 'waiting' | 'confirmed' | 'waitlist';
+type AddMode = 'players' | 'guest';
 
 const registrationLabel = (value: EveningParticipant['registration_status']) => {
   if (value === 'confirmed') return 'Подтверждён';
   if (value === 'waitlist') return 'Резерв';
   if (value === 'cancelled') return 'Отменил';
-  if (value === 'invited') return 'Приглашён';
-  return 'Записан';
+  if (value === 'invited') return 'Ждём ответа';
+  return 'Ждём подтверждения';
 };
 
-const attendanceLabel = (participant: EveningParticipant) => {
-  if (participant.attendance_status === 'no_show') return 'Не пришёл';
-  if (participant.attendance_status === 'attended') return participant.arrival_status === 'late' ? 'Опоздал' : 'Пришёл';
-  return 'Ожидаем';
+const paymentLabel = (participant: EveningParticipant) => {
+  if (participant.payment_status === 'waived') return 'Без оплаты';
+  if (participant.payment_status === 'paid') return 'Оплачено';
+  if (participant.payment_status === 'partial') return `Оплачено ${participant.amount_paid}/${participant.amount_due} ₽`;
+  return `Не оплачено ${Math.max(0, participant.amount_due - participant.amount_paid)} ₽`;
 };
 
-export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = ({ eveningId, onBack, onOpenPlayerCard }) => {
-  const [evening, setEvening] = useState<GameEvening | null>(null);
+export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = ({
+  eveningId,
+  onBack,
+  onOpenPlayerCard,
+  initialAddOpen = false,
+  onInitialAddHandled,
+}) => {
+  const [evening, setEvening] = useState<EveningData | null>(null);
   const [participants, setParticipants] = useState<EveningParticipant[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<RosterFilter>('all');
   const [search, setSearch] = useState('');
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<{ key: string; message: string } | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode>('players');
   const [addSearch, setAddSearch] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-  const [addStatus, setAddStatus] = useState<'registered' | 'confirmed' | 'waitlist' | 'invited'>('registered');
-  const [addPrice, setAddPrice] = useState(500);
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
-  const [showGuest, setShowGuest] = useState(false);
   const [guestNickname, setGuestNickname] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
-  const [guestPrice, setGuestPrice] = useState(500);
-  const [guestStatus, setGuestStatus] = useState<'registered' | 'confirmed' | 'waitlist' | 'invited'>('registered');
 
   const [activeParticipant, setActiveParticipant] = useState<EveningParticipant | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueAt, setTaskDueAt] = useState('');
+  const [participantError, setParticipantError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EveningParticipant | null>(null);
-  const [showSettleConfirm, setShowSettleConfirm] = useState(false);
-  const [savingParticipant, setSavingParticipant] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const [showEventMenu, setShowEventMenu] = useState(false);
+  const [showSettleConfirm, setShowSettleConfirm] = useState(false);
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
+    setLoadError(null);
     try {
       const [data, players] = await Promise.all([api.getEvening(eveningId), api.getPlayers()]);
-      setEvening(data);
-      setParticipants(data.participants || []);
+      const normalized = data as EveningData;
+      setEvening(normalized);
+      setParticipants(normalized.participants || []);
       setAllPlayers(players);
-      setAddPrice(data.default_price ?? 500);
-      setGuestPrice(data.default_price ?? 500);
     } catch (err: any) {
-      alert(err.message || 'Не удалось загрузить состав вечера');
+      setLoadError(err?.message || 'Не удалось загрузить состав вечера');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [eveningId]);
+  useEffect(() => {
+    void load();
+  }, [eveningId]);
+
+  useEffect(() => {
+    if (!initialAddOpen) return;
+    setShowAdd(true);
+    setAddMode('players');
+    onInitialAddHandled?.();
+  }, [initialAddOpen, onInitialAddHandled]);
 
   const isReadonly = evening?.status === 'completed' || Boolean(evening?.settled_at);
-  const activeParticipants = participants.filter((p) => p.registration_status !== 'cancelled');
-  const attendedCount = participants.filter((p) => p.attendance_status === 'attended').length;
-  const confirmedCount = participants.filter((p) => p.registration_status === 'confirmed').length;
-  const paidTotal = participants.reduce((sum, p) => sum + (p.amount_paid || 0), 0);
-  const dueTotal = participants.reduce((sum, p) => sum + (p.amount_due || 0), 0);
+  const activeParticipants = participants.filter((item) => item.registration_status !== 'cancelled');
+  const confirmedCount = activeParticipants.filter((item) => item.registration_status === 'confirmed').length;
+  const waitingCount = activeParticipants.filter((item) => item.registration_status === 'registered' || item.registration_status === 'invited').length;
+  const waitlistCount = activeParticipants.filter((item) => item.registration_status === 'waitlist').length;
+  const occupiedCount = activeParticipants.filter((item) => item.registration_status === 'registered' || item.registration_status === 'confirmed').length;
+  const freeSpots = Math.max(0, Number(evening?.capacity || 0) - occupiedCount);
 
   const visibleParticipants = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('ru-RU');
-    return participants.filter((p) => {
-      if (filter === 'attended' && p.attendance_status !== 'attended') return false;
-      if (filter === 'expected' && (p.attendance_status !== 'pending' || p.registration_status === 'cancelled' || p.registration_status === 'waitlist')) return false;
-      if (filter === 'waitlist' && p.registration_status !== 'waitlist') return false;
-      if (q && !p.nickname.toLocaleLowerCase('ru-RU').includes(q) && !(p.phone || '').includes(q)) return false;
+    const query = search.trim().toLocaleLowerCase('ru-RU');
+    return participants.filter((participant) => {
+      if (filter === 'waiting' && !['registered', 'invited'].includes(participant.registration_status)) return false;
+      if (filter === 'confirmed' && participant.registration_status !== 'confirmed') return false;
+      if (filter === 'waitlist' && participant.registration_status !== 'waitlist') return false;
+      if (query && !participant.nickname.toLocaleLowerCase('ru-RU').includes(query) && !(participant.phone || '').includes(query)) return false;
       return true;
     });
   }, [participants, filter, search]);
 
-  const existingPlayerIds = useMemo(() => new Set(participants.map((p) => p.player_id)), [participants]);
+  const existingPlayerIds = useMemo(() => new Set(participants.map((item) => item.player_id)), [participants]);
   const availablePlayers = useMemo(() => {
-    const q = addSearch.trim().toLocaleLowerCase('ru-RU');
+    const query = addSearch.trim().toLocaleLowerCase('ru-RU');
     return allPlayers
-      .filter((p) => !existingPlayerIds.has(p.id))
-      .filter((p) => !q || p.nickname.toLocaleLowerCase('ru-RU').includes(q) || (p.telegram_username || '').toLocaleLowerCase('ru-RU').includes(q))
+      .filter((player) => !existingPlayerIds.has(player.id))
+      .filter((player) => !query || player.nickname.toLocaleLowerCase('ru-RU').includes(query) || (player.full_name || '').toLocaleLowerCase('ru-RU').includes(query) || (player.telegram_username || '').toLocaleLowerCase('ru-RU').includes(query))
       .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru'));
-  }, [allPlayers, existingPlayerIds, addSearch]);
+  }, [addSearch, allPlayers, existingPlayerIds]);
 
-  const updateParticipant = async (participant: EveningParticipant, patch: Partial<EveningParticipant>) => {
-    if (savingParticipant) return;
+  const openParticipantSheet = (participant: EveningParticipant) => {
+    setActiveParticipant(participant);
+    setPaymentAmount(Number(participant.amount_paid || 0));
+    setTaskTitle('');
+    setTaskDueAt('');
+    setParticipantError(null);
+  };
 
-    const previous = participant;
-    const optimistic = { ...participant, ...patch };
-    setSavingParticipant(true);
-    setParticipants((prev) => prev.map((item) => item.id === participant.id ? optimistic : item));
-    setActiveParticipant((current) => current?.id === participant.id ? optimistic : current);
-
+  const patchParticipant = async (participant: EveningParticipant, patch: Partial<EveningParticipant>, key: string) => {
+    if (busyAction) return;
+    setBusyAction(key);
+    setInlineError(null);
+    setParticipantError(null);
     try {
       const updated = await api.updateParticipant(participant.id, patch);
-      setParticipants((prev) => prev.map((item) => item.id === updated.id ? updated : item));
+      setParticipants((current) => current.map((item) => item.id === updated.id ? updated : item));
       setActiveParticipant((current) => current?.id === updated.id ? updated : current);
+      if (updated.id === activeParticipant?.id) setPaymentAmount(Number(updated.amount_paid || 0));
     } catch (err: any) {
-      setParticipants((prev) => prev.map((item) => item.id === previous.id ? previous : item));
-      setActiveParticipant((current) => current?.id === previous.id ? previous : current);
-      alert(err.message || 'Не удалось обновить игрока');
+      const message = err?.message || 'Не удалось обновить участника';
+      if (activeParticipant?.id === participant.id) setParticipantError(message);
+      else setInlineError({ key: participant.id, message });
     } finally {
-      setSavingParticipant(false);
+      setBusyAction(null);
+    }
+  };
+
+  const confirmParticipant = async (participant: EveningParticipant) => {
+    await patchParticipant(participant, { registration_status: 'confirmed' }, `confirm:${participant.id}`);
+  };
+
+  const markPaid = async (participant: EveningParticipant) => {
+    await patchParticipant(participant, { amount_paid: participant.amount_due, payment_status: 'paid' }, `paid:${participant.id}`);
+  };
+
+  const moveTable = async (participant: EveningParticipant, tableId: string) => {
+    if (busyAction) return;
+    setBusyAction(`table:${participant.id}`);
+    setParticipantError(null);
+    try {
+      const updated = await api.moveParticipantTable(participant.id, tableId || null);
+      setParticipants((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setActiveParticipant(updated);
+    } catch (err: any) {
+      setParticipantError(err?.message || 'Не удалось изменить стол');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const savePayment = async () => {
+    if (!activeParticipant) return;
+    const amount = Math.max(0, Math.min(Number(activeParticipant.amount_due || 0), Number(paymentAmount || 0)));
+    const status: EveningParticipant['payment_status'] = amount <= 0 ? 'unpaid' : amount >= activeParticipant.amount_due ? 'paid' : 'partial';
+    await patchParticipant(activeParticipant, { amount_paid: amount, payment_status: status }, `payment:${activeParticipant.id}`);
+  };
+
+  const createTask = async () => {
+    if (!activeParticipant || !taskTitle.trim() || busyAction) return;
+    setBusyAction(`task:${activeParticipant.id}`);
+    setParticipantError(null);
+    try {
+      await api.createTask({
+        title: taskTitle.trim(),
+        player_id: activeParticipant.player_id,
+        evening_id: eveningId,
+        due_at: taskDueAt ? new Date(taskDueAt).toISOString() : null,
+        priority: 'medium',
+      });
+      setTaskTitle('');
+      setTaskDueAt('');
+    } catch (err: any) {
+      setParticipantError(err?.message || 'Не удалось создать задачу');
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const addSelectedPlayers = async () => {
-    if (!selectedPlayerIds.length || adding) return;
+    if (!selectedPlayerIds.length || adding || !evening) return;
     setAdding(true);
+    setAddError(null);
     try {
-      await api.bulkAddParticipants(eveningId, selectedPlayerIds, null, addStatus, addPrice);
+      await api.bulkAddParticipants(eveningId, selectedPlayerIds, null, 'registered', evening.default_price);
       setSelectedPlayerIds([]);
       setAddSearch('');
       setShowAdd(false);
-      await load();
+      await load(true);
     } catch (err: any) {
-      alert(err.message || 'Не удалось добавить игроков');
+      setAddError(err?.message || 'Не удалось добавить игроков');
     } finally {
       setAdding(false);
     }
   };
 
   const addGuest = async () => {
-    if (!guestNickname.trim()) return;
+    if (!guestNickname.trim() || adding || !evening) return;
+    setAdding(true);
+    setAddError(null);
     try {
       await api.addParticipant(eveningId, {
         nickname: guestNickname.trim(),
         phone: guestPhone.trim() || undefined,
         table_id: null,
-        registration_status: guestStatus,
-        amount_due: guestPrice,
+        registration_status: 'registered',
+        amount_due: evening.default_price,
       });
       setGuestNickname('');
       setGuestPhone('');
-      setGuestStatus('registered');
-      setShowGuest(false);
-      await load();
+      setShowAdd(false);
+      await load(true);
     } catch (err: any) {
-      alert(err.message || 'Не удалось добавить гостя');
+      setAddError(err?.message || 'Не удалось добавить гостя');
+    } finally {
+      setAdding(false);
     }
   };
 
   const deleteParticipant = async () => {
-    if (!pendingDelete) return;
+    if (!pendingDelete || busyAction) return;
+    setBusyAction(`delete:${pendingDelete.id}`);
     try {
       await api.deleteParticipant(pendingDelete.id);
-      setParticipants((prev) => prev.filter((p) => p.id !== pendingDelete.id));
-      setActiveParticipant(null);
+      setParticipants((current) => current.filter((item) => item.id !== pendingDelete.id));
       setPendingDelete(null);
+      setActiveParticipant(null);
     } catch (err: any) {
-      alert(err.message || 'Не удалось убрать игрока с вечера');
+      setParticipantError(err?.message || 'Не удалось убрать игрока с вечера');
+      setPendingDelete(null);
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const settleEvening = async () => {
+    if (busyAction) return;
+    setBusyAction('settle');
     try {
       await api.settleEvening(eveningId);
       setShowSettleConfirm(false);
-      await load();
+      setShowEventMenu(false);
+      await load(true);
     } catch (err: any) {
-      alert(err.message || 'Не удалось рассчитать вечер');
+      setLoadError(err?.message || 'Не удалось рассчитать вечер');
+      setShowSettleConfirm(false);
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const copyJoinLink = async () => {
-    const joinUrl = `${window.location.origin}/join/${eveningId}`;
-    await navigator.clipboard.writeText(joinUrl);
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/join/${eveningId}`);
+      setShowEventMenu(false);
+    } catch {
+      setLoadError('Не удалось скопировать ссылку на регистрацию');
+    }
   };
 
-  if (loading || !evening) {
-    return <div className="py-16 text-center text-sm text-slate-400">Загрузка состава…</div>;
+  if (loading) return <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка состава…</div>;
+  if (!evening) {
+    return (
+      <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[13px] text-danger">
+        {loadError || 'Вечер не найден'}
+        <button type="button" onClick={() => void load()} className="ml-2 font-bold underline">Повторить</button>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-3 pb-4">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 space-y-3">
+    <div className="space-y-4 pb-4">
+      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-start gap-3">
-          <button type="button" onClick={onBack} className="w-10 h-10 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 flex items-center justify-center shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+          <button type="button" aria-label="Назад" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-white truncate">{evening.title}</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
+            <h2 className="break-words text-[18px] font-black leading-tight text-text-primary">{evening.title}</h2>
+            <p className="mt-1 text-[12px] leading-4 text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
           </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-1.5 text-center">
-          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2"><span className="block text-[8px] uppercase text-slate-500">На вечер</span><strong className="text-sm text-white">{activeParticipants.length}</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2"><span className="block text-[8px] uppercase text-slate-500">Подтв.</span><strong className="text-sm text-emerald-400">{confirmedCount}</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2"><span className="block text-[8px] uppercase text-slate-500">Пришли</span><strong className="text-sm text-amber-400">{attendedCount}</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950 p-2"><span className="block text-[8px] uppercase text-slate-500">Касса</span><strong className="text-sm text-emerald-400">{paidTotal}₽</strong></div>
-        </div>
-
-        {!isReadonly && (
-          <div className="grid grid-cols-4 gap-2">
-            <button type="button" onClick={copyJoinLink} className="min-h-14 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 flex flex-col items-center justify-center gap-1"><Copy className="w-4 h-4" /><span className="text-[9px] font-bold">Ссылка</span></button>
-            <button type="button" onClick={() => setShowAdd(true)} className="min-h-14 rounded-xl bg-rose-600 text-white flex flex-col items-center justify-center gap-1"><UserPlus className="w-4 h-4" /><span className="text-[9px] font-black">Игроки</span></button>
-            <button type="button" onClick={() => setShowGuest(true)} className="min-h-14 rounded-xl border border-slate-700 bg-slate-800 text-slate-200 flex flex-col items-center justify-center gap-1"><Plus className="w-4 h-4 text-emerald-400" /><span className="text-[9px] font-bold">Гость</span></button>
-            <button type="button" onClick={() => setShowSettleConfirm(true)} className="min-h-14 rounded-xl bg-emerald-600 text-white flex flex-col items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4" /><span className="text-[9px] font-black">Расчёт</span></button>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти игрока" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" />
-        </div>
-        <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-950 p-1 border border-slate-800">
-          {([
-            ['all', `Все ${participants.length}`],
-            ['attended', `Пришли ${attendedCount}`],
-            ['expected', 'Ждём'],
-            ['waitlist', 'Резерв'],
-          ] as Array<[RosterFilter, string]>).map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-9 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          {visibleParticipants.map((participant) => (
-            <button key={participant.id} type="button" onClick={() => setActiveParticipant(participant)} className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3 text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
-              <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="md" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 min-w-0"><strong className="text-sm text-white truncate">{participant.nickname}</strong>{participant.registration_status === 'waitlist' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">РЕЗЕРВ</span>}</div>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <span className="text-[9px] text-slate-400">{registrationLabel(participant.registration_status)}</span>
-                  <span className={`text-[9px] ${participant.attendance_status === 'attended' ? 'text-emerald-400' : participant.attendance_status === 'no_show' ? 'text-rose-400' : 'text-slate-500'}`}>· {attendanceLabel(participant)}</span>
-                  <span className={`text-[9px] ${participant.payment_status === 'paid' || participant.payment_status === 'waived' ? 'text-emerald-400' : participant.payment_status === 'partial' ? 'text-amber-400' : 'text-rose-400'}`}>· {participant.amount_paid}/{participant.amount_due}₽</span>
-                </div>
-              </div>
-              <span className="text-slate-600 text-lg">›</span>
+          {!isReadonly ? (
+            <button type="button" aria-label="Ещё действия" onClick={() => setShowEventMenu(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary">
+              <MoreHorizontal className="h-5 w-5" />
             </button>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-5">
+          {[
+            ['Участники', activeParticipants.length],
+            ['Подтверждены', confirmedCount],
+            ['Ждём', waitingCount],
+            ['Резерв', waitlistCount],
+            ['Свободно', freeSpots],
+          ].map(([label, value]) => (
+            <div key={String(label)}>
+              <span className="block text-[11px] text-text-muted">{label}</span>
+              <strong className="mt-0.5 block text-[17px] font-black text-text-primary">{value}</strong>
+            </div>
           ))}
-          {visibleParticipants.length === 0 && <div className="py-10 text-center text-xs text-slate-500">Никого не найдено</div>}
+        </div>
+
+        {!isReadonly ? (
+          <button type="button" onClick={() => { setAddMode('players'); setAddError(null); setShowAdd(true); }} className="mt-4 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white sm:w-auto">
+            <UserPlus className="h-4 w-4" /> Добавить
+          </button>
+        ) : null}
+      </section>
+
+      {loadError ? (
+        <div className="flex items-start gap-2 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {loadError}
+        </div>
+      ) : null}
+
+      <section className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-10" />
+        </div>
+
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <div className="flex w-max min-w-full gap-2">
+            {([
+              ['all', `Все ${activeParticipants.length}`],
+              ['waiting', `Ждём ${waitingCount}`],
+              ['confirmed', `Подтверждены ${confirmedCount}`],
+              ['waitlist', `Резерв ${waitlistCount}`],
+            ] as Array<[RosterFilter, string]>).map(([id, label]) => (
+              <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${filter === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
+          {visibleParticipants.map((participant, index) => {
+            const tableName = evening.tables?.find((table) => table.id === participant.table_id)?.name || 'Без стола';
+            const needsConfirmation = ['registered', 'invited'].includes(participant.registration_status);
+            const needsPayment = participant.registration_status === 'confirmed' && participant.payment_status !== 'paid' && participant.payment_status !== 'waived' && participant.amount_due > participant.amount_paid;
+            const rowBusy = busyAction === `confirm:${participant.id}` || busyAction === `paid:${participant.id}`;
+            return (
+              <div key={participant.id} className={`${index ? 'border-t border-border-soft' : ''} px-3 py-3`}>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => onOpenPlayerCard?.(participant.player_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="md" />
+                    <span className="min-w-0 flex-1">
+                      <strong className="block break-words text-[14px] font-bold leading-5 text-text-primary">{participant.nickname}</strong>
+                      <span className="mt-0.5 block text-[11px] text-text-secondary">{tableName} · {registrationLabel(participant.registration_status)}</span>
+                      <span className={`mt-0.5 block text-[11px] ${participant.payment_status === 'paid' || participant.payment_status === 'waived' ? 'text-success' : participant.payment_status === 'partial' ? 'text-warning' : 'text-text-muted'}`}>{paymentLabel(participant)}</span>
+                    </span>
+                  </button>
+
+                  {!isReadonly && needsConfirmation ? (
+                    <button type="button" disabled={Boolean(busyAction)} onClick={() => void confirmParticipant(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-accent px-3 text-[12px] font-bold text-white disabled:opacity-50">
+                      {rowBusy ? '…' : 'Подтвердить'}
+                    </button>
+                  ) : !isReadonly && needsPayment ? (
+                    <button type="button" disabled={Boolean(busyAction)} onClick={() => void markPaid(participant)} className="min-h-[44px] shrink-0 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] font-bold text-text-primary disabled:opacity-50">
+                      {rowBusy ? '…' : 'Оплачено'}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => openParticipantSheet(participant)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] text-text-muted hover:bg-surface-hover hover:text-text-primary" aria-label="Действия участника">
+                      {participant.registration_status === 'confirmed' && (participant.payment_status === 'paid' || participant.payment_status === 'waived') ? <CheckCircle2 className="h-5 w-5 text-success" /> : <MoreHorizontal className="h-5 w-5" />}
+                    </button>
+                  )}
+                </div>
+                {inlineError?.key === participant.id ? <p className="mt-2 text-[11px] text-danger">{inlineError.message}</p> : null}
+              </div>
+            );
+          })}
+          {visibleParticipants.length === 0 ? <div className="py-12 text-center text-[13px] text-text-secondary">Никого не найдено</div> : null}
         </div>
       </section>
 
-      {showAdd && !isReadonly && (
-        <div className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center">
-          <div className="w-full sm:max-w-xl max-h-[88dvh] bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between"><div><h3 className="text-base font-black text-white">Добавить игроков</h3><p className="text-[10px] text-slate-400">Игрок добавляется на вечер. Стол выбирается только при создании игры.</p></div><button type="button" onClick={() => setShowAdd(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button></div>
-            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" /><input value={addSearch} onChange={(e) => setAddSearch(e.target.value)} placeholder="Поиск по нику" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" /></div>
-            <div className="grid grid-cols-2 gap-2">
-              <select value={addStatus} onChange={(e) => setAddStatus(e.target.value as typeof addStatus)} className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white"><option value="registered">Записан</option><option value="confirmed">Подтверждён</option><option value="waitlist">Резерв</option><option value="invited">Приглашён</option></select>
-              <label className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 flex items-center gap-2"><Wallet className="w-4 h-4 text-slate-500" /><input type="number" value={addPrice} onChange={(e) => setAddPrice(Number(e.target.value) || 0)} className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none" /></label>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {availablePlayers.map((player) => {
-                const selected = selectedPlayerIds.includes(player.id);
-                return <button key={player.id} type="button" onClick={() => setSelectedPlayerIds((prev) => selected ? prev.filter((id) => id !== player.id) : [...prev, player.id])} className={`w-full rounded-xl border p-2.5 flex items-center gap-3 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={player.nickname} playerId={player.id} avatarVersion={player.avatar_updated_at} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="text-xs text-white block truncate">{player.nickname}</strong><span className="text-[9px] text-slate-500">ELO {player.elo}</span></div><span className={`w-6 h-6 rounded-full border flex items-center justify-center ${selected ? 'bg-rose-600 border-rose-500 text-white' : 'border-slate-700 text-transparent'}`}><Check className="w-3.5 h-3.5" /></span></button>;
-              })}
-              {availablePlayers.length === 0 && <div className="py-8 text-center text-xs text-slate-500">Все игроки уже добавлены или ничего не найдено</div>}
-            </div>
-            <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={addSelectedPlayers} className="min-h-12 rounded-xl bg-rose-600 disabled:opacity-40 text-white text-sm font-black">{adding ? 'Добавляем…' : `Добавить ${selectedPlayerIds.length || ''}`}</button>
+      <MobileSheet
+        open={showAdd && !isReadonly}
+        onClose={() => setShowAdd(false)}
+        title="Добавить на вечер"
+        subtitle="Текущий вечер уже выбран. По умолчанию — обычная запись и стандартная стоимость."
+        widthClass="sm:max-w-xl"
+        footer={addMode === 'players' ? (
+          <button type="button" disabled={!selectedPlayerIds.length || adding} onClick={() => void addSelectedPlayers()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-40">
+            {adding ? 'Добавляем…' : selectedPlayerIds.length ? `Добавить выбранных · ${selectedPlayerIds.length}` : 'Выберите игроков'}
+          </button>
+        ) : (
+          <button type="button" disabled={!guestNickname.trim() || adding} onClick={() => void addGuest()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-40">
+            {adding ? 'Добавляем…' : 'Добавить гостя'}
+          </button>
+        )}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-1 rounded-[13px] bg-surface-2 p-1">
+            <button type="button" onClick={() => setAddMode('players')} className={`min-h-[44px] rounded-[10px] text-[12px] font-bold ${addMode === 'players' ? 'bg-accent text-white' : 'text-text-secondary'}`}>Игроки</button>
+            <button type="button" onClick={() => setAddMode('guest')} className={`min-h-[44px] rounded-[10px] text-[12px] font-bold ${addMode === 'guest' ? 'bg-accent text-white' : 'text-text-secondary'}`}>Быстрый гость</button>
           </div>
-        </div>
-      )}
 
-      {showGuest && !isReadonly && (
-        <div className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center">
-          <div className="w-full sm:max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl p-4 space-y-3">
-            <div className="flex items-center justify-between"><h3 className="text-base font-black text-white">Быстрый гость</h3><button type="button" onClick={() => setShowGuest(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button></div>
-            <input value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} placeholder="Никнейм" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none" />
-            <input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="Телефон — необязательно" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none" />
-            <div className="grid grid-cols-2 gap-2"><select value={guestStatus} onChange={(e) => setGuestStatus(e.target.value as typeof guestStatus)} className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 text-xs text-white"><option value="registered">Записан</option><option value="confirmed">Подтверждён</option><option value="waitlist">Резерв</option><option value="invited">Приглашён</option></select><input type="number" value={guestPrice} onChange={(e) => setGuestPrice(Number(e.target.value) || 0)} className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-3 text-xs text-white" /></div>
-            <button type="button" disabled={!guestNickname.trim()} onClick={addGuest} className="w-full min-h-12 rounded-xl bg-rose-600 disabled:opacity-40 text-white font-black">Добавить на вечер</button>
-          </div>
-        </div>
-      )}
+          {addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}
 
-      {activeParticipant && createPortal(
-        <div
-          className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center touch-manipulation"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Управление игроком ${activeParticipant.nickname}`}
-          onClick={() => setActiveParticipant(null)}
-        >
-          <div
-            className="w-full sm:max-w-md bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl p-4 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <PlayerAvatar nickname={activeParticipant.nickname} playerId={activeParticipant.player_id} forceStoredLookup size="lg" />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-black text-white truncate">{activeParticipant.nickname}</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const playerId = activeParticipant.player_id;
-                    setActiveParticipant(null);
-                    onOpenPlayerCard?.(playerId);
-                  }}
-                  className="text-[10px] text-rose-400 font-bold touch-manipulation"
-                >
-                  Открыть карточку игрока
+          {addMode === 'players' ? (
+            <>
+              <label className="relative block">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                <input value={addSearch} onChange={(event) => setAddSearch(event.target.value)} placeholder="Ник, имя или Telegram" className="mobile-field pl-10" />
+              </label>
+              <div className="space-y-1">
+                {availablePlayers.map((player) => {
+                  const selected = selectedPlayerIds.includes(player.id);
+                  return (
+                    <button key={player.id} type="button" onClick={() => setSelectedPlayerIds((current) => selected ? current.filter((id) => id !== player.id) : [...current, player.id])} className={`flex min-h-[56px] w-full items-center gap-3 rounded-[13px] border px-3 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-1'}`}>
+                      <PlayerAvatar nickname={player.nickname} playerId={player.id} avatarVersion={player.avatar_updated_at} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-[13px] text-text-primary">{player.nickname}</strong>
+                        {player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-muted">{player.full_name}</span> : null}
+                      </span>
+                      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${selected ? 'border-accent bg-accent text-white' : 'border-border-strong text-transparent'}`}><Check className="h-3.5 w-3.5" /></span>
+                    </button>
+                  );
+                })}
+                {availablePlayers.length === 0 ? <div className="py-10 text-center text-[12px] text-text-muted">Все подходящие игроки уже добавлены или ничего не найдено.</div> : null}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Никнейм" className="mobile-field" />
+              <input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} placeholder="Телефон — необязательно" className="mobile-field" />
+              <div className="rounded-[13px] bg-surface-2 p-3 text-[12px] leading-relaxed text-text-secondary">Стоимость: {evening.default_price} ₽ · Стол можно выбрать позже · Статус: записан.</div>
+            </div>
+          )}
+        </div>
+      </MobileSheet>
+
+      <MobileSheet
+        open={Boolean(activeParticipant)}
+        onClose={() => setActiveParticipant(null)}
+        title={activeParticipant?.nickname || 'Участник'}
+        subtitle={activeParticipant ? `${registrationLabel(activeParticipant.registration_status)} · ${paymentLabel(activeParticipant)}` : undefined}
+        widthClass="sm:max-w-md"
+      >
+        {activeParticipant ? (
+          <div className="space-y-5">
+            {participantError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{participantError}</div> : null}
+
+            <button type="button" onClick={() => { const id = activeParticipant.player_id; setActiveParticipant(null); onOpenPlayerCard?.(id); }} className="min-h-[48px] w-full rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary">Открыть профиль игрока</button>
+
+            {!isReadonly ? (
+              <>
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Статус записи</span>
+                  <select value={activeParticipant.registration_status} disabled={Boolean(busyAction)} onChange={(event) => void patchParticipant(activeParticipant, { registration_status: event.target.value as EveningParticipant['registration_status'] }, `status:${activeParticipant.id}`)} className="mobile-field">
+                    <option value="invited">Приглашён</option>
+                    <option value="registered">Записан</option>
+                    <option value="confirmed">Подтверждён</option>
+                    <option value="waitlist">Резерв</option>
+                    <option value="cancelled">Отменил</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Стол</span>
+                  <select value={activeParticipant.table_id || ''} disabled={Boolean(busyAction)} onChange={(event) => void moveTable(activeParticipant, event.target.value)} className="mobile-field">
+                    <option value="">Без стола</option>
+                    {(evening.tables || []).map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}
+                  </select>
+                </label>
+
+                <div>
+                  <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Оплата</span>
+                  <div className="flex gap-2">
+                    <label className="relative min-w-0 flex-1">
+                      <Wallet className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                      <input type="number" min={0} max={activeParticipant.amount_due} value={paymentAmount} onChange={(event) => setPaymentAmount(Number(event.target.value) || 0)} className="mobile-field pl-10" />
+                    </label>
+                    <button type="button" disabled={Boolean(busyAction)} onClick={() => void savePayment()} className="min-h-[48px] rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50">Сохранить</button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-text-muted">К оплате: {activeParticipant.amount_due} ₽</p>
+                </div>
+
+                <div className="border-t border-border-soft pt-4">
+                  <span className="mb-2 block text-[11px] font-semibold text-text-secondary">Создать задачу</span>
+                  <div className="space-y-2">
+                    <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Например: уточнить участие" className="mobile-field" />
+                    <input type="datetime-local" value={taskDueAt} onChange={(event) => setTaskDueAt(event.target.value)} className="mobile-field" />
+                    <button type="button" disabled={!taskTitle.trim() || Boolean(busyAction)} onClick={() => void createTask()} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-primary disabled:opacity-40">Создать задачу</button>
+                  </div>
+                </div>
+
+                <button type="button" onClick={() => setPendingDelete(activeParticipant)} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-4 text-[12px] font-bold text-danger">
+                  <Trash2 className="h-4 w-4" /> Удалить из вечера
                 </button>
-              </div>
-              <button
-                type="button"
-                aria-label="Закрыть"
-                onClick={() => setActiveParticipant(null)}
-                className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center touch-manipulation"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {!isReadonly && <>
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-black text-slate-500">Запись</span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'confirmed' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'confirmed' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Подтвердить</button>
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'waitlist' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'waitlist' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Резерв</button>
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { registration_status: 'cancelled' })} className={`min-h-10 rounded-xl text-[10px] font-black border touch-manipulation disabled:opacity-60 ${activeParticipant.registration_status === 'cancelled' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400'}`}>Отменил</button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-black text-slate-500">Явка</span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'on_time' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'attended' && activeParticipant.arrival_status !== 'late' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-emerald-600/15 border-emerald-500/30 text-emerald-300'}`}><Check className="w-3.5 h-3.5" />Пришёл</button>
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'attended', arrival_status: 'late' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'attended' && activeParticipant.arrival_status === 'late' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-amber-600/15 border-amber-500/30 text-amber-300'}`}><Clock className="w-3.5 h-3.5" />Опоздал</button>
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { attendance_status: 'no_show', arrival_status: 'unknown' })} className={`min-h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-1 touch-manipulation disabled:opacity-60 ${activeParticipant.attendance_status === 'no_show' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-rose-600/15 border-rose-500/30 text-rose-300'}`}><UserX className="w-3.5 h-3.5" />Не пришёл</button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-black text-slate-500">Оплата</span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { payment_status: 'paid', amount_paid: activeParticipant.amount_due })} className={`min-h-11 rounded-xl border text-[10px] font-black touch-manipulation disabled:opacity-60 ${activeParticipant.payment_status === 'paid' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-emerald-600/15 border-emerald-500/30 text-emerald-300'}`}>100%</button>
-                  <button type="button" disabled={savingParticipant} onClick={() => updateParticipant(activeParticipant, { payment_status: 'waived', amount_paid: 0 })} className={`min-h-11 rounded-xl border text-[10px] font-black touch-manipulation disabled:opacity-60 ${activeParticipant.payment_status === 'waived' ? 'bg-slate-600 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300'}`}>Бесплатно</button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingDelete(activeParticipant);
-                  setActiveParticipant(null);
-                }}
-                className="w-full min-h-11 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-300 text-xs font-black flex items-center justify-center gap-2 touch-manipulation"
-              >
-                <Trash2 className="w-4 h-4" />Убрать с вечера
-              </button>
-            </>}
+              </>
+            ) : null}
           </div>
-        </div>,
-        document.body
-      )}
+        ) : null}
+      </MobileSheet>
 
-      {pendingDelete && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-rose-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Убрать {pendingDelete.nickname} с вечера?</h3><p className="text-xs text-slate-400 mt-1">Это удалит только запись на этот вечер, сам игрок останется в CRM.</p></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setPendingDelete(null)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button type="button" onClick={deleteParticipant} className="min-h-11 rounded-xl bg-rose-600 text-white text-xs font-black">Убрать</button></div></div></div>
-      )}
+      <MobileSheet open={showEventMenu} onClose={() => setShowEventMenu(false)} title="Действия вечера" subtitle="Редкие операции вынесены из основного состава." widthClass="sm:max-w-sm">
+        <div className="space-y-2">
+          <button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary"><ClipboardCopy className="h-4 w-4" /> Скопировать ссылку записи</button>
+          {!isReadonly ? <button type="button" onClick={() => setShowSettleConfirm(true)} className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary"><CheckCircle2 className="h-4 w-4 text-success" /> Рассчитать и закрыть вечер</button> : null}
+        </div>
+      </MobileSheet>
 
-      {showSettleConfirm && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl border border-emerald-800 bg-slate-900 p-4 space-y-4"><div><h3 className="text-base font-black text-white">Рассчитать вечер?</h3><p className="text-xs text-slate-400 mt-1">Оплачено {paidTotal}₽ · долг {Math.max(0, dueTotal - paidTotal)}₽. После расчёта вечер станет доступен только для просмотра.</p></div><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setShowSettleConfirm(false)} className="min-h-11 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-black">Отмена</button><button type="button" onClick={settleEvening} className="min-h-11 rounded-xl bg-emerald-600 text-white text-xs font-black">Рассчитать</button></div></div></div>
-      )}
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Убрать игрока с вечера?"
+        description={pendingDelete ? `${pendingDelete.nickname} будет удалён из состава этого вечера.` : undefined}
+        confirmLabel="Удалить"
+        tone="danger"
+        busy={Boolean(busyAction)}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={deleteParticipant}
+      />
+
+      <ConfirmDialog
+        open={showSettleConfirm}
+        title="Рассчитать и закрыть вечер?"
+        description="Финансовый расчёт вечера останется по существующим правилам. Это действие не меняет их."
+        confirmLabel="Рассчитать"
+        busy={busyAction === 'settle'}
+        onCancel={() => setShowSettleConfirm(false)}
+        onConfirm={settleEvening}
+      />
     </div>
   );
 };
+
+export default EveningParticipantsView;

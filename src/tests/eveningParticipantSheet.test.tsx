@@ -67,7 +67,7 @@ const evening = {
   participants: [participant],
 };
 
-describe('EveningParticipantsView participant sheet', () => {
+describe('EveningParticipantsView action-first roster', () => {
   beforeEach(() => {
     mocks.getEvening.mockResolvedValue(evening);
     mocks.getPlayers.mockResolvedValue([]);
@@ -82,36 +82,38 @@ describe('EveningParticipantsView participant sheet', () => {
     vi.clearAllMocks();
   });
 
-  it('responds to taps, highlights the selected state, and has no 50% shortcut', async () => {
-    render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} />);
+  it('opens the player in one tap and exposes one-tap confirm/payment without the old 50% shortcut', async () => {
+    const onOpenPlayerCard = vi.fn();
+    render(
+      <EveningParticipantsView
+        eveningId="evening-1"
+        onBack={() => undefined}
+        onOpenPlayerCard={onOpenPlayerCard}
+      />,
+    );
 
     const playerName = await screen.findByText('Спящий');
     const playerButton = playerName.closest('button');
     expect(playerButton).toBeTruthy();
     fireEvent.click(playerButton!);
+    expect(onOpenPlayerCard).toHaveBeenCalledWith('player-1');
 
-    expect(screen.getByRole('dialog', { name: 'Управление игроком Спящий' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '50%' })).toBeNull();
 
-    const arrivedButton = screen.getByRole('button', { name: 'Пришёл' }) as HTMLButtonElement;
-    fireEvent.click(arrivedButton);
-
-    expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', {
-      attendance_status: 'attended',
-      arrival_status: 'on_time',
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    await waitFor(() => {
+      expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', {
+        registration_status: 'confirmed',
+      });
     });
-    expect(arrivedButton.className).toContain('bg-emerald-600');
 
-    await waitFor(() => expect(arrivedButton.disabled).toBe(false));
-
-    const paidButton = screen.getByRole('button', { name: '100%' });
+    const paidButton = await screen.findByRole('button', { name: 'Оплачено' });
     fireEvent.click(paidButton);
-    expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', {
-      payment_status: 'paid',
-      amount_paid: 500,
+    await waitFor(() => {
+      expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', {
+        amount_paid: 500,
+        payment_status: 'paid',
+      });
     });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
-    expect(screen.queryByRole('dialog', { name: 'Управление игроком Спящий' })).toBeNull();
   });
 });

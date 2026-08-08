@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
@@ -8,12 +8,16 @@ interface EveningsListProps {
   evenings: GameEvening[];
   onOpenEvening: (id: string) => void;
   onCreateEvening: (data: Partial<GameEvening>) => Promise<void>;
+  initialCreateOpen?: boolean;
+  onInitialCreateHandled?: () => void;
 }
 
 export const EveningsList: React.FC<EveningsListProps> = ({
   evenings,
   onOpenEvening,
   onCreateEvening,
+  initialCreateOpen = false,
+  onInitialCreateHandled,
 }) => {
   const [subTab, setSubTab] = useState<'evenings' | 'tournaments'>('evenings');
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
@@ -27,6 +31,14 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const [venue, setVenue] = useState('Зал #1 (Главный)');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!initialCreateOpen) return;
+    setSubTab('evenings');
+    setActiveTournamentId(null);
+    setShowCreateModal(true);
+    onInitialCreateHandled?.();
+  }, [initialCreateOpen, onInitialCreateHandled]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

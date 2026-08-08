@@ -1,24 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
-  Check,
+  Award,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Copy,
   Edit3,
   Filter,
+  History,
+  ImagePlus,
   MessageSquare,
-  Phone,
+  MoreHorizontal,
   Plus,
-  RotateCcw,
-  Save,
   Search,
   Send,
   Trash2,
-  Upload,
-  UserCheck,
   UserRound,
-  UserX,
 } from 'lucide-react';
 import {
   api,
@@ -49,17 +47,14 @@ interface PlayersCRMProps {
   onCrmChanged?: () => void;
 }
 
-type QuickFilter = 'all' | 'newcomers1' | 'never' | 'absent30' | 'absent60' | 'open_tasks';
-type PlayerSection = 'overview' | 'games' | 'crm';
-type GameFilter = 'all' | 'club' | 'tournament';
+type QuickFilter = 'all' | 'attention' | 'newcomers' | 'lapsed';
+type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
 
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
   { id: 'all', label: 'Все' },
-  { id: 'newcomers1', label: 'Новички' },
-  { id: 'never', label: 'Не приходили' },
-  { id: 'absent30', label: '30+ дней' },
-  { id: 'absent60', label: '60+ дней' },
-  { id: 'open_tasks', label: 'Есть задачи' },
+  { id: 'attention', label: 'Требуют внимания' },
+  { id: 'newcomers', label: 'Новички' },
+  { id: 'lapsed', label: 'Давно не были' },
 ];
 
 const fmtDate = (value?: string | null, withTime = false) => {
@@ -72,14 +67,14 @@ const fmtDate = (value?: string | null, withTime = false) => {
 };
 
 const statusTone = (status?: string | null) => {
-  if (status === 'blocked') return 'bg-danger-soft text-danger border-danger/20';
-  if (status === 'paused') return 'bg-warning-soft text-warning border-warning/20';
-  return 'bg-success-soft text-success border-success/20';
+  if (status === 'blocked') return 'text-danger';
+  if (status === 'paused') return 'text-warning';
+  return 'text-success';
 };
 
 export const PlayersCRM: React.FC<PlayersCRMProps> = ({
-  evenings: _evenings,
-  onOpenEvening: _onOpenEvening,
+  evenings,
+  onOpenEvening,
   selectedPlayerId,
   onClosePlayerCard,
   onCrmChanged,
@@ -87,78 +82,65 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const playerListRequestSeq = useRef(0);
-  const [lifecycleStatus, setLifecycleStatus] = useState('');
-  const [contactStatusFilter, setContactStatusFilter] = useState('');
+  const requestSeq = useRef(0);
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [contactStatusFilter, setContactStatusFilter] = useState('');
+  const [lifecycleStatus, setLifecycleStatus] = useState('');
+  const [advancedSegment, setAdvancedSegment] = useState<AdvancedSegment>('');
 
   const [activePlayerCardId, setActivePlayerCardId] = useState<string | null>(selectedPlayerId || null);
   const [playerDetails, setPlayerDetails] = useState<PlayerDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [playerSection, setPlayerSection] = useState<PlayerSection>('overview');
-  const [gameFilter, setGameFilter] = useState<GameFilter>('all');
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [primaryBusy, setPrimaryBusy] = useState(false);
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newNickname, setNewNickname] = useState('');
   const [newFullName, setNewFullName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newTgUsername, setNewTgUsername] = useState('');
-  const [newSource, setNewSource] = useState('manual');
-  const [newNotes, setNewNotes] = useState('');
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isSavingPlayer, setIsSavingPlayer] = useState(false);
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [showEditSheet, setShowEditSheet] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
-    nickname: '',
-    full_name: '',
-    phone: '',
-    telegram_username: '',
-    source: '',
-    notes: '',
+    nickname: '', full_name: '', phone: '', telegram_username: '', source: '', notes: '',
     contact_status: 'normal' as ContactStatus,
-    do_not_invite_until: '',
-    pause_reason: '',
-    preferred_format: '',
-    referred_by: '',
+    do_not_invite_until: '', pause_reason: '', preferred_format: '', referred_by: '',
   });
 
-  const [showCommModal, setShowCommModal] = useState(false);
-  const [commChannel, setCommChannel] = useState<'telegram' | 'phone' | 'in_person' | 'other'>('telegram');
-  const [commOutcome, setCommOutcome] = useState<'answered' | 'no_answer' | 'interested' | 'declined' | 'call_later'>('answered');
-  const [commComment, setCommComment] = useState('');
-  const [commCreateTask, setCommCreateTask] = useState(false);
-  const [commTaskDueAt, setCommTaskDueAt] = useState('');
-  const [commTaskTitle, setCommTaskTitle] = useState('');
-  const [commSaving, setCommSaving] = useState(false);
-  const [commError, setCommError] = useState<string | null>(null);
-
-  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showTaskSheet, setShowTaskSheet] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
-  const [taskDueAtInput, setTaskDueAtInput] = useState('');
+  const [taskDueAt, setTaskDueAt] = useState('');
   const [taskSaving, setTaskSaving] = useState(false);
   const [taskError, setTaskError] = useState<string | null>(null);
 
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCommSheet, setShowCommSheet] = useState(false);
+  const [commChannel, setCommChannel] = useState<'telegram' | 'phone' | 'in_person' | 'other'>('telegram');
+  const [commOutcome, setCommOutcome] = useState<'answered' | 'no_answer' | 'interested' | 'declined' | 'call_later'>('answered');
+  const [commComment, setCommComment] = useState('');
+  const [commSaving, setCommSaving] = useState(false);
+  const [commError, setCommError] = useState<string | null>(null);
+
+  const [showInviteSheet, setShowInviteSheet] = useState(false);
   const [futureEvenings, setFutureEvenings] = useState<GameEvening[]>([]);
   const [selectedEveningId, setSelectedEveningId] = useState('');
   const [eveningTables, setEveningTables] = useState<EveningTable[]>([]);
   const [selectedTableId, setSelectedTableId] = useState('');
   const [createFollowupTask, setCreateFollowupTask] = useState(true);
-  const [inviteMessageText, setInviteMessageText] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteSaving, setInviteSaving] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
@@ -168,44 +150,32 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => {
-    if (selectedPlayerId) {
-      setActivePlayerCardId(selectedPlayerId);
-      setPlayerSection('overview');
-      void loadPlayerDetails(selectedPlayerId);
-    }
-  }, [selectedPlayerId]);
-
   const loadPlayers = useCallback(async () => {
-    const requestId = ++playerListRequestSeq.current;
+    const requestId = ++requestSeq.current;
     setLoading(true);
     setListError(null);
-
     try {
       const params: Record<string, string | number | boolean> = {};
       if (debouncedSearch) params.search = debouncedSearch;
-      if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
       if (contactStatusFilter) params.contact_status = contactStatusFilter;
-      if (activeQuickFilter === 'newcomers1') params.first_visit_only = true;
-      if (activeQuickFilter === 'never') params.never_attended = true;
-      if (activeQuickFilter === 'absent30') params.inactive_days = 30;
-      if (activeQuickFilter === 'absent60') params.inactive_days = 60;
-      if (activeQuickFilter === 'open_tasks') params.has_open_tasks = true;
-
-      const nextPlayers = await api.getPlayers(params);
-      if (requestId !== playerListRequestSeq.current) return;
-      setPlayers(nextPlayers);
+      if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
+      if (activeQuickFilter === 'newcomers') params.first_visit_only = true;
+      if (activeQuickFilter === 'lapsed') params.inactive_days = 30;
+      if (advancedSegment === 'never') params.never_attended = true;
+      if (advancedSegment === 'absent60') params.inactive_days = 60;
+      if (advancedSegment === 'open_tasks') params.has_open_tasks = true;
+      const result = await api.getPlayers(params);
+      if (requestId !== requestSeq.current) return;
+      setPlayers(result);
     } catch (err: any) {
-      if (requestId !== playerListRequestSeq.current) return;
-      setListError(err.message || 'Не удалось загрузить игроков');
+      if (requestId !== requestSeq.current) return;
+      setListError(err?.message || 'Не удалось загрузить игроков');
     } finally {
-      if (requestId === playerListRequestSeq.current) setLoading(false);
+      if (requestId === requestSeq.current) setLoading(false);
     }
-  }, [debouncedSearch, lifecycleStatus, contactStatusFilter, activeQuickFilter]);
+  }, [activeQuickFilter, advancedSegment, contactStatusFilter, debouncedSearch, lifecycleStatus]);
 
-  useEffect(() => {
-    void loadPlayers();
-  }, [loadPlayers]);
+  useEffect(() => { void loadPlayers(); }, [loadPlayers]);
 
   const initEditForm = (data: PlayerDetails) => {
     setEditForm({
@@ -221,7 +191,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       preferred_format: data.preferred_format || '',
       referred_by: data.referred_by || '',
     });
-    setIsEditMode(false);
   };
 
   const loadPlayerDetails = async (id: string) => {
@@ -232,16 +201,23 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       setPlayerDetails(data);
       initEditForm(data);
     } catch (err: any) {
-      setDetailError(err.message || 'Не удалось загрузить профиль игрока');
+      setDetailError(err?.message || 'Не удалось загрузить профиль игрока');
     } finally {
       setLoadingDetails(false);
     }
   };
 
+  useEffect(() => {
+    if (!selectedPlayerId) return;
+    setActivePlayerCardId(selectedPlayerId);
+    setPlayerDetails(null);
+    setProfileMessage(null);
+    setProfileError(null);
+    void loadPlayerDetails(selectedPlayerId);
+  }, [selectedPlayerId]);
+
   const handleOpenCard = (id: string) => {
     setActivePlayerCardId(id);
-    setPlayerSection('overview');
-    setGameFilter('all');
     setPlayerDetails(null);
     setProfileMessage(null);
     setProfileError(null);
@@ -251,8 +227,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const handleCloseCard = () => {
     setActivePlayerCardId(null);
     setPlayerDetails(null);
-    setPlayerSection('overview');
-    setIsEditMode(false);
+    setShowPlayerMenu(false);
+    setShowEditSheet(false);
+    setShowTaskSheet(false);
+    setShowCommSheet(false);
+    setShowInviteSheet(false);
     onClosePlayerCard?.();
   };
 
@@ -262,48 +241,107 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     onCrmChanged?.();
   };
 
-  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !playerDetails) return;
-    setAvatarBusy(true);
-    setProfileError(null);
-    setProfileMessage('Загрузка фото…');
-    try {
-      const prepared = await preparePlayerAvatar(file);
-      await api.uploadPlayerAvatar(playerDetails.id, prepared);
-      setProfileMessage('Фото обновлено');
-      await refreshPlayer();
-    } catch (err: any) {
-      setProfileMessage(null);
-      setProfileError(err.message || 'Не удалось загрузить фото');
-    } finally {
-      setAvatarBusy(false);
-      e.target.value = '';
-    }
-  };
+  const visiblePlayers = useMemo(() => {
+    if (activeQuickFilter !== 'attention') return players;
+    return players.filter((player) =>
+      Number(player.open_tasks_count || 0) > 0 ||
+      player.contact_status !== 'normal' ||
+      (player.days_since_last_visit !== null && player.days_since_last_visit !== undefined && player.days_since_last_visit >= 30) ||
+      Number(player.attendance_count || 0) === 1
+    );
+  }, [activeQuickFilter, players]);
 
-  const handleDeleteAvatar = async () => {
-    if (!playerDetails) return;
-    setAvatarBusy(true);
-    setProfileError(null);
-    try {
-      await api.deletePlayerAvatar(playerDetails.id);
-      setConfirmDeleteAvatar(false);
-      setProfileMessage('Фото удалено');
-      await refreshPlayer();
-    } catch (err: any) {
-      setProfileError(err.message || 'Не удалось удалить фото');
-      setConfirmDeleteAvatar(false);
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
+  const futureSorted = useMemo(() => getSortedFutureEvenings(evenings), [evenings]);
+  const nextEvening = futureSorted[0] || null;
+  const booking = useMemo(() => {
+    if (!playerDetails) return null;
+    const futureIds = new Set(futureSorted.map((item) => item.id));
+    return (playerDetails.futureBookings || []).find((item) => futureIds.has(item.evening_id) && item.registration_status !== 'cancelled') || null;
+  }, [futureSorted, playerDetails]);
+  const bookingEvening = booking ? futureSorted.find((item) => item.id === booking.evening_id) || null : null;
+  const inviteInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: false, reason: '' };
 
-  const handleSavePlayerDetails = async () => {
-    if (!playerDetails || !editForm.nickname.trim()) return;
-    setIsSavingPlayer(true);
+  const allGames = useMemo(() => {
+    if (!playerDetails) return [];
+    return [...(playerDetails.clubGames || []), ...(playerDetails.tournamentGames || [])]
+      .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  }, [playerDetails]);
+
+  const unifiedTimeline = useMemo(() => {
+    if (!playerDetails) return [];
+    const items: Array<{ id: string; date: string | null; title: string; detail: string; kind: string }> = [];
+    for (const activity of playerDetails.activities || []) {
+      items.push({ id: `activity:${activity.id}`, date: activity.occurred_at || activity.created_at, title: activity.type === 'contact' ? 'Общение' : activity.type === 'invite' ? 'Приглашение' : 'CRM', detail: activity.description || activity.outcome || '', kind: activity.outcome || activity.type });
+    }
+    for (const evening of playerDetails.eveningHistory || []) {
+      items.push({ id: `evening:${evening.id}`, date: (evening as any).evening_date || evening.created_at, title: (evening as any).evening_title || 'Игровой вечер', detail: evening.attendance_status === 'attended' ? 'Посещение' : evening.attendance_status === 'no_show' ? 'Не пришёл' : evening.registration_status === 'cancelled' ? 'Отменил запись' : registrationTimelineLabel(evening.registration_status), kind: 'Вечер' });
+    }
+    for (const task of playerDetails.tasks || []) {
+      items.push({ id: `task:${task.id}`, date: task.completed_at || task.due_at || task.created_at, title: task.title, detail: task.status === 'done' ? 'Задача выполнена' : task.due_at ? `Срок ${fmtDate(task.due_at)}` : 'Задача без срока', kind: 'Задача' });
+    }
+    for (const game of allGames) {
+      items.push({ id: `game:${game.id}`, date: game.date, title: `${game.source === 'tournament' ? 'Турнир' : 'Клуб'} · игра №${game.game_number}`, detail: game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Игра', kind: 'Игра' });
+    }
+    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  }, [allGames, playerDetails]);
+
+  const handlePrimaryAction = async () => {
+    if (!playerDetails || primaryBusy) return;
+    setPrimaryBusy(true);
     setProfileError(null);
     setProfileMessage(null);
+    try {
+      if (booking) {
+        if (booking.registration_status === 'registered' || booking.registration_status === 'invited') {
+          await api.updateParticipant(booking.id, { registration_status: 'confirmed' });
+          setProfileMessage('Участие подтверждено');
+          await refreshPlayer();
+        } else if (bookingEvening) {
+          setActivePlayerCardId(null);
+          setPlayerDetails(null);
+          onOpenEvening(bookingEvening.id);
+        }
+      } else if (inviteInfo.canInvite && nextEvening) {
+        const result = await api.invitePlayer(playerDetails.id, nextEvening.id, null, true);
+        setProfileMessage(result.message || 'Игрок добавлен в приглашения ближайшего вечера');
+        await refreshPlayer();
+      }
+    } catch (err: any) {
+      setProfileError(err?.message || 'Не удалось выполнить действие');
+    } finally {
+      setPrimaryBusy(false);
+    }
+  };
+
+  const handleCreatePlayer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newNickname.trim() || addSaving) return;
+    setAddSaving(true);
+    setAddError(null);
+    try {
+      const created = await api.createPlayer({
+        nickname: newNickname.trim(),
+        full_name: newFullName.trim() || null,
+        phone: newPhone.trim() || null,
+        telegram_username: newTgUsername.trim().replace('@', '') || null,
+        source: 'manual',
+        contact_status: 'normal',
+      });
+      setShowAddModal(false);
+      setNewNickname(''); setNewFullName(''); setNewPhone(''); setNewTgUsername('');
+      await loadPlayers();
+      handleOpenCard(created.id);
+    } catch (err: any) {
+      setAddError(err?.message || 'Не удалось создать игрока');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!playerDetails || !editForm.nickname.trim() || editSaving) return;
+    setEditSaving(true);
+    setEditError(null);
     try {
       await api.updatePlayer(playerDetails.id, {
         nickname: editForm.nickname.trim(),
@@ -318,828 +356,330 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
         preferred_format: editForm.preferred_format.trim() || null,
         referred_by: editForm.referred_by.trim() || null,
       });
-      setIsEditMode(false);
-      setProfileMessage('Изменения сохранены');
+      setShowEditSheet(false);
+      setProfileMessage('Данные игрока обновлены');
       await refreshPlayer();
     } catch (err: any) {
-      setProfileError(err.message || 'Не удалось сохранить игрока');
+      setEditError(err?.message || 'Не удалось сохранить данные');
     } finally {
-      setIsSavingPlayer(false);
-    }
-  };
-
-  const handleCreatePlayer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNickname.trim()) return;
-    setAddSaving(true);
-    setAddError(null);
-    try {
-      const created = await api.createPlayer({
-        nickname: newNickname.trim(),
-        full_name: newFullName.trim() || null,
-        phone: newPhone.trim() || null,
-        telegram_username: newTgUsername.trim().replace('@', '') || null,
-        source: newSource.trim() || 'manual',
-        notes: newNotes.trim() || null,
-        contact_status: 'normal',
-      });
-      setShowAddModal(false);
-      setNewNickname('');
-      setNewFullName('');
-      setNewPhone('');
-      setNewTgUsername('');
-      setNewNotes('');
-      await loadPlayers();
-      handleOpenCard(created.id);
-    } catch (err: any) {
-      setAddError(err.message || 'Не удалось создать игрока');
-    } finally {
-      setAddSaving(false);
-    }
-  };
-
-  const handleRecordCommunication = async () => {
-    if (!playerDetails) return;
-    setCommSaving(true);
-    setCommError(null);
-    try {
-      await api.recordCommunicationOutcome(playerDetails.id, {
-        channel: commChannel,
-        outcome: commOutcome,
-        comment: commComment.trim() || undefined,
-        create_next_task: commCreateTask,
-        task_due_at: commTaskDueAt || null,
-        task_title: commTaskTitle.trim() || `Перезвонить игроку ${playerDetails.nickname}`,
-      });
-      setShowCommModal(false);
-      setCommComment('');
-      setCommCreateTask(false);
-      setCommTaskDueAt('');
-      setCommTaskTitle('');
-      await refreshPlayer();
-    } catch (err: any) {
-      setCommError(err.message || 'Не удалось сохранить результат общения');
-    } finally {
-      setCommSaving(false);
+      setEditSaving(false);
     }
   };
 
   const handleCreateTask = async () => {
-    if (!playerDetails || !taskTitle.trim()) return;
+    if (!playerDetails || !taskTitle.trim() || taskSaving) return;
     setTaskSaving(true);
     setTaskError(null);
     try {
-      await api.createTask({
-        title: taskTitle.trim(),
-        player_id: playerDetails.id,
-        due_at: taskDueAtInput ? new Date(taskDueAtInput).toISOString() : null,
-        priority: 'medium',
-      });
-      setShowTaskModal(false);
-      setTaskTitle('');
-      setTaskDueAtInput('');
+      await api.createTask({ title: taskTitle.trim(), player_id: playerDetails.id, due_at: taskDueAt ? new Date(taskDueAt).toISOString() : null, priority: 'medium' });
+      setTaskTitle(''); setTaskDueAt(''); setShowTaskSheet(false);
+      setProfileMessage('Задача создана');
       await refreshPlayer();
     } catch (err: any) {
-      setTaskError(err.message || 'Не удалось создать задачу');
+      setTaskError(err?.message || 'Не удалось создать задачу');
     } finally {
       setTaskSaving(false);
     }
   };
 
-  const updateInviteMessage = (player: PlayerDetails, evening: GameEvening, table: EveningTable | null) => {
-    const dateFormatted = formatEveningDateTime(evening.starts_at, evening.timezone);
-    const tableName = table?.name || 'Без стола';
-    const price = table?.default_price ?? (table as any)?.price ?? evening.default_price ?? 0;
-    const venue = evening.venue || 'Клуб';
-    setInviteMessageText(
-      `Привет, ${player.nickname}! 👋\nПриглашаем тебя на игровой вечер «${evening.title}»!\n\n` +
-      `📅 ${dateFormatted}\n📍 ${venue}\n🪑 ${tableName}\n💰 ${price > 0 ? `${price} ₽` : 'Бесплатно'}\n\nЖдём тебя на игре!`
-    );
+  const handleRecordCommunication = async () => {
+    if (!playerDetails || commSaving) return;
+    setCommSaving(true);
+    setCommError(null);
+    try {
+      await api.recordCommunicationOutcome(playerDetails.id, { channel: commChannel, outcome: commOutcome, comment: commComment.trim() || undefined });
+      setCommComment(''); setShowCommSheet(false);
+      setProfileMessage('Результат общения сохранён');
+      await refreshPlayer();
+    } catch (err: any) {
+      setCommError(err?.message || 'Не удалось сохранить результат общения');
+    } finally {
+      setCommSaving(false);
+    }
   };
 
-  const handleOpenInviteModal = async () => {
+  const updateInviteMessage = (player: PlayerDetails, evening: GameEvening, table: EveningTable | null) => {
+    const when = formatEveningDateTime(evening.starts_at, evening.timezone);
+    const tableName = table?.name || 'без предварительного стола';
+    const price = table?.default_price ?? evening.default_price ?? 0;
+    setInviteMessage(`Привет, ${player.nickname}! 👋\nПриглашаем тебя на «${evening.title}».\n\n📅 ${when}\n📍 ${evening.venue || 'Клуб'}\n🪑 ${tableName}\n💰 ${price > 0 ? `${price} ₽` : 'Бесплатно'}\n\nЖдём тебя на игре!`);
+  };
+
+  const openInviteSheet = async () => {
     if (!playerDetails) return;
-    const inviteCheck = getCanInviteStatus(playerDetails);
-    if (!inviteCheck.canInvite) {
-      setProfileError(inviteCheck.reason);
-      return;
-    }
-    setShowInviteModal(true);
+    setShowPlayerMenu(false);
+    setShowInviteSheet(true);
     setInviteLoading(true);
     setInviteError(null);
-    setInviteSuccessMessage(null);
-    setCopySuccess(false);
     try {
       const future = getSortedFutureEvenings(await api.getEvenings());
       setFutureEvenings(future);
-      if (future[0]) {
-        setSelectedEveningId(future[0].id);
-        const tables = await api.getEveningTables(future[0].id);
+      const first = future[0];
+      if (first) {
+        setSelectedEveningId(first.id);
+        const tables = await api.getEveningTables(first.id);
         setEveningTables(tables);
         setSelectedTableId('');
-        updateInviteMessage(playerDetails, future[0], null);
+        updateInviteMessage(playerDetails, first, null);
       } else {
-        setSelectedEveningId('');
-        setEveningTables([]);
-        setInviteMessageText('');
+        setSelectedEveningId(''); setEveningTables([]); setInviteMessage('');
       }
     } catch (err: any) {
-      setInviteError(err.message || 'Не удалось загрузить будущие вечера');
+      setInviteError(err?.message || 'Не удалось загрузить будущие вечера');
     } finally {
       setInviteLoading(false);
     }
   };
 
-  const handleSelectEvening = async (eveningId: string) => {
-    setSelectedEveningId(eveningId);
-    setSelectedTableId('');
-    setInviteError(null);
-    setInviteSuccessMessage(null);
-    const evening = futureEvenings.find((item) => item.id === eveningId);
-    if (!eveningId || !evening) {
-      setEveningTables([]);
-      setInviteMessageText('');
-      return;
-    }
+  const selectInviteEvening = async (id: string) => {
+    setSelectedEveningId(id); setSelectedTableId(''); setInviteError(null);
+    const evening = futureEvenings.find((item) => item.id === id);
+    if (!evening || !playerDetails) return;
     try {
-      const tables = await api.getEveningTables(eveningId);
+      const tables = await api.getEveningTables(id);
       setEveningTables(tables);
-      if (playerDetails) updateInviteMessage(playerDetails, evening, null);
+      updateInviteMessage(playerDetails, evening, null);
     } catch (err: any) {
-      setInviteError(err.message || 'Не удалось загрузить столы');
+      setInviteError(err?.message || 'Не удалось загрузить столы');
     }
   };
 
-  const handleSelectTable = (tableId: string) => {
-    setSelectedTableId(tableId);
+  const selectInviteTable = (id: string) => {
+    setSelectedTableId(id);
     const evening = futureEvenings.find((item) => item.id === selectedEveningId);
-    const table = eveningTables.find((item) => item.id === tableId) || null;
+    const table = eveningTables.find((item) => item.id === id) || null;
     if (evening && playerDetails) updateInviteMessage(playerDetails, evening, table);
   };
 
-  const handleSendInvite = async () => {
-    if (!playerDetails || !selectedEveningId) return;
-    setInviteSaving(true);
-    setInviteError(null);
-    setInviteSuccessMessage(null);
+  const sendDetailedInvite = async () => {
+    if (!playerDetails || !selectedEveningId || inviteSaving) return;
+    setInviteSaving(true); setInviteError(null);
     try {
       const result = await api.invitePlayer(playerDetails.id, selectedEveningId, selectedTableId || null, createFollowupTask);
-      setInviteSuccessMessage(result.message || (result.alreadyParticipant ? 'Игрок уже добавлен на этот вечер' : 'Приглашение сохранено в CRM'));
+      setProfileMessage(result.message || 'Приглашение сохранено');
+      setShowInviteSheet(false);
       await refreshPlayer();
     } catch (err: any) {
-      setInviteError(err.message || 'Не удалось создать приглашение');
+      setInviteError(err?.message || 'Не удалось сохранить приглашение');
     } finally {
       setInviteSaving(false);
     }
   };
 
-  const handleCopyMessage = async () => {
-    if (!inviteMessageText) return;
+  const handleAvatarFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !playerDetails) return;
+    setAvatarBusy(true); setProfileError(null); setShowPlayerMenu(false);
     try {
-      await navigator.clipboard.writeText(inviteMessageText);
-      setCopySuccess(true);
-      window.setTimeout(() => setCopySuccess(false), 1800);
-    } catch {
-      setInviteError('Не удалось скопировать сообщение');
+      const prepared = await preparePlayerAvatar(file);
+      await api.uploadPlayerAvatar(playerDetails.id, prepared);
+      setProfileMessage('Фото обновлено');
+      await refreshPlayer();
+    } catch (err: any) {
+      setProfileError(err?.message || 'Не удалось загрузить фото');
+    } finally {
+      setAvatarBusy(false);
+      event.target.value = '';
     }
   };
 
-  const allGames = useMemo(() => {
-    if (!playerDetails) return [];
-    return [...(playerDetails.clubGames || []), ...(playerDetails.tournamentGames || [])]
-      .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-  }, [playerDetails]);
-
-  const shownGames = useMemo(() => {
-    if (gameFilter === 'club') return allGames.filter((game) => game.source === 'club');
-    if (gameFilter === 'tournament') return allGames.filter((game) => game.source === 'tournament');
-    return allGames;
-  }, [allGames, gameFilter]);
-
-  const unifiedFeed = useMemo(() => {
-    if (!playerDetails) return [];
-    const items: Array<{ id: string; date: string | null; title: string; detail: string; kind: string }> = [];
-    for (const activity of playerDetails.activities || []) {
-      items.push({
-        id: `activity:${activity.id}`,
-        date: activity.occurred_at || activity.created_at,
-        title: activity.type === 'contact' ? 'Результат общения' : activity.type === 'invite' ? 'Приглашение' : 'CRM-активность',
-        detail: activity.description || '',
-        kind: activity.outcome || activity.type,
-      });
+  const deleteAvatar = async () => {
+    if (!playerDetails) return;
+    setAvatarBusy(true);
+    try {
+      await api.deletePlayerAvatar(playerDetails.id);
+      setConfirmDeleteAvatar(false);
+      setProfileMessage('Фото удалено');
+      await refreshPlayer();
+    } catch (err: any) {
+      setProfileError(err?.message || 'Не удалось удалить фото');
+      setConfirmDeleteAvatar(false);
+    } finally {
+      setAvatarBusy(false);
     }
-    for (const evening of playerDetails.eveningHistory || []) {
-      const attended = evening.attendance_status === 'attended';
-      const missed = evening.attendance_status === 'no_show';
-      items.push({
-        id: `evening:${evening.id}`,
-        date: (evening as any).evening_date || null,
-        title: (evening as any).evening_title || 'Игровой вечер',
-        detail: attended ? 'Был на игре' : missed ? 'Не пришёл' : evening.registration_status === 'cancelled' ? 'Отменил запись' : 'Запись на вечер',
-        kind: attended ? 'Посещение' : missed ? 'No-show' : 'Вечер',
-      });
-    }
-    for (const task of playerDetails.tasks || []) {
-      items.push({
-        id: `task:${task.id}`,
-        date: task.created_at,
-        title: task.title,
-        detail: task.status === 'done' ? 'Задача выполнена' : task.due_at ? `Срок ${fmtDate(task.due_at)}` : 'Задача без срока',
-        kind: 'Задача',
-      });
-    }
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-  }, [playerDetails]);
+  };
 
-  const inviteInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: false, reason: '' };
+  const primaryLabel = booking
+    ? (booking.registration_status === 'registered' || booking.registration_status === 'invited' ? 'Получить подтверждение' : 'Открыть в вечере')
+    : inviteInfo.canInvite && nextEvening
+      ? 'Пригласить на ближайший вечер'
+      : 'Приглашение недоступно';
+
+  const nextTask = playerDetails?.nextTask || null;
+  const contactHref = playerDetails?.telegram_username
+    ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}`
+    : playerDetails?.phone
+      ? `tel:${playerDetails.phone}`
+      : undefined;
 
   return (
     <div className="min-w-0 space-y-4">
-      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4 sm:p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-text-primary">Игроки</h2>
-            <p className="mt-1 hidden sm:block text-[12px] text-text-secondary">Карточки игроков, история и CRM в одном пространстве.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setAddError(null); setShowAddModal(true); }}
-            className="min-h-[44px] rounded-[12px] bg-accent px-3.5 text-[13px] font-bold text-white inline-flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" /> Добавить
-          </button>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[24px] font-black tracking-tight text-text-primary">Игроки</h2>
+          <p className="mt-1 text-[13px] text-text-secondary">Найди человека и сразу переходи к следующему действию.</p>
         </div>
+        <button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] items-center gap-2 rounded-[12px] bg-accent px-3.5 text-[13px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
+      </div>
 
-        <div className="flex gap-2">
-          <label className="relative min-w-0 flex-1">
-            <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-text-muted" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Ник, имя, телефон или Telegram"
-              className="mobile-field pl-10"
-            />
-          </label>
-          <button
-            type="button"
-            aria-expanded={showFilters}
-            onClick={() => setShowFilters((value) => !value)}
-            className={`grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${
-              showFilters || lifecycleStatus || contactStatusFilter ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-2 text-text-secondary'
-            }`}
-            title="Фильтры"
-          >
-            <Filter className="h-5 w-5" />
-          </button>
-        </div>
+      <div className="flex gap-2">
+        <label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label>
+        <button type="button" onClick={() => setShowFilters(true)} className={`grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${contactStatusFilter || lifecycleStatus || advancedSegment ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" /></button>
+      </div>
 
-        {showFilters && (
-          <div className="grid grid-cols-1 gap-3 rounded-[16px] border border-border-soft bg-surface-2 p-3 sm:grid-cols-2">
-            <label>
-              <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span>
-              <select value={contactStatusFilter} onChange={(e) => setContactStatusFilter(e.target.value)} className="mobile-field">
-                <option value="">Все статусы</option>
-                <option value="normal">Можно связываться</option>
-                <option value="paused">На паузе</option>
-                <option value="blocked">Заблокирован</option>
-              </select>
-            </label>
-            <label>
-              <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span>
-              <select value={lifecycleStatus} onChange={(e) => setLifecycleStatus(e.target.value)} className="mobile-field">
-                <option value="">Все этапы</option>
-                <option value="lead">Лид</option>
-                <option value="newcomer">Новичок</option>
-                <option value="returning">Вернувшийся</option>
-                <option value="regular">Постоянный</option>
-                <option value="inactive">Неактивный</option>
-              </select>
-            </label>
-          </div>
-        )}
+      <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max min-w-full gap-2">
+        {QUICK_FILTERS.map((item) => <button key={item.id} type="button" onClick={() => setActiveQuickFilter(item.id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${activeQuickFilter === item.id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>)}
+      </div></div>
 
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
-          <div className="flex w-max min-w-full gap-2">
-            {QUICK_FILTERS.map((filter) => (
-              <button
-                type="button"
-                key={filter.id}
-                onClick={() => setActiveQuickFilter(filter.id)}
-                className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${
-                  activeQuickFilter === filter.id
-                    ? 'border-accent bg-accent-soft text-text-primary'
-                    : 'border-border-soft bg-surface-2 text-text-secondary'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {listError && (
-        <div className="rounded-[16px] border border-danger/30 bg-danger-soft p-3.5 flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
-          <div className="flex-1">
-            <p className="text-[13px] font-semibold text-text-primary">{listError}</p>
-            <button type="button" onClick={() => void loadPlayers()} className="mt-2 min-h-[40px] text-[12px] font-bold text-danger inline-flex items-center gap-1.5">
-              <RotateCcw className="h-4 w-4" /> Повторить
-            </button>
-          </div>
-        </div>
-      )}
+      {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
 
       {loading ? (
-        <div className="rounded-[20px] border border-border-soft bg-surface-1 py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div>
-      ) : players.length === 0 ? (
-        <div className="rounded-[20px] border border-border-soft bg-surface-1 py-14 text-center">
-          <UserRound className="mx-auto h-8 w-8 text-text-muted" />
-          <p className="mt-3 text-[14px] font-semibold text-text-primary">Игроки не найдены</p>
-          <p className="mt-1 text-[12px] text-text-secondary">Измени поиск или фильтры.</p>
-        </div>
+        <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div>
+      ) : visiblePlayers.length === 0 ? (
+        <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">Игроки не найдены</p></div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {players.map((player) => {
-            const canInvite = getCanInviteStatus(player);
+        <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
+          {visiblePlayers.map((player, index) => {
+            const lastVisit = player.days_since_last_visit !== null && player.days_since_last_visit !== undefined ? `Был ${player.days_since_last_visit} дн. назад` : 'Ещё не был';
+            const nextStep = Number(player.open_tasks_count || 0) > 0 ? `Задач: ${player.open_tasks_count}` : getCanInviteStatus(player).canInvite ? 'Можно пригласить' : getCanInviteStatus(player).reason;
             return (
-              <button
-                type="button"
-                key={player.id}
-                onClick={() => handleOpenCard(player.id)}
-                className="w-full rounded-[18px] border border-border-soft bg-surface-1 p-3.5 text-left transition hover:border-border-strong hover:bg-surface-hover"
-              >
-                <div className="flex items-start gap-3">
-                  <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="text-[15px] font-bold leading-5 text-text-primary break-words">{player.nickname}</h3>
-                        <p className="mt-0.5 text-[11px] text-text-secondary">
-                          {player.days_since_last_visit !== null && player.days_since_last_visit !== undefined ? `Был ${player.days_since_last_visit} дн. назад` : 'Ещё не был на играх'}
-                        </p>
-                      </div>
-                      <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-text-muted" />
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusTone(player.contact_status)}`}>
-                        {getRussianContactStatusLabel(player.contact_status)}
-                      </span>
-                      <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold text-text-secondary">
-                        {getRussianEngagementStageLabel(player.engagement_stage || player.calculated_stage)}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
-                        <span className="block text-[10px] text-text-muted">Визиты</span>
-                        <strong className="block text-[13px] text-text-primary">{player.attendance_count || 0}</strong>
-                      </div>
-                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
-                        <span className="block text-[10px] text-text-muted">No-show</span>
-                        <strong className="block text-[13px] text-text-primary">{player.no_show_count || 0}</strong>
-                      </div>
-                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
-                        <span className="block text-[10px] text-text-muted">Задачи</span>
-                        <strong className="block text-[13px] text-text-primary">{player.open_tasks_count || 0}</strong>
-                      </div>
-                    </div>
-
-                    {!canInvite.canInvite && <p className="mt-2 text-[11px] leading-4 text-warning">{canInvite.reason}</p>}
-                  </div>
-                </div>
+              <button key={player.id} type="button" onClick={() => handleOpenCard(player.id)} className={`flex min-h-[72px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}>
+                <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
+                <span className="min-w-0 flex-1">
+                  <strong className="block break-words text-[14px] font-bold leading-5 text-text-primary">{player.nickname}</strong>
+                  {player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}
+                  <span className="mt-1 block text-[11px] text-text-muted">{lastVisit} · {nextStep}</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-text-muted" />
               </button>
             );
           })}
         </div>
       )}
 
-      <MobileSheet
-        open={Boolean(activePlayerCardId)}
-        onClose={handleCloseCard}
-        title={playerDetails ? (
-          <div className="flex min-w-0 items-center gap-2.5">
-            <PlayerAvatar
-              playerId={playerDetails.id}
-              avatarVersion={playerDetails.avatar_updated_at}
-              nickname={playerDetails.nickname}
-              size="sm"
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[15px] font-bold text-text-primary">{playerDetails.nickname}</div>
-              {playerDetails.full_name ? (
-                <div className="mt-0.5 truncate text-[11px] font-medium text-text-secondary">{playerDetails.full_name}</div>
-              ) : null}
-            </div>
-          </div>
-        ) : 'Профиль игрока'}
-        subtitle={playerDetails ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(playerDetails.contact_status)}`}>
-              {getRussianContactStatusLabel(playerDetails.contact_status)}
-            </span>
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-              {getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}
-            </span>
-          </div>
-        ) : 'Загрузка данных'}
-        widthClass="sm:max-w-2xl"
-        bodyClassName="p-0"
-      >
-        {loadingDetails ? (
-          <div className="p-6 py-20 text-center text-[13px] text-text-secondary">Загрузка профиля…</div>
-        ) : detailError ? (
-          <div className="p-4">
-            <div className="rounded-[16px] border border-danger/30 bg-danger-soft p-4">
-              <p className="text-[13px] font-semibold text-text-primary">{detailError}</p>
-              <button type="button" onClick={() => activePlayerCardId && void loadPlayerDetails(activePlayerCardId)} className="mt-2 min-h-[44px] text-[12px] font-bold text-danger inline-flex items-center gap-2">
-                <RotateCcw className="h-4 w-4" /> Повторить
-              </button>
-            </div>
-          </div>
+      <MobileSheet open={Boolean(activePlayerCardId)} onClose={handleCloseCard} title={playerDetails ? (
+        <div className="flex min-w-0 items-center gap-2.5"><PlayerAvatar playerId={playerDetails.id} avatarVersion={playerDetails.avatar_updated_at} nickname={playerDetails.nickname} size="sm" /><div className="min-w-0"><div className="break-words text-[15px] font-bold text-text-primary">{playerDetails.nickname}</div>{playerDetails.full_name ? <div className="truncate text-[11px] text-text-secondary">{playerDetails.full_name}</div> : null}</div></div>
+      ) : 'Профиль игрока'} subtitle={playerDetails ? `${getRussianContactStatusLabel(playerDetails.contact_status)} · ${getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}` : 'Загрузка'} widthClass="sm:max-w-2xl" bodyClassName="p-0">
+        {loadingDetails ? <div className="py-20 text-center text-[13px] text-text-secondary">Загрузка профиля…</div> : detailError ? (
+          <div className="p-4"><div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{detailError}<button type="button" onClick={() => activePlayerCardId && void loadPlayerDetails(activePlayerCardId)} className="ml-2 font-bold underline">Повторить</button></div></div>
         ) : playerDetails ? (
-          <>
-            <div className="sticky top-0 z-10 border-b border-border-soft bg-app-bg/95 px-3 py-2 backdrop-blur-md">
-              <div className="grid grid-cols-3 rounded-[13px] bg-surface-1 p-1">
-                {([
-                  ['overview', 'Обзор'],
-                  ['games', 'Игры'],
-                  ['crm', 'CRM'],
-                ] as Array<[PlayerSection, string]>).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setPlayerSection(id)}
-                    className={`min-h-[44px] rounded-[10px] text-[12px] font-bold ${
-                      playerSection === id ? 'bg-accent text-white' : 'text-text-secondary'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+          <div className="space-y-5 p-3.5 sm:p-4">
+            {profileError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div> : null}
+            {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
+
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={primaryBusy || (!booking && (!inviteInfo.canInvite || !nextEvening))} onClick={() => void handlePrimaryAction()} className="min-h-[50px] min-w-0 flex-1 rounded-[13px] bg-accent px-3 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{primaryBusy ? '…' : primaryLabel}</button>
+                <button type="button" onClick={() => setShowPlayerMenu(true)} className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[13px] border border-border-soft bg-surface-2 text-text-secondary" aria-label="Ещё действия"><MoreHorizontal className="h-5 w-5" /></button>
               </div>
-            </div>
+              {!booking && (!inviteInfo.canInvite || !nextEvening) ? <p className="text-[11px] leading-4 text-warning">{!nextEvening ? 'Нет ближайшего вечера для приглашения.' : inviteInfo.reason}</p> : null}
+              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 text-[12px] font-bold text-text-primary"><MessageSquare className="h-4 w-4 text-accent" /> Связаться</a> : null}
+            </section>
 
-            <div className="p-3 sm:p-4">
-              {profileError && <div className="mb-3 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div>}
-              {profileMessage && <div className="mb-3 rounded-[14px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div>}
+            <section className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-[17px] border border-border-soft bg-surface-1 p-3.5 sm:grid-cols-4">
+              {[
+                ['Последний визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
+                ['Игры', playerDetails.gameStats?.totalGames || 0],
+                ['Победы', playerDetails.gameStats?.wins || 0],
+                ['Следующее', bookingEvening ? fmtDate(bookingEvening.starts_at, true) : nextTask ? fmtDate(nextTask.due_at || nextTask.created_at, true) : 'Нет'],
+              ].map(([label, value]) => <div key={String(label)} className="min-w-0"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[13px] font-bold text-text-primary">{value}</strong></div>)}
+            </section>
 
-              {playerSection === 'overview' && (
-                <PlayerProfileContent
-                  player={playerDetails}
-                  onOpenGames={() => setPlayerSection('games')}
-                />
-              )}
+            <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
+              <div className="flex items-center justify-between gap-3"><span className="text-[12px] text-text-secondary">Статус</span><strong className={`text-[12px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
+              <div className="flex items-start justify-between gap-3"><span className="text-[12px] text-text-secondary">Контакт</span><strong className="text-right text-[12px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
+              {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[11px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
+              {playerDetails.do_not_invite_until ? <div className="rounded-[11px] bg-warning-soft p-2.5 text-[11px] text-warning">Не приглашать до {fmtDate(playerDetails.do_not_invite_until)}{playerDetails.pause_reason ? ` · ${playerDetails.pause_reason}` : ''}</div> : null}
+            </section>
 
-              {playerSection === 'games' && (
-                <div className="space-y-3">
-                  <div className="overflow-x-auto pb-1">
-                    <div className="flex w-max min-w-full gap-2">
-                      {([
-                        ['all', `Все · ${allGames.length}`],
-                        ['club', `Клуб · ${playerDetails.clubGames?.length || 0}`],
-                        ['tournament', `Турниры · ${playerDetails.tournamentGames?.length || 0}`],
-                      ] as Array<[GameFilter, string]>).map(([id, label]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setGameFilter(id)}
-                          className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${
-                            gameFilter === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {shownGames.length ? shownGames.map((game) => <PlayerGameCard key={game.id} game={game} />) : (
-                    <div className="rounded-[16px] border border-border-soft bg-surface-1 py-12 text-center text-[13px] text-text-secondary">В этой категории пока нет игр.</div>
-                  )}
-                </div>
-              )}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2"><History className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black text-text-primary">История</h3></div>
+              <div className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">
+                {unifiedTimeline.slice(0, 10).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
+                {unifiedTimeline.length === 0 ? <div className="py-8 text-center text-[12px] text-text-muted">История пока пустая</div> : null}
+              </div>
+            </section>
 
-              {playerSection === 'crm' && (
-                <div className="space-y-4">
-                  <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-[14px] font-bold text-text-primary">Данные игрока</h3>
-                        <p className="mt-1 text-[11px] leading-4 text-text-secondary">Фото, контакты и настройки профиля.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditMode((value) => !value)}
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary"
-                        aria-label="Редактировать данные игрока"
-                        title="Редактировать данные игрока"
-                      >
-                        <Edit3 className="h-4.5 w-4.5" />
-                      </button>
-                    </div>
+            <details className="group rounded-[17px] border border-border-soft bg-surface-1">
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Игры и статистика <span className="ml-auto text-[11px] font-medium text-text-muted">{allGames.length}</span></summary>
+              <div className="space-y-2 border-t border-border-soft p-3">{allGames.length ? allGames.map((game) => <PlayerGameCard key={game.id} game={game} />) : <div className="py-6 text-center text-[12px] text-text-muted">Игр пока нет</div>}</div>
+            </details>
 
-                    <div className="mt-3 flex items-center gap-3 rounded-[14px] bg-surface-2 p-3">
-                      <div className="relative shrink-0">
-                        <PlayerAvatar
-                          playerId={playerDetails.id}
-                          avatarVersion={playerDetails.avatar_updated_at}
-                          nickname={playerDetails.nickname}
-                          size="md"
-                        />
-                        {avatarBusy ? (
-                          <div className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-[10px] text-white">…</div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0">
-                        <strong className="block text-[12px] text-text-primary">Фото профиля</strong>
-                        <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">
-                          {playerDetails.avatar_updated_at ? 'Фото загружено' : 'Используется инициала никнейма'}
-                        </span>
-                      </div>
-                    </div>
+            <details className="group rounded-[17px] border border-border-soft bg-surface-1">
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><Award className="h-4 w-4 text-warning" /> Турнирные места и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
+              <div className="border-t border-border-soft p-3"><PlayerProfileContent player={playerDetails} /></div>
+            </details>
 
-                    <input id="player-avatar-upload-input" type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        disabled={avatarBusy}
-                        onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
-                        className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-semibold text-text-secondary inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Upload className="h-4 w-4" /> {playerDetails.avatar_updated_at ? 'Заменить фото' : 'Загрузить фото'}
-                      </button>
-                      {playerDetails.avatar_updated_at ? (
-                        <button
-                          type="button"
-                          disabled={avatarBusy}
-                          onClick={() => setConfirmDeleteAvatar(true)}
-                          className="min-h-[44px] rounded-[11px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" /> Удалить фото
-                        </button>
-                      ) : null}
-                    </div>
-                  </section>
-
-                  <section className={`rounded-[16px] border p-3.5 ${inviteInfo.canInvite ? 'border-success/25 bg-success-soft' : 'border-warning/25 bg-warning-soft'}`}>
-                    <div className="flex items-start gap-2.5">
-                      {inviteInfo.canInvite ? <UserCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" /> : <UserX className="mt-0.5 h-5 w-5 shrink-0 text-warning" />}
-                      <div>
-                        <strong className="text-[13px] text-text-primary">{inviteInfo.canInvite ? 'Игрока можно приглашать' : 'Приглашение недоступно'}</strong>
-                        <p className="mt-0.5 text-[11px] text-text-secondary">{inviteInfo.reason}</p>
-                      </div>
-                    </div>
-                  </section>
-
-                  <div className="space-y-2">
-                    <button type="button" onClick={() => void handleOpenInviteModal()} disabled={!inviteInfo.canInvite} className="min-h-[50px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40">
-                      <Send className="h-4.5 w-4.5" /> Пригласить
-                    </button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => { setCommError(null); setShowCommModal(true); }} className="min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold text-text-primary inline-flex items-center justify-center gap-1.5">
-                        <MessageSquare className="h-4 w-4 text-accent" /> Общение
-                      </button>
-                      <button type="button" onClick={() => { setTaskError(null); setShowTaskModal(true); }} className="min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold text-text-primary inline-flex items-center justify-center gap-1.5">
-                        <Clock3 className="h-4 w-4 text-accent" /> Задача
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <a href={playerDetails.telegram_username ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}` : undefined} target="_blank" rel="noreferrer" aria-disabled={!playerDetails.telegram_username} className={`min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 ${playerDetails.telegram_username ? 'text-text-primary' : 'pointer-events-none text-text-muted opacity-50'}`}>
-                        <Send className="h-4 w-4" /> Telegram
-                      </a>
-                      <a href={playerDetails.phone ? `tel:${playerDetails.phone}` : undefined} aria-disabled={!playerDetails.phone} className={`min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 ${playerDetails.phone ? 'text-text-primary' : 'pointer-events-none text-text-muted opacity-50'}`}>
-                        <Phone className="h-4 w-4" /> Телефон
-                      </a>
-                    </div>
-                  </div>
-
-                  {isEditMode && (
-                    <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4 space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-[14px] font-bold text-text-primary">Данные игрока</h4>
-                        <button type="button" onClick={() => initEditForm(playerDetails)} className="min-h-[40px] px-2 text-[11px] font-semibold text-text-secondary">Отмена</button>
-                      </div>
-
-                      {([
-                        ['nickname', 'Никнейм', 'text'],
-                        ['full_name', 'Имя / ФИО', 'text'],
-                        ['phone', 'Телефон', 'tel'],
-                        ['telegram_username', 'Telegram', 'text'],
-                        ['source', 'Источник', 'text'],
-                        ['preferred_format', 'Предпочтительный формат', 'text'],
-                        ['referred_by', 'Кто пригласил', 'text'],
-                        ['pause_reason', 'Причина паузы', 'text'],
-                      ] as const).map(([key, label, inputType]) => (
-                        <label key={key} className="block">
-                          <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">{label}</span>
-                          <input type={inputType} value={editForm[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })} className="mobile-field" />
-                        </label>
-                      ))}
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Статус контакта</span>
-                        <select value={editForm.contact_status} onChange={(e) => setEditForm({ ...editForm, contact_status: e.target.value as ContactStatus })} className="mobile-field">
-                          <option value="normal">Можно связываться</option>
-                          <option value="paused">На паузе</option>
-                          <option value="blocked">Заблокирован</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Не приглашать до</span>
-                        <input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm({ ...editForm, do_not_invite_until: e.target.value })} className="mobile-field" />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Заметки</span>
-                        <textarea rows={4} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="mobile-field resize-none" />
-                      </label>
-
-                      <button type="button" onClick={() => void handleSavePlayerDetails()} disabled={isSavingPlayer || !editForm.nickname.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50">
-                        <Save className="h-4 w-4" /> {isSavingPlayer ? 'Сохранение…' : 'Сохранить'}
-                      </button>
-                    </section>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-[14px] border border-border-soft bg-surface-1 p-3">
-                      <span className="text-[10px] text-text-muted">Ближайшая задача</span>
-                      {playerDetails.nextTask ? (
-                        <>
-                          <strong className="mt-1 block text-[12px] leading-4 text-text-primary">{playerDetails.nextTask.title}</strong>
-                          <span className="mt-1 block text-[10px] text-text-secondary">{playerDetails.nextTask.due_at ? fmtDate(playerDetails.nextTask.due_at) : 'Без срока'}</span>
-                        </>
-                      ) : <span className="mt-1 block text-[12px] text-text-secondary">Нет открытых</span>}
-                    </div>
-                    <div className="rounded-[14px] border border-border-soft bg-surface-1 p-3">
-                      <span className="text-[10px] text-text-muted">Ближайшее участие</span>
-                      {playerDetails.futureBookings?.[0] ? (
-                        <>
-                          <strong className="mt-1 block text-[12px] leading-4 text-text-primary">{(playerDetails.futureBookings[0] as any).evening_title || 'Игровой вечер'}</strong>
-                          <span className="mt-1 block text-[10px] text-text-secondary">{fmtDate((playerDetails.futureBookings[0] as any).evening_date)}</span>
-                        </>
-                      ) : <span className="mt-1 block text-[12px] text-text-secondary">Нет записи</span>}
-                    </div>
-                  </div>
-
-                  <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
-                    <h4 className="text-[13px] font-bold text-text-primary">История посещений и CRM</h4>
-                    <div className="mt-3 space-y-2">
-                      {unifiedFeed.length ? unifiedFeed.map((item) => (
-                        <div key={item.id} className="rounded-[13px] bg-surface-2 p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <strong className="text-[12px] leading-4 text-text-primary break-words">{item.title}</strong>
-                            <span className="shrink-0 rounded-full bg-surface-1 px-2 py-1 text-[10px] text-text-muted">{item.kind}</span>
-                          </div>
-                          {item.detail && <p className="mt-1 text-[11px] leading-4 text-text-secondary">{item.detail}</p>}
-                          <p className="mt-1 text-[10px] text-text-muted">{fmtDate(item.date, true)}</p>
-                        </div>
-                      )) : <p className="py-6 text-center text-[12px] text-text-secondary">История пока пуста.</p>}
-                    </div>
-                  </section>
-                </div>
-              )}
-            </div>
-          </>
+            <details className="group rounded-[17px] border border-border-soft bg-surface-1">
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Полные данные CRM</summary>
+              <div className="space-y-3 border-t border-border-soft p-3 text-[12px]">
+                {[
+                  ['Телефон', playerDetails.phone || '—'],
+                  ['Telegram', playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : '—'],
+                  ['Источник', playerDetails.source || '—'],
+                  ['Предпочтительный формат', playerDetails.preferred_format || '—'],
+                  ['Кто пригласил', playerDetails.referred_by || '—'],
+                  ['Посещений', playerDetails.attendance_count ?? playerDetails.stats?.attendanceCount ?? 0],
+                  ['No-show', playerDetails.no_show_count || 0],
+                  ['Открытых задач', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
+                ].map(([label, value]) => <div key={String(label)} className="flex items-start justify-between gap-3"><span className="text-text-muted">{label}</span><strong className="max-w-[62%] break-words text-right text-text-primary">{value}</strong></div>)}
+              </div>
+            </details>
+          </div>
         ) : null}
       </MobileSheet>
 
-      <MobileSheet
-        open={showAddModal}
-        onClose={() => !addSaving && setShowAddModal(false)}
-        title="Добавить игрока"
-        subtitle="Никнейм обязателен, остальные поля можно заполнить позже."
-        footer={
-          <button form="add-player-form" type="submit" disabled={addSaving || !newNickname.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
-            {addSaving ? 'Создание…' : 'Добавить игрока'}
-          </button>
-        }
-      >
-        <form id="add-player-form" onSubmit={handleCreatePlayer} className="space-y-4">
-          {addError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div>}
-          <label className="block"><span className="mobile-label">Никнейм *</span><input value={newNickname} onChange={(e) => setNewNickname(e.target.value)} className="mobile-field" required /></label>
-          <label className="block"><span className="mobile-label">Имя / ФИО</span><input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="mobile-field" /></label>
-          <label className="block"><span className="mobile-label">Телефон</span><input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} type="tel" className="mobile-field" /></label>
-          <label className="block"><span className="mobile-label">Telegram</span><input value={newTgUsername} onChange={(e) => setNewTgUsername(e.target.value)} placeholder="username" className="mobile-field" /></label>
-          <label className="block"><span className="mobile-label">Источник</span><input value={newSource} onChange={(e) => setNewSource(e.target.value)} className="mobile-field" /></label>
-          <label className="block"><span className="mobile-label">Заметки</span><textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} rows={4} className="mobile-field resize-none" /></label>
-        </form>
-      </MobileSheet>
-
-      <MobileSheet
-        open={showCommModal}
-        onClose={() => !commSaving && setShowCommModal(false)}
-        title="Результат общения"
-        footer={
-          <button type="button" onClick={() => void handleRecordCommunication()} disabled={commSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
-            {commSaving ? 'Сохранение…' : 'Сохранить результат'}
-          </button>
-        }
-      >
+      <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" subtitle="Точные сегменты сохранены, но не занимают основной экран." widthClass="sm:max-w-md">
         <div className="space-y-4">
-          {commError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{commError}</div>}
-          <label className="block"><span className="mobile-label">Канал</span>
-            <select value={commChannel} onChange={(e) => setCommChannel(e.target.value as typeof commChannel)} className="mobile-field">
-              <option value="telegram">Telegram</option><option value="phone">Телефон</option><option value="in_person">Лично</option><option value="other">Другое</option>
-            </select>
-          </label>
-          <label className="block"><span className="mobile-label">Результат</span>
-            <select value={commOutcome} onChange={(e) => setCommOutcome(e.target.value as typeof commOutcome)} className="mobile-field">
-              <option value="answered">Ответил</option><option value="no_answer">Не ответил</option><option value="interested">Заинтересован</option><option value="declined">Отказался</option><option value="call_later">Связаться позже</option>
-            </select>
-          </label>
-          <label className="block"><span className="mobile-label">Комментарий</span><textarea value={commComment} onChange={(e) => setCommComment(e.target.value)} rows={4} className="mobile-field resize-none" /></label>
-          <label className="flex min-h-[44px] items-center gap-3 rounded-[13px] border border-border-soft bg-surface-2 px-3">
-            <input type="checkbox" checked={commCreateTask} onChange={(e) => setCommCreateTask(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
-            <span className="text-[12px] font-semibold text-text-primary">Создать следующую задачу</span>
-          </label>
-          {commCreateTask && (
-            <>
-              <label className="block"><span className="mobile-label">Название задачи</span><input value={commTaskTitle} onChange={(e) => setCommTaskTitle(e.target.value)} className="mobile-field" /></label>
-              <label className="block"><span className="mobile-label">Срок</span><input type="datetime-local" value={commTaskDueAt} onChange={(e) => setCommTaskDueAt(e.target.value)} className="mobile-field" /></label>
-            </>
-          )}
+          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
+          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
+          <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, label]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{label}</button>)}</div></div>
+          <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить фильтры</button>
         </div>
       </MobileSheet>
 
-      <MobileSheet
-        open={showTaskModal}
-        onClose={() => !taskSaving && setShowTaskModal(false)}
-        title="Задача игроку"
-        subtitle="Если срок не выбран, задача сохранится без даты."
-        footer={
-          <button type="button" onClick={() => void handleCreateTask()} disabled={taskSaving || !taskTitle.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
-            {taskSaving ? 'Сохранение…' : 'Создать задачу'}
-          </button>
-        }
-      >
-        <div className="space-y-4">
-          {taskError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{taskError}</div>}
-          <label className="block"><span className="mobile-label">Название *</span><input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} className="mobile-field" /></label>
-          <label className="block"><span className="mobile-label">Срок</span><input type="date" value={taskDueAtInput} onChange={(e) => setTaskDueAtInput(e.target.value)} className="mobile-field" /></label>
+      <MobileSheet open={showAddModal} onClose={() => setShowAddModal(false)} title="Новый игрок" subtitle="Для начала достаточно никнейма. Остальное можно заполнить позже." widthClass="sm:max-w-md" footer={<button type="submit" form="new-player-form" disabled={!newNickname.trim() || addSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{addSaving ? 'Сохраняем…' : 'Добавить игрока'}</button>}>
+        <form id="new-player-form" onSubmit={handleCreatePlayer} className="space-y-3">{addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}<input value={newNickname} onChange={(event) => setNewNickname(event.target.value)} placeholder="Никнейм *" className="mobile-field" /><input value={newFullName} onChange={(event) => setNewFullName(event.target.value)} placeholder="Имя — необязательно" className="mobile-field" /><input value={newTgUsername} onChange={(event) => setNewTgUsername(event.target.value)} placeholder="Telegram" className="mobile-field" /><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Телефон" className="mobile-field" /></form>
+      </MobileSheet>
+
+      <input id="player-avatar-file" type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+
+      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Действия с игроком" widthClass="sm:max-w-sm">
+        <div className="space-y-2">
+          <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
+          <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
+          <MenuButton icon={Clock3} label="Создать задачу" onClick={() => { setShowPlayerMenu(false); setTaskError(null); setShowTaskSheet(true); }} />
+          <MenuButton icon={MessageSquare} label="Записать результат общения" onClick={() => { setShowPlayerMenu(false); setCommError(null); setShowCommSheet(true); }} />
+          <MenuButton icon={Send} label="Пригласить на другой вечер" onClick={() => void openInviteSheet()} disabled={!inviteInfo.canInvite} />
+          {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
         </div>
       </MobileSheet>
 
-      <MobileSheet
-        open={showInviteModal}
-        onClose={() => !inviteSaving && setShowInviteModal(false)}
-        title="Пригласить игрока"
-        subtitle={playerDetails ? playerDetails.nickname : undefined}
-        footer={
-          <button type="button" onClick={() => void handleSendInvite()} disabled={inviteSaving || inviteLoading || !selectedEveningId} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
-            {inviteSaving ? 'Сохранение…' : 'Сохранить приглашение'}
-          </button>
-        }
-      >
-        {inviteLoading ? <div className="py-12 text-center text-[13px] text-text-secondary">Загрузка событий…</div> : (
-          <div className="space-y-4">
-            {inviteError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{inviteError}</div>}
-            {inviteSuccessMessage && <div className="rounded-[14px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{inviteSuccessMessage}</div>}
-            {!futureEvenings.length ? (
-              <div className="rounded-[16px] border border-border-soft bg-surface-2 p-4 text-[12px] text-text-secondary">Нет будущих игровых вечеров для приглашения.</div>
-            ) : (
-              <>
-                <label className="block"><span className="mobile-label">Игровой вечер</span>
-                  <select value={selectedEveningId} onChange={(e) => void handleSelectEvening(e.target.value)} className="mobile-field">
-                    {futureEvenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at)}</option>)}
-                  </select>
-                </label>
-                <label className="block"><span className="mobile-label">Стол</span>
-                  <select value={selectedTableId} onChange={(e) => handleSelectTable(e.target.value)} className="mobile-field">
-                    <option value="">Без стола</option>
-                    {eveningTables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}
-                  </select>
-                </label>
-                <label className="flex min-h-[44px] items-center gap-3 rounded-[13px] border border-border-soft bg-surface-2 px-3">
-                  <input type="checkbox" checked={createFollowupTask} onChange={(e) => setCreateFollowupTask(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
-                  <span className="text-[12px] font-semibold text-text-primary">Создать задачу на подтверждение</span>
-                </label>
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-text-secondary">Сообщение</span>
-                    <button type="button" onClick={() => void handleCopyMessage()} className="min-h-[40px] rounded-[10px] px-2.5 text-[11px] font-semibold text-accent inline-flex items-center gap-1.5">
-                      {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copySuccess ? 'Скопировано' : 'Копировать'}
-                    </button>
-                  </div>
-                  <textarea value={inviteMessageText} onChange={(e) => setInviteMessageText(e.target.value)} rows={8} className="mobile-field resize-none" />
-                </div>
-              </>
-            )}
-          </div>
-        )}
+      <MobileSheet open={showEditSheet} onClose={() => setShowEditSheet(false)} title="Редактировать игрока" widthClass="sm:max-w-lg" footer={<button type="button" disabled={editSaving || !editForm.nickname.trim()} onClick={() => void handleSaveEdit()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{editSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
+        <div className="space-y-3">{editError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{editError}</div> : null}<input value={editForm.nickname} onChange={(e) => setEditForm((v) => ({ ...v, nickname: e.target.value }))} placeholder="Никнейм" className="mobile-field" /><input value={editForm.full_name} onChange={(e) => setEditForm((v) => ({ ...v, full_name: e.target.value }))} placeholder="Имя" className="mobile-field" /><input value={editForm.telegram_username} onChange={(e) => setEditForm((v) => ({ ...v, telegram_username: e.target.value }))} placeholder="Telegram" className="mobile-field" /><input value={editForm.phone} onChange={(e) => setEditForm((v) => ({ ...v, phone: e.target.value }))} placeholder="Телефон" className="mobile-field" /><select value={editForm.contact_status} onChange={(e) => setEditForm((v) => ({ ...v, contact_status: e.target.value as ContactStatus }))} className="mobile-field"><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select><input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm((v) => ({ ...v, do_not_invite_until: e.target.value }))} className="mobile-field" /><input value={editForm.pause_reason} onChange={(e) => setEditForm((v) => ({ ...v, pause_reason: e.target.value }))} placeholder="Причина паузы" className="mobile-field" /><input value={editForm.preferred_format} onChange={(e) => setEditForm((v) => ({ ...v, preferred_format: e.target.value }))} placeholder="Предпочтительный формат" className="mobile-field" /><input value={editForm.referred_by} onChange={(e) => setEditForm((v) => ({ ...v, referred_by: e.target.value }))} placeholder="Кто пригласил" className="mobile-field" /><input value={editForm.source} onChange={(e) => setEditForm((v) => ({ ...v, source: e.target.value }))} placeholder="Источник" className="mobile-field" /><textarea value={editForm.notes} onChange={(e) => setEditForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Заметки" className="mobile-field min-h-[96px] resize-y" /></div>
       </MobileSheet>
 
-      <ConfirmDialog
-        open={confirmDeleteAvatar}
-        title="Удалить фото игрока?"
-        description="Игрок останется в базе, удалится только текущий аватар."
-        confirmLabel="Удалить фото"
-        tone="danger"
-        busy={avatarBusy}
-        onCancel={() => setConfirmDeleteAvatar(false)}
-        onConfirm={() => void handleDeleteAvatar()}
-      />
+      <MobileSheet open={showTaskSheet} onClose={() => setShowTaskSheet(false)} title="Новая задача" widthClass="sm:max-w-md" footer={<button type="button" disabled={!taskTitle.trim() || taskSaving} onClick={() => void handleCreateTask()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{taskSaving ? 'Создаём…' : 'Создать задачу'}</button>}>
+        <div className="space-y-3">{taskError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{taskError}</div> : null}<input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Что сделать" className="mobile-field" /><input type="datetime-local" value={taskDueAt} onChange={(e) => setTaskDueAt(e.target.value)} className="mobile-field" /></div>
+      </MobileSheet>
+
+      <MobileSheet open={showCommSheet} onClose={() => setShowCommSheet(false)} title="Результат общения" widthClass="sm:max-w-md" footer={<button type="button" disabled={commSaving} onClick={() => void handleRecordCommunication()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{commSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
+        <div className="space-y-3">{commError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{commError}</div> : null}<select value={commChannel} onChange={(e) => setCommChannel(e.target.value as typeof commChannel)} className="mobile-field"><option value="telegram">Telegram</option><option value="phone">Телефон</option><option value="in_person">Лично</option><option value="other">Другое</option></select><select value={commOutcome} onChange={(e) => setCommOutcome(e.target.value as typeof commOutcome)} className="mobile-field"><option value="answered">Ответил</option><option value="no_answer">Не ответил</option><option value="interested">Заинтересован</option><option value="declined">Отказался</option><option value="call_later">Связаться позже</option></select><textarea value={commComment} onChange={(e) => setCommComment(e.target.value)} placeholder="Комментарий — необязательно" className="mobile-field min-h-[96px] resize-y" /></div>
+      </MobileSheet>
+
+      <MobileSheet open={showInviteSheet} onClose={() => setShowInviteSheet(false)} title="Приглашение" subtitle="Подробный сценарий для выбора другого вечера, стола и текста сообщения." widthClass="sm:max-w-lg" footer={<button type="button" disabled={!selectedEveningId || inviteSaving || inviteLoading} onClick={() => void sendDetailedInvite()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{inviteSaving ? 'Сохраняем…' : 'Добавить приглашение в CRM'}</button>}>
+        <div className="space-y-3">{inviteError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{inviteError}</div> : null}{inviteLoading ? <div className="py-8 text-center text-[12px] text-text-secondary">Загрузка вечеров…</div> : <><select value={selectedEveningId} onChange={(e) => void selectInviteEvening(e.target.value)} className="mobile-field"><option value="">Выберите вечер</option>{futureEvenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at, true)}</option>)}</select><select value={selectedTableId} onChange={(e) => selectInviteTable(e.target.value)} className="mobile-field"><option value="">Без предварительного стола</option>{eveningTables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select><label className="flex min-h-[44px] items-center gap-3 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><input type="checkbox" checked={createFollowupTask} onChange={(e) => setCreateFollowupTask(e.target.checked)} /> Создать follow-up задачу</label><textarea value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className="mobile-field min-h-[150px] resize-y" /><button type="button" disabled={!inviteMessage} onClick={async () => { try { await navigator.clipboard.writeText(inviteMessage); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { setInviteError('Не удалось скопировать сообщение'); } }} className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-primary"><Copy className="h-4 w-4" /> {copied ? 'Скопировано' : 'Скопировать текст'}</button></>}</div>
+      </MobileSheet>
+
+      <ConfirmDialog open={confirmDeleteAvatar} title="Удалить фото игрока?" description="Будет использоваться инициала никнейма. Остальные данные игрока не изменятся." tone="danger" busy={avatarBusy} confirmLabel="Удалить фото" onCancel={() => setConfirmDeleteAvatar(false)} onConfirm={deleteAvatar} />
     </div>
   );
 };
+
+const registrationTimelineLabel = (status: string) => status === 'confirmed' ? 'Подтвердил участие' : status === 'waitlist' ? 'Резерв' : status === 'invited' ? 'Приглашение' : 'Запись на вечер';
+
+const MenuButton: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string; onClick: () => void; disabled?: boolean; tone?: 'default' | 'danger' }> = ({ icon: Icon, label, onClick, disabled, tone = 'default' }) => (
+  <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex min-h-[48px] w-full items-center gap-3 rounded-[12px] border px-3 text-left text-[13px] font-semibold disabled:opacity-40 ${tone === 'danger' ? 'border-danger/25 bg-danger-soft text-danger' : 'border-border-soft bg-surface-2 text-text-primary'}`}><Icon className="h-4.5 w-4.5 shrink-0" /> {label}</button>
+);
+
+export default PlayersCRM;

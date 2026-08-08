@@ -1,33 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import {
-  AlertCircle,
-  BarChart3,
-  Calendar,
-  Clock,
-  Gamepad2,
-  LayoutGrid,
-  Lock,
-  LogOut,
-  Palette,
-  RefreshCw,
-  Users,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening, type Player } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningWorkspace } from './crm/EveningWorkspace.tsx';
+import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersCRM } from './crm/PlayersCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
 import { initTheme, type ThemeId } from '../lib/theme.ts';
 import { useMobileKeyboardViewport } from '../hooks/useMobileKeyboardViewport.ts';
+import { ORGANIZER_PRIMARY_NAV, type OrganizerPrimaryTab } from '../lib/organizerUx.ts';
 
 interface OrganizerCRMProps {
   onReturnToGameEngine?: () => void;
 }
 
-type MainTab = 'overview' | 'evenings' | 'players' | 'tasks' | 'analytics';
+type MainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
+
+type PlayerReturnContext = {
+  tab: MainTab;
+  eveningId: string | null;
+} | null;
 
 export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine }) => {
   useMobileKeyboardViewport();
@@ -35,6 +30,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [activeTab, setActiveTab] = useState<MainTab>('overview');
   const [activeEveningId, setActiveEveningId] = useState<string | null>(null);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [playerReturnContext, setPlayerReturnContext] = useState<PlayerReturnContext>(null);
+  const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
 
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -76,17 +73,16 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
         setShowLoginModal(true);
         return;
       }
-
       setIsOrganizer(true);
       setShowLoginModal(false);
-      try {
-        await loadAllData();
-      } catch (error: any) {
+      await loadAllData();
+    } catch (error: any) {
+      if (error?.status === 401 || error?.status === 403) {
+        setIsOrganizer(false);
+        setShowLoginModal(true);
+      } else {
         setLoadError(error?.message || 'Не удалось загрузить данные CRM');
       }
-    } catch {
-      setIsOrganizer(false);
-      setShowLoginModal(true);
     } finally {
       setLoading(false);
     }
@@ -112,15 +108,11 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       setIsOrganizer(true);
       setShowLoginModal(false);
       setLoading(true);
-      try {
-        await loadAllData();
-      } catch (error: any) {
-        setLoadError(error?.message || 'Вход выполнен, но данные CRM не загрузились');
-      } finally {
-        setLoading(false);
-      }
+      await loadAllData();
     } catch (error: any) {
       setLoginError(error?.message || 'Неверный пароль организатора');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,168 +123,219 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setCrmOverview(null);
     setEvenings([]);
     setPlayers([]);
+    setActiveEveningId(null);
+    setActivePlayerId(null);
+    setActiveTab('overview');
   };
 
   const handleOpenEvening = (id: string) => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
     setActiveEveningId(id);
+    setEveningIntent(null);
+    setActiveTab('evenings');
+  };
+
+  const handleOpenEveningAdd = (id: string) => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
+    setActiveEveningId(id);
+    setEveningIntent('add');
     setActiveTab('evenings');
   };
 
   const handleOpenPlayer = (id: string) => {
+    setPlayerReturnContext({ tab: activeTab, eveningId: activeEveningId });
     setActivePlayerId(id);
     setActiveTab('players');
   };
 
+  const handleCloseExternalPlayer = () => {
+    setActivePlayerId(null);
+    if (playerReturnContext) {
+      setActiveTab(playerReturnContext.tab);
+      setActiveEveningId(playerReturnContext.eveningId);
+      setPlayerReturnContext(null);
+    }
+  };
+
   const handleCreateEvening = async (data: Partial<GameEvening>) => {
     await api.createEvening(data);
+    setEveningIntent(null);
     await retryLoad();
   };
 
-  const switchTab = (tab: MainTab) => {
-    if (tab === 'overview' || tab === 'evenings') setActiveEveningId(null);
+  const openCreateEvening = () => {
+    setActiveEveningId(null);
+    setEveningIntent('create');
+    setActiveTab('evenings');
+  };
+
+  const switchPrimaryTab = (tab: OrganizerPrimaryTab) => {
+    setActivePlayerId(null);
+    setPlayerReturnContext(null);
+    if (tab === 'overview') {
+      setActiveEveningId(null);
+      setEveningIntent(null);
+    }
+    if (tab === 'evenings') setEveningIntent(null);
     setActiveTab(tab);
   };
 
-  const tabs = [
-    { id: 'overview' as const, label: 'Пульс', icon: LayoutGrid },
-    { id: 'evenings' as const, label: 'События', icon: Calendar },
-    { id: 'players' as const, label: 'Игроки', icon: Users },
-    { id: 'tasks' as const, label: 'Задачи', icon: Clock },
-    { id: 'analytics' as const, label: 'Анализ', icon: BarChart3 },
-  ];
+  const primaryActive = activeTab === 'tasks' || activeTab === 'analytics' ? 'more' : activeTab;
+  const activeEvening = useMemo(() => evenings.find((item) => item.id === activeEveningId) || null, [evenings, activeEveningId]);
+  const activePlayer = useMemo(() => players.find((item) => item.id === activePlayerId) || null, [players, activePlayerId]);
+
+  const screenTitle = activePlayerId
+    ? activePlayer?.nickname || 'Профиль игрока'
+    : activeEveningId && activeTab === 'evenings'
+      ? activeEvening?.title || 'Клубный вечер'
+      : activeTab === 'overview'
+        ? 'Сегодня'
+        : activeTab === 'evenings'
+          ? 'События'
+          : activeTab === 'players'
+            ? 'Игроки'
+            : activeTab === 'tasks'
+              ? 'Все задачи'
+              : activeTab === 'analytics'
+                ? 'Аналитика'
+                : 'Ещё';
+
+  const navMeta = {
+    overview: { icon: RefreshCw },
+    evenings: { icon: Calendar },
+    players: { icon: Users },
+    more: { icon: Menu },
+  } satisfies Record<OrganizerPrimaryTab, { icon: React.ComponentType<{ className?: string }> }>;
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-7xl mx-auto flex flex-col bg-app-bg text-text-primary font-sans transition-colors duration-200 relative overflow-x-hidden">
-      <header className="sticky top-0 z-40 bg-app-bg/95 backdrop-blur-xl border-b border-border-soft min-h-[60px] flex items-center shrink-0 px-3 sm:px-4">
-        <div className="w-full flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 bg-accent rounded-[11px] flex items-center justify-center font-black text-white text-base shrink-0 shadow-sm">M</div>
-            <div className="min-w-0">
-              <h1 className="text-[15px] font-bold text-text-primary tracking-wide leading-tight truncate">NEWMAFIA</h1>
-              <span className="text-[11px] text-text-secondary font-medium block truncate">CRM организатора</span>
-            </div>
+    <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
+      <header className="sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-[17px] font-black leading-tight tracking-tight text-text-primary">{screenTitle}</h1>
+            <span className="mt-0.5 block truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">2LA noire · NEWMAFIA</span>
           </div>
 
           {isOrganizer ? (
-            <nav className="hidden md:flex items-center gap-1 bg-surface-1 p-1 rounded-[12px] border border-border-soft text-[12px] font-semibold">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
+            <nav className="hidden items-center gap-1 rounded-[13px] border border-border-soft bg-surface-1 p-1 md:flex">
+              {ORGANIZER_PRIMARY_NAV.map((item) => {
+                const Icon = navMeta[item.id].icon;
+                const active = primaryActive === item.id;
                 return (
-                  <button key={tab.id} onClick={() => switchTab(tab.id)} className={`min-h-10 px-3 rounded-[10px] flex items-center gap-1.5 whitespace-nowrap transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'}`}>
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => switchPrimaryTab(item.id)}
+                    className={`inline-flex min-h-[42px] items-center gap-2 rounded-[10px] px-3 text-[12px] font-bold transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
+                  >
+                    <Icon className="h-4 w-4" /> {item.label}
                   </button>
                 );
               })}
             </nav>
           ) : null}
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button aria-label="Выбрать тему" onClick={() => setShowThemeModal(true)} className="w-11 h-11 bg-surface-1 border border-border-soft hover:border-accent/50 rounded-[12px] text-text-secondary hover:text-accent flex items-center justify-center transition-colors">
-              <Palette className="w-5 h-5" />
-            </button>
-            {onReturnToGameEngine ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onReturnToGameEngine}
-                  aria-label="Игровой движок"
-                  title="Игровой движок"
-                  className="sm:hidden grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                >
-                  <Gamepad2 className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onReturnToGameEngine}
-                  title="Игровой движок"
-                  className="hidden sm:inline-flex min-h-11 bg-surface-1 hover:bg-surface-hover text-text-primary border border-border-soft font-semibold px-3 rounded-[12px] text-[12px] items-center"
-                >
-                  Игровой движок
-                </button>
-              </>
-            ) : null}
-            {isOrganizer ? (
-              <button aria-label="Выйти" onClick={() => void handleLogout()} className="w-11 h-11 bg-surface-1 border border-border-soft hover:border-border-strong rounded-[12px] text-text-secondary hover:text-danger flex items-center justify-center transition-colors">
-                <LogOut className="w-5 h-5" />
-              </button>
-            ) : null}
-          </div>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4 pb-[calc(76px+env(safe-area-inset-bottom))] sm:pb-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-3 py-4 pb-[calc(80px+env(safe-area-inset-bottom))] sm:px-4 sm:pb-8">
         {loading ? (
-          <div className="min-h-[48vh] flex flex-col items-center justify-center gap-3 text-center">
-            <RefreshCw className="w-6 h-6 text-accent animate-spin" />
+          <div className="flex min-h-[48vh] flex-col items-center justify-center gap-3 text-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-accent" />
             <div>
               <p className="text-[14px] font-semibold text-text-primary">Загружаем CRM</p>
-              <p className="mt-1 text-[12px] text-text-secondary">Игроки, события и сводка появятся одновременно</p>
+              <p className="mt-1 text-[12px] text-text-secondary">Игроки, события и очередь действий появятся одновременно</p>
             </div>
           </div>
         ) : loadError && isOrganizer ? (
-          <div className="min-h-[48vh] flex items-center justify-center">
+          <div className="flex min-h-[48vh] items-center justify-center">
             <div className="w-full max-w-sm rounded-[20px] border border-danger/30 bg-danger-soft p-5 text-center">
-              <AlertCircle className="w-8 h-8 text-danger mx-auto" />
-              <h2 className="mt-3 text-[16px] font-bold">Не удалось загрузить CRM</h2>
+              <h2 className="text-[16px] font-bold">Не удалось загрузить CRM</h2>
               <p className="mt-2 text-[12px] leading-relaxed text-text-secondary">{loadError}</p>
-              <button onClick={() => void retryLoad()} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-white text-[13px] font-bold flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4" /> Повторить
-              </button>
+              <button type="button" onClick={() => void retryLoad()} className="mt-4 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white">Повторить</button>
             </div>
           </div>
         ) : !isOrganizer ? (
-          <div className="max-w-md mx-auto py-16 text-center space-y-4">
-            <Lock className="w-12 h-12 text-accent mx-auto" />
-            <h2 className="text-xl font-bold text-text-primary">Доступ ограничен</h2>
-            <p className="text-[13px] text-text-secondary">Панель управления CRM доступна только авторизованному организатору клуба.</p>
-            <button onClick={() => setShowLoginModal(true)} className="bg-accent hover:bg-accent-hover text-white font-semibold px-6 min-h-11 rounded-[12px] text-[13px]">Войти как организатор</button>
+          <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+            <Lock className="mx-auto h-12 w-12 text-accent" />
+            <h2 className="text-xl font-bold">Доступ ограничен</h2>
+            <p className="text-[13px] text-text-secondary">Панель управления доступна организатору клуба.</p>
+            <button type="button" onClick={() => setShowLoginModal(true)} className="min-h-11 rounded-[12px] bg-accent px-6 text-[13px] font-semibold text-white">Войти</button>
           </div>
         ) : (
-          <div className="w-full min-w-0">
+          <div className="min-w-0 w-full">
             {activeTab === 'overview' ? (
               <CRMOverview
                 overview={crmOverview}
                 onOpenEvening={handleOpenEvening}
+                onOpenEveningAdd={handleOpenEveningAdd}
                 onOpenPlayer={handleOpenPlayer}
                 onNavigateTab={(tab) => setActiveTab(tab as MainTab)}
+                onCreateEvening={openCreateEvening}
                 onRefresh={retryLoad}
-                onCompleteTask={async (taskId) => { await api.completeTask(taskId); await retryLoad(); }}
+                onCompleteTask={async (taskId) => {
+                  await api.completeTask(taskId);
+                  await retryLoad();
+                }}
               />
             ) : null}
 
             {activeTab === 'evenings' ? (
               activeEveningId ? (
-                <EveningWorkspace eveningId={activeEveningId} onBack={() => setActiveEveningId(null)} onOpenPlayerCard={handleOpenPlayer} />
+                <EveningWorkspace
+                  eveningId={activeEveningId}
+                  onBack={() => { setActiveEveningId(null); setEveningIntent(null); }}
+                  onOpenPlayerCard={handleOpenPlayer}
+                  initialAddOpen={eveningIntent === 'add'}
+                  onInitialAddHandled={() => setEveningIntent(null)}
+                />
               ) : (
-                <EveningsList evenings={evenings} onOpenEvening={handleOpenEvening} onCreateEvening={handleCreateEvening} />
+                <EveningsList
+                  evenings={evenings}
+                  onOpenEvening={handleOpenEvening}
+                  onCreateEvening={handleCreateEvening}
+                  initialCreateOpen={eveningIntent === 'create'}
+                  onInitialCreateHandled={() => setEveningIntent(null)}
+                />
               )
             ) : null}
 
             {activeTab === 'players' ? (
-              <PlayersCRM evenings={evenings} onOpenEvening={handleOpenEvening} selectedPlayerId={activePlayerId} onClosePlayerCard={() => setActivePlayerId(null)} onCrmChanged={retryLoad} />
+              <PlayersCRM
+                evenings={evenings}
+                onOpenEvening={handleOpenEvening}
+                selectedPlayerId={activePlayerId}
+                onClosePlayerCard={handleCloseExternalPlayer}
+                onCrmChanged={retryLoad}
+              />
             ) : null}
 
-            {activeTab === 'tasks' ? (
-              <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} />
-            ) : null}
-
+            {activeTab === 'tasks' ? <TasksCRM players={players} evenings={evenings} onOpenPlayer={handleOpenPlayer} /> : null}
             {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
+            {activeTab === 'more' ? (
+              <MoreCRM
+                onOpenTasks={() => setActiveTab('tasks')}
+                onOpenAnalytics={() => setActiveTab('analytics')}
+                onOpenTheme={() => setShowThemeModal(true)}
+                onOpenGameEngine={onReturnToGameEngine}
+                onLogout={handleLogout}
+              />
+            ) : null}
           </div>
         )}
       </main>
 
       {isOrganizer ? (
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 glass-nav organizer-bottom-nav grid grid-cols-5 z-40 pb-safe min-h-[64px] h-[calc(64px+env(safe-area-inset-bottom))] border-t border-border-soft">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
+        <nav className="organizer-bottom-nav glass-nav fixed bottom-0 left-0 right-0 z-40 grid min-h-[64px] h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border-soft pb-safe sm:hidden">
+          {ORGANIZER_PRIMARY_NAV.map((item) => {
+            const Icon = navMeta[item.id].icon;
+            const active = primaryActive === item.id;
             return (
-              <button key={tab.id} onClick={() => switchTab(tab.id)} className="min-w-0 min-h-[48px] px-0.5 flex flex-col items-center justify-center relative">
-                <Icon className={`w-[21px] h-[21px] ${active ? 'text-accent' : 'text-text-muted'}`} />
-                <span className={`mt-1 text-[10px] leading-none truncate max-w-full ${active ? 'text-text-primary font-bold' : 'text-text-muted font-medium'}`}>{tab.label}</span>
-                {active ? <span className="absolute top-1 w-5 h-0.5 rounded-full bg-accent" /> : null}
+              <button key={item.id} type="button" onClick={() => switchPrimaryTab(item.id)} className="relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1">
+                <Icon className={`h-[21px] w-[21px] ${active ? 'text-accent' : 'text-text-muted'}`} />
+                <span className={`mt-1 max-w-full truncate text-[11px] leading-none ${active ? 'font-bold text-text-primary' : 'font-medium text-text-muted'}`}>{item.label}</span>
+                {active ? <span className="absolute top-1 h-0.5 w-5 rounded-full bg-accent" /> : null}
               </button>
             );
           })}
@@ -300,25 +343,33 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       ) : null}
 
       {showLoginModal ? (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md sm:p-4">
-          <div className="bg-surface-1 border border-border-soft rounded-t-[24px] sm:rounded-[24px] max-w-sm w-full p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-5 text-text-primary">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-accent-soft border border-accent/30 rounded-[12px] flex items-center justify-center mx-auto text-accent"><Lock className="w-6 h-6" /></div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4">
+          <div className="w-full max-w-sm space-y-5 rounded-t-[24px] border border-border-soft bg-surface-1 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-text-primary sm:rounded-[24px]">
+            <div className="text-center">
               <h3 className="text-[17px] font-bold">Вход для организатора</h3>
-              <p className="text-[12px] text-text-secondary">Введите пароль для доступа к управлению клубом</p>
+              <p className="mt-1 text-[12px] text-text-secondary">Введите пароль для доступа к CRM</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <input type="password" value={passwordInput} onChange={(event) => setPasswordInput(event.target.value)} placeholder="Пароль организатора" className="w-full min-h-11 bg-surface-2 border border-border-soft rounded-[12px] px-4 text-[14px] text-text-primary focus:outline-none focus:border-accent text-center" />
-                {loginError ? <p className="text-[12px] text-danger font-semibold mt-2 text-center">{loginError}</p> : null}
-              </div>
-              <button type="submit" className="w-full min-h-11 bg-accent hover:bg-accent-hover text-white font-semibold rounded-[12px] text-[13px]">Войти как организатор</button>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(event) => setPasswordInput(event.target.value)}
+                placeholder="Пароль организатора"
+                className="mobile-field text-center"
+              />
+              {loginError ? <p className="text-center text-[12px] font-semibold text-danger">{loginError}</p> : null}
+              <button type="submit" className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white">Войти</button>
             </form>
           </div>
         </div>
       ) : null}
 
-      <ThemeSelectorModal isOpen={showThemeModal} onClose={() => setShowThemeModal(false)} currentTheme={currentTheme} onSelectTheme={setCurrentTheme} />
+      <ThemeSelectorModal
+        isOpen={showThemeModal}
+        onClose={() => setShowThemeModal(false)}
+        currentTheme={currentTheme}
+        onSelectTheme={setCurrentTheme}
+      />
     </div>
   );
 };

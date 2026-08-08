@@ -14,8 +14,8 @@ import {
 } from '../../../lib/tournamentResultsExport.ts';
 import { MobileSheet } from '../../ui/MobileSheet.tsx';
 
-const OFFICIAL_PNG_SCALE = 1.25;
-const EXPORT_AVATAR_SIZE = 160;
+const OFFICIAL_PNG_SCALE = 1;
+const EXPORT_AVATAR_SIZE = 320;
 const exportAvatarPromiseCache = new Map<string, Promise<string | null>>();
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {

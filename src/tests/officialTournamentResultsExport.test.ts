@@ -79,8 +79,15 @@ describe('Official tournament PNG export', () => {
     const { svg, width, height } = generateOfficialTournamentResultsSvg(presentation);
     expect(width).toBe(1080);
     expect(height).toBeGreaterThan(30 * 108);
-    expect(svg).toContain('2LA noire');
-    expect(svg).toContain('ОФИЦИАЛЬНЫЕ РЕЗУЛЬТАТЫ');
+    expect(svg).toContain('2LA NOIRE');
+    expect(svg).toContain('ИТОГИ ТУРНИРА');
+    expect(svg).toContain('ЧЕМПИОН ТУРНИРА');
+    expect(svg).toContain('ФИНАЛЬНЫЙ РЕЙТИНГ');
+    expect(svg).toContain('НАГРАДЫ ТУРНИРА');
+    expect(svg).not.toContain('ОФИЦИАЛЬНЫЕ РЕЗУЛЬТАТЫ');
+    expect(svg).not.toContain('КАК ЧИТАТЬ РЕЗУЛЬТАТ');
+    expect(svg).not.toContain('ОФИЦИАЛЬНЫЙ ТУРНИРНЫЙ ПРОТОКОЛ');
+    expect(svg).not.toContain('Сформировано:');
     expect(svg).toContain('Игрок 2');
     expect(svg).toContain('Игрок 1');
     expect(svg).toContain('Игрок 3');
@@ -88,7 +95,7 @@ describe('Official tournament PNG export', () => {
     expect(svg).toContain('Не присуждена');
     expect(svg).not.toContain('Старый автоматический MVP');
     expect(svg).not.toContain('Скрытый автоматический победитель');
-    expect(svg).toContain('Игрок &lt;30&gt; &amp; самый длинный');
+    expect(svg).toContain('Игрок &lt;30&gt;');
     expect(svg).toContain('Кубок &lt;2LA&gt; &amp;');
     expect(svg).toContain('+0,5');
     expect(svg).toContain('−0,3');

@@ -1,33 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Search,
-  Plus,
-  Phone,
-  Send,
-  FileText,
-  X,
-  ChevronRight,
-  Copy,
-  Check,
   AlertCircle,
-  Edit2,
+  Check,
+  ChevronRight,
+  Clock3,
+  Copy,
+  Edit3,
+  Filter,
   MessageSquare,
-  Clock,
-  UserCheck,
-  UserX,
-  AlertTriangle,
+  Phone,
+  Plus,
+  RotateCcw,
   Save,
+  Search,
+  Send,
+  Trash2,
+  Upload,
+  UserCheck,
+  UserRound,
+  UserX,
 } from 'lucide-react';
-import { api, Player, GameEvening, EveningTable, OrganizerTask } from '../../lib/api.ts';
+import {
+  api,
+  type EveningTable,
+  type GameEvening,
+  type Player,
+  type PlayerDetails,
+  type PlayerGameHistoryItem,
+} from '../../lib/api.ts';
 import { formatEveningDateTime, getSortedFutureEvenings } from '../../lib/dateUtils.ts';
 import {
   getCanInviteStatus,
   getRussianContactStatusLabel,
   getRussianEngagementStageLabel,
-  ContactStatus,
+  type ContactStatus,
 } from '../../lib/playerUtils.ts';
-import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
+import { MobileSheet } from '../ui/MobileSheet.tsx';
+import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 
 interface PlayersCRMProps {
@@ -38,6 +49,46 @@ interface PlayersCRMProps {
   onCrmChanged?: () => void;
 }
 
+type QuickFilter = 'all' | 'newcomers1' | 'never' | 'absent30' | 'absent60' | 'open_tasks';
+type PlayerSection = 'overview' | 'games' | 'crm';
+type GameFilter = 'all' | 'club' | 'tournament';
+
+const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
+  { id: 'all', label: 'Все' },
+  { id: 'newcomers1', label: 'Новички' },
+  { id: 'never', label: 'Не приходили' },
+  { id: 'absent30', label: '30+ дней' },
+  { id: 'absent60', label: '60+ дней' },
+  { id: 'open_tasks', label: 'Есть задачи' },
+];
+
+const fmtDate = (value?: string | null, withTime = false) => {
+  if (!value) return 'Не указано';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('ru-RU', withTime
+    ? { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+    : { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const roleLabel = (role: PlayerGameHistoryItem['role']) =>
+  role === 'don' ? 'Дон' : role === 'mafia' ? 'Мафия' : role === 'sheriff' ? 'Шериф' : role === 'citizen' ? 'Мирный' : 'Роль не указана';
+
+const exitLabel = (exitType: string | null) => {
+  if (exitType === 'killed') return 'Убит ночью';
+  if (exitType === 'voted_zero_round') return 'Заголосован в 0 круге';
+  if (exitType === 'voted_day') return 'Заголосован';
+  if (exitType === 'removed') return 'Удалён';
+  if (exitType === 'alive') return 'Дожил до конца';
+  return exitType || 'Без отметки';
+};
+
+const statusTone = (status?: string | null) => {
+  if (status === 'blocked') return 'bg-danger-soft text-danger border-danger/20';
+  if (status === 'paused') return 'bg-warning-soft text-warning border-warning/20';
+  return 'bg-success-soft text-success border-success/20';
+};
+
 export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   evenings: _evenings,
   onOpenEvening: _onOpenEvening,
@@ -47,61 +98,21 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
-  // Filter States
   const [search, setSearch] = useState('');
-  const [lifecycleStatus, setLifecycleStatus] = useState<string>('');
-  const [contactStatusFilter, setContactStatusFilter] = useState<string>('');
-  const [activeQuickFilter, setActiveQuickFilter] = useState<'all' | 'newcomers1' | 'never' | 'absent30' | 'absent60' | 'open_tasks'>('all');
+  const [lifecycleStatus, setLifecycleStatus] = useState('');
+  const [contactStatusFilter, setContactStatusFilter] = useState('');
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Player detail drawer state
   const [activePlayerCardId, setActivePlayerCardId] = useState<string | null>(selectedPlayerId || null);
-  const [playerDetails, setPlayerDetails] = useState<any | null>(null);
+  const [playerDetails, setPlayerDetails] = useState<PlayerDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [playerCardView, setPlayerCardView] = useState<'profile' | 'crm'>('profile');
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [playerSection, setPlayerSection] = useState<PlayerSection>('overview');
+  const [gameFilter, setGameFilter] = useState<GameFilter>('all');
 
-  // Edit Mode state
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isSavingPlayer, setIsSavingPlayer] = useState(false);
-  const [saveStatusMessage, setSaveStatusMessage] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{
-    nickname: string;
-    full_name: string;
-    phone: string;
-    telegram_username: string;
-    source: string;
-    notes: string;
-    contact_status: ContactStatus;
-    do_not_invite_until: string;
-    pause_reason: string;
-    preferred_format: string;
-    referred_by: string;
-  }>({
-    nickname: '',
-    full_name: '',
-    phone: '',
-    telegram_username: '',
-    source: '',
-    notes: '',
-    contact_status: 'normal',
-    do_not_invite_until: '',
-    pause_reason: '',
-    preferred_format: '',
-    referred_by: '',
-  });
-
-  // Communication Result Modal state
-  const [showCommModal, setShowCommModal] = useState(false);
-  const [commChannel, setCommChannel] = useState<'telegram' | 'phone' | 'in_person' | 'other'>('telegram');
-  const [commOutcome, setCommOutcome] = useState<'answered' | 'no_answer' | 'interested' | 'declined' | 'call_later'>('answered');
-  const [commComment, setCommComment] = useState('');
-  const [commCreateTask, setCommCreateTask] = useState(false);
-  const [commTaskDueAt, setCommTaskDueAt] = useState('');
-  const [commTaskTitle, setCommTaskTitle] = useState('');
-  const [isSubmittingComm, setIsSubmittingComm] = useState(false);
-  const [commError, setCommError] = useState<string | null>(null);
-
-  // Add Player Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newNickname, setNewNickname] = useState('');
   const [newFullName, setNewFullName] = useState('');
@@ -109,228 +120,226 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [newTgUsername, setNewTgUsername] = useState('');
   const [newSource, setNewSource] = useState('manual');
   const [newNotes, setNewNotes] = useState('');
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
-  // New task modal from player card
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSavingPlayer, setIsSavingPlayer] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    nickname: '',
+    full_name: '',
+    phone: '',
+    telegram_username: '',
+    source: '',
+    notes: '',
+    contact_status: 'normal' as ContactStatus,
+    do_not_invite_until: '',
+    pause_reason: '',
+    preferred_format: '',
+    referred_by: '',
+  });
+
+  const [showCommModal, setShowCommModal] = useState(false);
+  const [commChannel, setCommChannel] = useState<'telegram' | 'phone' | 'in_person' | 'other'>('telegram');
+  const [commOutcome, setCommOutcome] = useState<'answered' | 'no_answer' | 'interested' | 'declined' | 'call_later'>('answered');
+  const [commComment, setCommComment] = useState('');
+  const [commCreateTask, setCommCreateTask] = useState(false);
+  const [commTaskDueAt, setCommTaskDueAt] = useState('');
+  const [commTaskTitle, setCommTaskTitle] = useState('');
+  const [commSaving, setCommSaving] = useState(false);
+  const [commError, setCommError] = useState<string | null>(null);
+
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueAtInput, setTaskDueAtInput] = useState('');
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskError, setTaskError] = useState<string | null>(null);
 
-  // Invite Modal State
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [futureEvenings, setFutureEvenings] = useState<GameEvening[]>([]);
-  const [selectedEveningId, setSelectedEveningId] = useState<string>('');
+  const [selectedEveningId, setSelectedEveningId] = useState('');
   const [eveningTables, setEveningTables] = useState<EveningTable[]>([]);
-  const [selectedTableId, setSelectedTableId] = useState<string>('');
+  const [selectedTableId, setSelectedTableId] = useState('');
   const [createFollowupTask, setCreateFollowupTask] = useState(true);
   const [inviteMessageText, setInviteMessageText] = useState('');
-  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteSaving, setInviteSaving] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [confirmDeleteAvatar, setConfirmDeleteAvatar] = useState(false);
 
   useEffect(() => {
-    loadPlayers();
+    void loadPlayers();
   }, [search, lifecycleStatus, contactStatusFilter, activeQuickFilter]);
 
   useEffect(() => {
     if (selectedPlayerId) {
-      setPlayerCardView('profile');
       setActivePlayerCardId(selectedPlayerId);
-      loadPlayerDetails(selectedPlayerId);
+      setPlayerSection('overview');
+      void loadPlayerDetails(selectedPlayerId);
     }
   }, [selectedPlayerId]);
 
   const loadPlayers = async () => {
     setLoading(true);
+    setListError(null);
     try {
-      const params: Record<string, any> = {};
-      if (search) params.search = search;
+      const params: Record<string, string | number | boolean> = {};
+      if (search.trim()) params.search = search.trim();
       if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
       if (contactStatusFilter) params.contact_status = contactStatusFilter;
-
       if (activeQuickFilter === 'newcomers1') params.first_visit_only = true;
       if (activeQuickFilter === 'never') params.never_attended = true;
       if (activeQuickFilter === 'absent30') params.inactive_days = 30;
       if (activeQuickFilter === 'absent60') params.inactive_days = 60;
       if (activeQuickFilter === 'open_tasks') params.has_open_tasks = true;
-
-      const data = await api.getPlayers(params);
-      setPlayers(data);
+      setPlayers(await api.getPlayers(params));
     } catch (err: any) {
-      console.error('Error loading players:', err);
+      setListError(err.message || 'Не удалось загрузить игроков');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadPlayerDetails = async (id: string) => {
-    setLoadingDetails(true);
-    try {
-      const data = await api.getPlayer(id);
-      setPlayerDetails(data);
-      initEditForm(data);
-    } catch (err: any) {
-      alert('Ошибка загрузки карточки игрока');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const initEditForm = (data: any) => {
+  const initEditForm = (data: PlayerDetails) => {
     setEditForm({
       nickname: data.nickname || '',
       full_name: data.full_name || '',
       phone: data.phone || '',
-      telegram_username: data.telegram_username ? data.telegram_username.replace('@', '') : '',
+      telegram_username: data.telegram_username?.replace('@', '') || '',
       source: data.source || '',
       notes: data.notes || '',
       contact_status: (data.contact_status || 'normal') as ContactStatus,
-      do_not_invite_until: data.do_not_invite_until ? data.do_not_invite_until.split('T')[0] : '',
+      do_not_invite_until: data.do_not_invite_until ? data.do_not_invite_until.slice(0, 10) : '',
       pause_reason: data.pause_reason || '',
       preferred_format: data.preferred_format || '',
       referred_by: data.referred_by || '',
     });
     setIsEditMode(false);
-    setSaveStatusMessage(null);
+  };
+
+  const loadPlayerDetails = async (id: string) => {
+    setLoadingDetails(true);
+    setDetailError(null);
+    try {
+      const data = await api.getPlayer(id);
+      setPlayerDetails(data);
+      initEditForm(data);
+    } catch (err: any) {
+      setDetailError(err.message || 'Не удалось загрузить профиль игрока');
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const handleOpenCard = (id: string) => {
-    setPlayerCardView('profile');
     setActivePlayerCardId(id);
-    loadPlayerDetails(id);
+    setPlayerSection('overview');
+    setGameFilter('all');
+    setPlayerDetails(null);
+    setProfileMessage(null);
+    setProfileError(null);
+    void loadPlayerDetails(id);
   };
 
   const handleCloseCard = () => {
     setActivePlayerCardId(null);
     setPlayerDetails(null);
-    setPlayerCardView('profile');
+    setPlayerSection('overview');
     setIsEditMode(false);
-    if (onClosePlayerCard) onClosePlayerCard();
+    onClosePlayerCard?.();
+  };
+
+  const refreshPlayer = async () => {
+    if (!activePlayerCardId) return;
+    await Promise.all([loadPlayerDetails(activePlayerCardId), loadPlayers()]);
+    onCrmChanged?.();
   };
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !playerDetails) return;
-
-    setSaveStatusMessage('Загрузка...');
+    setAvatarBusy(true);
+    setProfileError(null);
+    setProfileMessage('Загрузка фото…');
     try {
       const prepared = await preparePlayerAvatar(file);
       await api.uploadPlayerAvatar(playerDetails.id, prepared);
-      
-      setSaveStatusMessage('Аватарка сохранена');
-      setTimeout(() => setSaveStatusMessage(null), 3000);
-
-      await loadPlayerDetails(playerDetails.id);
-      await loadPlayers();
-      if (onCrmChanged) onCrmChanged();
+      setProfileMessage('Фото обновлено');
+      await refreshPlayer();
     } catch (err: any) {
-      setSaveStatusMessage(`Ошибка: ${err.message}`);
-      setTimeout(() => setSaveStatusMessage(null), 5000);
+      setProfileMessage(null);
+      setProfileError(err.message || 'Не удалось загрузить фото');
     } finally {
+      setAvatarBusy(false);
       e.target.value = '';
     }
   };
 
   const handleDeleteAvatar = async () => {
     if (!playerDetails) return;
-    
-    if (window.confirm('Удалить аватарку игрока?')) {
-      try {
-        setSaveStatusMessage('Удаление...');
-        await api.deletePlayerAvatar(playerDetails.id);
-        
-        setSaveStatusMessage('Аватарка удалена');
-        setTimeout(() => setSaveStatusMessage(null), 3000);
-
-        await loadPlayerDetails(playerDetails.id);
-        await loadPlayers();
-        if (onCrmChanged) onCrmChanged();
-      } catch (err: any) {
-        setSaveStatusMessage(`Ошибка: ${err.message}`);
-        setTimeout(() => setSaveStatusMessage(null), 5000);
-      }
+    setAvatarBusy(true);
+    setProfileError(null);
+    try {
+      await api.deletePlayerAvatar(playerDetails.id);
+      setConfirmDeleteAvatar(false);
+      setProfileMessage('Фото удалено');
+      await refreshPlayer();
+    } catch (err: any) {
+      setProfileError(err.message || 'Не удалось удалить фото');
+      setConfirmDeleteAvatar(false);
+    } finally {
+      setAvatarBusy(false);
     }
   };
 
   const handleSavePlayerDetails = async () => {
-    if (!playerDetails) return;
+    if (!playerDetails || !editForm.nickname.trim()) return;
     setIsSavingPlayer(true);
-    setSaveStatusMessage('Сохранение...');
+    setProfileError(null);
+    setProfileMessage(null);
     try {
-      const isoPauseDate = editForm.do_not_invite_until
-        ? new Date(editForm.do_not_invite_until).toISOString()
-        : null;
-
       await api.updatePlayer(playerDetails.id, {
-        nickname: editForm.nickname,
-        full_name: editForm.full_name || null,
-        phone: editForm.phone || null,
-        telegram_username: editForm.telegram_username ? editForm.telegram_username.replace('@', '') : null,
-        source: editForm.source || null,
-        notes: editForm.notes || null,
+        nickname: editForm.nickname.trim(),
+        full_name: editForm.full_name.trim() || null,
+        phone: editForm.phone.trim() || null,
+        telegram_username: editForm.telegram_username.trim().replace('@', '') || null,
+        source: editForm.source.trim() || null,
+        notes: editForm.notes.trim() || null,
         contact_status: editForm.contact_status,
-        do_not_invite_until: isoPauseDate,
-        pause_reason: editForm.pause_reason || null,
-        preferred_format: editForm.preferred_format || null,
-        referred_by: editForm.referred_by || null,
+        do_not_invite_until: editForm.do_not_invite_until ? new Date(editForm.do_not_invite_until).toISOString() : null,
+        pause_reason: editForm.pause_reason.trim() || null,
+        preferred_format: editForm.preferred_format.trim() || null,
+        referred_by: editForm.referred_by.trim() || null,
       });
-
-      setSaveStatusMessage('Сохранено!');
-      setTimeout(() => setSaveStatusMessage(null), 2500);
       setIsEditMode(false);
-      await loadPlayerDetails(playerDetails.id);
-      await loadPlayers();
-      if (onCrmChanged) onCrmChanged();
+      setProfileMessage('Изменения сохранены');
+      await refreshPlayer();
     } catch (err: any) {
-      setSaveStatusMessage(`Ошибка: ${err.message || 'Не удалось сохранить'}`);
+      setProfileError(err.message || 'Не удалось сохранить игрока');
     } finally {
       setIsSavingPlayer(false);
     }
   };
 
-  const handleRecordCommunication = async () => {
-    if (!playerDetails) return;
-    setIsSubmittingComm(true);
-    setCommError(null);
-
-    try {
-      await api.recordCommunicationOutcome(playerDetails.id, {
-        channel: commChannel,
-        outcome: commOutcome,
-        comment: commComment,
-        create_next_task: commCreateTask,
-        task_due_at: commTaskDueAt ? commTaskDueAt : null,
-        task_title: commTaskTitle || `Перезвонить игроку ${playerDetails.nickname}`,
-      });
-
-      setShowCommModal(false);
-      setCommComment('');
-      setCommTaskTitle('');
-      setCommTaskDueAt('');
-      setCommCreateTask(false);
-
-      await loadPlayerDetails(playerDetails.id);
-      await loadPlayers();
-      if (onCrmChanged) onCrmChanged();
-    } catch (err: any) {
-      setCommError(err.message || 'Ошибка при сохранении результата');
-    } finally {
-      setIsSubmittingComm(false);
-    }
-  };
-
   const handleCreatePlayer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNickname) return;
-
+    if (!newNickname.trim()) return;
+    setAddSaving(true);
+    setAddError(null);
     try {
       const created = await api.createPlayer({
-        nickname: newNickname,
-        full_name: newFullName,
-        phone: newPhone,
-        telegram_username: newTgUsername.replace('@', ''),
-        source: newSource,
-        notes: newNotes,
+        nickname: newNickname.trim(),
+        full_name: newFullName.trim() || null,
+        phone: newPhone.trim() || null,
+        telegram_username: newTgUsername.trim().replace('@', '') || null,
+        source: newSource.trim() || 'manual',
+        notes: newNotes.trim() || null,
         contact_status: 'normal',
       });
       setShowAddModal(false);
@@ -338,1353 +347,788 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       setNewFullName('');
       setNewPhone('');
       setNewTgUsername('');
-      loadPlayers();
+      setNewNotes('');
+      await loadPlayers();
       handleOpenCard(created.id);
     } catch (err: any) {
-      alert(err.message || 'Ошибка создания игрока');
+      setAddError(err.message || 'Не удалось создать игрока');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  const handleRecordCommunication = async () => {
+    if (!playerDetails) return;
+    setCommSaving(true);
+    setCommError(null);
+    try {
+      await api.recordCommunicationOutcome(playerDetails.id, {
+        channel: commChannel,
+        outcome: commOutcome,
+        comment: commComment.trim() || undefined,
+        create_next_task: commCreateTask,
+        task_due_at: commTaskDueAt || null,
+        task_title: commTaskTitle.trim() || `Перезвонить игроку ${playerDetails.nickname}`,
+      });
+      setShowCommModal(false);
+      setCommComment('');
+      setCommCreateTask(false);
+      setCommTaskDueAt('');
+      setCommTaskTitle('');
+      await refreshPlayer();
+    } catch (err: any) {
+      setCommError(err.message || 'Не удалось сохранить результат общения');
+    } finally {
+      setCommSaving(false);
     }
   };
 
   const handleCreateTask = async () => {
-    if (!playerDetails || !taskTitle) return;
+    if (!playerDetails || !taskTitle.trim()) return;
+    setTaskSaving(true);
+    setTaskError(null);
     try {
-      let dueAt: string | null = null;
-      if (taskDueAtInput && taskDueAtInput.trim() !== '') {
-        const d = new Date(taskDueAtInput);
-        if (!isNaN(d.getTime())) {
-          dueAt = d.toISOString();
-        }
-      }
-
       await api.createTask({
-        title: taskTitle,
+        title: taskTitle.trim(),
         player_id: playerDetails.id,
-        due_at: dueAt,
+        due_at: taskDueAtInput ? new Date(taskDueAtInput).toISOString() : null,
         priority: 'medium',
       });
       setShowTaskModal(false);
       setTaskTitle('');
       setTaskDueAtInput('');
-      loadPlayerDetails(playerDetails.id);
+      await refreshPlayer();
     } catch (err: any) {
-      alert(err.message || 'Ошибка создания задачи');
+      setTaskError(err.message || 'Не удалось создать задачу');
+    } finally {
+      setTaskSaving(false);
     }
   };
 
-  const updateInviteMessage = (player: any, evening: GameEvening, table: EveningTable | null) => {
+  const updateInviteMessage = (player: PlayerDetails, evening: GameEvening, table: EveningTable | null) => {
     const dateFormatted = formatEveningDateTime(evening.starts_at, evening.timezone);
-    const tableName = table ? table.name : 'Без стола';
+    const tableName = table?.name || 'Без стола';
     const price = table?.default_price ?? (table as any)?.price ?? evening.default_price ?? 0;
-    const priceStr = price > 0 ? `${price} ₽` : 'Бесплатно';
-    const venueStr = evening.venue || 'Клуб';
-
+    const venue = evening.venue || 'Клуб';
     setInviteMessageText(
-      `Привет, ${player.nickname}! 👋\n` +
-        `Приглашаем тебя на игровой вечер "${evening.title}"!\n\n` +
-        `📅 Дата и время: ${dateFormatted}\n` +
-        `📍 Место: ${venueStr}\n` +
-        `🪑 Стол: ${tableName}\n` +
-        `💰 Стоимость: ${priceStr}\n\n` +
-        `Ждём тебя на игре!`
+      `Привет, ${player.nickname}! 👋\nПриглашаем тебя на игровой вечер «${evening.title}»!\n\n` +
+      `📅 ${dateFormatted}\n📍 ${venue}\n🪑 ${tableName}\n💰 ${price > 0 ? `${price} ₽` : 'Бесплатно'}\n\nЖдём тебя на игре!`
     );
   };
 
   const handleOpenInviteModal = async () => {
     if (!playerDetails) return;
-
     const inviteCheck = getCanInviteStatus(playerDetails);
     if (!inviteCheck.canInvite) {
-      alert(`Невозможно пригласить: ${inviteCheck.reason}`);
+      setProfileError(inviteCheck.reason);
       return;
     }
-
+    setShowInviteModal(true);
+    setInviteLoading(true);
     setInviteError(null);
     setInviteSuccessMessage(null);
     setCopySuccess(false);
     try {
-      const allEvenings = await api.getEvenings();
-      const future = getSortedFutureEvenings(allEvenings);
+      const future = getSortedFutureEvenings(await api.getEvenings());
       setFutureEvenings(future);
-
-      if (future.length > 0) {
-        const initialEveningId = future[0].id;
-        setSelectedEveningId(initialEveningId);
-        const tables = await api.getEveningTables(initialEveningId);
+      if (future[0]) {
+        setSelectedEveningId(future[0].id);
+        const tables = await api.getEveningTables(future[0].id);
         setEveningTables(tables);
         setSelectedTableId('');
         updateInviteMessage(playerDetails, future[0], null);
       } else {
         setSelectedEveningId('');
         setEveningTables([]);
-        setSelectedTableId('');
         setInviteMessageText('');
       }
-      setShowInviteModal(true);
     } catch (err: any) {
-      alert(err.message || 'Ошибка загрузки вечеров');
+      setInviteError(err.message || 'Не удалось загрузить будущие вечера');
+    } finally {
+      setInviteLoading(false);
     }
   };
 
   const handleSelectEvening = async (eveningId: string) => {
     setSelectedEveningId(eveningId);
     setSelectedTableId('');
-    setInviteSuccessMessage(null);
     setInviteError(null);
-    const ev = futureEvenings.find((e) => e.id === eveningId);
-    if (eveningId) {
-      try {
-        const tables = await api.getEveningTables(eveningId);
-        setEveningTables(tables);
-        if (ev && playerDetails) {
-          updateInviteMessage(playerDetails, ev, null);
-        }
-      } catch (err: any) {
-        console.error('Error fetching tables', err);
-      }
-    } else {
+    setInviteSuccessMessage(null);
+    const evening = futureEvenings.find((item) => item.id === eveningId);
+    if (!eveningId || !evening) {
       setEveningTables([]);
       setInviteMessageText('');
+      return;
+    }
+    try {
+      const tables = await api.getEveningTables(eveningId);
+      setEveningTables(tables);
+      if (playerDetails) updateInviteMessage(playerDetails, evening, null);
+    } catch (err: any) {
+      setInviteError(err.message || 'Не удалось загрузить столы');
     }
   };
 
   const handleSelectTable = (tableId: string) => {
     setSelectedTableId(tableId);
-    setInviteSuccessMessage(null);
-    setInviteError(null);
-    const ev = futureEvenings.find((e) => e.id === selectedEveningId);
-    const tbl = eveningTables.find((t) => t.id === tableId) || null;
-    if (ev && playerDetails) {
-      updateInviteMessage(playerDetails, ev, tbl);
-    }
+    const evening = futureEvenings.find((item) => item.id === selectedEveningId);
+    const table = eveningTables.find((item) => item.id === tableId) || null;
+    if (evening && playerDetails) updateInviteMessage(playerDetails, evening, table);
   };
 
   const handleSendInvite = async () => {
     if (!playerDetails || !selectedEveningId) return;
-    setIsSubmittingInvite(true);
+    setInviteSaving(true);
     setInviteError(null);
     setInviteSuccessMessage(null);
     try {
-      const res = await api.invitePlayer(
-        playerDetails.id,
-        selectedEveningId,
-        selectedTableId || null,
-        createFollowupTask
-      );
-
-      if (res.alreadyParticipant) {
-        setInviteSuccessMessage(res.message || 'Игрок уже добавлен на этот вечер');
-      } else {
-        setInviteSuccessMessage('Приглашение сохранено в CRM');
-      }
-
-      if (onCrmChanged) {
-        onCrmChanged();
-      }
-
-      await loadPlayerDetails(playerDetails.id);
-      await loadPlayers();
+      const result = await api.invitePlayer(playerDetails.id, selectedEveningId, selectedTableId || null, createFollowupTask);
+      setInviteSuccessMessage(result.message || (result.alreadyParticipant ? 'Игрок уже добавлен на этот вечер' : 'Приглашение сохранено в CRM'));
+      await refreshPlayer();
     } catch (err: any) {
-      setInviteError(err.message || 'Ошибка при создании приглашения');
+      setInviteError(err.message || 'Не удалось создать приглашение');
     } finally {
-      setIsSubmittingInvite(false);
+      setInviteSaving(false);
     }
   };
 
-  const handleCopyMessage = () => {
+  const handleCopyMessage = async () => {
     if (!inviteMessageText) return;
-    navigator.clipboard.writeText(inviteMessageText);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
+    try {
+      await navigator.clipboard.writeText(inviteMessageText);
+      setCopySuccess(true);
+      window.setTimeout(() => setCopySuccess(false), 1800);
+    } catch {
+      setInviteError('Не удалось скопировать сообщение');
+    }
   };
 
-  // Build unified chronological history feed
-  const buildUnifiedFeed = () => {
+  const allGames = useMemo(() => {
     if (!playerDetails) return [];
-    const items: any[] = [];
+    return [...(playerDetails.clubGames || []), ...(playerDetails.tournamentGames || [])]
+      .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  }, [playerDetails]);
 
-    // 1. Activities (contacts, notes, invites)
-    if (playerDetails.activities) {
-      playerDetails.activities.forEach((a: any) => {
-        items.push({
-          id: `act_${a.id}`,
-          occurred_at: a.occurred_at || a.created_at,
-          category: 'activity',
-          title: a.type === 'contact' ? 'Результат общения' : a.type === 'invite' ? 'Отправлено приглашение' : 'Активность',
-          description: a.description || '',
-          outcome: a.outcome || null,
-          badgeLabel: a.outcome ? (a.outcome === 'answered' ? 'Ответил' : a.outcome === 'no_answer' ? 'Не ответил' : a.outcome === 'interested' ? 'Заинтересован' : a.outcome === 'declined' ? 'Отказался' : 'Связь позже') : 'Контакт',
-          badgeStyle: a.outcome === 'answered' || a.outcome === 'interested' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : a.outcome === 'declined' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-sky-500/20 text-sky-400 border-sky-500/30',
-        });
+  const shownGames = useMemo(() => {
+    if (gameFilter === 'club') return allGames.filter((game) => game.source === 'club');
+    if (gameFilter === 'tournament') return allGames.filter((game) => game.source === 'tournament');
+    return allGames;
+  }, [allGames, gameFilter]);
+
+  const unifiedFeed = useMemo(() => {
+    if (!playerDetails) return [];
+    const items: Array<{ id: string; date: string | null; title: string; detail: string; kind: string }> = [];
+    for (const activity of playerDetails.activities || []) {
+      items.push({
+        id: `activity:${activity.id}`,
+        date: activity.occurred_at || activity.created_at,
+        title: activity.type === 'contact' ? 'Результат общения' : activity.type === 'invite' ? 'Приглашение' : 'CRM-активность',
+        detail: activity.description || '',
+        kind: activity.outcome || activity.type,
       });
     }
-
-    // 2. Evening History
-    if (playerDetails.eveningHistory) {
-      playerDetails.eveningHistory.forEach((h: any) => {
-        const isCompleted = h.evening_status === 'completed';
-        if (isCompleted) {
-          if (h.attendance_status === 'attended') {
-            items.push({
-              id: `ev_att_${h.id}`,
-              occurred_at: h.evening_date,
-              category: 'attendance',
-              title: `Посещение вечера: ${h.evening_title}`,
-              description: `Игровой стол: ${h.table_name || 'Основной'}`,
-              badgeLabel: 'Был на игре',
-              badgeStyle: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-            });
-          } else if (h.attendance_status === 'no_show') {
-            items.push({
-              id: `ev_ns_${h.id}`,
-              occurred_at: h.evening_date,
-              category: 'no_show',
-              title: `Пропуск вечера: ${h.evening_title}`,
-              description: `Игрок был записан, но не пришёл`,
-              badgeLabel: 'Не пришёл (No-Show)',
-              badgeStyle: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-            });
-          } else if (h.registration_status === 'cancelled') {
-            items.push({
-              id: `ev_canc_${h.id}`,
-              occurred_at: h.evening_date,
-              category: 'cancellation',
-              title: `Отмена записи: ${h.evening_title}`,
-              description: `Запись была отменена`,
-              badgeLabel: 'Отменил',
-              badgeStyle: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-            });
-          }
-        } else {
-          // Future or uncompleted bookings
-          const statusMap: Record<string, { label: string; style: string }> = {
-            invited: { label: 'Приглашён', style: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-            registered: { label: 'Записан', style: 'bg-sky-500/20 text-sky-400 border-sky-500/30' },
-            confirmed: { label: 'Подтверждён', style: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-            waitlist: { label: 'В резерве', style: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-            cancelled: { label: 'Отменил', style: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
-          };
-          const info = statusMap[h.registration_status] || { label: h.registration_status, style: 'bg-slate-500/20 text-slate-400' };
-
-          items.push({
-            id: `ev_booking_${h.id}`,
-            occurred_at: h.evening_date,
-            category: 'future_booking',
-            title: `Будущее участие: ${h.evening_title}`,
-            description: `Дата игры: ${new Date(h.evening_date).toLocaleDateString('ru-RU')}`,
-            badgeLabel: info.label,
-            badgeStyle: info.style,
-          });
-        }
+    for (const evening of playerDetails.eveningHistory || []) {
+      const attended = evening.attendance_status === 'attended';
+      const missed = evening.attendance_status === 'no_show';
+      items.push({
+        id: `evening:${evening.id}`,
+        date: (evening as any).evening_date || null,
+        title: (evening as any).evening_title || 'Игровой вечер',
+        detail: attended ? 'Был на игре' : missed ? 'Не пришёл' : evening.registration_status === 'cancelled' ? 'Отменил запись' : 'Запись на вечер',
+        kind: attended ? 'Посещение' : missed ? 'No-show' : 'Вечер',
       });
     }
-
-    // 3. Tasks
-    if (playerDetails.tasks) {
-      playerDetails.tasks.forEach((t: OrganizerTask) => {
-        items.push({
-          id: `task_${t.id}`,
-          occurred_at: t.created_at,
-          category: 'task',
-          title: `Задача CRM: ${t.title}`,
-          description: t.due_at ? `Срок: ${new Date(t.due_at).toLocaleDateString('ru-RU')}` : 'Без точной даты',
-          badgeLabel: t.status === 'done' ? 'Выполнена' : 'В работе',
-          badgeStyle: t.status === 'done' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-        });
+    for (const task of playerDetails.tasks || []) {
+      items.push({
+        id: `task:${task.id}`,
+        date: task.created_at,
+        title: task.title,
+        detail: task.status === 'done' ? 'Задача выполнена' : task.due_at ? `Срок ${fmtDate(task.due_at)}` : 'Задача без срока',
+        kind: 'Задача',
       });
     }
+    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  }, [playerDetails]);
 
-    // Sort descending by date
-    items.sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
-    return items;
-  };
+  const inviteInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: false, reason: '' };
 
-  const inviteStatusInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: true, reason: '' };
-
-  return (
-    <div className="space-y-6">
-      {/* Search & Filters Bar */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">База Игроков Клуба</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Оперативные карточки, статусы контакта и жизненного цикла</p>
-          </div>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20 shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Добавить Игрока</span>
-          </button>
+  const renderGame = (game: PlayerGameHistoryItem) => (
+    <article key={game.id} className="rounded-[16px] border border-border-soft bg-surface-2 p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-[14px] font-semibold leading-5 text-text-primary break-words">{game.title}</h4>
+          <p className="mt-1 text-[11px] text-text-secondary">
+            {fmtDate(game.date)} · Игра #{game.game_number || '—'}{game.table_name ? ` · ${game.table_name}` : ''}
+          </p>
         </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+          game.status !== 'completed' ? 'bg-surface-1 text-text-muted' : game.won ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'
+        }`}>
+          {game.status !== 'completed' ? game.status : game.won ? 'Победа' : 'Поражение'}
+        </span>
+      </div>
 
-        {/* Inputs & Dropdowns */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div className="relative sm:col-span-2">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по никнейму, имени, телефону или Telegram..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
-            />
-          </div>
-
-          <div>
-            <select
-              value={contactStatusFilter}
-              onChange={(e) => setContactStatusFilter(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-rose-500 font-medium"
-            >
-              <option value="">Все статусы контакта</option>
-              <option value="normal">Можно связываться</option>
-              <option value="paused">На паузе</option>
-              <option value="blocked">Заблокирован</option>
-            </select>
-          </div>
-
-          <div>
-            <select
-              value={lifecycleStatus}
-              onChange={(e) => setLifecycleStatus(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-rose-500 font-medium"
-            >
-              <option value="">Все этапы (вовлеченность)</option>
-              <option value="lead">Лид (0 визитов)</option>
-              <option value="newcomer">Новичок (1 визит)</option>
-              <option value="returning">Вернувшийся (2-3)</option>
-              <option value="regular">Постоянный (4+)</option>
-              <option value="inactive">Неактивный (&gt;45 дн.)</option>
-            </select>
-          </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-[12px] bg-surface-1 p-2.5">
+          <span className="block text-[10px] text-text-muted">Роль</span>
+          <strong className="mt-0.5 block text-[12px] text-text-primary">{roleLabel(game.role)}</strong>
         </div>
-
-        {/* Quick Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-          <button
-            onClick={() => setActiveQuickFilter('all')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'all' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Все
-          </button>
-          <button
-            onClick={() => setActiveQuickFilter('newcomers1')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'newcomers1' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Новички (1 визит)
-          </button>
-          <button
-            onClick={() => setActiveQuickFilter('never')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'never' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Ни разу не пришел
-          </button>
-          <button
-            onClick={() => setActiveQuickFilter('absent30')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'absent30' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Отсутствует 30+ дней
-          </button>
-          <button
-            onClick={() => setActiveQuickFilter('absent60')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'absent60' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Отсутствует 60+ дней
-          </button>
-          <button
-            onClick={() => setActiveQuickFilter('open_tasks')}
-            className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
-              activeQuickFilter === 'open_tasks' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            Есть задачи
-          </button>
+        <div className="rounded-[12px] bg-surface-1 p-2.5">
+          <span className="block text-[10px] text-text-muted">Место</span>
+          <strong className="mt-0.5 block text-[12px] text-text-primary">#{game.seat_number || '—'}</strong>
+        </div>
+        <div className="col-span-2 rounded-[12px] bg-surface-1 p-2.5">
+          <span className="block text-[10px] text-text-muted">Итог для игрока</span>
+          <strong className="mt-0.5 block text-[12px] text-text-primary">{exitLabel(game.exit_type)}</strong>
         </div>
       </div>
 
-      {/* Players List Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full py-12 text-center text-slate-500 text-xs">Загрузка игроков...</div>
-        ) : players.length > 0 ? (
-          players.map((p) => {
-            const canInv = getCanInviteStatus(p);
-            return (
-              <div
-                key={p.id}
-                onClick={() => handleOpenCard(p.id)}
-                className="bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-3xl p-5 space-y-3 cursor-pointer transition-all hover:shadow-lg hover:shadow-rose-500/5"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <PlayerAvatar
-                      playerId={p.id}
-                      avatarVersion={p.avatar_updated_at}
-                      nickname={p.nickname}
-                      size="md"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold text-white leading-snug whitespace-normal break-words">
-                        {p.nickname}
-                      </h3>
-                      {p.full_name && <p className="text-xs text-slate-400 whitespace-normal break-words line-clamp-2">{p.full_name}</p>}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {/* Contact status badge */}
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        p.contact_status === 'blocked'
-                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                          : p.contact_status === 'paused'
-                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      }`}
-                    >
-                      {getRussianContactStatusLabel(p.contact_status)}
-                    </span>
-
-                    {/* Engagement stage badge */}
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
-                      {getRussianEngagementStageLabel(p.engagement_stage || p.calculated_stage)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Invite Warning callout if restricted */}
-                {!canInv.canInvite && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-2.5 py-1 text-[11px] text-amber-300 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate">{canInv.reason}</span>
-                  </div>
-                )}
-
-                {/* Stats & Last visit */}
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-2 rounded-2xl border border-slate-850 text-center font-mono text-xs">
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase block font-bold">Визиты</span>
-                    <span className="font-bold text-white">{p.attendance_count || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase block font-bold">No-show</span>
-                    <span className="font-bold text-rose-400">{p.no_show_count || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-slate-500 uppercase block font-bold">ELO</span>
-                    <span className="font-bold text-emerald-400">{p.elo}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>
-                    {p.days_since_last_visit !== null && p.days_since_last_visit !== undefined
-                      ? `Был ${p.days_since_last_visit} дн. назад`
-                      : 'Не был на играх'}
-                  </span>
-
-                  <span className="text-rose-400 font-bold flex items-center gap-1">
-                    Карточка <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="col-span-full py-12 text-center text-slate-500 text-xs">
-            Игроки не найдены по выбранным фильтрам
-          </div>
+      <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
+        {game.best_move && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">Лучший ход</span>}
+        {game.first_killed && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">ПУ</span>}
+        {game.zero_round_voted && <span className="rounded-full bg-warning-soft px-2.5 py-1 text-warning">0 круг</span>}
+        {game.regular_fouls > 0 && <span className="rounded-full bg-surface-1 px-2.5 py-1 text-text-secondary">Фолы: {game.regular_fouls}</span>}
+        {(game.minor_technical_fouls + game.major_technical_fouls) > 0 && (
+          <span className="rounded-full bg-danger-soft px-2.5 py-1 text-danger">Тех: {game.minor_technical_fouls + game.major_technical_fouls}</span>
         )}
       </div>
+    </article>
+  );
 
-      {/* DRAWER / MODAL: Player Detailed Card */}
-      {activePlayerCardId && playerCardView === 'profile' && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm p-0 sm:p-4">
-          <div className="mx-auto flex h-full w-full max-w-2xl flex-col bg-slate-950 sm:rounded-3xl sm:border sm:border-slate-800 overflow-hidden">
-            <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-3 py-2.5 flex items-center gap-2">
-              <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1 flex-1">
-                <button type="button" className="min-h-9 rounded-lg bg-rose-600 text-[10px] font-black text-white">ПРОФИЛЬ</button>
-                <button type="button" onClick={() => setPlayerCardView('crm')} className="min-h-9 rounded-lg text-[10px] font-black text-slate-400">CRM</button>
-              </div>
-              <button type="button" aria-label="Закрыть профиль" onClick={handleCloseCard} className="w-11 h-11 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 flex items-center justify-center"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 sm:p-5">
-              {loadingDetails || !playerDetails ? <div className="py-20 text-center text-xs text-slate-500">Загрузка профиля…</div> : <PlayerProfileContent player={playerDetails} />}
-            </div>
+  return (
+    <div className="min-w-0 space-y-4">
+      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-text-primary">Игроки</h2>
+            <p className="mt-1 hidden sm:block text-[12px] text-text-secondary">Карточки игроков, история и CRM в одном пространстве.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setAddError(null); setShowAddModal(true); }}
+            className="min-h-[44px] rounded-[12px] bg-accent px-3.5 text-[13px] font-bold text-white inline-flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" /> Добавить
+          </button>
+        </div>
+
+        <div className="flex gap-2">
+          <label className="relative min-w-0 flex-1">
+            <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-text-muted" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Ник, имя, телефон или Telegram"
+              className="mobile-field pl-10"
+            />
+          </label>
+          <button
+            type="button"
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters((value) => !value)}
+            className={`grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${
+              showFilters || lifecycleStatus || contactStatusFilter ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-2 text-text-secondary'
+            }`}
+            title="Фильтры"
+          >
+            <Filter className="h-5 w-5" />
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 gap-3 rounded-[16px] border border-border-soft bg-surface-2 p-3 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span>
+              <select value={contactStatusFilter} onChange={(e) => setContactStatusFilter(e.target.value)} className="mobile-field">
+                <option value="">Все статусы</option>
+                <option value="normal">Можно связываться</option>
+                <option value="paused">На паузе</option>
+                <option value="blocked">Заблокирован</option>
+              </select>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span>
+              <select value={lifecycleStatus} onChange={(e) => setLifecycleStatus(e.target.value)} className="mobile-field">
+                <option value="">Все этапы</option>
+                <option value="lead">Лид</option>
+                <option value="newcomer">Новичок</option>
+                <option value="returning">Вернувшийся</option>
+                <option value="regular">Постоянный</option>
+                <option value="inactive">Неактивный</option>
+              </select>
+            </label>
+          </div>
+        )}
+
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <div className="flex w-max min-w-full gap-2">
+            {QUICK_FILTERS.map((filter) => (
+              <button
+                type="button"
+                key={filter.id}
+                onClick={() => setActiveQuickFilter(filter.id)}
+                className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${
+                  activeQuickFilter === filter.id
+                    ? 'border-accent bg-accent-soft text-text-primary'
+                    : 'border-border-soft bg-surface-2 text-text-secondary'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {listError && (
+        <div className="rounded-[16px] border border-danger/30 bg-danger-soft p-3.5 flex items-start gap-3">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-text-primary">{listError}</p>
+            <button type="button" onClick={() => void loadPlayers()} className="mt-2 min-h-[40px] text-[12px] font-bold text-danger inline-flex items-center gap-1.5">
+              <RotateCcw className="h-4 w-4" /> Повторить
+            </button>
           </div>
         </div>
       )}
 
-      {activePlayerCardId && playerCardView === 'crm' && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm p-0 sm:p-4">
-          <div className="bg-slate-900 border-l sm:border border-slate-800 w-full max-w-xl h-full sm:h-auto sm:rounded-3xl p-6 overflow-y-auto space-y-6 text-white relative">
-            <button
-              type="button"
-              onClick={() => setPlayerCardView('profile')}
-              className="sticky top-0 z-10 mb-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-black text-rose-300"
-            >
-              ← Игровой профиль
-            </button>
-
-            <button
-              onClick={handleCloseCard}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {loadingDetails || !playerDetails ? (
-              <div className="py-20 text-center text-slate-400 text-xs">Загрузка карточки игрока...</div>
-            ) : (
-              <>
-                {/* Header Profile & Status */}
-                <div className="space-y-3 border-b border-slate-800 pb-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex flex-col items-center gap-2 shrink-0">
-                        <div
-                          onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
-                          className="cursor-pointer hover:opacity-80 transition-opacity relative group"
-                          title="Нажмите, чтобы загрузить или заменить фото"
-                        >
-                          <PlayerAvatar
-                            playerId={playerDetails.id}
-                            avatarVersion={playerDetails.avatar_updated_at}
-                            nickname={playerDetails.nickname}
-                            size="lg"
-                          />
-                        </div>
-                        <input
-                          type="file"
-                          id="player-avatar-upload-input"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleAvatarFileChange}
-                        />
-                        <div className="flex gap-1.5">
-                          {!playerDetails.avatar_updated_at ? (
-                            <button
-                              onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
-                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-500 hover:bg-rose-400 text-white cursor-pointer transition-colors"
-                            >
-                              Загрузить фото
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => document.getElementById('player-avatar-upload-input')?.click()}
-                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer transition-colors"
-                              >
-                                Заменить фото
-                              </button>
-                              <button
-                                onClick={handleDeleteAvatar}
-                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 cursor-pointer transition-colors"
-                              >
-                                Удалить
-                              </button>
-                            </>
-                          )}
-                        </div>
+      {loading ? (
+        <div className="rounded-[20px] border border-border-soft bg-surface-1 py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div>
+      ) : players.length === 0 ? (
+        <div className="rounded-[20px] border border-border-soft bg-surface-1 py-14 text-center">
+          <UserRound className="mx-auto h-8 w-8 text-text-muted" />
+          <p className="mt-3 text-[14px] font-semibold text-text-primary">Игроки не найдены</p>
+          <p className="mt-1 text-[12px] text-text-secondary">Измени поиск или фильтры.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {players.map((player) => {
+            const canInvite = getCanInviteStatus(player);
+            return (
+              <button
+                type="button"
+                key={player.id}
+                onClick={() => handleOpenCard(player.id)}
+                className="w-full rounded-[18px] border border-border-soft bg-surface-1 p-3.5 text-left transition hover:border-border-strong hover:bg-surface-hover"
+              >
+                <div className="flex items-start gap-3">
+                  <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-bold leading-5 text-text-primary break-words">{player.nickname}</h3>
+                        <p className="mt-0.5 text-[11px] text-text-secondary">
+                          {player.days_since_last_visit !== null && player.days_since_last_visit !== undefined ? `Был ${player.days_since_last_visit} дн. назад` : 'Ещё не был на играх'}
+                        </p>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-2xl font-black text-white truncate leading-snug whitespace-normal break-words">{playerDetails.nickname}</h3>
-                        {playerDetails.full_name && <p className="text-xs text-slate-400 whitespace-normal break-words leading-normal line-clamp-2">{playerDetails.full_name}</p>}
+                      <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-text-muted" />
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusTone(player.contact_status)}`}>
+                        {getRussianContactStatusLabel(player.contact_status)}
+                      </span>
+                      <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold text-text-secondary">
+                        {getRussianEngagementStageLabel(player.engagement_stage || player.calculated_stage)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
+                        <span className="block text-[10px] text-text-muted">Визиты</span>
+                        <strong className="block text-[13px] text-text-primary">{player.attendance_count || 0}</strong>
+                      </div>
+                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
+                        <span className="block text-[10px] text-text-muted">No-show</span>
+                        <strong className="block text-[13px] text-text-primary">{player.no_show_count || 0}</strong>
+                      </div>
+                      <div className="rounded-[10px] bg-surface-2 px-1 py-2">
+                        <span className="block text-[10px] text-text-muted">Задачи</span>
+                        <strong className="block text-[13px] text-text-primary">{player.open_tasks_count || 0}</strong>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {saveStatusMessage && (
-                        <span className="text-xs font-bold text-amber-400">{saveStatusMessage}</span>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (isEditMode) {
-                            handleSavePlayerDetails();
-                          } else {
-                            setIsEditMode(true);
-                          }
-                        }}
-                        disabled={isSavingPlayer}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          isEditMode
-                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {isEditMode ? (
-                          <>
-                            <Save className="w-3.5 h-3.5" />
-                            <span>Сохранить</span>
-                          </>
-                        ) : (
-                          <>
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span>Редактировать</span>
-                          </>
-                        )}
-                      </button>
+                    {!canInvite.canInvite && <p className="mt-2 text-[11px] leading-4 text-warning">{canInvite.reason}</p>}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-                      {isEditMode && (
+      <MobileSheet
+        open={Boolean(activePlayerCardId)}
+        onClose={handleCloseCard}
+        title={playerDetails?.nickname || 'Профиль игрока'}
+        subtitle={playerDetails ? `${getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)} · ${getRussianContactStatusLabel(playerDetails.contact_status)}` : 'Загрузка данных'}
+        widthClass="sm:max-w-2xl"
+        bodyClassName="p-0"
+      >
+        {loadingDetails ? (
+          <div className="p-6 py-20 text-center text-[13px] text-text-secondary">Загрузка профиля…</div>
+        ) : detailError ? (
+          <div className="p-4">
+            <div className="rounded-[16px] border border-danger/30 bg-danger-soft p-4">
+              <p className="text-[13px] font-semibold text-text-primary">{detailError}</p>
+              <button type="button" onClick={() => activePlayerCardId && void loadPlayerDetails(activePlayerCardId)} className="mt-2 min-h-[44px] text-[12px] font-bold text-danger inline-flex items-center gap-2">
+                <RotateCcw className="h-4 w-4" /> Повторить
+              </button>
+            </div>
+          </div>
+        ) : playerDetails ? (
+          <>
+            <div className="sticky top-0 z-10 border-b border-border-soft bg-app-bg/95 px-3 py-2 backdrop-blur-md">
+              <div className="grid grid-cols-3 rounded-[13px] bg-surface-1 p-1">
+                {([
+                  ['overview', 'Обзор'],
+                  ['games', 'Игры'],
+                  ['crm', 'CRM'],
+                ] as Array<[PlayerSection, string]>).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setPlayerSection(id)}
+                    className={`min-h-[44px] rounded-[10px] text-[12px] font-bold ${
+                      playerSection === id ? 'bg-accent text-white' : 'text-text-secondary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-4">
+              {profileError && <div className="mb-3 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div>}
+              {profileMessage && <div className="mb-3 rounded-[14px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div>}
+
+              {playerSection === 'overview' && (
+                <div className="player-overview-embedded">
+                  <PlayerProfileContent player={playerDetails} />
+                </div>
+              )}
+
+              {playerSection === 'games' && (
+                <div className="space-y-3">
+                  <div className="overflow-x-auto pb-1">
+                    <div className="flex w-max min-w-full gap-2">
+                      {([
+                        ['all', `Все · ${allGames.length}`],
+                        ['club', `Клуб · ${playerDetails.clubGames?.length || 0}`],
+                        ['tournament', `Турниры · ${playerDetails.tournamentGames?.length || 0}`],
+                      ] as Array<[GameFilter, string]>).map(([id, label]) => (
                         <button
-                          onClick={() => initEditForm(playerDetails)}
-                          className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                          key={id}
+                          type="button"
+                          onClick={() => setGameFilter(id)}
+                          className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${
+                            gameFilter === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'
+                          }`}
                         >
-                          Отмена
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {shownGames.length ? shownGames.map(renderGame) : (
+                    <div className="rounded-[16px] border border-border-soft bg-surface-1 py-12 text-center text-[13px] text-text-secondary">В этой категории пока нет игр.</div>
+                  )}
+                </div>
+              )}
+
+              {playerSection === 'crm' && (
+                <div className="space-y-4">
+                  <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0">
+                        <PlayerAvatar playerId={playerDetails.id} avatarVersion={playerDetails.avatar_updated_at} nickname={playerDetails.nickname} size="lg" />
+                        {avatarBusy && <div className="absolute inset-0 grid place-items-center rounded-full bg-black/60 text-[10px] text-white">…</div>}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-[18px] font-bold text-text-primary break-words">{playerDetails.nickname}</h3>
+                        {playerDetails.full_name && <p className="mt-0.5 text-[12px] text-text-secondary break-words">{playerDetails.full_name}</p>}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</span>
+                          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold text-text-secondary">{getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}</span>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setIsEditMode((value) => !value)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft text-text-secondary" aria-label="Редактировать игрока">
+                        <Edit3 className="h-4.5 w-4.5" />
+                      </button>
+                    </div>
+
+                    <input id="player-avatar-upload-input" type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" disabled={avatarBusy} onClick={() => document.getElementById('player-avatar-upload-input')?.click()} className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-semibold text-text-secondary inline-flex items-center gap-1.5 disabled:opacity-50">
+                        <Upload className="h-4 w-4" /> {playerDetails.avatar_updated_at ? 'Заменить фото' : 'Загрузить фото'}
+                      </button>
+                      {playerDetails.avatar_updated_at && (
+                        <button type="button" disabled={avatarBusy} onClick={() => setConfirmDeleteAvatar(true)} className="min-h-[44px] rounded-[11px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger inline-flex items-center gap-1.5 disabled:opacity-50">
+                          <Trash2 className="h-4 w-4" /> Удалить фото
                         </button>
                       )}
                     </div>
-                  </div>
+                  </section>
 
-                  {/* Status Badges Row */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">Статус контакта:</span>
-                      <span
-                        className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase ${
-                          playerDetails.contact_status === 'blocked'
-                            ? 'bg-rose-500/20 text-rose-400'
-                            : playerDetails.contact_status === 'paused'
-                            ? 'bg-amber-500/20 text-amber-400'
-                            : 'bg-emerald-500/20 text-emerald-400'
-                        }`}
-                      >
-                        {getRussianContactStatusLabel(playerDetails.contact_status)}
-                      </span>
+                  <section className={`rounded-[16px] border p-3.5 ${inviteInfo.canInvite ? 'border-success/25 bg-success-soft' : 'border-warning/25 bg-warning-soft'}`}>
+                    <div className="flex items-start gap-2.5">
+                      {inviteInfo.canInvite ? <UserCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" /> : <UserX className="mt-0.5 h-5 w-5 shrink-0 text-warning" />}
+                      <div>
+                        <strong className="text-[13px] text-text-primary">{inviteInfo.canInvite ? 'Игрока можно приглашать' : 'Приглашение недоступно'}</strong>
+                        <p className="mt-0.5 text-[11px] text-text-secondary">{inviteInfo.reason}</p>
+                      </div>
                     </div>
+                  </section>
 
-                    <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">Этап вовлечения:</span>
-                      <span className="font-bold text-sky-400 uppercase text-[10px]">
-                        {getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}
-                      </span>
+                  <div className="space-y-2">
+                    <button type="button" onClick={() => void handleOpenInviteModal()} disabled={!inviteInfo.canInvite} className="min-h-[50px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40">
+                      <Send className="h-4.5 w-4.5" /> Пригласить
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => { setCommError(null); setShowCommModal(true); }} className="min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold text-text-primary inline-flex items-center justify-center gap-1.5">
+                        <MessageSquare className="h-4 w-4 text-accent" /> Общение
+                      </button>
+                      <button type="button" onClick={() => { setTaskError(null); setShowTaskModal(true); }} className="min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold text-text-primary inline-flex items-center justify-center gap-1.5">
+                        <Clock3 className="h-4 w-4 text-accent" /> Задача
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Invite Readiness Indicator */}
-                  <div
-                    className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-medium ${
-                      inviteStatusInfo.canInvite
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                        : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {inviteStatusInfo.canInvite ? (
-                        <UserCheck className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <UserX className="w-4 h-4 text-amber-400" />
-                      )}
-                      <span>{inviteStatusInfo.reason}</span>
-                    </div>
-                  </div>
-
-                  {/* Operational Quick Actions */}
-                  <div className="flex flex-wrap items-center gap-2 pt-2">
-                    <button
-                      onClick={handleOpenInviteModal}
-                      disabled={!inviteStatusInfo.canInvite}
-                      className="bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-rose-600/20 cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Пригласить на игру</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowCommModal(true)}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Записать результат общения</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowTaskModal(true)}
-                      className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Создать задачу</span>
-                    </button>
-
-                    {playerDetails.telegram_username && (
-                      <a
-                        href={`https://t.me/${playerDetails.telegram_username.replace('@', '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Telegram (@{playerDetails.telegram_username})</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <a href={playerDetails.telegram_username ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}` : undefined} target="_blank" rel="noreferrer" aria-disabled={!playerDetails.telegram_username} className={`min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 ${playerDetails.telegram_username ? 'text-text-primary' : 'pointer-events-none text-text-muted opacity-50'}`}>
+                        <Send className="h-4 w-4" /> Telegram
                       </a>
-                    )}
-
-                    {playerDetails.phone && (
-                      <a
-                        href={`tel:${playerDetails.phone}`}
-                        className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{playerDetails.phone}</span>
+                      <a href={playerDetails.phone ? `tel:${playerDetails.phone}` : undefined} aria-disabled={!playerDetails.phone} className={`min-h-[46px] rounded-[12px] border border-border-soft bg-surface-1 px-2 text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 ${playerDetails.phone ? 'text-text-primary' : 'pointer-events-none text-text-muted opacity-50'}`}>
+                        <Phone className="h-4 w-4" /> Телефон
                       </a>
-                    )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Edit Form OR View Details */}
-                {isEditMode ? (
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-4">
-                    <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider">Редактирование карточки игрока</h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Никнейм *</label>
-                        <input
-                          type="text"
-                          value={editForm.nickname}
-                          onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:border-rose-500"
-                        />
+                  {isEditMode && (
+                    <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-[14px] font-bold text-text-primary">Данные игрока</h4>
+                        <button type="button" onClick={() => initEditForm(playerDetails)} className="min-h-[40px] px-2 text-[11px] font-semibold text-text-secondary">Отмена</button>
                       </div>
 
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">ФИО / Настоящее имя</label>
-                        <input
-                          type="text"
-                          value={editForm.full_name}
-                          onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                          placeholder="Иван Иванов"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:border-rose-500"
-                        />
-                      </div>
+                      {([
+                        ['nickname', 'Никнейм', 'text'],
+                        ['full_name', 'Имя / ФИО', 'text'],
+                        ['phone', 'Телефон', 'tel'],
+                        ['telegram_username', 'Telegram', 'text'],
+                        ['source', 'Источник', 'text'],
+                        ['preferred_format', 'Предпочтительный формат', 'text'],
+                        ['referred_by', 'Кто пригласил', 'text'],
+                        ['pause_reason', 'Причина паузы', 'text'],
+                      ] as const).map(([key, label, inputType]) => (
+                        <label key={key} className="block">
+                          <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">{label}</span>
+                          <input type={inputType} value={editForm[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })} className="mobile-field" />
+                        </label>
+                      ))}
 
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Телефон</label>
-                        <input
-                          type="text"
-                          value={editForm.phone}
-                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                          placeholder="+7 (999) 000-00-00"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:outline-none focus:border-rose-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Telegram Username</label>
-                        <input
-                          type="text"
-                          value={editForm.telegram_username}
-                          onChange={(e) => setEditForm({ ...editForm, telegram_username: e.target.value })}
-                          placeholder="username"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none focus:border-rose-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Статус контакта (Ручной)</label>
-                        <select
-                          value={editForm.contact_status}
-                          onChange={(e) => setEditForm({ ...editForm, contact_status: e.target.value as ContactStatus })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-bold focus:outline-none"
-                        >
-                          <option value="normal">Можно связываться (Normal)</option>
-                          <option value="paused">На паузе (Paused)</option>
-                          <option value="blocked">Заблокирован (Blocked)</option>
+                      <label className="block">
+                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Статус контакта</span>
+                        <select value={editForm.contact_status} onChange={(e) => setEditForm({ ...editForm, contact_status: e.target.value as ContactStatus })} className="mobile-field">
+                          <option value="normal">Можно связываться</option>
+                          <option value="paused">На паузе</option>
+                          <option value="blocked">Заблокирован</option>
                         </select>
-                      </div>
+                      </label>
 
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Не беспокоить до</label>
-                        <input
-                          type="date"
-                          value={editForm.do_not_invite_until}
-                          onChange={(e) => setEditForm({ ...editForm, do_not_invite_until: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:outline-none"
-                        />
-                      </div>
+                      <label className="block">
+                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Не приглашать до</span>
+                        <input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm({ ...editForm, do_not_invite_until: e.target.value })} className="mobile-field" />
+                      </label>
 
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Причина паузы</label>
-                        <input
-                          type="text"
-                          value={editForm.pause_reason}
-                          onChange={(e) => setEditForm({ ...editForm, pause_reason: e.target.value })}
-                          placeholder="Отпуск, учеба, личное..."
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none"
-                        />
-                      </div>
+                      <label className="block">
+                        <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Заметки</span>
+                        <textarea rows={4} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="mobile-field resize-none" />
+                      </label>
 
-                      <div>
-                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Источник прихода</label>
-                        <input
-                          type="text"
-                          value={editForm.source}
-                          onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
-                          placeholder="VK, Авито, Рекомендация..."
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Заметки по игроку</label>
-                      <textarea
-                        value={editForm.notes}
-                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                        rows={3}
-                        placeholder="Особенности, предпочтения по играм, комментарии..."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={handleSavePlayerDetails}
-                        disabled={isSavingPlayer}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition-all"
-                      >
-                        {isSavingPlayer ? 'Сохранение...' : 'Сохранить изменения'}
+                      <button type="button" onClick={() => void handleSavePlayerDetails()} disabled={isSavingPlayer || !editForm.nickname.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                        <Save className="h-4 w-4" /> {isSavingPlayer ? 'Сохранение…' : 'Сохранить'}
                       </button>
-                      <button
-                        onClick={() => initEditForm(playerDetails)}
-                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider"
-                      >
-                        Отмена
-                      </button>
+                    </section>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-[14px] border border-border-soft bg-surface-1 p-3">
+                      <span className="text-[10px] text-text-muted">Ближайшая задача</span>
+                      {playerDetails.nextTask ? (
+                        <>
+                          <strong className="mt-1 block text-[12px] leading-4 text-text-primary">{playerDetails.nextTask.title}</strong>
+                          <span className="mt-1 block text-[10px] text-text-secondary">{playerDetails.nextTask.due_at ? fmtDate(playerDetails.nextTask.due_at) : 'Без срока'}</span>
+                        </>
+                      ) : <span className="mt-1 block text-[12px] text-text-secondary">Нет открытых</span>}
+                    </div>
+                    <div className="rounded-[14px] border border-border-soft bg-surface-1 p-3">
+                      <span className="text-[10px] text-text-muted">Ближайшее участие</span>
+                      {playerDetails.futureBookings?.[0] ? (
+                        <>
+                          <strong className="mt-1 block text-[12px] leading-4 text-text-primary">{(playerDetails.futureBookings[0] as any).evening_title || 'Игровой вечер'}</strong>
+                          <span className="mt-1 block text-[10px] text-text-secondary">{fmtDate((playerDetails.futureBookings[0] as any).evening_date)}</span>
+                        </>
+                      ) : <span className="mt-1 block text-[12px] text-text-secondary">Нет записи</span>}
                     </div>
                   </div>
-                ) : null}
 
-                {/* Header Key Metrics Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono">
-                  <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Визитов</span>
-                    <span className="text-lg font-bold text-white">{playerDetails.stats?.attendanceCount || 0}</span>
-                  </div>
-                  <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">No-show</span>
-                    <span className="text-lg font-bold text-rose-400">{playerDetails.stats?.noShowCount || 0}</span>
-                  </div>
-                  <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Без игр</span>
-                    <span className="text-lg font-bold text-amber-400">
-                      {playerDetails.stats?.daysSinceLastVisit !== null && playerDetails.stats?.daysSinceLastVisit !== undefined
-                        ? `${playerDetails.stats.daysSinceLastVisit} дн.`
-                        : '—'}
-                    </span>
-                  </div>
-                  <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">ELO Рейтинг</span>
-                    <span className="text-lg font-bold text-emerald-400">{playerDetails.elo}</span>
-                  </div>
-                </div>
-
-                {/* Next Task & Upcoming Booking Overview */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-slate-950 p-3 rounded-2xl border border-slate-850 space-y-1 text-xs">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Ближайшая задача</span>
-                    {playerDetails.nextTask ? (
-                      <div>
-                        <p className="font-bold text-white">{playerDetails.nextTask.title}</p>
-                        <p className="text-[10px] text-amber-400">
-                          {playerDetails.nextTask.due_at
-                            ? `До ${new Date(playerDetails.nextTask.due_at).toLocaleDateString('ru-RU')}`
-                            : 'Срок не указан'}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-slate-500 italic">Нет открытых задач</p>
-                    )}
-                  </div>
-
-                  <div className="bg-slate-950 p-3 rounded-2xl border border-slate-850 space-y-1 text-xs">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Ближайшее участие</span>
-                    {playerDetails.futureBookings && playerDetails.futureBookings.length > 0 ? (
-                      <div>
-                        <p className="font-bold text-white">{playerDetails.futureBookings[0].evening_title}</p>
-                        <p className="text-[10px] text-sky-400">
-                          📅 {new Date(playerDetails.futureBookings[0].evening_date).toLocaleDateString('ru-RU')}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-slate-500 italic">Нет предстоящих записей</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Unified Chronological History Feed */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-rose-500" />
-                      <span>Единая лента истории (Хронология)</span>
-                    </h4>
-                  </div>
-
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {buildUnifiedFeed().length > 0 ? (
-                      buildUnifiedFeed().map((item: any) => (
-                        <div
-                          key={item.id}
-                          className="p-3 bg-slate-950 border border-slate-850 rounded-2xl flex items-start justify-between text-xs space-x-3"
-                        >
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-white block">{item.title}</span>
-                            {item.description && <p className="text-slate-400 text-[11px]">{item.description}</p>}
-                            <span className="text-[10px] text-slate-500 block">
-                              🕒 {new Date(item.occurred_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                  <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
+                    <h4 className="text-[13px] font-bold text-text-primary">История посещений и CRM</h4>
+                    <div className="mt-3 space-y-2">
+                      {unifiedFeed.length ? unifiedFeed.map((item) => (
+                        <div key={item.id} className="rounded-[13px] bg-surface-2 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <strong className="text-[12px] leading-4 text-text-primary break-words">{item.title}</strong>
+                            <span className="shrink-0 rounded-full bg-surface-1 px-2 py-1 text-[10px] text-text-muted">{item.kind}</span>
                           </div>
-
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border shrink-0 ${item.badgeStyle}`}>
-                            {item.badgeLabel}
-                          </span>
+                          {item.detail && <p className="mt-1 text-[11px] leading-4 text-text-secondary">{item.detail}</p>}
+                          <p className="mt-1 text-[10px] text-text-muted">{fmtDate(item.date, true)}</p>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-slate-500 text-xs">Лента событий пуста</div>
-                    )}
+                      )) : <p className="py-6 text-center text-[12px] text-text-secondary">История пока пуста.</p>}
+                    </div>
+                  </section>
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+      </MobileSheet>
+
+      <MobileSheet
+        open={showAddModal}
+        onClose={() => !addSaving && setShowAddModal(false)}
+        title="Добавить игрока"
+        subtitle="Никнейм обязателен, остальные поля можно заполнить позже."
+        footer={
+          <button form="add-player-form" type="submit" disabled={addSaving || !newNickname.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
+            {addSaving ? 'Создание…' : 'Добавить игрока'}
+          </button>
+        }
+      >
+        <form id="add-player-form" onSubmit={handleCreatePlayer} className="space-y-4">
+          {addError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div>}
+          <label className="block"><span className="mobile-label">Никнейм *</span><input value={newNickname} onChange={(e) => setNewNickname(e.target.value)} className="mobile-field" required /></label>
+          <label className="block"><span className="mobile-label">Имя / ФИО</span><input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="mobile-field" /></label>
+          <label className="block"><span className="mobile-label">Телефон</span><input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} type="tel" className="mobile-field" /></label>
+          <label className="block"><span className="mobile-label">Telegram</span><input value={newTgUsername} onChange={(e) => setNewTgUsername(e.target.value)} placeholder="username" className="mobile-field" /></label>
+          <label className="block"><span className="mobile-label">Источник</span><input value={newSource} onChange={(e) => setNewSource(e.target.value)} className="mobile-field" /></label>
+          <label className="block"><span className="mobile-label">Заметки</span><textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} rows={4} className="mobile-field resize-none" /></label>
+        </form>
+      </MobileSheet>
+
+      <MobileSheet
+        open={showCommModal}
+        onClose={() => !commSaving && setShowCommModal(false)}
+        title="Результат общения"
+        footer={
+          <button type="button" onClick={() => void handleRecordCommunication()} disabled={commSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
+            {commSaving ? 'Сохранение…' : 'Сохранить результат'}
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {commError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{commError}</div>}
+          <label className="block"><span className="mobile-label">Канал</span>
+            <select value={commChannel} onChange={(e) => setCommChannel(e.target.value as typeof commChannel)} className="mobile-field">
+              <option value="telegram">Telegram</option><option value="phone">Телефон</option><option value="in_person">Лично</option><option value="other">Другое</option>
+            </select>
+          </label>
+          <label className="block"><span className="mobile-label">Результат</span>
+            <select value={commOutcome} onChange={(e) => setCommOutcome(e.target.value as typeof commOutcome)} className="mobile-field">
+              <option value="answered">Ответил</option><option value="no_answer">Не ответил</option><option value="interested">Заинтересован</option><option value="declined">Отказался</option><option value="call_later">Связаться позже</option>
+            </select>
+          </label>
+          <label className="block"><span className="mobile-label">Комментарий</span><textarea value={commComment} onChange={(e) => setCommComment(e.target.value)} rows={4} className="mobile-field resize-none" /></label>
+          <label className="flex min-h-[44px] items-center gap-3 rounded-[13px] border border-border-soft bg-surface-2 px-3">
+            <input type="checkbox" checked={commCreateTask} onChange={(e) => setCommCreateTask(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
+            <span className="text-[12px] font-semibold text-text-primary">Создать следующую задачу</span>
+          </label>
+          {commCreateTask && (
+            <>
+              <label className="block"><span className="mobile-label">Название задачи</span><input value={commTaskTitle} onChange={(e) => setCommTaskTitle(e.target.value)} className="mobile-field" /></label>
+              <label className="block"><span className="mobile-label">Срок</span><input type="datetime-local" value={commTaskDueAt} onChange={(e) => setCommTaskDueAt(e.target.value)} className="mobile-field" /></label>
+            </>
+          )}
+        </div>
+      </MobileSheet>
+
+      <MobileSheet
+        open={showTaskModal}
+        onClose={() => !taskSaving && setShowTaskModal(false)}
+        title="Задача игроку"
+        subtitle="Если срок не выбран, задача сохранится без даты."
+        footer={
+          <button type="button" onClick={() => void handleCreateTask()} disabled={taskSaving || !taskTitle.trim()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
+            {taskSaving ? 'Сохранение…' : 'Создать задачу'}
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {taskError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{taskError}</div>}
+          <label className="block"><span className="mobile-label">Название *</span><input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} className="mobile-field" /></label>
+          <label className="block"><span className="mobile-label">Срок</span><input type="date" value={taskDueAtInput} onChange={(e) => setTaskDueAtInput(e.target.value)} className="mobile-field" /></label>
+        </div>
+      </MobileSheet>
+
+      <MobileSheet
+        open={showInviteModal}
+        onClose={() => !inviteSaving && setShowInviteModal(false)}
+        title="Пригласить игрока"
+        subtitle={playerDetails ? playerDetails.nickname : undefined}
+        footer={
+          <button type="button" onClick={() => void handleSendInvite()} disabled={inviteSaving || inviteLoading || !selectedEveningId} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
+            {inviteSaving ? 'Сохранение…' : 'Сохранить приглашение'}
+          </button>
+        }
+      >
+        {inviteLoading ? <div className="py-12 text-center text-[13px] text-text-secondary">Загрузка событий…</div> : (
+          <div className="space-y-4">
+            {inviteError && <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{inviteError}</div>}
+            {inviteSuccessMessage && <div className="rounded-[14px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{inviteSuccessMessage}</div>}
+            {!futureEvenings.length ? (
+              <div className="rounded-[16px] border border-border-soft bg-surface-2 p-4 text-[12px] text-text-secondary">Нет будущих игровых вечеров для приглашения.</div>
+            ) : (
+              <>
+                <label className="block"><span className="mobile-label">Игровой вечер</span>
+                  <select value={selectedEveningId} onChange={(e) => void handleSelectEvening(e.target.value)} className="mobile-field">
+                    {futureEvenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at)}</option>)}
+                  </select>
+                </label>
+                <label className="block"><span className="mobile-label">Стол</span>
+                  <select value={selectedTableId} onChange={(e) => handleSelectTable(e.target.value)} className="mobile-field">
+                    <option value="">Без стола</option>
+                    {eveningTables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}
+                  </select>
+                </label>
+                <label className="flex min-h-[44px] items-center gap-3 rounded-[13px] border border-border-soft bg-surface-2 px-3">
+                  <input type="checkbox" checked={createFollowupTask} onChange={(e) => setCreateFollowupTask(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
+                  <span className="text-[12px] font-semibold text-text-primary">Создать задачу на подтверждение</span>
+                </label>
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-text-secondary">Сообщение</span>
+                    <button type="button" onClick={() => void handleCopyMessage()} className="min-h-[40px] rounded-[10px] px-2.5 text-[11px] font-semibold text-accent inline-flex items-center gap-1.5">
+                      {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copySuccess ? 'Скопировано' : 'Копировать'}
+                    </button>
                   </div>
+                  <textarea value={inviteMessageText} onChange={(e) => setInviteMessageText(e.target.value)} rows={8} className="mobile-field resize-none" />
                 </div>
               </>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </MobileSheet>
 
-      {/* Modal: Record Communication Outcome */}
-      {showCommModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
-            <button
-              onClick={() => setShowCommModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-indigo-400" />
-              <h3 className="text-lg font-black uppercase tracking-tight">Результат общения</h3>
-            </div>
-
-            {commError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-400 text-xs font-medium">
-                {commError}
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Канал связи</label>
-                <select
-                  value={commChannel}
-                  onChange={(e) => setCommChannel(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="telegram">Telegram</option>
-                  <option value="phone">Телефонный звонок</option>
-                  <option value="in_person">Личная встреча в клубе</option>
-                  <option value="other">Другое</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Результат контакта</label>
-                <select
-                  value={commOutcome}
-                  onChange={(e) => {
-                    const val = e.target.value as any;
-                    setCommOutcome(val);
-                    if (val === 'call_later' || val === 'interested') {
-                      setCommCreateTask(true);
-                    }
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="answered">Ответил / Связались</option>
-                  <option value="no_answer">Не ответил / Недоступен</option>
-                  <option value="interested">Заинтересован (Хочет прийти)</option>
-                  <option value="declined">Отказался</option>
-                  <option value="call_later">Просил связаться позже</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Комментарий / Детали</label>
-                <textarea
-                  value={commComment}
-                  onChange={(e) => setCommComment(e.target.value)}
-                  placeholder="О чём договорились, когда планирует играть..."
-                  rows={3}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-2 pt-1 border-t border-slate-800">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="commTaskChk"
-                    checked={commCreateTask}
-                    onChange={(e) => setCommCreateTask(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-950 cursor-pointer"
-                  />
-                  <label htmlFor="commTaskChk" className="text-slate-300 font-bold cursor-pointer select-none">
-                    Создать следующую задачу по игроку
-                  </label>
-                </div>
-
-                {commCreateTask && (
-                  <div className="space-y-2 pl-6 pt-1">
-                    <div>
-                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Название задачи</label>
-                      <input
-                        type="text"
-                        value={commTaskTitle}
-                        onChange={(e) => setCommTaskTitle(e.target.value)}
-                        placeholder={`Перезвонить игроку ${playerDetails?.nickname || ''}`}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Срок выполнения (необязательно)</label>
-                      <input
-                        type="date"
-                        value={commTaskDueAt}
-                        onChange={(e) => setCommTaskDueAt(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none"
-                      />
-                      <p className="text-[10px] text-slate-500 mt-0.5">Если дату не выбрать, срок сохранится как NULL.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-3">
-                <button
-                  onClick={handleRecordCommunication}
-                  disabled={isSubmittingComm}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all"
-                >
-                  {isSubmittingComm ? 'Сохранение...' : 'Записать результат'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCommModal(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Add New Player */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
-            <button
-              onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-black uppercase tracking-tight">Добавить игрока в картотеку</h3>
-
-            <form onSubmit={handleCreatePlayer} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Никнейм *</label>
-                <input
-                  type="text"
-                  required
-                  value={newNickname}
-                  onChange={(e) => setNewNickname(e.target.value)}
-                  placeholder="Игровой никнейм"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">ФИО / Настоящее имя</label>
-                <input
-                  type="text"
-                  value={newFullName}
-                  onChange={(e) => setNewFullName(e.target.value)}
-                  placeholder="Иван Иванов"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Телефон</label>
-                  <input
-                    type="text"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="+7 (999) 000-00-00"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Telegram username</label>
-                  <input
-                    type="text"
-                    value={newTgUsername}
-                    onChange={(e) => setNewTgUsername(e.target.value)}
-                    placeholder="nickname"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Источник прихода</label>
-                  <input
-                    type="text"
-                    value={newSource}
-                    onChange={(e) => setNewSource(e.target.value)}
-                    placeholder="Авито / По рекомендации / VK"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Заметки / Пожелания</label>
-                  <textarea
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                    placeholder="Предпочтения по играм, контактное лицо..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 text-xs"
-                    rows={2}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Создать игрока
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Task creation from Player Card */}
-      {showTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 relative text-white">
-            <button
-              onClick={() => setShowTaskModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-black uppercase tracking-tight">Задача по игроку {playerDetails?.nickname}</h3>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Суть задачи</label>
-                <input
-                  type="text"
-                  required
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  placeholder="Например: Перезвонить и пригласить на пятницу"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold uppercase mb-1">Срок выполнения (Due Date)</label>
-                <input
-                  type="date"
-                  value={taskDueAtInput}
-                  onChange={(e) => setTaskDueAtInput(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleCreateTask}
-                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Сохранить задачу
-                </button>
-                <button
-                  onClick={() => setShowTaskModal(false)}
-                  className="bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Invite Player to Evening */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg max-h-[90vh] rounded-3xl p-5 sm:p-6 space-y-4 overflow-y-auto relative text-white">
-            <button
-              onClick={() => setShowInviteModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-full bg-slate-800 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <Send className="w-5 h-5 text-rose-500" />
-              <h3 className="text-lg font-black uppercase tracking-tight">Пригласить на игру</h3>
-            </div>
-
-            {inviteSuccessMessage && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-emerald-400 text-xs font-medium">
-                <Check className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>{inviteSuccessMessage}</span>
-              </div>
-            )}
-
-            {inviteError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center gap-2 text-rose-400 text-xs font-medium">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{inviteError}</span>
-              </div>
-            )}
-
-            {futureEvenings.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                Нет доступных будущих вечеров для приглашения. Создайте или опубликуйте вечер.
-              </div>
-            ) : (
-              <div className="space-y-4 text-xs">
-                {/* Select Evening */}
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Будущий вечер *</label>
-                  <select
-                    value={selectedEveningId}
-                    onChange={(e) => handleSelectEvening(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500"
-                  >
-                    {futureEvenings.map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.title} — {formatEveningDateTime(ev.starts_at, ev.timezone)} ({ev.venue || 'Клуб'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Select Table */}
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Игровой стол</label>
-                  <select
-                    value={selectedTableId}
-                    onChange={(e) => handleSelectTable(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500"
-                  >
-                    <option value="">Без стола (По умолчанию)</option>
-                    {eveningTables.map((tbl) => {
-                      const price = tbl.default_price ?? (tbl as any).price;
-                      const priceText = price === 0 ? 'Бесплатно' : price ? `${price} ₽` : 'Бесплатно';
-                      return (
-                        <option key={tbl.id} value={tbl.id}>
-                          {tbl.name} ({priceText})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Task Checkbox */}
-                <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <input
-                    type="checkbox"
-                    id="createTaskChk"
-                    checked={createFollowupTask}
-                    onChange={(e) => setCreateFollowupTask(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-700 text-rose-600 focus:ring-rose-500 bg-slate-900 cursor-pointer"
-                  />
-                  <label htmlFor="createTaskChk" className="text-slate-300 font-medium cursor-pointer select-none">
-                    Создать напоминание в задачах CRM
-                  </label>
-                </div>
-
-                {/* Message Textarea */}
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Предварительный текст сообщения</label>
-                  <textarea
-                    value={inviteMessageText}
-                    onChange={(e) => setInviteMessageText(e.target.value)}
-                    rows={6}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-sans text-xs focus:outline-none focus:border-rose-500 leading-relaxed"
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                  <button
-                    onClick={handleSendInvite}
-                    disabled={isSubmittingInvite || !selectedEveningId}
-                    className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmittingInvite ? 'Создание...' : 'Создать приглашение'}</span>
-                  </button>
-
-                  <button
-                    onClick={handleCopyMessage}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center justify-center gap-2 shrink-0"
-                  >
-                    {copySuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copySuccess ? 'Скопировано' : 'Скопировать'}</span>
-                  </button>
-
-                  {playerDetails?.telegram_username && (
-                    <a
-                      href={`https://t.me/${playerDetails.telegram_username.replace('@', '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shrink-0"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Открыть Telegram</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmDeleteAvatar}
+        title="Удалить фото игрока?"
+        description="Игрок останется в базе, удалится только текущий аватар."
+        confirmLabel="Удалить фото"
+        tone="danger"
+        busy={avatarBusy}
+        onCancel={() => setConfirmDeleteAvatar(false)}
+        onConfirm={() => void handleDeleteAvatar()}
+      />
     </div>
   );
 };

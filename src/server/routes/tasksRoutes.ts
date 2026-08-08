@@ -9,7 +9,7 @@ const router = Router();
 // GET /api/tasks - List tasks with CRM filters (Auth required)
 router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
-    const { today, overdue, player_id, evening_id, status } = req.query;
+    const { today, overdue, active, player_id, evening_id, status } = req.query;
     const db = (req as any).db || (await getDb());
 
     let query = `
@@ -36,7 +36,11 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       params.push(status);
     }
 
-    query += ` ORDER BY t.due_at ASC, t.created_at DESC`;
+    if (active === 'true' || active === '1') {
+      query += ` AND t.status NOT IN ('done', 'cancelled')`;
+    }
+
+    query += ` ORDER BY CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END, t.due_at ASC, t.created_at DESC`;
 
     const tasks = await db.all(query, params);
     const nowMs = Date.now();
@@ -47,7 +51,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 
     const filtered = tasks.filter((t: any) => {
       if (today === 'true' || today === '1') {
-        if (!t.due_at) return false;
+        if (t.status === 'done' || t.status === 'cancelled' || !t.due_at) return false;
         const dueMs = new Date(t.due_at).getTime();
         if (isNaN(dueMs) || dueMs < todayStart.getTime() || dueMs > todayEnd.getTime()) return false;
       }

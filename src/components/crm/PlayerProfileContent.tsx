@@ -25,6 +25,7 @@ import {
   type PlayerTournamentAward,
 } from '../../lib/api.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 
 type ProfileTab = 'overview' | 'games' | 'tournaments' | 'evenings';
 type AwardFilter = 'place_1' | 'place_2' | 'place_3' | 'nominations';
@@ -75,11 +76,11 @@ const GameCard: React.FC<{ game: PlayerGameHistoryItem }> = ({ game }) => {
           <div className="text-[10px] text-slate-500 mt-0.5">{fmtDate(game.date)} · Игра #{game.game_number || '—'}{game.table_name ? ` · ${game.table_name}` : ''}</div>
         </div>
         {game.status === 'completed' ? (
-          <span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-black ${game.won ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/10 text-rose-300'}`}>
+          <span className={`shrink-0 rounded-lg border px-2 py-1 text-[11px] font-black ${game.won ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/10 text-rose-300'}`}>
             {game.won ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}
           </span>
         ) : (
-          <span className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-[9px] font-black text-slate-400">{game.status.toUpperCase()}</span>
+          <span className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-black text-slate-400">{game.status.toUpperCase()}</span>
         )}
       </div>
 
@@ -120,6 +121,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
   const [historicalAwardKey, setHistoricalAwardKey] = useState<PlayerAwardKey>('place_1');
   const [historicalCustomTitle, setHistoricalCustomTitle] = useState('');
   const [historicalComment, setHistoricalComment] = useState('');
+  const [awardConfirm, setAwardConfirm] = useState<{ action: 'suppress' | 'deleteHistorical'; award: PlayerTournamentAward } | null>(null);
 
   const stats = player.gameStats;
   const allGames = useMemo(() => [...(player.clubGames || []), ...(player.tournamentGames || [])].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()), [player.clubGames, player.tournamentGames]);
@@ -188,7 +190,6 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
 
   const handleSuppressAward = async (award: PlayerTournamentAward) => {
     if (!award.tournament_id) return;
-    if (!window.confirm(`Убрать «${award.title}» за турнир «${award.tournament_title}»?`)) return;
     setAwardSaving(true);
     setAwardError(null);
     try {
@@ -290,7 +291,6 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
 
   const handleDeleteHistoricalAward = async (award: PlayerTournamentAward) => {
     if (!award.historical_award_id) return;
-    if (!window.confirm(`Удалить «${award.title}» за турнир «${award.tournament_title}» из истории?`)) return;
     setAwardSaving(true);
     setAwardError(null);
     try {
@@ -303,6 +303,14 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
     }
   };
 
+  const executeAwardConfirm = async () => {
+    const current = awardConfirm;
+    if (!current) return;
+    if (current.action === 'suppress') await handleSuppressAward(current.award);
+    else await handleDeleteHistoricalAward(current.award);
+    setAwardConfirm(null);
+  };
+
   const awardHistoryTitle = awardFilter === 'place_1'
     ? 'Первые места'
     : awardFilter === 'place_2'
@@ -313,7 +321,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
 
   return (
     <div className="space-y-4 pb-6">
-      <section className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/30 p-4 overflow-hidden relative">
+      <section data-profile-hero className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/30 p-4 overflow-hidden relative">
         <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-rose-500/10 blur-3xl" />
         <div className="relative flex items-center gap-4">
           <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="xl" className="ring-2 ring-rose-500/20" />
@@ -324,22 +332,22 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 mt-4 text-center">
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[8px] uppercase text-slate-500">Игры</span><strong className="text-base text-white">{stats?.totalGames || 0}</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[8px] uppercase text-slate-500">Победы</span><strong className="text-base text-emerald-400">{stats?.wins || 0}</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[8px] uppercase text-slate-500">Винрейт</span><strong className="text-base text-amber-300">{stats?.winRate || 0}%</strong></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[8px] uppercase text-slate-500">Вечера</span><strong className="text-base text-sky-300">{visits}</strong></div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 text-center">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[10px] uppercase text-slate-500">Игры</span><strong className="text-base text-white">{stats?.totalGames || 0}</strong></div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[10px] uppercase text-slate-500">Победы</span><strong className="text-base text-emerald-400">{stats?.wins || 0}</strong></div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[10px] uppercase text-slate-500">Винрейт</span><strong className="text-base text-amber-300">{stats?.winRate || 0}%</strong></div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-1.5 py-2"><span className="block text-[10px] uppercase text-slate-500">Вечера</span><strong className="text-base text-sky-300">{visits}</strong></div>
         </div>
       </section>
 
-      <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+      <div data-profile-tabs className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
         {([
           ['overview', 'Обзор'],
           ['games', 'Игры'],
           ['tournaments', 'Турниры'],
           ['evenings', 'Вечера'],
         ] as Array<[ProfileTab, string]>).map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setTab(id)} className={`min-h-10 rounded-xl text-[9px] font-black ${tab === id ? 'bg-rose-600 text-white' : 'text-slate-500'}`}>{label}</button>
+          <button key={id} type="button" onClick={() => setTab(id)} className={`min-h-10 rounded-xl text-[11px] font-black ${tab === id ? 'bg-rose-600 text-white' : 'text-slate-500'}`}>{label}</button>
         ))}
       </div>
 
@@ -347,22 +355,22 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
         <div className="space-y-4">
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5">
             <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2"><Shield className="w-4 h-4 text-rose-400" /> Роли</h3>
-            <div className="grid grid-cols-4 gap-1.5 mt-3 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
               {[
                 ['❤️', 'Мирный', stats?.roleCounts?.citizen || 0],
                 ['⭐', 'Шериф', stats?.roleCounts?.sheriff || 0],
                 ['🔫', 'Мафия', stats?.roleCounts?.mafia || 0],
                 ['🎩', 'Дон', stats?.roleCounts?.don || 0],
-              ].map(([icon, label, count]) => <div key={String(label)} className="rounded-xl bg-slate-950 p-2"><span className="text-lg block">{icon}</span><strong className="text-sm text-white block">{count}</strong><span className="text-[8px] text-slate-500">{label}</span></div>)}
+              ].map(([icon, label, count]) => <div key={String(label)} className="rounded-xl bg-slate-950 p-2"><span className="text-lg block">{icon}</span><strong className="text-sm text-white block">{count}</strong><span className="text-[10px] text-slate-500">{label}</span></div>)}
             </div>
           </section>
 
           <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-slate-900 p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2"><Medal className="w-4 h-4 text-amber-400" /> Турнирные награды</h3>
-              <span className="text-[9px] text-slate-500">Нажми на статистику</span>
+              <span className="text-[11px] text-slate-500">Нажми на статистику</span>
             </div>
-            <div className="grid grid-cols-4 gap-1.5 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               {[
                 { filter: 'place_1' as AwardFilter, icon: '🥇', label: '1 место', value: awardStats.firstPlaces },
                 { filter: 'place_2' as AwardFilter, icon: '🥈', label: '2 место', value: awardStats.secondPlaces },
@@ -377,20 +385,20 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                 >
                   <span className="text-xl block">{item.icon}</span>
                   <strong className="text-base text-white block">{item.value}</strong>
-                  <span className="text-[8px] text-slate-500 flex items-center justify-center gap-0.5">{item.label}<ChevronRight className="w-2.5 h-2.5" /></span>
+                  <span className="text-[10px] text-slate-500 flex items-center justify-center gap-0.5">{item.label}<ChevronRight className="w-2.5 h-2.5" /></span>
                 </button>
               ))}
             </div>
           </section>
 
           <section className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-center"><Trophy className="w-5 h-5 text-amber-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.bestMoves || 0}</strong><span className="text-[9px] text-amber-300">Лучший ход</span></div>
-            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3 text-center"><Skull className="w-5 h-5 text-rose-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.firstKilled || 0}</strong><span className="text-[9px] text-rose-300">ПУ</span></div>
-            <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-3 text-center"><CircleDot className="w-5 h-5 text-orange-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.zeroRoundVoted || 0}</strong><span className="text-[9px] text-orange-300">0 круг</span></div>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-center"><Trophy className="w-5 h-5 text-amber-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.bestMoves || 0}</strong><span className="text-[11px] text-amber-300">Лучший ход</span></div>
+            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3 text-center"><Skull className="w-5 h-5 text-rose-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.firstKilled || 0}</strong><span className="text-[11px] text-rose-300">ПУ</span></div>
+            <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-3 text-center"><CircleDot className="w-5 h-5 text-orange-400 mx-auto" /><strong className="text-lg text-white block mt-1">{stats?.zeroRoundVoted || 0}</strong><span className="text-[11px] text-orange-300">0 круг</span></div>
           </section>
 
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2"><Sparkles className="w-4 h-4 text-sky-400" /> Последние игры</h3>{allGames.length > 3 && <button type="button" onClick={() => setTab('games')} className="text-[9px] font-bold text-rose-400">Все игры →</button>}</div>
+            <div className="flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2"><Sparkles className="w-4 h-4 text-sky-400" /> Последние игры</h3>{allGames.length > 3 && <button data-profile-all-games type="button" onClick={() => setTab('games')} className="text-[11px] font-bold text-rose-400">Все игры →</button>}</div>
             {recentGames.length ? recentGames.map((game) => <GameCard key={game.id} game={game} />) : <div className="py-6 text-center text-xs text-slate-500">Сыгранных протоколов пока нет</div>}
           </section>
         </div>
@@ -416,7 +424,7 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
           {player.eveningHistory?.length ? player.eveningHistory.map((item: any) => (
             <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3 flex items-center justify-between gap-3">
               <div className="min-w-0"><strong className="text-xs text-white block truncate">{item.evening_title || 'Игровой вечер'}</strong><span className="text-[10px] text-slate-500">{fmtDate(item.evening_date)}</span></div>
-              <span className={`shrink-0 rounded-lg px-2 py-1 text-[9px] font-black ${item.attendance_status === 'attended' ? 'bg-emerald-500/10 text-emerald-300' : item.attendance_status === 'no_show' ? 'bg-rose-500/10 text-rose-300' : item.registration_status === 'cancelled' ? 'bg-slate-700 text-slate-400' : 'bg-sky-500/10 text-sky-300'}`}>
+              <span className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-black ${item.attendance_status === 'attended' ? 'bg-emerald-500/10 text-emerald-300' : item.attendance_status === 'no_show' ? 'bg-rose-500/10 text-rose-300' : item.registration_status === 'cancelled' ? 'bg-slate-700 text-slate-400' : 'bg-sky-500/10 text-sky-300'}`}>
                 {item.attendance_status === 'attended' ? 'БЫЛ' : item.attendance_status === 'no_show' ? 'НЕ ПРИШЁЛ' : item.registration_status === 'cancelled' ? 'ОТМЕНИЛ' : 'ЗАПИСАН'}
               </span>
             </div>
@@ -425,14 +433,14 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
       )}
 
       {awardFilter && (
-        <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setAwardFilter(null)}>
-          <div className="w-full sm:max-w-lg max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-slate-800 bg-slate-950 p-4 space-y-4" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setAwardFilter(null)}>
+          <div className="w-full sm:max-w-lg h-[100dvh] sm:h-auto sm:max-h-[88dvh] overflow-y-auto rounded-none sm:rounded-3xl border border-slate-800 bg-slate-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-4" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-black text-white flex items-center gap-2"><Award className="w-5 h-5 text-amber-400" /> {awardHistoryTitle}</h3>
                 <p className="text-[10px] text-slate-500 mt-1">Автоматические результаты и добавленная вручную история</p>
               </div>
-              <button type="button" aria-label="Закрыть" onClick={() => setAwardFilter(null)} className="w-10 h-10 rounded-xl bg-slate-900 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button>
+              <button type="button" aria-label="Закрыть" onClick={() => setAwardFilter(null)} className="w-11 h-11 rounded-xl bg-slate-900 text-slate-400 flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="space-y-2">
@@ -442,9 +450,9 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                     <div className="min-w-0">
                       <div className="text-xs font-black text-white">{award.title}</div>
                       <div className="text-[11px] font-bold text-amber-300 mt-0.5 break-words">{award.tournament_title}</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">{fmtDate(award.tournament_date)}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{fmtDate(award.tournament_date)}</div>
                     </div>
-                    <span className={`shrink-0 rounded-lg border px-2 py-1 text-[8px] font-black ${award.source === 'historical' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : award.source === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
+                    <span className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-black ${award.source === 'historical' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : award.source === 'manual' ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
                       {award.source === 'historical' ? 'ДОБАВЛЕНО ВРУЧНУЮ' : award.source === 'manual' ? 'РУЧНАЯ ПРАВКА' : 'ПО ИТОГАМ'}
                     </span>
                   </div>
@@ -452,14 +460,14 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {award.source === 'historical' ? (
                       <>
-                        <button type="button" disabled={awardSaving} onClick={() => editHistoricalAward(award)} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[9px] font-bold text-amber-300 disabled:opacity-50">Изменить</button>
-                        <button type="button" disabled={awardSaving} onClick={() => handleDeleteHistoricalAward(award)} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-bold text-rose-300 disabled:opacity-50">Удалить</button>
+                        <button type="button" disabled={awardSaving} onClick={() => editHistoricalAward(award)} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 disabled:opacity-50">Изменить</button>
+                        <button type="button" disabled={awardSaving} onClick={() => setAwardConfirm({ action: 'deleteHistorical', award })} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-bold text-rose-300 disabled:opacity-50">Удалить</button>
                       </>
                     ) : (
                       <>
-                        <button type="button" disabled={awardSaving} onClick={() => handleSuppressAward(award)} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-bold text-rose-300 disabled:opacity-50">Убрать</button>
+                        <button type="button" disabled={awardSaving} onClick={() => setAwardConfirm({ action: 'suppress', award })} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-bold text-rose-300 disabled:opacity-50">Убрать</button>
                         {award.source === 'manual' && (
-                          <button type="button" disabled={awardSaving} onClick={() => handleResetAward(award)} className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[9px] font-bold text-slate-300 flex items-center gap-1 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Вернуть расчёт</button>
+                          <button type="button" disabled={awardSaving} onClick={() => handleResetAward(award)} className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] font-bold text-slate-300 flex items-center gap-1 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Вернуть расчёт</button>
                         )}
                       </>
                     )}
@@ -485,15 +493,15 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-3">
                 <div className="flex items-center justify-between"><strong className="text-xs text-white">{historicalEditingId ? 'Изменить прошлую награду' : 'Добавить прошлую награду'}</strong><button type="button" onClick={closeHistoricalEditor} className="text-[10px] text-slate-500">Закрыть</button></div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Название турнира</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Название турнира</label>
                   <input value={historicalTournamentTitle} onChange={(event) => setHistoricalTournamentTitle(event.target.value)} maxLength={180} placeholder="Например: Кубок города 2023" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
                 </div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Дата, если известна</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Дата, если известна</label>
                   <input type="date" value={historicalTournamentDate} onChange={(event) => setHistoricalTournamentDate(event.target.value)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white" />
                 </div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Награда</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Награда</label>
                   {awardFilter === 'nominations' ? (
                     <select value={historicalAwardKey} onChange={(event) => setHistoricalAwardKey(event.target.value as PlayerAwardKey)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white">
                       {historicalNominationOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
@@ -504,15 +512,15 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                 </div>
                 {historicalAwardKey === 'nomination_other' && (
                   <div>
-                    <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Название номинации</label>
+                    <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Название номинации</label>
                     <input value={historicalCustomTitle} onChange={(event) => setHistoricalCustomTitle(event.target.value)} maxLength={120} placeholder="Например: Лучший дебют" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
                   </div>
                 )}
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
                   <input value={historicalComment} onChange={(event) => setHistoricalComment(event.target.value)} maxLength={500} placeholder="Откуда взята информация или уточнение" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
                 </div>
-                <p className="text-[9px] leading-relaxed text-slate-500">Эта запись существует только в профиле игрока и не меняет результаты турниров в базе.</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">Эта запись существует только в профиле игрока и не меняет результаты турниров в базе.</p>
                 <button type="button" disabled={awardSaving || !historicalTournamentTitle.trim()} onClick={handleSaveHistoricalAward} className="w-full min-h-11 rounded-xl bg-amber-500 text-slate-950 text-xs font-black disabled:opacity-50">{awardSaving ? 'Сохранение…' : historicalEditingId ? 'Сохранить изменения' : `Добавить: ${player.nickname}`}</button>
               </div>
             )}
@@ -521,14 +529,14 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
               <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-3 space-y-3">
                 <div className="flex items-center justify-between"><strong className="text-xs text-white">Исправить результат турнира в базе</strong><button type="button" onClick={() => setShowAwardEditor(false)} className="text-[10px] text-slate-500">Закрыть</button></div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Турнир</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Турнир</label>
                   <select value={awardTournamentId} onChange={(event) => setAwardTournamentId(event.target.value)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white">
                     <option value="">Выбери турнир</option>
                     {awardTournaments.map((item) => <option key={item.id} value={item.id}>{item.title} · {fmtDate(item.date)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Награда</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Награда</label>
                   {awardFilter === 'nominations' ? (
                     <select value={awardKey} onChange={(event) => setAwardKey(event.target.value as PlayerAwardKey)} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white">
                       {nominationOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
@@ -538,16 +546,27 @@ export const PlayerProfileContent: React.FC<{ player: PlayerDetails }> = ({ play
                   )}
                 </div>
                 <div>
-                  <label className="text-[9px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
+                  <label className="text-[11px] uppercase font-black text-slate-500 block mb-1">Комментарий, необязательно</label>
                   <input value={awardComment} onChange={(event) => setAwardComment(event.target.value)} maxLength={500} placeholder="Например: решение главного судьи" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white placeholder:text-slate-600" />
                 </div>
-                <p className="text-[9px] leading-relaxed text-slate-500">Это меняет официальный результат существующего турнира. Для призовых мест система сохраняет уникальные 1–3 места и при необходимости переставляет игроков.</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">Это меняет официальный результат существующего турнира. Для призовых мест система сохраняет уникальные 1–3 места и при необходимости переставляет игроков.</p>
                 <button type="button" disabled={awardSaving || !awardTournamentId} onClick={handleAssignAward} className="w-full min-h-11 rounded-xl bg-sky-500 text-slate-950 text-xs font-black disabled:opacity-50">{awardSaving ? 'Сохранение…' : `Назначить: ${player.nickname}`}</button>
               </div>
             )}
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(awardConfirm)}
+        title={awardConfirm?.action === 'deleteHistorical' ? 'Удалить награду из истории?' : 'Убрать награду?'}
+        description={awardConfirm ? `«${awardConfirm.award.title}» · ${awardConfirm.award.tournament_title}` : ''}
+        confirmLabel={awardConfirm?.action === 'deleteHistorical' ? 'Удалить' : 'Убрать'}
+        tone="danger"
+        busy={awardSaving}
+        onCancel={() => setAwardConfirm(null)}
+        onConfirm={() => void executeAwardConfirm()}
+      />
     </div>
   );
 };

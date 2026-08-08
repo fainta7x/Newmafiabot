@@ -218,13 +218,13 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     `, [req.params.id]);
 
     const futureBookings = eveningHistory.filter(
-      (h: any) => h.evening_status !== 'completed' && h.registration_status !== 'cancelled'
+      (h: any) => h.evening_status !== 'completed' && h.evening_status !== 'cancelled'
     );
     const attendedEvenings = eveningHistory.filter(
       (h: any) => h.attendance_status === 'attended' && h.evening_status === 'completed'
     );
     const cancelledEvenings = eveningHistory.filter(
-      (h: any) => h.registration_status === 'cancelled'
+      (h: any) => h.registration_status === 'cancelled' || h.registration_status === 'declined'
     );
     const noShowEvenings = eveningHistory.filter(
       (h: any) => h.attendance_status === 'no_show' && h.evening_status === 'completed'

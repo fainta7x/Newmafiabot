@@ -15,10 +15,12 @@ export const createEveningSchema = z.object({
 
 export const updateEveningSchema = createEveningSchema.partial();
 
+const eveningRegistrationStatusSchema = z.enum(['going', 'late', 'thinking', 'declined', 'invited', 'registered', 'confirmed', 'waitlist', 'cancelled']);
+
 export const bulkAddParticipantsSchema = z.object({
   player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
   table_id: z.string().nullable().optional(),
-  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
+  registration_status: eveningRegistrationStatusSchema.default('going'),
   amount_due: z.number().int().min(0).optional(),
 });
 
@@ -27,7 +29,7 @@ export const addSingleParticipantSchema = z.object({
   nickname: z.string().optional(),
   phone: z.string().optional(),
   table_id: z.string().nullable().optional(),
-  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).default('registered'),
+  registration_status: eveningRegistrationStatusSchema.default('going'),
   amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).default(0),
   notes: z.string().nullable().optional(),
@@ -35,7 +37,7 @@ export const addSingleParticipantSchema = z.object({
 
 export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(),
-  registration_status: z.enum(['invited', 'registered', 'confirmed', 'waitlist', 'cancelled']).optional(),
+  registration_status: eveningRegistrationStatusSchema.optional(),
   attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(),
   arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(),
   payment_status: z.enum(['unpaid', 'partial', 'paid', 'waived']).optional(),

@@ -217,6 +217,13 @@ export interface CrmOverview {
     newcomersCount: number;
     expectedToPayAmount?: number;
     expectedToPayCount?: number;
+    goingCount: number;
+    laterCount: number;
+    thinkingCount: number;
+    declinedCount: number;
+    unansweredCount: number;
+    respondedCount: number;
+    audienceCount: number;
   }) | null;
   actionLists: {
     unansweredInvites: any[];
@@ -263,6 +270,8 @@ export interface GameEvening {
   available_spots?: number;
 }
 
+export type EveningRegistrationStatus = 'going' | 'late' | 'thinking' | 'declined' | 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled';
+
 export interface EveningParticipant {
   id: string;
   evening_id: string;
@@ -273,7 +282,7 @@ export interface EveningParticipant {
   telegram_username?: string | null;
   lifecycle_status: string;
   elo: number;
-  registration_status: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled';
+  registration_status: EveningRegistrationStatus;
   attendance_status: 'pending' | 'attended' | 'no_show';
   arrival_status: 'unknown' | 'on_time' | 'late';
   payment_status: 'unpaid' | 'partial' | 'paid' | 'waived';
@@ -686,7 +695,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',

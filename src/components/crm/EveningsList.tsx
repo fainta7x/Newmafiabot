@@ -26,7 +26,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [format, setFormat] = useState<'NOVICE' | 'STANDARD' | 'TOURNAMENT'>('STANDARD');
-  const [capacity, setCapacity] = useState(20);
   const [defaultPrice, setDefaultPrice] = useState(400);
   const [venue, setVenue] = useState('Зал #1 (Главный)');
   const [notes, setNotes] = useState('');
@@ -50,7 +49,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
         title,
         starts_at: new Date(startsAt).toISOString(),
         format,
-        capacity,
         default_price: defaultPrice,
         venue,
         notes,
@@ -124,7 +122,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 onClick={async () => {
                   try {
                     const res = await api.createNextFriday();
-                    alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')}) с двумя столами!`);
+                    alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')})!`);
                     onOpenEvening(res.id);
                   } catch (err: any) {
                     alert(err.message || 'Ошибка создания вечера на пятницу');
@@ -191,8 +189,8 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                     {/* Numbers Row */}
                     <div className="grid grid-cols-3 gap-2 bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center font-mono">
                       <div>
-                        <span className="text-[9px] text-text-muted uppercase font-bold block">Запись</span>
-                        <span className="text-sm font-bold text-text-primary">{e.registered_count || 0}/{e.capacity}</span>
+                        <span className="text-[9px] text-text-muted uppercase font-bold block">Идут</span>
+                        <span className="text-sm font-bold text-text-primary">{e.registered_count || 0}</span>
                       </div>
                       <div>
                         <span className="text-[9px] text-text-muted uppercase font-bold block">Пришло</span>
@@ -274,17 +272,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Вместимость</label>
-                  <input
-                    type="number"
-                    value={capacity}
-                    onChange={(e) => setCapacity(parseInt(e.target.value) || 20)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 font-bold uppercase mb-1">Цена по умолч. (₽)</label>
                   <input

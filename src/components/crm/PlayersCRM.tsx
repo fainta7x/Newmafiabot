@@ -14,7 +14,6 @@ import {
   MoreHorizontal,
   Plus,
   Search,
-  Send,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -26,8 +25,8 @@ import {
   type PlayerDetails,
 } from '../../lib/api.ts';
 import { formatEveningDateTime, getSortedFutureEvenings } from '../../lib/dateUtils.ts';
+import { getEveningResponseLabel, getEveningTimelineLabel } from '../../lib/eveningResponse.ts';
 import {
-  getCanInviteStatus,
   getRussianContactStatusLabel,
   getRussianEngagementStageLabel,
   type ContactStatus,
@@ -252,14 +251,12 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   }, [activeQuickFilter, players]);
 
   const futureSorted = useMemo(() => getSortedFutureEvenings(evenings), [evenings]);
-  const nextEvening = futureSorted[0] || null;
   const booking = useMemo(() => {
     if (!playerDetails) return null;
     const futureIds = new Set(futureSorted.map((item) => item.id));
-    return (playerDetails.futureBookings || []).find((item) => futureIds.has(item.evening_id) && item.registration_status !== 'cancelled') || null;
+    return (playerDetails.futureBookings || []).find((item) => futureIds.has(item.evening_id)) || null;
   }, [futureSorted, playerDetails]);
   const bookingEvening = booking ? futureSorted.find((item) => item.id === booking.evening_id) || null : null;
-  const inviteInfo = playerDetails ? getCanInviteStatus(playerDetails) : { canInvite: false, reason: '' };
 
   const allGames = useMemo(() => {
     if (!playerDetails) return [];
@@ -271,10 +268,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     if (!playerDetails) return [];
     const items: Array<{ id: string; date: string | null; title: string; detail: string; kind: string }> = [];
     for (const activity of playerDetails.activities || []) {
-      items.push({ id: `activity:${activity.id}`, date: activity.occurred_at || activity.created_at, title: activity.type === 'contact' ? 'Общение' : activity.type === 'invite' ? 'Приглашение' : 'CRM', detail: activity.description || activity.outcome || '', kind: activity.outcome || activity.type });
+      items.push({ id: `activity:${activity.id}`, date: activity.occurred_at || activity.created_at, title: activity.type === 'contact' ? 'Общение' : activity.type === 'invite' ? 'Системное событие' : 'CRM', detail: activity.description || activity.outcome || '', kind: activity.outcome || activity.type });
     }
     for (const evening of playerDetails.eveningHistory || []) {
-      items.push({ id: `evening:${evening.id}`, date: (evening as any).evening_date || evening.created_at, title: (evening as any).evening_title || 'Игровой вечер', detail: evening.attendance_status === 'attended' ? 'Посещение' : evening.attendance_status === 'no_show' ? 'Не пришёл' : evening.registration_status === 'cancelled' ? 'Отменил запись' : registrationTimelineLabel(evening.registration_status), kind: 'Вечер' });
+      items.push({ id: `evening:${evening.id}`, date: (evening as any).evening_date || evening.created_at, title: (evening as any).evening_title || 'Игровой вечер', detail: getEveningTimelineLabel(evening), kind: 'Вечер' });
     }
     for (const task of playerDetails.tasks || []) {
       items.push({ id: `task:${task.id}`, date: task.completed_at || task.due_at || task.created_at, title: task.title, detail: task.status === 'done' ? 'Задача выполнена' : task.due_at ? `Срок ${fmtDate(task.due_at)}` : 'Задача без срока', kind: 'Задача' });
@@ -285,26 +282,28 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   }, [allGames, playerDetails]);
 
+
+  const contactHref = playerDetails?.telegram_username
+    ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}`
+    : playerDetails?.phone
+      ? `tel:${playerDetails.phone}`
+      : undefined;
+
   const handlePrimaryAction = async () => {
     if (!playerDetails || primaryBusy) return;
     setPrimaryBusy(true);
     setProfileError(null);
     setProfileMessage(null);
     try {
-      if (booking) {
-        if (booking.registration_status === 'registered' || booking.registration_status === 'invited') {
-          await api.updateParticipant(booking.id, { registration_status: 'confirmed' });
-          setProfileMessage('Участие подтверждено');
-          await refreshPlayer();
-        } else if (bookingEvening) {
-          setActivePlayerCardId(null);
-          setPlayerDetails(null);
-          onOpenEvening(bookingEvening.id);
-        }
-      } else if (inviteInfo.canInvite && nextEvening) {
-        const result = await api.invitePlayer(playerDetails.id, nextEvening.id, null, true);
-        setProfileMessage(result.message || 'Игрок добавлен в приглашения ближайшего вечера');
-        await refreshPlayer();
+      if (bookingEvening) {
+        setActivePlayerCardId(null);
+        setPlayerDetails(null);
+        onOpenEvening(bookingEvening.id);
+      } else if (contactHref) {
+        window.open(contactHref, playerDetails.telegram_username ? '_blank' : '_self', 'noopener,noreferrer');
+      } else {
+        setTaskError(null);
+        setShowTaskSheet(true);
       }
     } catch (err: any) {
       setProfileError(err?.message || 'Не удалось выполнить действие');
@@ -466,6 +465,8 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     }
   };
 
+  void openInviteSheet;
+
   const handleAvatarFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !playerDetails) return;
@@ -499,18 +500,13 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     }
   };
 
-  const primaryLabel = booking
-    ? (booking.registration_status === 'registered' || booking.registration_status === 'invited' ? 'Получить подтверждение' : 'Открыть в вечере')
-    : inviteInfo.canInvite && nextEvening
-      ? 'Пригласить на ближайший вечер'
-      : 'Приглашение недоступно';
+  const primaryLabel = bookingEvening
+    ? 'Открыть ближайший вечер'
+    : contactHref
+      ? 'Связаться'
+      : 'Создать задачу';
 
   const nextTask = playerDetails?.nextTask || null;
-  const contactHref = playerDetails?.telegram_username
-    ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}`
-    : playerDetails?.phone
-      ? `tel:${playerDetails.phone}`
-      : undefined;
 
   return (
     <div className="min-w-0 space-y-4">
@@ -541,7 +537,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
         <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
           {visiblePlayers.map((player, index) => {
             const lastVisit = player.days_since_last_visit !== null && player.days_since_last_visit !== undefined ? `Был ${player.days_since_last_visit} дн. назад` : 'Ещё не был';
-            const nextStep = Number(player.open_tasks_count || 0) > 0 ? `Задач: ${player.open_tasks_count}` : getCanInviteStatus(player).canInvite ? 'Можно пригласить' : getCanInviteStatus(player).reason;
+            const nextStep = Number(player.open_tasks_count || 0) > 0
+    ? `Задач: ${player.open_tasks_count}`
+    : player.contact_status !== 'normal'
+      ? getRussianContactStatusLabel(player.contact_status)
+      : 'Без активных задач';
             return (
               <button key={player.id} type="button" onClick={() => handleOpenCard(player.id)} className={`flex min-h-[72px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}>
                 <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
@@ -569,10 +569,9 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <button type="button" disabled={primaryBusy || (!booking && (!inviteInfo.canInvite || !nextEvening))} onClick={() => void handlePrimaryAction()} className="min-h-[50px] min-w-0 flex-1 rounded-[13px] bg-accent px-3 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{primaryBusy ? '…' : primaryLabel}</button>
+                <button type="button" disabled={primaryBusy} onClick={() => void handlePrimaryAction()} className="min-h-[50px] min-w-0 flex-1 rounded-[13px] bg-accent px-3 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{primaryBusy ? '…' : primaryLabel}</button>
                 <button type="button" onClick={() => setShowPlayerMenu(true)} className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[13px] border border-border-soft bg-surface-2 text-text-secondary" aria-label="Ещё действия"><MoreHorizontal className="h-5 w-5" /></button>
               </div>
-              {!booking && (!inviteInfo.canInvite || !nextEvening) ? <p className="text-[11px] leading-4 text-warning">{!nextEvening ? 'Нет ближайшего вечера для приглашения.' : inviteInfo.reason}</p> : null}
               {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 text-[12px] font-bold text-text-primary"><MessageSquare className="h-4 w-4 text-accent" /> Связаться</a> : null}
             </section>
 
@@ -581,7 +580,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
                 ['Последний визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
                 ['Игры', playerDetails.gameStats?.totalGames || 0],
                 ['Победы', playerDetails.gameStats?.wins || 0],
-                ['Следующее', bookingEvening ? fmtDate(bookingEvening.starts_at, true) : nextTask ? fmtDate(nextTask.due_at || nextTask.created_at, true) : 'Нет'],
+                ['Следующее', bookingEvening && booking ? `${fmtDate(bookingEvening.starts_at, true)} · ${getEveningResponseLabel(booking.registration_status, booking.arrival_status)}` : nextTask ? fmtDate(nextTask.due_at || nextTask.created_at, true) : 'Нет'],
               ].map(([label, value]) => <div key={String(label)} className="min-w-0"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[13px] font-bold text-text-primary">{value}</strong></div>)}
             </section>
 
@@ -650,7 +649,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
           <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
           <MenuButton icon={Clock3} label="Создать задачу" onClick={() => { setShowPlayerMenu(false); setTaskError(null); setShowTaskSheet(true); }} />
           <MenuButton icon={MessageSquare} label="Записать результат общения" onClick={() => { setShowPlayerMenu(false); setCommError(null); setShowCommSheet(true); }} />
-          <MenuButton icon={Send} label="Пригласить на другой вечер" onClick={() => void openInviteSheet()} disabled={!inviteInfo.canInvite} />
           {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
         </div>
       </MobileSheet>
@@ -675,8 +673,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     </div>
   );
 };
-
-const registrationTimelineLabel = (status: string) => status === 'confirmed' ? 'Подтвердил участие' : status === 'waitlist' ? 'Резерв' : status === 'invited' ? 'Приглашение' : 'Запись на вечер';
 
 const MenuButton: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string; onClick: () => void; disabled?: boolean; tone?: 'default' | 'danger' }> = ({ icon: Icon, label, onClick, disabled, tone = 'default' }) => (
   <button type="button" disabled={disabled} onClick={onClick} className={`inline-flex min-h-[48px] w-full items-center gap-3 rounded-[12px] border px-3 text-left text-[13px] font-semibold disabled:opacity-40 ${tone === 'danger' ? 'border-danger/25 bg-danger-soft text-danger' : 'border-border-soft bg-surface-2 text-text-primary'}`}><Icon className="h-4.5 w-4.5 shrink-0" /> {label}</button>

@@ -65,20 +65,22 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
     });
   });
 
-  describe('P0 Evening Capacity & Bulk Registration', () => {
-    it('should register participants up to capacity', async () => {
+  describe('P0 Evening Responses & Bulk Registration', () => {
+    it('should register participants without using capacity as a booking limit', async () => {
       const res = await request(app)
         .post(`/api/evenings/${eveningId}/participants/bulk`)
         .set('Cookie', organizerCookie)
         .send({
           player_ids: testPlayer10,
-          registration_status: 'confirmed',
+          registration_status: 'going',
           amount_due: 500,
         });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.addedCount).toBe(10);
+      expect(res.body.waitlistCount).toBe(0);
+      expect(res.body.participants.filter((p: any) => p.registration_status === 'waitlist')).toHaveLength(0);
     });
 
     it('should calculate debt and update payment status', async () => {
@@ -337,7 +339,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(moveRes.body.error).toContain('принадлежит другому вечеру');
     });
 
-    it('5. & 6. should enforce capacity limits and move overflow to waitlist', async () => {
+    it('5. & 6. table assignment never changes the evening response to waitlist', async () => {
       // Create table with capacity of 1
       const resTbl = await request(app)
         .post(`/api/evenings/${activeEveningId}/tables`)
@@ -364,13 +366,13 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(move1.status).toBe(200);
       expect(move1.body.registration_status).toBe('confirmed'); // stays confirmed because capacity has space
 
-      // Move player 2 to tiny table (already occupied). This should move player 2 to waitlist.
+      // The evening response is independent from game-table capacity.
       const move2 = await request(app)
         .patch(`/api/evenings/participants/${activePart2.id}/move-table`)
         .set('Cookie', organizerCookie)
         .send({ table_id: tinyTableId });
       expect(move2.status).toBe(200);
-      expect(move2.body.registration_status).toBe('waitlist'); // moved to waitlist due to capacity overflow
+      expect(move2.body.registration_status).toBe('confirmed');
     });
 
     it('7. & 8. should bulk move players via single bulk PATCH endpoint', async () => {
@@ -503,7 +505,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(part0.table_id).toBe(testTableId);
     });
 
-    it('2. confirming invited on full table sets status to waitlist', async () => {
+    it('2. changing a legacy invited response does not create waitlist', async () => {
       // Fill table with 2 confirmed players
       await request(app)
         .post(`/api/evenings/${testEveningId}/participants/bulk`)
@@ -526,10 +528,10 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         .send({ registration_status: 'confirmed' });
 
       expect(patchRes.status).toBe(200);
-      expect(patchRes.body.registration_status).toBe('waitlist');
+      expect(patchRes.body.registration_status).toBe('confirmed');
     });
 
-    it('3. bulk registration overflow: 2 capacity, 5 registered -> 2 occupied, 3 waitlist', async () => {
+    it('3. bulk registration is not limited by legacy table capacity', async () => {
       const freshEv = await request(app)
         .post('/api/evenings')
         .set('Cookie', organizerCookie)
@@ -549,15 +551,15 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         });
 
       expect(bulkRes.body.addedCount).toBe(5);
-      expect(bulkRes.body.waitlistCount).toBe(3);
+      expect(bulkRes.body.waitlistCount).toBe(0);
 
       const parts = await request(app)
         .get(`/api/evenings/${freshEv.body.id}/participants`)
         .set('Cookie', organizerCookie);
       const registered = parts.body.filter((p: any) => p.registration_status === 'registered');
       const waitlist = parts.body.filter((p: any) => p.registration_status === 'waitlist');
-      expect(registered.length).toBe(2);
-      expect(waitlist.length).toBe(3);
+      expect(registered.length).toBe(5);
+      expect(waitlist.length).toBe(0);
     });
 
     it('4. bulk invited does NOT fill table capacity', async () => {
@@ -596,7 +598,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(conf.registration_status).toBe('confirmed');
     });
 
-    it('5. PATCH capacity check enforcement', async () => {
+    it('5. response update is independent from legacy table capacity', async () => {
       const freshEv = await request(app)
         .post('/api/evenings')
         .set('Cookie', organizerCookie)
@@ -633,7 +635,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         .set('Cookie', organizerCookie)
         .send({ registration_status: 'confirmed' });
 
-      expect(patchRes.body.registration_status).toBe('waitlist');
+      expect(patchRes.body.registration_status).toBe('confirmed');
     });
 
     it('6. price 0 preservation', async () => {
@@ -736,7 +738,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       expect(res.body.nextEvening.id).not.toBe(pastEveningId);
     });
 
-    it('2. & 3. Invited players do not occupy seats, table returns correct occupied, free_spots, and waitlist', async () => {
+    it('2. & 3. overview reports evening responses instead of seat availability', async () => {
       // Add 1 invited, 2 confirmed, 1 waitlist player to future evening table (capacity 3)
       await request(app)
         .post(`/api/evenings/${futureEveningId}/participants/bulk`)
@@ -776,11 +778,12 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
 
       const table = nextEv.tables.find((t: any) => t.id === overviewTableId);
       expect(table).toBeDefined();
-      // Occupied should count ONLY confirmed and registered (2), NOT invited (1) or waitlist (1)
-      expect(table.occupied).toBe(2);
-      expect(table.free_spots).toBe(1); // 3 capacity - 2 occupied = 1
-      expect(table.invited_count).toBe(1);
-      expect(table.waitlist_count).toBe(1);
+      // Legacy confirmed/waitlist records remain readable, but the CRM reports intent, not seat availability.
+      expect(nextEv.goingCount).toBe(3);
+      expect(nextEv.unansweredCount).toBe(1);
+      expect(nextEv.respondedCount).toBe(3);
+      expect(nextEv.audienceCount).toBe(4);
+      expect(nextEv.waitlistCount).toBe(0);
     });
 
     it('4. Overdue, today, and no-deadline tasks are correctly separated', async () => {
@@ -930,7 +933,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       p5Player4 = p4.body.id;
     });
 
-    it('1. waitlistParticipants returns waitlisted participants', async () => {
+    it('1. legacy waitlist does not create a reserve action', async () => {
       // Find or create next evening
       let overview = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
       let targetEveningId = overview.body.nextEvening?.id;
@@ -952,7 +955,7 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
       const res = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie);
       expect(res.status).toBe(200);
       const waitlist = res.body.actionLists.waitlistParticipants;
-      expect(waitlist.some((p: any) => p.player_id === p5Player1)).toBe(true);
+      expect(waitlist.some((p: any) => p.player_id === p5Player1)).toBe(false);
     });
 
     it('2. Future unpaid participant is NOT counted as debtor in unpaidParticipants', async () => {
@@ -1009,10 +1012,15 @@ describe('Newmafia CRM In-Memory Integration Tests', () => {
         .set('Cookie', organizerCookie)
         .send({ title: 'Draft Evening for Debt P5', starts_at: pastDate, status: 'draft', default_price: 2000 });
 
-      await request(app)
+      const debtParticipant = await request(app)
         .post(`/api/evenings/${compEvRes.body.id}/participants`)
         .set('Cookie', organizerCookie)
         .send({ player_id: p5Player3, registration_status: 'registered', amount_due: 2000, amount_paid: 0 });
+
+      await request(app)
+        .patch(`/api/evening-participants/${debtParticipant.body.id}`)
+        .set('Cookie', organizerCookie)
+        .send({ attendance_status: 'attended' });
 
       await request(app)
         .patch(`/api/evenings/${compEvRes.body.id}`)

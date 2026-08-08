@@ -23,7 +23,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Запрещено изменять участников на завершённых вечерах' });
     }
 
-    if (data.table_id !== undefined || data.registration_status !== undefined) {
+    if (data.table_id !== undefined) {
       await assignParticipantToTable(db, req.params.id, data.table_id, data.registration_status);
       part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     }
@@ -53,6 +53,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     }
 
     const updateData: any = {
+      registration_status: data.table_id === undefined ? data.registration_status : undefined,
       attendance_status: data.attendance_status,
       arrival_status: data.arrival_status,
       payment_status: computedPaymentStatus,

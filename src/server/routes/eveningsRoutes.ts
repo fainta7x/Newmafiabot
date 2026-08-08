@@ -51,20 +51,8 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
       [eveningId, title, startsAtIso, defaultPrice, nowIso, nowIso]
     );
 
-    const table1Id = `tbl_${Date.now()}_1`;
-    const table2Id = `tbl_${Date.now()}_2`;
-
-    await db.run(
-      `INSERT INTO evening_tables (id, evening_id, name, format, capacity, sort_order, created_at, updated_at)
-       VALUES (?, ?, 'Основной стол', 'STANDARD', 10, 1, ?, ?),
-              (?, ?, 'Стол новичков', 'NOVICE', 10, 2, ?, ?)`,
-      [table1Id, eveningId, nowIso, nowIso, table2Id, eveningId, nowIso, nowIso]
-    );
-
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
-    const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [eveningId]);
-
-    res.status(201).json({ ...evening, tables });
+    res.status(201).json({ ...evening, tables: [] });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
   }
@@ -205,18 +193,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Organizer detailed view
-    let tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [req.params.id]);
-    if (tables.length === 0) {
-      const nowIso = new Date().toISOString();
-      const defaultTableId = `tbl_${Date.now()}_def`;
-      await db.run(
-        `INSERT INTO evening_tables (id, evening_id, name, format, capacity, sort_order, created_at, updated_at)
-         VALUES (?, ?, 'Основной стол', ?, ?, 1, ?, ?)`,
-        [defaultTableId, evening.id, evening.format || 'STANDARD', evening.capacity || 10, nowIso, nowIso]
-      );
-      tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC', [req.params.id]);
-    }
+    // Opening CRM never creates a game table as a side effect.
+    const tables = await db.all(
+      'SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC',
+      [req.params.id],
+    );
 
     const participants = await db.all(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
@@ -362,32 +343,13 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     let table: any = null;
     if (table_id) {
       table = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [table_id, req.params.id]);
-      if (!table) {
-        return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
-      }
+      if (!table) return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
     }
 
-    const defaultPrice = amount_due ?? (table ? (table.default_price ?? evening.default_price) : evening.default_price);
+    const defaultPrice = amount_due ?? evening.default_price;
     const now = new Date().toISOString();
     let addedCount = 0;
     let skippedCount = 0;
-    let waitlistCount = 0;
-
-    // Table capacity check preparation: count only registered and confirmed participants
-    let currentRegCount = 0;
-    if (table_id) {
-      const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
-        [table_id]
-      );
-      currentRegCount = countRow?.cnt || 0;
-    } else {
-      const currentRegRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
-        [req.params.id]
-      );
-      currentRegCount = currentRegRow?.cnt || 0;
-    }
 
     await db.exec('BEGIN TRANSACTION');
     try {
@@ -400,28 +362,8 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
         if (existing) {
           skippedCount++;
         } else {
-          let regStatus = registration_status;
-          const limit = table ? table.capacity : evening.capacity;
-
-          if (registration_status === 'invited' || registration_status === 'cancelled') {
-            regStatus = registration_status;
-            addedCount++;
-          } else if (registration_status === 'waitlist') {
-            regStatus = 'waitlist';
-            waitlistCount++;
-            addedCount++;
-          } else {
-            // registered or confirmed
-            if (currentRegCount >= limit) {
-              regStatus = 'waitlist';
-              waitlistCount++;
-              addedCount++;
-            } else {
-              regStatus = registration_status;
-              currentRegCount++;
-              addedCount++;
-            }
-          }
+          const regStatus = registration_status;
+          addedCount++;
 
           const partId = crypto.randomUUID();
           await db.run(
@@ -465,7 +407,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     res.json({
       success: true,
       addedCount,
-      waitlistCount,
+      waitlistCount: 0,
       skippedCount,
       participants: updatedParticipants,
     });
@@ -595,37 +537,14 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Игрок уже записан на этот вечер' });
     }
 
-    // Table & Capacity Check
     let targetTable: any = null;
     if (data.table_id) {
       targetTable = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [data.table_id, req.params.id]);
-      if (!targetTable) {
-        return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
-      }
+      if (!targetTable) return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
     }
 
-    const calculatedAmountDue = data.amount_due ?? (targetTable ? (targetTable.default_price ?? evening.default_price) : evening.default_price);
-
-    let finalRegStatus = data.registration_status;
-    if (targetTable) {
-      const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
-        [data.table_id]
-      );
-      const currentCount = countRow?.cnt || 0;
-      if (currentCount >= targetTable.capacity && finalRegStatus !== 'cancelled' && !(req.body as any).force_over_capacity) {
-        finalRegStatus = 'waitlist';
-      }
-    } else {
-      const regCountRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
-        [req.params.id]
-      );
-      const regCount = regCountRow?.cnt || 0;
-      if (regCount >= evening.capacity && finalRegStatus !== 'cancelled' && !(req.body as any).force_over_capacity) {
-        finalRegStatus = 'waitlist';
-      }
-    }
+    const calculatedAmountDue = data.amount_due ?? evening.default_price;
+    const finalRegStatus = data.registration_status;
 
     const partId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -694,7 +613,8 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
     const pendingParticipants = await db.all(
       `SELECT ep.*, p.nickname FROM evening_participants ep
        JOIN players p ON ep.player_id = p.id
-       WHERE ep.evening_id = ? AND ep.attendance_status = 'pending' AND ep.registration_status NOT IN ('cancelled', 'waitlist')`,
+       WHERE ep.evening_id = ? AND ep.attendance_status = 'pending'
+         AND ep.registration_status IN ('going', 'late', 'registered', 'confirmed')`,
       [req.params.id]
     );
 
@@ -723,7 +643,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
 
       for (const p of participants) {
         // Exclude cancelled and waitlist from financial debt calculation
-        if (p.registration_status === 'cancelled' || p.registration_status === 'waitlist' || p.payment_status === 'waived') {
+        if (['cancelled', 'declined', 'invited', 'thinking', 'waitlist'].includes(p.registration_status) || p.payment_status === 'waived') {
           continue;
         }
 

@@ -1,0 +1,112 @@
+name: ChatGPT export cleanup implementation
+on:
+  push:
+    branches: [automation/export-cleanup-2026-08-09]
+permissions:
+  contents: write
+jobs:
+  implement-and-visualize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Capture staged inputs and guard exact current refs
+        run: |
+          set -euo pipefail
+          cp automation/exportNoirTheme.next.ts /tmp/exportNoirTheme.next.ts
+          cp automation/seatingExport.next.ts /tmp/seatingExport.next.ts
+          cp automation/patch_export_cleanup.py /tmp/patch_export_cleanup.py
+          cp automation/render_export_cleanup_qa.ts /tmp/render_export_cleanup_qa.ts
+          git fetch origin main chatgpt-write-test
+          MAIN_SHA="$(git rev-parse origin/main)"
+          CHAT_SHA="$(git rev-parse origin/chatgpt-write-test)"
+          echo "main=$MAIN_SHA"
+          echo "chatgpt-write-test=$CHAT_SHA"
+          test "$MAIN_SHA" = "ed1407f6044431755b17995c30469f4751908d61"
+          test "$CHAT_SHA" = "$MAIN_SHA"
+          git checkout --detach "$MAIN_SHA"
+          test -z "$(git status --short)"
+      - name: Apply one focused export cleanup pass
+        run: |
+          set -euo pipefail
+          python /tmp/patch_export_cleanup.py
+          printf '%s\n' \
+            src/components/crm/tournaments/ResultsImageExportModal.tsx \
+            src/components/crm/tournaments/SeatingExportModal.tsx \
+            src/lib/exportNoirTheme.ts \
+            src/lib/seatingExport.ts \
+            src/lib/tournamentResultsExport.ts \
+            src/tests/resultExportPublication.test.ts \
+            src/tests/resultsImageExportModal.test.tsx \
+            src/tests/seatingExport.test.ts | sort > /tmp/expected-files.txt
+          git diff --name-only | sort > /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          ! grep -E 'mafia_crm|checkpoint|player-avatars|src/db|src/server|src/lib/api' /tmp/actual-files.txt
+      - name: Focused reachable-export static audit
+        run: |
+          set -euo pipefail
+          test "$(git grep -n 'generateOfficialTournamentResultsSvg' -- 'src/*.ts' 'src/**/*.ts' 'src/**/*.tsx' ':!src/tests/**' | wc -l)" -eq 1
+          ! grep -E 'NewMafia CRM|#0F172A|#1E293B|#2563EB|ФИНАЛЬНЫЙ РЕЙТИНГ · ПРОДОЛЖЕНИЕ|ПРОМЕЖУТОЧНЫЕ ИТОГИ · ПРОДОЛЖЕНИЕ|ИТОГИ ИГРЫ №.*ПРОДОЛЖЕНИЕ' \
+            src/lib/seatingExport.ts \
+            src/lib/tournamentResultsExport.ts \
+            src/components/crm/tournaments/ResultsImageExportModal.tsx
+          ! grep -E 'Скачать одним файлом|архивный длинный PNG' src/components/crm/tournaments/ResultsImageExportModal.tsx
+      - name: Install dependencies once for focused verification
+        run: npm ci
+      - name: Run only focused export tests
+        run: npx vitest run src/tests/resultExportPublication.test.ts src/tests/seatingExport.test.ts src/tests/resultsImageExportModal.test.tsx
+      - name: Render six current real-data export samples
+        run: |
+          set -euo pipefail
+          cp /tmp/render_export_cleanup_qa.ts ./render_export_cleanup_qa.ts
+          npx tsx render_export_cleanup_qa.ts
+          rm render_export_cleanup_qa.ts
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin >/dev/null
+          for svg in visual-qa/export-cleanup/*.svg; do
+            png="${svg%.svg}.png"
+            phone="${svg%.svg}-phone.png"
+            rsvg-convert "$svg" -o "$png"
+            rsvg-convert -w 390 "$svg" -o "$phone"
+          done
+          test "$(find visual-qa/export-cleanup -maxdepth 1 -name '*.png' ! -name '*-phone.png' | wc -l)" -eq 6
+      - name: Commit candidate without staging harness
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            src/components/crm/tournaments/ResultsImageExportModal.tsx \
+            src/components/crm/tournaments/SeatingExportModal.tsx \
+            src/lib/exportNoirTheme.ts \
+            src/lib/seatingExport.ts \
+            src/lib/tournamentResultsExport.ts \
+            src/tests/resultExportPublication.test.ts \
+            src/tests/resultsImageExportModal.test.tsx \
+            src/tests/seatingExport.test.ts | sort > /tmp/expected-files.txt
+          git diff --name-only | sort > /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            src/components/crm/tournaments/ResultsImageExportModal.tsx \
+            src/components/crm/tournaments/SeatingExportModal.tsx \
+            src/lib/exportNoirTheme.ts \
+            src/lib/seatingExport.ts \
+            src/lib/tournamentResultsExport.ts \
+            src/tests/resultExportPublication.test.ts \
+            src/tests/resultsImageExportModal.test.tsx \
+            src/tests/seatingExport.test.ts
+          git commit -m "fix(tournaments): unify Noir export publications"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          echo "candidate_sha=$CANDIDATE_SHA"
+          git push origin "$CANDIDATE_SHA:refs/heads/automation/export-cleanup-candidate-2026-08-09"
+      - name: Upload focused visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-cleanup-visual-qa
+          path: visual-qa/export-cleanup/
+          retention-days: 1

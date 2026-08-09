@@ -146,7 +146,7 @@ export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMa
     ${renderNoirExportBrandHeader('РАССАДКА ИГРОКОВ')}
     ${svgTextLines(titleLines, margin, 164, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}
     <text x="${margin}" y="${222 + titleExtra}" font-family="${font}" font-size="20" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
-    <text x="${width - margin}" y="${222 + titleExtra}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>
+    <text x="${width - margin}" y="${tableTop - 22}" text-anchor="end" font-family="${font}" font-size="15" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>
     <line x1="${margin}" y1="${tableTop - 8}" x2="${width - margin}" y2="${tableTop - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
     <rect x="${margin}" y="${tableTop}" width="${tableWidth}" height="${tableHeaderHeight}" fill="${NOIR_EXPORT_COLORS.surface}" opacity="0.72"/>
     <text x="${margin + 18}" y="${tableTop + 42}" font-family="${font}" font-size="18" font-weight="850" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="1.2">ИГРОК</text>

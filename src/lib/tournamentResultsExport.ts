@@ -1255,16 +1255,15 @@ interface PublicationRankingRowLayout {
   nameLines: string[];
   nameY: number;
   nameLineHeight: number;
-  winsY: number;
+  contextLines: string[];
+  contextY: number;
   scoreY: number;
   scoreRows: PublicationScoreRow[];
-  tieY: number | null;
-  tieLines: string[];
   rowHeight: number;
 }
 
 function layoutPublicationScoreGrid(components: OfficialScoreComponent[], contentWidth: number): PublicationScoreRow[] {
-  const fontSize = 21;
+  const fontSize = 19;
   const gap = 24;
   const columnWidth = (contentWidth - gap) / 2;
   const rows: PublicationScoreRow[] = [];
@@ -1276,7 +1275,7 @@ function layoutPublicationScoreGrid(components: OfficialScoreComponent[], conten
   };
   for (const component of components) {
     const text = scoreComponentDisplay(component);
-    const fullWidth = component.kind === 'ci' || estimateOfficialTextWidth(text, fontSize) > columnWidth;
+    const fullWidth = estimateOfficialTextWidth(text, fontSize) > columnWidth;
     const cell: PublicationScoreCell = { component, text, column: pending.length as 0 | 1, fullWidth };
     if (fullWidth) {
       flush();
@@ -1291,21 +1290,19 @@ function layoutPublicationScoreGrid(components: OfficialScoreComponent[], conten
 }
 
 function layoutPublicationRankingRow(item: OfficialStandingPresentation, contentWidth: number): PublicationRankingRowLayout {
-  const nameFontSize = 29;
-  const nameLineHeight = 31;
+  const nameFontSize = 27;
+  const nameLineHeight = 28;
   const nameLines = wrapExportText(item.display_name, Math.max(14, Math.floor(contentWidth / (nameFontSize * 0.53))), 2);
-  const nameY = 42;
+  const nameY = 30;
   const nameBottom = nameY + Math.max(0, nameLines.length - 1) * nameLineHeight;
-  const winsY = nameBottom + 28;
+  const contextText = [formatWinsSummary(item.wins, item.games_played), ...buildTieBreakStats(item)].join(' · ');
+  const contextLines = wrapExportText(contextText, Math.max(34, Math.floor(contentWidth / (18 * 0.53))), 2);
+  const contextY = nameBottom + 22;
   const scoreRows = layoutPublicationScoreGrid(getOfficialScoreComponents(item), contentWidth);
-  const scoreY = winsY + 30;
-  const scoreBottom = scoreRows.length ? scoreY + (scoreRows.length - 1) * 27 + 18 : winsY;
-  const tieStats = buildTieBreakStats(item);
-  const tieLines = tieStats.length ? wrapExportText(tieStats.join(' · '), Math.max(28, Math.floor(contentWidth / (19 * 0.53))), 2) : [];
-  const tieY = tieLines.length ? scoreBottom + 24 : null;
-  const tieBottom = tieY === null ? scoreBottom : tieY + Math.max(0, tieLines.length - 1) * 24 + 16;
-  const rowHeight = Math.max(138, tieBottom + 22);
-  return { item, nameLines, nameY, nameLineHeight, winsY, scoreY, scoreRows, tieY, tieLines, rowHeight };
+  const scoreY = contextY + Math.max(0, contextLines.length - 1) * 20 + 28;
+  const scoreBottom = scoreRows.length ? scoreY + Math.max(0, scoreRows.length - 1) * 22 + 14 : contextY + 14;
+  const rowHeight = Math.max(124, scoreBottom + 16);
+  return { item, nameLines, nameY, nameLineHeight, contextLines, contextY, scoreY, scoreRows, rowHeight };
 }
 
 function renderPublicationScoreGrid(rows: PublicationScoreRow[], x: number, y: number, contentWidth: number): string {
@@ -1315,7 +1312,7 @@ function renderPublicationScoreGrid(rows: PublicationScoreRow[], x: number, y: n
   rows.forEach((row, rowIndex) => {
     row.cells.forEach((cell) => {
       const cx = cell.fullWidth ? x : x + cell.column * (columnWidth + gap);
-      svg += `<text x="${cx}" y="${y + rowIndex * 27}" font-family="${NOIR_EXPORT_FONT_FAMILY}" font-size="21" font-weight="700" fill="${officialScoreColor(cell.component.kind)}" font-variant-numeric="tabular-nums">${escapeXml(cell.text)}</text>`;
+      svg += `<text x="${cx}" y="${y + rowIndex * 22}" font-family="${NOIR_EXPORT_FONT_FAMILY}" font-size="19" font-weight="700" fill="${officialScoreColor(cell.component.kind)}" font-variant-numeric="tabular-nums">${escapeXml(cell.text)}</text>`;
     });
   });
   return svg;
@@ -1331,15 +1328,15 @@ function generateRankingPublicationSvg(
   const font = NOIR_EXPORT_FONT_FAMILY;
   const titleLines = wrapExportText(tournament.title, 32, 2);
   const titleExtra = Math.max(0, titleLines.length - 1) * 48;
-  const headerHeight = 228 + titleExtra;
-  const rankingHeaderHeight = 68;
-  const rankX = margin + 22;
-  const avatarX = margin + 52;
-  const avatarSize = 64;
-  const contentX = margin + 136;
+  const headerHeight = 218 + titleExtra;
+  const rankingHeaderHeight = 54;
+  const rankX = margin + 18;
+  const avatarX = margin + 42;
+  const avatarSize = 58;
+  const contentX = margin + 112;
   const totalRight = width - margin;
-  const totalColumnWidth = 112;
-  const contentRight = totalRight - totalColumnWidth - 28;
+  const totalColumnWidth = 94;
+  const contentRight = totalRight - totalColumnWidth - 22;
   const contentWidth = contentRight - contentX;
   const layouts = standings.map((item) => layoutPublicationRankingRow(item, contentWidth));
   const rowsHeight = layouts.reduce((sum, row) => sum + row.rowHeight, 0);
@@ -1355,11 +1352,11 @@ function generateRankingPublicationSvg(
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     ${renderNoirExportBackground(width, height)}
     ${renderNoirExportBrandHeader(options.section)}
-    ${officialSvgTextLines(titleLines, margin, 160, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}
-    <text x="${margin}" y="${214 + titleExtra}" font-family="${font}" font-size="19" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
+    ${officialSvgTextLines(titleLines, margin, 150, 44, `font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.7"`)}
+    <text x="${margin}" y="${190 + titleExtra}" font-family="${font}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
     <line x1="${margin}" y1="${headerHeight - 8}" x2="${width - margin}" y2="${headerHeight - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
-    <text x="${margin}" y="${headerHeight + 43}" font-family="${font}" font-size="30" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="1.0">${escapeXml(options.heading)}</text>
-    <text x="${totalRight}" y="${headerHeight + 43}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">${standings.length} ${russianPlural(standings.length, 'участник', 'участника', 'участников')}</text>`;
+    <text x="${margin}" y="${headerHeight + 37}" font-family="${font}" font-size="28" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="1.0">${escapeXml(options.heading)}</text>
+    <text x="${totalRight}" y="${headerHeight + 37}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">${standings.length} ${russianPlural(standings.length, 'участник', 'участника', 'участников')}</text>`;
 
   let y = rowsStart;
   layouts.forEach((layout, index) => {
@@ -1370,15 +1367,12 @@ function generateRankingPublicationSvg(
       svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="${layout.rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.16"/>`;
     }
     if (place <= 3) svg += `<rect x="${margin}" y="${y + 12}" width="3" height="${layout.rowHeight - 24}" fill="${accent}" opacity="0.85"/>`;
-    svg += `<text x="${rankX}" y="${y + 48}" text-anchor="middle" font-family="${font}" font-size="31" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(place).padStart(2, '0')}</text>
-      ${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 17, avatarSize, `publication-ranking-${index}`, place <= 3 ? accent : '#39353B', place <= 3 ? 2 : 1.5)}
-      ${officialSvgTextLines(layout.nameLines, contentX, y + layout.nameY, layout.nameLineHeight, `font-family="${font}" font-size="29" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
-      <text x="${contentX}" y="${y + layout.winsY}" font-family="${font}" font-size="20" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>
-      <text x="${totalRight}" y="${y + 49}" text-anchor="end" font-family="${font}" font-size="42" font-weight="900" fill="${place <= 3 ? accent : NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
+    svg += `<text x="${rankX}" y="${y + 41}" text-anchor="middle" font-family="${font}" font-size="29" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(place).padStart(2, '0')}</text>
+      ${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 12, avatarSize, `publication-ranking-${index}`, place <= 3 ? accent : '#39353B', place <= 3 ? 2 : 1.5)}
+      ${officialSvgTextLines(layout.nameLines, contentX, y + layout.nameY, layout.nameLineHeight, `font-family="${font}" font-size="27" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      ${officialSvgTextLines(layout.contextLines, contentX, y + layout.contextY, 20, `font-family="${font}" font-size="18" font-weight="650" fill="#AAA39A"`)}
+      <text x="${totalRight}" y="${y + 42}" text-anchor="end" font-family="${font}" font-size="42" font-weight="900" fill="${place <= 3 ? accent : NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
       ${renderPublicationScoreGrid(layout.scoreRows, contentX, y + layout.scoreY, contentWidth)}`;
-    if (layout.tieY !== null) {
-      svg += officialSvgTextLines(layout.tieLines, contentX, y + layout.tieY, 24, `font-family="${font}" font-size="19" font-weight="600" fill="#746E68"`);
-    }
     svg += `<line x1="${margin}" y1="${y + layout.rowHeight}" x2="${width - margin}" y2="${y + layout.rowHeight}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>`;
     y += layout.rowHeight;
   });

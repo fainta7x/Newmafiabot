@@ -1,0 +1,73 @@
+name: ChatGPT finalize corrected Noir export cleanup
+on:
+  push:
+    branches: [automation/export-cleanup-finalize-v2-2026-08-09]
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Guard exact refs and corrected candidate scope
+        run: |
+          set -euo pipefail
+          git fetch origin main chatgpt-write-test automation/export-cleanup-candidate-2026-08-09
+          MAIN_SHA="$(git rev-parse origin/main)"
+          CHAT_SHA="$(git rev-parse origin/chatgpt-write-test)"
+          CANDIDATE_SHA="$(git rev-parse origin/automation/export-cleanup-candidate-2026-08-09)"
+          echo "main=$MAIN_SHA"
+          echo "chatgpt-write-test=$CHAT_SHA"
+          echo "candidate=$CANDIDATE_SHA"
+          test "$MAIN_SHA" = "ed1407f6044431755b17995c30469f4751908d61"
+          test "$CHAT_SHA" = "$MAIN_SHA"
+          test "$CANDIDATE_SHA" = "9a3bc8cf6a4b270404c5615129235cfda2ebd893"
+          printf '%s\n' \
+            src/components/crm/tournaments/ResultsImageExportModal.tsx \
+            src/components/crm/tournaments/SeatingExportModal.tsx \
+            src/lib/exportNoirTheme.ts \
+            src/lib/seatingExport.ts \
+            src/lib/tournamentResultsExport.ts \
+            src/tests/resultExportPublication.test.ts \
+            src/tests/resultsImageExportModal.test.tsx \
+            src/tests/seatingExport.test.ts | sort > /tmp/expected.txt
+          git diff --name-only "$MAIN_SHA..$CANDIDATE_SHA" | sort > /tmp/actual.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          ! grep -E 'mafia_crm|checkpoint|player-avatars|src/db|src/server|src/lib/api' /tmp/actual.txt
+          git checkout --detach "$CANDIDATE_SHA"
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck corrected candidate
+        run: npm run typecheck
+      - name: Production build once
+        run: npm run build
+      - name: Diff check once
+        run: git diff --check ed1407f6044431755b17995c30469f4751908d61 9a3bc8cf6a4b270404c5615129235cfda2ebd893
+      - name: Create one clean commit and fast-forward working branches
+        run: |
+          set -euo pipefail
+          git fetch origin main chatgpt-write-test
+          test "$(git rev-parse origin/main)" = "ed1407f6044431755b17995c30469f4751908d61"
+          test "$(git rev-parse origin/chatgpt-write-test)" = "ed1407f6044431755b17995c30469f4751908d61"
+          TREE="$(git rev-parse '9a3bc8cf6a4b270404c5615129235cfda2ebd893^{tree}')"
+          export GIT_AUTHOR_NAME="ChatGPT Patch Bot"
+          export GIT_AUTHOR_EMAIL="actions@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="ChatGPT Patch Bot"
+          export GIT_COMMITTER_EMAIL="actions@users.noreply.github.com"
+          FINAL_SHA="$(printf '%s\n' 'fix(tournaments): finish Noir export publication system' | git commit-tree "$TREE" -p ed1407f6044431755b17995c30469f4751908d61)"
+          echo "final_sha=$FINAL_SHA"
+          test "$(git rev-parse "$FINAL_SHA^{tree}")" = "$TREE"
+          git push --atomic origin \
+            "$FINAL_SHA:refs/heads/main" \
+            "$FINAL_SHA:refs/heads/chatgpt-write-test"
+          git fetch origin main chatgpt-write-test
+          test "$(git rev-parse origin/main)" = "$FINAL_SHA"
+          test "$(git rev-parse origin/chatgpt-write-test)" = "$FINAL_SHA"
+          echo "verified_main=$(git rev-parse origin/main)"
+          echo "verified_chat=$(git rev-parse origin/chatgpt-write-test)"

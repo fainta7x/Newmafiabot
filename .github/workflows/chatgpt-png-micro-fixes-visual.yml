@@ -1,0 +1,150 @@
+name: ChatGPT tournament PNG micro fixes visual
+on:
+  push:
+    branches: [automation/png-micro-fixes-control-2026-08-09]
+permissions:
+  contents: write
+jobs:
+  prepare-and-render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Capture actual source state once
+        run: |
+          set -euo pipefail
+          cp automation/patch_png_micro_fixes.py /tmp/patch_png_micro_fixes.py
+          git fetch origin main chatgpt-write-test
+          MAIN_SHA="$(git rev-parse origin/main)"
+          CHAT_SHA="$(git rev-parse origin/chatgpt-write-test)"
+          echo "source_branch=main"
+          echo "source_head=$MAIN_SHA"
+          echo "chatgpt_write_test_head=$CHAT_SHA"
+          test "$MAIN_SHA" = "050a606b9fcfbd85ff710ef69ba75358905f4546"
+          test "$CHAT_SHA" = "$MAIN_SHA"
+          git checkout --detach "$MAIN_SHA"
+          echo "git_status_short_begin"
+          git status --short
+          echo "git_status_short_end"
+      - name: Apply focused PNG presentation patch
+        run: |
+          set -euo pipefail
+          python /tmp/patch_png_micro_fixes.py
+          changed="$(git diff --name-only)"
+          test "$changed" = "src/lib/tournamentResultsExport.ts"
+          ! git diff -- src/lib/tournamentResultsExport.ts | grep -q 'mafia_crm\|player-avatars'
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate exactly one current tournament-results PNG
+        run: |
+          set -euo pipefail
+          cat > /tmp/render-current-official.ts <<'TS'
+          import fs from 'fs';
+          import { createDatabaseConnection, restoreCheckpointFromGzB64 } from './src/db/index.ts';
+          import { resolveRepositoryPlayerAvatarPath } from './src/lib/playerAvatarManifest.ts';
+          import { internalGetStandings, internalGetNominations } from './src/server/routes/tournamentsRoutes.ts';
+          import { loadTournamentAwardSnapshot } from './src/server/services/tournamentAwardsService.ts';
+          import { buildOfficialTournamentResultsPresentation, generateOfficialTournamentResultsSvg } from './src/lib/tournamentResultsExport.ts';
+
+          async function main() {
+            const dbPath = '/tmp/newmafia-png-micro-fixes.sqlite';
+            fs.rmSync(dbPath, { force: true });
+            if (!restoreCheckpointFromGzB64(dbPath)) throw new Error('Canonical repository checkpoint could not be materialized');
+            const db = createDatabaseConnection(dbPath);
+            fs.mkdirSync('visual-qa', { recursive: true });
+            try {
+              const tournament = await db.get<any>('SELECT * FROM tournaments ORDER BY date DESC, created_at DESC LIMIT 1');
+              if (!tournament) throw new Error('Current canonical snapshot has no tournament');
+              const tournamentId = String(tournament.id);
+              const standingsData = await internalGetStandings(db, tournamentId);
+              const nominationsData = await internalGetNominations(db, tournamentId);
+              const awardSnapshot = await loadTournamentAwardSnapshot(db, tournamentId);
+              const avatarRows = await db.all<any>(`
+                SELECT tp.id AS participant_id, tp.player_id, pa.mime_type, pa.image_data
+                  FROM tournament_participants tp
+                  LEFT JOIN player_avatars pa ON pa.player_id = tp.player_id
+                 WHERE tp.tournament_id = ?
+              `, [tournamentId]);
+              const avatars: Record<string, string> = {};
+              for (const row of avatarRows) {
+                let bytes: Buffer | null = null;
+                let mime = row.mime_type || 'image/jpeg';
+                if (row.image_data) {
+                  bytes = Buffer.isBuffer(row.image_data) ? row.image_data : Buffer.from(row.image_data);
+                } else {
+                  const repositoryPath = resolveRepositoryPlayerAvatarPath(String(row.player_id), process.cwd());
+                  if (repositoryPath) {
+                    bytes = fs.readFileSync(repositoryPath);
+                    mime = repositoryPath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+                  }
+                }
+                if (bytes) avatars[String(row.participant_id)] = `data:${mime};base64,${bytes.toString('base64')}`;
+              }
+
+              const presentation = buildOfficialTournamentResultsPresentation(
+                tournament,
+                standingsData.standings || [],
+                awardSnapshot.slots || [],
+                new Date('2026-08-09T08:00:00.000Z'),
+                avatars,
+                nominationsData.nominations || [],
+              );
+              const rendered = generateOfficialTournamentResultsSvg(presentation);
+              const svg = rendered.svg;
+
+              if (/font-size="340"[^>]*>01<\/text>/.test(svg)) throw new Error('Champion decorative 01 still present');
+              if (/font-size="94"[^>]*>0[23]<\/text>/.test(svg)) throw new Error('Secondary decorative podium numeral still present');
+              for (let place = 1; place <= 10; place += 1) {
+                const label = String(place).padStart(2, '0');
+                if (!svg.includes(`>${label}</text>`)) throw new Error(`Ranking position ${label} missing`);
+              }
+              if (/>Баллы(?:\s|<)/i.test(svg)) throw new Error('Generic award label Баллы remains in official PNG');
+              if (/Доп\.\s*баллы/i.test(svg)) throw new Error('Generic award label Доп. баллы remains in official PNG');
+              if (!svg.includes('Оценка судей')) throw new Error('Human primary nomination metric is missing');
+              if (!svg.includes('Игровые начисления')) throw new Error('Human secondary nomination metric is missing');
+              if (/РЕШЕНИЕ ГЛАВНОГО СУДЬИ|ЖЕРЕБ|СЛУЧАЙН/i.test(svg)) throw new Error('Forbidden manual/random resolution copy returned');
+
+              fs.writeFileSync('visual-qa/tournament-results-current.svg', svg);
+              console.log(JSON.stringify({
+                tournament: tournament.title,
+                status: tournament.status,
+                standings: (standingsData.standings || []).length,
+                nominations: (nominationsData.nominations || []).length,
+                avatars: Object.keys(avatars).length,
+                width: rendered.width,
+                height: rendered.height,
+              }, null, 2));
+            } finally {
+              db.sqlite.close();
+              fs.rmSync(dbPath, { force: true });
+            }
+          }
+          main().catch((error) => { console.error(error); process.exit(1); });
+          TS
+          npx tsx /tmp/render-current-official.ts
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin >/dev/null
+          rsvg-convert visual-qa/tournament-results-current.svg -o visual-qa/tournament-results-current.png
+          file visual-qa/tournament-results-current.png
+          test "$(find visual-qa -maxdepth 1 -name '*.png' | wc -l)" -eq 1
+      - name: Commit candidate without touching main
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/tournamentResultsExport.ts
+          git commit -m "fix(tournaments): polish official results PNG details"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          echo "candidate_sha=$CANDIDATE_SHA"
+          git push origin "$CANDIDATE_SHA:refs/heads/automation/png-micro-fixes-candidate-2026-08-09"
+      - name: Upload single visual QA PNG
+        uses: actions/upload-artifact@v4
+        with:
+          name: tournament-results-png-micro-fixes
+          path: visual-qa/tournament-results-current.png
+          retention-days: 1

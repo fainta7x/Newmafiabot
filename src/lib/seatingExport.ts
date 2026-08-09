@@ -1,4 +1,12 @@
 import { Tournament } from './api.ts';
+import {
+  NOIR_EXPORT_COLORS,
+  NOIR_EXPORT_FONT_FAMILY,
+  NOIR_EXPORT_LAYOUT,
+  renderNoirExportBackground,
+  renderNoirExportBrandHeader,
+  renderNoirExportFooter,
+} from './exportNoirTheme.ts';
 
 export interface SeatingMatrixRow {
   participantId: string;
@@ -33,50 +41,33 @@ export function buildSeatingMatrix(tournament: Tournament): SeatingMatrixResult 
   const gameNumbers = sortedGames.map((g) => g.game_number);
   for (let i = 1; i <= 10; i++) {
     if (!gameNumbers.includes(i)) {
-      return {
-        valid: false,
-        rows: [],
-        error: `В турнире отсутствует Игра №${i}`,
-      };
+      return { valid: false, rows: [], error: `В турнире отсутствует Игра №${i}` };
     }
   }
 
   const sortedParticipants = [...tournament.participants].sort(
-    (a, b) => a.participant_number - b.participant_number
+    (a, b) => a.participant_number - b.participant_number,
   );
-
   const rows: SeatingMatrixRow[] = [];
 
-  for (const p of sortedParticipants) {
+  for (const participant of sortedParticipants) {
     const gameSeats: (number | null)[] = [];
-
-    for (let gIdx = 0; gIdx < 10; gIdx++) {
-      const game = sortedGames[gIdx];
-      if (!game || !game.seats || game.seats.length === 0) {
+    for (let gameIndex = 0; gameIndex < 10; gameIndex += 1) {
+      const game = sortedGames[gameIndex];
+      if (!game?.seats?.length) {
+        return { valid: false, rows: [], error: `В Игре №${gameIndex + 1} отсутствует рассадка` };
+      }
+      const seat = game.seats.find((item) => item.participant_id === participant.id);
+      if (!seat || typeof seat.seat_number !== 'number') {
         return {
           valid: false,
           rows: [],
-          error: `В Игре №${gIdx + 1} отсутствует рассадка`,
+          error: `Для игрока "${participant.display_name}" не найдено место в Игре №${gameIndex + 1}`,
         };
       }
-
-      const seatObj = game.seats.find((s) => s.participant_id === p.id);
-      if (!seatObj || typeof seatObj.seat_number !== 'number') {
-        return {
-          valid: false,
-          rows: [],
-          error: `Для игрока "${p.display_name}" не найдено место в Игре №${gIdx + 1}`,
-        };
-      }
-
-      gameSeats.push(seatObj.seat_number);
+      gameSeats.push(seat.seat_number);
     }
-
-    rows.push({
-      participantId: p.id,
-      displayName: p.display_name,
-      gameSeats,
-    });
+    rows.push({ participantId: participant.id, displayName: participant.display_name, gameSeats });
   }
 
   return { valid: true, rows };
@@ -91,118 +82,109 @@ export function getSafeFilename(title: string): string {
   return `rassadka_${safeTitle}.png`;
 }
 
+const escapeXml = (unsafe: string): string => unsafe
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const wrapText = (value: string, maxChars: number, maxLines = 2): string[] => {
+  const words = String(value || '').trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  if (!words.length) return ['—'];
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length >= maxLines) break;
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  if (lines.join(' ').length < String(value).trim().length && lines.length) {
+    const last = lines.length - 1;
+    lines[last] = `${lines[last].slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+  }
+  return lines.slice(0, maxLines);
+};
+
+const svgTextLines = (lines: string[], x: number, y: number, lineHeight: number, attrs: string): string =>
+  `<text x="${x}" y="${y}" ${attrs}>${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('')}</text>`;
+
 export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMatrixRow[]): string {
-  const width = 1080;
-  const height = 1600;
+  const width = NOIR_EXPORT_LAYOUT.width;
+  const height = 1350;
+  const margin = NOIR_EXPORT_LAYOUT.margin;
+  const font = NOIR_EXPORT_FONT_FAMILY;
+  const titleLines = wrapText(tournament.title, 31, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 48;
+  const headerHeight = 248 + titleExtra;
+  const tableTop = headerHeight + 24;
+  const nameColumnWidth = 286;
+  const gameColumnWidth = (width - margin * 2 - nameColumnWidth) / 10;
+  const tableWidth = width - margin * 2;
+  const tableHeaderHeight = 66;
+  const rowHeight = 86;
 
-  const dateStr = tournament.date
-    ? new Date(tournament.date).toLocaleString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '';
-
-  const venueStr = tournament.venue || 'Главный зал';
+  const date = tournament.date ? new Date(tournament.date) : null;
+  const dateLabel = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null;
+  const meta = [
+    '10 игроков × 10 игр',
+    dateLabel,
+    tournament.venue || null,
+    tournament.stage || null,
+  ].filter((item): item is string => Boolean(item)).join('   ·   ');
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#0F172A"/>
-      <stop offset="100%" stop-color="#1E293B"/>
-    </linearGradient>
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#2563EB"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
-  </defs>
+    ${renderNoirExportBackground(width, height)}
+    ${renderNoirExportBrandHeader('РАССАДКА ИГРОКОВ')}
+    ${svgTextLines(titleLines, margin, 164, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}
+    <text x="${margin}" y="${222 + titleExtra}" font-family="${font}" font-size="20" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
+    <text x="${width - margin}" y="${222 + titleExtra}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>
+    <line x1="${margin}" y1="${tableTop - 8}" x2="${width - margin}" y2="${tableTop - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <rect x="${margin}" y="${tableTop}" width="${tableWidth}" height="${tableHeaderHeight}" fill="${NOIR_EXPORT_COLORS.surface}" opacity="0.72"/>
+    <text x="${margin + 18}" y="${tableTop + 42}" font-family="${font}" font-size="18" font-weight="850" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="1.2">ИГРОК</text>
+    <text x="${margin + nameColumnWidth - 18}" y="${tableTop + 42}" text-anchor="end" font-family="${font}" font-size="15" font-weight="750" fill="${NOIR_EXPORT_COLORS.subduedText}">ИГРА</text>`;
 
-  <rect width="${width}" height="${height}" fill="url(#bgGrad)"/>
-  <rect x="0" y="0" width="${width}" height="16" fill="url(#accentGrad)"/>
-
-  <text x="50" y="85" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="42" font-weight="900" fill="#F8FAFC">
-    ${escapeXml(tournament.title)}
-  </text>
-
-  <text x="50" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="600" fill="#94A3B8">
-    ${escapeXml(dateStr)}${venueStr ? ` • ${escapeXml(venueStr)}` : ''}${tournament.stage ? ` • ${escapeXml(tournament.stage)}` : ''}
-  </text>
-
-  <rect x="50" y="160" width="370" height="42" rx="12" fill="rgba(37, 99, 235, 0.18)" stroke="rgba(59, 130, 246, 0.5)" stroke-width="2"/>
-  <text x="70" y="187" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="19" font-weight="700" fill="#60A5FA">
-    Цифра — номер места игрока
-  </text>
-  `;
-
-  const startX = 40;
-  const startY = 240;
-  const tableWidth = 1000;
-  const colNameWidth = 270;
-  const colGameWidth = 73;
-  const headerHeight = 75;
-  const rowHeight = 118;
-
-  svg += `<rect x="${startX}" y="${startY}" width="${tableWidth}" height="${headerHeight}" rx="16" fill="#1E293B" stroke="#334155" stroke-width="2"/>`;
-  svg += `<text x="${startX + 24}" y="${startY + 46}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#94A3B8">Игрок</text>`;
-
-  for (let g = 1; g <= 10; g++) {
-    const cx = startX + colNameWidth + (g - 1) * colGameWidth + colGameWidth / 2;
-    svg += `<text x="${cx}" y="${startY + 46}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="900" fill="#60A5FA">И${g}</text>`;
+  for (let game = 1; game <= 10; game += 1) {
+    const cx = margin + nameColumnWidth + (game - 0.5) * gameColumnWidth;
+    svg += `<text x="${cx}" y="${tableTop + 43}" text-anchor="middle" font-family="${font}" font-size="22" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${game}</text>`;
   }
 
-  for (let rIdx = 0; rIdx < matrixRows.length; rIdx++) {
-    const row = matrixRows[rIdx];
-    const ry = startY + headerHeight + 14 + rIdx * rowHeight;
-    const isEven = rIdx % 2 === 0;
+  const gridBottom = tableTop + tableHeaderHeight + matrixRows.length * rowHeight;
+  for (let column = 0; column <= 10; column += 1) {
+    const x = margin + nameColumnWidth + column * gameColumnWidth;
+    svg += `<line x1="${x}" y1="${tableTop}" x2="${x}" y2="${gridBottom}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1" opacity="0.72"/>`;
+  }
 
-    const rowBg = isEven ? '#1E293B' : '#0F172A';
-    svg += `<rect x="${startX}" y="${ry}" width="${tableWidth}" height="${rowHeight - 10}" rx="16" fill="${rowBg}" stroke="#334155" stroke-width="1.5"/>`;
-
-    svg += `<rect x="${startX + 6}" y="${ry + 6}" width="${colNameWidth - 12}" height="${rowHeight - 22}" rx="12" fill="rgba(30, 41, 59, 0.85)" stroke="rgba(51, 65, 85, 0.5)" stroke-width="1"/>`;
-
-    const circleCy = ry + (rowHeight - 10) / 2;
-    svg += `<circle cx="${startX + 28}" cy="${circleCy}" r="15" fill="#2563EB"/>`;
-    svg += `<text x="${startX + 28}" y="${circleCy + 6}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#FFFFFF">${rIdx + 1}</text>`;
-
-    const safeName = escapeXml(truncateText(row.displayName, 15));
-    svg += `<text x="${startX + 54}" y="${circleCy + 7}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="23" font-weight="800" fill="#F8FAFC">${safeName}</text>`;
-
-    for (let g = 0; g < 10; g++) {
-      const seatNum = row.gameSeats[g];
-      const cx = startX + colNameWidth + g * colGameWidth + colGameWidth / 2;
-      const cy = circleCy;
-
-      svg += `<rect x="${cx - 24}" y="${cy - 24}" width="48" height="48" rx="14" fill="#0F172A" stroke="#475569" stroke-width="2"/>`;
-      svg += `<text x="${cx}" y="${cy + 9}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="26" font-weight="900" fill="#F1F5F9">${seatNum ?? '-'}</text>`;
+  matrixRows.forEach((row, index) => {
+    const y = tableTop + tableHeaderHeight + index * rowHeight;
+    if (index % 2 === 0) {
+      svg += `<rect x="${margin}" y="${y}" width="${tableWidth}" height="${rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.32"/>`;
     }
-  }
+    svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1" opacity="0.76"/>`;
+    const nameLines = wrapText(row.displayName, 18, 2);
+    svg += `<text x="${margin + 18}" y="${y + 34}" font-family="${font}" font-size="17" font-weight="900" fill="${NOIR_EXPORT_COLORS.wineSoft}" font-variant-numeric="tabular-nums">${String(index + 1).padStart(2, '0')}</text>`;
+    svg += svgTextLines(nameLines, margin + 58, y + (nameLines.length > 1 ? 29 : 48), 25, `font-family="${font}" font-size="22" font-weight="850" fill="${NOIR_EXPORT_COLORS.warmText}"`);
+    row.gameSeats.forEach((seat, gameIndex) => {
+      const cx = margin + nameColumnWidth + (gameIndex + 0.5) * gameColumnWidth;
+      svg += `<text x="${cx}" y="${y + 52}" text-anchor="middle" font-family="${font}" font-size="27" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${seat ?? '—'}</text>`;
+    });
+  });
 
-  svg += `<text x="${width / 2}" y="${height - 30}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" fill="#64748B">
-    NewMafia CRM • Рассадка игроков (10 игр × 10 участников)
-  </text>`;
-
-  svg += `</svg>`;
+  svg += `<line x1="${margin}" y1="${gridBottom}" x2="${width - margin}" y2="${gridBottom}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    ${renderNoirExportFooter(width, height, 'Рассадка игроков · 10 игр')}
+  </svg>`;
   return svg;
 }
 
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function truncateText(text: string, maxLen: number): string {
-  if (!text) return '';
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 1) + '…';
-}
-
-export function renderSvgToPngDataUrl(svgString: string, width = 1080, height = 1600): Promise<string> {
+export function renderSvgToPngDataUrl(svgString: string, width = 1080, height = 1350): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });

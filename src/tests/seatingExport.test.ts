@@ -101,7 +101,12 @@ describe('Seating Export Utility Tests', () => {
 
     expect(svg).toContain('Весенний Кубок 2026');
     expect(svg).toContain('Игрок_1');
-    expect(svg).toContain('Цифра — номер места игрока');
+    expect(svg).toContain('РАССАДКА ИГРОКОВ');
+    expect(svg).toContain('10 игроков × 10 игр');
+    expect(svg).toContain('2LA NOIRE');
+    expect(svg).not.toContain('NewMafia CRM');
+    expect(svg).not.toContain('#0F172A');
+    expect(svg).not.toContain('#2563EB');
 
     // Private / sensitive data checks
     expect(svg).not.toContain('+79000000001');

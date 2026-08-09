@@ -56,7 +56,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
 
       try {
         const svg = generateSeatingSvg(tournament, matrix.rows);
-        const url = await renderSvgToPngDataUrl(svg, 1080, 1600);
+        const url = await renderSvgToPngDataUrl(svg, 1080, 1350);
         setPngUrl(url);
       } catch (err: any) {
         console.error('Failed to generate seating PNG:', err);
@@ -158,7 +158,7 @@ export const SeatingExportModal: React.FC<SeatingExportModalProps> = ({
                 />
               </div>
               <p className="text-[11px] text-text-muted text-center font-mono">
-                Имя файла: <span className="text-text-primary font-bold">{fileName}</span> (1080×1600 px)
+                Имя файла: <span className="text-text-primary font-bold">{fileName}</span> (1080×1350 px)
               </p>
             </div>
           ) : null}

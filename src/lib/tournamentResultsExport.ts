@@ -1624,8 +1624,7 @@ function renderExportSlicePage(
   if (descriptor.end - descriptor.start > contentHeight + 0.5) {
     throw new Error('Контент страницы превышает безопасную высоту экспорта');
   }
-  const clipId = `page-clip-${pageNumber}`;
-  const translatedY = contentTop - descriptor.start;
+  const sourceHeight = descriptor.end - descriptor.start;
   const header = descriptor.opening ? '' : `
     <rect x="0" y="0" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_CONTINUATION_TOP}" fill="${NOIR_EXPORT_COLORS.background}"/>
     <text x="58" y="42" font-family="${officialSvgFont}" font-size="18" font-weight="900" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="3.2">2LA NOIRE</text>
@@ -1644,8 +1643,7 @@ function renderExportSlicePage(
     block_ids: descriptor.block_ids,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" viewBox="0 0 ${EXPORT_PAGE_WIDTH} ${EXPORT_PAGE_HEIGHT}">
       <rect width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" fill="${NOIR_EXPORT_COLORS.background}"/>
-      <defs><clipPath id="${clipId}"><rect x="0" y="${contentTop}" width="${EXPORT_PAGE_WIDTH}" height="${contentHeight}"/></clipPath></defs>
-      <g clip-path="url(#${clipId})" transform="translate(0 ${translatedY})">${inner}</g>
+      <svg x="0" y="${contentTop}" width="${EXPORT_PAGE_WIDTH}" height="${sourceHeight}" viewBox="0 ${descriptor.start} ${EXPORT_PAGE_WIDTH} ${sourceHeight}" preserveAspectRatio="xMinYMin meet" overflow="hidden">${inner}</svg>
       ${header}
       ${footer}
     </svg>`,

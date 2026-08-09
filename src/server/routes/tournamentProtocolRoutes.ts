@@ -5,6 +5,7 @@ import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { determineVotingResult, validateVotingHierarchy } from '../../shared/tournamentVoting.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
+import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 
 const router = Router();
 
@@ -1357,6 +1358,16 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
         [protocol.winner_team, now, gameId]
       );
     });
+
+    const achievementPlayers = await db.all<any>(`
+      SELECT DISTINCT tp.player_id
+        FROM tournament_game_seats tgs
+        JOIN tournament_participants tp ON tp.id = tgs.participant_id
+       WHERE tgs.game_id = ? AND tp.player_id IS NOT NULL
+    `, [gameId]);
+    const achievementPlayerIds = achievementPlayers.map((row: any) => String(row.player_id));
+    if (game.judge_player_id) achievementPlayerIds.push(String(game.judge_player_id));
+    await evaluateAchievementsForPlayers(db, achievementPlayerIds);
 
     // Fetch and return completed protocol
     const savedProtocol = await db.get<any>('SELECT * FROM tournament_game_protocols WHERE game_id = ?', [gameId]);

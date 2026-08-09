@@ -398,6 +398,72 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
         </div>
       </section>
 
+      {player.achievements ? (
+        <section className="space-y-3 rounded-[18px] border border-accent/20 bg-surface-1 p-3.5" data-testid="player-achievements">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 text-[12px] font-black uppercase tracking-wider text-text-primary">
+                <Award className="h-4 w-4 text-accent" /> Ачивки
+              </h3>
+              <p className="mt-1 text-[11px] text-text-muted">40 достижений клуба · прогресс считается по завершённым играм</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <strong className="block text-[20px] tabular-nums text-text-primary">{player.achievements.earned} / {player.achievements.total}</strong>
+              <span className="text-[10px] font-black text-accent">{player.achievements.percentage}%</span>
+            </div>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${player.achievements.percentage}%` }} />
+          </div>
+
+          <div className="space-y-2">
+            {player.achievements.categories.map((category, categoryIndex) => (
+              <details key={category.id} className="group rounded-[14px] border border-border-soft bg-surface-2" open={categoryIndex === 0}>
+                <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5">
+                  <span className="min-w-0 text-[12px] font-black text-text-primary">{category.name}</span>
+                  <span className="shrink-0 text-[10px] font-bold tabular-nums text-text-secondary">{category.earned} / {category.total}</span>
+                </summary>
+                <div className="space-y-2 border-t border-border-soft p-2.5">
+                  {category.achievements.map((achievement) => {
+                    const progress = achievement.progress;
+                    const pct = progress && progress.target > 0 ? Math.min(100, Math.round((progress.current / progress.target) * 100)) : 0;
+                    return (
+                      <article key={achievement.id} className={`rounded-[12px] border p-3 ${achievement.earned ? 'border-success/25 bg-success-soft' : 'border-border-soft bg-surface-1'}`}>
+                        <div className="flex items-start gap-2.5">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-lg ${achievement.earned ? 'bg-success/10' : 'bg-surface-2 grayscale-[0.35]'}`}>{achievement.icon}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <strong className={`text-[12px] ${achievement.earned ? 'text-text-primary' : 'text-text-secondary'}`}>{achievement.name}</strong>
+                              <span className="text-[9px] font-black uppercase tracking-wide text-text-muted">{achievement.rarity_icon} {achievement.rarity_name}</span>
+                              <span className={`ml-auto text-[9px] font-black uppercase ${achievement.earned ? 'text-success' : 'text-text-muted'}`}>{achievement.earned ? 'Получено' : 'Закрыто'}</span>
+                            </div>
+                            <p className="mt-1 text-[11px] leading-4 text-text-secondary">{achievement.description}</p>
+                            {achievement.earned && achievement.earned_at ? (
+                              <p className="mt-1.5 text-[10px] font-semibold text-success">Получено: {fmtDate(achievement.earned_at)}</p>
+                            ) : null}
+                            {progress ? (
+                              <div className="mt-2">
+                                <div className="mb-1 flex items-center justify-between text-[10px] text-text-muted">
+                                  <span>Прогресс</span>
+                                  <span className="font-bold tabular-nums text-text-secondary">{progress.current} / {progress.target}</span>
+                                </div>
+                                <div className="h-1 overflow-hidden rounded-full bg-surface-2">
+                                  <div className={`h-full rounded-full ${achievement.earned ? 'bg-success' : 'bg-accent'}`} style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="space-y-3 rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-[12px] font-black uppercase tracking-wider text-text-primary">

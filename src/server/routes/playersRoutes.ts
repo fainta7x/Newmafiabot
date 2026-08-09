@@ -10,6 +10,7 @@ import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
+import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import {
   getHistoricalAwardDefaultTitle,
   isHistoricalAwardKey,
@@ -249,6 +250,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
     const gameProfile = await loadPlayerGameProfile(db, req.params.id);
+    const achievements = await loadPlayerAchievementProfile(db, req.params.id);
 
     res.json({
       ...player,
@@ -275,6 +277,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       transactions,
       activities,
       ...gameProfile,
+      achievements,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

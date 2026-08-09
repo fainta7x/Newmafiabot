@@ -160,6 +160,37 @@ export interface TournamentAwardsResponse {
   checkpoint_warning?: string;
 }
 
+export interface PlayerAchievementItem {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity_name: string;
+  rarity_icon: string;
+  earned: boolean;
+  earned_at: string | null;
+  progress: { current: number; target: number } | null;
+}
+
+export interface PlayerAchievementCategory {
+  id: string;
+  name: string;
+  icon: string;
+  order: number;
+  earned: number;
+  total: number;
+  percentage: number;
+  achievements: PlayerAchievementItem[];
+}
+
+export interface PlayerAchievementProfile {
+  earned: number;
+  total: number;
+  percentage: number;
+  categories: PlayerAchievementCategory[];
+}
+
 export interface PlayerDetails extends Player {
   stats: any;
   futureBookings: EveningParticipant[];
@@ -177,6 +208,7 @@ export interface PlayerDetails extends Player {
   tournamentAwards: PlayerTournamentAward[];
   awardStats: PlayerAwardStats;
   awardTournaments: PlayerAwardTournament[];
+  achievements?: PlayerAchievementProfile;
 }
 
 export interface EveningTable {

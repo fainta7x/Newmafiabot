@@ -21,6 +21,18 @@ export const players = sqliteTable('players', {
   updated_at: text('updated_at').notNull(),
 });
 
+export const playerAchievements = sqliteTable('player_achievements', {
+  id: text('id').primaryKey(),
+  player_id: text('player_id').notNull().references(() => players.id, { onDelete: 'cascade' }),
+  achievement_id: text('achievement_id').notNull(),
+  earned_at: text('earned_at').notNull(),
+  source: text('source').notNull().default('evaluator'), // evaluator, legacy
+  legacy_user_id: text('legacy_user_id'),
+  created_at: text('created_at').notNull(),
+}, (table) => ({
+  playerAchievementUnique: uniqueIndex('idx_player_achievement_unique').on(table.player_id, table.achievement_id),
+}));
+
 export const gameEvenings = sqliteTable('game_evenings', {
   id: text('id').primaryKey(), // UUID
   title: text('title').notNull(),
@@ -126,6 +138,7 @@ export const games = sqliteTable('games', {
   winner_team: text('winner_team').notNull(),
   winner_label: text('winner_label').notNull(),
   judge_name: text('judge_name'),
+  judge_player_id: text('judge_player_id').references(() => players.id, { onDelete: 'set null' }),
   protocol_text: text('protocol_text'),
   slots_json: text('slots_json').notNull(),
   created_at: text('created_at').notNull(),
@@ -171,6 +184,7 @@ export const tournamentGames = sqliteTable('tournament_games', {
   tournament_id: text('tournament_id').notNull().references(() => tournaments.id, { onDelete: 'cascade' }),
   game_number: integer('game_number').notNull(),
   judge_name: text('judge_name'),
+  judge_player_id: text('judge_player_id').references(() => players.id, { onDelete: 'set null' }),
   status: text('status').notNull().default('planned'), // planned, active, completed
   winner_team: text('winner_team'),
   started_at: text('started_at'),

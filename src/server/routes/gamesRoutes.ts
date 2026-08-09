@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createGameSchema } from '../validation.ts';
+import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 
 const router = Router();
 
@@ -280,6 +281,12 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
         gameId,
       ]
     );
+
+    if (status === 'completed') {
+      const achievementIds = incomingResults.map((item: any) => String(item.player_id || '')).filter(Boolean);
+      if (existing.judge_player_id) achievementIds.push(String(existing.judge_player_id));
+      await evaluateAchievementsForPlayers(db, achievementIds);
+    }
 
     const row = await db.get(
       `SELECT g.*, et.name AS table_name

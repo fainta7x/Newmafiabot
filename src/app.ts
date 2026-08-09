@@ -20,6 +20,7 @@ import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
+import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -42,6 +43,11 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   // Attach database instance to request
   const db = customDb || (await getDb());
+  try {
+    await reconcileAllPlayerAchievements(db);
+  } catch (error) {
+    console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error);
+  }
   app.use((req, _res, next) => {
     (req as any).db = db;
     next();

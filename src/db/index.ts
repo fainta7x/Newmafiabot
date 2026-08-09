@@ -182,12 +182,31 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'archived_at', 'TEXT');
+  addColumnIfNotExists('games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('organizer_tasks', 'automation_key', 'TEXT');
   addColumnIfNotExists('players', 'preferred_format', 'TEXT');
   addColumnIfNotExists('players', 'referred_by', 'TEXT');
   addColumnIfNotExists('players', 'do_not_invite_until', 'TEXT');
   addColumnIfNotExists('players', 'pause_reason', 'TEXT');
   addColumnIfNotExists('players', 'contact_status', "TEXT NOT NULL DEFAULT 'normal'");
+
+  try {
+    dbWrapper.sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS player_achievements (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        achievement_id TEXT NOT NULL,
+        earned_at TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'evaluator',
+        legacy_user_id TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(player_id, achievement_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON player_achievements(player_id);
+    `);
+  } catch (e) {
+    console.error('Failed to initialize player_achievements:', e);
+  }
 
   // Migrate legacy lifecycle_status values to contact_status without losing players
   try {
@@ -251,6 +270,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     dbWrapper.sqlite.exec(migration8Sql);
   }
 
+  addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
   addColumnIfNotExists('tournament_games', 'protocol_import_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');

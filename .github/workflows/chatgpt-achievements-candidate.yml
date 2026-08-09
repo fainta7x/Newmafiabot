@@ -38,8 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           cp automation/patch_achievements_migration.py /tmp/patch_achievements_migration.py
+          cp automation/fix_achievements_candidate.py /tmp/fix_achievements_candidate.py
           git checkout --detach d94237900c4318dc4486236e749c3a9eab8fd7d3
           python /tmp/patch_achievements_migration.py
+          python /tmp/fix_achievements_candidate.py
           mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
           printf '%s\n' "${changed[@]}"
           allowed='^(src/lib/achievementCatalog\.ts|src/server/services/playerAchievementsService\.ts|src/db/schema\.ts|src/db/index\.ts|src/server/routes/playersRoutes\.ts|src/server/routes/botRoutes\.ts|src/server/routes/gamesRoutes\.ts|src/server/routes/tournamentProtocolRoutes\.ts|src/app\.ts|src/lib/api\.ts|src/components/crm/PlayerProfileContent\.tsx|src/tests/playerAchievements\.test\.ts)$'

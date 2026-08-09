@@ -22,6 +22,7 @@ jobs:
           cat > .qa-render.ts <<'TS'
           import fs from 'fs';
           import { createDatabaseConnection, restoreCheckpointFromGzB64 } from './src/db/index.ts';
+          import { resolveRepositoryPlayerAvatarPath } from './src/lib/playerAvatarManifest.ts';
           import { internalGetStandings, internalGetNominations } from './src/server/routes/tournamentsRoutes.ts';
           import { loadTournamentAwardSnapshot } from './src/server/services/tournamentAwardsService.ts';
           import {
@@ -45,16 +46,27 @@ jobs:
             const nominationsData = await internalGetNominations(db, tournamentId);
             const awardSnapshot = await loadTournamentAwardSnapshot(db, tournamentId);
             const avatarRows = await db.all<any>(`
-              SELECT tp.id AS participant_id, pa.mime_type, pa.image_data
+              SELECT tp.id AS participant_id, tp.player_id, pa.mime_type, pa.image_data
                 FROM tournament_participants tp
                 LEFT JOIN player_avatars pa ON pa.player_id = tp.player_id
                WHERE tp.tournament_id = ?
             `, [tournamentId]);
             const avatars: Record<string, string> = {};
+            let repositoryFallbackCount = 0;
             for (const row of avatarRows) {
-              if (!row.image_data) continue;
-              const bytes = Buffer.isBuffer(row.image_data) ? row.image_data : Buffer.from(row.image_data);
-              avatars[String(row.participant_id)] = `data:${row.mime_type || 'image/jpeg'};base64,${bytes.toString('base64')}`;
+              let bytes: Buffer | null = null;
+              let mime = row.mime_type || 'image/jpeg';
+              if (row.image_data) {
+                bytes = Buffer.isBuffer(row.image_data) ? row.image_data : Buffer.from(row.image_data);
+              } else {
+                const repositoryPath = resolveRepositoryPlayerAvatarPath(String(row.player_id), process.cwd());
+                if (repositoryPath) {
+                  bytes = fs.readFileSync(repositoryPath);
+                  mime = repositoryPath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+                  repositoryFallbackCount += 1;
+                }
+              }
+              if (bytes) avatars[String(row.participant_id)] = `data:${mime};base64,${bytes.toString('base64')}`;
             }
 
             const presentation = buildOfficialTournamentResultsPresentation(
@@ -106,6 +118,7 @@ jobs:
               standings: (standingsData.standings || []).length,
               nominations: (nominationsData.nominations || []).length,
               avatars: Object.keys(avatars).length,
+              repository_avatar_fallbacks: repositoryFallbackCount,
               selected_game: selected.game_number,
               selected_game_score_component_count: bestVariety,
               official_size: `${official.width}x${official.height}`,
@@ -126,9 +139,9 @@ jobs:
           fc-cache -f >/dev/null || true
           for stem in official-current game-current game-stress; do
             rsvg-convert "visual-qa/${stem}.svg" -o "visual-qa/${stem}.png"
-            convert "visual-qa/${stem}.png" -resize 390x "visual-qa/${stem}-phone.png"
+            rsvg-convert --width 390 "visual-qa/${stem}.svg" -o "visual-qa/${stem}-phone.png"
           done
-          identify visual-qa/*.png
+          file visual-qa/*.png
       - name: Upload only visual QA images
         uses: actions/upload-artifact@v4
         with:

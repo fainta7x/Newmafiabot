@@ -1,0 +1,216 @@
+name: ChatGPT protocol Noir visual QA
+
+on:
+  push:
+    branches:
+      - automation/protocol-noir-ui-visualqa-2026-08-09
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project and focused browser driver
+        run: |
+          set -euo pipefail
+          npm ci
+          npm install --no-save --ignore-scripts puppeteer-core@24
+
+      - name: Create temporary QA entry without changing application sources
+        run: |
+          cat > protocol-qa.html <<'HTML'
+          <!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Protocol QA</title></head><body><div id="root"></div><script type="module" src="/src/protocolQaEntry.tsx"></script></body></html>
+          HTML
+          cat > src/protocolQaEntry.tsx <<'TSX'
+          import React from 'react';
+          import ReactDOM from 'react-dom/client';
+          import './index.css';
+          import { GameProtocolModal } from './components/crm/tournaments/GameProtocolModal.tsx';
+          const params = new URLSearchParams(window.location.search);
+          const tournamentId = params.get('tournamentId') || '';
+          const gameId = params.get('gameId') || '';
+          ReactDOM.createRoot(document.getElementById('root')!).render(
+            <GameProtocolModal tournamentId={tournamentId} gameId={gameId} isOpen onClose={() => {}} />
+          );
+          TSX
+
+      - name: Start current application on disposable Preview runtime
+        env:
+          PORT: 4173
+          ORGANIZER_PASSWORD: qa-pass
+          JWT_SECRET: qa-secret
+          SEED_DEMO_DATA: "false"
+        run: |
+          set -euo pipefail
+          rm -f mafia_crm.runtime.sqlite mafia_crm.runtime.sqlite-shm mafia_crm.runtime.sqlite-wal
+          nohup npm run dev > /tmp/protocol-server.log 2>&1 &
+          echo $! > /tmp/protocol-server.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4173/api/auth/me >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/api/auth/me
+          test -s mafia_crm.runtime.sqlite
+
+      - name: Resolve current real tournament and game without mutation
+        run: |
+          node --input-type=module <<'NODE' > /tmp/protocol-target.env
+          import Database from 'better-sqlite3';
+          const db = new Database('mafia_crm.runtime.sqlite', { readonly: true });
+          const tournament = db.prepare("SELECT id, title, status FROM tournaments ORDER BY CASE WHEN title LIKE '%Богдан%' THEN 0 ELSE 1 END, date DESC LIMIT 1").get();
+          if (!tournament) throw new Error('No current tournament found');
+          const game = db.prepare("SELECT id, game_number, status FROM tournament_games WHERE tournament_id=? ORDER BY CASE WHEN game_number=1 THEN 0 ELSE 1 END, game_number LIMIT 1").get(tournament.id);
+          if (!game) throw new Error('No game found for current tournament');
+          const players = db.prepare("SELECT COUNT(*) AS n FROM tournament_game_seats WHERE game_id=?").get(game.id);
+          console.error(JSON.stringify({ tournament, game, playerCount: players.n }));
+          if (Number(players.n) !== 10) throw new Error(`Expected 10 seats, got ${players.n}`);
+          console.log(`TOURNAMENT_ID=${tournament.id}`);
+          console.log(`GAME_ID=${game.id}`);
+          console.log(`GAME_NUMBER=${game.game_number}`);
+          console.log(`GAME_STATUS=${game.status}`);
+          NODE
+          cat /tmp/protocol-target.env
+
+      - name: Run responsive visual and geometry QA
+        env:
+          BASE_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          set -a; source /tmp/protocol-target.env; set +a
+          cat > /tmp/protocol-visual-qa.mjs <<'JS'
+          import fs from 'node:fs';
+          import puppeteer from 'puppeteer-core';
+          const chrome = ['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(fs.existsSync);
+          if (!chrome) throw new Error('Chrome/Chromium not found on runner');
+          const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox','--disable-dev-shm-usage'] });
+          const base = process.env.BASE_URL;
+          const tid = process.env.TOURNAMENT_ID;
+          const gid = process.env.GAME_ID;
+          const out = 'protocol-noir-visual-qa';
+          fs.mkdirSync(out, { recursive: true });
+          const page = await browser.newPage();
+          await page.setViewport({ width: 390, height: 900, deviceScaleFactor: 1 });
+          await page.goto(base, { waitUntil: 'networkidle0' });
+          const login = await page.evaluate(async () => {
+            const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:'qa-pass'}) });
+            return { ok:r.ok, text:await r.text() };
+          });
+          if (!login.ok) throw new Error(`QA login failed: ${login.text}`);
+          const openProtocol = async () => {
+            await page.goto(`${base}/protocol-qa.html?tournamentId=${encodeURIComponent(tid)}&gameId=${encodeURIComponent(gid)}`, { waitUntil:'networkidle0' });
+            await page.waitForSelector('[data-testid^="player-row-"]', { timeout: 20000 });
+            const count = await page.$$eval('[data-testid^="player-row-"]', els => els.length);
+            if (count !== 10) throw new Error(`Expected 10 player rows, got ${count}`);
+          };
+          await openProtocol();
+
+          async function geometry(label) {
+            const result = await page.evaluate(() => {
+              const root = document.querySelector('.protocol-noir-root');
+              const shell = document.querySelector('.protocol-noir-shell');
+              const content = document.querySelector('.protocol-noir-content');
+              const footer = document.querySelector('.protocol-modal-footer');
+              const tabs = [...document.querySelectorAll('.protocol-modal-tabs button')];
+              const rows = [...document.querySelectorAll('[data-testid^="player-row-"]')];
+              const footerButtons = footer ? [...footer.querySelectorAll('button')] : [];
+              const hOverflow = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth;
+              const contentStyle = content ? getComputedStyle(content) : null;
+              const rootStyle = root ? getComputedStyle(root) : null;
+              return {
+                width: window.innerWidth,
+                horizontalOverflow: hOverflow,
+                rootOverflowY: rootStyle?.overflowY,
+                contentOverflowY: contentStyle?.overflowY,
+                tabs: tabs.map(el => ({ text: el.textContent?.trim(), clipped: el.scrollWidth > el.clientWidth + 1, rect: el.getBoundingClientRect().toJSON() })),
+                playerRows: rows.length,
+                footerButtons: footerButtons.map(el => ({ text: el.textContent?.trim(), clipped: el.scrollWidth > el.clientWidth + 1, rect: el.getBoundingClientRect().toJSON() })),
+                footerRect: footer?.getBoundingClientRect().toJSON(),
+                shellRect: shell?.getBoundingClientRect().toJSON(),
+              };
+            });
+            fs.writeFileSync(`${out}/${label}-geometry.json`, JSON.stringify(result,null,2));
+            if (result.horizontalOverflow > 1) throw new Error(`${label}: horizontal overflow ${result.horizontalOverflow}px`);
+            if (result.contentOverflowY !== 'auto') throw new Error(`${label}: content is not sole auto scroller (${result.contentOverflowY})`);
+            if (result.rootOverflowY === 'auto' || result.rootOverflowY === 'scroll') throw new Error(`${label}: outer root scrolls vertically`);
+            if (result.tabs.some(t => t.clipped)) throw new Error(`${label}: clipped tab label`);
+            if (result.footerButtons.some(b => b.clipped)) throw new Error(`${label}: clipped footer label`);
+            return result;
+          }
+
+          for (const width of [360,390,430]) {
+            await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
+            await page.waitForTimeout(80);
+            await geometry(`players-${width}`);
+            if (width === 390) await page.screenshot({ path:`${out}/01-players-390.png`, fullPage:false });
+          }
+
+          await page.setViewport({ width:390, height:900, deviceScaleFactor:1 });
+          const rows = await page.$$('[data-testid^="player-row-"]');
+          await rows[0].click();
+          await page.waitForTimeout(100);
+          await geometry('expanded-390');
+          await page.screenshot({ path:`${out}/02-expanded-390.png`, fullPage:false });
+
+          const tabLabels = ['Голоса','Ночи/ЛХ','Итог','Игроки'];
+          let shot=3;
+          for (const label of tabLabels) {
+            const buttons = await page.$$('.protocol-modal-tabs button');
+            let clicked=false;
+            for (const b of buttons) {
+              const text = await b.evaluate(el => el.textContent?.trim() || '');
+              if (text === label) { await b.click(); clicked=true; break; }
+            }
+            if (!clicked) throw new Error(`Tab not found: ${label}`);
+            await page.waitForTimeout(120);
+            await geometry(`tab-${label.replace('/','-')}-390`);
+            if (label !== 'Игроки') await page.screenshot({ path:`${out}/${String(shot++).padStart(2,'0')}-${label.replace('/','-')}-390.png`, fullPage:false });
+          }
+
+          // Last row must remain reachable above footer in the single scroller.
+          await page.evaluate(() => document.querySelectorAll('[data-testid^="player-row-"]')[9]?.scrollIntoView({block:'end'}));
+          await page.waitForTimeout(80);
+          const reachable = await page.evaluate(() => {
+            const row = document.querySelectorAll('[data-testid^="player-row-"]')[9]?.getBoundingClientRect();
+            const footer = document.querySelector('.protocol-modal-footer')?.getBoundingClientRect();
+            return row && footer ? { rowBottom:row.bottom, footerTop:footer.top, ok:row.bottom <= footer.top + 1 } : null;
+          });
+          fs.writeFileSync(`${out}/last-row-reachability.json`, JSON.stringify(reachable,null,2));
+          if (!reachable?.ok) throw new Error(`Last row covered by footer: ${JSON.stringify(reachable)}`);
+
+          await page.setViewport({ width:1100, height:900, deviceScaleFactor:1 });
+          await page.waitForTimeout(100);
+          await geometry('desktop-1100');
+          await page.screenshot({ path:`${out}/06-desktop-1100.png`, fullPage:false });
+
+          // Focus visibility: current canonical game may be completed, so verify an enabled protocol control when available; otherwise a tab control.
+          const focusResult = await page.evaluate(() => {
+            const editable = [...document.querySelectorAll('.protocol-noir-content input:not(:disabled), .protocol-noir-content select:not(:disabled), .protocol-noir-content textarea:not(:disabled)')][0];
+            const target = editable || document.querySelector('.protocol-modal-tabs button');
+            if (!(target instanceof HTMLElement)) return null;
+            target.focus();
+            const style = getComputedStyle(target);
+            return { kind: editable ? 'editable' : 'navigation-fallback', focused: document.activeElement === target, outline: style.outline, boxShadow: style.boxShadow };
+          });
+          fs.writeFileSync(`${out}/focus.json`, JSON.stringify(focusResult,null,2));
+          if (!focusResult?.focused) throw new Error('Focus target was not reachable');
+
+          await browser.close();
+          console.log(JSON.stringify({ ok:true, currentGameStatus:process.env.GAME_STATUS, focus:focusResult },null,2));
+          JS
+          node /tmp/protocol-visual-qa.mjs
+
+      - name: Upload focused visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: protocol-noir-visual-qa
+          path: protocol-noir-visual-qa
+          retention-days: 1

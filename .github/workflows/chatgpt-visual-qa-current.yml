@@ -1,0 +1,142 @@
+name: ChatGPT current PNG visual QA
+on:
+  push:
+    branches: [qa/visual-050a606-2026-08-09]
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Render current tournament and post-game SVGs
+        run: |
+          cat > .qa-render.ts <<'TS'
+          import fs from 'fs';
+          import { createDatabaseConnection, restoreCheckpointFromGzB64 } from './src/db/index.ts';
+          import { internalGetStandings, internalGetNominations } from './src/server/routes/tournamentsRoutes.ts';
+          import { loadTournamentAwardSnapshot } from './src/server/services/tournamentAwardsService.ts';
+          import {
+            buildGameExportRows,
+            buildOfficialTournamentResultsPresentation,
+            generateGameResultsSvg,
+            generateOfficialTournamentResultsSvg,
+          } from './src/lib/tournamentResultsExport.ts';
+
+          const dbPath = '/tmp/newmafia-current-visual-qa.sqlite';
+          fs.rmSync(dbPath, { force: true });
+          if (!restoreCheckpointFromGzB64(dbPath)) throw new Error('Canonical repository checkpoint could not be materialized');
+          const db = createDatabaseConnection(dbPath);
+          fs.mkdirSync('visual-qa', { recursive: true });
+
+          try {
+            const tournament = await db.get<any>(`SELECT * FROM tournaments ORDER BY date DESC, created_at DESC LIMIT 1`);
+            if (!tournament) throw new Error('Current canonical snapshot has no tournament');
+            const tournamentId = String(tournament.id);
+            const standingsData = await internalGetStandings(db, tournamentId);
+            const nominationsData = await internalGetNominations(db, tournamentId);
+            const awardSnapshot = await loadTournamentAwardSnapshot(db, tournamentId);
+            const avatarRows = await db.all<any>(`
+              SELECT tp.id AS participant_id, pa.mime_type, pa.image_data
+                FROM tournament_participants tp
+                LEFT JOIN player_avatars pa ON pa.player_id = tp.player_id
+               WHERE tp.tournament_id = ?
+            `, [tournamentId]);
+            const avatars: Record<string, string> = {};
+            for (const row of avatarRows) {
+              if (!row.image_data) continue;
+              const bytes = Buffer.isBuffer(row.image_data) ? row.image_data : Buffer.from(row.image_data);
+              avatars[String(row.participant_id)] = `data:${row.mime_type || 'image/jpeg'};base64,${bytes.toString('base64')}`;
+            }
+
+            const presentation = buildOfficialTournamentResultsPresentation(
+              tournament,
+              standingsData.standings || [],
+              awardSnapshot.slots || [],
+              new Date('2026-08-09T07:00:00.000Z'),
+              avatars,
+              nominationsData.nominations || [],
+            );
+            const official = generateOfficialTournamentResultsSvg(presentation);
+            fs.writeFileSync('visual-qa/official-current.svg', official.svg);
+
+            const games = await db.all<any>(`SELECT * FROM tournament_games WHERE tournament_id = ? AND status = 'completed' ORDER BY game_number`, [tournamentId]);
+            if (!games.length) throw new Error('Current tournament has no completed game');
+            let selected: any = null;
+            let selectedRows: any[] = [];
+            let bestVariety = -1;
+            for (const game of games) {
+              const results = await db.all<any>(`
+                SELECT r.*, tp.display_name
+                  FROM tournament_game_player_results r
+                  JOIN tournament_participants tp ON tp.id = r.participant_id
+                 WHERE r.game_id = ?
+                 ORDER BY r.seat_number
+              `, [game.id]);
+              const rows = buildGameExportRows(results as any, standingsData.standings || [], Number(game.game_number), avatars);
+              const variety = rows.reduce((sum, row) => sum + [row.win_point,row.judge_bonus,row.protocol_bonus,row.best_move_points,row.game_penalty_points,row.disciplinary_penalty_points,row.ci_points].filter((v) => Math.abs(Number(v || 0)) > 0.0001).length, 0);
+              if (variety > bestVariety) {
+                bestVariety = variety;
+                selected = game;
+                selectedRows = rows;
+              }
+            }
+            const gameSvg = generateGameResultsSvg(tournament as any, selected as any, selectedRows as any);
+            fs.writeFileSync('visual-qa/game-current.svg', gameSvg);
+
+            const stressRows = selectedRows.map((row, index) => index === 0
+              ? { ...row, display_name: `${row.display_name} · ОченьДлинныйТурнирныйНикнейм`, avatar_data_url: null }
+              : row
+            );
+            const stressSvg = generateGameResultsSvg(tournament as any, selected as any, stressRows as any);
+            fs.writeFileSync('visual-qa/game-stress.svg', stressSvg);
+
+            console.log(JSON.stringify({
+              tournament: tournament.title,
+              tournament_status: tournament.status,
+              standings: (standingsData.standings || []).length,
+              nominations: (nominationsData.nominations || []).length,
+              avatars: Object.keys(avatars).length,
+              selected_game: selected.game_number,
+              selected_game_score_component_count: bestVariety,
+              official_size: `${official.width}x${official.height}`,
+            }, null, 2));
+          } finally {
+            db.sqlite.close();
+            fs.rmSync('.qa-render.ts', { force: true });
+            fs.rmSync(dbPath, { force: true });
+          }
+          TS
+          npx tsx .qa-render.ts
+      - name: Convert SVGs and create phone-scale previews
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin >/dev/null
+          mkdir -p ~/.local/share/fonts
+          cp Montserrat-SemiBold.ttf ~/.local/share/fonts/Montserrat-SemiBold.ttf || true
+          fc-cache -f >/dev/null || true
+          for stem in official-current game-current game-stress; do
+            rsvg-convert "visual-qa/${stem}.svg" -o "visual-qa/${stem}.png"
+            convert "visual-qa/${stem}.png" -resize 390x "visual-qa/${stem}-phone.png"
+          done
+          identify visual-qa/*.png
+      - name: Upload only visual QA images
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-png-visual-qa
+          path: |
+            visual-qa/official-current.png
+            visual-qa/official-current-phone.png
+            visual-qa/game-current.png
+            visual-qa/game-current-phone.png
+            visual-qa/game-stress.png
+            visual-qa/game-stress-phone.png
+          retention-days: 1

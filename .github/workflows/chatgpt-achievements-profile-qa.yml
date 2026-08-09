@@ -1,0 +1,110 @@
+name: ChatGPT achievements profile QA
+
+on:
+  push:
+    branches:
+      - automation/achievements-stage-2026-08-09
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/achievements-candidate-2026-08-09
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install focused browser QA dependencies
+        run: |
+          set -euo pipefail
+          npm ci
+          npm install --no-save --ignore-scripts puppeteer-core@24
+
+      - name: Create disposable player-profile QA entry
+        run: |
+          cat > achievement-qa.html <<'HTML'
+          <!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Achievement QA</title></head><body><div id="root"></div><script type="module" src="/src/achievementQaEntry.tsx"></script></body></html>
+          HTML
+          cat > src/achievementQaEntry.tsx <<'TSX'
+          import React, { useEffect, useState } from 'react';
+          import ReactDOM from 'react-dom/client';
+          import './index.css';
+          import { PlayerProfileContent } from './components/crm/PlayerProfileContent.tsx';
+          import type { PlayerDetails } from './lib/api.ts';
+          const playerId = new URLSearchParams(location.search).get('playerId') || '';
+          function Qa() {
+            const [player,setPlayer] = useState<PlayerDetails|null>(null);
+            const [error,setError] = useState('');
+            useEffect(()=>{ fetch(`/api/players/${encodeURIComponent(playerId)}`).then(async r=>{ if(!r.ok) throw new Error(await r.text()); return r.json(); }).then(setPlayer).catch(e=>setError(String(e))); },[]);
+            if(error) return <pre>{error}</pre>;
+            if(!player) return <div>Loading</div>;
+            return <main className="mx-auto max-w-xl bg-app-bg p-3 text-text-primary"><PlayerProfileContent player={player}/></main>;
+          }
+          ReactDOM.createRoot(document.getElementById('root')!).render(<Qa/>);
+          TSX
+
+      - name: Start disposable Preview runtime
+        env:
+          ORGANIZER_PASSWORD: qa-pass
+          JWT_SECRET: qa-secret
+          SEED_DEMO_DATA: "false"
+        run: |
+          set -euo pipefail
+          rm -f mafia_crm.runtime.sqlite mafia_crm.runtime.sqlite-shm mafia_crm.runtime.sqlite-wal
+          nohup npm run dev > /tmp/achievements-server.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:3000/api/auth/me >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          if ! curl -fsS http://127.0.0.1:3000/api/auth/me >/dev/null; then cat /tmp/achievements-server.log; exit 1; fi
+          test -s mafia_crm.runtime.sqlite
+
+      - name: Verify earned and partial or zero achievement profiles at 390px
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          cat > achievement-profile-qa.mjs <<'JS'
+          import fs from 'node:fs';
+          import puppeteer from 'puppeteer-core';
+          const chrome=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(fs.existsSync);
+          if(!chrome) throw new Error('Chrome/Chromium not found');
+          const browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const page=await browser.newPage(); await page.setViewport({width:390,height:900,deviceScaleFactor:1});
+          const base=process.env.BASE_URL;
+          await page.goto(base,{waitUntil:'networkidle0'});
+          const login=await page.evaluate(async()=>{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:'qa-pass'})});return r.ok;});
+          if(!login) throw new Error('Organizer QA login failed');
+          const profiles=await page.evaluate(async()=>{
+            const players=await (await fetch('/api/players')).json();
+            const out=[];
+            for(const player of players){const r=await fetch(`/api/players/${encodeURIComponent(player.id)}`);if(!r.ok)continue;const detail=await r.json();out.push({id:player.id,nickname:player.nickname,earned:detail.achievements?.earned??0,total:detail.achievements?.total??0});}
+            return out;
+          });
+          const earned=profiles.filter(p=>p.earned>0).sort((a,b)=>b.earned-a.earned)[0];
+          const partial=profiles.filter(p=>p.id!==earned?.id).sort((a,b)=>a.earned-b.earned)[0];
+          if(!earned) throw new Error(`No player with earned achievements: ${JSON.stringify(profiles)}`);
+          if(!partial) throw new Error('No second player for partial/zero verification');
+          async function inspect(profile,label){
+            await page.goto(`${base}/achievement-qa.html?playerId=${encodeURIComponent(profile.id)}`,{waitUntil:'networkidle0'});
+            await page.waitForSelector('[data-testid="player-achievements"]',{timeout:20000});
+            const result=await page.evaluate(()=>{const section=document.querySelector('[data-testid="player-achievements"]');return {text:section?.textContent||'',categories:section?.querySelectorAll('details').length||0,cards:section?.querySelectorAll('article').length||0,overflow:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-innerWidth};});
+            if(result.categories!==6) throw new Error(`${label}: expected 6 categories, got ${result.categories}`);
+            if(result.cards!==40) throw new Error(`${label}: expected 40 achievement cards, got ${result.cards}`);
+            if(result.overflow>1) throw new Error(`${label}: horizontal overflow ${result.overflow}`);
+            if(!result.text.includes('/ 40')) throw new Error(`${label}: total 40 not visible`);
+            if(!result.text.includes('Закрыто')) throw new Error(`${label}: locked achievements are not readable`);
+            return {nickname:profile.nickname,earned:profile.earned,overflow:result.overflow,categories:result.categories,cards:result.cards};
+          }
+          const earnedCheck=await inspect(earned,'earned');
+          const partialCheck=await inspect(partial,'partial');
+          console.log(JSON.stringify({earned:earnedCheck,partialOrZero:partialCheck},null,2));
+          await browser.close();
+          JS
+          node achievement-profile-qa.mjs

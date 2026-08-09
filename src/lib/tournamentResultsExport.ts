@@ -1,5 +1,13 @@
 import { Tournament, TournamentStandingItem, PlayerResultData, TournamentGame } from './api';
-import { NOIR_EXPORT_COLORS, NOIR_EXPORT_SCORE_COLORS } from './exportNoirTheme.ts';
+import {
+  NOIR_EXPORT_COLORS,
+  NOIR_EXPORT_SCORE_COLORS,
+  NOIR_EXPORT_FONT_FAMILY,
+  NOIR_EXPORT_LAYOUT,
+  renderNoirExportBackground,
+  renderNoirExportBrandHeader,
+  renderNoirExportFooter,
+} from './exportNoirTheme.ts';
 
 export interface GamePlayerExportRow {
   participant_id?: string;
@@ -113,13 +121,28 @@ export function generateGameResultsSvg(
   game: TournamentGame,
   exportRows: GamePlayerExportRow[]
 ): string {
-  const width = 1080;
-  const margin = 58;
-  const scoreX = 260;
-  const scoreMaxWidth = width - margin - scoreX - 120;
-  const fontFamily = "Montserrat, Arial, sans-serif";
+  const width = NOIR_EXPORT_LAYOUT.width;
+  const margin = NOIR_EXPORT_LAYOUT.margin;
+  const font = NOIR_EXPORT_FONT_FAMILY;
+  const seatX = margin + 16;
+  const avatarX = margin + 48;
+  const avatarSize = 64;
+  const contentX = margin + 132;
+  const totalRight = width - margin;
+  const totalColumnWidth = 116;
+  const contentRight = totalRight - totalColumnWidth - 28;
+  const contentWidth = contentRight - contentX;
+  const componentGap = 22;
+  const componentColumnWidth = (contentWidth - componentGap) / 2;
+  const componentFontSize = 23;
+  const componentLineHeight = 30;
+  const headerHeight = 250;
+  const footerHeight = NOIR_EXPORT_LAYOUT.footerHeight;
 
   type GameScorePart = { key: keyof typeof NOIR_EXPORT_SCORE_COLORS; label: string; value: number };
+  type GameScoreCell = { part: GameScorePart; text: string; column: 0 | 1; fullWidth: boolean };
+  type GameScoreGridRow = { cells: GameScoreCell[] };
+
   const partsFor = (row: GamePlayerExportRow): GameScorePart[] => {
     const parts: GameScorePart[] = [];
     const add = (key: GameScorePart['key'], label: string, value: number) => {
@@ -136,92 +159,93 @@ export function generateGameResultsSvg(
     return parts;
   };
 
-  const estimate = (text: string, fontSize = 24) => text.length * fontSize * 0.56;
-  const layoutParts = (parts: GameScorePart[]) => {
-    const lines: Array<Array<{ part: GameScorePart; text: string; width: number }>> = [];
-    let line: Array<{ part: GameScorePart; text: string; width: number }> = [];
-    let used = 0;
-    const gap = 26;
+  const estimate = (text: string): number => Math.ceil(text.length * componentFontSize * 0.53 + 8);
+  const layoutComponents = (parts: GameScorePart[]): GameScoreGridRow[] => {
+    const rows: GameScoreGridRow[] = [];
+    let pending: GameScoreCell[] = [];
+    const flush = () => {
+      if (!pending.length) return;
+      rows.push({ cells: pending });
+      pending = [];
+    };
     for (const part of parts) {
       const text = `${part.label} ${formatPoints(part.value)}`;
-      const tokenWidth = Math.min(scoreMaxWidth, estimate(text, 22));
-      if (line.length && used + gap + tokenWidth > scoreMaxWidth) {
-        lines.push(line);
-        line = [];
-        used = 0;
+      const fullWidth = part.key === 'ci' || estimate(text) > componentColumnWidth;
+      const cell: GameScoreCell = { part, text, column: pending.length as 0 | 1, fullWidth };
+      if (fullWidth) {
+        flush();
+        rows.push({ cells: [{ ...cell, column: 0, fullWidth: true }] });
+        continue;
       }
-      line.push({ part, text, width: tokenWidth });
-      used += (line.length > 1 ? gap : 0) + tokenWidth;
+      pending.push(cell);
+      if (pending.length === 2) flush();
     }
-    if (line.length) lines.push(line);
-    return lines;
+    flush();
+    return rows;
   };
 
-  const rows = exportRows.map((row) => {
-    const parts = partsFor(row);
-    const lines = layoutParts(parts);
-    const height = Math.max(116, 88 + Math.max(1, lines.length) * 34);
-    return { row, parts, lines, height };
+  const rowLayouts = exportRows.map((row) => {
+    const nameChars = Math.max(14, Math.floor(contentWidth / (28 * 0.53)));
+    const nameLines = wrapExportText(row.display_name, nameChars, 2);
+    const nameY = 39;
+    const nameLineHeight = 31;
+    const nameBottom = nameY + Math.max(0, nameLines.length - 1) * nameLineHeight;
+    const roleY = nameBottom + 28;
+    const componentRows = layoutComponents(partsFor(row));
+    const componentsY = roleY + 34;
+    const componentsBottom = componentRows.length
+      ? componentsY + Math.max(0, componentRows.length - 1) * componentLineHeight + 8
+      : roleY;
+    const rowHeight = Math.max(124, componentsBottom + 30);
+    return { row, nameLines, nameY, nameLineHeight, roleY, componentRows, componentsY, rowHeight };
   });
-  const rowsHeight = rows.reduce((sum, item) => sum + item.height, 0);
-  const headerHeight = 300;
-  const footerHeight = 112;
-  const height = headerHeight + rowsHeight + footerHeight;
 
+  const rowsHeight = rowLayouts.reduce((sum, item) => sum + item.rowHeight, 0);
+  const height = headerHeight + rowsHeight + footerHeight + 16;
   const winnerLabel = game.winner_team === 'black' ? 'ПОБЕДА ЧЁРНЫХ' : 'ПОБЕДА КРАСНЫХ';
   const winnerColor = game.winner_team === 'black' ? NOIR_EXPORT_COLORS.silver : NOIR_EXPORT_COLORS.wine;
+  const roleMap: Record<string, { label: string; color: string }> = {
+    citizen: { label: 'МИРНЫЙ', color: NOIR_EXPORT_SCORE_COLORS.wins },
+    sheriff: { label: 'ШЕРИФ', color: NOIR_EXPORT_COLORS.gold },
+    mafia: { label: 'МАФИЯ', color: '#D8747D' },
+    don: { label: 'ДОН', color: '#B693C9' },
+  };
+
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <linearGradient id="monogramGradient" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#421828"/>
-      <stop offset="100%" stop-color="#1C1117"/>
-    </linearGradient>
-    <filter id="monogramBlur"><feGaussianBlur stdDeviation="10"/></filter>
-  </defs>
-  <rect width="${width}" height="${height}" fill="${NOIR_EXPORT_COLORS.background}"/>
-  <rect x="0" y="0" width="8" height="${height}" fill="${NOIR_EXPORT_COLORS.wine}"/>
-  <text x="${margin}" y="64" font-family="${fontFamily}" font-size="20" font-weight="800" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="4">2LA NOIRE</text>
-  <text x="${margin}" y="116" font-family="${fontFamily}" font-size="20" font-weight="700" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="2">ИТОГИ ИГРЫ</text>
-  <text x="${margin}" y="178" font-family="${fontFamily}" font-size="44" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">ИГРА №${game.game_number}</text>
-  <text x="${margin}" y="218" font-family="${fontFamily}" font-size="22" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(tournament.title)}</text>
-  <text x="${width - margin}" y="170" text-anchor="end" font-family="${fontFamily}" font-size="24" font-weight="850" fill="${winnerColor}">${winnerLabel}</text>
-  <text x="${width - margin}" y="210" text-anchor="end" font-family="${fontFamily}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">Судья · ${escapeXml(game.judge_name || '—')}</text>
-  <line x1="${margin}" y1="258" x2="${width - margin}" y2="258" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="2"/>
-  `;
+    ${renderNoirExportBackground(width, height)}
+    ${renderNoirExportBrandHeader('ИТОГИ ИГРЫ')}
+    <text x="${margin}" y="164" font-family="${font}" font-size="48" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8">ИГРА №${game.game_number}</text>
+    <text x="${margin}" y="204" font-family="${font}" font-size="21" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(tournament.title)}</text>
+    <text x="${totalRight}" y="160" text-anchor="end" font-family="${font}" font-size="23" font-weight="900" fill="${winnerColor}">${winnerLabel}</text>
+    <text x="${totalRight}" y="201" text-anchor="end" font-family="${font}" font-size="17" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">Судья · ${escapeXml(game.judge_name || '—')}</text>
+    <line x1="${margin}" y1="226" x2="${width - margin}" y2="226" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>`;
 
   let y = headerHeight;
-  for (const item of rows) {
-    const { row, lines } = item;
-    const roleMap: Record<string, { label: string; color: string }> = {
-      citizen: { label: 'МИРНЫЙ', color: NOIR_EXPORT_SCORE_COLORS.wins },
-      sheriff: { label: 'ШЕРИФ', color: NOIR_EXPORT_COLORS.gold },
-      mafia: { label: 'МАФИЯ', color: '#D8747D' },
-      don: { label: 'ДОН', color: '#B693C9' },
-    };
+  rowLayouts.forEach((layout, index) => {
+    const row = layout.row;
     const role = roleMap[String(row.role || '').toLowerCase()] || { label: 'БЕЗ РОЛИ', color: NOIR_EXPORT_COLORS.mutedText };
-    svg += `<text x="${margin}" y="${y + 40}" font-family="${fontFamily}" font-size="18" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}">${String(row.seat_number).padStart(2, '0')}</text>`;
-    svg += officialAvatarSvg(row.avatar_data_url, row.display_name, margin + 46, y + 18, 54, `game-avatar-${row.participant_id}`, NOIR_EXPORT_COLORS.divider, 1.5);
-    svg += `<text x="${margin + 118}" y="${y + 37}" font-family="${fontFamily}" font-size="29" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">${escapeXml(row.display_name)}</text>`;
-    svg += `<text x="${margin + 118}" y="${y + 68}" font-family="${fontFamily}" font-size="16" font-weight="800" fill="${role.color}" letter-spacing="1.4">${role.label}</text>`;
-    svg += `<text x="${width - margin}" y="${y + 43}" text-anchor="end" font-family="${fontFamily}" font-size="38" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPoints(row.game_total)}</text>`;
-    svg += `<text x="${width - margin}" y="${y + 68}" text-anchor="end" font-family="${fontFamily}" font-size="13" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}" letter-spacing="1.5">ИТОГ ЗА ИГРУ</text>`;
-
-    if (lines.length) {
-      lines.forEach((line, lineIndex) => {
-        let x = scoreX;
-        line.forEach(({ part, text, width: tokenWidth }) => {
-          svg += `<text x="${x}" y="${y + 98 + lineIndex * 34}" font-family="${fontFamily}" font-size="22" font-weight="700" fill="${NOIR_EXPORT_SCORE_COLORS[part.key]}">${escapeXml(text)}</text>`;
-          x += tokenWidth + 26;
-        });
-      });
+    if (index % 2 === 0) {
+      svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="${layout.rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.18"/>`;
     }
-    svg += `<line x1="${margin}" y1="${y + item.height - 2}" x2="${width - margin}" y2="${y + item.height - 2}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1.5"/>`;
-    y += item.height;
-  }
+    svg += `<text x="${seatX}" y="${y + 40}" text-anchor="middle" font-family="${font}" font-size="18" font-weight="900" fill="${NOIR_EXPORT_COLORS.subduedText}" font-variant-numeric="tabular-nums">${String(row.seat_number).padStart(2, '0')}</text>
+      ${officialAvatarSvg(row.avatar_data_url, row.display_name, avatarX, y + 19, avatarSize, `game-avatar-${row.participant_id || index}`, '#39353B', 1.5)}
+      ${officialSvgTextLines(layout.nameLines, contentX, y + layout.nameY, layout.nameLineHeight, `font-family="${font}" font-size="28" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      <text x="${contentX}" y="${y + layout.roleY}" font-family="${font}" font-size="16" font-weight="850" fill="${role.color}" letter-spacing="1.3">${role.label}</text>
+      <text x="${totalRight}" y="${y + 43}" text-anchor="end" font-family="${font}" font-size="39" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPoints(row.game_total)}</text>
+      <text x="${totalRight}" y="${y + 68}" text-anchor="end" font-family="${font}" font-size="12" font-weight="850" fill="${NOIR_EXPORT_COLORS.subduedText}" letter-spacing="1.3">ИТОГ ЗА ИГРУ</text>`;
 
-  svg += `<text x="${margin}" y="${height - 58}" font-family="${fontFamily}" font-size="16" font-weight="750" fill="${NOIR_EXPORT_COLORS.mutedText}">2LA NOIRE · ИТОГИ ИГРЫ</text>`;
-  svg += `<text x="${width - margin}" y="${height - 58}" text-anchor="end" font-family="${fontFamily}" font-size="15" font-weight="650" fill="${NOIR_EXPORT_COLORS.subduedText}">10 мест · результат за одну игру</text>`;
-  svg += `</svg>`;
+    layout.componentRows.forEach((componentRow, rowIndex) => {
+      componentRow.cells.forEach((cell) => {
+        const x = cell.fullWidth ? contentX : contentX + cell.column * (componentColumnWidth + componentGap);
+        svg += `<text x="${x}" y="${y + layout.componentsY + rowIndex * componentLineHeight}" font-family="${font}" font-size="${componentFontSize}" font-weight="700" fill="${NOIR_EXPORT_SCORE_COLORS[cell.part.key]}" font-variant-numeric="tabular-nums">${escapeXml(cell.text)}</text>`;
+      });
+    });
+    svg += `<line x1="${margin}" y1="${y + layout.rowHeight}" x2="${width - margin}" y2="${y + layout.rowHeight}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>`;
+    y += layout.rowHeight;
+  });
+
+  svg += `${renderNoirExportFooter(width, height, `${exportRows.length} игроков · результат за одну игру`)}
+  </svg>`;
   return svg;
 }
 
@@ -232,91 +256,21 @@ export function generateStandingsSvg(
   totalGamesCount: number,
   avatarDataByParticipant: Record<string, string> = {},
 ): string {
-  const width = 1080;
-  const margin = 58;
-  const titleLines = wrapExportText(tournament.title, 27, 2);
-  const titleExtra = Math.max(0, titleLines.length - 1) * 58;
-  const headerHeight = 280 + titleExtra;
-  const rankingTitleHeight = 92;
-  const footerHeight = 112;
-  const rankingRankCenterX = margin + 32;
-  const rankingAvatarX = margin + 78;
-  const rankingAvatarSize = 82;
-  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
-  const rankingTotalRight = width - margin;
-  const rankingTotalColumnWidth = 118;
-  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
-  const rankingContentWidth = rankingContentRight - rankingContentX;
   const currentStandings: OfficialStandingPresentation[] = standings.map((item) => ({
     ...item,
     display_place: item.place,
     avatar_data_url: avatarDataByParticipant[item.participant_id] || null,
   }));
-  const layouts = currentStandings.map((item) => layoutOfficialRankingRow(item, rankingContentWidth));
-  const rowsHeight = layouts.reduce((sum, layout) => sum + layout.rowHeight, 0);
-  const height = headerHeight + rankingTitleHeight + rowsHeight + footerHeight;
-  const tournamentDate = (() => {
-    const date = tournament.date ? new Date(tournament.date) : null;
-    if (!date || Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
-  })();
-  const metaParts = [
-    `После ${completedGamesCount} из ${totalGamesCount} игр`,
-    `${standings.length} ${russianPlural(standings.length, 'участник', 'участника', 'участников')}`,
-    tournamentDate,
-  ].filter((part): part is string => Boolean(part));
-
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <defs>
-      <linearGradient id="standingsBg" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#08080A"/>
-        <stop offset="100%" stop-color="#120D11"/>
-      </linearGradient>
-      <linearGradient id="standingsWine" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#5B1329" stop-opacity="0.30"/>
-        <stop offset="100%" stop-color="#09090B" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="monogramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#4E1728"/>
-        <stop offset="48%" stop-color="#261018"/>
-        <stop offset="100%" stop-color="#111014"/>
-      </linearGradient>
-      <filter id="monogramBlur" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16"/></filter>
-    </defs>
-    <rect width="${width}" height="${height}" fill="url(#standingsBg)"/>
-    <rect x="0" y="0" width="${width}" height="${headerHeight + 20}" fill="url(#standingsWine)"/>
-    <rect x="0" y="0" width="${width}" height="10" fill="${NOIR_EXPORT_COLORS.wineSoft}"/>
-    <text x="${margin}" y="64" font-family="${officialSvgFont}" font-size="22" font-weight="900" fill="#D7A0AE" letter-spacing="3.2">2LA NOIRE</text>
-    <text x="${margin}" y="108" font-family="${officialSvgFont}" font-size="22" font-weight="850" fill="#857E77" letter-spacing="3.4">ПРОМЕЖУТОЧНЫЕ ИТОГИ</text>
-    ${officialSvgTextLines(titleLines, margin, 176, 58, `font-family="${officialSvgFont}" font-size="54" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-1.1"`)}
-    <text x="${margin}" y="${248 + titleExtra}" font-family="${officialSvgFont}" font-size="22" font-weight="700" fill="#AAA39A">${escapeXml(metaParts.join('   ·   '))}</text>
-    <line x1="${margin}" y1="${headerHeight - 14}" x2="${width - margin}" y2="${headerHeight - 14}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
-    <text x="${margin}" y="${headerHeight + 58}" font-family="${officialSvgFont}" font-size="34" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="1.4">ТЕКУЩИЙ РЕЙТИНГ</text>
-    <text x="${width - margin}" y="${headerHeight + 58}" text-anchor="end" font-family="${officialSvgFont}" font-size="20" font-weight="650" fill="#706A64">После ${completedGamesCount} из ${totalGamesCount}</text>`;
-
-  let y = headerHeight + rankingTitleHeight;
-  layouts.forEach((layout, index) => {
-    const item = layout.item;
-    const accent = item.place === 1 ? NOIR_EXPORT_COLORS.gold : item.place === 2 ? NOIR_EXPORT_COLORS.silver : item.place === 3 ? NOIR_EXPORT_COLORS.bronze : '#8B8580';
-    if (item.place <= 3) svg += `<rect x="${margin}" y="${y + 18}" width="4" height="${layout.rowHeight - 36}" fill="${accent}" opacity="0.82"/>`;
-    svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="rgba(255,255,255,0.085)" stroke-width="1"/>
-      <text x="${rankingRankCenterX}" y="${y + 73}" text-anchor="middle" font-family="${officialSvgFont}" font-size="40" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(item.place).padStart(2, '0')}</text>
-      ${officialAvatarSvg(item.avatar_data_url, item.display_name, rankingAvatarX, y + 26, rankingAvatarSize, `intermediate-${index}`, item.place <= 3 ? accent : '#39353B', item.place <= 3 ? 2.5 : 1.5)}
-      ${officialSvgTextLines(layout.nameLines, rankingContentX, y + 56, 40, `font-family="${officialSvgFont}" font-size="36" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
-      <text x="${rankingContentX}" y="${y + layout.winsY}" font-family="${officialSvgFont}" font-size="27" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>
-      <text x="${rankingTotalRight}" y="${y + 66}" text-anchor="end" font-family="${officialSvgFont}" font-size="50" font-weight="900" fill="${item.place <= 3 ? accent : NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
-      ${renderRankingScoreGroups(layout.scoreGroups, rankingContentX, y, rankingContentWidth)}`;
-    if (layout.tieLines.length && layout.tieStartOffset !== null) {
-      svg += officialSvgTextLines(layout.tieLines, rankingContentX, y + layout.tieStartOffset, 31, `font-family="${officialSvgFont}" font-size="23" font-weight="600" fill="#746E68"`);
-    }
-    y += layout.rowHeight;
-  });
-  svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="rgba(255,255,255,0.085)" stroke-width="1"/>
-    <line x1="${margin}" y1="${height - footerHeight + 20}" x2="${width - margin}" y2="${height - footerHeight + 20}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
-    <text x="${margin}" y="${height - 42}" font-family="${officialSvgFont}" font-size="18" font-weight="900" fill="#B88B97" letter-spacing="3.2">2LA NOIRE</text>
-    <text x="${width - margin}" y="${height - 42}" text-anchor="end" font-family="${officialSvgFont}" font-size="16" font-weight="650" fill="${NOIR_EXPORT_COLORS.subduedText}">Промежуточные данные · не финальные итоги</text>
-  </svg>`;
-  return svg;
+  return generateRankingPublicationSvg(
+    tournament,
+    currentStandings,
+    {
+      section: 'ПРОМЕЖУТОЧНЫЕ ИТОГИ',
+      heading: 'ТЕКУЩИЙ РЕЙТИНГ',
+      metaLead: `После ${completedGamesCount} из ${totalGamesCount} игр`,
+      footer: 'Промежуточные данные · не финальные итоги',
+    },
+  ).svg;
 }
 
 export function renderSvgToPngDataUrl(svgString: string, width = 1080, height = 1600): Promise<string> {
@@ -1284,6 +1238,305 @@ function renderRankingScoreGroups(
   return svg;
 }
 
+
+interface PublicationScoreCell {
+  component: OfficialScoreComponent;
+  text: string;
+  column: 0 | 1;
+  fullWidth: boolean;
+}
+
+interface PublicationScoreRow {
+  cells: PublicationScoreCell[];
+}
+
+interface PublicationRankingRowLayout {
+  item: OfficialStandingPresentation;
+  nameLines: string[];
+  nameY: number;
+  nameLineHeight: number;
+  contextLines: string[];
+  contextY: number;
+  scoreY: number;
+  scoreRows: PublicationScoreRow[];
+  rowHeight: number;
+}
+
+function layoutPublicationScoreGrid(components: OfficialScoreComponent[], contentWidth: number): PublicationScoreRow[] {
+  const fontSize = 19;
+  const gap = 24;
+  const columnWidth = (contentWidth - gap) / 2;
+  const rows: PublicationScoreRow[] = [];
+  let pending: PublicationScoreCell[] = [];
+  const flush = () => {
+    if (!pending.length) return;
+    rows.push({ cells: pending });
+    pending = [];
+  };
+  for (const component of components) {
+    const text = scoreComponentDisplay(component);
+    const fullWidth = estimateOfficialTextWidth(text, fontSize) > columnWidth;
+    const cell: PublicationScoreCell = { component, text, column: pending.length as 0 | 1, fullWidth };
+    if (fullWidth) {
+      flush();
+      rows.push({ cells: [{ ...cell, column: 0, fullWidth: true }] });
+      continue;
+    }
+    pending.push(cell);
+    if (pending.length === 2) flush();
+  }
+  flush();
+  return rows;
+}
+
+function layoutPublicationRankingRow(item: OfficialStandingPresentation, contentWidth: number): PublicationRankingRowLayout {
+  const nameFontSize = 27;
+  const nameLineHeight = 28;
+  const nameLines = wrapExportText(item.display_name, Math.max(14, Math.floor(contentWidth / (nameFontSize * 0.53))), 2);
+  const nameY = 30;
+  const nameBottom = nameY + Math.max(0, nameLines.length - 1) * nameLineHeight;
+  const contextText = [formatWinsSummary(item.wins, item.games_played), ...buildTieBreakStats(item)].join(' · ');
+  const contextLines = wrapExportText(contextText, Math.max(34, Math.floor(contentWidth / (18 * 0.53))), 2);
+  const contextY = nameBottom + 22;
+  const scoreRows = layoutPublicationScoreGrid(getOfficialScoreComponents(item), contentWidth);
+  const scoreY = contextY + Math.max(0, contextLines.length - 1) * 20 + 28;
+  const scoreBottom = scoreRows.length ? scoreY + Math.max(0, scoreRows.length - 1) * 22 + 14 : contextY + 14;
+  const rowHeight = Math.max(124, scoreBottom + 16);
+  return { item, nameLines, nameY, nameLineHeight, contextLines, contextY, scoreY, scoreRows, rowHeight };
+}
+
+function renderPublicationScoreGrid(rows: PublicationScoreRow[], x: number, y: number, contentWidth: number): string {
+  const gap = 24;
+  const columnWidth = (contentWidth - gap) / 2;
+  let svg = '';
+  rows.forEach((row, rowIndex) => {
+    row.cells.forEach((cell) => {
+      const cx = cell.fullWidth ? x : x + cell.column * (columnWidth + gap);
+      svg += `<text x="${cx}" y="${y + rowIndex * 22}" font-family="${NOIR_EXPORT_FONT_FAMILY}" font-size="19" font-weight="700" fill="${officialScoreColor(cell.component.kind)}" font-variant-numeric="tabular-nums">${escapeXml(cell.text)}</text>`;
+    });
+  });
+  return svg;
+}
+
+function generateRankingPublicationSvg(
+  tournament: Tournament,
+  standings: OfficialStandingPresentation[],
+  options: { section: string; heading: string; metaLead: string; footer: string },
+): { svg: string; width: number; height: number } {
+  const width = NOIR_EXPORT_LAYOUT.width;
+  const margin = NOIR_EXPORT_LAYOUT.margin;
+  const font = NOIR_EXPORT_FONT_FAMILY;
+  const titleLines = wrapExportText(tournament.title, 32, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 48;
+  const headerHeight = 218 + titleExtra;
+  const rankingHeaderHeight = 54;
+  const rankX = margin + 18;
+  const avatarX = margin + 42;
+  const avatarSize = 58;
+  const contentX = margin + 112;
+  const totalRight = width - margin;
+  const totalColumnWidth = 94;
+  const contentRight = totalRight - totalColumnWidth - 22;
+  const contentWidth = contentRight - contentX;
+  const layouts = standings.map((item) => layoutPublicationRankingRow(item, contentWidth));
+  const rowsHeight = layouts.reduce((sum, row) => sum + row.rowHeight, 0);
+  const rowsStart = headerHeight + rankingHeaderHeight;
+  const height = rowsStart + rowsHeight + NOIR_EXPORT_LAYOUT.footerHeight + 18;
+  const date = tournament.date ? new Date(tournament.date) : null;
+  const dateLabel = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null;
+  const venue = getUsefulVenue(tournament.venue);
+  const meta = [options.metaLead, dateLabel, venue].filter((value): value is string => Boolean(value)).join('   ·   ');
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    ${renderNoirExportBackground(width, height)}
+    ${renderNoirExportBrandHeader(options.section)}
+    ${officialSvgTextLines(titleLines, margin, 150, 44, `font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.7"`)}
+    <text x="${margin}" y="${190 + titleExtra}" font-family="${font}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
+    <line x1="${margin}" y1="${headerHeight - 8}" x2="${width - margin}" y2="${headerHeight - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <text x="${margin}" y="${headerHeight + 37}" font-family="${font}" font-size="28" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="1.0">${escapeXml(options.heading)}</text>
+    <text x="${totalRight}" y="${headerHeight + 37}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">${standings.length} ${russianPlural(standings.length, 'участник', 'участника', 'участников')}</text>`;
+
+  let y = rowsStart;
+  layouts.forEach((layout, index) => {
+    const item = layout.item;
+    const place = item.display_place;
+    const accent = place === 1 ? NOIR_EXPORT_COLORS.gold : place === 2 ? NOIR_EXPORT_COLORS.silver : place === 3 ? NOIR_EXPORT_COLORS.bronze : '#8B8580';
+    if (index % 2 === 0) {
+      svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="${layout.rowHeight}" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.16"/>`;
+    }
+    if (place <= 3) svg += `<rect x="${margin}" y="${y + 12}" width="3" height="${layout.rowHeight - 24}" fill="${accent}" opacity="0.85"/>`;
+    svg += `<text x="${rankX}" y="${y + 41}" text-anchor="middle" font-family="${font}" font-size="29" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(place).padStart(2, '0')}</text>
+      ${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 12, avatarSize, `publication-ranking-${index}`, place <= 3 ? accent : '#39353B', place <= 3 ? 2 : 1.5)}
+      ${officialSvgTextLines(layout.nameLines, contentX, y + layout.nameY, layout.nameLineHeight, `font-family="${font}" font-size="27" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      ${officialSvgTextLines(layout.contextLines, contentX, y + layout.contextY, 20, `font-family="${font}" font-size="18" font-weight="650" fill="#AAA39A"`)}
+      <text x="${totalRight}" y="${y + 42}" text-anchor="end" font-family="${font}" font-size="42" font-weight="900" fill="${place <= 3 ? accent : NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
+      ${renderPublicationScoreGrid(layout.scoreRows, contentX, y + layout.scoreY, contentWidth)}`;
+    svg += `<line x1="${margin}" y1="${y + layout.rowHeight}" x2="${width - margin}" y2="${y + layout.rowHeight}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>`;
+    y += layout.rowHeight;
+  });
+
+  svg += `${renderNoirExportFooter(width, height, options.footer)}
+  </svg>`;
+  return { svg, width, height };
+}
+
+export function generateOfficialWinnersSvg(
+  presentation: OfficialTournamentResultsPresentation,
+): { svg: string; width: number; height: number } {
+  const width = NOIR_EXPORT_LAYOUT.width;
+  const height = 1350;
+  const margin = NOIR_EXPORT_LAYOUT.margin;
+  const font = NOIR_EXPORT_FONT_FAMILY;
+  const titleLines = wrapExportText(presentation.tournament.title, 28, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 54;
+  const championAward = presentation.podium.find((award) => award.place === 1) || presentation.podium[0];
+  const secondAward = presentation.podium.find((award) => award.place === 2) || presentation.podium[1];
+  const thirdAward = presentation.podium.find((award) => award.place === 3) || presentation.podium[2];
+  const championStanding = getStandingForAward(championAward, presentation.standings);
+  const secondStanding = getStandingForAward(secondAward, presentation.standings);
+  const thirdStanding = getStandingForAward(thirdAward, presentation.standings);
+  const championName = championAward?.display_name || championStanding?.display_name || 'Победитель';
+  const championNameLines = wrapExportText(championName, 17, 2);
+  const championFacts = buildChampionFacts(championStanding, secondStanding, presentation.nominations);
+  const date = formatOfficialDate(presentation.tournament.date);
+  const venue = getUsefulVenue(presentation.tournament.venue);
+  const meta = [date, venue].filter((value): value is string => Boolean(value)).join('   ·   ');
+  const heroY = 300 + titleExtra;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    ${renderNoirExportBackground(width, height)}
+    ${renderNoirExportBrandHeader('ПОБЕДИТЕЛИ ТУРНИРА')}
+    ${officialSvgTextLines(titleLines, margin, 168, 54, `font-family="${font}" font-size="54" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-1.1"`)}
+    <text x="${margin}" y="${258 + titleExtra}" font-family="${font}" font-size="20" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>
+    <line x1="${margin}" y1="${heroY - 18}" x2="${width - margin}" y2="${heroY - 18}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <rect x="${margin}" y="${heroY}" width="${width - margin * 2}" height="430" fill="${NOIR_EXPORT_COLORS.surface}" opacity="0.38"/>
+    <rect x="${margin}" y="${heroY}" width="4" height="430" fill="${NOIR_EXPORT_COLORS.gold}"/>
+    <text x="${margin + 322}" y="${heroY + 56}" font-family="${font}" font-size="20" font-weight="900" fill="${NOIR_EXPORT_COLORS.gold}" letter-spacing="2.1">ЧЕМПИОН ТУРНИРА</text>
+    ${officialAvatarSvg(championAward?.avatar_data_url, championName, margin + 34, heroY + 82, 236, 'winners-champion', NOIR_EXPORT_COLORS.gold, 4)}
+    ${officialSvgTextLines(championNameLines, margin + 322, heroY + 132, 58, `font-family="${font}" font-size="58" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-1.0"`)}
+    <text x="${width - margin - 24}" y="${heroY + 88}" text-anchor="end" font-family="${font}" font-size="17" font-weight="900" fill="#A28A57" letter-spacing="1.7">ИТОГОВЫЙ БАЛЛ</text>
+    <text x="${width - margin - 24}" y="${heroY + 160}" text-anchor="end" font-family="${font}" font-size="66" font-weight="900" fill="${NOIR_EXPORT_COLORS.gold}" font-variant-numeric="tabular-nums">${formatPosterNumber(championAward?.points ?? championStanding?.total_points)}</text>`;
+
+  championFacts.slice(0, 2).forEach((fact, index) => {
+    svg += `<text x="${margin + 322}" y="${heroY + 300 + index * 34}" font-family="${font}" font-size="23" font-weight="700" fill="#CDC6BC">${escapeXml(fact)}</text>`;
+  });
+
+  const podiumY = heroY + 466;
+  const gap = 30;
+  const podiumWidth = (width - margin * 2 - gap) / 2;
+  const renderPodium = (award: OfficialAwardPresentation | undefined, standing: OfficialStandingPresentation | null, place: 2 | 3, x: number) => {
+    const accent = place === 2 ? NOIR_EXPORT_COLORS.silver : NOIR_EXPORT_COLORS.bronze;
+    const name = award?.display_name || standing?.display_name || 'Не определено';
+    const nameLines = wrapExportText(name, 18, 2);
+    return `<rect x="${x}" y="${podiumY}" width="${podiumWidth}" height="240" fill="${NOIR_EXPORT_COLORS.surfaceSoft}" opacity="0.32"/>
+      <rect x="${x}" y="${podiumY}" width="${podiumWidth}" height="3" fill="${accent}" opacity="0.9"/>
+      ${officialAvatarSvg(award?.avatar_data_url, name, x + 26, podiumY + 54, 104, `winners-${place}`, accent, 2.5)}
+      <text x="${x + 154}" y="${podiumY + 48}" font-family="${font}" font-size="17" font-weight="900" fill="${accent}" letter-spacing="1.5">${place === 2 ? 'ВТОРОЕ МЕСТО' : 'ТРЕТЬЕ МЕСТО'}</text>
+      ${officialSvgTextLines(nameLines, x + 154, podiumY + 94, 32, `font-family="${font}" font-size="30" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      <text x="${x + podiumWidth - 24}" y="${podiumY + 184}" text-anchor="end" font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(award?.points ?? standing?.total_points)}</text>
+      <text x="${x + podiumWidth - 24}" y="${podiumY + 211}" text-anchor="end" font-family="${font}" font-size="13" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}" letter-spacing="1.2">ИТОГ</text>`;
+  };
+
+  svg += `${renderPodium(secondAward, secondStanding, 2, margin)}
+    ${renderPodium(thirdAward, thirdStanding, 3, margin + podiumWidth + gap)}
+    ${renderNoirExportFooter(width, height, '1 · 2 · 3 места')}
+  </svg>`;
+  return { svg, width, height };
+}
+
+export function generateOfficialFinalRankingSvg(
+  presentation: OfficialTournamentResultsPresentation,
+): { svg: string; width: number; height: number } {
+  return generateRankingPublicationSvg(
+    presentation.tournament,
+    presentation.standings,
+    {
+      section: 'ИТОГИ ТУРНИРА',
+      heading: 'ФИНАЛЬНЫЙ РЕЙТИНГ',
+      metaLead: `${presentation.standings.length} ${russianPlural(presentation.standings.length, 'участник', 'участника', 'участников')}`,
+      footer: 'Финальный рейтинг',
+    },
+  );
+}
+
+export function generateOfficialAwardsSvg(
+  presentation: OfficialTournamentResultsPresentation,
+): { svg: string; width: number; height: number } {
+  const width = NOIR_EXPORT_LAYOUT.width;
+  const margin = NOIR_EXPORT_LAYOUT.margin;
+  const font = NOIR_EXPORT_FONT_FAMILY;
+  const titleLines = wrapExportText(presentation.tournament.title, 34, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 42;
+  const headerHeight = 226 + titleExtra;
+  const featured = presentation.nominations.find(isMvpAward) || null;
+  const others = presentation.nominations.filter((award) => award !== featured);
+  const gap = 24;
+  const tileWidth = (width - margin * 2 - gap) / 2;
+  const featuredLayout = featured ? layoutAwardTile(featured, width - margin * 2, true) : null;
+  const otherLayouts = others.map((award) => layoutAwardTile(award, tileWidth));
+  const rows: Array<Array<{ award: OfficialAwardPresentation; layout: AwardTileLayout; index: number }>> = [];
+  for (let index = 0; index < others.length; index += 2) {
+    rows.push([index, index + 1].filter((item) => item < others.length).map((item) => ({ award: others[item], layout: otherLayouts[item], index: item })));
+  }
+  const rowHeights = rows.map((row) => Math.max(...row.map((item) => item.layout.height)));
+  const contentHeight = (featuredLayout?.height || 0)
+    + (featuredLayout && rows.length ? 24 : 0)
+    + rowHeights.reduce((sum, value) => sum + value, 0)
+    + Math.max(0, rows.length - 1) * 22;
+  const height = Math.max(980, headerHeight + contentHeight + NOIR_EXPORT_LAYOUT.footerHeight + 42);
+  const date = formatOfficialDate(presentation.tournament.date);
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    ${renderNoirExportBackground(width, height)}
+    <defs>
+      <linearGradient id="mvpWash" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#7B1835" stop-opacity="0.26"/><stop offset="100%" stop-color="#150E12" stop-opacity="0"/></linearGradient>
+      <linearGradient id="awardWash" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5B1329" stop-opacity="0.12"/><stop offset="100%" stop-color="#0A090B" stop-opacity="0"/></linearGradient>
+    </defs>
+    ${renderNoirExportBrandHeader('НОМИНАЦИИ ТУРНИРА')}
+    ${officialSvgTextLines(titleLines, margin, 158, 42, `font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.6"`)}
+    <text x="${margin}" y="${210 + titleExtra}" font-family="${font}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(date)}</text>
+    <line x1="${margin}" y1="${headerHeight - 8}" x2="${width - margin}" y2="${headerHeight - 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>`;
+
+  let y = headerHeight + 12;
+  if (featured && featuredLayout) {
+    const innerX = margin + 34;
+    svg += `<rect x="${margin}" y="${y}" width="${width - margin * 2}" height="${featuredLayout.height}" fill="url(#mvpWash)"/>
+      <rect x="${margin}" y="${y}" width="4" height="${featuredLayout.height}" fill="#A93C5D"/>
+      ${officialSvgTextLines(featuredLayout.titleLines, innerX, y + featuredLayout.titleY, 31, `font-family="${font}" font-size="25" font-weight="900" fill="#D6A1AE" letter-spacing="2.2"`)}
+      ${officialAvatarSvg(featured.avatar_data_url, featured.participant_id ? featured.display_name : featured.title, innerX, y + featuredLayout.avatarY, featuredLayout.avatarSize, 'publication-award-mvp', '#A95169', 3)}
+      ${officialSvgTextLines(featuredLayout.nameLines, margin + featuredLayout.nameX, y + featuredLayout.nameY, featuredLayout.nameLineHeight, `font-family="${font}" font-size="${featuredLayout.nameFontSize}" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      ${renderAwardExplanation(featuredLayout, innerX, y)}`;
+    y += featuredLayout.height + (rows.length ? 24 : 0);
+  }
+
+  if (!featured && !rows.length) {
+    svg += `<text x="${margin}" y="${y + 80}" font-family="${font}" font-size="28" font-weight="800" fill="${NOIR_EXPORT_COLORS.mutedText}">Номинации не присуждены</text>`;
+  }
+
+  rows.forEach((row, rowIndex) => {
+    const rowHeight = rowHeights[rowIndex];
+    row.forEach((item, col) => {
+      const tileX = margin + col * (tileWidth + gap);
+      const innerX = tileX + 18;
+      const layout = item.layout;
+      const award = item.award;
+      svg += `<rect x="${tileX}" y="${y}" width="${tileWidth}" height="${rowHeight}" fill="url(#awardWash)"/>
+        <rect x="${tileX}" y="${y}" width="${tileWidth}" height="3" fill="${NOIR_EXPORT_COLORS.wineSoft}" opacity="0.9"/>
+        ${officialSvgTextLines(layout.titleLines, innerX, y + layout.titleY, 27, `font-family="${font}" font-size="22" font-weight="900" fill="#D6A1AE" letter-spacing="1.2"`)}
+        ${officialAvatarSvg(award.avatar_data_url, award.participant_id ? award.display_name : award.title, innerX, y + layout.avatarY, layout.avatarSize, `publication-award-${item.index}`, '#69414D', 2)}
+        ${officialSvgTextLines(layout.nameLines, tileX + layout.nameX, y + layout.nameY, layout.nameLineHeight, `font-family="${font}" font-size="${layout.nameFontSize}" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+        ${renderAwardExplanation(layout, innerX, y)}`;
+    });
+    y += rowHeight + (rowIndex < rows.length - 1 ? 22 : 0);
+  });
+
+  svg += `${renderNoirExportFooter(width, height, 'MVP · ролевые номинации')}
+  </svg>`;
+  return { svg, width, height };
+}
+
 export function generateOfficialTournamentResultsSvg(
   presentation: OfficialTournamentResultsPresentation,
 ): { svg: string; width: number; height: number } {
@@ -1521,291 +1774,41 @@ export interface ExportSvgPage {
   svg: string;
   width: number;
   height: number;
-  section: 'opening' | 'ranking' | 'awards' | 'standings' | 'game';
+  section: 'winners' | 'ranking' | 'awards' | 'standings' | 'game';
   block_ids: string[];
-}
-
-const EXPORT_PAGE_WIDTH = 1080;
-const EXPORT_PAGE_HEIGHT = 1350;
-const EXPORT_CONTINUATION_TOP = 112;
-const EXPORT_PAGE_BOTTOM = 1272;
-const EXPORT_OPENING_CAPACITY = EXPORT_PAGE_BOTTOM;
-const EXPORT_CONTINUATION_CAPACITY = EXPORT_PAGE_BOTTOM - EXPORT_CONTINUATION_TOP;
-
-interface ExportSourceBlock {
-  start: number;
-  end: number;
-  id: string;
-}
-
-interface ExportSliceDescriptor {
-  start: number;
-  end: number;
-  opening: boolean;
-  section: ExportSvgPage['section'];
-  header: string;
-  context: string;
-  block_ids: string[];
-}
-
-const extractSvgInner = (svg: string): string => {
-  const start = svg.indexOf('>');
-  const end = svg.lastIndexOf('</svg>');
-  if (start < 0 || end < 0 || end <= start) throw new Error('Не удалось подготовить SVG для постраничного экспорта');
-  return svg.slice(start + 1, end);
-};
-
-function packExportBlocks(
-  sectionStart: number,
-  firstContentStart: number,
-  blocks: ExportSourceBlock[],
-  firstCapacity: number,
-  continuationCapacity: number,
-  section: ExportSvgPage['section'],
-  firstHeader: string,
-  continuationHeader: string,
-  context: string,
-  opening: boolean,
-): ExportSliceDescriptor[] {
-  const result: ExportSliceDescriptor[] = [];
-  if (!blocks.length) {
-    const end = Math.min(firstContentStart, sectionStart + firstCapacity);
-    if (end > sectionStart) result.push({ start: sectionStart, end, opening, section, header: firstHeader, context, block_ids: [] });
-    return result;
-  }
-
-  let index = 0;
-  let pageStart = sectionStart;
-  let isFirst = true;
-  while (index < blocks.length) {
-    const capacity = isFirst ? firstCapacity : continuationCapacity;
-    const effectiveStart = isFirst ? pageStart : blocks[index].start;
-    let end = isFirst ? firstContentStart : effectiveStart;
-    const ids: string[] = [];
-    let added = 0;
-
-    while (index < blocks.length) {
-      const block = blocks[index];
-      const candidateEnd = block.end;
-      if (candidateEnd - effectiveStart > capacity && added > 0) break;
-      if (candidateEnd - effectiveStart > capacity && added === 0) {
-        throw new Error(`Блок ${block.id} не помещается на страницу 1080×1350 без разделения`);
-      }
-      end = candidateEnd;
-      ids.push(block.id);
-      index += 1;
-      added += 1;
-    }
-
-    result.push({
-      start: effectiveStart,
-      end,
-      opening: isFirst ? opening : false,
-      section,
-      header: isFirst ? firstHeader : continuationHeader,
-      context,
-      block_ids: ids,
-    });
-    isFirst = false;
-  }
-  return result;
-}
-
-function renderExportSlicePage(
-  sourceSvg: string,
-  descriptor: ExportSliceDescriptor,
-  pageNumber: number,
-  pageCount: number,
-): ExportSvgPage {
-  const inner = extractSvgInner(sourceSvg);
-  const contentTop = descriptor.opening ? 0 : EXPORT_CONTINUATION_TOP;
-  const contentBottom = EXPORT_PAGE_BOTTOM;
-  const contentHeight = contentBottom - contentTop;
-  if (descriptor.end - descriptor.start > contentHeight + 0.5) {
-    throw new Error('Контент страницы превышает безопасную высоту экспорта');
-  }
-  const sourceHeight = descriptor.end - descriptor.start;
-  const header = descriptor.opening ? '' : `
-    <rect x="0" y="0" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_CONTINUATION_TOP}" fill="${NOIR_EXPORT_COLORS.background}"/>
-    <text x="58" y="42" font-family="${officialSvgFont}" font-size="18" font-weight="900" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="3.2">2LA NOIRE</text>
-    <text x="58" y="82" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">${escapeXml(descriptor.header)}</text>
-    <text x="1022" y="82" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(descriptor.context)}</text>`;
-  const footer = `
-    <rect x="0" y="${EXPORT_PAGE_BOTTOM}" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT - EXPORT_PAGE_BOTTOM}" fill="${NOIR_EXPORT_COLORS.background}"/>
-    <line x1="58" y1="${EXPORT_PAGE_BOTTOM + 8}" x2="1022" y2="${EXPORT_PAGE_BOTTOM + 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
-    <text x="58" y="1325" font-family="${officialSvgFont}" font-size="17" font-weight="850" fill="#B88B97" letter-spacing="2.8">2LA NOIRE</text>
-    <text x="1022" y="1325" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="750" fill="${NOIR_EXPORT_COLORS.subduedText}" font-variant-numeric="tabular-nums">${pageNumber} / ${pageCount}</text>`;
-
-  return {
-    width: EXPORT_PAGE_WIDTH,
-    height: EXPORT_PAGE_HEIGHT,
-    section: descriptor.section,
-    block_ids: descriptor.block_ids,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" viewBox="0 0 ${EXPORT_PAGE_WIDTH} ${EXPORT_PAGE_HEIGHT}">
-      <rect width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" fill="${NOIR_EXPORT_COLORS.background}"/>
-      <svg x="0" y="${contentTop}" width="${EXPORT_PAGE_WIDTH}" height="${sourceHeight}" viewBox="0 ${descriptor.start} ${EXPORT_PAGE_WIDTH} ${sourceHeight}" preserveAspectRatio="xMinYMin meet" overflow="hidden">${inner}</svg>
-      ${header}
-      ${footer}
-    </svg>`,
-  };
-}
-
-function finalizeExportPages(sourceSvg: string, descriptors: ExportSliceDescriptor[]): ExportSvgPage[] {
-  return descriptors.map((descriptor, index) => renderExportSlicePage(sourceSvg, descriptor, index + 1, descriptors.length));
-}
-
-function officialExportGeometry(presentation: OfficialTournamentResultsPresentation) {
-  const width = 1080;
-  const margin = 58;
-  const titleLines = wrapExportText(presentation.tournament.title, 27, 2);
-  const titleExtra = Math.max(0, titleLines.length - 1) * 78;
-  const championAward = presentation.podium.find((award) => award.place === 1) || presentation.podium[0];
-  const secondAward = presentation.podium.find((award) => award.place === 2) || presentation.podium[1];
-  const thirdAward = presentation.podium.find((award) => award.place === 3) || presentation.podium[2];
-  const championStanding = getStandingForAward(championAward, presentation.standings);
-  const championName = championAward?.display_name || championStanding?.display_name || 'Победитель';
-  const championNameExtra = Math.max(0, wrapExportText(championName, 13, 2).length - 1) * 76;
-  const heroTopHeight = 338 + titleExtra;
-  const championHeight = 430 + championNameExtra;
-  const secondaryGap = 48;
-  const secondaryWidth = (width - margin * 2 - secondaryGap) / 2;
-  const secondPodiumLayout = layoutSecondaryPodium(secondAward?.display_name || 'Не определено', secondaryWidth);
-  const thirdPodiumLayout = layoutSecondaryPodium(thirdAward?.display_name || 'Не определено', secondaryWidth);
-  const secondaryPodiumHeight = 40 + Math.max(secondPodiumLayout.height, thirdPodiumLayout.height);
-  const heroHeight = heroTopHeight + championHeight + secondaryPodiumHeight + 48;
-
-  const rankingAvatarX = margin + 78;
-  const rankingAvatarSize = 82;
-  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
-  const rankingTotalRight = width - margin;
-  const rankingTotalColumnWidth = 118;
-  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
-  const rankingContentWidth = rankingContentRight - rankingContentX;
-  const rankingLayouts = presentation.standings.map((item) => layoutOfficialRankingRow(item, rankingContentWidth));
-  const rankingTitleHeight = 104;
-  const rankingHeight = rankingTitleHeight + rankingLayouts.reduce((sum, row) => sum + row.rowHeight, 0);
-
-  const featuredAward = presentation.nominations.find(isMvpAward) || null;
-  const awardTiles = presentation.nominations.filter((award) => award !== featuredAward);
-  const awardGap = 24;
-  const awardTileWidth = (width - margin * 2 - awardGap) / 2;
-  const featuredAwardLayout = featuredAward ? layoutAwardTile(featuredAward, width - margin * 2, true) : null;
-  const awardTileLayouts = awardTiles.map((award) => layoutAwardTile(award, awardTileWidth));
-  const awardRows: { items: { award: OfficialAwardPresentation; layout: AwardTileLayout; index: number }[]; height: number }[] = [];
-  for (let index = 0; index < awardTiles.length; index += 2) {
-    const items = [index, index + 1]
-      .filter((itemIndex) => itemIndex < awardTiles.length)
-      .map((itemIndex) => ({ award: awardTiles[itemIndex], layout: awardTileLayouts[itemIndex], index: itemIndex }));
-    awardRows.push({ items, height: Math.max(...items.map((item) => item.layout.height)) });
-  }
-  return { heroHeight, rankingLayouts, rankingTitleHeight, rankingHeight, featuredAward, featuredAwardLayout, awardRows };
+  label: string;
+  file_suffix: string;
 }
 
 export function generateOfficialTournamentResultsPages(
   presentation: OfficialTournamentResultsPresentation,
 ): ExportSvgPage[] {
-  const rendered = generateOfficialTournamentResultsSvg(presentation);
-  const geometry = officialExportGeometry(presentation);
-  if (geometry.heroHeight > EXPORT_OPENING_CAPACITY) {
-    throw new Error('Hero-блок турнира не помещается на одну страницу 1080×1350');
-  }
-
-  const context = presentation.tournament.title;
-  const descriptors: ExportSliceDescriptor[] = [{
-    start: 0,
-    end: geometry.heroHeight,
-    opening: true,
-    section: 'opening',
-    header: 'ИТОГИ ТУРНИРА',
-    context,
-    block_ids: ['hero'],
-  }];
-
-  const rankingStart = geometry.heroHeight;
-  let rankingCursor = rankingStart + geometry.rankingTitleHeight;
-  const rankingBlocks: ExportSourceBlock[] = geometry.rankingLayouts.map((layout) => {
-    const start = rankingCursor;
-    const end = start + layout.rowHeight;
-    rankingCursor = end;
-    return { start, end, id: `ranking-${layout.item.display_place}` };
-  });
-  descriptors.push(...packExportBlocks(
-    rankingStart,
-    rankingStart + geometry.rankingTitleHeight,
-    rankingBlocks,
-    EXPORT_CONTINUATION_CAPACITY,
-    EXPORT_CONTINUATION_CAPACITY,
-    'ranking',
-    'ИТОГИ ТУРНИРА',
-    'ФИНАЛЬНЫЙ РЕЙТИНГ · ПРОДОЛЖЕНИЕ',
-    context,
-    false,
-  ));
-
-  if (presentation.nominations.length) {
-    const awardsStart = geometry.heroHeight + geometry.rankingHeight;
-    let awardsCursor = awardsStart + 98;
-    const awardBlocks: ExportSourceBlock[] = [];
-    if (geometry.featuredAward && geometry.featuredAwardLayout) {
-      const start = awardsCursor;
-      const end = start + geometry.featuredAwardLayout.height;
-      awardBlocks.push({ start, end, id: 'award-mvp' });
-      awardsCursor = end + (geometry.awardRows.length ? 24 : 0);
-    }
-    geometry.awardRows.forEach((row, index) => {
-      const start = awardsCursor;
-      const end = start + row.height;
-      awardBlocks.push({ start, end, id: `award-row-${index + 1}` });
-      awardsCursor = end + (index < geometry.awardRows.length - 1 ? 22 : 0);
-    });
-    descriptors.push(...packExportBlocks(
-      awardsStart,
-      awardsStart + 98,
-      awardBlocks,
-      EXPORT_CONTINUATION_CAPACITY,
-      EXPORT_CONTINUATION_CAPACITY,
-      'awards',
-      'ИТОГИ ТУРНИРА',
-      'НАГРАДЫ ТУРНИРА · ПРОДОЛЖЕНИЕ',
-      context,
-      false,
-    ));
-  }
-  return finalizeExportPages(rendered.svg, descriptors);
-}
-
-function gameScorePartsForPaging(row: GamePlayerExportRow) {
-  const parts: Array<{ label: string; value: number }> = [];
-  const add = (label: string, value: number) => { if (Math.abs(value) >= 0.0001) parts.push({ label, value }); };
-  add('За победу', row.win_point);
-  add('Оценка судей', row.judge_bonus);
-  add('Протокольные начисления', row.protocol_bonus);
-  add('Лучший ход', row.best_move_points);
-  add('Компенсация первого убитого', row.ci_points);
-  add('Штрафы в игре', -Math.abs(row.game_penalty_points));
-  add('Дисциплинарный штраф', -Math.abs(row.disciplinary_penalty_points));
-  return parts;
-}
-
-function gameExportRowHeight(row: GamePlayerExportRow): number {
-  const scoreMaxWidth = 1080 - 58 - 260 - 120;
-  const gap = 26;
-  let lineCount = 0;
-  let used = 0;
-  let hasLine = false;
-  for (const part of gameScorePartsForPaging(row)) {
-    const text = `${part.label} ${formatPoints(part.value)}`;
-    const tokenWidth = Math.min(scoreMaxWidth, text.length * 22 * 0.56);
-    if (hasLine && used + gap + tokenWidth > scoreMaxWidth) {
-      lineCount += 1;
-      used = 0;
-      hasLine = false;
-    }
-    used += (hasLine ? gap : 0) + tokenWidth;
-    hasLine = true;
-  }
-  if (hasLine) lineCount += 1;
-  return Math.max(116, 88 + Math.max(1, lineCount) * 34);
+  const winners = generateOfficialWinnersSvg(presentation);
+  const ranking = generateOfficialFinalRankingSvg(presentation);
+  const awards = generateOfficialAwardsSvg(presentation);
+  return [
+    {
+      ...winners,
+      section: 'winners',
+      block_ids: ['podium-1', 'podium-2', 'podium-3'],
+      label: 'Победители',
+      file_suffix: 'winners',
+    },
+    {
+      ...ranking,
+      section: 'ranking',
+      block_ids: presentation.standings.map((item) => `ranking-${item.display_place}`),
+      label: 'Рейтинг',
+      file_suffix: 'final-rating',
+    },
+    {
+      ...awards,
+      section: 'awards',
+      block_ids: presentation.nominations.map((item) => `award-${item.key}`),
+      label: 'Номинации',
+      file_suffix: 'awards',
+    },
+  ];
 }
 
 export function generateGameResultsPages(
@@ -1813,48 +1816,16 @@ export function generateGameResultsPages(
   game: TournamentGame,
   exportRows: GamePlayerExportRow[],
 ): ExportSvgPage[] {
-  const sourceSvg = generateGameResultsSvg(tournament, game, exportRows);
-  const headerHeight = 300;
-  let cursor = headerHeight;
-  const blocks = exportRows.map((row) => {
-    const start = cursor;
-    const end = start + gameExportRowHeight(row);
-    cursor = end;
-    return { start, end, id: `seat-${row.seat_number}` };
-  });
-  const descriptors = packExportBlocks(
-    0,
-    headerHeight,
-    blocks,
-    EXPORT_OPENING_CAPACITY,
-    EXPORT_CONTINUATION_CAPACITY,
-    'game',
-    `ИТОГИ ИГРЫ №${game.game_number}`,
-    `ИТОГИ ИГРЫ №${game.game_number} · ПРОДОЛЖЕНИЕ`,
-    tournament.title,
-    true,
-  );
-  return finalizeExportPages(sourceSvg, descriptors);
-}
-
-function standingsExportGeometry(
-  tournament: Tournament,
-  standings: TournamentStandingItem[],
-) {
-  const titleLines = wrapExportText(tournament.title, 27, 2);
-  const titleExtra = Math.max(0, titleLines.length - 1) * 58;
-  const headerHeight = 280 + titleExtra;
-  const rankingTitleHeight = 92;
-  const margin = 58;
-  const rankingAvatarX = margin + 78;
-  const rankingAvatarSize = 82;
-  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
-  const rankingTotalRight = 1080 - margin;
-  const rankingTotalColumnWidth = 118;
-  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
-  const rankingContentWidth = rankingContentRight - rankingContentX;
-  const layouts = standings.map((item) => layoutOfficialRankingRow({ ...item, display_place: item.place, avatar_data_url: null }, rankingContentWidth));
-  return { headerHeight, rankingTitleHeight, layouts };
+  const svg = generateGameResultsSvg(tournament, game, exportRows);
+  const dimensions = getSvgDimensions(svg);
+  return [{
+    svg,
+    ...dimensions,
+    section: 'game',
+    block_ids: exportRows.map((row) => `seat-${row.seat_number}`),
+    label: `Игра №${game.game_number}`,
+    file_suffix: `game-${game.game_number}`,
+  }];
 }
 
 export function generateStandingsPages(
@@ -1864,28 +1835,16 @@ export function generateStandingsPages(
   totalGamesCount: number,
   avatarDataByParticipant: Record<string, string> = {},
 ): ExportSvgPage[] {
-  const sourceSvg = generateStandingsSvg(tournament, standings, completedGamesCount, totalGamesCount, avatarDataByParticipant);
-  const geometry = standingsExportGeometry(tournament, standings);
-  let cursor = geometry.headerHeight + geometry.rankingTitleHeight;
-  const blocks = geometry.layouts.map((layout) => {
-    const start = cursor;
-    const end = start + layout.rowHeight;
-    cursor = end;
-    return { start, end, id: `standing-${layout.item.place}` };
-  });
-  const descriptors = packExportBlocks(
-    0,
-    geometry.headerHeight + geometry.rankingTitleHeight,
-    blocks,
-    EXPORT_OPENING_CAPACITY,
-    EXPORT_CONTINUATION_CAPACITY,
-    'standings',
-    'ПРОМЕЖУТОЧНЫЕ ИТОГИ',
-    'ПРОМЕЖУТОЧНЫЕ ИТОГИ · ПРОДОЛЖЕНИЕ',
-    `После ${completedGamesCount} из ${totalGamesCount} игр · ${tournament.title}`,
-    true,
-  );
-  return finalizeExportPages(sourceSvg, descriptors);
+  const svg = generateStandingsSvg(tournament, standings, completedGamesCount, totalGamesCount, avatarDataByParticipant);
+  const dimensions = getSvgDimensions(svg);
+  return [{
+    svg,
+    ...dimensions,
+    section: 'standings',
+    block_ids: standings.map((item) => `standing-${item.place}`),
+    label: 'Промежуточные итоги',
+    file_suffix: 'intermediate',
+  }];
 }
 
 export function renderSvgToPngBlob(svgString: string, width: number, height: number): Promise<Blob> {

@@ -3,7 +3,6 @@ import {
   buildOfficialTournamentResultsPresentation,
   generateGameResultsPages,
   generateOfficialTournamentResultsPages,
-  generateOfficialTournamentResultsSvg,
   generateStandingsPages,
   type GamePlayerExportRow,
 } from '../lib/tournamentResultsExport.ts';
@@ -118,41 +117,68 @@ const nominations = [
   nomination('best_don', 'p5', 'head_to_head'),
 ] as any[];
 
-describe('result export publication pages', () => {
-  it('paginates game rows without splitting seats', () => {
+describe('result export publication assets', () => {
+  it('keeps a completed ten-player game on one stable Noir sheet', () => {
     const pages = generateGameResultsPages(tournament, game, gameRows);
-    expect(pages.length).toBeGreaterThan(0);
-    expect(pages.every((page) => page.width === 1080 && page.height === 1350)).toBe(true);
-    expect(pages.flatMap((page) => page.block_ids).sort()).toEqual(gameRows.map((row) => `seat-${row.seat_number}`).sort());
-    expect(pages.map((page) => page.svg).join('\n')).toContain('ИТОГИ ИГРЫ');
-    expect(pages.map((page) => page.svg).join('\n')).not.toContain('>Баллы<');
+    expect(pages).toHaveLength(1);
+    expect(pages[0].width).toBe(1080);
+    expect(pages[0].height).toBeGreaterThan(1350);
+    expect(pages[0].block_ids).toEqual(gameRows.map((row) => `seat-${row.seat_number}`));
+    expect(pages[0].svg).toContain('ИТОГИ ИГРЫ');
+    expect(pages[0].svg).toContain('Компенсация первого убитого');
+    expect(pages[0].svg).not.toContain('ПРОДОЛЖЕНИЕ');
+    expect(pages[0].svg).not.toContain('NewMafia CRM');
+    gameRows.forEach((row) => expect(pages[0].svg).toContain(row.display_name));
   });
 
-  it('paginates intermediate standings as complete ranking rows', () => {
+  it('keeps the complete intermediate standings on one Noir image', () => {
     const pages = generateStandingsPages(tournament, standings, 6, 10);
-    expect(pages.every((page) => page.width === 1080 && page.height === 1350)).toBe(true);
-    expect(pages.flatMap((page) => page.block_ids).sort()).toEqual(standings.map((item) => `standing-${item.place}`).sort());
-    const svg = pages.map((page) => page.svg).join('\n');
-    expect(svg).toContain('ПРОМЕЖУТОЧНЫЕ ИТОГИ');
-    expect(svg).toContain('После 6 из 10 игр');
-    expect(svg).not.toContain('#0F172A');
+    expect(pages).toHaveLength(1);
+    expect(pages[0].width).toBe(1080);
+    expect(pages[0].block_ids).toEqual(standings.map((item) => `standing-${item.place}`));
+    expect(pages[0].svg).toContain('ПРОМЕЖУТОЧНЫЕ ИТОГИ');
+    expect(pages[0].svg).toContain('После 6 из 10 игр');
+    expect(pages[0].svg).not.toContain('ПРОДОЛЖЕНИЕ');
+    expect(pages[0].svg).not.toContain('#0F172A');
+    standings.forEach((item) => expect(pages[0].svg).toContain(item.display_name));
   });
 
-  it('keeps official hero, ranking rows and awards whole while using plain nomination wording', () => {
+  it('publishes exactly winners, complete ranking and nominations in that order', () => {
     const presentation = buildOfficialTournamentResultsPresentation(tournament, standings, awardSlots, new Date('2026-08-09T08:00:00Z'), {}, nominations as any);
     const pages = generateOfficialTournamentResultsPages(presentation);
-    expect(pages.every((page) => page.width === 1080 && page.height === 1350)).toBe(true);
-    expect(pages.some((page) => page.block_ids.includes('hero'))).toBe(true);
-    expect(pages.flatMap((page) => page.block_ids).filter((id) => id.startsWith('ranking-')).length).toBe(10);
-    const longSvg = generateOfficialTournamentResultsSvg(presentation).svg;
-    expect(longSvg).not.toContain('Игровые начисления');
-    expect(longSvg).not.toContain('Доп. баллы');
-    expect(longSvg).toContain('ПОБЕДИЛ ПО ОЦЕНКЕ СУДЕЙ');
-    expect(longSvg).toContain('ЛУЧШЕ ПО БОНУСАМ И ШТРАФАМ');
-    expect(longSvg).toContain('Итог бонусов и штрафов');
-    expect(longSvg).toContain('Штраф по протоколу');
-    expect(longSvg).toContain('ПРИ ПОЛНОМ РАВЕНСТВЕ ·');
-    expect(longSvg).toContain('ЛИЧНЫЕ ВСТРЕЧИ 2:1');
-    expect(longSvg).not.toMatch(/ГЛАВНОГО СУДЬИ|ЖЕРЕБ|СЛУЧАЙН/i);
+    expect(pages).toHaveLength(3);
+    expect(pages.map((page) => page.section)).toEqual(['winners', 'ranking', 'awards']);
+    expect(pages.map((page) => page.label)).toEqual(['Победители', 'Рейтинг', 'Номинации']);
+    expect(pages.map((page) => page.file_suffix)).toEqual(['winners', 'final-rating', 'awards']);
+    expect(pages.every((page) => page.width === 1080)).toBe(true);
+    expect(pages.map((page) => page.svg).join('\n')).not.toContain('ПРОДОЛЖЕНИЕ');
+
+    expect(pages[0].svg).toContain('ПОБЕДИТЕЛИ ТУРНИРА');
+    expect(pages[0].svg).toContain('Игрок 1');
+    expect(pages[0].svg).toContain('Игрок 2');
+    expect(pages[0].svg).toContain('Игрок 3');
+    expect(pages[0].svg).not.toContain('ФИНАЛЬНЫЙ РЕЙТИНГ');
+    expect(pages[0].svg).not.toContain('НОМИНАЦИИ ТУРНИРА');
+
+    standings.forEach((item) => expect(pages[1].svg).toContain(item.display_name));
+    expect(pages[1].block_ids.filter((id) => id.startsWith('ranking-'))).toHaveLength(10);
+    expect(pages[1].svg).toContain('ФИНАЛЬНЫЙ РЕЙТИНГ');
+    expect(pages[1].svg).not.toContain('MVP ТУРНИРА');
+
+    expect(pages[2].svg).toContain('НОМИНАЦИИ ТУРНИРА');
+    expect(pages[2].svg).toContain('MVP ТУРНИРА');
+    expect(pages[2].svg).toContain('ЛУЧШИЙ МИРНЫЙ');
+    expect(pages[2].svg).toContain('ЛУЧШАЯ МАФИЯ');
+    expect(pages[2].svg).toContain('ЛУЧШИЙ ШЕРИФ');
+    expect(pages[2].svg).toContain('ЛУЧШИЙ ДОН');
+    expect(pages[2].svg).not.toContain('Игровые начисления');
+    expect(pages[2].svg).not.toContain('Доп. баллы');
+    expect(pages[2].svg).toContain('ПОБЕДИЛ ПО ОЦЕНКЕ СУДЕЙ');
+    expect(pages[2].svg).toContain('ЛУЧШЕ ПО БОНУСАМ И ШТРАФАМ');
+    expect(pages[2].svg).toContain('Итог бонусов и штрафов');
+    expect(pages[2].svg).toContain('Штраф по протоколу');
+    expect(pages[2].svg).toContain('ПРИ ПОЛНОМ РАВЕНСТВЕ ·');
+    expect(pages[2].svg).toContain('ЛИЧНЫЕ ВСТРЕЧИ 2:1');
+    expect(pages[2].svg).not.toMatch(/ГЛАВНОГО СУДЬИ|ЖЕРЕБ|СЛУЧАЙН/i);
   });
 });

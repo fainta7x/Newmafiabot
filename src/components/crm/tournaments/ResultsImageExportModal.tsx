@@ -16,15 +16,11 @@ import {
   buildGameExportRows,
   buildOfficialTournamentResultsPresentation,
   generateGameResultsPages,
-  generateGameResultsSvg,
   generateOfficialTournamentResultsPages,
-  generateOfficialTournamentResultsSvg,
   generateStandingsPages,
-  generateStandingsSvg,
   getSafeFilenameForGame,
   getSafeFilenameForOfficial,
   getSafeFilenameForStandings,
-  getSvgDimensions,
   renderSvgToPngBlob,
   type ExportSvgPage,
 } from '../../../lib/tournamentResultsExport.ts';
@@ -37,12 +33,7 @@ type PreviewPage = {
   blob: Blob;
   url: string;
   fileName: string;
-};
-
-type ArchiveImage = {
-  blob: Blob;
-  url: string;
-  fileName: string;
+  label: string;
 };
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
@@ -113,9 +104,11 @@ const loadOfficialAvatarMap = async (standings: TournamentStandingItem[]): Promi
   return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry)));
 };
 
-const pageFileName = (baseFileName: string, index: number): string => {
+const pageFileName = (baseFileName: string, page: ExportSvgPage, index: number, total: number): string => {
+  if (total === 1) return baseFileName;
   const base = baseFileName.replace(/\.png$/i, '');
-  return `${base}-${String(index + 1).padStart(2, '0')}.png`;
+  const suffix = page.file_suffix ? `-${page.file_suffix}` : '';
+  return `${base}-${String(index + 1).padStart(2, '0')}${suffix}.png`;
 };
 
 export const canShareExportFiles = (
@@ -148,7 +141,7 @@ const renderPages = async (pages: ExportSvgPage[], baseFileName: string): Promis
     const page = pages[index];
     const blob = await renderSvgToPngBlob(page.svg, page.width, page.height);
     const url = URL.createObjectURL(blob);
-    rendered.push({ blob, url, fileName: pageFileName(baseFileName, index) });
+    rendered.push({ blob, url, fileName: pageFileName(baseFileName, page, index, pages.length), label: page.label });
   }
   return rendered;
 };
@@ -172,7 +165,6 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
 }) => {
   const [loading, setLoading] = useState(true);
   const [pages, setPages] = useState<PreviewPage[]>([]);
-  const [archive, setArchive] = useState<ArchiveImage | null>(null);
   const [activePage, setActivePage] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -191,7 +183,6 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
     objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     objectUrlsRef.current = [];
     setPages([]);
-    setArchive(null);
     setActivePage(0);
     setZoom(1);
   }, []);
@@ -216,10 +207,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
     setLoading(true);
 
     try {
-      let pageSvgs: ExportSvgPage[] = [];
-      let archiveSvg = '';
-      let archiveWidth = 1080;
-      let archiveHeight = 1350;
+      let assets: ExportSvgPage[] = [];
       let baseFileName = 'export.png';
 
       if (exportType === 'official') {
@@ -230,16 +218,14 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           api.getTournamentAwards(tournament.id),
           api.getTournamentNominations(tournament.id),
         ]);
-
         if (freshTournament.status !== 'completed') {
           throw new Error(
             freshTournament.status === 'correction'
-              ? 'Завершите корректировку турнира и повторно зафиксируйте итоги — после этого можно будет сформировать новое изображение.'
+              ? 'Завершите корректировку турнира и повторно зафиксируйте итоги — после этого можно будет сформировать новые изображения.'
               : 'Официальные результаты доступны только после завершения турнира.'
           );
         }
         if (!readiness?.ready) throw new Error('Сначала разрешите все равенства мест и номинаций.');
-
         const freshStandings = standingsRes.standings || [];
         const avatarDataByParticipant = await loadOfficialAvatarMap(freshStandings);
         const presentation = buildOfficialTournamentResultsPresentation(
@@ -250,11 +236,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           avatarDataByParticipant,
           nominationsRes.nominations || [],
         );
-        pageSvgs = generateOfficialTournamentResultsPages(presentation);
-        const longResult = generateOfficialTournamentResultsSvg(presentation);
-        archiveSvg = longResult.svg;
-        archiveWidth = longResult.width;
-        archiveHeight = longResult.height;
+        assets = generateOfficialTournamentResultsPages(presentation);
         baseFileName = getSafeFilenameForOfficial(freshTournament.title, freshTournament.date);
       } else if (exportType === 'game') {
         if (!gameId) throw new Error('Не указан идентификатор игры для экспорта');
@@ -270,11 +252,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           protocolRes.game.game_number,
           avatarDataByParticipant,
         );
-        pageSvgs = generateGameResultsPages(tournament, protocolRes.game, exportRows);
-        archiveSvg = generateGameResultsSvg(tournament, protocolRes.game, exportRows);
-        const dimensions = getSvgDimensions(archiveSvg);
-        archiveWidth = dimensions.width;
-        archiveHeight = dimensions.height;
+        assets = generateGameResultsPages(tournament, protocolRes.game, exportRows);
         baseFileName = getSafeFilenameForGame(tournament.title, protocolRes.game.game_number);
       } else {
         const standingsRes = await api.getTournamentStandings(tournament.id);
@@ -282,31 +260,19 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
         const avatarDataByParticipant = await loadOfficialAvatarMap(currentStandings);
         const completedGames = standingsRes.completed_games_count ?? 0;
         const totalGames = tournament.total_games_count ?? 10;
-        pageSvgs = generateStandingsPages(
+        assets = generateStandingsPages(
           tournament,
           currentStandings,
           completedGames,
           totalGames,
           avatarDataByParticipant,
         );
-        archiveSvg = generateStandingsSvg(
-          tournament,
-          currentStandings,
-          completedGames,
-          totalGames,
-          avatarDataByParticipant,
-        );
-        const dimensions = getSvgDimensions(archiveSvg);
-        archiveWidth = dimensions.width;
-        archiveHeight = dimensions.height;
         baseFileName = getSafeFilenameForStandings(tournament.title, completedGames);
       }
 
-      if (!pageSvgs.length) throw new Error('Экспорт не сформировал ни одной страницы');
-      const nextPages = await renderPages(pageSvgs, baseFileName);
-      const archiveBlob = await renderSvgToPngBlob(archiveSvg, archiveWidth, archiveHeight);
-      const archiveUrl = URL.createObjectURL(archiveBlob);
-      const urls = [...nextPages.map((page) => page.url), archiveUrl];
+      if (!assets.length) throw new Error('Экспорт не сформировал ни одного изображения');
+      const nextPages = await renderPages(assets, baseFileName);
+      const urls = nextPages.map((page) => page.url);
 
       if (!mountedRef.current || requestSeq !== requestSeqRef.current || !isOpen) {
         urls.forEach((url) => URL.revokeObjectURL(url));
@@ -315,7 +281,6 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
 
       objectUrlsRef.current = urls;
       setPages(nextPages);
-      setArchive({ blob: archiveBlob, url: archiveUrl, fileName: baseFileName });
     } catch (err: any) {
       if (!mountedRef.current || requestSeq !== requestSeqRef.current || !isOpen) return;
       setGenerationError(err?.message || 'Ошибка генерации изображения');
@@ -389,7 +354,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
         window.setTimeout(() => triggerDownload(page.url, page.fileName), index * 120);
       });
     } catch (err: any) {
-      setActionError(err?.message || 'Не удалось скачать страницы');
+      setActionError(err?.message || 'Не удалось скачать изображения');
     } finally {
       window.setTimeout(() => {
         downloadBusyRef.current = false;
@@ -419,9 +384,9 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
       : 'Промежуточные итоги';
 
   const subtitle = loading
-    ? 'Формируем читаемые страницы 1080×1350 из актуальных данных…'
+    ? 'Формируем изображения из актуальных данных…'
     : pages.length
-      ? `${pages.length} ${pages.length === 1 ? 'страница' : pages.length < 5 ? 'страницы' : 'страниц'} · свайпните для просмотра`
+      ? `${pages.length} ${pages.length === 1 ? 'изображение' : pages.length < 5 ? 'изображения' : 'изображений'} · свайпните для просмотра`
       : 'Предпросмотр результата';
 
   const footer = generationError ? (
@@ -478,7 +443,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
         {loading ? (
           <div className="min-h-[55dvh] flex flex-col items-center justify-center gap-3 text-center text-text-secondary px-4">
             <RefreshCw className="h-8 w-8 animate-spin text-accent" />
-            <p className="text-[13px] font-semibold">Формируем страницы из актуальных данных…</p>
+            <p className="text-[13px] font-semibold">Формируем изображения из актуальных данных…</p>
           </div>
         ) : generationError ? (
           <div className="m-4 rounded-[18px] border border-danger/30 bg-danger-soft p-5 text-center">
@@ -490,14 +455,17 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           <div className="min-w-0 space-y-3 pb-3">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border-soft bg-surface-1/95 px-3 py-2 backdrop-blur-xl sm:rounded-t-[14px]">
               <div className="inline-flex items-center gap-1">
-                <button type="button" aria-label="Предыдущая страница" onClick={() => scrollToPage(activePage - 1)} disabled={activePage === 0} className="h-10 w-10 rounded-xl border border-border-soft bg-surface-2 inline-flex items-center justify-center text-text-secondary disabled:opacity-30">
+                <button type="button" aria-label="Предыдущее изображение" onClick={() => scrollToPage(activePage - 1)} disabled={activePage === 0} className="h-10 w-10 rounded-xl border border-border-soft bg-surface-2 inline-flex items-center justify-center text-text-secondary disabled:opacity-30">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <button type="button" aria-label="Следующая страница" onClick={() => scrollToPage(activePage + 1)} disabled={activePage >= pages.length - 1} className="h-10 w-10 rounded-xl border border-border-soft bg-surface-2 inline-flex items-center justify-center text-text-secondary disabled:opacity-30">
+                <button type="button" aria-label="Следующее изображение" onClick={() => scrollToPage(activePage + 1)} disabled={activePage >= pages.length - 1} className="h-10 w-10 rounded-xl border border-border-soft bg-surface-2 inline-flex items-center justify-center text-text-secondary disabled:opacity-30">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-              <strong className="text-[12px] font-black tabular-nums text-text-primary">{activePage + 1} из {pages.length}</strong>
+              <div className="min-w-0 text-center">
+                <strong className="block text-[12px] font-black tabular-nums text-text-primary">{activePage + 1} из {pages.length}</strong>
+                <span className="block max-w-[150px] truncate text-[10px] font-semibold text-text-muted">{pages[activePage]?.label}</span>
+              </div>
               <div className="inline-flex items-center gap-1">
                 <button type="button" aria-label="Уменьшить" onClick={() => setZoom((value) => Math.max(1, Number((value - 0.25).toFixed(2))))} disabled={zoom <= 1} className="h-10 w-10 rounded-xl border border-border-soft bg-surface-2 inline-flex items-center justify-center text-text-secondary disabled:opacity-30">
                   <Minus className="h-4 w-4" />
@@ -519,7 +487,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
                     <img
                       data-testid={`results-preview-page-${index + 1}`}
                       src={page.url}
-                      alt={`${title}, страница ${index + 1} из ${pages.length}`}
+                      alt={`${title}, изображение ${index + 1} из ${pages.length}` }
                       className="block h-auto rounded-[8px] object-contain transition-[width] duration-150"
                       style={{ width: `${zoom * 100}%`, maxWidth: zoom === 1 ? '100%' : 'none' }}
                     />
@@ -531,28 +499,19 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
             <div className="px-3 sm:px-6 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => triggerDownload(pages[activePage].url, pages[activePage].fileName)} className="min-h-[42px] rounded-xl border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-secondary inline-flex items-center justify-center gap-1.5">
-                  <FileDown className="h-4 w-4" /> Скачать эту страницу
+                  <FileDown className="h-4 w-4" /> Скачать это изображение
                 </button>
                 {canShareCurrent && !canShareAll ? (
                   <button type="button" onClick={() => currentPageFile && void handleShareFiles([currentPageFile])} className="min-h-[42px] rounded-xl border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-secondary inline-flex items-center justify-center gap-1.5">
-                    <Share2 className="h-4 w-4 text-accent" /> Поделиться страницей
-                  </button>
-                ) : archive ? (
-                  <button type="button" onClick={() => triggerDownload(archive.url, archive.fileName)} className="min-h-[42px] rounded-xl border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-secondary inline-flex items-center justify-center gap-1.5">
-                    <Download className="h-4 w-4" /> Скачать одним файлом
+                    <Share2 className="h-4 w-4 text-accent" /> Поделиться изображением
                   </button>
                 ) : <span />}
               </div>
 
               {!canShareAll ? (
                 <p className="rounded-xl border border-border-soft bg-surface-2/70 px-3 py-2 text-[11px] leading-4 text-text-muted">
-                  Это устройство не умеет отправлять набор PNG одним системным действием. Скачайте все пронумерованные страницы или отправьте текущую страницу отдельно, если системное меню это поддерживает.
+                  Это устройство не умеет отправлять набор PNG одним системным действием. Скачайте все пронумерованные изображения или отправьте текущее изображение отдельно, если системное меню это поддерживает.
                 </p>
-              ) : null}
-              {archive && canShareCurrent && !canShareAll ? (
-                <button type="button" onClick={() => triggerDownload(archive.url, archive.fileName)} className="text-[11px] font-semibold text-text-muted underline underline-offset-2">
-                  Скачать архивный длинный PNG одним файлом
-                </button>
               ) : null}
               {actionError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{actionError}</div> : null}
               <p className="break-all text-center font-mono text-[10px] text-text-muted">{pages[activePage]?.fileName}</p>

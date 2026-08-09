@@ -614,20 +614,41 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     credentials: 'include', // Automatically send HttpOnly cookies
   });
 
+  const contentType = res.headers.get('content-type') || '';
+
   if (!res.ok) {
-    let errorMsg = 'Ошибка запроса';
+    let errorMsg = `Ошибка запроса (${res.status})`;
     let details = null;
-    try {
-      const json = await res.json();
-      errorMsg = json.error || json.message || errorMsg;
-      details = json.details || json.pendingParticipants || null;
-    } catch (e) {}
+    if (contentType.includes('application/json')) {
+      try {
+        const json = await res.json();
+        errorMsg = json.error || json.message || errorMsg;
+        details = json.details || json.pendingParticipants || null;
+      } catch (e) {}
+    } else {
+      try {
+        const text = await res.text();
+        if (text && !text.toLowerCase().includes('<!doctype')) {
+          errorMsg = text.slice(0, 200);
+        }
+      } catch (e) {}
+    }
     const err = new Error(errorMsg) as any;
     err.details = details;
     err.status = res.status;
     throw err;
   }
-  return res.json();
+
+  if (contentType.includes('application/json')) {
+    return res.json();
+  }
+
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Сервер вернул невалидный ответ для ${url}`);
+  }
 }
 
 export const api = {

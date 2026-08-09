@@ -67,6 +67,17 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tournaments', tournamentAwardsRoutes);
   app.use('/api/bot', botRoutes);
 
+  // Fallback 404 handler for unmatched /api routes
+  app.use('/api/*', (_req, res) => {
+    res.status(404).json({ error: 'API endpoint not found' });
+  });
+
+  // Global error handler for /api routes
+  app.use('/api/*', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('API Error:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Внутренняя ошибка сервера' });
+  });
+
   // Vite development or static distribution in production
   if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {
     const vite = await createViteServer({

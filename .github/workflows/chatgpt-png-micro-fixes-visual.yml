@@ -43,7 +43,7 @@ jobs:
       - name: Generate exactly one current tournament-results PNG
         run: |
           set -euo pipefail
-          cat > /tmp/render-current-official.ts <<'TS'
+          cat > .qa-render-current-official.ts <<'TS'
           import fs from 'fs';
           import { createDatabaseConnection, restoreCheckpointFromGzB64 } from './src/db/index.ts';
           import { resolveRepositoryPlayerAvatarPath } from './src/lib/playerAvatarManifest.ts';
@@ -126,7 +126,8 @@ jobs:
           }
           main().catch((error) => { console.error(error); process.exit(1); });
           TS
-          npx tsx /tmp/render-current-official.ts
+          npx tsx .qa-render-current-official.ts
+          rm -f .qa-render-current-official.ts
           sudo apt-get update -qq
           sudo apt-get install -y -qq librsvg2-bin >/dev/null
           rsvg-convert visual-qa/tournament-results-current.svg -o visual-qa/tournament-results-current.png

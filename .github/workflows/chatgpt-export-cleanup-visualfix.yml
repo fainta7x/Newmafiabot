@@ -1,0 +1,78 @@
+name: ChatGPT export cleanup visual fix
+on:
+  push:
+    branches: [automation/export-cleanup-visualfix-2026-08-09]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Capture visual patch and guard candidate
+        run: |
+          set -euo pipefail
+          cp automation/patch_export_cleanup_visualfix.py /tmp/patch_export_cleanup_visualfix.py
+          git fetch origin main automation/export-cleanup-candidate-2026-08-09 automation/export-cleanup-2026-08-09
+          test "$(git rev-parse origin/main)" = "ed1407f6044431755b17995c30469f4751908d61"
+          CANDIDATE="$(git rev-parse origin/automation/export-cleanup-candidate-2026-08-09)"
+          test "$CANDIDATE" = "7386a3a24c9ee948950a17e71938a17b21b51b3c"
+          git show origin/automation/export-cleanup-2026-08-09:automation/render_export_cleanup_qa.ts > /tmp/render_export_cleanup_qa.ts
+          git checkout --detach "$CANDIDATE"
+          test -z "$(git status --short)"
+      - name: Apply only compact ranking and seating metadata fix
+        run: |
+          set -euo pipefail
+          python /tmp/patch_export_cleanup_visualfix.py
+          printf '%s\n' src/lib/seatingExport.ts src/lib/tournamentResultsExport.ts | sort > /tmp/expected.txt
+          git diff --name-only | sort > /tmp/actual.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+      - name: Install dependencies
+        run: npm ci
+      - name: Re-run focused export tests after visual compaction
+        run: npx vitest run src/tests/resultExportPublication.test.ts src/tests/seatingExport.test.ts src/tests/resultsImageExportModal.test.tsx
+      - name: Re-render current real data
+        run: |
+          set -euo pipefail
+          cp /tmp/render_export_cleanup_qa.ts ./render_export_cleanup_qa.ts
+          npx tsx render_export_cleanup_qa.ts
+          rm render_export_cleanup_qa.ts
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('visual-qa/export-cleanup/manifest.json', 'utf8'));
+          const ranking = manifest.finalAssets.find((item) => item.section === 'ranking');
+          if (!ranking || ranking.height > 2050) throw new Error(`Финальный рейтинг всё ещё слишком длинный: ${ranking?.height}`);
+          if (manifest.intermediate.height > 2050) throw new Error(`Промежуточный рейтинг всё ещё слишком длинный: ${manifest.intermediate.height}`);
+          if (manifest.game.height > 1920) throw new Error(`Итог игры вышел за целевой single-sheet диапазон: ${manifest.game.height}`);
+          if (manifest.finalAssets.length !== 3) throw new Error('Финал не равен трём изображениям');
+          console.log('bounded semantic export heights: OK');
+          NODE
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin >/dev/null
+          for svg in visual-qa/export-cleanup/*.svg; do
+            png="${svg%.svg}.png"; phone="${svg%.svg}-phone.png"
+            rsvg-convert "$svg" -o "$png"
+            rsvg-convert -w 390 "$svg" -o "$phone"
+          done
+      - name: Commit visual fix to candidate branch
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/seatingExport.ts src/lib/tournamentResultsExport.ts
+          git commit -m "fix(tournaments): compact rating export sheets"
+          SHA="$(git rev-parse HEAD)"
+          echo "candidate_sha=$SHA"
+          git push origin "$SHA:refs/heads/automation/export-cleanup-candidate-2026-08-09"
+      - name: Upload final focused visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-cleanup-visual-qa-final
+          path: visual-qa/export-cleanup/
+          retention-days: 1

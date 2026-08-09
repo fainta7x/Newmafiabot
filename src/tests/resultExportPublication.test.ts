@@ -67,9 +67,9 @@ const gameRows: GamePlayerExportRow[] = standings.map((item, index) => ({
 }));
 
 const awardSlots: TournamentAwardSlot[] = [
-  { key: 'place_1', kind: 'placement', title: '1 место', place: 1, source: 'automatic', participant_id: 'p1', player_id: 'player-1' },
-  { key: 'place_2', kind: 'placement', title: '2 место', place: 2, source: 'automatic', participant_id: 'p2', player_id: 'player-2' },
-  { key: 'place_3', kind: 'placement', title: '3 место', place: 3, source: 'automatic', participant_id: 'p3', player_id: 'player-3' },
+  { key: 'place_1', kind: 'placement', title: '1 место', place: 1, category: null, source: 'automatic', participant_id: 'p1', player_id: 'player-1', player_nickname: 'Игрок 1', comment: null, calculated_player_id: 'player-1', calculated_player_nickname: 'Игрок 1' },
+  { key: 'place_2', kind: 'placement', title: '2 место', place: 2, category: null, source: 'automatic', participant_id: 'p2', player_id: 'player-2', player_nickname: 'Игрок 2', comment: null, calculated_player_id: 'player-2', calculated_player_nickname: 'Игрок 2' },
+  { key: 'place_3', kind: 'placement', title: '3 место', place: 3, category: null, source: 'automatic', participant_id: 'p3', player_id: 'player-3', player_nickname: 'Игрок 3', comment: null, calculated_player_id: 'player-3', calculated_player_nickname: 'Игрок 3' },
   ...[
     ['nomination_mvp', 'MVP', 'mvp', 'p1'],
     ['nomination_best_citizen', 'Лучший мирный', 'best_citizen', 'p2'],

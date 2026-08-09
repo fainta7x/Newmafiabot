@@ -1,0 +1,50 @@
+name: ChatGPT export preview pages type fixture fix
+on:
+  push:
+    branches: [automation/export-preview-pages-typefix-2026-08-09]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Guard candidate and patch test fixtures only
+        run: |
+          set -euo pipefail
+          git fetch origin main automation/export-preview-pages-candidate-2026-08-09
+          test "$(git rev-parse origin/main)" = "3021c2fe6d836aa6438e9940eefeac44c541f0f1"
+          CANDIDATE="$(git rev-parse origin/automation/export-preview-pages-candidate-2026-08-09)"
+          test "$CANDIDATE" = "ff4f9f027ebe0ee4070697c8ca63d1b001034ad5"
+          git checkout --detach "$CANDIDATE"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/tests/resultExportPublication.test.ts')
+          s = p.read_text(encoding='utf-8')
+          replacements = [
+            ("{ key: 'place_1', kind: 'placement', title: '1 место', place: 1, source: 'automatic', participant_id: 'p1', player_id: 'player-1' },",
+             "{ key: 'place_1', kind: 'placement', title: '1 место', place: 1, category: null, source: 'automatic', participant_id: 'p1', player_id: 'player-1', player_nickname: 'Игрок 1', comment: null, calculated_player_id: 'player-1', calculated_player_nickname: 'Игрок 1' },"),
+            ("{ key: 'place_2', kind: 'placement', title: '2 место', place: 2, source: 'automatic', participant_id: 'p2', player_id: 'player-2' },",
+             "{ key: 'place_2', kind: 'placement', title: '2 место', place: 2, category: null, source: 'automatic', participant_id: 'p2', player_id: 'player-2', player_nickname: 'Игрок 2', comment: null, calculated_player_id: 'player-2', calculated_player_nickname: 'Игрок 2' },"),
+            ("{ key: 'place_3', kind: 'placement', title: '3 место', place: 3, source: 'automatic', participant_id: 'p3', player_id: 'player-3' },",
+             "{ key: 'place_3', kind: 'placement', title: '3 место', place: 3, category: null, source: 'automatic', participant_id: 'p3', player_id: 'player-3', player_nickname: 'Игрок 3', comment: null, calculated_player_id: 'player-3', calculated_player_nickname: 'Игрок 3' },"),
+          ]
+          for old, new in replacements:
+            if s.count(old) != 1:
+              raise SystemExit(f'fixture line match={s.count(old)}: {old[:30]}')
+            s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          test "$(git diff --name-only)" = "src/tests/resultExportPublication.test.ts"
+      - name: Commit fixture correction to candidate
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/tests/resultExportPublication.test.ts
+          git commit -m "test(tournaments): complete export award fixtures"
+          SHA="$(git rev-parse HEAD)"
+          echo "candidate_sha=$SHA"
+          git push origin "$SHA:refs/heads/automation/export-preview-pages-candidate-2026-08-09"

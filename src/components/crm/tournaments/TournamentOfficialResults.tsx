@@ -210,11 +210,11 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
               </p>
             ) : tournament?.status === 'completed' && isReady ? (
               <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                PNG будет сформирован заново из актуальной таблицы и официальных наград. Генерация не меняет данные турнира.
+                Предпросмотр будет сформирован заново из актуальной таблицы и официальных наград. Генерация не меняет данные турнира.
               </p>
             ) : (
               <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                Итоговый PNG станет доступен после завершения турнира и разрешения всех равенств.
+                Итоговый результат станет доступен после завершения турнира и разрешения всех равенств.
               </p>
             )}
           </div>
@@ -225,7 +225,7 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
               className="min-h-[48px] w-full sm:w-auto sm:self-start bg-accent hover:bg-accent-hover text-white font-black text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
             >
               <Trophy className="w-4 h-4 text-amber-300" />
-              Сформировать итоговый PNG
+              Посмотреть итоговый результат
             </button>
           ) : null}
         </div>

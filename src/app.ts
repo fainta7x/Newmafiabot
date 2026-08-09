@@ -4,12 +4,13 @@ import helmet from 'helmet';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
-import { parseUserSession } from './server/auth.ts';
+import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
 import playersRoutes from './server/routes/playersRoutes.ts';
+import playerTokensRoutes from './server/routes/playerTokensRoutes.ts';
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
@@ -21,14 +22,14 @@ import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.t
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
+import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
 
-  // Helmet for security headers
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Enabled/disabled or configured for Vite inline scripts
+      contentSecurityPolicy: false,
     })
   );
 
@@ -41,8 +42,12 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
   app.use(cookieParser());
 
-  // Attach database instance to request
   const db = customDb || (await getDb());
+  try {
+    await reconcileTokenOpeningBalances(db);
+  } catch (error) {
+    console.error('[TOKENS] Opening-balance reconciliation failed:', error);
+  }
   try {
     await reconcileAllPlayerAchievements(db);
   } catch (error) {
@@ -53,19 +58,23 @@ export async function createApp(customDb?: DatabaseWrapper) {
     next();
   });
 
-  // Global Auth Session Parser
   app.use(parseUserSession);
 
-  // Registered Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);
   app.use('/api/evening-participants', participantRoutes);
+  // Token routes are mounted first so player creation and raw token PATCH cannot bypass the ledger.
+  app.use('/api/players', playerTokensRoutes);
   app.use('/api/players', playersRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  // The obsolete compatibility POST used a conflicting +1/+2 token formula. It is now retired.
+  app.post('/api/games', requireOrganizerAuth, (_req, res) => {
+    res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
+  });
   app.use('/api/games', gamesRoutes);
   app.use('/api/tournaments', tournamentsRoutes);
   app.use('/api/tournaments', protocolImportsRoutes);
@@ -73,18 +82,15 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tournaments', tournamentAwardsRoutes);
   app.use('/api/bot', botRoutes);
 
-  // Fallback 404 handler for unmatched /api routes
   app.use('/api/*', (_req, res) => {
     res.status(404).json({ error: 'API endpoint not found' });
   });
 
-  // Global error handler for /api routes
   app.use('/api/*', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('API Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Внутренняя ошибка сервера' });
   });
 
-  // Vite development or static distribution in production
   if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {
     const vite = await createViteServer({
       server: { middlewareMode: true },

@@ -31,14 +31,11 @@ export function restoreCheckpointFromGzB64(targetPath: string): boolean {
   const gzB64Path = fs.existsSync(candidate1) ? candidate1 : fs.existsSync(candidate2) ? candidate2 : null;
 
   if (!gzB64Path) return false;
-
   return restoreGzB64FileAtomically(gzB64Path, targetPath);
 }
 
 export function ensureValidCheckpoint(targetPath: string): boolean {
-  if (verifySqliteIntegrity(targetPath)) {
-    return true;
-  }
+  if (verifySqliteIntegrity(targetPath)) return true;
   console.warn('Checkpoint file is missing or corrupted. Attempting fallback from .gz.b64...');
   return restoreCheckpointFromGzB64(targetPath);
 }
@@ -51,7 +48,6 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
       dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
     } else {
       dbPath = path.join(process.cwd(), 'mafia_crm.runtime.sqlite');
-      
       if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
         const bootstrap = initializePreviewRuntimeFromCanonical(dbPath, process.cwd(), {
           allowLegacyWithoutCanonical: !process.env.VITEST,
@@ -65,63 +61,36 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
     }
   }
 
-  const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:'))
-    ? dbPath
-    : path.resolve(dbPath);
-
-  // If path is not :memory: and parent dir doesn't exist, create it
+  const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:')) ? dbPath : path.resolve(dbPath);
   if (resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
     const dir = path.dirname(resolvedDbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }
 
   const sqlite = new Database(resolvedDbPath);
-
   const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.runtime.sqlite' && process.env.NODE_ENV !== 'production';
-  if (isPreviewTournamentDB) {
-    // Временно используем DELETE для безопасного Git-checkpoint турнирной Preview-базы
-    sqlite.pragma('journal_mode = DELETE');
-  } else {
-    sqlite.pragma('journal_mode = WAL');
-  }
-
+  if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE');
+  else sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
 
   const drizzleDb = drizzle(sqlite, { schema });
-
   const wrapper: DatabaseWrapper = {
     sqlite,
     drizzle: drizzleDb,
     dbPath: resolvedDbPath,
-
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-      const stmt = sqlite.prepare(sql);
-      return stmt.all(...params) as T[];
+      return sqlite.prepare(sql).all(...params) as T[];
     },
-
     async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-      const stmt = sqlite.prepare(sql);
-      const res = stmt.get(...params);
+      const res = sqlite.prepare(sql).get(...params);
       return (res as T) || null;
     },
-
     async run(sql: string, params: any[] = []) {
-      const stmt = sqlite.prepare(sql);
-      const info = stmt.run(...params);
-      return {
-        lastID: info.lastInsertRowid ?? null,
-        changes: info.changes,
-      };
+      const info = sqlite.prepare(sql).run(...params);
+      return { lastID: info.lastInsertRowid ?? null, changes: info.changes };
     },
-
-    async exec(sql: string) {
-      sqlite.exec(sql);
-    },
-
+    async exec(sql: string) { sqlite.exec(sql); },
     async transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T> {
-      // Execute in a transaction
       let result: T;
       sqlite.exec('BEGIN TRANSACTION');
       try {
@@ -129,9 +98,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
         sqlite.exec('COMMIT');
         return result;
       } catch (err) {
-        try {
-          sqlite.exec('ROLLBACK');
-        } catch (_) {}
+        try { sqlite.exec('ROLLBACK'); } catch (_) {}
         throw err;
       }
     },
@@ -151,29 +118,20 @@ export async function getDb(): Promise<DatabaseWrapper> {
 
 export function resetDbInstanceForTesting() {
   if (defaultDbInstance) {
-    try {
-      defaultDbInstance.sqlite.close();
-    } catch (_) {}
+    try { defaultDbInstance.sqlite.close(); } catch (_) {}
     defaultDbInstance = null;
   }
 }
 
 export function initializeDatabase(dbWrapper: DatabaseWrapper) {
-  // Ensure tables exist from migration/schema definition
   const migrationSqlPath = path.join(process.cwd(), 'drizzle', '0000_initial.sql');
-  if (fs.existsSync(migrationSqlPath)) {
-    const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migrationSql);
-  }
+  if (fs.existsSync(migrationSqlPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationSqlPath, 'utf8'));
 
-  // Ensure new columns exist on existing tables (SQLite alter table column additions)
   const addColumnIfNotExists = (tableName: string, columnName: string, colDef: string) => {
     try {
       const columns = dbWrapper.sqlite.pragma(`table_info(${tableName})`) as any[];
       const exists = columns.some((c) => c.name === columnName);
-      if (!exists) {
-        dbWrapper.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${colDef}`);
-      }
+      if (!exists) dbWrapper.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${colDef}`);
     } catch (e) {
       console.error(`Failed to add column ${columnName} to table ${tableName}:`, e);
     }
@@ -208,7 +166,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     console.error('Failed to initialize player_achievements:', e);
   }
 
-  // Migrate legacy lifecycle_status values to contact_status without losing players
   try {
     dbWrapper.sqlite.exec(`
       UPDATE players SET contact_status = CASE
@@ -222,52 +179,20 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     console.error('Failed to migrate contact_status:', e);
   }
 
-  const migration1SqlPath = path.join(process.cwd(), 'drizzle', '0001_complete_club_workflow.sql');
-  if (fs.existsSync(migration1SqlPath)) {
-    const migration1Sql = fs.readFileSync(migration1SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration1Sql);
-  }
-
-  const migration2SqlPath = path.join(process.cwd(), 'drizzle', '0002_tournaments.sql');
-  if (fs.existsSync(migration2SqlPath)) {
-    const migration2Sql = fs.readFileSync(migration2SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration2Sql);
-  }
-
-  const migration3SqlPath = path.join(process.cwd(), 'drizzle', '0003_protocol_imports.sql');
-  if (fs.existsSync(migration3SqlPath)) {
-    const migration3Sql = fs.readFileSync(migration3SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration3Sql);
-  }
-
-  const migration4SqlPath = path.join(process.cwd(), 'drizzle', '0004_tournament_game_protocols.sql');
-  if (fs.existsSync(migration4SqlPath)) {
-    const migration4Sql = fs.readFileSync(migration4SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration4Sql);
-  }
-
-  const migration5SqlPath = path.join(process.cwd(), 'drizzle', '0005_tournament_game_best_moves.sql');
-  if (fs.existsSync(migration5SqlPath)) {
-    const migration5Sql = fs.readFileSync(migration5SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration5Sql);
-  }
-
-  const migration6SqlPath = path.join(process.cwd(), 'drizzle', '0006_tournament_award_overrides.sql');
-  if (fs.existsSync(migration6SqlPath)) {
-    const migration6Sql = fs.readFileSync(migration6SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration6Sql);
-  }
-
-  const migration7SqlPath = path.join(process.cwd(), 'drizzle', '0007_player_historical_awards.sql');
-  if (fs.existsSync(migration7SqlPath)) {
-    const migration7Sql = fs.readFileSync(migration7SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration7Sql);
-  }
-
-  const migration8SqlPath = path.join(process.cwd(), 'drizzle', '0008_canonical_nomination_resolution.sql');
-  if (fs.existsSync(migration8SqlPath)) {
-    const migration8Sql = fs.readFileSync(migration8SqlPath, 'utf8');
-    dbWrapper.sqlite.exec(migration8Sql);
+  const migrations = [
+    '0001_complete_club_workflow.sql',
+    '0002_tournaments.sql',
+    '0003_protocol_imports.sql',
+    '0004_tournament_game_protocols.sql',
+    '0005_tournament_game_best_moves.sql',
+    '0006_tournament_award_overrides.sql',
+    '0007_player_historical_awards.sql',
+    '0008_canonical_nomination_resolution.sql',
+    '0009_token_ledger.sql',
+  ];
+  for (const file of migrations) {
+    const migrationPath = path.join(process.cwd(), 'drizzle', file);
+    if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8'));
   }
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
@@ -276,7 +201,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('tournament_game_player_results', 'ci_points', 'REAL NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournaments', 'public_token', 'TEXT');
   addColumnIfNotExists('tournaments', 'results_published_at', 'TEXT');
-  
   addColumnIfNotExists('tournament_game_protocols', 'end_reason', "TEXT NOT NULL DEFAULT 'normal'");
   addColumnIfNotExists('tournament_game_protocols', 'ppk_culprit_participant_id', 'TEXT');
   addColumnIfNotExists('tournament_game_player_results', 'minor_technical_fouls', 'INTEGER NOT NULL DEFAULT 0');
@@ -304,7 +228,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     console.error('Failed to create tournament_final_resolutions table:', e);
   }
 
-  // Idempotent migration: transfer legacy positive penalty_points to judge_bonus if judge_bonus is 0
   try {
     dbWrapper.sqlite.exec(`
       UPDATE tournament_game_player_results
@@ -316,7 +239,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     console.error('Failed to migrate legacy penalty_points to judge_bonus:', e);
   }
 
-  // Create player_avatars table and index
   try {
     dbWrapper.sqlite.exec(`
       CREATE TABLE IF NOT EXISTS player_avatars (
@@ -328,8 +250,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
         height INTEGER NOT NULL,
         updated_at TEXT NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at
-      ON player_avatars(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at ON player_avatars(updated_at);
     `);
   } catch (e) {
     console.error('Failed to create player_avatars table:', e);

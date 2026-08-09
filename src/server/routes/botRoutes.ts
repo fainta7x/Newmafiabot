@@ -36,4 +36,21 @@ router.get('/players/by-telegram/:telegramUserId/achievements', async (req, res)
   }
 });
 
+router.get('/players/by-telegram/:telegramUserId/tokens', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const player = await db.get(
+      'SELECT id, nickname, telegram_user_id, tokens FROM players WHERE telegram_user_id = ?',
+      [String(req.params.telegramUserId)],
+    );
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    res.json({
+      player: { id: player.id, nickname: player.nickname, telegram_user_id: player.telegram_user_id },
+      balance: player.tokens,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось загрузить баланс жетонов' });
+  }
+});
+
 export default router;

@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import subprocess
 
 ROOT = Path('.')
 EXP = ROOT / 'src/lib/tournamentResultsExport.ts'
@@ -183,4 +184,5 @@ for old, new in nom_repls:
 NOMS_VIEW.write_text(nom, encoding='utf-8')
 
 TEST.write_text(Path('/tmp/resultExportPublication.test.ts').read_text(encoding='utf-8'), encoding='utf-8')
+subprocess.run(['git', 'add', '-N', str(TEST)], check=True)
 print('patched export publication flow')

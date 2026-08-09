@@ -1,8 +1,8 @@
 import fs from 'fs';
-import { createDatabaseConnection, restoreCheckpointFromGzB64 } from '../src/db/index.ts';
-import { resolveRepositoryPlayerAvatarPath } from '../src/lib/playerAvatarManifest.ts';
-import { internalGetStandings, internalGetNominations } from '../src/server/routes/tournamentsRoutes.ts';
-import { loadTournamentAwardSnapshot } from '../src/server/services/tournamentAwardsService.ts';
+import { createDatabaseConnection, restoreCheckpointFromGzB64 } from './src/db/index.ts';
+import { resolveRepositoryPlayerAvatarPath } from './src/lib/playerAvatarManifest.ts';
+import { internalGetStandings, internalGetNominations } from './src/server/routes/tournamentsRoutes.ts';
+import { loadTournamentAwardSnapshot } from './src/server/services/tournamentAwardsService.ts';
 import {
   buildGameExportRows,
   buildOfficialTournamentResultsPresentation,
@@ -10,7 +10,7 @@ import {
   generateOfficialTournamentResultsPages,
   generateStandingsPages,
   type ExportSvgPage,
-} from '../src/lib/tournamentResultsExport.ts';
+} from './src/lib/tournamentResultsExport.ts';
 
 const out = 'visual-qa/pagecrop';
 fs.rmSync(out, { recursive: true, force: true });

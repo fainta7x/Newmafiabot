@@ -75,11 +75,12 @@ jobs:
             let bestVariety = -1;
             for (const game of games) {
               const results = await db.all<any>(`
-                SELECT r.*, tp.display_name
+                SELECT r.*, s.seat_number, tp.display_name
                   FROM tournament_game_player_results r
+                  JOIN tournament_game_seats s ON s.game_id = r.game_id AND s.participant_id = r.participant_id
                   JOIN tournament_participants tp ON tp.id = r.participant_id
                  WHERE r.game_id = ?
-                 ORDER BY r.seat_number
+                 ORDER BY s.seat_number
               `, [game.id]);
               const rows = buildGameExportRows(results as any, standingsData.standings || [], Number(game.game_number), avatars);
               const variety = rows.reduce((sum, row) => sum + [row.win_point,row.judge_bonus,row.protocol_bonus,row.best_move_points,row.game_penalty_points,row.disciplinary_penalty_points,row.ci_points].filter((v) => Math.abs(Number(v || 0)) > 0.0001).length, 0);

@@ -3,7 +3,6 @@ import {
   buildOfficialTournamentResultsPresentation,
   generateGameResultsPages,
   generateOfficialTournamentResultsPages,
-  generateOfficialTournamentResultsSvg,
   generateStandingsPages,
   type GamePlayerExportRow,
 } from '../lib/tournamentResultsExport.ts';

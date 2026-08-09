@@ -127,8 +127,8 @@ export function generateGameResultsSvg(
       parts.push({ key, label, value });
     };
     add('wins', 'За победу', row.win_point);
-    add('judge', 'Баллы', row.judge_bonus);
-    add('protocol', 'Доп. баллы', row.protocol_bonus);
+    add('judge', 'Оценка судей', row.judge_bonus);
+    add('protocol', row.protocol_bonus < 0 ? 'Штраф по протоколу' : 'Бонус по протоколу', row.protocol_bonus);
     add('best_move', 'Лучший ход', row.best_move_points);
     add('ci', 'Компенсация первого убитого', row.ci_points);
     add('game_penalty', 'Штрафы в игре', -Math.abs(row.game_penalty_points));
@@ -181,7 +181,7 @@ export function generateGameResultsSvg(
   <rect width="${width}" height="${height}" fill="${NOIR_EXPORT_COLORS.background}"/>
   <rect x="0" y="0" width="8" height="${height}" fill="${NOIR_EXPORT_COLORS.wine}"/>
   <text x="${margin}" y="64" font-family="${fontFamily}" font-size="20" font-weight="800" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="4">2LA NOIRE</text>
-  <text x="${margin}" y="116" font-family="${fontFamily}" font-size="20" font-weight="700" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="2">ОФИЦИАЛЬНЫЙ ПРОТОКОЛ ИГРЫ</text>
+  <text x="${margin}" y="116" font-family="${fontFamily}" font-size="20" font-weight="700" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="2">ИТОГИ ИГРЫ</text>
   <text x="${margin}" y="178" font-family="${fontFamily}" font-size="44" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">ИГРА №${game.game_number}</text>
   <text x="${margin}" y="218" font-family="${fontFamily}" font-size="22" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(tournament.title)}</text>
   <text x="${width - margin}" y="170" text-anchor="end" font-family="${fontFamily}" font-size="24" font-weight="850" fill="${winnerColor}">${winnerLabel}</text>
@@ -219,7 +219,7 @@ export function generateGameResultsSvg(
     y += item.height;
   }
 
-  svg += `<text x="${margin}" y="${height - 58}" font-family="${fontFamily}" font-size="16" font-weight="750" fill="${NOIR_EXPORT_COLORS.mutedText}">2LA NOIRE · ОФИЦИАЛЬНЫЙ СПОРТИВНЫЙ ПРОТОКОЛ</text>`;
+  svg += `<text x="${margin}" y="${height - 58}" font-family="${fontFamily}" font-size="16" font-weight="750" fill="${NOIR_EXPORT_COLORS.mutedText}">2LA NOIRE · ИТОГИ ИГРЫ</text>`;
   svg += `<text x="${width - margin}" y="${height - 58}" text-anchor="end" font-family="${fontFamily}" font-size="15" font-weight="650" fill="${NOIR_EXPORT_COLORS.subduedText}">10 мест · результат за одну игру</text>`;
   svg += `</svg>`;
   return svg;
@@ -229,179 +229,93 @@ export function generateStandingsSvg(
   tournament: Tournament,
   standings: TournamentStandingItem[],
   completedGamesCount: number,
-  totalGamesCount: number
+  totalGamesCount: number,
+  avatarDataByParticipant: Record<string, string> = {},
 ): string {
   const width = 1080;
-  const height = 1600;
-
-  const dateStr = new Date().toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const margin = 58;
+  const titleLines = wrapExportText(tournament.title, 27, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 58;
+  const headerHeight = 280 + titleExtra;
+  const rankingTitleHeight = 92;
+  const footerHeight = 112;
+  const rankingRankCenterX = margin + 32;
+  const rankingAvatarX = margin + 78;
+  const rankingAvatarSize = 82;
+  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
+  const rankingTotalRight = width - margin;
+  const rankingTotalColumnWidth = 118;
+  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
+  const rankingContentWidth = rankingContentRight - rankingContentX;
+  const currentStandings: OfficialStandingPresentation[] = standings.map((item) => ({
+    ...item,
+    display_place: item.place,
+    avatar_data_url: avatarDataByParticipant[item.participant_id] || null,
+  }));
+  const layouts = currentStandings.map((item) => layoutOfficialRankingRow(item, rankingContentWidth));
+  const rowsHeight = layouts.reduce((sum, layout) => sum + layout.rowHeight, 0);
+  const height = headerHeight + rankingTitleHeight + rowsHeight + footerHeight;
+  const tournamentDate = (() => {
+    const date = tournament.date ? new Date(tournament.date) : null;
+    if (!date || Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+  })();
+  const metaParts = [
+    `После ${completedGamesCount} из ${totalGamesCount} игр`,
+    `${standings.length} ${russianPlural(standings.length, 'участник', 'участника', 'участников')}`,
+    tournamentDate,
+  ].filter((part): part is string => Boolean(part));
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#0F172A"/>
-      <stop offset="100%" stop-color="#1E293B"/>
-    </linearGradient>
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#2563EB"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
-  </defs>
+    <defs>
+      <linearGradient id="standingsBg" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#08080A"/>
+        <stop offset="100%" stop-color="#120D11"/>
+      </linearGradient>
+      <linearGradient id="standingsWine" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#5B1329" stop-opacity="0.30"/>
+        <stop offset="100%" stop-color="#09090B" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="monogramGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#4E1728"/>
+        <stop offset="48%" stop-color="#261018"/>
+        <stop offset="100%" stop-color="#111014"/>
+      </linearGradient>
+      <filter id="monogramBlur" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16"/></filter>
+    </defs>
+    <rect width="${width}" height="${height}" fill="url(#standingsBg)"/>
+    <rect x="0" y="0" width="${width}" height="${headerHeight + 20}" fill="url(#standingsWine)"/>
+    <rect x="0" y="0" width="${width}" height="10" fill="${NOIR_EXPORT_COLORS.wineSoft}"/>
+    <text x="${margin}" y="64" font-family="${officialSvgFont}" font-size="22" font-weight="900" fill="#D7A0AE" letter-spacing="3.2">2LA NOIRE</text>
+    <text x="${margin}" y="108" font-family="${officialSvgFont}" font-size="22" font-weight="850" fill="#857E77" letter-spacing="3.4">ПРОМЕЖУТОЧНЫЕ ИТОГИ</text>
+    ${officialSvgTextLines(titleLines, margin, 176, 58, `font-family="${officialSvgFont}" font-size="54" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-1.1"`)}
+    <text x="${margin}" y="${248 + titleExtra}" font-family="${officialSvgFont}" font-size="22" font-weight="700" fill="#AAA39A">${escapeXml(metaParts.join('   ·   '))}</text>
+    <line x1="${margin}" y1="${headerHeight - 14}" x2="${width - margin}" y2="${headerHeight - 14}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <text x="${margin}" y="${headerHeight + 58}" font-family="${officialSvgFont}" font-size="34" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="1.4">ТЕКУЩИЙ РЕЙТИНГ</text>
+    <text x="${width - margin}" y="${headerHeight + 58}" text-anchor="end" font-family="${officialSvgFont}" font-size="20" font-weight="650" fill="#706A64">После ${completedGamesCount} из ${totalGamesCount}</text>`;
 
-  <rect width="${width}" height="${height}" fill="url(#bgGrad)"/>
-  <rect x="0" y="0" width="${width}" height="16" fill="url(#accentGrad)"/>
-
-  <!-- Title & Header -->
-  <text x="50" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700" fill="#94A3B8">
-    ${escapeXml(tournament.title)}
-  </text>
-  <text x="50" y="125" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="#F8FAFC">
-    Промежуточная турнирная таблица
-  </text>
-
-  <!-- Subtitle info -->
-  <text x="50" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#38BDF8">
-    После ${completedGamesCount} из ${totalGamesCount} игр
-  </text>
-  <text x="1030" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="end">
-    Сформировано: ${escapeXml(dateStr)}
-  </text>
-  `;
-
-  // Standings Table
-  const startX = 40;
-  const startY = 220;
-  const tableWidth = 1000;
-  const headerHeight = 65;
-  const rowHeight = 105;
-  const gap = 12;
-
-  // Header background
-  svg += `<rect x="${startX}" y="${startY}" width="${tableWidth}" height="${headerHeight}" rx="14" fill="#1E293B" stroke="#334155" stroke-width="2"/>`;
-
-  // Header column names
-  // Positions: Place (X=80), Player (X=130, left), Total (X=360), Games (X=420), Wins (X=475), Pos (X=535), PosProt (X=600), BestMove (X=670), Ci (X=735), GamePen (X=805), ProtPen (X=875), DiscPen (X=965)
-  svg += `
-  <text x="80" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#94A3B8">Место</text>
-  <text x="130" y="${startY + 40}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#94A3B8">Игрок</text>
-  <text x="360" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="900" fill="#38BDF8">Σ</text>
-  <text x="420" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#94A3B8">И</text>
-  <text x="475" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#34D399">П</text>
-  <text x="535" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#34D399">+</text>
-  <text x="600" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#34D399">+Пр</text>
-  <text x="670" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#FBBF24">ЛХ</text>
-  <text x="735" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#22D3EE">Ci</text>
-  <text x="805" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#F87171">Игр. −</text>
-  <text x="875" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#F87171">−Пр</text>
-  <text x="965" y="${startY + 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#F87171">Дисц. −</text>
-  `;
-
-  // Render rows
-  for (let rIdx = 0; rIdx < standings.length; rIdx++) {
-    const item = standings[rIdx];
-    const ry = startY + headerHeight + 15 + rIdx * (rowHeight + gap);
-    if (ry + rowHeight > height - 100) break; // prevent vertical overflow just in case
-
-    svg += `<rect x="${startX}" y="${ry}" width="${tableWidth}" height="${rowHeight}" rx="16" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>`;
-
-    // Place badge
-    let placeBg = 'rgba(51, 65, 85, 0.4)';
-    let placeText = '#F8FAFC';
-    let placeBorder = '#475569';
-    if (item.place === 1) {
-      placeBg = 'rgba(251, 191, 36, 0.15)';
-      placeText = '#FBBF24';
-      placeBorder = 'rgba(251, 191, 36, 0.4)';
-    } else if (item.place === 2) {
-      placeBg = 'rgba(148, 163, 184, 0.15)';
-      placeText = '#94A3B8';
-      placeBorder = 'rgba(148, 163, 184, 0.4)';
-    } else if (item.place === 3) {
-      placeBg = 'rgba(180, 83, 9, 0.15)';
-      placeText = '#F97316';
-      placeBorder = 'rgba(180, 83, 9, 0.4)';
+  let y = headerHeight + rankingTitleHeight;
+  layouts.forEach((layout, index) => {
+    const item = layout.item;
+    const accent = item.place === 1 ? NOIR_EXPORT_COLORS.gold : item.place === 2 ? NOIR_EXPORT_COLORS.silver : item.place === 3 ? NOIR_EXPORT_COLORS.bronze : '#8B8580';
+    if (item.place <= 3) svg += `<rect x="${margin}" y="${y + 18}" width="4" height="${layout.rowHeight - 36}" fill="${accent}" opacity="0.82"/>`;
+    svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="rgba(255,255,255,0.085)" stroke-width="1"/>
+      <text x="${rankingRankCenterX}" y="${y + 73}" text-anchor="middle" font-family="${officialSvgFont}" font-size="40" font-weight="900" fill="${accent}" font-variant-numeric="tabular-nums">${String(item.place).padStart(2, '0')}</text>
+      ${officialAvatarSvg(item.avatar_data_url, item.display_name, rankingAvatarX, y + 26, rankingAvatarSize, `intermediate-${index}`, item.place <= 3 ? accent : '#39353B', item.place <= 3 ? 2.5 : 1.5)}
+      ${officialSvgTextLines(layout.nameLines, rankingContentX, y + 56, 40, `font-family="${officialSvgFont}" font-size="36" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}"`)}
+      <text x="${rankingContentX}" y="${y + layout.winsY}" font-family="${officialSvgFont}" font-size="27" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>
+      <text x="${rankingTotalRight}" y="${y + 66}" text-anchor="end" font-family="${officialSvgFont}" font-size="50" font-weight="900" fill="${item.place <= 3 ? accent : NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPosterNumber(item.total_points)}</text>
+      ${renderRankingScoreGroups(layout.scoreGroups, rankingContentX, y, rankingContentWidth)}`;
+    if (layout.tieLines.length && layout.tieStartOffset !== null) {
+      svg += officialSvgTextLines(layout.tieLines, rankingContentX, y + layout.tieStartOffset, 31, `font-family="${officialSvgFont}" font-size="23" font-weight="600" fill="#746E68"`);
     }
-
-    svg += `
-    <rect x="${startX + 14}" y="${ry + 27}" width="50" height="50" rx="14" fill="${placeBg}" stroke="${placeBorder}" stroke-width="1.5"/>
-    <text x="${startX + 39}" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="900" fill="${placeText}">${item.place}</text>
-    `;
-
-    // Player name & number
-    const safeName = escapeXml(item.display_name);
-    svg += `
-    <text x="130" y="${ry + 45}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" fill="#F8FAFC">${safeName}</text>
-    <text x="130" y="${ry + 73}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#64748B">Слот #${item.participant_number}</text>
-    `;
-
-    // Total points (Σ) - styled larger
-    svg += `
-    <text x="360" y="${ry + 61}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="900" fill="#38BDF8">${formatPoints(item.total_points)}</text>
-    `;
-
-    // Games played
-    svg += `
-    <text x="420" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#E2E8F0">${item.games_played}</text>
-    `;
-
-    // Wins (П)
-    svg += `
-    <text x="475" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#34D399">${item.wins}</text>
-    `;
-
-    // Positive judge points (+)
-    svg += `
-    <text x="535" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#34D399">${formatPoints(item.positive_judge_points ?? 0)}</text>
-    `;
-
-    // Positive protocol points (+Пр)
-    svg += `
-    <text x="600" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700" fill="#34D399">${formatPoints(item.positive_protocol_points ?? 0)}</text>
-    `;
-
-    // Best move points (ЛХ)
-    svg += `
-    <text x="670" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#FBBF24">${formatPoints(item.best_move_points)}</text>
-    `;
-
-    // Ci points
-    svg += `
-    <text x="735" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#22D3EE">${formatPoints(item.ci_points)}</text>
-    `;
-
-    // Game Penalty
-    svg += `
-    <text x="805" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F87171">${formatPoints(item.negative_judge_points ? -item.negative_judge_points : 0)}</text>
-    `;
-
-    // Protocol Penalty
-    svg += `
-    <text x="875" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700" fill="#F87171">${formatPoints(item.negative_protocol_points ? -item.negative_protocol_points : 0)}</text>
-    `;
-
-    // Disc Penalty
-    svg += `
-    <text x="965" y="${ry + 59}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#F87171">${formatPoints(item.disciplinary_penalty_points ? -item.disciplinary_penalty_points : 0)}</text>
-    `;
-  }
-
-  // Footer Disclaimer
-  svg += `
-  <text x="${width / 2}" y="${height - 75}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="700" fill="#FBBF24">
-    Промежуточные результаты. Не являются финальным протоколом турнира.
-  </text>
-  <text x="${width / 2}" y="${height - 35}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#64748B">
-    NewMafia CRM • Турнирная таблица (${completedGamesCount} завершённых игр)
-  </text>
-  </svg>
-  `;
-
+    y += layout.rowHeight;
+  });
+  svg += `<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="rgba(255,255,255,0.085)" stroke-width="1"/>
+    <line x1="${margin}" y1="${height - footerHeight + 20}" x2="${width - margin}" y2="${height - footerHeight + 20}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <text x="${margin}" y="${height - 42}" font-family="${officialSvgFont}" font-size="18" font-weight="900" fill="#B88B97" letter-spacing="3.2">2LA NOIRE</text>
+    <text x="${width - margin}" y="${height - 42}" text-anchor="end" font-family="${officialSvgFont}" font-size="16" font-weight="650" fill="${NOIR_EXPORT_COLORS.subduedText}">Промежуточные данные · не финальные итоги</text>
+  </svg>`;
   return svg;
 }
 
@@ -668,14 +582,14 @@ function buildOfficialNominationReason(
   const criterion = result.comparison.decisive_criterion;
   if (!criterion || criterion === 'exact_tie') return null;
 
-  let headline = 'ЛУЧШАЯ ОЦЕНКА СУДЕЙ';
+  let headline = 'ПОБЕДИЛ ПО ОЦЕНКЕ СУДЕЙ';
   let headToHeadLabel: string | null = null;
   if (criterion === 'points') {
-    headline = `ЛУЧШАЯ ОЦЕНКА СУДЕЙ · ${formatPosterNumber(candidate.points)}`;
+    headline = `ПОБЕДИЛ ПО ОЦЕНКЕ СУДЕЙ · ${formatPosterNumber(candidate.points)}`;
   } else if (criterion === 'additional_points') {
-    headline = `ПРИ РАВНОЙ ОЦЕНКЕ · ВЫШЕ ИГРОВЫЕ НАЧИСЛЕНИЯ ${formatPosterNumber(candidate.additional_points, { signed: true })}`;
+    headline = `ПРИ РАВНОЙ ОЦЕНКЕ СУДЕЙ · ЛУЧШЕ ПО БОНУСАМ И ШТРАФАМ`;
   } else if (criterion === 'role_wins') {
-    headline = `ПРИ РАВНОЙ ОЦЕНКЕ И НАЧИСЛЕНИЯХ · ${nominationRoleWinLabel(result.category, candidate.role_wins)}`;
+    headline = `ПРИ РАВНЫХ БАЛЛАХ · ${nominationRoleWinLabel(result.category, candidate.role_wins)}`;
   } else if (criterion === 'head_to_head') {
     const scores = result.comparison.head_to_head_scores || {};
     const winnerScore = scores[candidate.participant_id] || 0;
@@ -686,7 +600,7 @@ function buildOfficialNominationReason(
     headToHeadLabel = opponentScores.length === 1
       ? `${winnerScore}:${opponentScores[0]}`
       : `${winnerScore} ${russianPlural(winnerScore, 'победа', 'победы', 'побед')} против ${opponentScores.join(' / ')}`;
-    headline = `ЛИЧНЫЕ ВСТРЕЧИ · ${headToHeadLabel}`;
+    headline = `ПРИ ПОЛНОМ РАВЕНСТВЕ · ЛИЧНЫЕ ВСТРЕЧИ ${headToHeadLabel}`;
   }
 
   return {
@@ -1119,29 +1033,35 @@ interface AwardTileLayout {
 
 const nominationMetricComponents = (reason: OfficialNominationReason | null | undefined): OfficialScoreComponent[] => {
   if (!reason?.show_metrics) return [];
-  const items: OfficialScoreComponent[] = [];
-  const push = (kind: OfficialScoreKind, label: string, value: number, showPlus = false) => {
-    const rounded = roundOfficial(value);
-    items.push({ kind, label, value: rounded, tone: 'bonus', show_plus: showPlus });
-  };
-  push('judge', 'Оценка судей', reason.points);
-  push('protocol', 'Игровые начисления', reason.additional_points, true);
-  if ((reason.category === 'best_sheriff' || reason.category === 'best_don') && reason.decisive_criterion !== 'points' && reason.decisive_criterion !== 'additional_points') {
-    push('wins', 'Победы в роли', reason.role_wins);
+  if (reason.decisive_criterion === 'points') {
+    return [{ kind: 'judge', label: 'Оценка судей', value: roundOfficial(reason.points), tone: 'base', show_plus: false }];
   }
-  return items;
+  if (reason.decisive_criterion === 'additional_points') {
+    return [{ kind: 'protocol', label: 'Итог бонусов и штрафов', value: roundOfficial(reason.additional_points), tone: 'base', show_plus: true }];
+  }
+  if (reason.decisive_criterion === 'role_wins') {
+    return [{ kind: 'wins', label: 'Победы в роли', value: roundOfficial(reason.role_wins), tone: 'base', show_plus: false }];
+  }
+  return [];
 };
 
 const nominationBreakdownComponents = (reason: OfficialNominationReason | null | undefined): OfficialScoreComponent[] => {
-  if (!reason?.show_metrics) return [];
+  if (!reason?.show_metrics || reason.decisive_criterion !== 'additional_points') return [];
   const items: OfficialScoreComponent[] = [];
-  const push = (kind: OfficialScoreKind, label: string, value: number) => {
-    const rounded = roundOfficial(value);
-    if (Math.abs(rounded) < 0.0001) return;
-    items.push({ kind, label, value: rounded, tone: 'bonus', show_plus: true });
-  };
-  push('protocol', 'Протокольные начисления', reason.protocol_bonus);
-  push('best_move', 'Лучший ход', reason.best_move_points);
+  const protocol = roundOfficial(reason.protocol_bonus);
+  if (Math.abs(protocol) >= 0.0001) {
+    items.push({
+      kind: 'protocol',
+      label: protocol < 0 ? 'Штраф по протоколу' : 'Бонус по протоколу',
+      value: protocol,
+      tone: protocol < 0 ? 'penalty' : 'bonus',
+      show_plus: true,
+    });
+  }
+  const bestMove = roundOfficial(reason.best_move_points);
+  if (Math.abs(bestMove) >= 0.0001) {
+    items.push({ kind: 'best_move', label: 'Лучший ход', value: bestMove, tone: 'bonus', show_plus: true });
+  }
   return items;
 };
 
@@ -1595,6 +1515,377 @@ export function generateOfficialTournamentResultsSvg(
   </svg>`;
 
   return { svg, width, height };
+}
+
+export interface ExportSvgPage {
+  svg: string;
+  width: number;
+  height: number;
+  section: 'opening' | 'ranking' | 'awards' | 'standings' | 'game';
+  block_ids: string[];
+}
+
+const EXPORT_PAGE_WIDTH = 1080;
+const EXPORT_PAGE_HEIGHT = 1350;
+const EXPORT_CONTINUATION_TOP = 112;
+const EXPORT_PAGE_BOTTOM = 1272;
+const EXPORT_OPENING_CAPACITY = EXPORT_PAGE_BOTTOM;
+const EXPORT_CONTINUATION_CAPACITY = EXPORT_PAGE_BOTTOM - EXPORT_CONTINUATION_TOP;
+
+interface ExportSourceBlock {
+  start: number;
+  end: number;
+  id: string;
+}
+
+interface ExportSliceDescriptor {
+  start: number;
+  end: number;
+  opening: boolean;
+  section: ExportSvgPage['section'];
+  header: string;
+  context: string;
+  block_ids: string[];
+}
+
+const extractSvgInner = (svg: string): string => {
+  const start = svg.indexOf('>');
+  const end = svg.lastIndexOf('</svg>');
+  if (start < 0 || end < 0 || end <= start) throw new Error('Не удалось подготовить SVG для постраничного экспорта');
+  return svg.slice(start + 1, end);
+};
+
+function packExportBlocks(
+  sectionStart: number,
+  firstContentStart: number,
+  blocks: ExportSourceBlock[],
+  firstCapacity: number,
+  continuationCapacity: number,
+  section: ExportSvgPage['section'],
+  firstHeader: string,
+  continuationHeader: string,
+  context: string,
+  opening: boolean,
+): ExportSliceDescriptor[] {
+  const result: ExportSliceDescriptor[] = [];
+  if (!blocks.length) {
+    const end = Math.min(firstContentStart, sectionStart + firstCapacity);
+    if (end > sectionStart) result.push({ start: sectionStart, end, opening, section, header: firstHeader, context, block_ids: [] });
+    return result;
+  }
+
+  let index = 0;
+  let pageStart = sectionStart;
+  let isFirst = true;
+  while (index < blocks.length) {
+    const capacity = isFirst ? firstCapacity : continuationCapacity;
+    const effectiveStart = isFirst ? pageStart : blocks[index].start;
+    let end = isFirst ? firstContentStart : effectiveStart;
+    const ids: string[] = [];
+    let added = 0;
+
+    while (index < blocks.length) {
+      const block = blocks[index];
+      const candidateEnd = block.end;
+      if (candidateEnd - effectiveStart > capacity && added > 0) break;
+      if (candidateEnd - effectiveStart > capacity && added === 0) {
+        throw new Error(`Блок ${block.id} не помещается на страницу 1080×1350 без разделения`);
+      }
+      end = candidateEnd;
+      ids.push(block.id);
+      index += 1;
+      added += 1;
+    }
+
+    result.push({
+      start: effectiveStart,
+      end,
+      opening: isFirst ? opening : false,
+      section,
+      header: isFirst ? firstHeader : continuationHeader,
+      context,
+      block_ids: ids,
+    });
+    isFirst = false;
+  }
+  return result;
+}
+
+function renderExportSlicePage(
+  sourceSvg: string,
+  descriptor: ExportSliceDescriptor,
+  pageNumber: number,
+  pageCount: number,
+): ExportSvgPage {
+  const inner = extractSvgInner(sourceSvg);
+  const contentTop = descriptor.opening ? 0 : EXPORT_CONTINUATION_TOP;
+  const contentBottom = EXPORT_PAGE_BOTTOM;
+  const contentHeight = contentBottom - contentTop;
+  if (descriptor.end - descriptor.start > contentHeight + 0.5) {
+    throw new Error('Контент страницы превышает безопасную высоту экспорта');
+  }
+  const sourceHeight = descriptor.end - descriptor.start;
+  const header = descriptor.opening ? '' : `
+    <rect x="0" y="0" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_CONTINUATION_TOP}" fill="${NOIR_EXPORT_COLORS.background}"/>
+    <text x="58" y="42" font-family="${officialSvgFont}" font-size="18" font-weight="900" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="3.2">2LA NOIRE</text>
+    <text x="58" y="82" font-family="${officialSvgFont}" font-size="24" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">${escapeXml(descriptor.header)}</text>
+    <text x="1022" y="82" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(descriptor.context)}</text>`;
+  const footer = `
+    <rect x="0" y="${EXPORT_PAGE_BOTTOM}" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT - EXPORT_PAGE_BOTTOM}" fill="${NOIR_EXPORT_COLORS.background}"/>
+    <line x1="58" y1="${EXPORT_PAGE_BOTTOM + 8}" x2="1022" y2="${EXPORT_PAGE_BOTTOM + 8}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1"/>
+    <text x="58" y="1325" font-family="${officialSvgFont}" font-size="17" font-weight="850" fill="#B88B97" letter-spacing="2.8">2LA NOIRE</text>
+    <text x="1022" y="1325" text-anchor="end" font-family="${officialSvgFont}" font-size="17" font-weight="750" fill="${NOIR_EXPORT_COLORS.subduedText}" font-variant-numeric="tabular-nums">${pageNumber} / ${pageCount}</text>`;
+
+  return {
+    width: EXPORT_PAGE_WIDTH,
+    height: EXPORT_PAGE_HEIGHT,
+    section: descriptor.section,
+    block_ids: descriptor.block_ids,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" viewBox="0 0 ${EXPORT_PAGE_WIDTH} ${EXPORT_PAGE_HEIGHT}">
+      <rect width="${EXPORT_PAGE_WIDTH}" height="${EXPORT_PAGE_HEIGHT}" fill="${NOIR_EXPORT_COLORS.background}"/>
+      <svg x="0" y="${contentTop}" width="${EXPORT_PAGE_WIDTH}" height="${sourceHeight}" viewBox="0 ${descriptor.start} ${EXPORT_PAGE_WIDTH} ${sourceHeight}" preserveAspectRatio="xMinYMin meet" overflow="hidden">${inner}</svg>
+      ${header}
+      ${footer}
+    </svg>`,
+  };
+}
+
+function finalizeExportPages(sourceSvg: string, descriptors: ExportSliceDescriptor[]): ExportSvgPage[] {
+  return descriptors.map((descriptor, index) => renderExportSlicePage(sourceSvg, descriptor, index + 1, descriptors.length));
+}
+
+function officialExportGeometry(presentation: OfficialTournamentResultsPresentation) {
+  const width = 1080;
+  const margin = 58;
+  const titleLines = wrapExportText(presentation.tournament.title, 27, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 78;
+  const championAward = presentation.podium.find((award) => award.place === 1) || presentation.podium[0];
+  const secondAward = presentation.podium.find((award) => award.place === 2) || presentation.podium[1];
+  const thirdAward = presentation.podium.find((award) => award.place === 3) || presentation.podium[2];
+  const championStanding = getStandingForAward(championAward, presentation.standings);
+  const championName = championAward?.display_name || championStanding?.display_name || 'Победитель';
+  const championNameExtra = Math.max(0, wrapExportText(championName, 13, 2).length - 1) * 76;
+  const heroTopHeight = 338 + titleExtra;
+  const championHeight = 430 + championNameExtra;
+  const secondaryGap = 48;
+  const secondaryWidth = (width - margin * 2 - secondaryGap) / 2;
+  const secondPodiumLayout = layoutSecondaryPodium(secondAward?.display_name || 'Не определено', secondaryWidth);
+  const thirdPodiumLayout = layoutSecondaryPodium(thirdAward?.display_name || 'Не определено', secondaryWidth);
+  const secondaryPodiumHeight = 40 + Math.max(secondPodiumLayout.height, thirdPodiumLayout.height);
+  const heroHeight = heroTopHeight + championHeight + secondaryPodiumHeight + 48;
+
+  const rankingAvatarX = margin + 78;
+  const rankingAvatarSize = 82;
+  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
+  const rankingTotalRight = width - margin;
+  const rankingTotalColumnWidth = 118;
+  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
+  const rankingContentWidth = rankingContentRight - rankingContentX;
+  const rankingLayouts = presentation.standings.map((item) => layoutOfficialRankingRow(item, rankingContentWidth));
+  const rankingTitleHeight = 104;
+  const rankingHeight = rankingTitleHeight + rankingLayouts.reduce((sum, row) => sum + row.rowHeight, 0);
+
+  const featuredAward = presentation.nominations.find(isMvpAward) || null;
+  const awardTiles = presentation.nominations.filter((award) => award !== featuredAward);
+  const awardGap = 24;
+  const awardTileWidth = (width - margin * 2 - awardGap) / 2;
+  const featuredAwardLayout = featuredAward ? layoutAwardTile(featuredAward, width - margin * 2, true) : null;
+  const awardTileLayouts = awardTiles.map((award) => layoutAwardTile(award, awardTileWidth));
+  const awardRows: { items: { award: OfficialAwardPresentation; layout: AwardTileLayout; index: number }[]; height: number }[] = [];
+  for (let index = 0; index < awardTiles.length; index += 2) {
+    const items = [index, index + 1]
+      .filter((itemIndex) => itemIndex < awardTiles.length)
+      .map((itemIndex) => ({ award: awardTiles[itemIndex], layout: awardTileLayouts[itemIndex], index: itemIndex }));
+    awardRows.push({ items, height: Math.max(...items.map((item) => item.layout.height)) });
+  }
+  return { heroHeight, rankingLayouts, rankingTitleHeight, rankingHeight, featuredAward, featuredAwardLayout, awardRows };
+}
+
+export function generateOfficialTournamentResultsPages(
+  presentation: OfficialTournamentResultsPresentation,
+): ExportSvgPage[] {
+  const rendered = generateOfficialTournamentResultsSvg(presentation);
+  const geometry = officialExportGeometry(presentation);
+  if (geometry.heroHeight > EXPORT_OPENING_CAPACITY) {
+    throw new Error('Hero-блок турнира не помещается на одну страницу 1080×1350');
+  }
+
+  const context = presentation.tournament.title;
+  const descriptors: ExportSliceDescriptor[] = [{
+    start: 0,
+    end: geometry.heroHeight,
+    opening: true,
+    section: 'opening',
+    header: 'ИТОГИ ТУРНИРА',
+    context,
+    block_ids: ['hero'],
+  }];
+
+  const rankingStart = geometry.heroHeight;
+  let rankingCursor = rankingStart + geometry.rankingTitleHeight;
+  const rankingBlocks: ExportSourceBlock[] = geometry.rankingLayouts.map((layout) => {
+    const start = rankingCursor;
+    const end = start + layout.rowHeight;
+    rankingCursor = end;
+    return { start, end, id: `ranking-${layout.item.display_place}` };
+  });
+  descriptors.push(...packExportBlocks(
+    rankingStart,
+    rankingStart + geometry.rankingTitleHeight,
+    rankingBlocks,
+    EXPORT_CONTINUATION_CAPACITY,
+    EXPORT_CONTINUATION_CAPACITY,
+    'ranking',
+    'ИТОГИ ТУРНИРА',
+    'ФИНАЛЬНЫЙ РЕЙТИНГ · ПРОДОЛЖЕНИЕ',
+    context,
+    false,
+  ));
+
+  if (presentation.nominations.length) {
+    const awardsStart = geometry.heroHeight + geometry.rankingHeight;
+    let awardsCursor = awardsStart + 98;
+    const awardBlocks: ExportSourceBlock[] = [];
+    if (geometry.featuredAward && geometry.featuredAwardLayout) {
+      const start = awardsCursor;
+      const end = start + geometry.featuredAwardLayout.height;
+      awardBlocks.push({ start, end, id: 'award-mvp' });
+      awardsCursor = end + (geometry.awardRows.length ? 24 : 0);
+    }
+    geometry.awardRows.forEach((row, index) => {
+      const start = awardsCursor;
+      const end = start + row.height;
+      awardBlocks.push({ start, end, id: `award-row-${index + 1}` });
+      awardsCursor = end + (index < geometry.awardRows.length - 1 ? 22 : 0);
+    });
+    descriptors.push(...packExportBlocks(
+      awardsStart,
+      awardsStart + 98,
+      awardBlocks,
+      EXPORT_CONTINUATION_CAPACITY,
+      EXPORT_CONTINUATION_CAPACITY,
+      'awards',
+      'ИТОГИ ТУРНИРА',
+      'НАГРАДЫ ТУРНИРА · ПРОДОЛЖЕНИЕ',
+      context,
+      false,
+    ));
+  }
+  return finalizeExportPages(rendered.svg, descriptors);
+}
+
+function gameScorePartsForPaging(row: GamePlayerExportRow) {
+  const parts: Array<{ label: string; value: number }> = [];
+  const add = (label: string, value: number) => { if (Math.abs(value) >= 0.0001) parts.push({ label, value }); };
+  add('За победу', row.win_point);
+  add('Оценка судей', row.judge_bonus);
+  add('Протокольные начисления', row.protocol_bonus);
+  add('Лучший ход', row.best_move_points);
+  add('Компенсация первого убитого', row.ci_points);
+  add('Штрафы в игре', -Math.abs(row.game_penalty_points));
+  add('Дисциплинарный штраф', -Math.abs(row.disciplinary_penalty_points));
+  return parts;
+}
+
+function gameExportRowHeight(row: GamePlayerExportRow): number {
+  const scoreMaxWidth = 1080 - 58 - 260 - 120;
+  const gap = 26;
+  let lineCount = 0;
+  let used = 0;
+  let hasLine = false;
+  for (const part of gameScorePartsForPaging(row)) {
+    const text = `${part.label} ${formatPoints(part.value)}`;
+    const tokenWidth = Math.min(scoreMaxWidth, text.length * 22 * 0.56);
+    if (hasLine && used + gap + tokenWidth > scoreMaxWidth) {
+      lineCount += 1;
+      used = 0;
+      hasLine = false;
+    }
+    used += (hasLine ? gap : 0) + tokenWidth;
+    hasLine = true;
+  }
+  if (hasLine) lineCount += 1;
+  return Math.max(116, 88 + Math.max(1, lineCount) * 34);
+}
+
+export function generateGameResultsPages(
+  tournament: Tournament,
+  game: TournamentGame,
+  exportRows: GamePlayerExportRow[],
+): ExportSvgPage[] {
+  const sourceSvg = generateGameResultsSvg(tournament, game, exportRows);
+  const headerHeight = 300;
+  let cursor = headerHeight;
+  const blocks = exportRows.map((row) => {
+    const start = cursor;
+    const end = start + gameExportRowHeight(row);
+    cursor = end;
+    return { start, end, id: `seat-${row.seat_number}` };
+  });
+  const descriptors = packExportBlocks(
+    0,
+    headerHeight,
+    blocks,
+    EXPORT_OPENING_CAPACITY,
+    EXPORT_CONTINUATION_CAPACITY,
+    'game',
+    `ИТОГИ ИГРЫ №${game.game_number}`,
+    `ИТОГИ ИГРЫ №${game.game_number} · ПРОДОЛЖЕНИЕ`,
+    tournament.title,
+    true,
+  );
+  return finalizeExportPages(sourceSvg, descriptors);
+}
+
+function standingsExportGeometry(
+  tournament: Tournament,
+  standings: TournamentStandingItem[],
+) {
+  const titleLines = wrapExportText(tournament.title, 27, 2);
+  const titleExtra = Math.max(0, titleLines.length - 1) * 58;
+  const headerHeight = 280 + titleExtra;
+  const rankingTitleHeight = 92;
+  const margin = 58;
+  const rankingAvatarX = margin + 78;
+  const rankingAvatarSize = 82;
+  const rankingContentX = rankingAvatarX + rankingAvatarSize + 24;
+  const rankingTotalRight = 1080 - margin;
+  const rankingTotalColumnWidth = 118;
+  const rankingContentRight = rankingTotalRight - rankingTotalColumnWidth - 24;
+  const rankingContentWidth = rankingContentRight - rankingContentX;
+  const layouts = standings.map((item) => layoutOfficialRankingRow({ ...item, display_place: item.place, avatar_data_url: null }, rankingContentWidth));
+  return { headerHeight, rankingTitleHeight, layouts };
+}
+
+export function generateStandingsPages(
+  tournament: Tournament,
+  standings: TournamentStandingItem[],
+  completedGamesCount: number,
+  totalGamesCount: number,
+  avatarDataByParticipant: Record<string, string> = {},
+): ExportSvgPage[] {
+  const sourceSvg = generateStandingsSvg(tournament, standings, completedGamesCount, totalGamesCount, avatarDataByParticipant);
+  const geometry = standingsExportGeometry(tournament, standings);
+  let cursor = geometry.headerHeight + geometry.rankingTitleHeight;
+  const blocks = geometry.layouts.map((layout) => {
+    const start = cursor;
+    const end = start + layout.rowHeight;
+    cursor = end;
+    return { start, end, id: `standing-${layout.item.place}` };
+  });
+  const descriptors = packExportBlocks(
+    0,
+    geometry.headerHeight + geometry.rankingTitleHeight,
+    blocks,
+    EXPORT_OPENING_CAPACITY,
+    EXPORT_CONTINUATION_CAPACITY,
+    'standings',
+    'ПРОМЕЖУТОЧНЫЕ ИТОГИ',
+    'ПРОМЕЖУТОЧНЫЕ ИТОГИ · ПРОДОЛЖЕНИЕ',
+    `После ${completedGamesCount} из ${totalGamesCount} игр · ${tournament.title}`,
+    true,
+  );
+  return finalizeExportPages(sourceSvg, descriptors);
 }
 
 export function renderSvgToPngBlob(svgString: string, width: number, height: number): Promise<Blob> {

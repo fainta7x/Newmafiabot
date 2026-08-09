@@ -101,7 +101,7 @@ export const TournamentStandingsView: React.FC<TournamentStandingsViewProps> = (
                 className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                <span>Скачать таблицу PNG</span>
+                <span>Посмотреть промежуточные итоги</span>
               </button>
             )}
           </div>

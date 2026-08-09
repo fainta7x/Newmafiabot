@@ -974,7 +974,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({
                     className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-3 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Результаты PNG</span>
+                    <span>Посмотреть результат</span>
                   </button>
                 )}
 

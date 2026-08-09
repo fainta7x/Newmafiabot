@@ -58,7 +58,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
         </div>
         <div className={`${provisional ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'} border rounded-2xl p-3 text-xs flex items-start gap-2`}>
           {provisional ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <Trophy className="w-4 h-4 shrink-0 mt-0.5" />}
-          <div><p className="font-bold">{provisional ? 'Предварительные результаты' : 'Канонические итоги номинаций'}</p><p className="text-[11px] opacity-90 mt-0.5">Сравнение: Баллы → Доп. баллы → для Дона/Шерифа победы в роли → личное сравнение. Ручного выбора победителя нет.</p></div>
+          <div><p className="font-bold">{provisional ? 'Предварительные результаты' : 'Канонические итоги номинаций'}</p><p className="text-[11px] opacity-90 mt-0.5">Сравнение: оценка судей → бонусы и штрафы → для Дона/Шерифа победы в роли → личные встречи. Ручного выбора победителя нет.</p></div>
         </div>
       </div>
 
@@ -76,7 +76,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
               {winner ? (
                 <div className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{winner.games_in_role} игр в выборке</span></div></div>
-                  <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Баллы </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Доп. </span><strong>{signed(winner.additional_points)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
+                  <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Оценка судей </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Бонусы и штрафы </span><strong>{signed(winner.additional_points)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
                 </div>
               ) : nom.has_tie ? (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300">Все критерии, включая личное сравнение, исчерпаны. Победитель не назначается автоматически и не выбирается вручную.</div>
@@ -93,7 +93,7 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                     <div key={candidate.participant_id} className={`border rounded-2xl overflow-hidden ${isWinner ? 'border-accent/30 bg-accent/5' : isTied ? 'border-amber-500/30 bg-amber-500/5' : 'border-border-soft bg-surface-2/20'}`}>
                       <button type="button" onClick={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))} className="w-full p-3 min-h-[44px] flex items-center gap-3 text-left">
                         <span className="w-5 text-xs text-text-muted font-bold">{index + 1}</span><PlayerAvatar nickname={candidate.display_name} size="xs" /><span className="font-bold text-sm truncate flex-1">{candidate.display_name}</span>
-                        <div className="font-mono text-[10px] text-right shrink-0"><div>Б {signed(candidate.points)}</div><div>Д {signed(candidate.additional_points)}</div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div>Р {candidate.role_wins}</div>}</div>
+                        <div className="font-mono text-[10px] text-right shrink-0"><div>Судьи {signed(candidate.points)}</div><div>Б/Ш {signed(candidate.additional_points)}</div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div>Р {candidate.role_wins}</div>}</div>
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
                       </button>
                       {isExpanded && <div className="p-3 border-t border-border-soft bg-surface-2/40 space-y-2">{candidate.breakdown.map((game: any) => <div key={game.game_number} className="text-[10px] flex flex-wrap gap-x-3 gap-y-1"><strong>Игра №{game.game_number}</strong><span>Судья {signed(game.judge_bonus)}</span><span>Протокол {signed(game.protocol_bonus)}</span><span>ЛХ {signed(game.best_move_points)}</span></div>)}</div>}

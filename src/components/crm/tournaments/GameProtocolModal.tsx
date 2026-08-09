@@ -1341,13 +1341,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto overflow-x-hidden">
-      <div className="bg-slate-900 text-slate-100 rounded-none sm:rounded-2xl w-full max-w-4xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl border-0 sm:border sm:border-slate-800 overflow-hidden min-w-0">
+    <div className="protocol-noir-root fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 overflow-hidden">
+      <div className="protocol-noir-shell text-text-primary rounded-none sm:rounded-2xl w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden min-w-0">
 
         {/* Header */}
-        <div className="bg-slate-800/90 px-3 py-2 sm:px-4 sm:py-3 border-b border-slate-700/80 flex items-center justify-between shrink-0 min-h-[56px] sm:min-h-[64px] min-w-0 protocol-modal-header">
+        <div className="protocol-noir-header px-3 py-2.5 sm:px-4 sm:py-3 border-b flex items-center justify-between shrink-0 min-h-[58px] sm:min-h-[64px] min-w-0 protocol-modal-header">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base sm:text-lg shrink-0">
+            <div className="min-w-[34px] text-warning flex items-center justify-center font-black text-base sm:text-lg tabular-nums shrink-0">
               #{game?.game_number || 1}
             </div>
             <div className="min-w-0">
@@ -1366,7 +1366,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   </span>
                 )}
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-400 truncate">
+              <div className="text-[11px] sm:text-xs text-text-secondary truncate">
                 Судья: {game?.judge_name || 'Не указан'}
               </div>
             </div>
@@ -1375,7 +1375,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           <div className="flex items-center space-x-2 shrink-0">
             {/* Save Status Badge */}
             {protocol.status === 'draft' && (
-              <div className="text-[11px] sm:text-xs flex items-center space-x-1.5 px-2 py-1 rounded-lg bg-slate-800 border border-slate-700">
+              <div className="protocol-save-status text-[11px] sm:text-xs">
                 {saveStatus === 'saved' && (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -1390,8 +1390,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 )}
                 {saveStatus === 'unsaved' && (
                   <>
-                    <Save className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-400 hidden sm:inline">Не сохранено</span>
+                    <Save className="w-3.5 h-3.5 text-text-secondary" />
+                    <span className="text-text-secondary hidden sm:inline">Не сохранено</span>
                   </>
                 )}
                 {saveStatus === 'error' && (
@@ -1406,7 +1406,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             <button
               type="button"
               onClick={handleModalClose}
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition"
+              className="text-text-secondary hover:text-white p-1.5 rounded-lg hover:bg-surface-hover transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1443,15 +1443,15 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         )}
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-800/40 border-b border-slate-800 p-1.5 sm:px-3 sm:py-2 shrink-0 protocol-modal-tabs">
+        <div className="protocol-noir-tabs border-b px-2 pt-1 sm:px-3 shrink-0 protocol-modal-tabs">
           <div className="grid grid-cols-4 gap-1 sm:flex sm:space-x-2">
             <button
               type="button"
               onClick={() => setActiveTab('players')}
-              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+              className={`px-1 sm:px-3 text-[11px] min-[390px]:text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 sm:gap-2 min-w-0 ${
                 activeTab === 'players'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'protocol-noir-tab-active font-bold'
+                  : 'protocol-noir-tab'
               }`}
             >
               <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -1461,10 +1461,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('votes')}
-              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+              className={`px-1 sm:px-3 text-[11px] min-[390px]:text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 sm:gap-2 min-w-0 ${
                 activeTab === 'votes'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'protocol-noir-tab-active font-bold'
+                  : 'protocol-noir-tab'
               }`}
             >
               <Vote className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -1474,10 +1474,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('nights')}
-              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+              className={`px-1 sm:px-3 text-[11px] min-[390px]:text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 sm:gap-2 min-w-0 ${
                 activeTab === 'nights'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'protocol-noir-tab-active font-bold'
+                  : 'protocol-noir-tab'
               }`}
             >
               <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -1487,10 +1487,10 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('summary')}
-              className={`py-2 sm:py-1.5 px-1 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition flex items-center justify-center space-x-1 sm:space-x-2 min-w-0 ${
+              className={`px-1 sm:px-3 text-[11px] min-[390px]:text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 sm:gap-2 min-w-0 ${
                 activeTab === 'summary'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'protocol-noir-tab-active font-bold'
+                  : 'protocol-noir-tab'
               }`}
             >
               <FileCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -1500,9 +1500,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 pb-24 sm:pb-6 max-w-full">
+        <div className="protocol-noir-content flex-1 min-h-0 overflow-y-auto overscroll-contain overflow-x-hidden p-3 sm:p-5 max-w-full">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
+            <div className="flex flex-col items-center justify-center py-16 space-y-3 text-text-secondary">
               <Clock className="w-8 h-8 animate-spin text-amber-500" />
               <span className="text-sm font-medium">Загрузка данных протокола...</span>
             </div>
@@ -1511,12 +1511,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               {/* TAB 1: PLAYERS PROTOCOL */}
               {activeTab === 'players' && (
                 <div className="space-y-4">
-                  <div className="text-xs text-slate-400 flex items-center justify-between">
+                  <div className="text-xs text-text-secondary flex items-center justify-between">
                     <span>Заполните фолы, доп. баллы, штрафы и цветовые протоколы участников:</span>
-                    <span className="font-semibold text-slate-300">Игроков: {playerResults.length}/10</span>
+                    <span className="font-semibold text-text-secondary">Игроков: {playerResults.length}/10</span>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="protocol-player-list">
                     {playerResults.map((player) => {
                       const isExpanded = expandedPlayerId === player.participant_id;
                       const {
@@ -1533,97 +1533,67 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                       return (
                         <div
                           key={player.participant_id}
-                          className={`bg-slate-800/60 rounded-xl border transition overflow-hidden ${
-                            isExpanded ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-700/80 hover:border-slate-600'
-                          }`}
+                          className="protocol-player-row" data-expanded={isExpanded}
                         >
                           {/* Compact Row Header */}
-                          <div
+                          <button
+                            type="button"
                             data-testid={`player-row-${player.participant_id}`}
+                            aria-expanded={isExpanded}
                             onClick={() =>
                               setExpandedPlayerId((prev) => (prev === player.participant_id ? null : player.participant_id))
                             }
-                            className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2 min-h-[56px] cursor-pointer select-none hover:bg-slate-800/90 transition"
+                            className="protocol-player-trigger w-full grid grid-cols-[34px_32px_minmax(0,1fr)_32px] sm:grid-cols-[38px_36px_minmax(0,1fr)_36px] items-start gap-2 sm:gap-3 px-3 py-3 sm:px-4 sm:py-3.5 text-left min-h-[64px] transition-colors"
                           >
-                            <div className="flex items-center space-x-2 min-w-0 flex-1">
-                              <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/30 shrink-0">
-                                #{player.seat_number}
-                              </span>
-                              <PlayerAvatar nickname={player.display_name} size="xs" />
-                              <span className="font-semibold text-sm text-slate-100 truncate min-w-0">
-                                {player.display_name}
-                              </span>
-
-                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border shrink-0 ${roleClass}`}>
-                                {roleLabel}
-                              </span>
-
-                              {statusLabel && (
-                                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border shrink-0 ${statusClass}`}>
-                                  {statusLabel}
+                            <span className="text-warning font-black text-sm sm:text-base tabular-nums pt-1">
+                              {String(player.seat_number).padStart(2, '0')}
+                            </span>
+                            <PlayerAvatar nickname={player.display_name} size="xs" />
+                            <span className="min-w-0 space-y-1.5">
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                                <span className="font-semibold text-sm text-text-primary break-words min-w-0 max-w-full">
+                                  {player.display_name}
                                 </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center space-x-2 shrink-0">
-                              {/* Desktop/Tablet brief badges */}
-                              <div className="hidden sm:flex flex-wrap items-center gap-1.5 justify-end">
+                                <span className={`text-[10px] sm:text-[11px] font-semibold px-1.5 py-0.5 rounded-md border ${roleClass}`}>
+                                  {roleLabel}
+                                </span>
+                                {statusLabel && (
+                                  <span className={`text-[10px] sm:text-[11px] font-semibold px-1.5 py-0.5 rounded-md border ${statusClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                                 {briefBadges.length > 0 ? (
                                   briefBadges.map((badge) => (
                                     <span
                                       key={badge.key}
-                                      className={`text-[11px] px-2 py-0.5 rounded-md border whitespace-nowrap ${badge.className}`}
+                                      className={`text-[10px] sm:text-[11px] leading-4 whitespace-normal tabular-nums ${badge.className}`}
                                     >
                                       {badge.label}
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700/60 whitespace-nowrap">
-                                    Без отметок
-                                  </span>
+                                  <span className="text-[10px] sm:text-[11px] text-text-muted">Без отметок</span>
                                 )}
-                              </div>
-
-                              <div className="text-slate-400 p-1 rounded-lg hover:text-slate-200 shrink-0">
-                                {isExpanded ? (
-                                  <ChevronUp className="w-5 h-5 text-amber-400" />
-                                ) : (
-                                  <ChevronDown className="w-5 h-5" />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Mobile brief badges sub-row */}
-                          <div
-                            className="sm:hidden px-3 pb-2 flex flex-wrap gap-1 items-center cursor-pointer"
-                            onClick={() =>
-                              setExpandedPlayerId((prev) => (prev === player.participant_id ? null : player.participant_id))
-                            }
-                          >
-                            {briefBadges.length > 0 ? (
-                              briefBadges.map((badge) => (
-                                <span
-                                  key={badge.key}
-                                  className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ${badge.className}`}
-                                >
-                                  {badge.label}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 whitespace-nowrap">
-                                Без отметок
                               </span>
-                            )}
-                          </div>
+                            </span>
+                            <span className="w-8 h-8 flex items-center justify-center text-text-secondary shrink-0">
+                              {isExpanded ? (
+                                <ChevronUp className="w-5 h-5 text-accent" />
+                              ) : (
+                                <ChevronDown className="w-5 h-5" />
+                              )}
+                            </span>
+                          </button>
 
                           {/* Expanded Player Form */}
                           {isExpanded && (
-                            <div className="border-t border-slate-700/60 p-3 sm:p-4 space-y-3 bg-slate-900/40">
+                            <div className="border-t border-border-soft px-3 pb-3 sm:px-4 sm:pb-4 space-y-3">
                               {/* Status Selector Row */}
-                              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                              <div className="protocol-inline-section flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div className="flex items-center space-x-2 text-xs">
-                                  <span className="text-slate-400 font-medium">Статус игрока:</span>
+                                  <span className="text-text-secondary font-medium">Статус игрока:</span>
                                   <select
                                     disabled={protocol.status === 'completed' || !!player.removal_reason}
                                     value={player.exit_type}
@@ -1637,7 +1607,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                         });
                                       }
                                     }}
-                                    className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-amber-500 focus:outline-none disabled:opacity-60"
+                                    className="protocol-noir-field !w-auto text-xs disabled:opacity-60"
                                   >
                                     <option value="alive">Жив</option>
                                     <option value="killed">Убит (ночью)</option>
@@ -1656,12 +1626,12 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </div>
 
                           {/* Middle Row: Fouls & Bonuses Grid */}
-                          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mt-3">
+                          <div className="mt-2">
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
                               {/* Regular Fouls */}
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <div className="protocol-control-block">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-slate-400">Обычные фолы</span>
+                                  <span className="text-text-secondary">Обычные фолы</span>
                                   {player.regular_fouls === 3 && (
                                     <span className="text-[10px] text-amber-500 font-medium animate-pulse">30 сек</span>
                                   )}
@@ -1671,7 +1641,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || player.regular_fouls <= 0}
                                     onClick={() => handleRegularFoulChange(player.participant_id, -1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
@@ -1682,7 +1652,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || player.regular_fouls >= 4}
                                     onClick={() => handleRegularFoulChange(player.participant_id, 1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1690,14 +1660,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </div>
 
                                {/* Technical Fouls - Minor */}
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-1">Малый тех −0.3</span>
+                              <div className="protocol-control-block">
+                                <span className="text-text-secondary block mb-1">Малый тех −0.3</span>
                                 <div className="flex items-center space-x-1">
                                   <button
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.minor_technical_fouls || 0) <= 0}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'minor', -1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
@@ -1708,7 +1678,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'minor', 1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1716,14 +1686,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </div>
 
                               {/* Technical Fouls - Major */}
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-1">Большой тех −0.6</span>
+                              <div className="protocol-control-block">
+                                <span className="text-text-secondary block mb-1">Большой тех −0.6</span>
                                 <div className="flex items-center space-x-1">
                                   <button
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.major_technical_fouls || 0) <= 0}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'major', -1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     -
                                   </button>
@@ -1734,7 +1704,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     type="button"
                                     disabled={protocol.status === 'completed' || (player.technical_fouls || 0) >= 2}
                                     onClick={() => handleTechFoulChange(player.participant_id, 'major', 1)}
-                                    className="w-11 h-11 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
+                                    className="w-11 h-11 rounded-lg bg-surface-2 text-text-secondary hover:bg-surface-hover disabled:opacity-40 font-bold flex items-center justify-center transition-colors active:scale-95"
                                   >
                                     +
                                   </button>
@@ -1742,9 +1712,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               </div>
 
                               {/* Disciplinary Penalty (Read-only) */}
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                                <span className="text-slate-400 block mb-0.5">Дисципл. минус</span>
-                                <div className="w-full bg-slate-900/40 border border-slate-800 rounded px-2 py-1 text-slate-400 text-xs text-center font-medium">
+                              <div className="protocol-control-block">
+                                <span className="text-text-secondary block mb-0.5">Дисципл. минус</span>
+                                <div className="w-full bg-surface-1/40 border border-border-soft rounded px-2 py-1 text-text-secondary text-xs text-center font-medium">
                                   {calculateDisciplinaryPenalty(
                                     player.minor_technical_fouls || 0,
                                     player.major_technical_fouls || 0,
@@ -1752,7 +1722,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                     protocol.ppk_culprit_participant_id === player.participant_id
                                   )}
                                 </div>
-                                <span className="text-[10px] text-slate-500 block mt-1 leading-none text-center">Не влияет на номин.</span>
+                                <span className="text-[10px] text-text-muted block mt-1 leading-none text-center">Не влияет на номин.</span>
                               </div>
                             </div>
 
@@ -1769,14 +1739,14 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                       <button
                                         disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 1, 0)}
-                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-surface-2 hover:bg-surface-hover text-[10px] font-bold text-text-primary border border-border-soft disabled:opacity-50"
                                       >
                                         1 малый
                                       </button>
                                       <button
                                         disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 0, 1)}
-                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-surface-2 hover:bg-surface-hover text-[10px] font-bold text-text-primary border border-border-soft disabled:opacity-50"
                                       >
                                         1 большой
                                       </button>
@@ -1786,21 +1756,21 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                       <button
                                         disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 2, 0)}
-                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-surface-2 hover:bg-surface-hover text-[10px] font-bold text-text-primary border border-border-soft disabled:opacity-50"
                                       >
                                         2 малых
                                       </button>
                                       <button
                                         disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 1, 1)}
-                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-surface-2 hover:bg-surface-hover text-[10px] font-bold text-text-primary border border-border-soft disabled:opacity-50"
                                       >
                                         малый + большой
                                       </button>
                                       <button
                                         disabled={protocol.status === 'completed'}
                                         onClick={() => classifyTechFoul(player.participant_id, 0, 2)}
-                                        className="min-h-[44px] px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 border border-slate-700 disabled:opacity-50"
+                                        className="min-h-[44px] px-3 py-1 rounded bg-surface-2 hover:bg-surface-hover text-[10px] font-bold text-text-primary border border-border-soft disabled:opacity-50"
                                       >
                                         2 больших
                                       </button>
@@ -1812,8 +1782,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
                             {/* Bonuses and Ci Row */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mt-3">
-                              <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
-                                <span className="text-slate-400 block mb-1 text-center">Балл за прот.</span>
+                              <div className="protocol-control-block flex flex-col items-center">
+                                <span className="text-text-secondary block mb-1 text-center">Балл за прот.</span>
                                 <PointStepper
                                   value={player.protocol_bonus ?? 0}
                                   min={-1.0}
@@ -1836,8 +1806,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                 />
                               </div>
 
-                              <div data-testid={`judge-bonus-${player.participant_id}`} className="bg-slate-900/60 p-2 rounded-lg border border-slate-800 flex flex-col items-center">
-                                <span className="text-slate-400 block mb-1 text-center">Балл судьи</span>
+                              <div data-testid={`judge-bonus-${player.participant_id}`} className="protocol-control-block flex flex-col items-center">
+                                <span className="text-text-secondary block mb-1 text-center">Балл судьи</span>
                                 <PointStepper
                                   value={player.judge_bonus ?? 0}
                                   min={-1.0}
@@ -1863,7 +1833,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                               {player.participant_id === protocol.first_killed_participant_id ? (
                                 <div className="bg-cyan-950/20 p-2 rounded-lg border border-cyan-500/40 space-y-1">
                                   <span className="text-cyan-400 font-bold block">Коэффициент Ci</span>
-                                  <p className="text-[10px] text-slate-400 leading-tight">
+                                  <p className="text-[10px] text-text-secondary leading-tight">
                                     Ci рассчитывается автоматически
                                   </p>
                                 </div>
@@ -1873,7 +1843,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                             </div>
 
                             {/* Action Buttons: Removal & PPK */}
-                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-800/40">
+                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border-soft/40">
                               {player.removal_reason === 'direct' ? (
                                 <button
                                   type="button"
@@ -1908,7 +1878,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   type="button"
                                   disabled={protocol.status === 'completed' || (protocol.end_reason === 'ppk' && protocol.ppk_culprit_participant_id !== player.participant_id)}
                                   onClick={() => handleDisciplineAction(player.participant_id, 'ppk')}
-                                  className="flex-1 min-h-[44px] rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-bold hover:bg-slate-700 transition disabled:opacity-30 flex items-center justify-center"
+                                  className="flex-1 min-h-[44px] rounded-lg bg-surface-2 text-text-secondary border border-border-soft text-[11px] font-bold hover:bg-surface-hover transition disabled:opacity-30 flex items-center justify-center"
                                 >
                                   ППК
                                 </button>
@@ -1928,7 +1898,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                                   notes: e.target.value || null
                                 })
                               }
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                              className="protocol-noir-field text-xs disabled:opacity-50"
                             />
                           </div>
 
@@ -2011,19 +1981,19 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         </div>
 
         {/* Footer Action Bar */}
-        <div className="bg-slate-900 border-t border-slate-800 px-3 py-2.5 sm:px-4 sm:py-4 flex items-center justify-between shrink-0 gap-2 min-w-0 protocol-modal-footer">
-          <div className="text-[11px] sm:text-xs text-slate-400 min-w-0 truncate">
-            {protocol.status === 'completed' ? (
-              <span className="text-emerald-400 font-medium flex items-center space-x-1 truncate">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span className="truncate">Протокол завершён</span>
-              </span>
-            ) : (
-              <span className="truncate">Черновик сохраняется автоматически</span>
-            )}
-          </div>
+        <div className="protocol-noir-footer protocol-modal-footer border-t px-3 py-2.5 sm:px-4 sm:py-3 shrink-0 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div className="text-[11px] sm:text-xs text-text-secondary min-w-0">
+              {protocol.status === 'completed' ? (
+                <span className="text-success font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Протокол завершён</span>
+                </span>
+              ) : (
+                <span>Черновик сохраняется автоматически</span>
+              )}
+            </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
             {protocol.status === 'draft' ? (
               <button
                 type="button"
@@ -2036,32 +2006,32 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                     setShowCompleteConfirm(true);
                   }
                 }}
-                className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap"
+                className="protocol-action-primary w-full sm:w-auto px-4 py-2 text-xs sm:text-sm flex items-center justify-center gap-1.5 whitespace-normal"
               >
                 <FileCheck className="w-4 h-4 shrink-0" />
                 <span>Завершить протокол</span>
               </button>
             ) : (
-              <>
+              <div className="grid grid-cols-1 min-[430px]:grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   id={`btn-protocol-${game?.game_number || 'export'}-png-results-trigger`}
                   onClick={() => setIsExportModalOpen(true)}
-                  className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap cursor-pointer"
+                  className="protocol-action-secondary px-3 py-2 text-xs sm:text-sm flex items-center justify-center gap-1.5 whitespace-normal"
                 >
-                  <ImageIcon className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <ImageIcon className="w-4 h-4 shrink-0 text-success" />
                   <span>Результаты PNG</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowRevertConfirm(true)}
-                  className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-semibold text-xs sm:text-sm transition flex items-center space-x-1.5 whitespace-nowrap"
+                  className="protocol-action-danger px-3 py-2 text-xs sm:text-sm flex items-center justify-center gap-1.5 whitespace-normal"
                 >
                   <RotateCcw className="w-4 h-4 shrink-0" />
                   <span>Вернуть в черновик</span>
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -2076,7 +2046,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+            <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
               <div className="flex items-center space-x-3 text-rose-400">
                 <AlertTriangle className="w-6 h-6" />
                 <h3 className="text-base font-bold">
@@ -2089,7 +2059,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 </h3>
               </div>
 
-              <div className="text-xs sm:text-sm text-slate-300 space-y-2">
+              <div className="text-xs sm:text-sm text-text-secondary space-y-2">
                 <p>
                   Игрок <strong>#{pendingDisciplineAction.seatNum} ({pendingDisciplineAction.playerName})</strong>
                 </p>
@@ -2106,7 +2076,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   <p>Игрок будет удалён из игры по решению судьи (дисквалификация).</p>
                 )}
                 {pendingDisciplineAction.type === 'ppk' && (
-                  <div className="bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 space-y-1">
+                  <div className="bg-surface-2/60 p-3 rounded-lg border border-border-soft/60 space-y-1">
                     <p>Игровой процесс завершится, но протокол останется открыт для проверки и выставления баллов.</p>
                     <p className="text-rose-400 font-bold">
                       Победитель: {winnerTeam === 'red' ? 'Красные' : winnerTeam === 'black' ? 'Чёрные' : 'Не определён'}
@@ -2125,7 +2095,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPendingDisciplineAction(null)}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex-1 sm:flex-none"
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold flex-1 sm:flex-none"
                 >
                   Отмена
                 </button>
@@ -2136,7 +2106,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   className={`min-h-[44px] px-4 py-2 rounded-xl text-white font-bold text-xs shadow-md flex-1 sm:flex-none ${
                     ['foul_4', 'tech_2', 'direct_removal', 'ppk'].includes(pendingDisciplineAction.type)
                       ? 'bg-rose-600 hover:bg-rose-500'
-                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                      : 'bg-accent hover:bg-accent-hover text-white'
                   } disabled:opacity-50`}
                 >
                   Подтвердить
@@ -2150,13 +2120,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       {/* MODAL: CONFIRM EXIT TYPE CHANGE WHEN COLOR PROTOCOL EXISTS */}
       {pendingExitTypeConfirm && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+          <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <AlertTriangle className="w-6 h-6 text-amber-400" />
               <h3 className="text-base font-bold">Очистить оставленный протокол?</h3>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300">
+            <p className="text-xs sm:text-sm text-text-secondary">
               У игрока #{pendingExitTypeConfirm.seatNum} ({pendingExitTypeConfirm.playerName}) есть сохранённый цветовой протокол. Изменение статуса ухода с «Убит» удалит эти записи.
             </p>
 
@@ -2164,7 +2134,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPendingExitTypeConfirm(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold"
               >
                 Отмена
               </button>
@@ -2183,16 +2153,16 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       {/* MODAL: CONFIRM COMPLETE PROTOCOL */}
       {showCompleteConfirm && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+          <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <FileCheck className="w-6 h-6" />
               <h3 className="text-lg font-bold">Завершить протокол игры?</h3>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-300 space-y-2 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+            <div className="text-xs sm:text-sm text-text-secondary space-y-2 bg-surface-2/60 p-3 rounded-xl border border-border-soft/60">
               <p>
                 Победитель:{' '}
-                <strong className={protocol.winner_team === 'red' ? 'text-rose-400' : 'text-slate-100'}>
+                <strong className={protocol.winner_team === 'red' ? 'text-rose-400' : 'text-text-primary'}>
                   {protocol.winner_team === 'red' ? 'Красные' : protocol.winner_team === 'black' ? 'Чёрные' : 'Не выбран'}
                 </strong>
               </p>
@@ -2211,7 +2181,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
               {(!protocol.best_moves || protocol.best_moves.length === 0) && (
                 <p>Лучший ход: Не указан</p>
               )}
-              <p className="text-slate-400 text-xs">
+              <p className="text-text-secondary text-xs">
                 После завершения игра получит статус «Завершена», и станет доступен запуск следующей игры турнира.
               </p>
             </div>
@@ -2221,7 +2191,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={() => setShowCompleteConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold"
               >
                 Отмена
               </button>
@@ -2229,7 +2199,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={handleComplete}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md"
+                className="px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-white font-bold text-xs shadow-md"
               >
                 {submitting ? 'Завершаем...' : 'Подтвердить завершение'}
               </button>
@@ -2241,13 +2211,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       {/* MODAL: CONFIRM REVERT TO DRAFT */}
       {showRevertConfirm && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+          <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <RotateCcw className="w-6 h-6" />
               <h3 className="text-lg font-bold">Вернуть протокол в черновик?</h3>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300">
+            <p className="text-xs sm:text-sm text-text-secondary">
               Игра вернётся в статус «Активна», и вы сможете внести любые исправления в протокол.
             </p>
 
@@ -2256,7 +2226,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={() => setShowRevertConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold"
               >
                 Отмена
               </button>
@@ -2264,7 +2234,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={handleRevertToDraft}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md"
+                className="px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-white font-bold text-xs shadow-md"
               >
                 {submitting ? 'Возвращаем...' : 'Да, вернуть в черновик'}
               </button>
@@ -2276,13 +2246,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       {/* MODAL: CONFIRM FIRST KILLED CI RESET */}
       {showCiConfirmModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+          <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <AlertTriangle className="w-6 h-6" />
               <h3 className="text-lg font-bold">Подтверждение смены первоубиенного</h3>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300">
+            <p className="text-xs sm:text-sm text-text-secondary">
               Выбранный ЛХ и ручной Ci прежнего первоубиенного будут очищены.
             </p>
 
@@ -2293,7 +2263,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   setShowCiConfirmModal(false);
                   setPendingFirstKilledId(null);
                 }}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold"
               >
                 Отмена
               </button>
@@ -2326,13 +2296,13 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
       {/* MODAL: CONFIRM ZERO ROUND VOTED BM RESET */}
       {showZeroRoundConfirmModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
+          <div className="bg-surface-1 border border-border-soft rounded-2xl p-5 max-w-md w-full space-y-4 text-text-primary shadow-2xl">
             <div className="flex items-center space-x-3 text-amber-400">
               <AlertTriangle className="w-6 h-6" />
               <h3 className="text-lg font-bold">Подтверждение смены игрока нулевого круга</h3>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300">
+            <p className="text-xs sm:text-sm text-text-secondary">
               Выбранные номера ЛХ прежнего игрока будут очищены.
             </p>
 
@@ -2343,7 +2313,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
                   setShowZeroRoundConfirmModal(false);
                   setPendingZeroRoundVotedId(null);
                 }}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-hover text-text-secondary text-xs font-semibold"
               >
                 Отмена
               </button>

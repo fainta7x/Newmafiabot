@@ -48,8 +48,8 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
   if (!showColorSection) return null;
 
   return (
-    <div className="bg-slate-900/80 rounded-lg p-2.5 border border-slate-700/60 space-y-2">
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+    <div className="protocol-noir-subsection space-y-2">
+      <div className="flex items-center justify-between text-xs font-semibold text-text-secondary">
         <span>Оставленный протокол:</span>
         {!isKilled && (
           <span className="text-[10px] text-amber-400/80">
@@ -68,7 +68,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
               return (
                 <div
                   key={eIdx}
-                  className="p-2 bg-slate-800/90 rounded border border-amber-500/50 space-y-2 text-xs"
+                  className="p-2 bg-surface-2/90 rounded border border-amber-500/50 space-y-2 text-xs"
                 >
                   <div className="text-[11px] font-bold text-amber-400">
                     Редактирование записи #{eIdx + 1}:
@@ -83,8 +83,8 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                           onClick={() => onToggleEditColorSeat(player.participant_id, sNum)}
                           className={`w-6 h-6 rounded text-[11px] font-bold border transition ${
                             isSel
-                              ? 'bg-amber-500 text-slate-950 border-amber-400'
-                              : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800'
+                              ? 'bg-accent text-white border-accent'
+                              : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover'
                           }`}
                         >
                           #{sNum}
@@ -100,7 +100,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                         className={`px-2 py-0.5 rounded font-bold transition ${
                           editingColorMarkState.mark === 'red'
                             ? 'bg-rose-600 text-white'
-                            : 'bg-slate-900 text-rose-400 hover:bg-slate-700'
+                            : 'bg-surface-1 text-rose-400 hover:bg-surface-hover'
                         }`}
                       >
                         кр
@@ -110,8 +110,8 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                         onClick={() => onSetEditColorMarkType(player.participant_id, 'black')}
                         className={`px-2 py-0.5 rounded font-bold transition ${
                           editingColorMarkState.mark === 'black'
-                            ? 'bg-slate-950 text-amber-400 border border-slate-700'
-                            : 'bg-slate-900 text-slate-300 hover:bg-slate-700'
+                            ? 'bg-app-bg text-amber-400 border border-border-soft'
+                            : 'bg-surface-1 text-text-secondary hover:bg-surface-hover'
                         }`}
                       >
                         ч
@@ -122,7 +122,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                         className={`px-2 py-0.5 rounded font-bold transition ${
                           editingColorMarkState.mark === 'sheriff'
                             ? 'bg-amber-500 text-slate-950'
-                            : 'bg-slate-900 text-amber-400 hover:bg-slate-700'
+                            : 'bg-surface-1 text-amber-400 hover:bg-surface-hover'
                         }`}
                       >
                         ш
@@ -132,14 +132,14 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                       <button
                         type="button"
                         onClick={() => onCancelEditColorMark(player.participant_id)}
-                        className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-[11px]"
+                        className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-text-secondary text-[11px]"
                       >
                         Отмена
                       </button>
                       <button
                         type="button"
                         onClick={() => onSaveEditColorMark(player.participant_id)}
-                        className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px]"
+                        className="px-2 py-0.5 rounded bg-accent hover:bg-accent-hover text-white font-bold text-[11px]"
                       >
                         Сохранить
                       </button>
@@ -152,7 +152,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
             return (
               <div
                 key={eIdx}
-                className="flex items-center justify-between bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-xs"
+                className="flex items-center justify-between bg-surface-2 px-2.5 py-1 rounded border border-border-soft text-xs"
               >
                 <span className="font-bold text-amber-300">
                   {formatColorMark(entry)}
@@ -164,7 +164,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                       type="button"
                       onClick={() => onStartEditColorMark(player.participant_id, eIdx, entry)}
                       title="Редактировать"
-                      className="p-0.5 text-slate-400 hover:text-amber-400 transition mr-1"
+                      className="p-0.5 text-text-secondary hover:text-amber-400 transition mr-1"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -172,7 +172,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                       type="button"
                       disabled={eIdx === 0}
                       onClick={() => onMoveColorMark(player.participant_id, eIdx, eIdx - 1)}
-                      className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                      className="p-0.5 text-text-secondary hover:text-white disabled:opacity-30"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
                     </button>
@@ -180,7 +180,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                       type="button"
                       disabled={eIdx === player.color_protocol!.length - 1}
                       onClick={() => onMoveColorMark(player.participant_id, eIdx, eIdx + 1)}
-                      className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30"
+                      className="p-0.5 text-text-secondary hover:text-white disabled:opacity-30"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
                     </button>
@@ -198,15 +198,15 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
           })}
         </div>
       ) : (
-        <div className="text-[11px] text-slate-500 italic">
+        <div className="text-[11px] text-text-muted italic">
           Записи отсутствуют
         </div>
       )}
 
       {/* Add entry form */}
       {protocolStatus === 'draft' && isKilled && (
-        <div className="space-y-1.5 pt-1 border-t border-slate-800">
-          <div className="text-[11px] text-slate-400">Выберите места (1-10):</div>
+        <div className="space-y-1.5 pt-1 border-t border-border-soft">
+          <div className="text-[11px] text-text-secondary">Выберите места (1-10):</div>
           <div className="flex flex-wrap gap-1">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((sNum) => {
               const isSelected = selectedColorSeats.includes(sNum);
@@ -217,8 +217,8 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                   onClick={() => onToggleColorSeatSelection(player.participant_id, sNum)}
                   className={`w-6 h-6 rounded text-xs font-bold border transition ${
                     isSelected
-                      ? 'bg-amber-500 text-slate-950 border-amber-400'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-surface-2 text-text-secondary border-border-soft hover:bg-surface-hover'
                   }`}
                 >
                   {sNum}
@@ -235,7 +235,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
                   selectedColorMarkType === 'red'
                     ? 'bg-rose-600 text-white border-rose-500'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                    : 'bg-surface-2 text-text-secondary border-border-soft'
                 }`}
               >
                 Красный
@@ -245,8 +245,8 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                 onClick={() => onSetSelectedColorMark(player.participant_id, 'black')}
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
                   selectedColorMarkType === 'black'
-                    ? 'bg-slate-950 text-slate-200 border-slate-500'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                    ? 'bg-app-bg text-text-primary border-border-strong'
+                    : 'bg-surface-2 text-text-secondary border-border-soft'
                 }`}
               >
                 Чёрный
@@ -257,7 +257,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
                   selectedColorMarkType === 'sheriff'
                     ? 'bg-amber-500 text-slate-950 border-amber-400'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                    : 'bg-surface-2 text-text-secondary border-border-soft'
                 }`}
               >
                 Шериф
@@ -268,7 +268,7 @@ export const PlayerColorProtocolEditor: React.FC<PlayerColorProtocolEditorProps>
               type="button"
               disabled={selectedColorSeats.length === 0}
               onClick={() => onAddColorMark(player.participant_id)}
-              className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center space-x-1"
+              className="px-2.5 py-1 rounded bg-accent hover:bg-accent-hover disabled:opacity-40 text-white font-bold text-xs flex items-center space-x-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Добавить</span>

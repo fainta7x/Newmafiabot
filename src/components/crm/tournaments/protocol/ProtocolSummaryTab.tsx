@@ -21,8 +21,8 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
   return (
     <div className="space-y-5">
       {/* Winner Team Selection */}
-      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 space-y-3">
-        <label className="text-xs font-semibold text-slate-200 block">
+      <div className="protocol-noir-section space-y-3">
+        <label className="text-xs font-semibold text-text-primary block">
           Победившая команда:
         </label>
         <div className="grid grid-cols-2 gap-3">
@@ -33,7 +33,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
             className={`py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 border transition ${
               protocol.winner_team === 'red'
                 ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-lg ring-2 ring-rose-500/50'
-                : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                : 'bg-surface-1/60 border-border-soft text-text-secondary hover:bg-surface-2 hover:text-text-primary'
             } ${protocol.end_reason === 'ppk' ? 'opacity-50 grayscale' : ''}`}
           >
             <Shield className="w-4 h-4 text-rose-400" />
@@ -46,11 +46,11 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
             onClick={() => onWinnerTeamChange('black')}
             className={`py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 border transition ${
               protocol.winner_team === 'black'
-                ? 'bg-slate-950 border-slate-500 text-slate-100 shadow-lg ring-2 ring-slate-400/50'
-                : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? 'bg-app-bg border-border-strong text-text-primary shadow-lg ring-2 ring-border-strong/50'
+                : 'bg-surface-1/60 border-border-soft text-text-secondary hover:bg-surface-2 hover:text-text-primary'
             } ${protocol.end_reason === 'ppk' ? 'opacity-50 grayscale' : ''}`}
           >
-            <Shield className="w-4 h-4 text-slate-400" />
+            <Shield className="w-4 h-4 text-text-secondary" />
             <span>Победа Чёрных</span>
           </button>
         </div>
@@ -64,7 +64,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
           </div>
           <div>
             <h4 className="text-sm font-bold text-amber-400">Игра завершена по ППК</h4>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-text-secondary">
               Виновник: <strong>#{playerResults.find(p => p.participant_id === protocol.ppk_culprit_participant_id)?.seat_number}</strong> ({playerResults.find(p => p.participant_id === protocol.ppk_culprit_participant_id)?.display_name})
             </p>
           </div>
@@ -72,11 +72,11 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
       )}
 
       {/* Substitution Section */}
-      <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-          <span className="font-semibold text-xs text-slate-200">Замена в игре</span>
+      <div className="protocol-noir-section space-y-3">
+        <div className="flex items-center justify-between border-b border-border-soft/60 pb-2">
+          <span className="font-semibold text-xs text-text-primary">Замена в игре</span>
           {protocol.status === 'draft' && (
-            <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+            <label className="flex items-center space-x-2 text-xs text-text-secondary cursor-pointer">
               <input
                 type="checkbox"
                 checked={Boolean(protocol.replacement)}
@@ -92,7 +92,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                     onReplacementChange(null);
                   }
                 }}
-                className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
+                className="rounded border-border-soft text-amber-500 focus:ring-accent"
               />
               <span>Включить замену</span>
             </label>
@@ -102,7 +102,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
         {protocol.replacement ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <label className="text-slate-400 block mb-1">Заменённое место</label>
+              <label className="text-text-secondary block mb-1">Заменённое место</label>
               <select
                 disabled={protocol.status === 'completed'}
                 value={protocol.replacement.replaced_seat || 1}
@@ -110,7 +110,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                   const seat = parseInt(e.target.value) || 1;
                   onReplacementChange({ ...protocol.replacement!, replaced_seat: seat });
                 }}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-1 border border-border-soft rounded-lg px-2.5 py-1.5 text-text-primary focus:border-accent focus:outline-none"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
                   <option key={s} value={s}>
@@ -121,7 +121,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1">Имя или комментарий о замене</label>
+              <label className="text-text-secondary block mb-1">Имя или комментарий о замене</label>
               <input
                 type="text"
                 placeholder="например: Замена на Иванова"
@@ -131,12 +131,12 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                   const val = e.target.value;
                   onReplacementChange({ ...protocol.replacement!, replacement_name_or_comment: val });
                 }}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-1 border border-border-soft rounded-lg px-2.5 py-1.5 text-text-primary focus:border-accent focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1">Момент замены</label>
+              <label className="text-text-secondary block mb-1">Момент замены</label>
               <input
                 type="text"
                 placeholder="например: День 2"
@@ -146,12 +146,12 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                   const val = e.target.value;
                   onReplacementChange({ ...protocol.replacement!, replacement_time: val });
                 }}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-1 border border-border-soft rounded-lg px-2.5 py-1.5 text-text-primary focus:border-accent focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1">Заметка судьи о замене</label>
+              <label className="text-text-secondary block mb-1">Заметка судьи о замене</label>
               <input
                 type="text"
                 placeholder="Причина или заметка"
@@ -161,20 +161,20 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                   const val = e.target.value;
                   onReplacementChange({ ...protocol.replacement!, notes: val });
                 }}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-1 border border-border-soft rounded-lg px-2.5 py-1.5 text-text-primary focus:border-accent focus:outline-none"
               />
             </div>
           </div>
         ) : (
-          <div className="text-xs text-slate-500 italic">
+          <div className="text-xs text-text-muted italic">
             Замен в игре не производилось.
           </div>
         )}
       </div>
 
       {/* Judge Notes */}
-      <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-2">
-        <label className="text-xs font-semibold text-slate-300 block">
+      <div className="protocol-noir-section space-y-3">
+        <label className="text-xs font-semibold text-text-secondary block">
           Заметки судьи / комментарии по игре:
         </label>
         <textarea
@@ -183,19 +183,58 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
           value={protocol.judge_notes || ''}
           onChange={(e) => onJudgeNotesChange(e.target.value)}
           placeholder="Замечания, тайминги, особенности партии..."
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+          className="w-full bg-surface-1 border border-border-soft rounded-lg p-2.5 text-xs text-text-primary placeholder-slate-500 focus:border-accent focus:outline-none"
         />
       </div>
 
       {/* Full Results Compact Table Overview */}
-      <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
-        <h4 className="text-xs font-semibold text-slate-200">
+      <div className="protocol-noir-section space-y-3">
+        <h4 className="text-xs font-semibold text-text-primary">
           Сводная таблица параметров игроков
         </h4>
-        <div className="overflow-x-auto">
+                <div className="sm:hidden">
+          {playerResults.map((p) => {
+            const discPenalty = calculateDisciplinaryPenalty(
+              p.minor_technical_fouls || 0,
+              p.major_technical_fouls || 0,
+              p.exit_type === 'removed',
+              protocol.ppk_culprit_participant_id === p.participant_id
+            );
+            const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
+            const isWinner = protocol.winner_team
+              ? (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole)
+              : false;
+            return (
+              <div key={p.participant_id} className="protocol-summary-mobile-row">
+                <span className="text-warning font-black tabular-nums">{String(p.seat_number).padStart(2, '0')}</span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-text-primary break-words">{p.display_name}</span>
+                  <span className="block text-[11px] text-text-secondary mt-0.5">
+                    {p.role === 'citizen' && 'Мирный'}
+                    {p.role === 'sheriff' && 'Шериф'}
+                    {p.role === 'mafia' && 'Мафия'}
+                    {p.role === 'don' && 'Дон'}
+                    {' · '}
+                    {p.exit_type === 'alive' ? 'Жив' : p.exit_type === 'killed' ? 'Убит' : p.exit_type === 'removed' ? 'Снят' : 'Заголосован'}
+                  </span>
+                  <span className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] mt-1.5 tabular-nums">
+                    <span className="text-warning">Ф {p.regular_fouls}</span>
+                    <span className="text-danger">мТ {p.minor_technical_fouls || 0}</span>
+                    <span className="text-danger">БТ {p.major_technical_fouls || 0}</span>
+                    <span className="text-danger">Дисц. −{discPenalty || 0}</span>
+                    <span className="text-accent">Судья {p.judge_bonus || 0}</span>
+                    <span className={(p.protocol_bonus || 0) < 0 ? 'text-danger' : 'text-success'}>Прот. {p.protocol_bonus || 0}</span>
+                  </span>
+                </span>
+                <span className={isWinner ? 'text-success font-bold text-xs' : 'text-text-muted text-xs'}>{protocol.winner_team ? (isWinner ? '+1' : '0') : '—'}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-[10px] sm:text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-700 text-slate-400">
+              <tr className="border-b border-border-soft text-text-secondary">
                 <th className="py-2 px-1">#</th>
                 <th className="py-2 px-2">Игрок</th>
                 <th className="py-2 px-2">Роль</th>
@@ -223,25 +262,25 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                 const formattedProtocolBonus = pb > 0 ? `+${pb}` : pb < 0 ? `−${Math.abs(pb)}` : '0';
 
                 return (
-                  <tr key={p.participant_id} className="hover:bg-slate-800/40">
+                  <tr key={p.participant_id} className="hover:bg-surface-2/40">
                     <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
-                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}</td>
+                    <td className="py-2 px-2 text-text-primary font-medium">{p.display_name}</td>
                     <td className="py-2 px-2 text-amber-300/90">
                       {p.role === 'citizen' && 'Мирный'}
                       {p.role === 'sheriff' && 'Шериф'}
                       {p.role === 'mafia' && 'Мафия'}
                       {p.role === 'don' && 'Дон'}
                     </td>
-                    <td className="py-2 px-2 text-slate-300">
+                    <td className="py-2 px-2 text-text-secondary">
                       {p.exit_type === 'alive' && <span className="text-emerald-400">Жив</span>}
                       {p.exit_type === 'killed' && <span className="text-rose-400">Убит</span>}
                       {p.exit_type === 'voted_zero_round' && <span className="text-amber-400">Загол. (0)</span>}
                       {p.exit_type === 'voted_day' && <span className="text-amber-400">Загол.</span>}
-                      {p.exit_type === 'removed' && <span className="text-purple-400">Снят</span>}
+                      {p.exit_type === 'removed' && <span className="text-accent">Снят</span>}
                     </td>
                     <td className="py-2 px-1 text-center">
                       {!protocol.winner_team ? (
-                        <span className="text-slate-500 font-bold">-</span>
+                        <span className="text-text-muted font-bold">-</span>
                       ) : (() => {
                         const isRedRole = p.role === 'citizen' || p.role === 'sheriff';
                         const isWinner = (protocol.winner_team === 'red' && isRedRole) || (protocol.winner_team === 'black' && !isRedRole);
@@ -250,7 +289,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                             +1
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-900 text-slate-500 border border-slate-800">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-surface-1 text-text-muted border border-border-soft">
                             0
                           </span>
                         );
@@ -262,10 +301,10 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                     <td className="py-2 px-1 text-right font-mono text-rose-400">
                       {discPenalty > 0 ? `−${discPenalty}` : '0'}
                     </td>
-                    <td className={`py-2 px-1 text-right font-mono ${jb > 0 ? 'text-emerald-400 font-bold' : jb < 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                    <td className={`py-2 px-1 text-right font-mono ${jb > 0 ? 'text-emerald-400 font-bold' : jb < 0 ? 'text-rose-400 font-bold' : 'text-text-secondary'}`}>
                       {formattedJudgeBonus}
                     </td>
-                    <td className={`py-2 px-1 text-right font-mono ${pb > 0 ? 'text-emerald-400 font-bold' : pb < 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                    <td className={`py-2 px-1 text-right font-mono ${pb > 0 ? 'text-emerald-400 font-bold' : pb < 0 ? 'text-rose-400 font-bold' : 'text-text-secondary'}`}>
                       {formattedProtocolBonus}
                     </td>
                   </tr>

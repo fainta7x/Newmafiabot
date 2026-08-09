@@ -68,16 +68,12 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
           }
         }}
         data-testid={`round-card-${rIdx}`}
-        className={`rounded-xl border transition-all ${isNested ? 'bg-slate-900/40 p-3.5 space-y-3 border-purple-500/20' : 'bg-slate-800/60 p-4 space-y-4'} ${
-          isErrorHighlighted
-            ? 'border-rose-500/80 ring-2 ring-rose-500/20 bg-rose-950/10'
-            : isNested ? 'border-purple-500/20' : 'border-slate-700/80'
-        }`}
+        className={`protocol-vote-stage space-y-4 ${isNested ? 'protocol-vote-stage--nested' : ''} ${isErrorHighlighted ? 'protocol-vote-stage--error' : ''}`}
       >
         {/* Round Header */}
         {isNested ? (
-          <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
-            <span className="font-bold text-xs text-purple-400">
+          <div className="flex items-center justify-between border-b border-border-soft/60 pb-2">
+            <span className="font-bold text-xs text-accent">
               Переголосование (Круг #{roundNum})
             </span>
             {protocol.status === 'draft' && (
@@ -86,7 +82,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                 onClick={() => {
                   onDeleteVoting(rIdx);
                 }}
-                className="text-slate-500 hover:text-rose-400 p-1"
+                className="text-text-muted hover:text-rose-400 p-1"
                 title="Удалить переголосование"
               >
                 <Trash2 className="w-4 h-4" />
@@ -94,15 +90,15 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+          <div className="flex items-center justify-between border-b border-border-soft/60 pb-3">
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-bold text-sm text-amber-400">
                 Круг #{roundNum}
               </span>
 
               {/* Day Badge/Selector */}
-              <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
-                <span className="text-slate-400 text-[11px]">День:</span>
+              <div className="flex items-center space-x-1.5 text-xs bg-surface-1 px-2 py-1 rounded-lg border border-border-soft">
+                <span className="text-text-secondary text-[11px]">День:</span>
                 <select
                   disabled={protocol.status === 'completed' || isConfirmed || round.is_revote}
                   value={dayNum}
@@ -113,19 +109,19 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   }}
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                 >
-                  <option value="0" className="bg-slate-900 text-slate-200">0 (Нулевой)</option>
-                  <option value="1" className="bg-slate-900 text-slate-200">1</option>
-                  <option value="2" className="bg-slate-900 text-slate-200">2</option>
-                  <option value="3" className="bg-slate-900 text-slate-200">3</option>
-                  <option value="4" className="bg-slate-900 text-slate-200">4</option>
-                  <option value="5" className="bg-slate-900 text-slate-200">5</option>
-                  <option value="6" className="bg-slate-900 text-slate-200">6</option>
+                  <option value="0" className="bg-surface-1 text-text-primary">0 (Нулевой)</option>
+                  <option value="1" className="bg-surface-1 text-text-primary">1</option>
+                  <option value="2" className="bg-surface-1 text-text-primary">2</option>
+                  <option value="3" className="bg-surface-1 text-text-primary">3</option>
+                  <option value="4" className="bg-surface-1 text-text-primary">4</option>
+                  <option value="5" className="bg-surface-1 text-text-primary">5</option>
+                  <option value="6" className="bg-surface-1 text-text-primary">6</option>
                 </select>
               </div>
 
               {/* Eligible Voters Selector */}
-              <div className="flex items-center space-x-1.5 text-xs bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
-                <span className="text-slate-400 text-[11px]">Голосующих:</span>
+              <div className="flex items-center space-x-1.5 text-xs bg-surface-1 px-2 py-1 rounded-lg border border-border-soft">
+                <span className="text-text-secondary text-[11px]">Голосующих:</span>
                 <select
                   disabled={protocol.status === 'completed' || isConfirmed || round.is_revote || dayNum === 0}
                   value={eligibleVoters}
@@ -137,7 +133,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                   className="bg-transparent text-amber-400 font-bold focus:outline-none text-[11px]"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                    <option key={n} value={n} className="bg-slate-900 text-slate-200">
+                    <option key={n} value={n} className="bg-surface-1 text-text-primary">
                       {n}
                     </option>
                   ))}
@@ -151,7 +147,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                 onClick={() => {
                   onDeleteVoting(rIdx);
                 }}
-                className="text-slate-500 hover:text-rose-400 p-1"
+                className="text-text-muted hover:text-rose-400 p-1"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -161,10 +157,10 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
         {/* Candidate Seats Selector */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center justify-between text-xs text-text-secondary">
             <span>Выставленные кандидаты (выберите от 1 до 10 игроков):</span>
             {round.is_revote && round.parent_round_number && (
-              <span className="text-purple-400 font-medium text-[11px]">
+              <span className="text-accent font-medium text-[11px]">
                 (Кандидаты привязаны к ничьей в Круге #{round.parent_round_number})
               </span>
             )}
@@ -182,10 +178,10 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                       toggleNominatedSeat(r, seatNum)
                     );
                   }}
-                  className={`w-full h-11 sm:w-8 sm:h-8 rounded-lg text-sm font-bold border transition ${
+                  className={`protocol-seat-button w-full sm:w-9 text-sm font-bold transition ${
                     isNominated
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
-                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover hover:text-text-primary'
                   }`}
                 >
                   #{seatNum}
@@ -197,9 +193,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
         {/* Vote Counts per Candidate */}
         {nominatedSeats.length > 0 && (
-          <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
+          <div className="space-y-1.5 pt-3 border-t border-border-soft/60">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Распределение голосов:</span>
+              <span className="text-text-secondary">Распределение голосов:</span>
               <span className={`font-bold ${sumVotes === eligibleVoters ? 'text-emerald-400' : 'text-amber-400'}`}>
                 Всего распределено: {sumVotes} из {eligibleVoters}
               </span>
@@ -215,9 +211,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                 return (
                   <div
                     key={seatNum}
-                    className="bg-slate-900 p-2 rounded-lg border border-slate-700/80 text-xs flex flex-col space-y-1"
+                    className="bg-surface-1 p-2 rounded-lg border border-border-soft/80 text-xs flex flex-col space-y-1"
                   >
-                    <div className="flex items-center justify-between font-semibold text-slate-200 text-[11px] truncate">
+                    <div className="flex items-center justify-between font-semibold text-text-primary text-[11px] truncate">
                       <span className="truncate">#{seatNum} {p?.display_name || ''}</span>
                       {protocol.status === 'draft' && !isConfirmed && (
                         <div className="flex items-center space-x-1 shrink-0">
@@ -228,7 +224,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                                 moveNominatedSeat(r, seatNum, 'earlier')
                               );
                             }}
-                            className="text-slate-400 hover:text-amber-400 p-0.5 text-[11px] leading-none"
+                            className="text-text-secondary hover:text-amber-400 p-0.5 text-[11px] leading-none"
                             title="Сдвинуть раньше"
                           >
                             ←
@@ -240,7 +236,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                                 moveNominatedSeat(r, seatNum, 'later')
                               );
                             }}
-                            className="text-slate-400 hover:text-amber-400 p-0.5 text-[11px] leading-none"
+                            className="text-text-secondary hover:text-amber-400 p-0.5 text-[11px] leading-none"
                             title="Сдвинуть позже"
                           >
                             →
@@ -276,10 +272,10 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                           return copy;
                         });
                       }}
-                      className={`w-full h-11 bg-slate-800 border border-slate-700 rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-amber-500 focus:outline-none ${isReadOnlyCandidate ? 'opacity-70 cursor-not-allowed bg-slate-900/60' : ''}`}
+                      className={`w-full h-11 bg-surface-2 border border-border-soft rounded px-2 text-center font-bold text-lg text-amber-400 focus:border-accent focus:outline-none ${isReadOnlyCandidate ? 'opacity-70 cursor-not-allowed bg-surface-1/60' : ''}`}
                     />
                     {isReadOnlyCandidate && (
-                      <span className="text-[9px] text-slate-500 text-center font-semibold uppercase tracking-wider mt-0.5">
+                      <span className="text-[9px] text-text-muted text-center font-semibold uppercase tracking-wider mt-0.5">
                         {nominatedSeats.length === 1 ? "все голоса" : "остаток"}
                       </span>
                     )}
@@ -292,10 +288,10 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
         {/* Revote: Table leave votes block */}
         {votingResult.outcome === 'requires_table_decision' && nominatedSeats.length > 0 && (
-          <div className="space-y-1.5 pt-3 border-t border-slate-700/60">
+          <div className="space-y-1.5 pt-3 border-t border-border-soft/60">
             <div className="flex flex-col space-y-1">
-              <span className="text-xs text-slate-400">Голоса за уход всех спорных игроков (#{winners.join(', #')}):</span>
-              <div className="flex items-center space-x-3 bg-slate-900 p-2 rounded-lg border border-slate-700 max-w-xs">
+              <span className="text-xs text-text-secondary">Голоса за уход всех спорных игроков (#{winners.join(', #')}):</span>
+              <div className="flex items-center space-x-3 bg-surface-1 p-2 rounded-lg border border-border-soft max-w-xs">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -322,9 +318,9 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                       return copy;
                     });
                   }}
-                  className="w-16 h-10 bg-slate-800 border border-slate-700 rounded text-center font-bold text-md text-amber-400 focus:border-amber-500 focus:outline-none"
+                  className="protocol-noir-field !w-20 text-center font-bold text-md text-warning tabular-nums"
                 />
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-text-secondary">
                   Большинство для ухода: <strong className="text-amber-400">{Math.floor(eligibleVoters / 2) + 1}</strong>
                 </span>
               </div>
@@ -334,12 +330,12 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
 
         {/* Outcome Calculator & Judge Confirmation Panel */}
         {nominatedSeats.length > 0 && (
-          <div className="pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="pt-3 border-t border-border-soft/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
                 Статус исхода (рассчитано автоматически)
               </span>
-              <div className="text-xs text-slate-300">
+              <div className="text-xs text-text-secondary">
                 {sumVotes !== eligibleVoters ? (
                   <span className="text-amber-400/80 italic font-medium">
                     Распределите {eligibleVoters} голосов для подведения итогов
@@ -362,7 +358,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                       onConfirmOutcome(rIdx, calculatedOutcome, winners);
                     }
                   }}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700/50 text-white font-bold text-xs transition border border-emerald-500 shadow"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-surface-2 disabled:text-text-muted disabled:border-border-soft/50 text-white font-bold text-xs transition border border-emerald-500 shadow"
                 >
                   Подтвердить исход
                 </button>
@@ -375,7 +371,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onResetOutcome(rIdx)}
-                      className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-medium transition"
+                      className="px-3 py-1.5 rounded-lg bg-surface-1 hover:bg-surface-2 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-medium transition"
                     >
                       Сбросить
                     </button>
@@ -390,8 +386,8 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
           if (childRIdx >= 0) {
             const childRound = protocol.votes[childRIdx];
             return (
-              <div className="mt-4 pt-4 border-t-2 border-dashed border-purple-500/30 space-y-3">
-                <div className="text-xs font-bold uppercase text-purple-400 tracking-wider flex items-center space-x-1">
+              <div className="mt-4 pt-4 border-t-2 border-dashed border-accent/30 space-y-3">
+                <div className="text-xs font-bold uppercase text-accent tracking-wider flex items-center space-x-1">
                   <span>Переголосование по кругу #{roundNum}</span>
                 </div>
                 {renderRoundCard(childRound, childRIdx, true)}
@@ -407,14 +403,14 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-text-secondary">
           Протокол дневных голосов и переголосований по кругам:
         </span>
         {protocol.status === 'draft' && (
           <button
             type="button"
             onClick={onAddVoting}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-1"
+            className="protocol-action-primary px-3 py-1.5 text-xs flex items-center gap-1"
           >
             <Plus className="w-4 h-4" />
             <span>Добавить голосование</span>
@@ -423,7 +419,7 @@ export const ProtocolVotingTab: React.FC<ProtocolVotingTabProps> = ({
       </div>
 
       {!protocol.votes || protocol.votes.length === 0 ? (
-        <div className="bg-slate-800/40 rounded-xl p-8 text-center text-slate-400 text-xs border border-slate-800">
+        <div className="protocol-noir-section text-center text-text-secondary text-xs py-8">
           Голосования не зафиксированы. Нажмите «Добавить голосование» для внесения данных.
         </div>
       ) : (

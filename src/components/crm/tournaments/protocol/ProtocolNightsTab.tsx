@@ -43,20 +43,20 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
     const title = source === 'first_killed' ? 'ЛХ первого убитого' : 'ЛХ игрока нулевого круга';
 
     return (
-      <div className="bg-slate-800/80 rounded-xl p-4 border border-slate-700/80 flex flex-col space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-700/60 pb-3 gap-2">
+      <div className="protocol-noir-section space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-soft/60 pb-3 gap-2">
           <div className="flex flex-col">
             <div className="flex items-center space-x-2">
               <Award className="w-4 h-4 text-amber-400 shrink-0" />
-              <h3 className="text-sm font-bold text-slate-100">{title}</h3>
+              <h3 className="text-sm font-bold text-text-primary">{title}</h3>
             </div>
-            <div className="text-xs text-slate-400 mt-1 pl-6">
+            <div className="text-xs text-text-secondary mt-1 pl-6">
               #{player.seat_number} — {player.display_name}
             </div>
           </div>
 
           <div className="flex flex-row items-center gap-3 sm:justify-end">
-             <div className="text-xs font-semibold text-slate-300 bg-slate-900/50 px-2 py-1 rounded-md border border-slate-700/50">
+             <div className="text-xs font-semibold text-text-secondary bg-surface-1/50 px-2 py-1 rounded-md border border-border-soft/50">
                {seats.length} из 3
              </div>
              <div className="text-xs font-medium text-amber-400 bg-amber-900/20 px-2 py-1 rounded-md border border-amber-900/40">
@@ -75,10 +75,10 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
                   type="button"
                   disabled={protocol.status === 'completed'}
                   onClick={() => onToggleBestMoveSeat(source, participantId, num)}
-                  className={`min-h-[44px] flex items-center justify-center rounded-xl text-sm font-bold border transition ${
+                  className={`protocol-seat-button text-sm font-bold transition ${
                     isSelected
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
-                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200'
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-surface-1 text-text-secondary border-border-soft hover:bg-surface-hover hover:text-text-primary'
                   }`}
                 >
                   {num}
@@ -95,15 +95,15 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
     <div className="space-y-5">
       {/* First Killed & Zero Round Voted Selectors */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/80 space-y-2">
-          <label className="text-xs font-semibold text-slate-200 block">
+        <div className="protocol-noir-section space-y-3">
+          <label className="text-xs font-semibold text-text-primary block">
             Первоубиенный игрок (ночь 1):
           </label>
           <select
             disabled={protocol.status === 'completed'}
             value={protocol.first_killed_participant_id || ''}
             onChange={(e) => onFirstKilledChange(e.target.value || null)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+            className="protocol-noir-field text-xs"
           >
             <option value="">Не выбрано</option>
             {playerResults.map((p) => (
@@ -114,15 +114,15 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
           </select>
         </div>
 
-        <div className="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/80 space-y-2">
-          <label className="text-xs font-semibold text-slate-200 block">
+        <div className="protocol-noir-section space-y-3">
+          <label className="text-xs font-semibold text-text-primary block">
             Заголосованный в нулевой круг (день 1):
           </label>
           <select
             disabled={protocol.status === 'completed'}
             value={protocol.zero_round_voted_participant_id || ''}
             onChange={(e) => onZeroRoundVotedChange(e.target.value || null)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+            className="protocol-noir-field text-xs"
           >
             <option value="">Не выбрано</option>
             {playerResults.map((p) => (
@@ -140,24 +140,24 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
         {protocol.zero_round_voted_participant_id && renderBmCard('zero_round_voted', protocol.zero_round_voted_participant_id)}
 
         {!protocol.first_killed_participant_id && !protocol.zero_round_voted_participant_id && (
-          <div className="text-xs text-slate-500 italic py-2">
+          <div className="text-xs text-text-muted italic py-2">
             Выберите первоубиенного игрока или заголосованного в нулевой круг для ввода ЛХ.
           </div>
         )}
       </div>
 
       {/* Night Shots Journal */}
-      <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+      <div className="protocol-noir-section space-y-3">
+        <div className="flex items-center justify-between border-b border-border-soft/60 pb-2">
           <div className="flex items-center space-x-2">
-            <Moon className="w-4 h-4 text-indigo-400" />
-            <h3 className="text-xs font-bold text-slate-100">Журнал ночных отстрелов</h3>
+            <Moon className="w-4 h-4 text-accent" />
+            <h3 className="text-xs font-bold text-text-primary">Журнал ночных отстрелов</h3>
           </div>
           {protocol.status === 'draft' && (
             <button
               type="button"
               onClick={onAddNight}
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1"
+              className="protocol-action-primary px-2.5 py-1 text-xs flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Добавить ночь</span>
@@ -166,7 +166,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
         </div>
 
         {!protocol.shots || protocol.shots.length === 0 ? (
-          <div className="text-xs text-slate-500 italic py-2">
+          <div className="text-xs text-text-muted italic py-2">
             Записи ночных выстрелов отсутствуют.
           </div>
         ) : (
@@ -174,14 +174,14 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
             {protocol.shots.map((shot, sIdx) => (
               <div
                 key={sIdx}
-                className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/80 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-xs"
+                className="border-t border-border-soft py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs"
               >
                 <span className="font-bold text-amber-400 min-w-fit w-full sm:w-auto mb-2 sm:mb-0">
                   Ночь #{shot.night_number}
                 </span>
 
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
-                  <span className="text-slate-400 hidden sm:inline">Цель:</span>
+                  <span className="text-text-secondary hidden sm:inline">Цель:</span>
                   <select
                     value={shot.target_seat}
                     disabled={protocol.status === 'completed'}
@@ -189,7 +189,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
                       const target = parseInt(e.target.value);
                       onShotChange(sIdx, target, shot.result);
                     }}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-slate-200 focus:border-amber-500 focus:outline-none flex-1 sm:flex-none"
+                    className="bg-surface-1 border border-border-soft rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-text-primary focus:border-accent focus:outline-none flex-1 sm:flex-none"
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                       <option key={num} value={num}>
@@ -205,7 +205,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
                       const res = e.target.value as 'killed' | 'miss' | 'agreement_failed';
                       onShotChange(sIdx, shot.target_seat, res);
                     }}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-slate-200 focus:border-amber-500 focus:outline-none flex-1 sm:flex-none"
+                    className="bg-surface-1 border border-border-soft rounded px-2 min-h-[44px] sm:min-h-0 py-1 text-text-primary focus:border-accent focus:outline-none flex-1 sm:flex-none"
                   >
                     <option value="killed">Убит</option>
                     <option value="miss">Промах</option>
@@ -216,7 +216,7 @@ export const ProtocolNightsTab: React.FC<ProtocolNightsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onDeleteNight(sIdx)}
-                      className="text-slate-500 hover:text-rose-400 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded shrink-0"
+                      className="text-text-muted hover:text-rose-400 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

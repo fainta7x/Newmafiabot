@@ -55,19 +55,19 @@ export const PointStepper: React.FC<PointStepperProps> = ({
     : `${roundedCurrent}`;
 
   return (
-    <div className="inline-flex items-center bg-slate-900 border border-slate-700/80 rounded-xl p-0.5 select-none touch-manipulation">
+    <div className="inline-flex items-center bg-surface-1 border border-border-soft/80 rounded-xl p-0.5 select-none touch-manipulation">
       <button
         type="button"
         aria-label={ariaLabelMinus}
         disabled={!canDecrease}
         onClick={handleDecrease}
         onMouseDown={(e) => e.preventDefault()}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-surface-2 text-text-primary hover:bg-surface-hover active:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
       >
         <Minus className="w-4 h-4" />
       </button>
 
-      <span className="px-2 text-center text-xs font-semibold text-slate-100 min-w-[48px] tabular-nums truncate">
+      <span className="px-2 text-center text-xs font-semibold text-text-primary min-w-[48px] tabular-nums truncate">
         {displayText}
       </span>
 
@@ -77,7 +77,7 @@ export const PointStepper: React.FC<PointStepperProps> = ({
         disabled={!canIncrease}
         onClick={handleIncrease}
         onMouseDown={(e) => e.preventDefault()}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-surface-2 text-text-primary hover:bg-surface-hover active:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
       >
         <Plus className="w-4 h-4" />
       </button>

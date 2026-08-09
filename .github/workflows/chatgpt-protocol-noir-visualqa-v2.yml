@@ -1,0 +1,132 @@
+name: ChatGPT protocol Noir visual QA v2
+
+on:
+  push:
+    branches:
+      - automation/protocol-noir-ui-visualqa-2026-08-09
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project and focused browser driver
+        run: |
+          set -euo pipefail
+          npm ci
+          npm install --no-save --ignore-scripts puppeteer-core@24
+
+      - name: Create temporary protocol QA entry
+        run: |
+          cat > protocol-qa.html <<'HTML'
+          <!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Protocol QA</title></head><body><div id="root"></div><script type="module" src="/src/protocolQaEntry.tsx"></script></body></html>
+          HTML
+          cat > src/protocolQaEntry.tsx <<'TSX'
+          import React from 'react';
+          import ReactDOM from 'react-dom/client';
+          import './index.css';
+          import { GameProtocolModal } from './components/crm/tournaments/GameProtocolModal.tsx';
+          const params = new URLSearchParams(window.location.search);
+          ReactDOM.createRoot(document.getElementById('root')!).render(
+            <GameProtocolModal tournamentId={params.get('tournamentId') || ''} gameId={params.get('gameId') || ''} isOpen onClose={() => {}} />
+          );
+          TSX
+
+      - name: Start disposable current Preview runtime on actual app port
+        env:
+          ORGANIZER_PASSWORD: qa-pass
+          JWT_SECRET: qa-secret
+          SEED_DEMO_DATA: "false"
+        run: |
+          set -euo pipefail
+          rm -f mafia_crm.runtime.sqlite mafia_crm.runtime.sqlite-shm mafia_crm.runtime.sqlite-wal
+          nohup npm run dev > /tmp/protocol-server.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:3000/api/auth/me >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          if ! curl -fsS http://127.0.0.1:3000/api/auth/me; then
+            cat /tmp/protocol-server.log
+            exit 1
+          fi
+          test -s mafia_crm.runtime.sqlite
+
+      - name: Resolve current real Game 1 without mutation
+        run: |
+          node --input-type=module <<'NODE' > /tmp/protocol-target.env
+          import Database from 'better-sqlite3';
+          const db = new Database('mafia_crm.runtime.sqlite', { readonly: true });
+          const tournament = db.prepare("SELECT id, title, status FROM tournaments ORDER BY CASE WHEN title LIKE '%Богдан%' THEN 0 ELSE 1 END, date DESC LIMIT 1").get();
+          if (!tournament) throw new Error('No current tournament found');
+          const game = db.prepare("SELECT id, game_number, status FROM tournament_games WHERE tournament_id=? ORDER BY CASE WHEN game_number=1 THEN 0 ELSE 1 END, game_number LIMIT 1").get(tournament.id);
+          if (!game) throw new Error('No current game found');
+          const seats = db.prepare("SELECT COUNT(*) AS n FROM tournament_game_seats WHERE game_id=?").get(game.id);
+          if (Number(seats.n) !== 10) throw new Error(`Expected 10 seats, got ${seats.n}`);
+          console.error(JSON.stringify({ tournament, game, seatCount: seats.n }));
+          console.log(`TOURNAMENT_ID=${tournament.id}`);
+          console.log(`GAME_ID=${game.id}`);
+          console.log(`GAME_STATUS=${game.status}`);
+          NODE
+          cat /tmp/protocol-target.env
+
+      - name: Responsive geometry and screenshot review
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          set -euo pipefail
+          set -a; source /tmp/protocol-target.env; set +a
+          cat > /tmp/protocol-qa.mjs <<'JS'
+          import fs from 'node:fs';
+          import puppeteer from 'puppeteer-core';
+          const chrome = ['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(fs.existsSync);
+          if (!chrome) throw new Error('Chrome/Chromium not found');
+          const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args:['--no-sandbox','--disable-dev-shm-usage'] });
+          const page = await browser.newPage();
+          const base = process.env.BASE_URL, tid = process.env.TOURNAMENT_ID, gid = process.env.GAME_ID;
+          const out = 'protocol-noir-visual-qa'; fs.mkdirSync(out,{recursive:true});
+          await page.setViewport({width:390,height:900,deviceScaleFactor:1});
+          await page.goto(base,{waitUntil:'networkidle0'});
+          const login = await page.evaluate(async()=>{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:'qa-pass'})});return {ok:r.ok,text:await r.text()};});
+          if (!login.ok) throw new Error(`login failed ${login.text}`);
+          await page.goto(`${base}/protocol-qa.html?tournamentId=${encodeURIComponent(tid)}&gameId=${encodeURIComponent(gid)}`,{waitUntil:'networkidle0'});
+          await page.waitForSelector('[data-testid^="player-row-"]',{timeout:20000});
+          if (await page.$$eval('[data-testid^="player-row-"]',els=>els.length) !== 10) throw new Error('Expected 10 player rows');
+
+          async function check(label){
+            const g=await page.evaluate(()=>{
+              const root=document.querySelector('.protocol-noir-root'),content=document.querySelector('.protocol-noir-content'),footer=document.querySelector('.protocol-modal-footer');
+              const tabs=[...document.querySelectorAll('.protocol-modal-tabs button')],buttons=footer?[...footer.querySelectorAll('button')]:[];
+              return {width:innerWidth,hOverflow:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-innerWidth,rootY:root?getComputedStyle(root).overflowY:null,contentY:content?getComputedStyle(content).overflowY:null,tabs:tabs.map(x=>({text:x.textContent?.trim(),clip:x.scrollWidth>x.clientWidth+1})),footer:buttons.map(x=>({text:x.textContent?.trim(),clip:x.scrollWidth>x.clientWidth+1}))};
+            });
+            fs.writeFileSync(`${out}/${label}.json`,JSON.stringify(g,null,2));
+            if(g.hOverflow>1)throw new Error(`${label}: horizontal overflow ${g.hOverflow}`);
+            if(g.contentY!=='auto')throw new Error(`${label}: content scroller=${g.contentY}`);
+            if(g.rootY==='auto'||g.rootY==='scroll')throw new Error(`${label}: double vertical scroll`);
+            if(g.tabs.some(x=>x.clip))throw new Error(`${label}: clipped tabs`);
+            if(g.footer.some(x=>x.clip))throw new Error(`${label}: clipped footer actions`);
+          }
+          for(const width of [360,390,430]){await page.setViewport({width,height:900,deviceScaleFactor:1});await new Promise(r=>setTimeout(r,80));await check(`players-${width}`);if(width===390)await page.screenshot({path:`${out}/01-players-390.png`});}
+          await page.setViewport({width:390,height:900,deviceScaleFactor:1});
+          const rows=await page.$$('[data-testid^="player-row-"]'); await rows[0].click(); await new Promise(r=>setTimeout(r,100)); await check('expanded-390'); await page.screenshot({path:`${out}/02-expanded-390.png`});
+          let shot=3; for(const label of ['Голоса','Ночи/ЛХ','Итог','Игроки']){const buttons=await page.$$('.protocol-modal-tabs button');let hit=false;for(const b of buttons){if((await b.evaluate(el=>el.textContent?.trim()))===label){await b.click();hit=true;break;}}if(!hit)throw new Error(`tab missing ${label}`);await new Promise(r=>setTimeout(r,100));await check(`tab-${label.replace('/','-')}`);if(label!=='Игроки')await page.screenshot({path:`${out}/${String(shot++).padStart(2,'0')}-${label.replace('/','-')}-390.png`});}
+          await page.evaluate(()=>document.querySelectorAll('[data-testid^="player-row-"]')[9]?.scrollIntoView({block:'end'}));await new Promise(r=>setTimeout(r,80));
+          const reachable=await page.evaluate(()=>{const row=document.querySelectorAll('[data-testid^="player-row-"]')[9]?.getBoundingClientRect(),foot=document.querySelector('.protocol-modal-footer')?.getBoundingClientRect();return row&&foot?{rowBottom:row.bottom,footerTop:foot.top,ok:row.bottom<=foot.top+1}:null;});fs.writeFileSync(`${out}/last-row.json`,JSON.stringify(reachable,null,2));if(!reachable?.ok)throw new Error(`footer covers last row ${JSON.stringify(reachable)}`);
+          await page.setViewport({width:1100,height:900,deviceScaleFactor:1});await new Promise(r=>setTimeout(r,80));await check('desktop-1100');await page.screenshot({path:`${out}/06-desktop-1100.png`});
+          const focus=await page.evaluate(()=>{const editable=[...document.querySelectorAll('.protocol-noir-content input:not(:disabled),.protocol-noir-content select:not(:disabled),.protocol-noir-content textarea:not(:disabled)')][0];const target=editable||document.querySelector('.protocol-modal-tabs button');if(!(target instanceof HTMLElement))return null;target.focus();const st=getComputedStyle(target);return {kind:editable?'editable':'navigation-fallback',focused:document.activeElement===target,outline:st.outline,boxShadow:st.boxShadow};});fs.writeFileSync(`${out}/focus.json`,JSON.stringify(focus,null,2));if(!focus?.focused)throw new Error('focus target unreachable');
+          console.log(JSON.stringify({ok:true,gameStatus:process.env.GAME_STATUS,focus},null,2));await browser.close();
+          JS
+          node /tmp/protocol-qa.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protocol-noir-visual-qa-v2
+          path: protocol-noir-visual-qa
+          retention-days: 1

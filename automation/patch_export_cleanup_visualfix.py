@@ -8,6 +8,13 @@ def sub_once(pattern: str, replacement: str, text: str, label: str) -> str:
         raise SystemExit(f'{label}: expected one match, got {count}')
     return result
 
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected one match, got {count}')
+    return text.replace(old, new, 1)
+
 p = Path('src/lib/tournamentResultsExport.ts')
 s = p.read_text(encoding='utf-8')
 
@@ -28,8 +35,18 @@ s = sub_once(
     'publication ranking interface',
 )
 
-s = s.replace('  const fontSize = 21;\n  const gap = 24;', '  const fontSize = 19;\n  const gap = 24;', 1)
-s = s.replace("    const fullWidth = component.kind === 'ci' || estimateOfficialTextWidth(text, fontSize) > columnWidth;", "    const fullWidth = estimateOfficialTextWidth(text, fontSize) > columnWidth;", 1)
+s = replace_once(
+    s,
+    '  const fontSize = 21;\n  const gap = 24;',
+    '  const fontSize = 19;\n  const gap = 24;',
+    'publication score font',
+)
+s = replace_once(
+    s,
+    "    const fullWidth = component.kind === 'ci' || estimateOfficialTextWidth(text, fontSize) > columnWidth;",
+    "    const fullWidth = estimateOfficialTextWidth(text, fontSize) > columnWidth;",
+    'publication score full-width rule',
+)
 
 s = sub_once(
     r"function layoutPublicationRankingRow\(.*?\n\}\n\nfunction renderPublicationScoreGrid",
@@ -54,50 +71,54 @@ function renderPublicationScoreGrid''',
     'publication ranking layout',
 )
 
-s = s.replace('font-size="21" font-weight="700"', 'font-size="19" font-weight="700"', 1)
-s = s.replace('${y + rowIndex * 27}', '${y + rowIndex * 22}', 1)
+s = replace_once(s, 'font-size="21" font-weight="700"', 'font-size="19" font-weight="700"', 'publication score render font')
+s = replace_once(s, '${y + rowIndex * 27}', '${y + rowIndex * 22}', 'publication score row gap')
 
-replacements = {
-    '  const headerHeight = 228 + titleExtra;': '  const headerHeight = 218 + titleExtra;',
-    '  const rankingHeaderHeight = 68;': '  const rankingHeaderHeight = 54;',
-    '  const rankX = margin + 22;': '  const rankX = margin + 18;',
-    '  const avatarX = margin + 52;': '  const avatarX = margin + 42;',
-    '  const avatarSize = 64;': '  const avatarSize = 58;',
-    '  const contentX = margin + 136;': '  const contentX = margin + 112;',
-    '  const totalColumnWidth = 112;': '  const totalColumnWidth = 94;',
-    '  const contentRight = totalRight - totalColumnWidth - 28;': '  const contentRight = totalRight - totalColumnWidth - 22;',
-    '${officialSvgTextLines(titleLines, margin, 160, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}': '${officialSvgTextLines(titleLines, margin, 150, 44, `font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.7"`)}',
-    '<text x="${margin}" y="${214 + titleExtra}" font-family="${font}" font-size="19" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>': '<text x="${margin}" y="${190 + titleExtra}" font-family="${font}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>',
-    '<text x="${margin}" y="${headerHeight + 43}" font-family="${font}" font-size="30" font-weight="900"': '<text x="${margin}" y="${headerHeight + 37}" font-family="${font}" font-size="28" font-weight="900"',
-    '<text x="${totalRight}" y="${headerHeight + 43}"': '<text x="${totalRight}" y="${headerHeight + 37}"',
-    '<text x="${rankX}" y="${y + 48}"': '<text x="${rankX}" y="${y + 41}"',
-    'font-size="31" font-weight="900"': 'font-size="29" font-weight="900"',
-    '${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 17, avatarSize,': '${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 12, avatarSize,',
-    '`font-family="${font}" font-size="29" font-weight="900"': '`font-family="${font}" font-size="27" font-weight="900"',
-    '<text x="${contentX}" y="${y + layout.winsY}" font-family="${font}" font-size="20" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>': '${officialSvgTextLines(layout.contextLines, contentX, y + layout.contextY, 20, `font-family="${font}" font-size="18" font-weight="650" fill="#AAA39A"`)}',
-    '<text x="${totalRight}" y="${y + 49}"': '<text x="${totalRight}" y="${y + 42}"',
-}
-for old, new in replacements.items():
-    if s.count(old) != 1:
-        raise SystemExit(f'ranking compact match failed ({s.count(old)}): {old[:80]}')
-    s = s.replace(old, new, 1)
+ranking_start = s.find('function generateRankingPublicationSvg(')
+ranking_end = s.find('export function generateOfficialWinnersSvg(', ranking_start)
+if ranking_start < 0 or ranking_end < 0:
+    raise SystemExit('ranking publication function bounds missing')
+block = s[ranking_start:ranking_end]
+replacements = [
+    ('  const headerHeight = 228 + titleExtra;', '  const headerHeight = 218 + titleExtra;', 'header height'),
+    ('  const rankingHeaderHeight = 68;', '  const rankingHeaderHeight = 54;', 'ranking header height'),
+    ('  const rankX = margin + 22;', '  const rankX = margin + 18;', 'rank axis'),
+    ('  const avatarX = margin + 52;', '  const avatarX = margin + 42;', 'avatar axis'),
+    ('  const avatarSize = 64;', '  const avatarSize = 58;', 'avatar size'),
+    ('  const contentX = margin + 136;', '  const contentX = margin + 112;', 'content axis'),
+    ('  const totalColumnWidth = 112;', '  const totalColumnWidth = 94;', 'total column'),
+    ('  const contentRight = totalRight - totalColumnWidth - 28;', '  const contentRight = totalRight - totalColumnWidth - 22;', 'content right'),
+    ('${officialSvgTextLines(titleLines, margin, 160, 48, `font-family="${font}" font-size="46" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.8"`)}', '${officialSvgTextLines(titleLines, margin, 150, 44, `font-family="${font}" font-size="42" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" letter-spacing="-0.7"`)}', 'title'),
+    ('<text x="${margin}" y="${214 + titleExtra}" font-family="${font}" font-size="19" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>', '<text x="${margin}" y="${190 + titleExtra}" font-family="${font}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(meta)}</text>', 'meta'),
+    ('<text x="${margin}" y="${headerHeight + 43}" font-family="${font}" font-size="30" font-weight="900"', '<text x="${margin}" y="${headerHeight + 37}" font-family="${font}" font-size="28" font-weight="900"', 'ranking heading'),
+    ('<text x="${totalRight}" y="${headerHeight + 43}"', '<text x="${totalRight}" y="${headerHeight + 37}"', 'participant count'),
+    ('<text x="${rankX}" y="${y + 48}"', '<text x="${rankX}" y="${y + 41}"', 'rank baseline'),
+    ('font-size="31" font-weight="900"', 'font-size="29" font-weight="900"', 'rank font'),
+    ('${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 17, avatarSize,', '${officialAvatarSvg(item.avatar_data_url, item.display_name, avatarX, y + 12, avatarSize,', 'avatar baseline'),
+    ('`font-family="${font}" font-size="29" font-weight="900"', '`font-family="${font}" font-size="27" font-weight="900"', 'name font'),
+    ('<text x="${contentX}" y="${y + layout.winsY}" font-family="${font}" font-size="20" font-weight="650" fill="#AAA39A">${escapeXml(formatWinsSummary(item.wins, item.games_played))}</text>', '${officialSvgTextLines(layout.contextLines, contentX, y + layout.contextY, 20, `font-family="${font}" font-size="18" font-weight="650" fill="#AAA39A"`)}', 'context line'),
+    ('<text x="${totalRight}" y="${y + 49}"', '<text x="${totalRight}" y="${y + 42}"', 'total baseline'),
+]
+for old, new, label in replacements:
+    block = replace_once(block, old, new, f'ranking {label}')
 
-s = sub_once(
+block = sub_once(
     r"\n    if \(layout\.tieY !== null\) \{.*?\n    \}",
     '',
-    s,
+    block,
     'remove separate secondary stat block',
 )
-
+s = s[:ranking_start] + block + s[ranking_end:]
 p.write_text(s, encoding='utf-8')
 
 p = Path('src/lib/seatingExport.ts')
 s = p.read_text(encoding='utf-8')
-old = '<text x="${width - margin}" y="${222 + titleExtra}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>'
-new = '<text x="${width - margin}" y="${tableTop - 22}" text-anchor="end" font-family="${font}" font-size="15" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>'
-if s.count(old) != 1:
-    raise SystemExit(f'seating hint match={s.count(old)}')
-s = s.replace(old, new, 1)
+s = replace_once(
+    s,
+    '<text x="${width - margin}" y="${222 + titleExtra}" text-anchor="end" font-family="${font}" font-size="17" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>',
+    '<text x="${width - margin}" y="${tableTop - 22}" text-anchor="end" font-family="${font}" font-size="15" font-weight="700" fill="${NOIR_EXPORT_COLORS.subduedText}">В ячейке — место игрока за столом</text>',
+    'seating hint',
+)
 p.write_text(s, encoding='utf-8')
 
 print('visual compaction patch applied')

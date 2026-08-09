@@ -160,11 +160,12 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
       let nextFileName = 'export.png';
 
       if (exportType === 'official') {
-        const [freshTournament, readiness, standingsRes, awardsRes] = await Promise.all([
+        const [freshTournament, readiness, standingsRes, awardsRes, nominationsRes] = await Promise.all([
           api.getTournament(tournament.id),
           api.getTournamentFinalReadiness(tournament.id),
           api.getTournamentStandings(tournament.id),
           api.getTournamentAwards(tournament.id),
+          api.getTournamentNominations(tournament.id),
         ]);
 
         if (freshTournament.status !== 'completed') {
@@ -186,6 +187,7 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           awardsRes.slots || [],
           new Date(),
           avatarDataByParticipant,
+          nominationsRes.nominations || [],
         );
         const rendered = generateOfficialTournamentResultsSvg(presentation);
         blob = await renderSvgToPngBlob(

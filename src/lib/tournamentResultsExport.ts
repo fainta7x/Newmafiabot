@@ -1140,7 +1140,7 @@ const nominationBreakdownComponents = (reason: OfficialNominationReason | null |
     if (Math.abs(rounded) < 0.0001) return;
     items.push({ kind, label, value: rounded, tone: 'bonus', show_plus: true });
   };
-  push('protocol', 'Игровые бонусы', reason.protocol_bonus);
+  push('protocol', 'Протокольные начисления', reason.protocol_bonus);
   push('best_move', 'Лучший ход', reason.best_move_points);
   return items;
 };

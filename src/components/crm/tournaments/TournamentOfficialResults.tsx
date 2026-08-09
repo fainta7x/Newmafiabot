@@ -31,7 +31,6 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
   const [readiness, setReadiness] = useState<any>(null);
   const [resolutions, setResolutions] = useState<any[]>([]);
   const [standings, setStandings] = useState<TournamentStandingItem[]>([]);
-  const [nominations, setNominations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,28 +41,19 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
   const [standingsComment, setStandingsComment] = useState('');
   const [standingsSubmitting, setStandingsSubmitting] = useState(false);
 
-  // Nominations modal state
-  const [activeNominationTie, setActiveNominationTie] = useState<any>(null);
-  const [selectedWinnerId, setSelectedWinnerId] = useState<string>('');
-  const [nominationMethod, setNominationMethod] = useState<'draw' | 'chief_judge_decision'>('draw');
-  const [nominationComment, setNominationComment] = useState('');
-  const [nominationSubmitting, setNominationSubmitting] = useState(false);
-
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [readinessRes, resolutionsRes, standingsRes, nominationsRes, tournamentRes] = await Promise.all([
+      const [readinessRes, resolutionsRes, standingsRes, tournamentRes] = await Promise.all([
         api.getTournamentFinalReadiness(tournamentId),
         api.getTournamentFinalResolutions(tournamentId),
         api.getTournamentStandings(tournamentId),
-        api.getTournamentNominations(tournamentId),
         api.getTournament(tournamentId),
       ]);
       setReadiness(readinessRes);
       setResolutions(resolutionsRes.resolutions || []);
       setStandings(standingsRes.standings || []);
-      setNominations(nominationsRes.nominations || []);
       setTournament(tournamentRes);
     } catch (err: any) {
       setError(err.message || 'Ошибка загрузки данных официальных итогов');
@@ -142,53 +132,6 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
     }
   };
 
-  const handleOpenNominationTie = (tie: any) => {
-    setActiveNominationTie(tie);
-    // Find matching candidate details
-    const foundNom = nominations.find((n) => n.category === tie.category);
-    const candidates = tie.candidate_ids.map((id: string) => {
-      const cDetails = foundNom?.candidates?.find((c: any) => c.participant_id === id);
-      return {
-        id,
-        name: cDetails ? cDetails.display_name : id,
-        number: cDetails ? cDetails.participant_number : 0,
-        score: cDetails ? cDetails.total_points : 0,
-      };
-    });
-    setSelectedWinnerId(candidates[0]?.id || '');
-    setNominationMethod('draw');
-    setNominationComment('');
-  };
-
-  const handleSaveNominationTie = async () => {
-    if (!activeNominationTie || nominationSubmitting) return;
-
-    if (!selectedWinnerId) {
-      alert('Пожалуйста, выберите победителя');
-      return;
-    }
-
-    if (!activeNominationTie.candidate_ids.includes(selectedWinnerId)) {
-      alert('Победителя можно выбрать только среди лидеров этой категории');
-      return;
-    }
-
-    setNominationSubmitting(true);
-    try {
-      await api.resolveNominationTie(tournamentId, activeNominationTie.category, {
-        winner_participant_id: selectedWinnerId,
-        resolution_method: nominationMethod,
-        comment: nominationComment.trim() || undefined,
-      });
-      setActiveNominationTie(null);
-      onResolve();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка сохранения решения номинации');
-    } finally {
-      setNominationSubmitting(false);
-    }
-  };
-
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'mvp':
@@ -243,17 +186,17 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
                 : 'bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse'
             }`}
           >
-            {isReady ? 'Официальные итоги готовы' : 'Требуются решения Главного судьи'}
+            {isReady ? 'Официальные итоги готовы' : 'Есть неразрешённые равенства'}
           </span>
         </div>
 
         {isReady ? (
           <p className="text-xs text-text-muted leading-relaxed">
-            Все равенства в турнирной таблице и номинациях успешно разрешены. Места и победители зафиксированы.
+            Все итоговые места и номинации имеют однозначный результат по действующим критериям.
           </p>
         ) : (
           <p className="text-xs text-text-muted leading-relaxed">
-            Обнаружены нерешённые равенства по очкам или показателям. Пожалуйста, утвердите официальные решения Главного судьи для завершения.
+            Равенства мест в итоговой таблице обрабатываются отдельно. Точное равенство в номинации означает, что все канонические статистические критерии исчерпаны — вручную выбирать победителя нельзя.
           </p>
         )}
 
@@ -360,13 +303,9 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenNominationTie(tie)}
-                  className="bg-accent hover:bg-accent-hover text-white font-extrabold text-xs px-4 py-2 rounded-xl transition-all shadow-md shrink-0 w-full sm:w-auto min-h-[38px]"
-                >
-                  Выбрать победителя
-                </button>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 sm:text-right">
+                  Полное равенство после личного сравнения
+                </div>
               </div>
             ))}
           </div>
@@ -381,16 +320,11 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
           </div>
           <div className="divide-y divide-border-soft/60">
             {resolutions.map((res) => {
-              const categoryDetails = nominations.find((n) => n.category === res.category);
               return (
                 <div key={res.id} className="py-2.5 first:pt-0 last:pb-0 flex items-start justify-between gap-3 text-xs">
                   <div>
                     <div className="font-extrabold text-text-primary">
-                      {res.type === 'standings_tie' ? (
-                        <span>Утверждены места в таблице</span>
-                      ) : (
-                        <span>Номинация: {categoryDetails?.title || res.category}</span>
-                      )}
+                      <span>Утверждены места в таблице</span>
                     </div>
                     <div className="text-[11px] text-text-muted mt-0.5">
                       Способ:{' '}
@@ -401,7 +335,7 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
                     </div>
                   </div>
                   <span className="text-[10px] font-mono text-text-muted uppercase bg-surface-2 px-1.5 py-0.5 rounded border border-border-soft">
-                    {res.type === 'standings_tie' ? 'Таблица' : 'Номинация'}
+                    Таблица
                   </span>
                 </div>
               );
@@ -557,165 +491,6 @@ export const TournamentOfficialResults: React.FC<TournamentOfficialResultsProps>
                   <>
                     <Check className="w-3.5 h-3.5" />
                     <span>Сохранить порядок</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* MODAL: Nomination Winner Resolution        */}
-      {/* ========================================== */}
-      {activeNominationTie && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface-1 border border-border-soft rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="p-4 border-b border-border-soft flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-sm font-black text-text-primary uppercase tracking-tight truncate">
-                  Выбор победителя номинации
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveNominationTie(null)}
-                className="text-text-muted hover:text-text-primary p-1 rounded-lg hover:bg-surface-2 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-4 overflow-y-auto flex-1 text-xs">
-              <div className="bg-surface-2 border border-border-soft rounded-2xl p-3 flex items-start gap-2.5">
-                <div className="p-2 bg-surface-3 rounded-lg border border-border-soft shrink-0">
-                  {getCategoryIcon(activeNominationTie.category)}
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-black tracking-wider text-text-muted">Номинация</span>
-                  <span className="text-sm font-black text-text-primary block leading-snug">
-                    {activeNominationTie.title}
-                  </span>
-                </div>
-              </div>
-
-              {/* Choose winner selection */}
-              <div className="space-y-2">
-                <span className="font-bold text-text-secondary uppercase tracking-wider text-[10px] block">
-                  Выберите победителя среди лидеров:
-                </span>
-                <div className="space-y-1.5">
-                  {activeNominationTie.candidate_ids.map((id: string) => {
-                    const foundNom = nominations.find((n) => n.category === activeNominationTie.category);
-                    const cDetails = foundNom?.candidates?.find((c: any) => c.participant_id === id);
-                    const name = cDetails ? cDetails.display_name : id;
-                    const number = cDetails ? cDetails.participant_number : 0;
-                    const score = cDetails ? cDetails.total_points : 0;
-                    const isSelected = selectedWinnerId === id;
-
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setSelectedWinnerId(id)}
-                        className={`w-full p-3 rounded-2xl border transition-all text-left flex items-center justify-between gap-3 min-h-[46px] cursor-pointer ${
-                          isSelected
-                            ? 'bg-accent/10 border-accent text-accent'
-                            : 'bg-surface-2 border-border-soft text-text-primary hover:bg-surface-3'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            isSelected ? 'border-accent' : 'border-text-muted'
-                          }`}>
-                            {isSelected && <div className="w-2 h-2 rounded-full bg-accent" />}
-                          </div>
-                          <span className="font-extrabold text-[13px]">
-                            {name}
-                          </span>
-                          <span className="text-[10px] text-text-muted font-mono">(#{number})</span>
-                        </div>
-                        <span className="font-mono font-extrabold text-xs">
-                          {score} б.
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Resolution Method Selector */}
-              <div className="space-y-2 pt-2 border-t border-border-soft/60">
-                <span className="font-bold text-text-secondary uppercase tracking-wider text-[10px] block">
-                  Способ принятия решения:
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNominationMethod('draw')}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center cursor-pointer min-h-[38px] ${
-                      nominationMethod === 'draw'
-                        ? 'bg-accent/10 border-accent text-accent'
-                        : 'bg-surface-2 border-border-soft text-text-secondary hover:bg-surface-3'
-                    }`}
-                  >
-                    Жребий
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNominationMethod('chief_judge_decision')}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center cursor-pointer min-h-[38px] ${
-                      nominationMethod === 'chief_judge_decision'
-                        ? 'bg-accent/10 border-accent text-accent'
-                        : 'bg-surface-2 border-border-soft text-text-secondary hover:bg-surface-3'
-                    }`}
-                  >
-                    Решение ГС
-                  </button>
-                </div>
-              </div>
-
-              {/* Comment text area */}
-              <div className="space-y-1.5">
-                <span className="font-bold text-text-secondary uppercase tracking-wider text-[10px] block">
-                  Комментарий (необязательно):
-                </span>
-                <textarea
-                  value={nominationComment}
-                  onChange={(e) => setNominationComment(e.target.value)}
-                  placeholder="Например, результаты жребия или пункт регламента..."
-                  className="w-full bg-surface-2 border border-border-soft rounded-2xl p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent min-h-[60px]"
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-border-soft bg-surface-2 shrink-0 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveNominationTie(null)}
-                className="bg-surface-3 hover:bg-surface-hover text-text-primary font-bold px-4 py-2 rounded-xl text-xs min-h-[40px]"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveNominationTie}
-                disabled={nominationSubmitting}
-                className="bg-accent hover:bg-accent-hover text-white font-black px-5 py-2 rounded-xl text-xs min-h-[40px] flex items-center gap-1.5 shadow-md shadow-accent/20 cursor-pointer"
-              >
-                {nominationSubmitting ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Сохранение...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Сохранить победителя</span>
                   </>
                 )}
               </button>

@@ -169,10 +169,9 @@ export const ConfirmCompleteTournamentModal: React.FC<ConfirmCompleteTournamentM
                 </h4>
                 <div className="bg-surface-2/40 border border-border-soft rounded-2xl p-2.5 space-y-2">
                   {nominations.map((nom: any) => {
-                    const topScore = nom.candidates[0]?.nomination_points;
-                    const winners = nom.candidates.filter(
-                      (c: any) => Math.abs(c.nomination_points - topScore) < 0.0001
-                    );
+                    const winner = nom.winner_participant_id
+                      ? nom.candidates.find((candidate: any) => candidate.participant_id === nom.winner_participant_id)
+                      : null;
 
                     return (
                       <div key={nom.category} className="flex items-center justify-between gap-3 text-[11px] py-1 border-b border-border-soft/40 last:border-0">
@@ -186,9 +185,9 @@ export const ConfirmCompleteTournamentModal: React.FC<ConfirmCompleteTournamentM
                             <span className="text-amber-400 font-extrabold text-[10px] bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
                               Равенство
                             </span>
-                          ) : winners.length > 0 ? (
+                          ) : winner ? (
                             <span className="font-bold text-text-primary truncate block max-w-[120px]">
-                              {winners[0].display_name}
+                              {winner.display_name}
                             </span>
                           ) : (
                             <span className="text-text-muted italic">—</span>

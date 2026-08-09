@@ -78,6 +78,8 @@ export interface PlayerGameProfileStats {
   roleCounts: { citizen: number; sheriff: number; mafia: number; don: number; unknown: number };
 }
 
+export type TournamentPlacementAwardKey = 'place_1' | 'place_2' | 'place_3';
+
 export type PlayerAwardKey =
   | 'place_1'
   | 'place_2'
@@ -748,13 +750,13 @@ export const api = {
     request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards`),
   setTournamentAwardOverride: (
     tournamentId: string,
-    awardKey: PlayerAwardKey,
+    awardKey: TournamentPlacementAwardKey,
     data: { player_id?: string; mode?: 'assign' | 'suppress'; comment?: string }
   ) => request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards/${awardKey}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
-  resetTournamentAwardOverride: (tournamentId: string, awardKey: PlayerAwardKey) =>
+  resetTournamentAwardOverride: (tournamentId: string, awardKey: TournamentPlacementAwardKey) =>
     request<TournamentAwardsResponse>(`/api/tournaments/${tournamentId}/awards/${awardKey}`, { method: 'DELETE' }),
   createPlayerHistoricalAward: (playerId: string, data: PlayerHistoricalAwardInput) =>
     request<{ award: PlayerHistoricalAwardRecord; checkpoint_warning?: string }>(`/api/players/${playerId}/historical-awards`, {
@@ -1033,13 +1035,40 @@ export const api = {
       tournament_id: string;
       provisional: boolean;
       nominations: Array<{
-        category: string;
+        category: 'mvp' | 'best_citizen' | 'best_mafia' | 'best_sheriff' | 'best_don';
         title: string;
         has_tie: boolean;
-        candidates: any[];
-        winner_participant_id?: string | null;
-        resolution_method?: string | null;
-        comment?: string | null;
+        candidates: Array<{
+          participant_id: string;
+          participant_number: number;
+          display_name: string;
+          points: number;
+          additional_points: number;
+          role_wins: number;
+          nomination_points: number;
+          games_in_role: number;
+          judge_bonus: number;
+          protocol_bonus: number;
+          best_move_points: number;
+          breakdown: any[];
+        }>;
+        winner_participant_id: string | null;
+        decisive_criterion: 'points' | 'additional_points' | 'role_wins' | 'head_to_head' | 'exact_tie' | null;
+        comparison: {
+          winner_participant_id: string | null;
+          tied_participant_ids: string[];
+          has_exact_tie: boolean;
+          decisive_criterion: 'points' | 'additional_points' | 'role_wins' | 'head_to_head' | 'exact_tie' | null;
+          decisive_value: number | null;
+          head_to_head_scores: Record<string, number> | null;
+          stages: Array<{
+            criterion: 'points' | 'additional_points' | 'role_wins' | 'head_to_head';
+            candidate_ids: string[];
+            values: Record<string, number>;
+            advancing_ids: string[];
+            decisive: boolean;
+          }>;
+        };
       }>;
     }>(`/api/tournaments/${tournamentId}/nominations`),
 
@@ -1065,7 +1094,7 @@ export const api = {
       resolutions: Array<{
         id: string;
         tournament_id: string;
-        type: 'standings_tie' | 'nomination_tie';
+        type: 'standings_tie';
         category: string | null;
         participant_ids: string[];
         ordered_participant_ids: string[] | null;
@@ -1087,20 +1116,6 @@ export const api = {
     }
   ) =>
     request<{ success: boolean }>(`/api/tournaments/${tournamentId}/final-resolutions/standings/${tieGroupId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
-
-  resolveNominationTie: (
-    tournamentId: string,
-    category: string,
-    payload: {
-      winner_participant_id: string;
-      resolution_method: 'draw' | 'chief_judge_decision';
-      comment?: string;
-    }
-  ) =>
-    request<{ success: boolean }>(`/api/tournaments/${tournamentId}/final-resolutions/nominations/${category}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),

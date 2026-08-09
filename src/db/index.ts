@@ -4,13 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import * as schema from './schema.ts';
 import { seedDemoData } from './seed.ts';
-import {
-  getLegacyPreviewRecoveryDir,
-  getPreviewRecoveryDir,
-  restoreGzB64FileAtomically,
-  restoreSqliteFileAtomically,
-  verifySqliteFile,
-} from './previewRecovery.ts';
+import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
+import { initializePreviewRuntimeFromCanonical } from './canonicalSnapshot.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -57,57 +52,14 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
     } else {
       dbPath = path.join(process.cwd(), 'mafia_crm.runtime.sqlite');
       
-      if (!fs.existsSync(dbPath)) {
-        const recoveryDir = getPreviewRecoveryDir(dbPath);
-        const tmpLatestSqlite = path.join(recoveryDir, 'latest.sqlite');
-        const tmpLatestGzB64 = path.join(recoveryDir, 'latest.sqlite.gz.b64');
-        let restored = false;
-
-        // 1. Check /tmp latest.sqlite
-        if (fs.existsSync(tmpLatestSqlite)) {
-          restored = restoreSqliteFileAtomically(tmpLatestSqlite, dbPath);
-          if (restored) console.log('Restored runtime database from the isolated preview checkpoint.');
-        }
-
-        // 2. Check /tmp latest.sqlite.gz.b64 if not yet restored
-        if (!restored && fs.existsSync(tmpLatestGzB64)) {
-          restored = restoreGzB64FileAtomically(tmpLatestGzB64, dbPath);
-          if (restored) console.log('Restored runtime database from the isolated compressed checkpoint.');
-        }
-
-        // One-time compatibility fallback for Preview installations that were
-        // created before checkpoints became namespaced by database path. Tests
-        // intentionally skip it so data from one test project cannot leak into
-        // another one.
-        if (!restored && !process.env.VITEST) {
-          const legacyRecoveryDir = getLegacyPreviewRecoveryDir();
-          const legacyLatestSqlite = path.join(legacyRecoveryDir, 'latest.sqlite');
-          const legacyLatestGzB64 = path.join(legacyRecoveryDir, 'latest.sqlite.gz.b64');
-
-          if (fs.existsSync(legacyLatestSqlite)) {
-            restored = restoreSqliteFileAtomically(legacyLatestSqlite, dbPath);
-            if (restored) console.log('Migrated runtime database from the legacy preview checkpoint.');
-          }
-
-          if (!restored && fs.existsSync(legacyLatestGzB64)) {
-            restored = restoreGzB64FileAtomically(legacyLatestGzB64, dbPath);
-            if (restored) console.log('Migrated runtime database from the legacy compressed checkpoint.');
-          }
-        }
-
-        // 3. Fallback to Git bootstrap in root if /tmp checkpoints unavailable or corrupted
-        if (!restored) {
-          const cwd = process.cwd();
-          const gzPath1 = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
-          const gzPath2 = path.join(cwd, 'mafia_crm.checkpoint.gz.b64');
-          const gzB64Path = fs.existsSync(gzPath1) ? gzPath1 : fs.existsSync(gzPath2) ? gzPath2 : null;
-
-          if (gzB64Path) {
-            if (!restoreGzB64FileAtomically(gzB64Path, dbPath)) {
-              throw new Error('Bootstrap checkpoint restoration failed: checkpoint is corrupted or invalid.');
-            }
-            console.log('Restored runtime database from valid bootstrap.');
-          }
+      if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
+        const bootstrap = initializePreviewRuntimeFromCanonical(dbPath, process.cwd(), {
+          allowLegacyWithoutCanonical: !process.env.VITEST,
+        });
+        if (bootstrap.source === 'preview-checkpoint') {
+          console.log('Restored runtime database from a compatible versioned preview checkpoint.');
+        } else if (bootstrap.source === 'canonical') {
+          console.log('Initialized runtime database from the canonical repository snapshot.');
         }
       }
     }
@@ -291,6 +243,12 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   if (fs.existsSync(migration7SqlPath)) {
     const migration7Sql = fs.readFileSync(migration7SqlPath, 'utf8');
     dbWrapper.sqlite.exec(migration7Sql);
+  }
+
+  const migration8SqlPath = path.join(process.cwd(), 'drizzle', '0008_canonical_nomination_resolution.sql');
+  if (fs.existsSync(migration8SqlPath)) {
+    const migration8Sql = fs.readFileSync(migration8SqlPath, 'utf8');
+    dbWrapper.sqlite.exec(migration8Sql);
   }
 
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');

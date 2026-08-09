@@ -57,6 +57,10 @@ router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: Authentica
   if (!isTournamentAwardKey(awardKey)) {
     return res.status(400).json({ error: 'Неизвестный тип награды' });
   }
+  const awardDefinition = getTournamentAwardDefinition(awardKey);
+  if (awardDefinition?.kind === 'nomination') {
+    return res.status(400).json({ error: 'Победители номинаций определяются автоматически по каноническим критериям.' });
+  }
 
   try {
     const tournament = await db.get<any>('SELECT id, status FROM tournaments WHERE id = ?', [tournamentId]);
@@ -120,8 +124,6 @@ router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: Authentica
               );
             }
           }
-        } else {
-          await upsertOverride(tx, tournamentId, awardKey, playerId, 'assign', comment);
         }
       });
     }

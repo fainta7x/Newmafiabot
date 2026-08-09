@@ -8,6 +8,7 @@ import {
   compressAndSaveGitCheckpoint,
   restoreGitCheckpointToSqlite,
 } from '../db/gitCheckpointUtils.ts';
+import { readCanonicalSnapshotMeta, stampRepositorySnapshot } from '../db/canonicalSnapshot.ts';
 
 export interface GitCheckpointOptions {
   getDbFn?: () => Promise<DatabaseWrapper>;
@@ -47,6 +48,12 @@ export async function runGitCheckpointScript(options: GitCheckpointOptions = {})
       console.log(`Runtime DB Path: ${dbWrapper.dbPath}`);
       console.log('1. Performing online SQLite backup to temporary file...');
       await dbWrapper.sqlite.backup(backupSqlitePath);
+    }
+
+    const canonicalMeta = readCanonicalSnapshotMeta(rootDir);
+    if (canonicalMeta?.snapshot_version) {
+      stampRepositorySnapshot(backupSqlitePath, canonicalMeta.snapshot_version);
+      console.log(`Stamped repository snapshot version: ${canonicalMeta.snapshot_version}`);
     }
 
     // 2. Verify backup database integrity and tournament stats

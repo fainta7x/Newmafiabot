@@ -501,22 +501,13 @@ export const PublicTournamentResults: React.FC<PublicTournamentResultsProps> = (
                     </h3>
 
                     {/* Score / stats */}
-                    <div className="flex items-baseline gap-1.5 pt-0.5">
-                      <span className="text-xs font-bold text-text-secondary font-mono">
-                        {winner.nomination_points} б.
-                      </span>
-                      <span className="text-[10px] text-text-muted font-mono">
-                        (игр: {winner.games_in_role})
-                      </span>
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-0.5 text-[10px] text-text-muted font-mono">
+                      <span>Баллы <strong className="text-text-secondary">{winner.points}</strong></span>
+                      <span>Доп. баллы <strong className="text-text-secondary">{winner.additional_points}</strong></span>
+                      {(nom.category === 'best_sheriff' || nom.category === 'best_don') && (
+                        <span>Победы в роли <strong className="text-text-secondary">{winner.role_wins}</strong></span>
+                      )}
                     </div>
-
-                    {/* Resolution Method if tie was resolved */}
-                    {nom.has_tie && (
-                      <div className="text-[10px] text-text-muted italic pt-1 border-t border-border-soft/40 mt-1">
-                        Разрешено: {nom.resolution_method === 'draw' ? 'жребий' : 'решение ГС'}
-                        {nom.comment && <span className="block mt-0.5">«{nom.comment}»</span>}
-                      </div>
-                    )}
                   </div>
                 </div>
               );

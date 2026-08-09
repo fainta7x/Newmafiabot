@@ -42,13 +42,9 @@ export const PlayerAvatar: React.FC<PlayerAvatarProps> = ({
 
   useEffect(() => {
     if (playerId !== undefined && playerId !== null) {
-      if (!avatarVersion && !forceStoredLookup) {
-        setDataUrl(null);
-        setFailed(false);
-        return;
-      }
-
-      const cacheKey = `${playerId}_${avatarVersion || 'live-lookup'}`;
+      // Stable player identity is authoritative. The API falls back to the
+      // repository-managed avatar manifest when no custom BLOB is stored.
+      const cacheKey = `${playerId}_${avatarVersion || (forceStoredLookup ? 'live-lookup' : 'repository-default')}`;
       const cached = storedAvatarCache.get(cacheKey);
       if (cached) {
         setDataUrl(cached);

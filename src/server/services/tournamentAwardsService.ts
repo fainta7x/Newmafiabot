@@ -132,7 +132,9 @@ export async function loadTournamentAwardSnapshot(db: DatabaseWrapper, tournamen
     let source: TournamentAwardSource = calculated ? 'automatic' : 'unresolved';
     let comment: string | null = null;
 
-    if (override) {
+    // Placements keep the existing manual correction flow. Nomination winners
+    // are canonical and never accept manual/suppressed overrides.
+    if (override && definition.kind === 'placement') {
       comment = override.comment || null;
       if (override.action === 'suppress') {
         owner = null;

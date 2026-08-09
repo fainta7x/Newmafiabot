@@ -14,6 +14,7 @@ import {
   api,
   type PlayerAwardKey,
   type PlayerAwardStats,
+  type TournamentPlacementAwardKey,
   type PlayerAwardTournament,
   type PlayerDetails,
   type PlayerTournamentAward,
@@ -145,11 +146,11 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
   });
 
   const handleAssignAward = async () => {
-    if (!awardTournamentId) return;
+    if (!awardTournamentId || awardKey.startsWith('nomination_')) return;
     setAwardSaving(true);
     setAwardError(null);
     try {
-      await api.setTournamentAwardOverride(awardTournamentId, awardKey, {
+      await api.setTournamentAwardOverride(awardTournamentId, awardKey as TournamentPlacementAwardKey, {
         player_id: player.id,
         mode: 'assign',
         comment: awardComment || undefined,
@@ -165,11 +166,11 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
   };
 
   const handleSuppressAward = async (award: PlayerTournamentAward) => {
-    if (!award.tournament_id) return;
+    if (!award.tournament_id || award.kind === 'nomination') return;
     setAwardSaving(true);
     setAwardError(null);
     try {
-      await api.setTournamentAwardOverride(award.tournament_id, award.key, {
+      await api.setTournamentAwardOverride(award.tournament_id, award.key as TournamentPlacementAwardKey, {
         mode: 'suppress',
         comment: `Награда снята вручную из профиля ${player.nickname}`,
       });
@@ -186,7 +187,7 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
     setAwardSaving(true);
     setAwardError(null);
     try {
-      await api.resetTournamentAwardOverride(award.tournament_id, award.key);
+      await api.resetTournamentAwardOverride(award.tournament_id, award.key as TournamentPlacementAwardKey);
       await refreshAwards();
     } catch (err: any) {
       setAwardError(err.message || 'Не удалось вернуть автоматический результат');
@@ -485,6 +486,10 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
                         Удалить
                       </button>
                     </>
+                  ) : award.kind === 'nomination' ? (
+                    <div className="sm:col-span-2 rounded-[11px] border border-success/20 bg-success-soft px-3 py-2 text-[11px] font-bold text-success">
+                      Канонический автоматический результат · ручное назначение недоступно
+                    </div>
                   ) : (
                     <>
                       <button
@@ -496,15 +501,8 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
                         Убрать
                       </button>
                       {award.source === 'manual' ? (
-                        <button
-                          type="button"
-                          disabled={awardSaving}
-                          onClick={() => void handleResetAward(award)}
-                          className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-1 px-3 text-[12px] font-bold text-text-secondary disabled:opacity-50"
-                        >
-                          <span className="inline-flex items-center justify-center gap-1.5">
-                            <RotateCcw className="h-4 w-4" /> Вернуть расчёт
-                          </span>
+                        <button type="button" disabled={awardSaving} onClick={() => void handleResetAward(award)} className="min-h-[44px] rounded-[11px] border border-border-soft bg-surface-1 px-3 text-[12px] font-bold text-text-secondary disabled:opacity-50">
+                          <span className="inline-flex items-center justify-center gap-1.5"><RotateCcw className="h-4 w-4" /> Вернуть расчёт</span>
                         </button>
                       ) : null}
                     </>
@@ -535,7 +533,7 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
                   <Plus className="h-4 w-4" /> Добавить прошлую награду
                 </span>
               </button>
-              {awardTournaments.length > 0 ? (
+              {awardTournaments.length > 0 && awardFilter !== 'nominations' ? (
                 <button
                   type="button"
                   onClick={() => setShowAwardEditor(true)}
@@ -647,7 +645,7 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
             </section>
           ) : null}
 
-          {showAwardEditor ? (
+          {showAwardEditor && awardFilter !== 'nominations' ? (
             <section className="space-y-4 rounded-[16px] border border-border-soft bg-surface-2 p-3.5">
               <div className="flex items-center justify-between gap-3">
                 <strong className="text-[13px] text-text-primary">Исправить результат турнира в базе</strong>
@@ -680,21 +678,9 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = ({ play
 
               <div>
                 <span className="mobile-label">Награда</span>
-                {awardFilter === 'nominations' ? (
-                  <select
-                    value={awardKey}
-                    onChange={(event) => setAwardKey(event.target.value as PlayerAwardKey)}
-                    className="mobile-field"
-                  >
-                    {nominationOptions.map((item) => (
-                      <option key={item.key} value={item.key}>{item.label}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-1 px-3 py-3 text-[12px] font-bold text-accent">
-                    {compactAwardTitle}
-                  </div>
-                )}
+                <div className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-1 px-3 py-3 text-[12px] font-bold text-accent">
+                  {compactAwardTitle}
+                </div>
               </div>
 
               <label className="block">

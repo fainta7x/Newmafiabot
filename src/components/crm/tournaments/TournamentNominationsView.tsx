@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, Trophy, AlertCircle, ChevronDown, ChevronUp, Award, UserCheck, Crown, Shield } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Award, ChevronDown, ChevronUp, Crown, RefreshCw, Shield, Trophy, UserCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../../lib/api.ts';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 
@@ -8,26 +8,23 @@ interface TournamentNominationsViewProps {
   refreshTrigger?: number;
 }
 
+const signed = (value: number) => value > 0 ? `+${value}` : String(value);
+
 export const TournamentNominationsView: React.FC<TournamentNominationsViewProps> = ({ tournamentId, refreshTrigger }) => {
-  const [nominations, setNominations] = useState<any[]>([]);
-  const [provisional, setProvisional] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [nominations, setNominations] = useState<Awaited<ReturnType<typeof api.getTournamentNominations>>['nominations']>([]);
+  const [provisional, setProvisional] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  // Tracks which candidate breakdowns are expanded
-  // format: "category-participantId"
-  const [expandedCandidates, setExpandedCandidates] = useState<Record<string, boolean>>({});
-
-  const fetchNominations = async (isManual = false) => {
-    if (isManual) setRefreshing(true);
-    else setLoading(true);
+  const load = async (manual = false) => {
+    manual ? setRefreshing(true) : setLoading(true);
     setError(null);
-
     try {
-      const res = await api.getTournamentNominations(tournamentId);
-      setNominations(res.nominations || []);
-      setProvisional(res.provisional);
+      const response = await api.getTournamentNominations(tournamentId);
+      setNominations(response.nominations || []);
+      setProvisional(response.provisional);
     } catch (err: any) {
       setError(err.message || 'Не удалось рассчитать номинации турнира');
     } finally {
@@ -36,346 +33,73 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
     }
   };
 
-  useEffect(() => {
-    fetchNominations();
-  }, [tournamentId, refreshTrigger]);
+  useEffect(() => { void load(); }, [tournamentId, refreshTrigger]);
 
-  const toggleExpand = (category: string, participantId: string) => {
-    const key = `${category}-${participantId}`;
-    setExpandedCandidates((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const icon = (category: string) => {
+    if (category === 'mvp') return <Crown className="w-5 h-5 text-amber-400" />;
+    if (category === 'best_citizen') return <UserCheck className="w-5 h-5 text-emerald-400" />;
+    if (category === 'best_sheriff') return <Shield className="w-5 h-5 text-amber-400" />;
+    if (category === 'best_mafia') return <Award className="w-5 h-5 text-rose-400" />;
+    if (category === 'best_don') return <Crown className="w-5 h-5 text-purple-400" />;
+    return <Trophy className="w-5 h-5 text-accent" />;
   };
 
-  if (loading) {
-    return (
-      <div className="bg-surface-1 border border-border-soft rounded-3xl p-8 text-center text-text-muted text-xs space-y-2">
-        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-accent" />
-        <p>Вычисление номинаций турнира...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-danger/10 border border-danger/30 text-danger p-4 rounded-2xl text-xs font-semibold">
-        {error}
-      </div>
-    );
-  }
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'mvp':
-        return <Crown className="w-5 h-5 text-amber-400" />;
-      case 'best_citizen':
-        return <UserCheck className="w-5 h-5 text-emerald-400" />;
-      case 'best_sheriff':
-        return <Shield className="w-5 h-5 text-amber-400" />;
-      case 'best_mafia':
-        return <Award className="w-5 h-5 text-rose-400" />;
-      case 'best_don':
-        return <Crown className="w-5 h-5 text-purple-400" />;
-      default:
-        return <Trophy className="w-5 h-5 text-accent" />;
-    }
-  };
+  if (loading) return <div className="bg-surface-1 border border-border-soft rounded-3xl p-8 text-center text-text-muted text-xs"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-accent" />Вычисление номинаций турнира...</div>;
+  if (error) return <div className="bg-danger/10 border border-danger/30 text-danger p-4 rounded-2xl text-xs font-semibold">{error}</div>;
 
   return (
     <div className="space-y-4 text-text-primary">
-      {/* Top Banner & Control */}
       <div className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-amber-400 animate-pulse" />
-            <h3 className="text-base font-extrabold text-text-primary tracking-tight">Номинации турнира</h3>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => fetchNominations(true)}
-            disabled={refreshing}
-            className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3.5 py-2 rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Пересчитать</span>
+          <div className="flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-400" /><h3 className="text-base font-extrabold">Номинации турнира</h3></div>
+          <button type="button" onClick={() => void load(true)} disabled={refreshing} className="bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2">
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />Пересчитать
           </button>
         </div>
-
-        {/* Provisional Status Notification Banner */}
-        {provisional ? (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-400 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Предварительные результаты</p>
-              <p className="text-[11px] opacity-90 mt-0.5">
-                Турнир еще не завершён. Ниже представлены промежуточные лидеры номинаций. Окончательные итоги будут зафиксированы после официального завершения турнира главным судьей.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 text-xs text-emerald-400 flex items-start gap-2">
-            <Trophy className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Официальные итоги зафиксированы</p>
-              <p className="text-[11px] opacity-90 mt-0.5">
-                Турнир успешно завершён. Номинации рассчитаны на основе финальных протоколов всех 10 игр по внутреннему регламенту турнира.
-              </p>
-            </div>
-          </div>
-        )}
+        <div className={`${provisional ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'} border rounded-2xl p-3 text-xs flex items-start gap-2`}>
+          {provisional ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <Trophy className="w-4 h-4 shrink-0 mt-0.5" />}
+          <div><p className="font-bold">{provisional ? 'Предварительные результаты' : 'Канонические итоги номинаций'}</p><p className="text-[11px] opacity-90 mt-0.5">Сравнение: Баллы → Доп. баллы → для Дона/Шерифа победы в роли → личное сравнение. Ручного выбора победителя нет.</p></div>
+        </div>
       </div>
 
-      {/* Grid of Nominations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {nominations.map((nom) => {
-          const topCandidate = nom.candidates[0];
-          
-          if (!topCandidate) {
-            return (
-              <div key={nom.category} className="bg-surface-1 border border-border-soft rounded-3xl p-5 space-y-3">
-                <div className="flex items-center gap-2.5 border-b border-border-soft pb-3">
-                  {getCategoryIcon(nom.category)}
-                  <h4 className="text-sm font-black tracking-tight">{nom.title}</h4>
-                </div>
-                <p className="text-xs text-text-muted italic">Нет претендентов. Никто еще не сыграл в этой роли.</p>
-              </div>
-            );
-          }
-
-          // In case of a tie, list all candidate(s) sharing the top score
-          const topScore = topCandidate.nomination_points;
-          const winners = nom.candidates.filter(
-            (c: any) => Math.abs(c.nomination_points - topScore) < 0.0001
-          );
-
+          const winner = nom.winner_participant_id ? nom.candidates.find((candidate) => candidate.participant_id === nom.winner_participant_id) : null;
+          const tied = nom.comparison?.tied_participant_ids || [];
           return (
             <div key={nom.category} className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
-              {/* Header */}
               <div className="flex items-center justify-between border-b border-border-soft pb-3 gap-2">
-                <div className="flex items-center gap-2.5">
-                  {getCategoryIcon(nom.category)}
-                  <h4 className="text-sm font-black tracking-tight">{nom.title}</h4>
-                </div>
-                {nom.has_tie && (
-                  <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider text-center">
-                    Равенство — требуется решение Главного судьи
-                  </span>
-                )}
+                <div className="flex items-center gap-2.5">{icon(nom.category)}<h4 className="text-sm font-black">{nom.title}</h4></div>
+                {nom.has_tie ? <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Полное равенство</span> : null}
               </div>
 
-              {/* Winners Spotlight */}
+              {winner ? (
+                <div className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{winner.games_in_role} игр в выборке</span></div></div>
+                  <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Баллы </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Доп. </span><strong>{signed(winner.additional_points)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
+                </div>
+              ) : nom.has_tie ? (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300">Все критерии, включая личное сравнение, исчерпаны. Победитель не назначается автоматически и не выбирается вручную.</div>
+              ) : null}
+
               <div className="space-y-2">
-                <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider block">
-                  {winners.length > 1 ? 'Претенденты с равными баллами (решение за Главным судьёй):' : 'Победитель номинации:'}
-                </span>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {winners.map((winner: any) => (
-                    <div
-                      key={winner.participant_id}
-                      className="bg-accent/5 border border-accent/20 rounded-2xl p-3 flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                          winners.length > 1 ? 'bg-accent/10 text-accent' : 'bg-amber-500/20 text-amber-400'
-                        }`}>
-                          {winners.length > 1 ? (
-                            <Award className="w-4.5 h-4.5" />
-                          ) : (
-                            <Trophy className="w-4.5 h-4.5 fill-amber-500/10" />
-                          )}
-                        </span>
-                        <PlayerAvatar nickname={winner.display_name} size="sm" />
-                        <div className="min-w-0">
-                          <span className="text-sm font-black text-text-primary block truncate">
-                            {winner.display_name}
-                          </span>
-                          <span className="text-[10px] text-text-secondary block">
-                            Игр в роли: {winner.games_in_role}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="text-right font-mono">
-                        <div className="text-[9px] text-text-muted uppercase">Очки</div>
-                        <div className="text-base font-black text-accent">
-                          {winner.nomination_points > 0 ? `+${winner.nomination_points}` : winner.nomination_points}
-                        </div>
-                      </div>
+                <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Претенденты</span>
+                {nom.candidates.map((candidate, index) => {
+                  const key = `${nom.category}-${candidate.participant_id}`;
+                  const isExpanded = Boolean(expanded[key]);
+                  const isWinner = candidate.participant_id === nom.winner_participant_id;
+                  const isTied = tied.includes(candidate.participant_id);
+                  return (
+                    <div key={candidate.participant_id} className={`border rounded-2xl overflow-hidden ${isWinner ? 'border-accent/30 bg-accent/5' : isTied ? 'border-amber-500/30 bg-amber-500/5' : 'border-border-soft bg-surface-2/20'}`}>
+                      <button type="button" onClick={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))} className="w-full p-3 min-h-[44px] flex items-center gap-3 text-left">
+                        <span className="w-5 text-xs text-text-muted font-bold">{index + 1}</span><PlayerAvatar nickname={candidate.display_name} size="xs" /><span className="font-bold text-sm truncate flex-1">{candidate.display_name}</span>
+                        <div className="font-mono text-[10px] text-right shrink-0"><div>Б {signed(candidate.points)}</div><div>Д {signed(candidate.additional_points)}</div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div>Р {candidate.role_wins}</div>}</div>
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
+                      </button>
+                      {isExpanded && <div className="p-3 border-t border-border-soft bg-surface-2/40 space-y-2">{candidate.breakdown.map((game: any) => <div key={game.game_number} className="text-[10px] flex flex-wrap gap-x-3 gap-y-1"><strong>Игра №{game.game_number}</strong><span>Судья {signed(game.judge_bonus)}</span><span>Протокол {signed(game.protocol_bonus)}</span><span>ЛХ {signed(game.best_move_points)}</span></div>)}</div>}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Candidates Ranking */}
-              <div className="space-y-2 pt-2">
-                <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider block">
-                  Рейтинг претендентов:
-                </span>
-
-                {/* Mobile View: Cards */}
-                <div className="block sm:hidden space-y-2">
-                  {nom.candidates.map((candidate: any, idx: number) => {
-                    const isExpanded = expandedCandidates[`${nom.category}-${candidate.participant_id}`];
-                    const isWinner = winners.some((w: any) => w.participant_id === candidate.participant_id);
-
-                    return (
-                      <div key={candidate.participant_id} className={`border border-border-soft rounded-2xl overflow-hidden bg-surface-1 ${isWinner ? 'bg-accent/5 border-accent/20' : ''}`}>
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(nom.category, candidate.participant_id)}
-                          className="w-full text-left p-3 min-h-[44px] flex flex-col gap-2"
-                        >
-                          <div className="flex items-center justify-between w-full min-w-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-text-muted font-bold text-xs w-4 shrink-0">{idx + 1}</span>
-                              <PlayerAvatar nickname={candidate.display_name} size="xs" />
-                              <span className="font-bold text-sm text-text-primary truncate">{candidate.display_name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-accent font-black font-mono">
-                                {candidate.nomination_points > 0 ? `+${candidate.nomination_points}` : candidate.nomination_points}
-                              </span>
-                              {isExpanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-text-secondary pl-6">
-                             <div>Суд: <span className="text-text-primary">{candidate.judge_bonus > 0 ? `+${candidate.judge_bonus}` : candidate.judge_bonus}</span></div>
-                             <div>Пр: <span className="text-text-primary">{candidate.protocol_bonus > 0 ? `+${candidate.protocol_bonus}` : candidate.protocol_bonus}</span></div>
-                             <div>ЛХ: <span className="text-amber-400">{candidate.best_move_points > 0 ? `+${candidate.best_move_points}` : candidate.best_move_points}</span></div>
-                          </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="p-3 bg-surface-2/40 border-t border-border-soft">
-                            <span className="font-bold text-text-secondary uppercase tracking-wider block text-[10px] mb-2 font-sans">
-                              Детализация игр ({candidate.display_name}):
-                            </span>
-                            {candidate.breakdown.length === 0 ? (
-                              <span className="italic text-text-muted text-xs font-sans">Нет завершённых игр в этой роли</span>
-                            ) : (
-                              <div className="grid grid-cols-1 gap-2 font-sans">
-                                {candidate.breakdown.map((b: any, bIdx: number) => (
-                                  <div key={bIdx} className="p-2.5 bg-surface-1 border border-border-soft rounded-xl space-y-1">
-                                    <div className="font-bold flex justify-between text-[11px]">
-                                      <span>Игра №{b.game_number}</span>
-                                      <span className="text-accent font-mono text-xs">+{b.nomination_points}</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-text-muted font-mono">
-                                      <div>Судья: {b.judge_bonus > 0 ? `+${b.judge_bonus}` : b.judge_bonus}</div>
-                                      <div>Протокол: {b.protocol_bonus > 0 ? `+${b.protocol_bonus}` : b.protocol_bonus}</div>
-                                      <div>ЛХ: {b.best_move_points > 0 ? `+${b.best_move_points}` : b.best_move_points}</div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Desktop View: Table */}
-                <div className="hidden sm:block border border-border-soft rounded-2xl overflow-hidden bg-surface-2/20">
-                  <table className="w-full text-left text-xs border-collapse font-mono">
-                    <thead>
-                      <tr className="bg-surface-2 text-text-muted text-[10px] uppercase font-bold border-b border-border-soft">
-                        <th className="py-2 px-3 text-center w-8">#</th>
-                        <th className="py-2 px-2 text-left font-sans">Игрок</th>
-                        <th className="py-2 px-1 text-center">Судья</th>
-                        <th className="py-2 px-1 text-center">Проток</th>
-                        <th className="py-2 px-1 text-center">ЛХ</th>
-                        <th className="py-2 px-2 text-center text-accent font-extrabold w-14">Итого</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-soft/40 text-[11px]">
-                      {nom.candidates.map((candidate: any, idx: number) => {
-                        const isExpanded = expandedCandidates[`${nom.category}-${candidate.participant_id}`];
-                        const isWinner = winners.some((w: any) => w.participant_id === candidate.participant_id);
-
-                        return (
-                          <React.Fragment key={candidate.participant_id}>
-                            <tr
-                              onClick={() => toggleExpand(nom.category, candidate.participant_id)}
-                              className={`hover:bg-surface-2/50 transition-colors cursor-pointer ${
-                                isWinner ? 'bg-accent/5 font-semibold' : ''
-                              }`}
-                            >
-                              <td className="py-2 px-3 text-center text-text-muted font-bold">
-                                {idx + 1}
-                              </td>
-                              <td className="py-2 px-2 text-left font-sans font-bold text-text-primary">
-                                <div className="flex items-center gap-1.5 justify-between min-w-0">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <PlayerAvatar nickname={candidate.display_name} size="xs" />
-                                    <span className="truncate max-w-[80px]">{candidate.display_name}</span>
-                                  </div>
-                                  {isExpanded ? (
-                                    <ChevronUp className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                                  ) : (
-                                    <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2 px-1 text-center text-text-secondary">
-                                {candidate.judge_bonus > 0 ? `+${candidate.judge_bonus}` : candidate.judge_bonus}
-                              </td>
-                              <td className="py-2 px-1 text-center text-text-secondary">
-                                {candidate.protocol_bonus > 0 ? `+${candidate.protocol_bonus}` : candidate.protocol_bonus}
-                              </td>
-                              <td className="py-2 px-1 text-center text-amber-400">
-                                {candidate.best_move_points > 0 ? `+${candidate.best_move_points}` : candidate.best_move_points}
-                              </td>
-                              <td className="py-2 px-2 text-center text-accent font-black">
-                                {candidate.nomination_points > 0 ? `+${candidate.nomination_points}` : candidate.nomination_points}
-                              </td>
-                            </tr>
-
-                            {/* Collapsible detailed per-game breakdown row */}
-                            {isExpanded && (
-                              <tr className="bg-surface-2/40">
-                                <td colSpan={6} className="py-2 px-3">
-                                  <div className="space-y-1.5 text-[10px] py-1">
-                                    <span className="font-bold text-text-secondary uppercase tracking-wider block font-sans">
-                                      Детализация игр ({candidate.display_name}):
-                                    </span>
-                                    {candidate.breakdown.length === 0 ? (
-                                      <span className="italic text-text-muted font-sans">Нет завершённых игр в этой роли</span>
-                                    ) : (
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 font-sans">
-                                        {candidate.breakdown.map((b: any, bIdx: number) => (
-                                          <div
-                                            key={bIdx}
-                                            className="p-1.5 bg-surface-1 border border-border-soft rounded-lg space-y-0.5"
-                                          >
-                                            <div className="font-bold flex justify-between">
-                                              <span>Игра №{b.game_number}</span>
-                                              <span className="text-accent font-mono">+{b.nomination_points} очков</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-x-2 text-[9px] text-text-muted font-mono">
-                                              <div>Судья: {b.judge_bonus > 0 ? `+${b.judge_bonus}` : b.judge_bonus}</div>
-                                              <div>Протокол: {b.protocol_bonus > 0 ? `+${b.protocol_bonus}` : b.protocol_bonus}</div>
-                                              <div>ЛХ: {b.best_move_points > 0 ? `+${b.best_move_points}` : b.best_move_points}</div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                  );
+                })}
               </div>
             </div>
           );

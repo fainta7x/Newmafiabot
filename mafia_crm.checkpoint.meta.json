@@ -1,0 +1,8 @@
+{
+  "snapshot_version": "2026-08-09-current-tournament-v1",
+  "checkpoint_file": "mafia_crm.checkpoint.sqlite.gz.b64",
+  "source": "current verified tournament repository snapshot",
+  "tournament_id": "987670b4-afd7-48d1-92ce-3d4d4cbed8d6",
+  "avatar_manifest": "src/lib/playerAvatarManifest.ts",
+  "import_condition": "preview runtime database is absent or zero-length"
+}

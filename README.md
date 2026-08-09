@@ -64,3 +64,11 @@ npm run dev
 - `src/server/` — Модульный Express сервер (маршруты, контроллеры, Zod-валидация, auth).
 - `src/components/` — React UI компоненты (CRM Организатора, Пульт Ведущего, Игровой Движок LiveGameEngine).
 - `tests/` — Интеграционные тесты (Vitest + Supertest).
+
+---
+
+## Canonical Preview snapshot
+
+`mafia_crm.checkpoint.sqlite.gz.b64` is the canonical repository snapshot for a clean Preview bootstrap. Its version and purpose are declared in `mafia_crm.checkpoint.meta.json`; current tournament avatar assets are repository-managed in `public/player-avatars/` and mapped to stable player IDs in `src/lib/playerAvatarManifest.ts`.
+
+Normal startup imports the canonical snapshot **only when `mafia_crm.runtime.sqlite` is absent or zero-length**. A non-empty runtime database is never replaced on restart or migration. Namespaced `/tmp` recovery checkpoints are accepted only when their embedded repository snapshot version matches the current canonical snapshot, so an obsolete Preview checkpoint cannot roll the project back after an unrelated code fix. Explicit reset/import remains separate from normal startup.

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'fs';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
+import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import {
   getHistoricalAwardDefaultTitle,
@@ -759,18 +761,33 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
 router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
-    const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [req.params.id]);
-    if (!avatar) {
+    const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [req.params.id]) as any;
+    if (avatar) {
+      return res.json({
+        data_url: `data:${avatar.mime_type};base64,${avatar.image_data.toString('base64')}`,
+        mime_type: avatar.mime_type,
+        byte_size: avatar.byte_size,
+        width: avatar.width,
+        height: avatar.height,
+        updated_at: avatar.updated_at,
+      });
+    }
+
+    const suppressed = await db.get('SELECT 1 FROM player_avatar_repository_suppression WHERE player_id = ?', [req.params.id]);
+    const asset = suppressed ? null : getRepositoryPlayerAvatarAsset(req.params.id);
+    const assetPath = asset ? resolveRepositoryPlayerAvatarPath(req.params.id) : null;
+    if (!asset || !assetPath) {
       return res.status(404).json({ error: 'Аватар не найден' });
     }
 
-    res.json({
-      data_url: `data:${avatar.mime_type};base64,${avatar.image_data.toString('base64')}`,
-      mime_type: avatar.mime_type,
-      byte_size: avatar.byte_size,
-      width: avatar.width,
-      height: avatar.height,
-      updated_at: avatar.updated_at
+    const image = fs.readFileSync(assetPath);
+    return res.json({
+      data_url: `data:image/jpeg;base64,${image.toString('base64')}`,
+      mime_type: 'image/jpeg',
+      byte_size: image.length,
+      width: asset.width,
+      height: asset.height,
+      updated_at: `repository:${asset.sha256.slice(0, 16)}`,
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -846,6 +863,7 @@ router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [req.params.id, 'image/jpeg', buffer, buffer.length, w, h, nowIso]
     );
+    await db.run('DELETE FROM player_avatar_repository_suppression WHERE player_id = ?', [req.params.id]);
 
     // Call checkpoint only for runtime DB
     const dbName = path.basename(db.dbPath);
@@ -864,8 +882,12 @@ router.delete('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
     const db = (req as any).db || (await getDb());
     
-    // Idempotent deletion
+    // Idempotent deletion also suppresses the repository default for this player.
     await db.run('DELETE FROM player_avatars WHERE player_id = ?', [req.params.id]);
+    await db.run(
+      'INSERT OR IGNORE INTO player_avatar_repository_suppression (player_id, created_at) VALUES (?, ?)',
+      [req.params.id, new Date().toISOString()],
+    );
 
     // Call checkpoint only for runtime DB
     const dbName = path.basename(db.dbPath);

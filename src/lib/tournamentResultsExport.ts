@@ -1,6 +1,8 @@
 import { Tournament, TournamentStandingItem, PlayerResultData, TournamentGame } from './api';
+import { NOIR_EXPORT_COLORS, NOIR_EXPORT_SCORE_COLORS } from './exportNoirTheme.ts';
 
 export interface GamePlayerExportRow {
+  participant_id?: string;
   seat_number: number;
   display_name: string;
   role: string | null;
@@ -12,6 +14,7 @@ export interface GamePlayerExportRow {
   game_penalty_points: number;
   disciplinary_penalty_points: number;
   ci_points: number;
+  avatar_data_url?: string | null;
 }
 
 /**
@@ -69,7 +72,8 @@ export function getSafeFilenameForStandings(title: string, gamesCount: number): 
 export function buildGameExportRows(
   playerResults: PlayerResultData[],
   standings: TournamentStandingItem[],
-  gameNumber: number
+  gameNumber: number,
+  avatarDataByParticipant: Record<string, string> = {},
 ): GamePlayerExportRow[] {
   // We keep the player results in the order of their seats (1 to 10)
   const sortedResults = [...playerResults].sort((a, b) => a.seat_number - b.seat_number);
@@ -80,6 +84,7 @@ export function buildGameExportRows(
     const standingGame = participantStanding?.games?.find((g) => g.game_number === gameNumber);
 
     return {
+      participant_id: pr.participant_id,
       seat_number: pr.seat_number,
       display_name: pr.display_name,
       role: pr.role,
@@ -91,8 +96,16 @@ export function buildGameExportRows(
       game_penalty_points: standingGame?.game_penalty_points ?? pr.penalty_points ?? 0,
       disciplinary_penalty_points: standingGame?.disciplinary_penalty_points ?? pr.disciplinary_penalty_points ?? 0,
       ci_points: standingGame?.ci_points ?? pr.ci_points ?? 0,
+      avatar_data_url: avatarDataByParticipant[pr.participant_id] || null,
     };
   });
+}
+
+export function getSvgDimensions(svgString: string): { width: number; height: number } {
+  const width = Number(/<svg[^>]*\bwidth=["']([0-9.]+)["']/.exec(svgString)?.[1] || 0);
+  const height = Number(/<svg[^>]*\bheight=["']([0-9.]+)["']/.exec(svgString)?.[1] || 0);
+  if (!(width > 0) || !(height > 0)) throw new Error('SVG не содержит корректные размеры');
+  return { width: Math.round(width), height: Math.round(height) };
 }
 
 export function generateGameResultsSvg(
@@ -101,181 +114,114 @@ export function generateGameResultsSvg(
   exportRows: GamePlayerExportRow[]
 ): string {
   const width = 1080;
-  const height = 1600;
+  const margin = 58;
+  const scoreX = 260;
+  const scoreMaxWidth = width - margin - scoreX - 120;
+  const fontFamily = "Montserrat, Arial, sans-serif";
 
-  const dateStr = new Date().toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  type GameScorePart = { key: keyof typeof NOIR_EXPORT_SCORE_COLORS; label: string; value: number };
+  const partsFor = (row: GamePlayerExportRow): GameScorePart[] => {
+    const parts: GameScorePart[] = [];
+    const add = (key: GameScorePart['key'], label: string, value: number) => {
+      if (Math.abs(value) < 0.0001) return;
+      parts.push({ key, label, value });
+    };
+    add('wins', 'За победу', row.win_point);
+    add('judge', 'Баллы', row.judge_bonus);
+    add('protocol', 'Доп. баллы', row.protocol_bonus);
+    add('best_move', 'Лучший ход', row.best_move_points);
+    add('ci', 'Компенсация первого убитого', row.ci_points);
+    add('game_penalty', 'Штрафы в игре', -Math.abs(row.game_penalty_points));
+    add('discipline', 'Дисциплинарный штраф', -Math.abs(row.disciplinary_penalty_points));
+    return parts;
+  };
+
+  const estimate = (text: string, fontSize = 24) => text.length * fontSize * 0.56;
+  const layoutParts = (parts: GameScorePart[]) => {
+    const lines: Array<Array<{ part: GameScorePart; text: string; width: number }>> = [];
+    let line: Array<{ part: GameScorePart; text: string; width: number }> = [];
+    let used = 0;
+    const gap = 26;
+    for (const part of parts) {
+      const text = `${part.label} ${formatPoints(part.value)}`;
+      const tokenWidth = Math.min(scoreMaxWidth, estimate(text, 22));
+      if (line.length && used + gap + tokenWidth > scoreMaxWidth) {
+        lines.push(line);
+        line = [];
+        used = 0;
+      }
+      line.push({ part, text, width: tokenWidth });
+      used += (line.length > 1 ? gap : 0) + tokenWidth;
+    }
+    if (line.length) lines.push(line);
+    return lines;
+  };
+
+  const rows = exportRows.map((row) => {
+    const parts = partsFor(row);
+    const lines = layoutParts(parts);
+    const height = Math.max(116, 88 + Math.max(1, lines.length) * 34);
+    return { row, parts, lines, height };
   });
+  const rowsHeight = rows.reduce((sum, item) => sum + item.height, 0);
+  const headerHeight = 300;
+  const footerHeight = 112;
+  const height = headerHeight + rowsHeight + footerHeight;
 
-  const winnerTeam = game.winner_team || 'red'; // fallback just in case
-  const isRedWin = winnerTeam === 'red';
-
+  const winnerLabel = game.winner_team === 'black' ? 'ПОБЕДА ЧЁРНЫХ' : 'ПОБЕДА КРАСНЫХ';
+  const winnerColor = game.winner_team === 'black' ? NOIR_EXPORT_COLORS.silver : NOIR_EXPORT_COLORS.wine;
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#0F172A"/>
-      <stop offset="100%" stop-color="#1E293B"/>
+    <linearGradient id="monogramGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#421828"/>
+      <stop offset="100%" stop-color="#1C1117"/>
     </linearGradient>
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#2563EB"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
+    <filter id="monogramBlur"><feGaussianBlur stdDeviation="10"/></filter>
   </defs>
-
-  <rect width="${width}" height="${height}" fill="url(#bgGrad)"/>
-  <rect x="0" y="0" width="${width}" height="16" fill="url(#accentGrad)"/>
-
-  <!-- Title & Header -->
-  <text x="50" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700" fill="#94A3B8">
-    ${escapeXml(tournament.title)}
-  </text>
-  <text x="50" y="125" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="#F8FAFC">
-    Результаты игры №${game.game_number}
-  </text>
-
-  <!-- Winner badge and Meta info -->
+  <rect width="${width}" height="${height}" fill="${NOIR_EXPORT_COLORS.background}"/>
+  <rect x="0" y="0" width="8" height="${height}" fill="${NOIR_EXPORT_COLORS.wine}"/>
+  <text x="${margin}" y="64" font-family="${fontFamily}" font-size="20" font-weight="800" fill="${NOIR_EXPORT_COLORS.wine}" letter-spacing="4">2LA NOIRE</text>
+  <text x="${margin}" y="116" font-family="${fontFamily}" font-size="20" font-weight="700" fill="${NOIR_EXPORT_COLORS.mutedText}" letter-spacing="2">ОФИЦИАЛЬНЫЙ ПРОТОКОЛ ИГРЫ</text>
+  <text x="${margin}" y="178" font-family="${fontFamily}" font-size="44" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">ИГРА №${game.game_number}</text>
+  <text x="${margin}" y="218" font-family="${fontFamily}" font-size="22" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">${escapeXml(tournament.title)}</text>
+  <text x="${width - margin}" y="170" text-anchor="end" font-family="${fontFamily}" font-size="24" font-weight="850" fill="${winnerColor}">${winnerLabel}</text>
+  <text x="${width - margin}" y="210" text-anchor="end" font-family="${fontFamily}" font-size="18" font-weight="650" fill="${NOIR_EXPORT_COLORS.mutedText}">Судья · ${escapeXml(game.judge_name || '—')}</text>
+  <line x1="${margin}" y1="258" x2="${width - margin}" y2="258" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="2"/>
   `;
 
-  if (isRedWin) {
-    svg += `
-    <rect x="50" y="155" width="220" height="42" rx="12" fill="rgba(16, 185, 129, 0.15)" stroke="rgba(16, 185, 129, 0.4)" stroke-width="1.5"/>
-    <text x="160" y="182" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="800" fill="#10B981">Победа: Красные</text>
-    `;
-  } else {
-    svg += `
-    <rect x="50" y="155" width="220" height="42" rx="12" fill="rgba(139, 92, 246, 0.15)" stroke="rgba(139, 92, 246, 0.4)" stroke-width="1.5"/>
-    <text x="160" y="182" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="800" fill="#C084FC">Победа: Чёрные</text>
-    `;
+  let y = headerHeight;
+  for (const item of rows) {
+    const { row, lines } = item;
+    const roleMap: Record<string, { label: string; color: string }> = {
+      citizen: { label: 'МИРНЫЙ', color: NOIR_EXPORT_SCORE_COLORS.wins },
+      sheriff: { label: 'ШЕРИФ', color: NOIR_EXPORT_COLORS.gold },
+      mafia: { label: 'МАФИЯ', color: '#D8747D' },
+      don: { label: 'ДОН', color: '#B693C9' },
+    };
+    const role = roleMap[String(row.role || '').toLowerCase()] || { label: 'БЕЗ РОЛИ', color: NOIR_EXPORT_COLORS.mutedText };
+    svg += `<text x="${margin}" y="${y + 40}" font-family="${fontFamily}" font-size="18" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}">${String(row.seat_number).padStart(2, '0')}</text>`;
+    svg += officialAvatarSvg(row.avatar_data_url, row.display_name, margin + 46, y + 18, 54, `game-avatar-${row.participant_id}`, NOIR_EXPORT_COLORS.divider, 1.5);
+    svg += `<text x="${margin + 118}" y="${y + 37}" font-family="${fontFamily}" font-size="29" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}">${escapeXml(row.display_name)}</text>`;
+    svg += `<text x="${margin + 118}" y="${y + 68}" font-family="${fontFamily}" font-size="16" font-weight="800" fill="${role.color}" letter-spacing="1.4">${role.label}</text>`;
+    svg += `<text x="${width - margin}" y="${y + 43}" text-anchor="end" font-family="${fontFamily}" font-size="38" font-weight="900" fill="${NOIR_EXPORT_COLORS.warmText}" font-variant-numeric="tabular-nums">${formatPoints(row.game_total)}</text>`;
+    svg += `<text x="${width - margin}" y="${y + 68}" text-anchor="end" font-family="${fontFamily}" font-size="13" font-weight="800" fill="${NOIR_EXPORT_COLORS.subduedText}" letter-spacing="1.5">ИТОГ ЗА ИГРУ</text>`;
+
+    if (lines.length) {
+      lines.forEach((line, lineIndex) => {
+        let x = scoreX;
+        line.forEach(({ part, text, width: tokenWidth }) => {
+          svg += `<text x="${x}" y="${y + 98 + lineIndex * 34}" font-family="${fontFamily}" font-size="22" font-weight="700" fill="${NOIR_EXPORT_SCORE_COLORS[part.key]}">${escapeXml(text)}</text>`;
+          x += tokenWidth + 26;
+        });
+      });
+    }
+    svg += `<line x1="${margin}" y1="${y + item.height - 2}" x2="${width - margin}" y2="${y + item.height - 2}" stroke="${NOIR_EXPORT_COLORS.divider}" stroke-width="1.5"/>`;
+    y += item.height;
   }
 
-  svg += `
-  <text x="295" y="182" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="700" fill="#94A3B8">
-    Судья: <tspan fill="#F8FAFC" font-weight="800">${escapeXml(game.judge_name || '—')}</tspan>
-  </text>
-  <text x="600" y="182" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="700" fill="#94A3B8">
-    Статус: <tspan fill="#34D399" font-weight="800">Завершена</tspan>
-  </text>
-  <text x="1030" y="182" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="end">
-    Сформировано: ${escapeXml(dateStr)}
-  </text>
-  `;
-
-  // Players Rows
-  const startY = 225;
-  const rowHeight = 110;
-  const gap = 15;
-
-  for (let i = 0; i < exportRows.length; i++) {
-    const row = exportRows[i];
-    const ry = startY + i * (rowHeight + gap);
-
-    svg += `<rect x="50" y="${ry}" width="980" height="${rowHeight}" rx="18" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>`;
-
-    // Seat circle
-    svg += `
-    <circle cx="95" cy="${ry + 55}" r="26" fill="#2563EB"/>
-    <text x="95" y="${ry + 63}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="900" fill="#FFFFFF">${row.seat_number}</text>
-    `;
-
-    // Nickname
-    svg += `
-    <text x="145" y="${ry + 42}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#F8FAFC">${escapeXml(row.display_name)}</text>
-    `;
-
-    // Role badge
-    let roleLabel = 'Без роли';
-    let textCol = '#94A3B8';
-    let bgCol = 'rgba(148, 163, 184, 0.12)';
-    let strokeCol = 'rgba(148, 163, 184, 0.3)';
-    let badgeWidth = 95;
-
-    const roleLower = (row.role || '').toLowerCase();
-    if (roleLower === 'citizen') {
-      roleLabel = 'Мирный';
-      textCol = '#34D399';
-      bgCol = 'rgba(52, 211, 153, 0.12)';
-      strokeCol = 'rgba(52, 211, 153, 0.3)';
-      badgeWidth = 85;
-    } else if (roleLower === 'sheriff') {
-      roleLabel = 'Шериф';
-      textCol = '#FBBF24';
-      bgCol = 'rgba(251, 191, 36, 0.12)';
-      strokeCol = 'rgba(251, 191, 36, 0.3)';
-      badgeWidth = 80;
-    } else if (roleLower === 'mafia') {
-      roleLabel = 'Мафия';
-      textCol = '#F87171';
-      bgCol = 'rgba(248, 113, 113, 0.12)';
-      strokeCol = 'rgba(248, 113, 113, 0.3)';
-      badgeWidth = 75;
-    } else if (roleLower === 'don') {
-      roleLabel = 'Дон';
-      textCol = '#C084FC';
-      bgCol = 'rgba(192, 132, 252, 0.12)';
-      strokeCol = 'rgba(192, 132, 252, 0.3)';
-      badgeWidth = 65;
-    }
-
-    svg += `
-    <rect x="145" y="${ry + 58}" width="${badgeWidth}" height="28" rx="8" fill="${bgCol}" stroke="${strokeCol}" stroke-width="1"/>
-    <text x="${145 + badgeWidth / 2}" y="${ry + 77}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="800" fill="${textCol}">${roleLabel}</text>
-    `;
-
-    // Non-zero components
-    const components: string[] = [];
-    if (row.win_point !== 0) {
-      components.push(`Победа ${formatPoints(row.win_point)}`);
-    }
-    if (row.judge_bonus !== 0) {
-      components.push(`Судья ${formatPoints(row.judge_bonus)}`);
-    }
-    if (row.protocol_bonus !== 0) {
-      components.push(`Протокол ${formatPoints(row.protocol_bonus)}`);
-    }
-    if (row.best_move_points !== 0) {
-      components.push(`ЛХ ${formatPoints(row.best_move_points)}`);
-    }
-    if (row.game_penalty_points !== 0) {
-      components.push(`Игр. штраф ${formatPoints(-row.game_penalty_points)}`);
-    }
-    if (row.disciplinary_penalty_points !== 0) {
-      components.push(`Дисц. штраф ${formatPoints(-row.disciplinary_penalty_points)}`);
-    }
-    if (row.ci_points !== 0) {
-      components.push(`Ci ${formatPoints(row.ci_points)}`);
-    }
-
-    if (components.length > 0) {
-      svg += `
-      <text x="${145 + badgeWidth + 15}" y="${ry + 76}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#94A3B8">
-        ${escapeXml(components.join('  •  '))}
-      </text>
-      `;
-    }
-
-    // Large total point on the right
-    const formattedTotal = formatPoints(row.game_total);
-    let totalColor = '#94A3B8';
-    if (row.game_total > 0) totalColor = '#10B981';
-    else if (row.game_total < 0) totalColor = '#EF4444';
-
-    svg += `
-    <text x="1000" y="${ry + 65}" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="900" fill="${totalColor}">${formattedTotal}</text>
-    `;
-  }
-
-  // Footer
-  svg += `
-  <text x="${width / 2}" y="${height - 35}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600" fill="#64748B">
-    NewMafia CRM • Итоговый протокол игры №${game.game_number}
-  </text>
-  </svg>
-  `;
-
+  svg += `<text x="${margin}" y="${height - 58}" font-family="${fontFamily}" font-size="16" font-weight="750" fill="${NOIR_EXPORT_COLORS.mutedText}">2LA NOIRE · ОФИЦИАЛЬНЫЙ СПОРТИВНЫЙ ПРОТОКОЛ</text>`;
+  svg += `<text x="${width - margin}" y="${height - 58}" text-anchor="end" font-family="${fontFamily}" font-size="15" font-weight="650" fill="${NOIR_EXPORT_COLORS.subduedText}">10 мест · результат за одну игру</text>`;
+  svg += `</svg>`;
   return svg;
 }
 
@@ -503,6 +449,9 @@ export type OfficialScoreKind =
 export interface OfficialNominationCandidate {
   participant_id: string;
   display_name: string;
+  points: number;
+  additional_points: number;
+  role_wins: number;
   nomination_points: number;
   games_in_role: number;
   judge_bonus: number;
@@ -510,26 +459,41 @@ export interface OfficialNominationCandidate {
   best_move_points: number;
 }
 
+export interface OfficialNominationComparison {
+  winner_participant_id: string | null;
+  tied_participant_ids: string[];
+  has_exact_tie: boolean;
+  decisive_criterion: 'points' | 'additional_points' | 'role_wins' | 'head_to_head' | 'exact_tie' | null;
+  decisive_value: number | null;
+  head_to_head_scores: Record<string, number> | null;
+  stages: Array<{
+    criterion: 'points' | 'additional_points' | 'role_wins' | 'head_to_head';
+    candidate_ids: string[];
+    values: Record<string, number>;
+    advancing_ids: string[];
+    decisive: boolean;
+  }>;
+}
+
 export interface OfficialNominationResult {
   category: string;
   title: string;
   has_tie: boolean;
   candidates: OfficialNominationCandidate[];
-  winner_participant_id?: string | null;
-  resolution_method?: 'draw' | 'chief_judge_decision' | string | null;
-  comment?: string | null;
+  winner_participant_id: string | null;
+  decisive_criterion: OfficialNominationComparison['decisive_criterion'];
+  comparison: OfficialNominationComparison;
 }
 
 export interface OfficialNominationReason {
   category: string | null;
-  kind: 'automatic' | 'chief_judge' | 'draw' | 'manual';
+  decisive_criterion: Exclude<OfficialNominationComparison['decisive_criterion'], null | 'exact_tie'>;
   headline: string;
-  nomination_points: number | null;
   games_in_role: number | null;
-  judge_bonus: number;
-  protocol_bonus: number;
-  best_move_points: number;
-  comment: string | null;
+  points: number;
+  additional_points: number;
+  role_wins: number;
+  head_to_head_label: string | null;
   show_metrics: boolean;
 }
 
@@ -686,68 +650,53 @@ export function getOfficialScoreComponents(item: TournamentStandingItem): Offici
   return components;
 }
 
-const nominationRoleLabel = (category: string | null | undefined): string | null => {
-  switch (category) {
-    case 'best_citizen': return 'В РОЛИ МИРНОГО';
-    case 'best_mafia': return 'В РОЛИ МАФИИ';
-    case 'best_sheriff': return 'В РОЛИ ШЕРИФА';
-    case 'best_don': return 'В РОЛИ ДОНА';
-    default: return null;
-  }
+const nominationRoleWinLabel = (category: string | null | undefined, wins: number): string => {
+  const role = category === 'best_sheriff' ? 'ШЕРИФА' : 'ДОНА';
+  return `${wins} ${russianPlural(wins, 'ПОБЕДА', 'ПОБЕДЫ', 'ПОБЕД')} В РОЛИ ${role}`;
 };
 
 function buildOfficialNominationReason(
   slot: import('./api').TournamentAwardSlot,
   result: OfficialNominationResult | undefined,
 ): OfficialNominationReason | null {
-  if (!slot.participant_id || slot.source === 'suppressed' || slot.source === 'unresolved') return null;
+  if (!slot.participant_id || slot.source !== 'automatic' || !result?.comparison?.winner_participant_id) return null;
+  const candidate = result.candidates.find((item) => item.participant_id === slot.participant_id);
+  if (!candidate) return null;
 
-  if (slot.source === 'manual') {
-    return {
-      category: slot.category || result?.category || null,
-      kind: 'manual',
-      headline: 'РЕШЕНИЕ ГЛАВНОГО СУДЬИ',
-      nomination_points: null,
-      games_in_role: null,
-      judge_bonus: 0,
-      protocol_bonus: 0,
-      best_move_points: 0,
-      comment: slot.comment || null,
-      show_metrics: false,
-    };
-  }
+  const criterion = result.comparison.decisive_criterion;
+  if (!criterion || criterion === 'exact_tie') return null;
 
-  const candidate = result?.candidates?.find((item) => item.participant_id === slot.participant_id);
-  const category = slot.category || result?.category || null;
-  const isMvp = category === 'mvp' || slot.key === 'nomination_mvp';
-  const role = nominationRoleLabel(category);
-  const metricHeadline = isMvp
-    ? 'ЛУЧШИЙ ПОКАЗАТЕЛЬ СРЕДИ ВСЕХ ИГРОКОВ'
-    : role
-      ? `ЛУЧШИЙ ПОКАЗАТЕЛЬ ${role}`
-      : 'ЛУЧШИЙ ПОКАЗАТЕЛЬ НОМИНАЦИИ';
-
-  let kind: OfficialNominationReason['kind'] = 'automatic';
-  let headline = metricHeadline;
-  if (result?.resolution_method === 'chief_judge_decision') {
-    kind = 'chief_judge';
-    headline = 'РАВЕНСТВО ПО ПОКАЗАТЕЛЯМ · РЕШЕНИЕ ГЛАВНОГО СУДЬИ';
-  } else if (result?.resolution_method === 'draw') {
-    kind = 'draw';
-    headline = 'РАВЕНСТВО ПО ПОКАЗАТЕЛЯМ · ПОБЕДИТЕЛЬ ЖЕРЕБЬЁВКИ';
+  let headline = 'ЛУЧШИЙ РЕЗУЛЬТАТ';
+  let headToHeadLabel: string | null = null;
+  if (criterion === 'points') {
+    headline = `ЛУЧШИЙ РЕЗУЛЬТАТ · БАЛЛЫ ${formatPosterNumber(candidate.points)}`;
+  } else if (criterion === 'additional_points') {
+    headline = `РАВЕНСТВО ПО БАЛЛАМ · ДОП. БАЛЛЫ ${formatPosterNumber(candidate.additional_points)}`;
+  } else if (criterion === 'role_wins') {
+    headline = `РАВЕНСТВО ПО БАЛЛАМ И ДОПАМ · ${nominationRoleWinLabel(result.category, candidate.role_wins)}`;
+  } else if (criterion === 'head_to_head') {
+    const scores = result.comparison.head_to_head_scores || {};
+    const winnerScore = scores[candidate.participant_id] || 0;
+    const finalStage = [...result.comparison.stages].reverse().find((stage) => stage.criterion === 'head_to_head');
+    const opponentScores = (finalStage?.candidate_ids || [])
+      .filter((id) => id !== candidate.participant_id)
+      .map((id) => scores[id] || 0);
+    headToHeadLabel = opponentScores.length === 1
+      ? `${winnerScore}:${opponentScores[0]}`
+      : `${winnerScore} ${russianPlural(winnerScore, 'победа', 'победы', 'побед')}`;
+    headline = `ЛИЧНОЕ СРАВНЕНИЕ · ${headToHeadLabel}`;
   }
 
   return {
-    category,
-    kind,
+    category: result.category,
+    decisive_criterion: criterion,
     headline,
-    nomination_points: candidate ? Number(candidate.nomination_points || 0) : null,
-    games_in_role: candidate ? Number(candidate.games_in_role || 0) : null,
-    judge_bonus: candidate ? Number(candidate.judge_bonus || 0) : 0,
-    protocol_bonus: candidate ? Number(candidate.protocol_bonus || 0) : 0,
-    best_move_points: candidate ? Number(candidate.best_move_points || 0) : 0,
-    comment: result?.comment || slot.comment || null,
-    show_metrics: Boolean(candidate),
+    games_in_role: candidate.games_in_role,
+    points: Number(candidate.points || 0),
+    additional_points: Number(candidate.additional_points || 0),
+    role_wins: Number(candidate.role_wins || 0),
+    head_to_head_label: headToHeadLabel,
+    show_metrics: true,
   };
 }
 
@@ -1060,16 +1009,16 @@ function layoutOfficialScoreComponents(
 
 const officialScoreColor = (kind: OfficialScoreKind): string => {
   switch (kind) {
-    case 'wins': return '#D8D2C9';
-    case 'judge': return '#C79AA5';
-    case 'protocol': return '#72AD8F';
-    case 'best_move': return '#D9B35F';
-    case 'ci': return '#6EA9B7';
-    case 'game_penalty': return '#B96870';
-    case 'discipline': return '#823B4D';
-    case 'legacy_bonus': return '#A99180';
-    case 'residual_bonus': return '#B79A76';
-    case 'residual_penalty': return '#8C4655';
+    case 'wins': return NOIR_EXPORT_SCORE_COLORS.wins;
+    case 'judge': return NOIR_EXPORT_SCORE_COLORS.judge;
+    case 'protocol': return NOIR_EXPORT_SCORE_COLORS.protocol;
+    case 'best_move': return NOIR_EXPORT_SCORE_COLORS.best_move;
+    case 'ci': return NOIR_EXPORT_SCORE_COLORS.ci;
+    case 'game_penalty': return NOIR_EXPORT_SCORE_COLORS.game_penalty;
+    case 'discipline': return NOIR_EXPORT_SCORE_COLORS.discipline;
+    case 'legacy_bonus': return NOIR_EXPORT_SCORE_COLORS.protocol;
+    case 'residual_bonus': return NOIR_EXPORT_SCORE_COLORS.protocol;
+    case 'residual_penalty': return NOIR_EXPORT_SCORE_COLORS.game_penalty;
   }
 };
 
@@ -1149,7 +1098,6 @@ interface AwardTileLayout {
   titleLines: string[];
   nameLines: string[];
   reasonLines: string[];
-  commentLines: string[];
   metricLayout: OfficialScoreLayout | null;
   gamesLabel: string | null;
   titleY: number;
@@ -1158,7 +1106,6 @@ interface AwardTileLayout {
   reasonY: number;
   gamesY: number | null;
   metricsY: number | null;
-  commentY: number | null;
   height: number;
   avatarSize: number;
   nameX: number;
@@ -1171,22 +1118,17 @@ const nominationMetricComponents = (reason: OfficialNominationReason | null | un
   const items: OfficialScoreComponent[] = [];
   const push = (kind: OfficialScoreKind, label: string, value: number) => {
     const rounded = roundOfficial(value);
-    if (Math.abs(rounded) < 0.0001) return;
-    items.push({ kind, label, value: rounded, tone: 'bonus', show_plus: true });
+    items.push({ kind, label, value: rounded, tone: 'bonus', show_plus: false });
   };
-  push('judge', 'Оценка судей', reason.judge_bonus);
-  push('protocol', 'Игровые бонусы', reason.protocol_bonus);
-  push('best_move', 'Лучший ход', reason.best_move_points);
+  push('judge', 'Баллы', reason.points);
+  push('protocol', 'Доп. баллы', reason.additional_points);
+  if ((reason.category === 'best_sheriff' || reason.category === 'best_don') && reason.decisive_criterion !== 'points' && reason.decisive_criterion !== 'additional_points') {
+    push('wins', 'Победы в роли', reason.role_wins);
+  }
   return items;
 };
 
-const nominationReasonText = (reason: OfficialNominationReason | null | undefined): string => {
-  if (!reason) return '';
-  if (reason.kind === 'automatic' && reason.nomination_points !== null) {
-    return `${reason.headline} · ${formatPosterNumber(reason.nomination_points)}`;
-  }
-  return reason.headline;
-};
+const nominationReasonText = (reason: OfficialNominationReason | null | undefined): string => reason?.headline || '';
 
 function layoutAwardTile(award: OfficialAwardPresentation, width: number, featured = false): AwardTileLayout {
   const titleFontSize = featured ? 25 : 22;
@@ -1225,16 +1167,11 @@ function layoutAwardTile(award: OfficialAwardPresentation, width: number, featur
   const metricsY = metricLayout ? cursor + 38 : null;
   if (metricLayout && metricsY) cursor = metricsY + Math.max(0, metricLayout.lines.length - 1) * metricLayout.lineHeight;
 
-  const commentLines = reason?.comment ? wrapExportText(reason.comment, featured ? 74 : 33, 3) : [];
-  const commentY = commentLines.length ? cursor + 38 : null;
-  if (commentY) cursor = commentY + Math.max(0, commentLines.length - 1) * 28;
-
   const height = Math.max(featured ? 190 : 166, cursor + 30);
   return {
     titleLines,
     nameLines,
     reasonLines,
-    commentLines,
     metricLayout,
     gamesLabel,
     titleY,
@@ -1243,7 +1180,6 @@ function layoutAwardTile(award: OfficialAwardPresentation, width: number, featur
     reasonY,
     gamesY,
     metricsY,
-    commentY,
     height,
     avatarSize,
     nameX,
@@ -1272,15 +1208,6 @@ function renderAwardExplanation(
   }
   if (layout.metricLayout && layout.metricsY) {
     svg += officialScoreComponentsSvg(layout.metricLayout, x, y + layout.metricsY);
-  }
-  if (layout.commentLines.length && layout.commentY) {
-    svg += officialSvgTextLines(
-      layout.commentLines,
-      x,
-      y + layout.commentY,
-      28,
-      `font-family="${officialSvgFont}" font-size="22" font-weight="650" font-style="italic" fill="#9E958E"`,
-    );
   }
   return svg;
 }

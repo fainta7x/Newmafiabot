@@ -10,6 +10,7 @@ import {
   getSafeFilenameForGame,
   getSafeFilenameForOfficial,
   getSafeFilenameForStandings,
+  getSvgDimensions,
   renderSvgToPngBlob,
 } from '../../../lib/tournamentResultsExport.ts';
 import { MobileSheet } from '../../ui/MobileSheet.tsx';
@@ -61,8 +62,8 @@ const compactAvatarForOfficialSvg = async (dataUrl: string): Promise<string | nu
 };
 
 const loadOfficialAvatar = (standing: TournamentStandingItem): Promise<string | null> => {
-  if (!standing.player_id || !standing.avatar_updated_at) return Promise.resolve(null);
-  const cacheKey = `${standing.player_id}:${standing.avatar_updated_at}`;
+  if (!standing.player_id) return Promise.resolve(null);
+  const cacheKey = `${standing.player_id}:${standing.avatar_updated_at || 'repository'}`;
   const cached = exportAvatarPromiseCache.get(cacheKey);
   if (cached) return cached;
 
@@ -203,13 +204,17 @@ export const ResultsImageExportModal: React.FC<ResultsImageExportModalProps> = (
           api.getGameProtocol(tournament.id, gameId),
           api.getTournamentStandings(tournament.id),
         ]);
+        const gameStandings = standingsRes.standings || [];
+        const avatarDataByParticipant = await loadOfficialAvatarMap(gameStandings);
         const exportRows = buildGameExportRows(
           protocolRes.player_results || [],
-          standingsRes.standings || [],
+          gameStandings,
           protocolRes.game.game_number,
+          avatarDataByParticipant,
         );
         const svg = generateGameResultsSvg(tournament, protocolRes.game, exportRows);
-        blob = await renderSvgToPngBlob(svg, 1080, 1600);
+        const dimensions = getSvgDimensions(svg);
+        blob = await renderSvgToPngBlob(svg, dimensions.width, dimensions.height);
         nextFileName = getSafeFilenameForGame(tournament.title, protocolRes.game.game_number);
       } else {
         const standingsRes = await api.getTournamentStandings(tournament.id);

@@ -14,6 +14,9 @@ import {
   type GuardedCheckpointMeta,
 } from './checkpointSyncShared.ts';
 
+const CANONICAL_CHECKPOINT = 'mafia_crm.checkpoint.sqlite.gz.b64';
+const CANONICAL_META = 'mafia_crm.checkpoint.meta.json';
+
 function atomicWriteText(targetPath: string, content: string): void {
   const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
   try {
@@ -29,15 +32,19 @@ function atomicWriteText(targetPath: string, content: string): void {
 export async function runGitCheckpointScript(): Promise<boolean> {
   const rootDir = process.cwd();
   const runtimePath = resolveActiveRuntimeDbPath(rootDir);
-  const metaPath = path.join(rootDir, 'mafia_crm.checkpoint.meta.json');
+  const targetPath = path.join(rootDir, CANONICAL_CHECKPOINT);
+  const metaPath = path.join(rootDir, CANONICAL_META);
   const existingMeta = readCanonicalSnapshotMeta(rootDir) as GuardedCheckpointMeta | null;
 
   if (!existingMeta) {
     console.error('Canonical checkpoint metadata is missing or invalid. Refusing export.');
     return false;
   }
+  if (existingMeta.checkpoint_file !== CANONICAL_CHECKPOINT) {
+    console.error(`Canonical metadata must reference ${CANONICAL_CHECKPOINT}. Refusing export.`);
+    return false;
+  }
 
-  const targetPath = path.join(rootDir, existingMeta.checkpoint_file);
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'newmafia-git-export-'));
   const snapshotPath = path.join(tempDir, 'snapshot.sqlite');
 
@@ -60,11 +67,12 @@ export async function runGitCheckpointScript(): Promise<boolean> {
     }
 
     const sqliteBytes = fs.readFileSync(snapshotPath);
-    const checkpointSha256 = sha256Bytes(sqliteBytes);
-    const encoded = zlib.gzipSync(sqliteBytes).toString('base64');
+    const compressedBytes = zlib.gzipSync(sqliteBytes);
+    const checkpointSha256 = sha256Bytes(compressedBytes);
+    const encoded = compressedBytes.toString('base64');
     const metadata: GuardedCheckpointMeta = {
       ...existingMeta,
-      checkpoint_file: path.basename(targetPath),
+      checkpoint_file: CANONICAL_CHECKPOINT,
       created_at: new Date().toISOString(),
       checksum_algorithm: 'sha256',
       checkpoint_sha256: checkpointSha256,
@@ -72,17 +80,21 @@ export async function runGitCheckpointScript(): Promise<boolean> {
       import_condition: 'development/AI Studio only; target runtime database must be absent or zero-length',
     };
 
-    // Verify the encoded payload before replacing either canonical artifact.
-    const roundTrip = zlib.gunzipSync(Buffer.from(encoded, 'base64'));
-    if (sha256Bytes(roundTrip) !== checkpointSha256) {
+    // Verify the exact encoded Git artifact before replacing either canonical file.
+    const roundTripCompressed = Buffer.from(encoded, 'base64');
+    if (sha256Bytes(roundTripCompressed) !== checkpointSha256) {
       throw new Error('Checkpoint round-trip checksum mismatch. Refusing export.');
+    }
+    const roundTripSqlite = zlib.gunzipSync(roundTripCompressed);
+    if (!roundTripSqlite.equals(sqliteBytes)) {
+      throw new Error('Checkpoint round-trip SQLite payload mismatch. Refusing export.');
     }
 
     atomicWriteText(targetPath, encoded);
     atomicWriteText(metaPath, `${JSON.stringify(metadata, null, 2)}\n`);
 
-    console.log(`Canonical checkpoint exported: ${path.basename(targetPath)}`);
-    console.log(`SHA-256: ${checkpointSha256}`);
+    console.log(`Canonical checkpoint exported: ${CANONICAL_CHECKPOINT}`);
+    console.log(`Checkpoint SHA-256: ${checkpointSha256}`);
     console.log(`Schema marker: ${metadata.schema_marker}`);
     return true;
   } catch (error: any) {

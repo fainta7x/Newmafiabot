@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
+import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 
 export const DEFAULT_ELO = 1000;
 
@@ -147,9 +148,6 @@ const clubPersonalGamePoints = (payload: any, result: any, results: any[]): numb
     Boolean(isPpkCulprit),
   );
 
-  // Same personal component used by tournament Elo: game_total - win_point.
-  // Positive/negative judge and protocol points collapse back to their signed values;
-  // team victory is handled separately by the Elo result component.
   return numeric(result?.judge_bonus)
     + numeric(result?.protocol_bonus)
     + clubBestMovePointsForParticipant(payload?.protocol, participantId, results)
@@ -181,8 +179,6 @@ export interface EloRebuildRow {
 }
 
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
-  // Tournament standings owns the canonical tournament personal game score. Importing it lazily
-  // avoids a startup module cycle with tournamentProtocolRoutes.
   const { internalGetStandings } = await import('../routes/tournamentsRoutesBase.ts');
 
   const players = await db.all<any>('SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id');
@@ -246,15 +242,19 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
   }
 
   const clubGames = await db.all<any>(`
-    SELECT id, global_game_number, game_date, created_at, winner_team, protocol_text
-      FROM games
-     WHERE evening_id IS NOT NULL
-       AND archived_at IS NULL
-       AND protocol_text IS NOT NULL
-     ORDER BY COALESCE(game_date, created_at) ASC, global_game_number ASC, id ASC
+    SELECT g.id, g.global_game_number, g.game_date, g.created_at, g.winner_team, g.protocol_text,
+           e.format AS evening_format
+      FROM games g
+      JOIN game_evenings e ON e.id = g.evening_id
+     WHERE g.evening_id IS NOT NULL
+       AND g.archived_at IS NULL
+       AND g.protocol_text IS NOT NULL
+     ORDER BY COALESCE(g.game_date, g.created_at) ASC, g.global_game_number ASC, g.id ASC
   `);
 
   for (const game of clubGames) {
+    if (!eveningFormatAffectsElo(game.evening_format)) continue;
+
     const payload = safeJsonParse<any>(game.protocol_text, null);
     if (!payload || payload.version !== 1 || payload.kind !== 'club_evening_protocol') continue;
     if (payload.protocol?.status !== 'completed') continue;
@@ -279,7 +279,6 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     const event: PreparedEloEvent = {
       source: 'club',
       sourceId: String(game.id),
-      // game_date is the evening date and stays stable when a completed protocol is corrected later.
       sortAt: String(game.game_date || game.created_at || ''),
       sortOrder: Number(game.global_game_number || game.id || 0),
       winnerTeam: winner,
@@ -305,7 +304,6 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       elo: ratings.get(player.playerId) ?? DEFAULT_ELO,
     }));
     const deltas = calculateCanonicalEloGame(gamePlayers, event.winnerTeam);
-    // Simultaneous application: all deltas were calculated from one pre-game rating snapshot.
     for (const delta of deltas) {
       ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? DEFAULT_ELO) + delta.totalDelta);
       gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);

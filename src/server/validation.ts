@@ -6,7 +6,8 @@ export const createEveningSchema = z.object({
   ends_at: z.string().nullable().optional(),
   timezone: z.string().default('Europe/Moscow'),
   venue: z.string().nullable().optional(),
-  format: z.enum(['NOVICE', 'STANDARD', 'TOURNAMENT']).default('STANDARD'),
+  // STANDARD remains accepted only for backwards compatibility with pre-cutover clients/data.
+  format: z.enum(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT', 'STANDARD']).default('CASUAL'),
   status: z.enum(['draft', 'published', 'active', 'completed', 'cancelled']).default('published'),
   capacity: z.number().int().positive().default(20),
   default_price: z.number().int().min(0).default(400),

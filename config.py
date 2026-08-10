@@ -3,8 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+#TOKEN mafiabot_test для тестирования
+#TOKEN = '8791874608:AAHhR0Z36CAOEN_aLvQ-PXM20btxmxL25a0' 
+
 # TOKEN mafiabot read from environment
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TOKEN = os.getenv('8791874608:AAHhR0Z36CAOEN_aLvQ-PXM20btxmxL25a0', '')
 
 # ADMIN_IDS from env or fallback
 ADMIN_IDS_RAW = os.getenv('ADMIN_IDS', '806709593,595795530,1576242455')

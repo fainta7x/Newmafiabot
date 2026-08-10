@@ -4,7 +4,7 @@ type SqlStatement = { sql: string; args?: any[] };
 type EncodedValue =
   | { type: 'null' }
   | { type: 'integer'; value: string }
-  | { type: 'float'; value: string }
+  | { type: 'float'; value: number }
   | { type: 'text'; value: string }
   | { type: 'blob'; base64: string };
 
@@ -43,7 +43,7 @@ function encodeValue(value: any): EncodedValue {
     if (!Number.isFinite(value)) throw new Error('Cannot bind a non-finite number to Turso');
     return Number.isInteger(value)
       ? { type: 'integer', value: String(value) }
-      : { type: 'float', value: String(value) };
+      : { type: 'float', value };
   }
   if (Buffer.isBuffer(value)) return { type: 'blob', base64: value.toString('base64') };
   if (value instanceof Uint8Array) return { type: 'blob', base64: Buffer.from(value).toString('base64') };

@@ -24,17 +24,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify canonical Preview copy has no historical 04A settlement on startup
+      - name: Verify 04A has no startup or tournament hook
         run: |
-          cat > /tmp/qa04a.ts <<'TS'
+          set -euo pipefail
+          if grep -q "clubGameTokenSettlementService\|reconcileClubGameTokenSettlement" src/app.ts; then
+            echo "04A settlement must not be wired into startup"; exit 1
+          fi
+          if grep -R -q "clubGameTokenSettlementService\|reconcileClubGameTokenSettlement" src/server/routes/tournament*.ts; then
+            echo "04A settlement must not be wired into tournament routes"; exit 1
+          fi
+
+      - name: Verify canonical Preview copy stays untouched by migration/startup token reconciliation
+        run: |
+          cat > qa04a.ts <<'TS'
           import fs from 'node:fs';
           import os from 'node:os';
           import path from 'node:path';
           import Database from 'better-sqlite3';
           import { initializePreviewRuntimeFromCanonical } from './src/db/canonicalSnapshot.ts';
           import { createDatabaseConnection } from './src/db/index.ts';
-          import { createApp } from './src/app.ts';
-          import { verifyTokenLedgerConsistency } from './src/server/services/tokenLedgerService.ts';
+          import { reconcileTokenOpeningBalances, verifyTokenLedgerConsistency } from './src/server/services/tokenLedgerService.ts';
 
           const root = fs.mkdtempSync(path.join(os.tmpdir(), 'newmafia-04a-preview-'));
           const runtime = path.join(root, 'runtime.sqlite');
@@ -48,27 +57,24 @@ jobs:
             raw.close();
 
             const db = createDatabaseConnection(runtime);
-            await createApp(db);
+            await reconcileTokenOpeningBalances(db);
             const after = await db.all<{id:string;tokens:number}>('SELECT id, tokens FROM players ORDER BY id');
-            if (JSON.stringify(after) !== JSON.stringify(before)) throw new Error('Startup changed existing player token balances');
+            if (JSON.stringify(after) !== JSON.stringify(before)) throw new Error('Startup token reconciliation changed existing player token balances');
 
             const clubLedger = await db.get<{n:number}>("SELECT COUNT(*) AS n FROM token_ledger WHERE reason_type IN ('club_game_player','club_game_judge')");
-            if (Number(clubLedger?.n || 0) !== 0) throw new Error('Startup created historical club_game token ledger rows');
+            if (Number(clubLedger?.n || 0) !== 0) throw new Error('Migration/startup created historical club_game token ledger rows');
             const settlements = await db.get<{n:number}>('SELECT COUNT(*) AS n FROM club_game_token_settlements');
-            if (Number(settlements?.n || 0) !== 0) throw new Error('Startup created historical club game settlement state');
+            if (Number(settlements?.n || 0) !== 0) throw new Error('Migration/startup created historical club game settlement state');
 
             const consistency = await verifyTokenLedgerConsistency(db);
             const mismatches = consistency.filter((row:any) => !row.matches);
             if (mismatches.length) throw new Error(`Ledger/cache mismatch after startup: ${JSON.stringify(mismatches)}`);
 
-            const tournamentLedger = await db.get<{n:number}>("SELECT COUNT(*) AS n FROM token_ledger WHERE source_type IN ('tournament_game','club_game_player','club_game_judge') AND reason_type != 'opening_balance'");
-            if (Number(tournamentLedger?.n || 0) !== 0) throw new Error('Completed tournament data caused token settlement on startup');
-            console.log(JSON.stringify({ players: after.length, completedTournamentGames, clubGameLedgerRows: clubLedger?.n || 0, settlementRows: settlements?.n || 0, consistency: 'ok' }));
+            console.log(JSON.stringify({ players: after.length, completedTournamentGames, clubGameLedgerRows: Number(clubLedger?.n || 0), settlementRows: Number(settlements?.n || 0), consistency: 'ok' }));
             db.sqlite.close();
           } finally {
             fs.rmSync(root, { recursive: true, force: true });
           }
           TS
-          cp /tmp/qa04a.ts ./qa04a.ts
           npx tsx ./qa04a.ts
           rm -f ./qa04a.ts

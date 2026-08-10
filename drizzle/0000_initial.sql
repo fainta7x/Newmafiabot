@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS evening_participants (
   evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
   player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   table_id TEXT REFERENCES evening_tables(id) ON DELETE SET NULL,
-  registration_status TEXT NOT NULL DEFAULT 'registered',
+  response_status TEXT NOT NULL DEFAULT 'unanswered',
+  registration_status TEXT NOT NULL DEFAULT 'unanswered',
   attendance_status TEXT NOT NULL DEFAULT 'pending',
   arrival_status TEXT NOT NULL DEFAULT 'unknown',
   payment_status TEXT NOT NULL DEFAULT 'unpaid',
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS evening_participants (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_evening_player_unique ON evening_participants (evening_id, player_id);
+CREATE INDEX IF NOT EXISTS idx_evening_participants_response ON evening_participants (evening_id, response_status);
 
 CREATE TABLE IF NOT EXISTS organizer_tasks (
   id TEXT PRIMARY KEY,

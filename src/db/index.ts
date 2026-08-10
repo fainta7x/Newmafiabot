@@ -20,16 +20,13 @@ export interface DatabaseWrapper {
 
 let defaultDbInstance: DatabaseWrapper | null = null;
 
-export function verifySqliteIntegrity(file: string): boolean {
-  return verifySqliteFile(file);
-}
+export function verifySqliteIntegrity(file: string): boolean { return verifySqliteFile(file); }
 
 export function restoreCheckpointFromGzB64(targetPath: string): boolean {
   const cwd = process.cwd();
   const candidate1 = path.join(cwd, 'mafia_crm.checkpoint.sqlite.gz.b64');
   const candidate2 = path.join(cwd, 'mafia_crm.checkpoint.gz.b64');
   const gzB64Path = fs.existsSync(candidate1) ? candidate1 : fs.existsSync(candidate2) ? candidate2 : null;
-
   if (!gzB64Path) return false;
   return restoreGzB64FileAtomically(gzB64Path, targetPath);
 }
@@ -42,102 +39,58 @@ export function ensureValidCheckpoint(targetPath: string): boolean {
 
 export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
   let dbPath = dbPathOrMemory || process.env.DATABASE_PATH;
-  
-  if (!dbPath || dbPath === "./mafia_crm.sqlite" || dbPath === "mafia_crm.sqlite") {
-    if (process.env.NODE_ENV === 'production') {
-      dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
-    } else {
+  if (!dbPath || dbPath === './mafia_crm.sqlite' || dbPath === 'mafia_crm.sqlite') {
+    if (process.env.NODE_ENV === 'production') dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
+    else {
       dbPath = path.join(process.cwd(), 'mafia_crm.runtime.sqlite');
       if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
-        const bootstrap = initializePreviewRuntimeFromCanonical(dbPath, process.cwd(), {
-          allowLegacyWithoutCanonical: !process.env.VITEST,
-        });
-        if (bootstrap.source === 'preview-checkpoint') {
-          console.log('Restored runtime database from a compatible versioned preview checkpoint.');
-        } else if (bootstrap.source === 'canonical') {
-          console.log('Initialized runtime database from the canonical repository snapshot.');
-        }
+        const bootstrap = initializePreviewRuntimeFromCanonical(dbPath, process.cwd(), { allowLegacyWithoutCanonical: !process.env.VITEST });
+        if (bootstrap.source === 'preview-checkpoint') console.log('Restored runtime database from a compatible versioned preview checkpoint.');
+        else if (bootstrap.source === 'canonical') console.log('Initialized runtime database from the canonical repository snapshot.');
       }
     }
   }
 
   const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:')) ? dbPath : path.resolve(dbPath);
   if (resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
-    const dir = path.dirname(resolvedDbPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const dir = path.dirname(resolvedDbPath); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }
-
   const sqlite = new Database(resolvedDbPath);
   const isPreviewTournamentDB = path.basename(resolvedDbPath) === 'mafia_crm.runtime.sqlite' && process.env.NODE_ENV !== 'production';
-  if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE');
-  else sqlite.pragma('journal_mode = WAL');
+  if (isPreviewTournamentDB) sqlite.pragma('journal_mode = DELETE'); else sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
-
   const drizzleDb = drizzle(sqlite, { schema });
   const wrapper: DatabaseWrapper = {
-    sqlite,
-    drizzle: drizzleDb,
-    dbPath: resolvedDbPath,
-    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-      return sqlite.prepare(sql).all(...params) as T[];
-    },
-    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-      const res = sqlite.prepare(sql).get(...params);
-      return (res as T) || null;
-    },
-    async run(sql: string, params: any[] = []) {
-      const info = sqlite.prepare(sql).run(...params);
-      return { lastID: info.lastInsertRowid ?? null, changes: info.changes };
-    },
+    sqlite, drizzle: drizzleDb, dbPath: resolvedDbPath,
+    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> { return sqlite.prepare(sql).all(...params) as T[]; },
+    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> { const res = sqlite.prepare(sql).get(...params); return (res as T) || null; },
+    async run(sql: string, params: any[] = []) { const info = sqlite.prepare(sql).run(...params); return { lastID: info.lastInsertRowid ?? null, changes: info.changes }; },
     async exec(sql: string) { sqlite.exec(sql); },
     async transaction<T>(cb: (tx: DatabaseWrapper) => Promise<T>): Promise<T> {
-      let result: T;
-      sqlite.exec('BEGIN TRANSACTION');
-      try {
-        result = await cb(wrapper);
-        sqlite.exec('COMMIT');
-        return result;
-      } catch (err) {
-        try { sqlite.exec('ROLLBACK'); } catch (_) {}
-        throw err;
-      }
+      sqlite.exec('BEGIN TRANSACTION'); try { const result = await cb(wrapper); sqlite.exec('COMMIT'); return result; }
+      catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
     },
   };
-
   initializeDatabase(wrapper);
   return wrapper;
 }
 
 export async function getDb(): Promise<DatabaseWrapper> {
-  if (!defaultDbInstance) {
-    defaultDbInstance = createDatabaseConnection();
-    await seedDemoData(defaultDbInstance);
-  }
+  if (!defaultDbInstance) { defaultDbInstance = createDatabaseConnection(); await seedDemoData(defaultDbInstance); }
   return defaultDbInstance;
 }
-
-export function resetDbInstanceForTesting() {
-  if (defaultDbInstance) {
-    try { defaultDbInstance.sqlite.close(); } catch (_) {}
-    defaultDbInstance = null;
-  }
-}
+export function resetDbInstanceForTesting() { if (defaultDbInstance) { try { defaultDbInstance.sqlite.close(); } catch (_) {} defaultDbInstance = null; } }
 
 export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   const migrationSqlPath = path.join(process.cwd(), 'drizzle', '0000_initial.sql');
   if (fs.existsSync(migrationSqlPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationSqlPath, 'utf8'));
-
   const addColumnIfNotExists = (tableName: string, columnName: string, colDef: string) => {
-    try {
-      const columns = dbWrapper.sqlite.pragma(`table_info(${tableName})`) as any[];
-      const exists = columns.some((c) => c.name === columnName);
-      if (!exists) dbWrapper.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${colDef}`);
-    } catch (e) {
-      console.error(`Failed to add column ${columnName} to table ${tableName}:`, e);
-    }
+    try { const columns = dbWrapper.sqlite.pragma(`table_info(${tableName})`) as any[]; if (!columns.some((c) => c.name === columnName)) dbWrapper.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${colDef}`); }
+    catch (e) { console.error(`Failed to add column ${columnName} to table ${tableName}:`, e); }
   };
 
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
+  addColumnIfNotExists('evening_participants', 'response_status', "TEXT NOT NULL DEFAULT 'unanswered'");
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'archived_at', 'TEXT');
   addColumnIfNotExists('games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
@@ -148,53 +101,15 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('players', 'pause_reason', 'TEXT');
   addColumnIfNotExists('players', 'contact_status', "TEXT NOT NULL DEFAULT 'normal'");
 
-  try {
-    dbWrapper.sqlite.exec(`
-      CREATE TABLE IF NOT EXISTS player_achievements (
-        id TEXT PRIMARY KEY,
-        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-        achievement_id TEXT NOT NULL,
-        earned_at TEXT NOT NULL,
-        source TEXT NOT NULL DEFAULT 'evaluator',
-        legacy_user_id TEXT,
-        created_at TEXT NOT NULL,
-        UNIQUE(player_id, achievement_id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON player_achievements(player_id);
-    `);
-  } catch (e) {
-    console.error('Failed to initialize player_achievements:', e);
-  }
-
-  try {
-    dbWrapper.sqlite.exec(`
-      UPDATE players SET contact_status = CASE
-        WHEN lifecycle_status = 'blocked' THEN 'blocked'
-        WHEN lifecycle_status = 'paused' THEN 'paused'
-        ELSE 'normal'
-      END
-      WHERE contact_status IS NULL OR contact_status = '' OR contact_status = 'normal';
-    `);
-  } catch (e) {
-    console.error('Failed to migrate contact_status:', e);
-  }
+  try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS player_achievements (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,achievement_id TEXT NOT NULL,earned_at TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'evaluator',legacy_user_id TEXT,created_at TEXT NOT NULL,UNIQUE(player_id,achievement_id));CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON player_achievements(player_id);`); }
+  catch (e) { console.error('Failed to initialize player_achievements:', e); }
+  try { dbWrapper.sqlite.exec(`UPDATE players SET contact_status = CASE WHEN lifecycle_status='blocked' THEN 'blocked' WHEN lifecycle_status='paused' THEN 'paused' ELSE 'normal' END WHERE contact_status IS NULL OR contact_status='' OR contact_status='normal';`); }
+  catch (e) { console.error('Failed to migrate contact_status:', e); }
 
   const migrations = [
-    '0001_complete_club_workflow.sql',
-    '0002_tournaments.sql',
-    '0003_protocol_imports.sql',
-    '0004_tournament_game_protocols.sql',
-    '0005_tournament_game_best_moves.sql',
-    '0006_tournament_award_overrides.sql',
-    '0007_player_historical_awards.sql',
-    '0008_canonical_nomination_resolution.sql',
-    '0009_token_ledger.sql',
-    '0010_club_game_token_settlements.sql',
+    '0001_complete_club_workflow.sql','0002_tournaments.sql','0003_protocol_imports.sql','0004_tournament_game_protocols.sql','0005_tournament_game_best_moves.sql','0006_tournament_award_overrides.sql','0007_player_historical_awards.sql','0008_canonical_nomination_resolution.sql','0009_token_ledger.sql','0010_club_game_token_settlements.sql','0011_canonical_evening_attendance.sql',
   ];
-  for (const file of migrations) {
-    const migrationPath = path.join(process.cwd(), 'drizzle', file);
-    if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8'));
-  }
+  for (const file of migrations) { const migrationPath = path.join(process.cwd(), 'drizzle', file); if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8')); }
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');
@@ -208,52 +123,10 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('tournament_game_player_results', 'major_technical_fouls', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'disciplinary_penalty_points', 'REAL NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'removal_reason', 'TEXT');
-
-  try {
-    dbWrapper.sqlite.exec(`
-      CREATE TABLE IF NOT EXISTS tournament_final_resolutions (
-        id TEXT PRIMARY KEY,
-        tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-        type TEXT NOT NULL,
-        category TEXT,
-        participant_ids_json TEXT NOT NULL,
-        ordered_participant_ids_json TEXT,
-        winner_participant_id TEXT,
-        resolution_method TEXT NOT NULL,
-        comment TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-    `);
-  } catch (e) {
-    console.error('Failed to create tournament_final_resolutions table:', e);
-  }
-
-  try {
-    dbWrapper.sqlite.exec(`
-      UPDATE tournament_game_player_results
-      SET judge_bonus = -penalty_points,
-          penalty_points = 0
-      WHERE penalty_points > 0 AND (judge_bonus = 0 OR judge_bonus IS NULL);
-    `);
-  } catch (e) {
-    console.error('Failed to migrate legacy penalty_points to judge_bonus:', e);
-  }
-
-  try {
-    dbWrapper.sqlite.exec(`
-      CREATE TABLE IF NOT EXISTS player_avatars (
-        player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
-        mime_type TEXT NOT NULL,
-        image_data BLOB NOT NULL,
-        byte_size INTEGER NOT NULL,
-        width INTEGER NOT NULL,
-        height INTEGER NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at ON player_avatars(updated_at);
-    `);
-  } catch (e) {
-    console.error('Failed to create player_avatars table:', e);
-  }
+  try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS tournament_final_resolutions (id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,type TEXT NOT NULL,category TEXT,participant_ids_json TEXT NOT NULL,ordered_participant_ids_json TEXT,winner_participant_id TEXT,resolution_method TEXT NOT NULL,comment TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);`); }
+  catch (e) { console.error('Failed to create tournament_final_resolutions table:', e); }
+  try { dbWrapper.sqlite.exec(`UPDATE tournament_game_player_results SET judge_bonus=-penalty_points,penalty_points=0 WHERE penalty_points>0 AND (judge_bonus=0 OR judge_bonus IS NULL);`); }
+  catch (e) { console.error('Failed to migrate legacy penalty_points to judge_bonus:', e); }
+  try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS player_avatars (player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,mime_type TEXT NOT NULL,image_data BLOB NOT NULL,byte_size INTEGER NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,updated_at TEXT NOT NULL);CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at ON player_avatars(updated_at);`); }
+  catch (e) { console.error('Failed to create player_avatars table:', e); }
 }

@@ -43,6 +43,10 @@ export function runGitCheckpointImport(): boolean {
 
     const encoded = fs.readFileSync(checkpointPath, 'utf8');
     const compressedBytes = decodeCheckpointBase64(encoded);
+    const actualChecksum = sha256Bytes(compressedBytes);
+    if (actualChecksum !== meta.checkpoint_sha256) {
+      throw new Error(`Checkpoint SHA-256 mismatch. Expected ${meta.checkpoint_sha256}, got ${actualChecksum}.`);
+    }
 
     let sqliteBytes: Buffer;
     try {
@@ -50,13 +54,8 @@ export function runGitCheckpointImport(): boolean {
     } catch {
       throw new Error('Canonical checkpoint is not valid gzip data.');
     }
-
     if (!sqliteBytes.length) {
       throw new Error('Canonical checkpoint contains an empty SQLite payload.');
-    }
-    const actualChecksum = sha256Bytes(sqliteBytes);
-    if (actualChecksum !== meta.checkpoint_sha256) {
-      throw new Error(`Checkpoint SHA-256 mismatch. Expected ${meta.checkpoint_sha256}, got ${actualChecksum}.`);
     }
 
     fs.mkdirSync(path.dirname(runtimePath), { recursive: true });
@@ -86,7 +85,7 @@ export function runGitCheckpointImport(): boolean {
     }
 
     console.log(`Canonical checkpoint imported into empty runtime path: ${runtimePath}`);
-    console.log(`Verified SHA-256: ${actualChecksum}`);
+    console.log(`Verified checkpoint SHA-256: ${actualChecksum}`);
     return true;
   } catch (error: any) {
     console.error(`Checkpoint import refused: ${error?.message || String(error)}`);

@@ -1,0 +1,74 @@
+name: ChatGPT club game token settlement 04A Preview QA
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-preview-qa-2026-08-10
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/club-game-token-settlement-04a-candidate-2026-08-10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify canonical Preview copy has no historical 04A settlement on startup
+        run: |
+          cat > /tmp/qa04a.ts <<'TS'
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import Database from 'better-sqlite3';
+          import { initializePreviewRuntimeFromCanonical } from './src/db/canonicalSnapshot.ts';
+          import { createDatabaseConnection } from './src/db/index.ts';
+          import { createApp } from './src/app.ts';
+          import { verifyTokenLedgerConsistency } from './src/server/services/tokenLedgerService.ts';
+
+          const root = fs.mkdtempSync(path.join(os.tmpdir(), 'newmafia-04a-preview-'));
+          const runtime = path.join(root, 'runtime.sqlite');
+          try {
+            const boot = initializePreviewRuntimeFromCanonical(runtime, process.cwd(), { allowLegacyWithoutCanonical: false });
+            if (!boot.initialized || boot.source !== 'canonical') throw new Error(`Unexpected canonical bootstrap: ${JSON.stringify(boot)}`);
+            const raw = new Database(runtime);
+            const before = raw.prepare('SELECT id, tokens FROM players ORDER BY id').all() as Array<{id:string;tokens:number}>;
+            const completedTournamentGames = Number((raw.prepare("SELECT COUNT(*) AS n FROM tournament_games WHERE status='completed'").get() as any).n);
+            if (completedTournamentGames <= 0) throw new Error('Canonical Preview copy has no completed tournament game fixture');
+            raw.close();
+
+            const db = createDatabaseConnection(runtime);
+            await createApp(db);
+            const after = await db.all<{id:string;tokens:number}>('SELECT id, tokens FROM players ORDER BY id');
+            if (JSON.stringify(after) !== JSON.stringify(before)) throw new Error('Startup changed existing player token balances');
+
+            const clubLedger = await db.get<{n:number}>("SELECT COUNT(*) AS n FROM token_ledger WHERE reason_type IN ('club_game_player','club_game_judge')");
+            if (Number(clubLedger?.n || 0) !== 0) throw new Error('Startup created historical club_game token ledger rows');
+            const settlements = await db.get<{n:number}>('SELECT COUNT(*) AS n FROM club_game_token_settlements');
+            if (Number(settlements?.n || 0) !== 0) throw new Error('Startup created historical club game settlement state');
+
+            const consistency = await verifyTokenLedgerConsistency(db);
+            const mismatches = consistency.filter((row:any) => !row.matches);
+            if (mismatches.length) throw new Error(`Ledger/cache mismatch after startup: ${JSON.stringify(mismatches)}`);
+
+            const tournamentLedger = await db.get<{n:number}>("SELECT COUNT(*) AS n FROM token_ledger WHERE source_type IN ('tournament_game','club_game_player','club_game_judge') AND reason_type != 'opening_balance'");
+            if (Number(tournamentLedger?.n || 0) !== 0) throw new Error('Completed tournament data caused token settlement on startup');
+            console.log(JSON.stringify({ players: after.length, completedTournamentGames, clubGameLedgerRows: clubLedger?.n || 0, settlementRows: settlements?.n || 0, consistency: 'ok' }));
+            db.sqlite.close();
+          } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+          }
+          TS
+          cp /tmp/qa04a.ts ./qa04a.ts
+          npx tsx ./qa04a.ts
+          rm -f ./qa04a.ts

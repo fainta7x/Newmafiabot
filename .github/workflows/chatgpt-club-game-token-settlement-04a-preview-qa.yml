@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: automation/club-game-token-settlement-04a-candidate-2026-08-10
+          ref: automation/club-game-token-settlement-04a-candidate-v2-2026-08-10
 
       - uses: actions/setup-node@v4
         with:

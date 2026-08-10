@@ -1,0 +1,79 @@
+name: ChatGPT 04B0 canonical evening status candidate
+
+on:
+  push:
+    branches:
+      - automation/04b0-stage-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify exact baseline
+        run: |
+          set -euo pipefail
+          git fetch origin main --prune
+          echo "stage_branch=$(git branch --show-current)"
+          echo "stage_head=$(git rev-parse HEAD)"
+          echo "main=$(git rev-parse origin/main)"
+          git status --short
+          test "$(git rev-parse origin/main)" = "d6bb46accaac3b6e7ce218a0aadb21a99fe085a9"
+
+      - name: Apply focused 04B0 patch
+        run: |
+          set -euo pipefail
+          cp automation/patch_04b0.py /tmp/patch_04b0.py
+          git checkout --detach d6bb46accaac3b6e7ce218a0aadb21a99fe085a9
+          python /tmp/patch_04b0.py
+          mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
+          printf '%s\n' "${changed[@]}"
+          allowed='^(drizzle/0000_initial\.sql|drizzle/0011_canonical_evening_response_attendance\.sql|src/db/schema\.ts|src/db/index\.ts|src/lib/eveningResponse\.ts|src/lib/eveningRoster\.ts|src/lib/api\.ts|src/server/validation\.ts|src/server/services/tableAssignmentService\.ts|src/server/routes/eveningsRoutes\.ts|src/server/routes/participantRoutes\.ts|src/server/routes/publicRoutes\.ts|src/server/routes/gamesRoutes\.ts|src/server/routes/playersRoutes\.ts|src/server/routes/crmRoutes\.ts|src/server/routes/analyticsRoutes\.ts|src/components/crm/EveningParticipantsView\.tsx|src/components/crm/EveningGameCreateSheet\.tsx|src/tests/eveningCanonicalStatus\.test\.ts|src/tests/eveningRoster\.test\.ts)$'
+          for file in "${changed[@]}"; do
+            [[ "$file" =~ $allowed ]] || { echo "Unexpected file: $file"; exit 1; }
+          done
+          if printf '%s\n' "${changed[@]}" | grep -Eq '(^mafia_crm|checkpoint|player-avatars|tournament|tokenLedger|clubGameTokenSettlement|\.py$)'; then
+            echo 'Forbidden data/token/tournament/avatar file changed'; exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Focused domain and UI tests
+        run: npx vitest run src/tests/eveningCanonicalStatus.test.ts src/tests/eveningRoster.test.ts src/tests/eveningParticipantSheet.test.tsx
+
+      - name: Audit active legacy status references
+        run: |
+          set -euo pipefail
+          echo '--- registration_status active-path references ---'
+          grep -RIn "registration_status" src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts src/server/routes/gamesRoutes.ts src/server/routes/crmRoutes.ts src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx src/lib/eveningRoster.ts src/lib/eveningResponse.ts || true
+          echo '--- waitlist/confirmed UI labels ---'
+          grep -RInE "Подтв|Резерв|waitlist|confirmed" src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx || true
+
+      - name: Commit candidate only
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add drizzle/0000_initial.sql drizzle/0011_canonical_evening_response_attendance.sql \
+            src/db/schema.ts src/db/index.ts src/lib/eveningResponse.ts src/lib/eveningRoster.ts src/lib/api.ts \
+            src/server/validation.ts src/server/services/tableAssignmentService.ts \
+            src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts \
+            src/server/routes/gamesRoutes.ts src/server/routes/playersRoutes.ts src/server/routes/crmRoutes.ts src/server/routes/analyticsRoutes.ts \
+            src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx \
+            src/tests/eveningCanonicalStatus.test.ts src/tests/eveningRoster.test.ts
+          git diff --cached --check
+          git commit -m "refactor(evenings): canonicalize response and attendance"
+          candidate=$(git rev-parse HEAD)
+          git push origin "$candidate:refs/heads/automation/04b0-candidate-2026-08-10"
+          echo "candidate=$candidate"

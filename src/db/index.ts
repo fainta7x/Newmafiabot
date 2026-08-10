@@ -189,6 +189,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     '0007_player_historical_awards.sql',
     '0008_canonical_nomination_resolution.sql',
     '0009_token_ledger.sql',
+    '0010_club_game_token_settlements.sql',
   ];
   for (const file of migrations) {
     const migrationPath = path.join(process.cwd(), 'drizzle', file);

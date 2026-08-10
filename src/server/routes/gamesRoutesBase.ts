@@ -4,6 +4,8 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { createGameSchema } from '../validation.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
+import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
+import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 
 const router = Router();
 
@@ -222,14 +224,14 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req, res) => {
   }
 });
 
-// PUT /api/games/:gameId/evening-protocol - save a club protocol without rating side effects.
+// PUT /api/games/:gameId/evening-protocol - save a structured club protocol and reconcile canonical token settlement.
 router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
 
     const db = (req as any).db || (await getDb());
-    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
     if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
@@ -245,17 +247,25 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
       return res.status(400).json({ error: 'У игры отсутствует структурированный клубный протокол' });
     }
 
+    const previousStatus = previous.protocol?.status === 'completed' ? 'completed' : 'draft';
     const status = incomingProtocol.status === 'completed' ? 'completed' : 'draft';
     const winner = incomingProtocol.winner_team === 'red'
       ? 'Красные'
       : incomingProtocol.winner_team === 'black'
         ? 'Чёрные'
         : null;
+    if (status === 'completed' && !winner) return res.status(400).json({ error: 'Для завершения игры укажите победившую команду' });
 
-    if (status === 'completed' && !winner) {
-      return res.status(400).json({ error: 'Для завершения игры укажите победившую команду' });
-    }
+    const hasJudgePatch = Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_player_id')
+      || Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_name');
+    const judge = hasJudgePatch
+      ? await resolveJudgeAssignment(db, {
+          judge_player_id: req.body?.judge_player_id ?? null,
+          judge_name: req.body?.judge_name ?? null,
+        })
+      : { judge_player_id: existing.judge_player_id || null, judge_name: existing.judge_name || null };
 
+    const now = new Date().toISOString();
     const nextProtocol = {
       version: 1,
       kind: 'club_evening_protocol',
@@ -263,28 +273,39 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
         ...incomingProtocol,
         game_id: String(gameId),
         status,
-        updated_at: new Date().toISOString(),
-        completed_at: status === 'completed' ? new Date().toISOString() : null,
+        updated_at: now,
+        completed_at: status === 'completed' ? now : null,
       },
       player_results: incomingResults,
     };
+    const settlementContext = status === 'completed'
+      ? (previousStatus === 'completed' ? 'correction' : 'completion')
+      : (previousStatus === 'completed' ? 'reopen' : 'correction');
 
-    await db.run(
-      `UPDATE games
-          SET winner_team = ?, winner_label = ?, protocol_text = ?, slots_json = ?
-        WHERE id = ?`,
-      [
-        winner || 'draft',
-        winner ? `Победа ${winner}` : 'Черновик',
-        JSON.stringify(nextProtocol),
-        JSON.stringify(clubSlotsFromResults(incomingResults)),
-        gameId,
-      ]
-    );
+    await db.transaction(async (tx: any) => {
+      await tx.run(
+        `UPDATE games
+            SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ?
+          WHERE id = ?`,
+        [
+          winner || 'draft',
+          winner ? `Победа ${winner}` : 'Черновик',
+          judge.judge_name,
+          judge.judge_player_id,
+          JSON.stringify(nextProtocol),
+          JSON.stringify(clubSlotsFromResults(incomingResults)),
+          gameId,
+        ],
+      );
+      await reconcileClubGameTokenSettlement(tx, gameId, {
+        activateIfUntracked: previousStatus !== 'completed' && status === 'completed',
+        context: settlementContext,
+      });
+    });
 
     if (status === 'completed') {
       const achievementIds = incomingResults.map((item: any) => String(item.player_id || '')).filter(Boolean);
-      if (existing.judge_player_id) achievementIds.push(String(existing.judge_player_id));
+      if (judge.judge_player_id) achievementIds.push(String(judge.judge_player_id));
       await evaluateAchievementsForPlayers(db, achievementIds);
     }
 
@@ -293,37 +314,37 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
          FROM games g
     LEFT JOIN evening_tables et ON et.id = g.evening_table_id
         WHERE g.id = ?`,
-      [gameId]
+      [gameId],
     );
     res.json(normalizeGame(row));
   } catch (err: any) {
-    res.status(400).json({ error: err.message || 'Не удалось сохранить протокол' });
+    const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');
+    res.status(400).json({ error: message });
   }
 });
 
-
-// POST /api/games/:gameId/archive - soft-delete any club evening game.
+// POST /api/games/:gameId/archive - soft-delete a structured club game and reconcile managed settlement to zero.
 router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
     const db = (req as any).db || (await getDb());
-    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Архив доступен только для игр обычного вечера' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
-    if (!protocol || protocol.kind !== 'club_evening_protocol') {
-      return res.status(400).json({ error: 'Архив доступен только для клубных игр вечера' });
-    }
+    if (!protocol || protocol.kind !== 'club_evening_protocol') return res.status(400).json({ error: 'Архив доступен только для клубных игр вечера' });
+
     if (!existing.archived_at) {
-      await db.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), gameId]);
+      await db.transaction(async (tx: any) => {
+        await tx.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), gameId]);
+        await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'archive' });
+      });
     }
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name
-         FROM games g
-    LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-        WHERE g.id = ?`,
-      [gameId]
+      `SELECT g.*, et.name AS table_name FROM games g
+       LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,
+      [gameId],
     );
     res.json(normalizeGame(row));
   } catch (err: any) {
@@ -331,25 +352,26 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   }
 });
 
-// POST /api/games/:gameId/archive/restore - restore a soft-deleted club evening game.
+// POST /api/games/:gameId/archive/restore - restore and reapply settlement only for already-managed games.
 router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
     const db = (req as any).db || (await getDb());
-    const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
     if (!existing.evening_id || !protocol || protocol.kind !== 'club_evening_protocol') {
       return res.status(400).json({ error: 'Это не клубная игра обычного вечера' });
     }
-    await db.run('UPDATE games SET archived_at = NULL WHERE id = ?', [gameId]);
+    await db.transaction(async (tx: any) => {
+      await tx.run('UPDATE games SET archived_at = NULL WHERE id = ?', [gameId]);
+      await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'restore' });
+    });
     const row = await db.get(
-      `SELECT g.*, et.name AS table_name
-         FROM games g
-    LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-        WHERE g.id = ?`,
-      [gameId]
+      `SELECT g.*, et.name AS table_name FROM games g
+       LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,
+      [gameId],
     );
     res.json(normalizeGame(row));
   } catch (err: any) {
@@ -456,19 +478,18 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
         if (player) {
           const isRedRole = slot.role === 'Мирный' || slot.role === 'Шериф';
           let eloDelta = 0;
-          let tokensDelta = 0;
 
           if (isRedWin) {
-            if (isRedRole) { eloDelta = 15; tokensDelta = 1; }
+            if (isRedRole) eloDelta = 15;
             else eloDelta = -10;
           } else {
-            if (!isRedRole) { eloDelta = 20; tokensDelta = 2; }
+            if (!isRedRole) eloDelta = 20;
             else eloDelta = -15;
           }
 
           await db.run(
-            'UPDATE players SET elo = ?, tokens = ?, updated_at = ? WHERE id = ?',
-            [Math.max(100, (player.elo || 1000) + eloDelta), (player.tokens || 0) + tokensDelta, now, player.id]
+            'UPDATE players SET elo = ?, updated_at = ? WHERE id = ?',
+            [Math.max(100, (player.elo || 1000) + eloDelta), now, player.id]
           );
         }
       }

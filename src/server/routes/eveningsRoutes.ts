@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import crypto from 'crypto';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { addSingleParticipantSchema, bulkAddParticipantsSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
@@ -14,6 +15,10 @@ import baseRouter from './eveningsRoutesBase.ts';
 const router = Router();
 const expectedSql = "response_status IN ('going','late')";
 const participantSelect = `SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo FROM evening_participants ep JOIN players p ON ep.player_id = p.id`;
+const withCanonicalFormat = <T extends { format?: unknown }>(evening: T): T & { format: ReturnType<typeof normalizeEveningFormat> } => ({
+  ...evening,
+  format: normalizeEveningFormat(evening.format),
+});
 
 const ensureEditable = async (db: DatabaseWrapper, id: string) => {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
@@ -22,13 +27,45 @@ const ensureEditable = async (db: DatabaseWrapper, id: string) => {
   return evening;
 };
 
+// Canonical quick action. This shadows the pre-cutover STANDARD implementation in baseRouter.
+router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db || (await getDb());
+    const now = new Date();
+    let dayOffset = (5 - now.getDay() + 7) % 7;
+    if (dayOffset === 0 && now.getHours() >= 20) dayOffset = 7;
+    const nextFriday = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+    const day = nextFriday.getDate();
+    const monthsRu = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const yearStr = nextFriday.getFullYear();
+    const monthStr = String(nextFriday.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const startsAtIso = `${yearStr}-${monthStr}-${dayStr}T20:00:00+03:00`;
+    const title = `Игровой вечер — ${day} ${monthsRu[nextFriday.getMonth()]}`;
+    const lastEvening = await db.get<any>('SELECT default_price FROM game_evenings ORDER BY starts_at DESC LIMIT 1');
+    const defaultPrice = Number(lastEvening?.default_price || 500);
+    const eveningId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES (?, ?, ?, 'Europe/Moscow', 'Суп с Котом', 'CASUAL', 'draft', 20, ?, ?, ?)`,
+      [eveningId, title, startsAtIso, defaultPrice, nowIso, nowIso],
+    );
+    const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
+    return res.status(201).json({ ...withCanonicalFormat(evening), tables: [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = (req as any).db || (await getDb());
     const isOrganizer = req.userRole === 'ORGANIZER';
     if (!isOrganizer) {
       const rows = await db.all<any>(`SELECT e.*, (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND ${expectedSql}) AS registered_count FROM game_evenings e WHERE e.status IN ('published','active') ORDER BY e.starts_at ASC`);
-      return res.json(rows.map((e) => ({ id:e.id,title:e.title,starts_at:e.starts_at,ends_at:e.ends_at,venue:e.venue,format:e.format,status:e.status,capacity:e.capacity,default_price:e.default_price,registered_count:e.registered_count,available_spots:Math.max(0,Number(e.capacity||0)-Number(e.registered_count||0)) })));
+      return res.json(rows.map((e) => ({ id:e.id,title:e.title,starts_at:e.starts_at,ends_at:e.ends_at,venue:e.venue,format:normalizeEveningFormat(e.format),status:e.status,capacity:e.capacity,default_price:e.default_price,registered_count:e.registered_count,available_spots:Math.max(0,Number(e.capacity||0)-Number(e.registered_count||0)) })));
     }
     const rows = await db.all<any>(`SELECT e.*,
       (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND ${expectedSql}) AS registered_count,
@@ -37,7 +74,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       (SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='no_show') AS no_show_count,
       (SELECT COALESCE(SUM(amount_paid),0) FROM evening_participants p WHERE p.evening_id=e.id) AS total_revenue
       FROM game_evenings e ORDER BY e.starts_at DESC`);
-    return res.json(rows);
+    return res.json(rows.map(withCanonicalFormat));
   } catch (err:any) { return res.status(500).json({error:'Database error',message:err.message}); }
 });
 
@@ -48,11 +85,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     if(!evening) return res.status(404).json({error:'Игровой вечер не найден'});
     const countRow=await db.get<any>(`SELECT COUNT(*) AS cnt FROM evening_participants WHERE evening_id=? AND ${expectedSql}`,[req.params.id]);
     const registered_count=Number(countRow?.cnt||0);
-    if(req.userRole!=='ORGANIZER') return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:evening.format,status:evening.status,capacity:evening.capacity,default_price:evening.default_price,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
+    if(req.userRole!=='ORGANIZER') return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:normalizeEveningFormat(evening.format),status:evening.status,capacity:evening.capacity,default_price:evening.default_price,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
     const tables=await db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[req.params.id]);
     const participants=(await db.all<any>(`${participantSelect} WHERE ep.evening_id=? ORDER BY ep.created_at ASC`,[req.params.id])).map(serializeEveningParticipant);
     const games=await db.all<any>('SELECT * FROM games WHERE evening_id=? ORDER BY global_game_number ASC',[req.params.id]);
-    return res.json({...evening,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count),tables,participants,games});
+    return res.json({...withCanonicalFormat(evening),registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count),tables,participants,games});
   } catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}
 });
 

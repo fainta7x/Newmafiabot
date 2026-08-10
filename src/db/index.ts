@@ -6,6 +6,7 @@ import * as schema from './schema.ts';
 import { seedDemoData } from './seed.ts';
 import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
 import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromCanonical } from './canonicalSnapshot.ts';
+import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -126,6 +127,8 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     '0001_complete_club_workflow.sql','0002_tournaments.sql','0003_protocol_imports.sql','0004_tournament_game_protocols.sql','0005_tournament_game_best_moves.sql','0006_tournament_award_overrides.sql','0007_player_historical_awards.sql','0008_canonical_nomination_resolution.sql','0009_token_ledger.sql','0010_club_game_token_settlements.sql','0011_canonical_evening_attendance.sql',
   ];
   for (const file of migrations) { const migrationPath = path.join(process.cwd(), 'drizzle', file); if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8')); }
+
+  applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');

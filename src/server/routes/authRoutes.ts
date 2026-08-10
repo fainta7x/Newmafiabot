@@ -6,8 +6,30 @@ import {
   checkLoginRateLimit,
   resetLoginRateLimit,
 } from '../auth.ts';
+import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 
 const router = Router();
+
+router.post('/telegram', (req, res) => {
+  const initData = req.body?.initData;
+  if (typeof initData !== 'string' || !initData) {
+    return res.status(400).json({ error: 'Telegram init data is required.' });
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+  if (!botToken) {
+    return res.status(503).json({ error: 'Telegram authentication is not configured.' });
+  }
+
+  try {
+    return res.json(validateTelegramInitData(initData, botToken));
+  } catch (error) {
+    if (error instanceof TelegramInitDataError) {
+      return res.status(401).json({ error: error.message });
+    }
+    return res.status(401).json({ error: 'Invalid Telegram init data.' });
+  }
+});
 
 router.post('/login', (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';

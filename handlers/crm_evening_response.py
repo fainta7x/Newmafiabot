@@ -1,13 +1,14 @@
 from datetime import datetime
 
 import aiohttp
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 import config
 from bot_api import submit_evening_response
 from crm_evening_keyboard import crm_evening_response_kb
+from handlers.crm_group_stats import refresh_crm_group_stats
 
 router = Router()
 
@@ -91,7 +92,7 @@ async def send_crm_evening_self_test(message: Message):
 
 
 @router.callback_query(F.data.startswith("evr:"))
-async def handle_crm_evening_response(callback: CallbackQuery):
+async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
     try:
         _, evening_id, response_status = callback.data.split(":", 2)
     except (AttributeError, ValueError):
@@ -110,6 +111,10 @@ async def handle_crm_evening_response(callback: CallbackQuery):
 
     if result.get("success"):
         await callback.answer(f"✅ {_STATUS_LABELS[response_status]}", show_alert=False)
+        try:
+            await refresh_crm_group_stats(bot, evening_id)
+        except Exception as exc:
+            print(f"[CRM STATS] Response saved, but group list refresh failed: {exc}")
         return
 
     error = result.get("error")

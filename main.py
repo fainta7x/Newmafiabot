@@ -1,23 +1,32 @@
 import asyncio
+import datetime
+import hmac
 import logging
 import os
-from aiogram import Bot, Dispatcher, BaseMiddleware
-from aiogram.types import Update, FSInputFile
+
+from aiogram import BaseMiddleware, Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import FSInputFile, Update
 from aiohttp import web
-import config
-from database import init_db
-from handlers import start_profile, payment, booking, profile, admin_judges
-from handlers import achievements
-from handlers import shop
-from handlers import crm_evening_response
-from handlers import crm_booking
-from handlers import admin_crm
+
 import admin
-from game import router as game_router  # игровой роутер
-from commands import setup_bot_commands
-import datetime
+import config
 import database as db
+from commands import setup_bot_commands
+from database import init_db
+from game import router as game_router  # игровой роутер
+from handlers import achievements
+from handlers import admin_crm
+from handlers import admin_judges
+from handlers import booking
+from handlers import crm_booking
+from handlers import crm_evening_response
+from handlers import payment
+from handlers import profile
+from handlers import shop
+from handlers import start_profile
+from handlers.crm_group_announcement import send_crm_group_announcement
+
 
 class MyLoggerMiddleware(BaseMiddleware):
     async def __call__(self, handler, event: Update, data):
@@ -79,6 +88,33 @@ async def handle_webhook(request):
         return web.Response(status=200)
 
 
+def _crm_request_authorized(request: web.Request) -> bool:
+    expected = str(config.BOT_API_SECRET or "")
+    provided = str(request.headers.get("X-Bot-Token") or "")
+    return bool(expected and provided and hmac.compare_digest(expected, provided))
+
+
+async def handle_crm_group_announcement_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+
+    evening_id = str(request.match_info.get("evening_id") or "").strip()
+    if not evening_id:
+        return web.json_response({"error": "evening_id_required"}, status=400)
+
+    result = await send_crm_group_announcement(bot, evening_id)
+    if result.get("success"):
+        return web.json_response(result)
+    if result.get("error") == "closed":
+        return web.json_response(result, status=409)
+    if result.get("error") in {"not_found", "evening_unavailable"}:
+        return web.json_response(result, status=404)
+    return web.json_response(result, status=502)
+
+
 def setup_handlers():
     """Регистрация всех хендлеров и роутеров"""
     global dp, bot
@@ -119,27 +155,27 @@ def setup_handlers():
 async def daily_backup_task():
     """Фоновая задача для ежедневного бэкапа в 3:00"""
     global bot
-    
+
     while True:
         now = datetime.datetime.now()
         next_backup = now.replace(hour=3, minute=0, second=0, microsecond=0)
         if now >= next_backup:
             next_backup += datetime.timedelta(days=1)
-        
+
         wait_seconds = (next_backup - now).total_seconds()
         logger.info(f"⏰ Следующий бэкап через {wait_seconds/3600:.1f} часов")
         await asyncio.sleep(wait_seconds)
-        
+
         if bot is None:
             logger.error("❌ Бот не инициализирован, бэкап не создан")
             continue
-        
+
         backup_path = await db.create_backup_file()
-        
+
         if backup_path:
             try:
                 await bot.send_document(
-                    config.BACKUP_ADMIN_ID, 
+                    config.BACKUP_ADMIN_ID,
                     FSInputFile(backup_path),
                     caption="📁 **Ежедневный бэкап**\n\n"
                             f"📅 Дата: {datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
@@ -178,6 +214,7 @@ async def start_webhook():
 
     app = web.Application()
     app.router.add_post("/webhook", handle_webhook)
+    app.router.add_post("/crm/evenings/{evening_id}/announce-group", handle_crm_group_announcement_request)
     app.router.add_get("/health", lambda request: web.Response(text="OK"))
     app.on_startup.append(lambda _: on_startup())
     app.on_shutdown.append(lambda _: on_shutdown())
@@ -193,7 +230,7 @@ async def start_webhook():
     await asyncio.Event().wait()
 
 
-async def start_polling(): #запуск в режиме polling (для локальной разработки)
+async def start_polling():  # запуск в режиме polling (для локальной разработки)
     global bot, dp
 
     storage = MemoryStorage()

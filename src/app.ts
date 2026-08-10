@@ -14,6 +14,7 @@ import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes
 import participantRoutes from './server/routes/participantRoutes.ts';
 import playersRoutes from './server/routes/playersRoutes.ts';
 import playerTokensRoutes from './server/routes/playerTokensRoutes.ts';
+import ratingRoutes from './server/routes/ratingRoutes.ts';
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
@@ -72,6 +73,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerSelfRoutes);
+  app.use('/api/rating', ratingRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);

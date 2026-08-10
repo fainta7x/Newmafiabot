@@ -113,6 +113,70 @@ async def get_achievement_profile_by_telegram(telegram_user_id: int) -> dict[str
         return {"success": False, "error": "unavailable"}
 
 
+async def get_open_evenings() -> dict[str, Any]:
+    """Load all canonical published/active evenings available to the bot."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/open"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_base_headers()) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if status == 200 and isinstance(data, list):
+                    return {"success": True, "data": data, "status": status}
+                if status in (401, 403):
+                    return {"success": False, "error": "authorization", "status": status}
+                if status == 503 or status >= 500:
+                    return {"success": False, "error": "unavailable", "status": status}
+                return {"success": False, "error": "invalid", "status": status}
+    except asyncio.TimeoutError:
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError:
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Unexpected open evenings API failure")
+        return {"success": False, "error": "unavailable"}
+
+
+async def get_evening_participants(evening_id: str) -> dict[str, Any]:
+    """Load one canonical CRM evening together with its participant state."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/participants"
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_base_headers()) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if status == 200 and isinstance(data, dict) and isinstance(data.get("participants"), list):
+                    return {"success": True, "data": data, "status": status}
+                if status == 404:
+                    return {"success": False, "error": "not_found", "status": status}
+                if status in (401, 403):
+                    return {"success": False, "error": "authorization", "status": status}
+                if status == 503 or status >= 500:
+                    return {"success": False, "error": "unavailable", "status": status}
+                return {"success": False, "error": "invalid", "status": status}
+    except asyncio.TimeoutError:
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError:
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Unexpected evening participants API failure")
+        return {"success": False, "error": "unavailable"}
+
+
 async def submit_evening_response(evening_id: str, telegram_user_id: int, response_status: str) -> dict[str, Any]:
     """Submit one canonical CRM-evening response for a Telegram account."""
     if not BOT_API_BASE_URL or not BOT_API_SECRET:

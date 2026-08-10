@@ -17,7 +17,8 @@
     "checkpoint:preview-db": "tsx src/scripts/createCheckpoint.ts",
     "checkpoint:git-db": "tsx src/scripts/createGitCheckpoint.ts",
     "checkpoint:git-export": "tsx src/scripts/createGitCheckpoint.ts",
-    "checkpoint:git-import": "tsx src/scripts/importGitCheckpoint.ts"
+    "checkpoint:git-import": "tsx src/scripts/importGitCheckpoint.ts",
+    "db:legacy-player-link-dry-run": "tsx src/scripts/legacyPlayerLinkDryRun.ts"
   },
   "dependencies": {
     "@google/genai": "^2.14.0",

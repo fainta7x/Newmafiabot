@@ -59,7 +59,7 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
         FROM evening_participants ep2
         JOIN game_evenings ge2 ON ge2.id = ep2.evening_id
         WHERE ep2.player_id = p.id AND ge2.starts_at > ?
-          AND ep2.registration_status NOT IN ('cancelled', 'declined')
+          AND ep2.response_status IN ('going', 'late')
       )
   `, [thirtyDaysAgo.toISOString(), thirtyDaysAgo.toISOString()]);
 

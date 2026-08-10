@@ -5,6 +5,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
+import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
@@ -15,6 +16,7 @@ import participantRoutes from './server/routes/participantRoutes.ts';
 import playersRoutes from './server/routes/playersRoutes.ts';
 import playerTokensRoutes from './server/routes/playerTokensRoutes.ts';
 import ratingRoutes from './server/routes/ratingRoutes.ts';
+import ratingPeriodRoutes from './server/routes/ratingPeriodRoutes.ts';
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
@@ -54,6 +56,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
+  await ensureRatingPeriodsSchema(db);
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {
@@ -74,18 +77,17 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/rating', ratingRoutes);
+  app.use('/api/rating-periods', ratingPeriodRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);
   app.use('/api/evening-participants', participantRoutes);
-  // Token routes are mounted first so player creation and raw token PATCH cannot bypass the ledger.
   app.use('/api/players', playerTokensRoutes);
   app.use('/api/players', playersRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
-  // The obsolete compatibility POST used a conflicting +1/+2 token formula. It is now retired.
   app.post('/api/games', requireOrganizerAuth, (_req, res) => {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });

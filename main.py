@@ -11,6 +11,7 @@ from handlers import start_profile, payment, booking, profile, admin_judges
 from handlers import achievements
 from handlers import shop
 from handlers import crm_evening_response
+from handlers import crm_booking
 from handlers import admin_crm
 import admin
 from game import router as game_router  # игровой роутер
@@ -101,7 +102,8 @@ def setup_handlers():
     dp.include_router(profile.router)  # профиль
     dp.include_router(payment.router)  # оплата
     dp.include_router(crm_evening_response.router)  # CRM-ответы на анонс вечера
-    dp.include_router(booking.router)  # запись на игру
+    dp.include_router(crm_booking.router)  # CRM-запись и список игроков
+    dp.include_router(booking.router)  # legacy запись на игру (fallback)
 
     # 3. Игровые роутеры
     dp.include_router(game_router)  # игровая логика

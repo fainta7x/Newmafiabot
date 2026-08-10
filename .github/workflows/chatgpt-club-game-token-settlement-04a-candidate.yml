@@ -37,8 +37,10 @@ jobs:
         run: |
           set -euo pipefail
           cp automation/patch_club_game_token_settlement_04a.py /tmp/patch_04a.py
+          cp automation/fix_club_game_token_settlement_04a_candidate.py /tmp/fix_04a.py
           git checkout --detach 1d04fbfb6f2f8b193f2d5b125859807004440be7
           python /tmp/patch_04a.py
+          python /tmp/fix_04a.py
           mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
           printf '%s\n' "${changed[@]}"
           allowed='^(drizzle/0010_club_game_token_settlements\.sql|src/db/index\.ts|src/server/routes/gamesRoutesBase\.ts|src/server/services/clubGameTokenSettlementService\.ts|src/tests/clubGameTokenSettlement\.test\.ts)$'

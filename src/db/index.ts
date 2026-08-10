@@ -7,6 +7,7 @@ import { seedDemoData } from './seed.ts';
 import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
 import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromCanonical } from './canonicalSnapshot.ts';
 import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
+import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -129,6 +130,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   for (const file of migrations) { const migrationPath = path.join(process.cwd(), 'drizzle', file); if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8')); }
 
   applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
+  applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');

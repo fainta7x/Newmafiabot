@@ -106,7 +106,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function PlayerCabinet({ data }: { data: PlayerMeResponse }) {
+export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
   const { player, achievements, tournaments } = data;
   const earnedAchievements = achievements.categories.flatMap((category) =>
     category.achievements
@@ -126,13 +126,21 @@ export default function PlayerCabinet({ data }: { data: PlayerMeResponse }) {
                 {player.nickname.slice(0, 1).toUpperCase()}
               </div>
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-xs uppercase tracking-[0.2em] text-white/40">2LA Noire</div>
               <h1 className="mt-1 truncate text-2xl font-semibold">{player.nickname}</h1>
               {player.full_name && <p className="mt-1 truncate text-sm text-white/60">{player.full_name}</p>}
               {player.telegram_username && <p className="mt-1 truncate text-sm text-white/45">@{player.telegram_username.replace(/^@/, '')}</p>}
             </div>
           </div>
+          {canOpenAdmin && (
+            <a
+              href="/admin"
+              className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80"
+            >
+              Панель организатора
+            </a>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div>
             <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div>

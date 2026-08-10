@@ -6,19 +6,25 @@ import PlayerCabinet, { type PlayerMeResponse } from "./components/player/Player
 
 type RootState =
   | { status: 'loading' }
-  | { status: 'organizer' }
-  | { status: 'player'; data: PlayerMeResponse }
-  | { status: 'unlinked' }
+  | { status: 'player'; data: PlayerMeResponse; canOpenAdmin: boolean }
+  | { status: 'unlinked'; canOpenAdmin: boolean }
   | { status: 'error' };
+
+function getTelegramInitData(): string {
+  const telegramWebApp = (window as any).Telegram?.WebApp;
+  return typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+}
 
 function RootMessage({
   title,
   text,
   onRetry,
+  canOpenAdmin = false,
 }: {
   title: string;
   text: string;
   onRetry?: () => void;
+  canOpenAdmin?: boolean;
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-5 text-white">
@@ -35,6 +41,14 @@ function RootMessage({
             Повторить
           </button>
         )}
+        {canOpenAdmin && (
+          <a
+            href="/admin"
+            className="mt-3 block w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white/80"
+          >
+            Панель организатора
+          </a>
+        )}
       </div>
     </main>
   );
@@ -50,22 +64,25 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const isPublicRoute = pathname.startsWith('/join') || pathname.startsWith('/tournaments/results/');
+  const isJoinRoute = pathname.startsWith('/join');
+  const isTournamentResultsRoute = pathname.startsWith('/tournaments/results/');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute;
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const telegramInitData = getTelegramInitData();
+  const isPlayerContext = pathname === '/player' || pathname.startsWith('/player/') || (pathname === '/' && Boolean(telegramInitData));
 
-  const bootstrap = useCallback(async () => {
-    if (isPublicRoute) return;
+  const bootstrapPlayer = useCallback(async () => {
+    if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     setRootState({ status: 'loading' });
 
     const telegramWebApp = (window as any).Telegram?.WebApp;
-    let initData = '';
-    let telegramAuthenticated = false;
+    const initData = getTelegramInitData();
 
     if (telegramWebApp) {
       try {
         telegramWebApp.ready?.();
         telegramWebApp.expand?.();
       } catch {}
-      initData = typeof telegramWebApp.initData === 'string' ? telegramWebApp.initData : '';
     }
 
     try {
@@ -77,51 +94,45 @@ export default function App() {
           body: JSON.stringify({ initData }),
         });
         if (!telegramResponse.ok) throw new Error('telegram-auth');
-        telegramAuthenticated = true;
       }
 
       const sessionResponse = await fetch('/api/auth/me', { credentials: 'same-origin' });
       if (!sessionResponse.ok) throw new Error('session');
       const session = await sessionResponse.json();
-
-      if (session?.isOrganizer === true) {
-        setRootState({ status: 'organizer' });
-        return;
-      }
+      const canOpenAdmin = session?.isOrganizer === true;
 
       if (session?.linked === true) {
         const profileResponse = await fetch('/api/player/me', { credentials: 'same-origin' });
         if (!profileResponse.ok) throw new Error('player-profile');
         const data = await profileResponse.json() as PlayerMeResponse;
-        setRootState({ status: 'player', data });
+        setRootState({ status: 'player', data, canOpenAdmin });
         return;
       }
 
-      if (initData && telegramAuthenticated) {
-        setRootState({ status: 'unlinked' });
-        return;
-      }
-
-      setRootState({ status: 'organizer' });
+      setRootState({ status: 'unlinked', canOpenAdmin });
     } catch {
       setRootState({ status: 'error' });
     }
-  }, [isPublicRoute]);
+  }, [isAdminRoute, isPlayerContext, isPublicRoute]);
 
   useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
+    void bootstrapPlayer();
+  }, [bootstrapPlayer]);
 
-  if (pathname.startsWith('/join')) {
+  if (isJoinRoute) {
     const parts = pathname.split('/').filter(Boolean);
     const eveningId = parts[1] || 'latest';
     return <PublicJoinView eveningId={eveningId} />;
   }
 
-  if (pathname.startsWith('/tournaments/results/')) {
+  if (isTournamentResultsRoute) {
     const parts = pathname.split('/').filter(Boolean);
     const token = parts[2] || '';
     return <PublicTournamentResults token={token} />;
+  }
+
+  if (isAdminRoute || !isPlayerContext) {
+    return <OrganizerCRM />;
   }
 
   if (rootState.status === 'loading') {
@@ -129,16 +140,18 @@ export default function App() {
   }
 
   if (rootState.status === 'unlinked') {
-    return <RootMessage title="Профиль не привязан" text="Этот Telegram-аккаунт пока не привязан к профилю игрока. Обратитесь к организатору клуба." />;
+    return (
+      <RootMessage
+        title="Профиль не привязан"
+        text="Этот Telegram-аккаунт пока не привязан к профилю игрока. Обратитесь к организатору клуба."
+        canOpenAdmin={rootState.canOpenAdmin}
+      />
+    );
   }
 
   if (rootState.status === 'error') {
-    return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrap()} />;
+    return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
-  if (rootState.status === 'player') {
-    return <PlayerCabinet data={rootState.data} />;
-  }
-
-  return <OrganizerCRM />;
+  return <PlayerCabinet data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />;
 }

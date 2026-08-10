@@ -138,7 +138,13 @@ describe('canonical club-game token settlement routes', () => {
   const ledgerCount = async () => Number((await db.get<{n:number}>('SELECT COUNT(*) AS n FROM token_ledger')).n);
 
   it('first completion settles all ten UUID players plus linked judge, replay is exact no-op, and metadata is readable', async () => {
-    const completed = protocol('completed', results, { best_moves:[{participant_id:'ep-1',source:'first_killed',seat_numbers:[8,9,10]}] });
+    const completed = protocol('completed', results, {
+      first_killed_participant_id:'ep-1', zero_round_voted_participant_id:'ep-2',
+      best_moves:[
+        {participant_id:'ep-1',source:'first_killed',seat_numbers:[8,9,10]},
+        {participant_id:'ep-2',source:'zero_round_voted',seat_numbers:[8,9,10]},
+      ],
+    });
     completed.player_results[0].judge_bonus = 0.3;
     completed.player_results[0].protocol_bonus = -0.1;
     completed.player_results[0].ci_points = 0.2;
@@ -146,6 +152,7 @@ describe('canonical club-game token settlement routes', () => {
     expect(response.status).toBe(200);
     expect(await ledgerCount()).toBe(11);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-1'")).tokens)).toBe(315);
+    expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-2'")).tokens)).toBe(215);
     expect(Number((await db.get<any>("SELECT tokens FROM players WHERE id='p-11'")).tokens)).toBe(100);
     const playerLedger = await db.get<any>("SELECT * FROM token_ledger WHERE reason_type='club_game_player' AND player_id='p-1'");
     expect(playerLedger.description).toContain('Игра №501');

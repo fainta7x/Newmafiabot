@@ -133,11 +133,18 @@ const calculateBestMovePoints = (seatNumbers: unknown, playerResults: any[]): nu
 
 const bestMovePointsForParticipant = (protocol: any, participantId: string, playerResults: any[]): number => {
   const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
-  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
+  const firstKilledParticipantId = String(protocol?.first_killed_participant_id || '');
+  if (!participantId || participantId !== firstKilledParticipantId) return 0;
+  const relevant = modern.filter((move: any) =>
+    move?.source === 'first_killed' && String(move?.participant_id || '') === participantId
+  );
   if (relevant.length) {
     return relevant.reduce((sum: number, move: any) => sum + calculateBestMovePoints(move?.seat_numbers, playerResults), 0);
   }
-  if (String(protocol?.best_move_participant_id || '') === participantId) {
+  if (
+    String(protocol?.best_move_participant_id || '') === participantId
+    && (!protocol?.best_move_source || protocol.best_move_source === 'first_killed')
+  ) {
     return calculateBestMovePoints(protocol?.best_move_seats, playerResults);
   }
   return 0;

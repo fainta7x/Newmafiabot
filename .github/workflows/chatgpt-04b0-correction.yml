@@ -1,0 +1,66 @@
+name: ChatGPT 04B0 active-path correction
+
+on:
+  push:
+    branches:
+      - automation/04b0-correction-stage-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  correction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify exact refs
+        run: |
+          set -euo pipefail
+          git fetch origin main automation/04b0-candidate-2026-08-10 --prune
+          test "$(git rev-parse origin/main)" = "d6bb46accaac3b6e7ce218a0aadb21a99fe085a9"
+          test "$(git rev-parse origin/automation/04b0-candidate-2026-08-10)" = "8be556ba8dd7bb014d2185af6849aafda7fa9c00"
+          git status --short
+
+      - name: Apply active-path corrections
+        run: |
+          set -euo pipefail
+          cp automation/correct_04b0_candidate.py /tmp/correct_04b0_candidate.py
+          git checkout --detach 8be556ba8dd7bb014d2185af6849aafda7fa9c00
+          python /tmp/correct_04b0_candidate.py
+          mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
+          printf '%s\n' "${changed[@]}"
+          allowed='^(src/lib/eveningResponse\.ts|src/server/routes/eveningsRoutes\.ts|src/server/routes/participantRoutes\.ts|src/server/routes/publicRoutes\.ts|src/tests/crm\.test\.ts)$'
+          for file in "${changed[@]}"; do [[ "$file" =~ $allowed ]] || { echo "Unexpected file: $file"; exit 1; }; done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Focused domain UI and API tests
+        run: npx vitest run src/tests/eveningCanonicalStatus.test.ts src/tests/eveningRoster.test.ts src/tests/eveningParticipantSheet.test.tsx src/tests/crm.test.ts
+
+      - name: Audit active legacy decisions
+        run: |
+          set -euo pipefail
+          echo 'registration_status references:'
+          grep -RIn "registration_status" src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts src/server/routes/gamesRoutes.ts src/server/routes/playersRoutes.ts src/server/routes/crmRoutes.ts src/server/routes/analyticsRoutes.ts src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx src/lib/eveningRoster.ts src/lib/eveningResponse.ts || true
+          echo 'legacy decision words in active UI/API:'
+          grep -RInE "waitlist|confirmed|invited|registered|Резерв|Подтв" src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts src/server/routes/gamesRoutes.ts src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx || true
+
+      - name: Commit corrected candidate
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/lib/eveningResponse.ts src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts src/tests/crm.test.ts
+          git diff --cached --check
+          git commit -m "fix(evenings): finish canonical status cutover"
+          sha=$(git rev-parse HEAD)
+          git push origin "$sha:refs/heads/automation/04b0-final-candidate-2026-08-10"
+          echo "final_candidate=$sha"

@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import zlib from 'zlib';
-import { getLegacyPreviewRecoveryDir, getPreviewRecoveryDir, restoreGzB64FileAtomically, restoreSqliteFileAtomically } from './previewRecovery.ts';
+import { getLegacyPreviewRecoveryDir, getPreviewRecoveryDir, restoreGzB64FileAtomically, restoreSqliteFileAtomically, verifySqliteFile } from './previewRecovery.ts';
 
 export const CANONICAL_SNAPSHOT_META = 'mafia_crm.checkpoint.meta.json';
 export const CANONICAL_SNAPSHOT_FILE = 'mafia_crm.checkpoint.sqlite.gz.b64';
@@ -46,7 +46,6 @@ export function readSnapshotVersionFromSqlite(sqlitePath: string): string | null
   }
 }
 
-
 export function readSnapshotVersionFromGzB64(gzB64Path: string): string | null {
   if (!fs.existsSync(gzB64Path)) return null;
   const tempPath = path.join(os.tmpdir(), `newmafia-snapshot-version-${process.pid}-${Date.now()}.sqlite`);
@@ -65,6 +64,45 @@ const recoveryMatchesCanonical = (sqlitePath: string, canonicalVersion: string |
   if (!canonicalVersion) return true;
   return readSnapshotVersionFromSqlite(sqlitePath) === canonicalVersion;
 };
+
+export function initializeProductionRuntimeFromCanonical(
+  runtimePath: string,
+  rootDir = process.cwd(),
+): { initialized: boolean; source: 'existing' | 'canonical' } {
+  if (fs.existsSync(runtimePath) && fs.statSync(runtimePath).size > 0) {
+    return { initialized: false, source: 'existing' };
+  }
+
+  const meta = readCanonicalSnapshotMeta(rootDir);
+  if (!meta?.snapshot_version || !meta.checkpoint_file) {
+    throw new Error('Canonical repository checkpoint metadata is missing or invalid.');
+  }
+
+  const canonicalPath = path.resolve(rootDir, meta.checkpoint_file);
+  const rootPath = path.resolve(rootDir);
+  if (canonicalPath !== rootPath && !canonicalPath.startsWith(`${rootPath}${path.sep}`)) {
+    throw new Error('Canonical checkpoint path escapes the repository root.');
+  }
+  if (!fs.existsSync(canonicalPath)) {
+    throw new Error(`Canonical repository checkpoint is missing: ${meta.checkpoint_file}`);
+  }
+  if (readSnapshotVersionFromGzB64(canonicalPath) !== meta.snapshot_version) {
+    throw new Error('Canonical repository checkpoint snapshot_version does not match its metadata.');
+  }
+
+  if (!restoreGzB64FileAtomically(canonicalPath, runtimePath)) {
+    throw new Error('Failed to restore the canonical repository checkpoint atomically.');
+  }
+
+  const valid = verifySqliteFile(runtimePath)
+    && readSnapshotVersionFromSqlite(runtimePath) === meta.snapshot_version;
+  if (!valid) {
+    try { fs.unlinkSync(runtimePath); } catch {}
+    throw new Error('Restored production database failed canonical integrity/version verification.');
+  }
+
+  return { initialized: true, source: 'canonical' };
+}
 
 export function initializePreviewRuntimeFromCanonical(
   runtimePath: string,

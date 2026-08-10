@@ -2,11 +2,11 @@ name: elo1-release-temp
 on:
   push:
     branches: [elo1-release-run]
+    paths: ['.elo1-release-trigger']
 permissions:
   contents: write
 jobs:
   release:
-    if: ${{ !contains(github.event.head_commit.message, 'chore(elo): export canonical checkpoint') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

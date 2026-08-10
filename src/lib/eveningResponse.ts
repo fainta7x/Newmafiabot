@@ -53,6 +53,13 @@ export const getEveningAttendanceFact = (participant: any): EveningAttendanceFac
 export const getEveningAttendanceLabel = (participant: any): string =>
   EVENING_ATTENDANCE_LABELS[getEveningAttendanceFact(participant)];
 
+export const getEveningTimelineLabel = (participant: any): string => {
+  const attendance = getEveningAttendanceFact(participant);
+  return attendance === 'pending'
+    ? getEveningResponseLabel(participant)
+    : EVENING_ATTENDANCE_LABELS[attendance];
+};
+
 export const isAttendingResponse = (statusOrParticipant: any): boolean => {
   const status = typeof statusOrParticipant === 'string'
     ? normalizeEveningResponse(statusOrParticipant)

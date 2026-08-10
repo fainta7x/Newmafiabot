@@ -13,6 +13,59 @@ router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'mafia-webapp', api_version: '1' });
 });
 
+router.get('/evenings/open', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const evenings = await db.all(
+      `SELECT
+         e.id, e.title, e.starts_at, e.ends_at, e.timezone, e.venue,
+         e.format, e.status, e.capacity, e.default_price, e.notes,
+         (SELECT COUNT(*) FROM evening_participants ep
+           WHERE ep.evening_id = e.id AND ep.response_status IN ('going', 'late')) AS attending_count,
+         (SELECT COUNT(*) FROM evening_participants ep
+           WHERE ep.evening_id = e.id AND ep.response_status = 'thinking') AS thinking_count,
+         (SELECT COUNT(*) FROM evening_participants ep
+           WHERE ep.evening_id = e.id AND ep.response_status = 'declined') AS declined_count
+       FROM game_evenings e
+       WHERE e.status IN ('published', 'active') AND e.settled_at IS NULL
+       ORDER BY e.starts_at ASC`,
+    );
+    res.json(evenings);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось загрузить открытые вечера' });
+  }
+});
+
+router.get('/evenings/:eveningId/participants', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const evening = await db.get(
+      `SELECT id, title, starts_at, venue, format, status, settled_at
+       FROM game_evenings WHERE id = ?`,
+      [req.params.eveningId],
+    );
+    if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+
+    const participants = await db.all(
+      `SELECT
+         ep.id, ep.player_id, p.nickname, p.telegram_user_id,
+         ep.response_status, ep.registration_status,
+         ep.attendance_status, ep.arrival_status,
+         ep.payment_status, ep.amount_due, ep.amount_paid,
+         ep.registered_at, ep.confirmed_at, ep.updated_at
+       FROM evening_participants ep
+       JOIN players p ON p.id = ep.player_id
+       WHERE ep.evening_id = ?
+       ORDER BY ep.created_at ASC`,
+      [req.params.eveningId],
+    );
+
+    res.json({ evening, participants });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось загрузить состав вечера' });
+  }
+});
+
 router.post('/evenings/:eveningId/respond', async (req, res) => {
   try {
     const db = (req as any).db;

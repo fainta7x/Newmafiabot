@@ -4,5 +4,9 @@
   "source": "current verified tournament repository snapshot",
   "tournament_id": "987670b4-afd7-48d1-92ce-3d4d4cbed8d6",
   "avatar_manifest": "src/lib/playerAvatarManifest.ts",
-  "import_condition": "preview runtime database is absent or zero-length"
+  "import_condition": "development/AI Studio only; target runtime database must be absent or zero-length",
+  "created_at": "2026-08-10T18:45:42.553Z",
+  "checksum_algorithm": "sha256",
+  "checkpoint_sha256": "5c24624a12947c0e719055468cc1755dbc88cfcd4ddff747607f9ae22af6ad96",
+  "schema_marker": "0011_canonical_evening_attendance.sql;sha256=0bcf8be4ad4946d9f69cc3feb25a6ade4659aedf23656f728499b7c66c88cc54"
 }

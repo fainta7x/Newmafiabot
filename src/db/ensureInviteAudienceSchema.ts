@@ -1,0 +1,23 @@
+import type { DatabaseWrapper } from './index.ts';
+
+export type PlayerGameLevel = 'novice' | 'club' | 'tournament';
+
+export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<void> {
+  const columns = await db.all<{ name: string }>('PRAGMA table_info(players)');
+  if (!columns.some((column) => column.name === 'game_level')) {
+    await db.run("ALTER TABLE players ADD COLUMN game_level TEXT NOT NULL DEFAULT 'club'");
+  }
+
+  await db.run(
+    "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('novice','club','tournament')",
+  );
+}
+
+export function playerLevelAllowsEveningFormat(level: string | null | undefined, format: string | null | undefined): boolean {
+  const normalizedLevel: PlayerGameLevel = level === 'novice' || level === 'tournament' ? level : 'club';
+  const normalizedFormat = String(format || 'STANDARD').toUpperCase();
+
+  if (normalizedLevel === 'novice') return normalizedFormat === 'NOVICE';
+  if (normalizedLevel === 'club') return normalizedFormat === 'NOVICE' || normalizedFormat === 'STANDARD';
+  return normalizedFormat === 'STANDARD' || normalizedFormat === 'TOURNAMENT';
+}

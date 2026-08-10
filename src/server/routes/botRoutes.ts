@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
@@ -5,8 +6,72 @@ import { loadPlayerAchievementProfile } from '../services/playerAchievementsServ
 const router = Router();
 router.use(botServiceAuth);
 
+const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'declined']);
+
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'mafia-webapp', api_version: '1' });
+});
+
+router.post('/evenings/:eveningId/respond', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const responseStatus = String(req.body?.response_status ?? '').trim();
+
+    if (!telegramUserId) return res.status(400).json({ error: 'telegram_user_id обязателен' });
+    if (!EVENING_RESPONSE_STATUSES.has(responseStatus)) {
+      return res.status(400).json({ error: 'Недопустимый response_status' });
+    }
+
+    const player = await db.get(
+      'SELECT id, nickname, telegram_user_id FROM players WHERE telegram_user_id = ?',
+      [telegramUserId],
+    );
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+
+    const evening = await db.get(
+      'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
+      [req.params.eveningId],
+    );
+    if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+      return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны' });
+    }
+
+    const existing = await db.get(
+      'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
+      [evening.id, player.id],
+    );
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await db.run(
+        `UPDATE evening_participants
+            SET response_status = ?, registration_status = ?, updated_at = ?
+          WHERE id = ?`,
+        [responseStatus, responseStatus, now, existing.id],
+      );
+    } else {
+      await db.run(
+        `INSERT INTO evening_participants (
+          id, evening_id, player_id, response_status, registration_status,
+          attendance_status, arrival_status, payment_status, amount_due, amount_paid,
+          registered_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', 'unpaid', 0, 0, ?, ?, ?)`,
+        [randomUUID(), evening.id, player.id, responseStatus, responseStatus, now, now, now],
+      );
+    }
+
+    res.json({
+      success: true,
+      evening_id: evening.id,
+      player: { id: player.id, nickname: player.nickname, telegram_user_id: player.telegram_user_id },
+      response_status: responseStatus,
+      registration_status: responseStatus,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось сохранить ответ на вечер' });
+  }
 });
 
 router.get('/players/:playerId/achievements', async (req, res) => {

@@ -1,0 +1,36 @@
+name: elo1-release-temp
+on:
+  push:
+    branches: [elo1-release-run]
+permissions:
+  contents: write
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, 'chore(elo): export canonical checkpoint') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: elo1-release-run
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Decode canonical checkpoint
+        run: |
+          base64 -d mafia_crm.checkpoint.sqlite.gz.b64 | gzip -d > /tmp/elo1.sqlite
+      - name: Rebuild canonical Elo
+        run: npx tsx src/scripts/recalculateElo.ts --db /tmp/elo1.sqlite
+      - name: Export guarded canonical checkpoint
+        env:
+          DATABASE_PATH: /tmp/elo1.sqlite
+          NODE_ENV: development
+        run: npx tsx src/scripts/createGitCheckpoint.ts
+      - name: Commit generated checkpoint on temp branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mafia_crm.checkpoint.sqlite.gz.b64 mafia_crm.checkpoint.meta.json
+          git commit -m 'chore(elo): export canonical checkpoint'
+          git push origin HEAD:elo1-release-run

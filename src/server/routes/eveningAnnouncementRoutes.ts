@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
 
 const router = Router();
+const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
 
-router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
+async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announce-group') {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get(
       'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
       [req.params.id],
@@ -15,14 +16,14 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
       return res.status(409).json({ error: 'Анонс можно отправить только для опубликованного или активного вечера' });
     }
 
-    const botServiceUrl = String(process.env.BOT_SERVICE_URL || '').trim().replace(/\/+$/, '');
+    const botServiceUrl = String(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL).trim().replace(/\/+$/, '');
     const botApiSecret = String(process.env.BOT_API_SECRET || '').trim();
     if (!botServiceUrl || !botApiSecret) {
       return res.status(503).json({ error: 'Связь web → bot ещё не настроена' });
     }
 
     const response = await fetch(
-      `${botServiceUrl}/crm/evenings/${encodeURIComponent(req.params.id)}/announce-group`,
+      `${botServiceUrl}/crm/evenings/${encodeURIComponent(req.params.id)}/${mode}`,
       {
         method: 'POST',
         headers: {
@@ -43,6 +44,9 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
   } catch (error: any) {
     return res.status(502).json({ error: error?.message || 'Не удалось связаться с Telegram-ботом' });
   }
-});
+}
+
+router.post('/:id/announce', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce'));
+router.post('/:id/announce-group', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce-group'));
 
 export default router;

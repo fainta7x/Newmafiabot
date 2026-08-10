@@ -46,9 +46,7 @@ function encodeValue(value: any): EncodedValue {
       : { type: 'float', value: String(value) };
   }
   if (Buffer.isBuffer(value)) return { type: 'blob', base64: value.toString('base64') };
-  if (value instanceof Uint8Array) {
-    return { type: 'blob', base64: Buffer.from(value).toString('base64') };
-  }
+  if (value instanceof Uint8Array) return { type: 'blob', base64: Buffer.from(value).toString('base64') };
   return { type: 'text', value: String(value) };
 }
 
@@ -78,8 +76,7 @@ function statementRequest(statement: SqlStatement) {
 
 function extractExecuteResult(result: any) {
   if (!result || result.type !== 'ok' || result.response?.type !== 'execute') {
-    const message = result?.error?.message || result?.response?.error?.message || 'Turso query failed';
-    throw new Error(message);
+    throw new Error(result?.error?.message || result?.response?.error?.message || 'Turso query failed');
   }
   return result.response.result || {};
 }
@@ -94,7 +91,7 @@ function resultRows(result: any): Record<string, any>[] {
   });
 }
 
-// Used only for exec() compatibility. It deliberately respects quoted strings and SQL comments.
+// exec() compatibility for the few callers that provide SQL scripts.
 function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
   let current = '';
@@ -105,7 +102,6 @@ function splitSqlStatements(sql: string): string[] {
   for (let i = 0; i < sql.length; i += 1) {
     const ch = sql[i];
     const next = sql[i + 1];
-
     if (lineComment) {
       current += ch;
       if (ch === '\n') lineComment = false;
@@ -126,13 +122,10 @@ function splitSqlStatements(sql: string): string[] {
         if (next === quote && quote !== ']') {
           current += next;
           i += 1;
-        } else {
-          quote = null;
-        }
+        } else quote = null;
       }
       continue;
     }
-
     if (ch === '-' && next === '-') {
       current += ch + next;
       i += 1;
@@ -162,7 +155,6 @@ function splitSqlStatements(sql: string): string[] {
     }
     current += ch;
   }
-
   if (current.trim()) statements.push(current.trim());
   return statements;
 }
@@ -185,7 +177,6 @@ class TursoHttpSession {
   async pipeline(requests: any[], options: { keepOpen?: boolean; allowErrors?: boolean } = {}): Promise<PipelineResult> {
     const payload: any = { requests };
     if (this.baton) payload.baton = this.baton;
-
     const response = await fetch(this.endpoint(), {
       method: 'POST',
       headers: {
@@ -194,16 +185,13 @@ class TursoHttpSession {
       },
       body: JSON.stringify(payload),
     });
-
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       throw new Error(`Turso HTTP ${response.status}: ${text || response.statusText}`);
     }
-
     const data = await response.json() as PipelineResult;
     this.baton = data.baton || null;
     if (data.base_url) this.routedBaseUrl = data.base_url;
-
     const results = Array.isArray(data.results) ? data.results : [];
     if (!options.allowErrors) {
       const failed = results.find((result: any) => result?.type === 'error');
@@ -216,10 +204,10 @@ class TursoHttpSession {
     return data;
   }
 
-  async execute(statement: SqlStatement, close = true) {
+  async execute(statement: SqlStatement, keepOpen = false) {
     const requests: any[] = [statementRequest(statement)];
-    if (close) requests.push({ type: 'close' });
-    const data = await this.pipeline(requests, { keepOpen: !close });
+    if (!keepOpen) requests.push({ type: 'close' });
+    const data = await this.pipeline(requests, { keepOpen });
     return extractExecuteResult(data.results?.[0]);
   }
 
@@ -231,21 +219,14 @@ class TursoHttpSession {
 
   async commit() {
     if (!this.baton) return;
-    const data = await this.pipeline([
-      statementRequest({ sql: 'COMMIT' }),
-      { type: 'close' },
-    ]);
+    const data = await this.pipeline([statementRequest({ sql: 'COMMIT' }), { type: 'close' }]);
     extractExecuteResult(data.results?.[0]);
   }
 
   async rollback() {
     if (!this.baton) return;
     try {
-      const data = await this.pipeline([
-        statementRequest({ sql: 'ROLLBACK' }),
-        { type: 'close' },
-      ], { allowErrors: true });
-      if (data.results?.[0]?.type === 'ok') extractExecuteResult(data.results[0]);
+      await this.pipeline([statementRequest({ sql: 'ROLLBACK' }), { type: 'close' }], { allowErrors: true });
     } finally {
       this.baton = null;
       this.routedBaseUrl = null;
@@ -258,7 +239,7 @@ class TursoHttpSession {
     try {
       const data = await this.pipeline(statements.map(statementRequest), { keepOpen: true, allowErrors: true });
       const failed = (data.results || []).find((result: any) => result?.type === 'error');
-      if (failed) throw new Error(failed?.error?.message || 'Turso bootstrap statement failed');
+      if (failed) throw new Error(failed?.error?.message || 'Turso atomic batch failed');
       await this.commit();
     } catch (error) {
       await this.rollback();
@@ -267,17 +248,22 @@ class TursoHttpSession {
   }
 }
 
-function createWrapperForSession(session: TursoHttpSession, dbPath: string): TursoCompatibleWrapper {
+function createWrapper(
+  databaseUrl: string,
+  authToken: string,
+  dbPath: string,
+  session: TursoHttpSession,
+  transactional: boolean,
+): TursoCompatibleWrapper {
   const wrapper: TursoCompatibleWrapper = {
-    // Kept for structural compatibility with the existing local wrapper. Production routes do not use these directly.
+    // Structural compatibility only. Server routes use all/get/run/transaction, not the local driver directly.
     sqlite: undefined,
     drizzle: undefined,
     dbPath,
     async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-      const data = await session.pipeline([
-        statementRequest({ sql, args: params }),
-        { type: 'close' },
-      ]);
+      const requests: any[] = [statementRequest({ sql, args: params })];
+      if (!transactional) requests.push({ type: 'close' });
+      const data = await session.pipeline(requests, { keepOpen: transactional });
       return resultRows(data.results?.[0]) as T[];
     },
     async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {
@@ -285,7 +271,7 @@ function createWrapperForSession(session: TursoHttpSession, dbPath: string): Tur
       return rows[0] ?? null;
     },
     async run(sql: string, params: any[] = []) {
-      const execute = await session.execute({ sql, args: params });
+      const execute = await session.execute({ sql, args: params }, transactional);
       const rawId = execute.last_insert_rowid;
       let lastID: number | bigint | null = null;
       if (rawId !== null && rawId !== undefined && rawId !== '') {
@@ -297,73 +283,36 @@ function createWrapperForSession(session: TursoHttpSession, dbPath: string): Tur
     async exec(sql: string) {
       const statements = splitSqlStatements(sql).map((part) => ({ sql: part }));
       if (!statements.length) return;
-      await session.atomicBatch(statements);
+      if (!transactional) {
+        await session.atomicBatch(statements);
+        return;
+      }
+      const data = await session.pipeline(statements.map(statementRequest), { keepOpen: true });
+      for (const result of data.results || []) extractExecuteResult(result);
     },
     async transaction<T>(cb: (tx: TursoCompatibleWrapper) => Promise<T>): Promise<T> {
-      const transactionSession = new TursoHttpSession(session['defaultBaseUrl' as any] || dbPath, session['authToken' as any] || '');
-      // The private fields above are intentionally not relied upon at runtime; this branch is replaced by createTransaction below.
-      void transactionSession;
-      throw new Error('Turso transaction factory was not initialized');
+      if (transactional) throw new Error('Nested Turso transactions are not supported');
+      const txSession = new TursoHttpSession(databaseUrl, authToken);
+      await txSession.begin();
+      const txWrapper = createWrapper(databaseUrl, authToken, dbPath, txSession, true);
+      try {
+        const result = await cb(txWrapper);
+        await txSession.commit();
+        return result;
+      } catch (error) {
+        await txSession.rollback();
+        throw error;
+      }
     },
   };
   return wrapper;
-}
-
-function createTransactionWrapper(databaseUrl: string, authToken: string, dbPath: string, session: TursoHttpSession): TursoCompatibleWrapper {
-  const txWrapper: TursoCompatibleWrapper = {
-    sqlite: undefined,
-    drizzle: undefined,
-    dbPath,
-    async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-      const data = await session.pipeline([statementRequest({ sql, args: params })], { keepOpen: true });
-      return resultRows(data.results?.[0]) as T[];
-    },
-    async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-      const rows = await txWrapper.all<T>(sql, params);
-      return rows[0] ?? null;
-    },
-    async run(sql: string, params: any[] = []) {
-      const execute = await session.execute({ sql, args: params }, false);
-      const rawId = execute.last_insert_rowid;
-      let lastID: number | bigint | null = null;
-      if (rawId !== null && rawId !== undefined && rawId !== '') {
-        const parsed = BigInt(String(rawId));
-        lastID = parsed <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(parsed) : parsed;
-      }
-      return { lastID, changes: Number(execute.affected_row_count || 0) };
-    },
-    async exec(sql: string) {
-      const parts = splitSqlStatements(sql);
-      if (!parts.length) return;
-      const data = await session.pipeline(parts.map((part) => statementRequest({ sql: part })), { keepOpen: true });
-      for (const result of data.results || []) extractExecuteResult(result);
-    },
-    async transaction<T>(_cb: (tx: TursoCompatibleWrapper) => Promise<T>): Promise<T> {
-      throw new Error('Nested Turso transactions are not supported');
-    },
-  };
-  return txWrapper;
 }
 
 export function createTursoHttpDatabase(databaseUrl: string, authToken: string) {
   if (!databaseUrl.trim() || !authToken.trim()) throw new Error('Turso credentials are incomplete');
   const dbPath = `turso:${normalizeHttpBaseUrl(databaseUrl).replace(/^https:\/\//, '')}`;
   const session = new TursoHttpSession(databaseUrl, authToken);
-  const wrapper = createWrapperForSession(session, dbPath);
-
-  wrapper.transaction = async <T>(cb: (tx: TursoCompatibleWrapper) => Promise<T>): Promise<T> => {
-    const txSession = new TursoHttpSession(databaseUrl, authToken);
-    await txSession.begin();
-    const txWrapper = createTransactionWrapper(databaseUrl, authToken, dbPath, txSession);
-    try {
-      const result = await cb(txWrapper);
-      await txSession.commit();
-      return result;
-    } catch (error) {
-      await txSession.rollback();
-      throw error;
-    }
-  };
+  const wrapper = createWrapper(databaseUrl, authToken, dbPath, session, false);
 
   return {
     wrapper,
@@ -401,7 +350,6 @@ export function createTursoHttpDatabase(databaseUrl: string, authToken: string) 
           [...(dependencies.get(name) || [])].every((dependency) => !remaining.has(dependency)),
         );
         if (!ready.length) {
-          // Cycles are not expected in the canonical schema. Keep deterministic order if one appears.
           insertionOrder.push(...[...remaining].sort());
           break;
         }
@@ -413,9 +361,7 @@ export function createTursoHttpDatabase(databaseUrl: string, authToken: string) 
       }
 
       const statements: SqlStatement[] = tables.map((table) => ({ sql: table.sql }));
-      const byName = new Map(tables.map((table) => [table.name, table]));
       for (const tableName of insertionOrder) {
-        if (!byName.has(tableName)) continue;
         const columns = (source.prepare(`PRAGMA table_info(${quoteIdent(tableName)})`).all() as Array<{ name: string }>).map((column) => column.name);
         if (!columns.length) continue;
         const rows = source.prepare(`SELECT * FROM ${quoteIdent(tableName)}`).all() as Record<string, any>[];
@@ -429,11 +375,9 @@ export function createTursoHttpDatabase(databaseUrl: string, authToken: string) 
         }
       }
 
-      for (const object of objects.filter((item) => item.type !== 'table')) {
-        statements.push({ sql: object.sql });
-      }
-
+      for (const object of objects.filter((item) => item.type !== 'table')) statements.push({ sql: object.sql });
       if (!statements.length) throw new Error('Canonical SQLite source contains no schema to import');
+
       console.log(`[TURSO] Importing canonical database atomically (${tables.length} tables, ${statements.length} statements)...`);
       await session.atomicBatch(statements);
 
@@ -442,7 +386,6 @@ export function createTursoHttpDatabase(databaseUrl: string, authToken: string) 
       if (sourcePlayers !== remotePlayers || remotePlayers === 0) {
         throw new Error(`Turso bootstrap verification failed for players (${remotePlayers}/${sourcePlayers})`);
       }
-
       const sourceMigrations = Number((source.prepare('SELECT COUNT(*) AS count FROM migration_history').get() as any)?.count || 0);
       const remoteMigrations = Number((await wrapper.get<any>('SELECT COUNT(*) AS count FROM migration_history'))?.count || 0);
       if (sourceMigrations !== remoteMigrations) {

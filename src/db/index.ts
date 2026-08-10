@@ -5,7 +5,7 @@ import fs from 'fs';
 import * as schema from './schema.ts';
 import { seedDemoData } from './seed.ts';
 import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
-import { initializePreviewRuntimeFromCanonical } from './canonicalSnapshot.ts';
+import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromCanonical } from './canonicalSnapshot.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -38,7 +38,8 @@ export function ensureValidCheckpoint(targetPath: string): boolean {
 }
 
 export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
-  let dbPath = dbPathOrMemory || process.env.DATABASE_PATH;
+  const configuredDatabasePath = process.env.DATABASE_PATH;
+  let dbPath = dbPathOrMemory || configuredDatabasePath;
   if (!dbPath || dbPath === './mafia_crm.sqlite' || dbPath === 'mafia_crm.sqlite') {
     if (process.env.NODE_ENV === 'production') dbPath = path.join(process.cwd(), 'mafia_crm.sqlite');
     else {
@@ -52,6 +53,21 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
   }
 
   const resolvedDbPath = (dbPath === ':memory:' || dbPath.startsWith('file:')) ? dbPath : path.resolve(dbPath);
+  const isProductionConfiguredRuntime = process.env.NODE_ENV === 'production' && !dbPathOrMemory && Boolean(configuredDatabasePath);
+  if (isProductionConfiguredRuntime && resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
+    const runtimeMissingOrEmpty = !fs.existsSync(resolvedDbPath) || fs.statSync(resolvedDbPath).size === 0;
+    if (runtimeMissingOrEmpty) {
+      if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT !== 'true') {
+        throw new Error('Production database is missing or empty. Set DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true for the first canonical bootstrap.');
+      }
+      const bootstrap = initializeProductionRuntimeFromCanonical(resolvedDbPath, process.cwd());
+      if (!bootstrap.initialized) {
+        throw new Error('Production database bootstrap did not initialize the target database.');
+      }
+      console.log('Initialized production database from the canonical repository checkpoint.');
+    }
+  }
+
   if (resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
     const dir = path.dirname(resolvedDbPath); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }

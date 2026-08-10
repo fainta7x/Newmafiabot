@@ -10,6 +10,7 @@ from database import init_db
 from handlers import start_profile, payment, booking, profile, admin_judges
 from handlers import achievements
 from handlers import shop
+from handlers import crm_evening_response
 import admin
 from game import router as game_router  # игровой роутер
 from commands import setup_bot_commands
@@ -97,6 +98,7 @@ def setup_handlers():
     dp.include_router(start_profile.router)  # /start
     dp.include_router(profile.router)  # профиль
     dp.include_router(payment.router)  # оплата
+    dp.include_router(crm_evening_response.router)  # CRM-ответы на анонс вечера
     dp.include_router(booking.router)  # запись на игру
 
     # 3. Игровые роутеры

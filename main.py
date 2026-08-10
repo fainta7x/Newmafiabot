@@ -25,6 +25,7 @@ from handlers import payment
 from handlers import profile
 from handlers import shop
 from handlers import start_profile
+from handlers.crm_evening_announcement import send_crm_evening_announcement
 from handlers.crm_group_announcement import send_crm_group_announcement
 
 
@@ -94,6 +95,16 @@ def _crm_request_authorized(request: web.Request) -> bool:
     return bool(expected and provided and hmac.compare_digest(expected, provided))
 
 
+def _announcement_result_response(result: dict):
+    if result.get("success"):
+        return web.json_response(result)
+    if result.get("error") == "closed":
+        return web.json_response(result, status=409)
+    if result.get("error") in {"not_found", "evening_unavailable"}:
+        return web.json_response(result, status=404)
+    return web.json_response(result, status=502)
+
+
 async def handle_crm_group_announcement_request(request: web.Request):
     global bot
     if not _crm_request_authorized(request):
@@ -105,14 +116,21 @@ async def handle_crm_group_announcement_request(request: web.Request):
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
 
-    result = await send_crm_group_announcement(bot, evening_id)
-    if result.get("success"):
-        return web.json_response(result)
-    if result.get("error") == "closed":
-        return web.json_response(result, status=409)
-    if result.get("error") in {"not_found", "evening_unavailable"}:
-        return web.json_response(result, status=404)
-    return web.json_response(result, status=502)
+    return _announcement_result_response(await send_crm_group_announcement(bot, evening_id))
+
+
+async def handle_crm_evening_announcement_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+
+    evening_id = str(request.match_info.get("evening_id") or "").strip()
+    if not evening_id:
+        return web.json_response({"error": "evening_id_required"}, status=400)
+
+    return _announcement_result_response(await send_crm_evening_announcement(bot, evening_id))
 
 
 def setup_handlers():
@@ -214,6 +232,7 @@ async def start_webhook():
 
     app = web.Application()
     app.router.add_post("/webhook", handle_webhook)
+    app.router.add_post("/crm/evenings/{evening_id}/announce", handle_crm_evening_announcement_request)
     app.router.add_post("/crm/evenings/{evening_id}/announce-group", handle_crm_group_announcement_request)
     app.router.add_get("/health", lambda request: web.Response(text="OK"))
     app.on_startup.append(lambda _: on_startup())
@@ -232,7 +251,6 @@ async def start_webhook():
 
 async def start_polling():  # запуск в режиме polling (для локальной разработки)
     global bot, dp
-
     storage = MemoryStorage()
     bot = Bot(token=config.TOKEN)
     dp = Dispatcher(storage=storage)

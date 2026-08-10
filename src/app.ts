@@ -26,6 +26,7 @@ import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerServ
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
+  app.set('trust proxy', 1);
 
   app.use(
     helmet({
@@ -41,6 +42,10 @@ export async function createApp(customDb?: DatabaseWrapper) {
     next(err);
   });
   app.use(cookieParser());
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
 
   const db = customDb || (await getDb());
   try {

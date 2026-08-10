@@ -25,6 +25,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   const [stage, setStage] = useState('Отборочный этап');
   const [chiefJudgeName, setChiefJudgeName] = useState('');
   const [notes, setNotes] = useState('');
+  const [gameCount, setGameCount] = useState(10);
 
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +43,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   const participantsSectionRef = useRef<HTMLDivElement>(null);
   const displayNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
       const originalStyle = document.body.style.overflow;
@@ -56,10 +56,10 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadPlayers();
-      // Set default date to today 19:00 local time
       const now = new Date();
       now.setHours(19, 0, 0, 0);
       setDate(formatForDateTimeLocal(now));
+      setGameCount(10);
       setErrors({});
       setGlobalError('');
     }
@@ -134,6 +134,10 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
     if (saving) return;
 
     setGlobalError('');
+    if (!Number.isInteger(gameCount) || gameCount < 1) {
+      setGlobalError('Количество игр должно быть положительным целым числом.');
+      return;
+    }
 
     const valErrors = validateTournamentForm({
       title,
@@ -143,7 +147,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
 
     if (hasTournamentErrors(valErrors)) {
       setErrors(valErrors);
-      // Focus and scroll to first invalid field
       if (valErrors.title) {
         titleInputRef.current?.focus();
         titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -169,11 +172,12 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
         stage: stage.trim(),
         chief_judge_name: chiefJudgeName.trim(),
         notes: notes.trim(),
+        game_count: gameCount,
         participants: selectedParticipants.map((p) => ({
           player_id: p.player_id,
           display_name: p.display_name.trim(),
         })),
-      });
+      } as any);
 
       onCreated(created);
       onClose();
@@ -187,12 +191,11 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md">
       <div className="bg-surface-1 border border-border-soft rounded-3xl max-w-2xl w-full flex flex-col max-h-[calc(100dvh-16px)] text-text-primary relative shadow-2xl overflow-hidden">
-        {/* Fixed Modal Header */}
         <div className="p-4 sm:p-5 border-b border-border-soft shrink-0 flex items-center justify-between">
           <div>
             <h3 className="text-lg sm:text-xl font-bold tracking-tight">Новый Личный Турнир (10 игроков)</h3>
             <p className="text-[11px] sm:text-xs text-text-secondary mt-0.5">
-              Создание турнира: 10 участников проведут 10 игр.
+              10 участников · дистанция {gameCount > 0 ? gameCount : '—'} игр
             </p>
           </div>
           <button
@@ -203,7 +206,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Form Content (Only one scroll area in the modal) */}
         <form noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-5 text-xs">
           {globalError && (
             <div className="p-3 bg-danger/10 border border-danger/30 rounded-2xl flex items-center gap-2 text-danger text-xs font-semibold">
@@ -212,7 +214,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           )}
 
-          {/* Main info inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-text-secondary font-semibold mb-1">
@@ -275,7 +276,24 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="block text-text-secondary font-semibold mb-1">Количество игр</label>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={gameCount || ''}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setGameCount(Number.isFinite(value) ? Math.trunc(value) : 0);
+                  setGlobalError('');
+                }}
+                className="w-full bg-surface-2 border border-border-soft rounded-xl px-3 py-2.5 text-text-primary focus:outline-none focus:border-accent font-mono"
+              />
+              <p className="mt-1 text-[10px] text-text-muted">Любое положительное целое число: 8, 10, 12 и т.д.</p>
+            </div>
+
+            <div>
               <label className="block text-text-secondary font-semibold mb-1">Главный судья</label>
               <input
                 type="text"
@@ -298,7 +316,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Participant selection section */}
           <div ref={participantsSectionRef} className="space-y-3 pt-2 border-t border-border-soft">
             <div className="flex items-center justify-between">
               <div>
@@ -322,7 +339,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </p>
             )}
 
-            {/* Search bar */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-text-muted" />
               <input
@@ -334,7 +350,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               />
             </div>
 
-            {/* Selected players list with display_name editing (NO inner scrollbar, fully visible) */}
             {selectedParticipants.length > 0 && (
               <div className="space-y-2 bg-surface-2 p-3 rounded-2xl border border-border-soft">
                 <span className="text-[11px] font-bold text-text-secondary block">Состав участников (10):</span>
@@ -389,7 +404,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </div>
             )}
 
-            {/* Available players selection list (NO inner scrollbar, limited to 30 items) */}
             <div className="space-y-1.5 border border-border-soft rounded-2xl p-2 bg-surface-2/50">
               {loadingPlayers ? (
                 <div className="py-4 text-center text-text-muted text-xs">Загрузка игроков из CRM...</div>
@@ -439,7 +453,6 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
           </div>
         </form>
 
-        {/* Fixed Footer pinned at bottom */}
         <div className="p-4 sm:p-5 border-t border-border-soft bg-surface-1 shrink-0 flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
@@ -454,7 +467,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono border ${
                 selectedParticipants.length === 10
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                  : 'bg-accent/10 text-accent border-accent/30'
+                  : 'bg-accent/10 text-accent border border-accent/30'
               }`}
             >
               {selectedParticipants.length} из 10

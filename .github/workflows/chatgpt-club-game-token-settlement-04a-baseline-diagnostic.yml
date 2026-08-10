@@ -1,0 +1,45 @@
+name: ChatGPT club game token settlement 04A baseline diagnostic
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-baseline-diagnostic-2026-08-10
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies once
+        run: npm ci
+      - name: Baseline typecheck and build
+        run: |
+          set +e
+          git checkout --detach 1d04fbfb6f2f8b193f2d5b125859807004440be7
+          npm run typecheck > /tmp/baseline-typecheck.log 2>&1
+          echo "BASELINE_TYPECHECK_EXIT=$?"
+          cat /tmp/baseline-typecheck.log
+          npm run build > /tmp/baseline-build.log 2>&1
+          echo "BASELINE_BUILD_EXIT=$?"
+          cat /tmp/baseline-build.log
+          exit 0
+      - name: Final candidate typecheck and build
+        run: |
+          set +e
+          git checkout --detach d6bb46accaac3b6e7ce218a0aadb21a99fe085a9
+          npm run typecheck > /tmp/candidate-typecheck.log 2>&1
+          echo "CANDIDATE_TYPECHECK_EXIT=$?"
+          cat /tmp/candidate-typecheck.log
+          npm run build > /tmp/candidate-build.log 2>&1
+          echo "CANDIDATE_BUILD_EXIT=$?"
+          cat /tmp/candidate-build.log
+          exit 0

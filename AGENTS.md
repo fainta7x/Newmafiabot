@@ -11,6 +11,17 @@ Before any code or data changes, fetch and fast-forward-sync the current branch 
 - If several DB candidates exist, compare current-tournament markers before choosing: current avatar coverage and the verified tournament placements for Матроскина, Денди, and Богданчик. A candidate with missing avatars or stale placements is non-canonical.
 - Never commit raw runtime SQLite databases or ad-hoc `.bak` copies. If a new canonical checkpoint is intentionally produced, create it from the verified active runtime DB using the repository checkpoint workflow and update its metadata together.
 
+### Development / AI Studio checkpoint cycle
+
+This Git checkpoint flow is for development and Google AI Studio only. A future production runtime database lives on the server and uses separate server backups; production data must not be synchronized through Git checkpoints.
+
+Use the guarded commands:
+
+- `npm run checkpoint:git-export` — locate the configured active runtime DB, refuse if it is missing/empty, create a consistent SQLite online backup, verify it, and update only `mafia_crm.checkpoint.sqlite.gz.b64` plus `mafia_crm.checkpoint.meta.json` with checksum, creation time and schema marker.
+- `npm run checkpoint:git-import` — validate encoding, checksum, schema marker and SQLite integrity, then import only when the configured runtime DB is absent or zero-length. There is no force/overwrite path for a non-empty runtime DB.
+
+Short AI Studio cycle: `fetch/fast-forward -> preserve non-empty runtime -> work -> export verified runtime -> commit checkpoint + metadata + related avatar changes`.
+
 ## Iteration workflow
 
 - Treat the current Git branch and working tree as authoritative; preserve user changes and runtime data.

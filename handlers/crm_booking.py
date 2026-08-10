@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, Message
 
 from bot_api import get_evening_participants, get_open_evenings, submit_evening_response
@@ -134,7 +134,7 @@ async def select_crm_evening(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("book_"))
-async def bridge_legacy_booking(callback: CallbackQuery):
+async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
     response_status = _LEGACY_BOOK_TO_RESPONSE.get(str(callback.data or ""))
     if not response_status:
         return
@@ -168,6 +168,11 @@ async def bridge_legacy_booking(callback: CallbackQuery):
     )
     if result.get("success"):
         await callback.answer(f"✅ {_RESPONSE_LABELS[response_status]}")
+        try:
+            from handlers.crm_group_stats import refresh_crm_group_stats
+            await refresh_crm_group_stats(bot, evening_id)
+        except Exception as exc:
+            print(f"[CRM STATS] Legacy response saved, but group list refresh failed: {exc}")
         return
 
     error = result.get("error")

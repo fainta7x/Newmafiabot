@@ -34,12 +34,14 @@ jobs:
         run: |
           set -euo pipefail
           cp automation/patch_04b0.py /tmp/patch_04b0.py
+          cp automation/fix_04b0_generated_tests.py /tmp/fix_04b0_generated_tests.py
           python automation/fix_04b0_patch.py
           git checkout --detach d6bb46accaac3b6e7ce218a0aadb21a99fe085a9
           python /tmp/patch_04b0.py
+          python /tmp/fix_04b0_generated_tests.py
           mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
           printf '%s\n' "${changed[@]}"
-          allowed='^(drizzle/0000_initial\.sql|drizzle/0011_canonical_evening_response_attendance\.sql|src/db/schema\.ts|src/db/index\.ts|src/lib/eveningResponse\.ts|src/lib/eveningRoster\.ts|src/lib/api\.ts|src/server/validation\.ts|src/server/services/tableAssignmentService\.ts|src/server/routes/eveningsRoutes\.ts|src/server/routes/participantRoutes\.ts|src/server/routes/publicRoutes\.ts|src/server/routes/gamesRoutes\.ts|src/server/routes/playersRoutes\.ts|src/server/routes/crmRoutes\.ts|src/server/routes/analyticsRoutes\.ts|src/components/crm/EveningParticipantsView\.tsx|src/components/crm/EveningGameCreateSheet\.tsx|src/tests/eveningCanonicalStatus\.test\.ts|src/tests/eveningRoster\.test\.ts)$'
+          allowed='^(drizzle/0000_initial\.sql|drizzle/0011_canonical_evening_response_attendance\.sql|src/db/schema\.ts|src/db/index\.ts|src/lib/eveningResponse\.ts|src/lib/eveningRoster\.ts|src/lib/api\.ts|src/server/validation\.ts|src/server/services/tableAssignmentService\.ts|src/server/routes/eveningsRoutes\.ts|src/server/routes/participantRoutes\.ts|src/server/routes/publicRoutes\.ts|src/server/routes/gamesRoutes\.ts|src/server/routes/playersRoutes\.ts|src/server/routes/crmRoutes\.ts|src/server/routes/analyticsRoutes\.ts|src/components/crm/EveningParticipantsView\.tsx|src/components/crm/EveningGameCreateSheet\.tsx|src/tests/eveningCanonicalStatus\.test\.ts|src/tests/eveningRoster\.test\.ts|src/tests/eveningParticipantSheet\.test\.tsx)$'
           for file in "${changed[@]}"; do
             [[ "$file" =~ $allowed ]] || { echo "Unexpected file: $file"; exit 1; }
           done
@@ -72,7 +74,7 @@ jobs:
             src/server/routes/eveningsRoutes.ts src/server/routes/participantRoutes.ts src/server/routes/publicRoutes.ts \
             src/server/routes/gamesRoutes.ts src/server/routes/playersRoutes.ts src/server/routes/crmRoutes.ts src/server/routes/analyticsRoutes.ts \
             src/components/crm/EveningParticipantsView.tsx src/components/crm/EveningGameCreateSheet.tsx \
-            src/tests/eveningCanonicalStatus.test.ts src/tests/eveningRoster.test.ts
+            src/tests/eveningCanonicalStatus.test.ts src/tests/eveningRoster.test.ts src/tests/eveningParticipantSheet.test.tsx
           git diff --cached --check
           git commit -m "refactor(evenings): canonicalize response and attendance"
           candidate=$(git rev-parse HEAD)

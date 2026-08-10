@@ -71,7 +71,6 @@ CREATE TABLE IF NOT EXISTS evening_participants (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_evening_player_unique ON evening_participants (evening_id, player_id);
-CREATE INDEX IF NOT EXISTS idx_evening_participants_response ON evening_participants (evening_id, response_status);
 
 CREATE TABLE IF NOT EXISTS organizer_tasks (
   id TEXT PRIMARY KEY,

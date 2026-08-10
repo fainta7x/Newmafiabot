@@ -135,7 +135,7 @@ describe('canonical club-game token settlement routes', () => {
   });
 
   const save = (body: any) => request(app).put(`/api/games/${gameId}/evening-protocol`).set('Cookie',cookie).send(body);
-  const ledgerCount = async () => Number((await db.get<{n:number}>('SELECT COUNT(*) AS n FROM token_ledger')).n);
+  const ledgerCount = async () => Number((await db.get<{n:number}>('SELECT COUNT(*) AS n FROM token_ledger'))?.n || 0);
 
   it('first completion settles all ten UUID players plus linked judge, replay is exact no-op, and metadata is readable', async () => {
     const completed = protocol('completed', results, {

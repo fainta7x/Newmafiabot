@@ -88,7 +88,7 @@ export const calculateClubGamePlayerTokens = (input: ClubGameTokenFormulaInput):
     input.bestMovePoints,
     input.ciPoints,
     input.disciplinaryPoints,
-  ].reduce((sum, value) => sum + decimalPointsToTenths(value), 0);
+  ].map(decimalPointsToTenths).reduce((sum, value) => sum + value, 0);
   const additionalPointsTokens = additionalPointsTenths * 10;
   const fouls = count(input.regularFouls);
   const foulBonus = fouls === 0 ? 15 : fouls === 1 ? 10 : fouls === 2 ? 5 : 0;

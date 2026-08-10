@@ -153,13 +153,13 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
       try {
         const response = await fetch('/api/rating', { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить рейтинг');
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить ELO');
         if (!cancelled) {
           setRating(Array.isArray((body as RatingResponse).players) ? (body as RatingResponse).players : []);
           setRatingError(null);
         }
       } catch (error: any) {
-        if (!cancelled) setRatingError(error?.message || 'Не удалось загрузить рейтинг');
+        if (!cancelled) setRatingError(error?.message || 'Не удалось загрузить ELO');
       }
     })();
     return () => { cancelled = true; };
@@ -207,11 +207,11 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
           </div>
         </header>
 
-        <Section title="Рейтинг клуба">
+        <Section title="ELO клуба">
           {ratingError ? (
             <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p>
           ) : rating === null ? (
-            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка рейтинга…</p>
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка ELO…</p>
           ) : ratingTop.length ? (
             <div className="space-y-2">
               {ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}
@@ -223,7 +223,7 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
               )}
             </div>
           ) : (
-            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Рейтинг пока пуст.</p>
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">ELO пока пуст.</p>
           )}
         </Section>
 

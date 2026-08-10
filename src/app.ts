@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
+import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
@@ -51,6 +52,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
 
   const db = customDb || (await getDb());
+  await ensureInviteAudienceSchema(db);
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {

@@ -22,6 +22,7 @@ import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
+import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 
@@ -88,6 +89,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tournaments', tournamentProtocolRoutes);
   app.use('/api/tournaments', tournamentAwardsRoutes);
   app.use('/api/bot', botRoutes);
+  app.use('/api/bot', botAnnouncementRoutes);
 
   app.use('/api/*', (_req, res) => {
     res.status(404).json({ error: 'API endpoint not found' });

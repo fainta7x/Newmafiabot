@@ -1,0 +1,67 @@
+name: ChatGPT club game token settlement 04A candidate
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify source of truth
+        run: |
+          set -euo pipefail
+          git fetch origin main --prune
+          echo "branch=$(git branch --show-current)"
+          echo "upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}')"
+          echo "head=$(git rev-parse HEAD)"
+          echo "main=$(git rev-parse origin/main)"
+          echo "status:"
+          git status --short
+          test "$(git rev-parse origin/main)" = "1d04fbfb6f2f8b193f2d5b125859807004440be7"
+
+      - name: Apply focused 04A implementation
+        run: |
+          set -euo pipefail
+          cp automation/patch_club_game_token_settlement_04a.py /tmp/patch_04a.py
+          git checkout --detach 1d04fbfb6f2f8b193f2d5b125859807004440be7
+          python /tmp/patch_04a.py
+          mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
+          printf '%s\n' "${changed[@]}"
+          allowed='^(drizzle/0010_club_game_token_settlements\.sql|src/db/index\.ts|src/server/routes/gamesRoutesBase\.ts|src/server/services/clubGameTokenSettlementService\.ts|src/tests/clubGameTokenSettlement\.test\.ts)$'
+          for file in "${changed[@]}"; do
+            [[ "$file" =~ $allowed ]] || { echo "Unexpected file: $file"; exit 1; }
+          done
+          if printf '%s\n' "${changed[@]}" | grep -Eq '(^mafia_crm|checkpoint|avatar|uploads|\.sqlite$|\.db$)'; then
+            echo 'Forbidden runtime/data/avatar change detected'; exit 1;
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Focused 04A tests
+        run: npx vitest run src/tests/clubGameTokenSettlement.test.ts
+
+      - name: Commit candidate
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add drizzle/0010_club_game_token_settlements.sql src/db/index.ts src/server/routes/gamesRoutesBase.ts src/server/services/clubGameTokenSettlementService.ts src/tests/clubGameTokenSettlement.test.ts
+          git commit -m "feat(tokens): settle structured club games"
+          candidate=$(git rev-parse HEAD)
+          git push origin "$candidate:refs/heads/automation/club-game-token-settlement-04a-candidate-2026-08-10"
+          echo "candidate=$candidate"

@@ -34,6 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           cp automation/patch_04b0.py /tmp/patch_04b0.py
+          python automation/fix_04b0_patch.py
           git checkout --detach d6bb46accaac3b6e7ce218a0aadb21a99fe085a9
           python /tmp/patch_04b0.py
           mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)

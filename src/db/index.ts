@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import * as schema from './schema.ts';
 import { seedDemoData } from './seed.ts';
 import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.ts';
@@ -9,6 +10,7 @@ import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromC
 import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
 import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
+import { createTursoHttpDatabase } from './tursoHttpDatabase.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -94,11 +96,57 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
   return wrapper;
 }
 
+async function createTursoProductionConnection(databaseUrl: string, authToken: string): Promise<DatabaseWrapper> {
+  const turso = createTursoHttpDatabase(databaseUrl, authToken);
+  if (await turso.isEmpty()) {
+    if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT !== 'true') {
+      throw new Error('Turso database is empty. Set DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true for the first canonical bootstrap.');
+    }
+
+    const tempPath = path.join(os.tmpdir(), `2la-noire-turso-bootstrap-${process.pid}-${Date.now()}.sqlite`);
+    let source: DatabaseWrapper | null = null;
+    try {
+      const bootstrap = initializeProductionRuntimeFromCanonical(tempPath, process.cwd());
+      if (!bootstrap.initialized) throw new Error('Canonical Turso bootstrap did not initialize the temporary database.');
+      // Reuse the existing local initializer so every current SQL/manual migration is applied before upload.
+      source = createDatabaseConnection(tempPath);
+      await turso.importFromSqlite(source.sqlite);
+      console.log('[TURSO] Empty remote database initialized from the fully migrated canonical checkpoint.');
+    } finally {
+      if (source) {
+        try { source.sqlite.close(); } catch (_) {}
+      }
+      for (const suffix of ['', '-wal', '-shm']) {
+        try { fs.unlinkSync(`${tempPath}${suffix}`); } catch (_) {}
+      }
+    }
+  } else {
+    console.log('[TURSO] Existing remote database detected; canonical bootstrap skipped.');
+  }
+  return turso.wrapper as unknown as DatabaseWrapper;
+}
+
 export async function getDb(): Promise<DatabaseWrapper> {
-  if (!defaultDbInstance) { defaultDbInstance = createDatabaseConnection(); await seedDemoData(defaultDbInstance); }
+  if (!defaultDbInstance) {
+    const tursoUrl = String(process.env.TURSO_DATABASE_URL || '').trim();
+    const tursoToken = String(process.env.TURSO_AUTH_TOKEN || '').trim();
+    if (Boolean(tursoUrl) !== Boolean(tursoToken)) {
+      throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must either both be set or both be absent.');
+    }
+    defaultDbInstance = tursoUrl && tursoToken
+      ? await createTursoProductionConnection(tursoUrl, tursoToken)
+      : createDatabaseConnection();
+    await seedDemoData(defaultDbInstance);
+  }
   return defaultDbInstance;
 }
-export function resetDbInstanceForTesting() { if (defaultDbInstance) { try { defaultDbInstance.sqlite.close(); } catch (_) {} defaultDbInstance = null; } }
+
+export function resetDbInstanceForTesting() {
+  if (defaultDbInstance) {
+    try { (defaultDbInstance.sqlite as any)?.close?.(); } catch (_) {}
+    defaultDbInstance = null;
+  }
+}
 
 export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   const migrationSqlPath = path.join(process.cwd(), 'drizzle', '0000_initial.sql');

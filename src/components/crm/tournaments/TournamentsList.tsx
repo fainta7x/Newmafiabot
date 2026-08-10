@@ -30,7 +30,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-1 border border-border-soft p-5 rounded-3xl">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-accent/15 border border-accent/30 rounded-2xl flex items-center justify-center text-accent shrink-0">
@@ -38,7 +37,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           </div>
           <div>
             <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Личные Турниры Клуба</h2>
-            <p className="text-xs text-text-secondary mt-0.5">Формат: 10 игроков, 10 игр, полное участие каждого игрока</p>
+            <p className="text-xs text-text-secondary mt-0.5">10 игроков · дистанцию турнира организатор задаёт сам</p>
           </div>
         </div>
 
@@ -51,7 +50,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
         </button>
       </div>
 
-      {/* Tournaments Grid */}
       {loading ? (
         <div className="py-16 text-center text-text-muted text-xs">Загрузка списка турниров...</div>
       ) : tournaments.length === 0 ? (
@@ -60,7 +58,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           <div className="space-y-1">
             <h3 className="text-base font-bold text-text-primary">Турниры ещё не созданы</h3>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
-              Создайте первый личный турнир на 10 участников. Система автоматически сгенерирует 10 игр и случайную рассадку.
+              Создайте турнир на 10 участников и укажите нужную дистанцию: 8, 10, 12 или любое другое количество игр.
             </p>
           </div>
           <button
@@ -78,7 +76,8 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
             const isCorrection = t.status === 'correction';
             const isCompleted = t.status === 'completed';
             const completedGames = t.completed_games_count || 0;
-            const totalGames = t.total_games_count || 10;
+            const selectedDistance = Number((t as Tournament & { game_count?: number }).game_count || 10);
+            const totalGames = Number(t.total_games_count || selectedDistance);
 
             return (
               <div
@@ -94,7 +93,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                 }`}
               >
                 <div className="space-y-3">
-                  {/* Status & Stage row */}
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
@@ -123,7 +121,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                     )}
                   </div>
 
-                  {/* Title & Date */}
                   <div>
                     <h3 className="text-base font-bold text-text-primary leading-snug">{t.title}</h3>
                     <div className="space-y-1 mt-2 text-xs text-text-secondary">
@@ -151,7 +148,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                     </div>
                   </div>
 
-                  {/* Progress Stats */}
                   <div className="grid grid-cols-2 gap-2 bg-surface-2 p-3 rounded-2xl border border-border-soft text-center font-mono">
                     <div>
                       <span className="text-[9px] text-text-muted uppercase font-bold block">Участники</span>
@@ -168,7 +164,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                   </div>
                 </div>
 
-                {/* Open Button */}
                 <button
                   onClick={() => onOpenTournament(t.id)}
                   className="w-full bg-surface-2 hover:bg-surface-hover text-text-primary border border-border-soft font-bold py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 min-h-[44px]"
@@ -182,7 +177,6 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
         </div>
       )}
 
-      {/* Create Modal */}
       <CreateTournamentModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}

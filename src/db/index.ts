@@ -8,6 +8,7 @@ import { restoreGzB64FileAtomically, verifySqliteFile } from './previewRecovery.
 import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromCanonical } from './canonicalSnapshot.ts';
 import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
 import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
+import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -131,6 +132,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
 
   applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
   applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
+  applyApprovedEloBaselineMigration(dbWrapper);
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');

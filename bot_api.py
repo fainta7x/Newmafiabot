@@ -113,6 +113,66 @@ async def get_achievement_profile_by_telegram(telegram_user_id: int) -> dict[str
         return {"success": False, "error": "unavailable"}
 
 
+async def submit_evening_response(evening_id: str, telegram_user_id: int, response_status: str) -> dict[str, Any]:
+    """Submit one canonical CRM-evening response for a Telegram account."""
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        logger.error("[Backend API] Evening response API configuration is incomplete")
+        return {"success": False, "error": "configuration"}
+
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/respond"
+    payload = {
+        "telegram_user_id": int(telegram_user_id),
+        "response_status": response_status,
+    }
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=BOT_API_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_base_headers(), json=payload) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+
+                if status == 200 and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data, "status": status}
+                if status == 404:
+                    return {"success": False, "error": "not_found", "status": status}
+                if status == 409:
+                    return {"success": False, "error": "closed", "status": status}
+                if status in (400, 422):
+                    return {"success": False, "error": "invalid", "status": status}
+                if status in (401, 403):
+                    logger.error("[Backend API] Evening response authorization failed (status=%s)", status)
+                    return {"success": False, "error": "authorization", "status": status}
+                if status == 503 or status >= 500:
+                    logger.warning("[Backend API] Evening response API unavailable (status=%s)", status)
+                    return {"success": False, "error": "unavailable", "status": status}
+
+                logger.warning("[Backend API] Evening response API unexpected status=%s", status)
+                return {"success": False, "error": "unavailable", "status": status}
+
+    except asyncio.TimeoutError:
+        logger.warning(
+            "[Backend API] Evening response API timed out after %.1fs",
+            BOT_API_TIMEOUT_SECONDS,
+        )
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError as exc:
+        logger.warning(
+            "[Backend API] Evening response API connection failure (%s)",
+            type(exc).__name__,
+        )
+        return {"success": False, "error": "unavailable"}
+    except Exception as exc:
+        logger.exception(
+            "[Backend API] Unexpected evening response API failure (%s)",
+            type(exc).__name__,
+        )
+        return {"success": False, "error": "unavailable"}
+
+
 async def check_backend_connection() -> dict:
     """
     Checks the connection to the Express Webapp backend.

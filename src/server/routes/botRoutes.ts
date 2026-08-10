@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
+import { setParticipantResponse } from '../services/eveningParticipantState.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -30,7 +31,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
     const evening = await db.get(
-      'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
+      'SELECT id, status, settled_at, default_price FROM game_evenings WHERE id = ?',
       [req.params.eveningId],
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
@@ -38,29 +39,35 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны' });
     }
 
-    const existing = await db.get(
+    const now = new Date().toISOString();
+    const defaultPrice = Math.max(0, Number(evening.default_price || 0));
+    const participantId = randomUUID();
+
+    await db.run(
+      `INSERT OR IGNORE INTO evening_participants (
+        id, evening_id, player_id, response_status, registration_status,
+        attendance_status, arrival_status, payment_status, amount_due, amount_paid,
+        registered_at, created_at, updated_at
+      ) VALUES (?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+      [
+        participantId,
+        evening.id,
+        player.id,
+        defaultPrice === 0 ? 'waived' : 'unpaid',
+        defaultPrice,
+        now,
+        now,
+        now,
+      ],
+    );
+
+    const participant = await db.get(
       'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
       [evening.id, player.id],
     );
-    const now = new Date().toISOString();
+    if (!participant) return res.status(500).json({ error: 'Не удалось создать участника вечера' });
 
-    if (existing) {
-      await db.run(
-        `UPDATE evening_participants
-            SET response_status = ?, registration_status = ?, updated_at = ?
-          WHERE id = ?`,
-        [responseStatus, responseStatus, now, existing.id],
-      );
-    } else {
-      await db.run(
-        `INSERT INTO evening_participants (
-          id, evening_id, player_id, response_status, registration_status,
-          attendance_status, arrival_status, payment_status, amount_due, amount_paid,
-          registered_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', 'unpaid', 0, 0, ?, ?, ?)`,
-        [randomUUID(), evening.id, player.id, responseStatus, responseStatus, now, now, now],
-      );
-    }
+    await setParticipantResponse(db, String(participant.id), responseStatus as any);
 
     res.json({
       success: true,

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
 import { EveningAttendanceQuickControls } from './EveningAttendanceQuickControls.tsx';
 
@@ -10,9 +11,60 @@ interface EveningParticipantsViewProps {
   onInitialAddHandled?: () => void;
 }
 
-export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (props) => (
-  <div className="min-w-0 overflow-x-hidden space-y-4">
-    <EveningAttendanceQuickControls eveningId={props.eveningId} />
-    <BaseEveningParticipantsView {...props} />
-  </div>
-);
+export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (props) => {
+  const [status, setStatus] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.getEvening(props.eveningId)
+      .then((evening) => {
+        if (!cancelled) setStatus(String(evening.status || ''));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [props.eveningId, refreshKey]);
+
+  const publishEvening = async () => {
+    if (publishing) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const updated = await api.updateEvening(props.eveningId, { status: 'published' });
+      setStatus(String(updated.status || 'published'));
+      setRefreshKey((value) => value + 1);
+    } catch (error: any) {
+      setPublishError(error?.message || 'Не удалось опубликовать вечер');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  return (
+    <div className="min-w-0 overflow-x-hidden space-y-4">
+      {status === 'draft' ? (
+        <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <strong className="block text-[13px] text-text-primary">Черновик сохранён</strong>
+              <span className="mt-0.5 block text-[11px] text-text-secondary">Пока вечер не опубликован, Telegram-бот его не видит.</span>
+            </div>
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={() => void publishEvening()}
+              className="min-h-[44px] shrink-0 rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50"
+            >
+              {publishing ? 'Публикуем…' : 'Опубликовать вечер'}
+            </button>
+          </div>
+          {publishError ? <p className="mt-2 text-[11px] text-danger">{publishError}</p> : null}
+        </section>
+      ) : null}
+      <EveningAttendanceQuickControls eveningId={props.eveningId} />
+      <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
+    </div>
+  );
+};

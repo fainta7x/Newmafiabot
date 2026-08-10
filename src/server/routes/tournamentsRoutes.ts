@@ -5,6 +5,8 @@ import baseRouter from './tournamentsRoutesBase.ts';
 export { internalGetStandings, internalGetNominations } from './tournamentsRoutesBase.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
+import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 
 const router = Router();
 
@@ -70,6 +72,41 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
     if (err instanceof JudgeAssignmentError) return res.status(400).json({ error: err.message });
     return res.status(500).json({ error: err.message || 'Ошибка обновления судьи' });
   }
+});
+
+// Elo is derived state. Successful completion/revert responses from the legacy protocol
+// router are held until a full chronological rebuild finishes. Preview gets one fresh
+// checkpoint after the rebuild; production keeps the same persistent DB path.
+router.use((req: AuthenticatedRequest, res: Response, next) => {
+  const isRatingTransition = req.method === 'POST' && (
+    /^\/[^/]+\/games\/[^/]+\/protocol\/complete\/?$/.test(req.path) ||
+    /^\/[^/]+\/games\/[^/]+\/protocol\/revert-to-draft\/?$/.test(req.path)
+  );
+  if (!isRatingTransition) return next();
+
+  const originalJson = res.json.bind(res);
+  let intercepted = false;
+  res.json = ((body: any) => {
+    if (intercepted || res.statusCode >= 400) return originalJson(body);
+    intercepted = true;
+    const db = (req as any).db as DatabaseWrapper;
+    void (async () => {
+      try {
+        await rebuildCanonicalEloRatings(db);
+        if (process.env.NODE_ENV !== 'production' && !process.env.DATABASE_PATH) {
+          await createPreviewCheckpoint(db);
+        }
+        originalJson(body);
+      } catch (error) {
+        console.error('Canonical Elo rebuild failed:', error);
+        if (!res.headersSent) res.status(500);
+        originalJson({ error: 'Не удалось пересчитать рейтинг Elo' });
+      }
+    })();
+    return res;
+  }) as typeof res.json;
+
+  return next();
 });
 
 router.use(baseRouter);

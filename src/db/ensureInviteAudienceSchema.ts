@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from './index.ts';
+import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 
 export type PlayerGameLevel = 'novice' | 'club' | 'tournament';
 
@@ -15,9 +16,11 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
 
 export function playerLevelAllowsEveningFormat(level: string | null | undefined, format: string | null | undefined): boolean {
   const normalizedLevel: PlayerGameLevel = level === 'novice' || level === 'tournament' ? level : 'club';
-  const normalizedFormat = String(format || 'STANDARD').toUpperCase();
+  const normalizedFormat = normalizeEveningFormat(format);
 
   if (normalizedLevel === 'novice') return normalizedFormat === 'NOVICE';
-  if (normalizedLevel === 'club') return normalizedFormat === 'NOVICE' || normalizedFormat === 'STANDARD';
-  return normalizedFormat === 'STANDARD' || normalizedFormat === 'TOURNAMENT';
+  if (normalizedLevel === 'club') {
+    return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING';
+  }
+  return normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING' || normalizedFormat === 'TOURNAMENT';
 }

@@ -3,11 +3,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-#TOKEN mafiabot_test для тестирования
-#TOKEN = '8791874608:AAHhR0Z36CAOEN_aLvQ-PXM20btxmxL25a0' 
-
-# TOKEN mafiabot read from environment
-TOKEN = os.getenv('8791874608:AAHhR0Z36CAOEN_aLvQ-PXM20btxmxL25a0', '')
+# Telegram bot token is supplied only through the environment.
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 
 # ADMIN_IDS from env or fallback
 ADMIN_IDS_RAW = os.getenv('ADMIN_IDS', '806709593,595795530,1576242455')
@@ -27,4 +24,3 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
 # Bot API Configuration
 BOT_API_BASE_URL = os.getenv('BOT_API_BASE_URL', 'http://127.0.0.1:3000')
 BOT_API_SECRET = os.getenv('BOT_API_SECRET', '')
-

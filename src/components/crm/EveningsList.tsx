@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
+import { EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
 import { TournamentDetailView } from './tournaments/TournamentDetailView.tsx';
 
@@ -26,7 +27,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
-  const [format, setFormat] = useState<'NOVICE' | 'STANDARD' | 'TOURNAMENT'>('STANDARD');
+  const [format, setFormat] = useState<EveningFormat>('CASUAL');
   const [defaultPrice, setDefaultPrice] = useState(400);
   const [venue, setVenue] = useState('Зал #1 (Главный)');
   const [notes, setNotes] = useState('');
@@ -66,10 +67,11 @@ export const EveningsList: React.FC<EveningsListProps> = ({
         venue,
         notes,
         status: 'published',
-      });
+      } as Partial<GameEvening>);
       setShowCreateModal(false);
       setTitle('');
       setStartsAt('');
+      setFormat('CASUAL');
       setNotes('');
     } catch (err: any) {
       alert(err.message || 'Ошибка создания вечера');
@@ -80,7 +82,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Sub-tab Switcher Bar */}
       <div className="flex items-center gap-1.5 bg-surface-1 p-1 rounded-2xl border border-border-soft w-full sm:w-auto self-start text-xs font-bold">
         <button
           onClick={() => {
@@ -131,7 +132,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
         )
       ) : (
         <>
-          {/* Header with Create Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-1 border border-border-soft p-5 rounded-3xl">
             <div>
               <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Игровые Вечера Клуба</h2>
@@ -143,7 +143,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 onClick={async () => {
                   try {
                     const res = await api.createNextFriday();
-                    alert(`Создан вечер на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')})!`);
+                    alert(`Создан вечер для отдыха на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')})!`);
                     onOpenEvening(res.id);
                   } catch (err: any) {
                     alert(err.message || 'Ошибка создания вечера на пятницу');
@@ -165,11 +165,11 @@ export const EveningsList: React.FC<EveningsListProps> = ({
             </div>
           </div>
 
-          {/* Evenings Grid / Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {evenings.map((e) => {
               const isCompleted = e.status === 'completed' || !!e.settled_at;
               const isActive = e.status === 'active';
+              const canonicalFormat = String(e.format || 'CASUAL') as EveningFormat;
 
               return (
                 <div
@@ -183,7 +183,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                   }`}
                 >
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                         isActive
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
@@ -194,8 +194,8 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                         {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : 'Запланирован'}
                       </span>
 
-                      <span className="text-[11px] font-mono text-text-secondary font-bold uppercase">
-                        {e.format}
+                      <span className="text-right text-[11px] font-bold text-text-secondary">
+                        {EVENING_FORMAT_LABELS[canonicalFormat] || canonicalFormat}
                       </span>
                     </div>
 
@@ -207,7 +207,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                       {e.venue && <p className="text-[11px] text-text-secondary">📍 {e.venue}</p>}
                     </div>
 
-                    {/* Numbers Row */}
                     <div className="grid grid-cols-3 gap-2 bg-surface-2 p-2.5 rounded-2xl border border-border-soft text-center font-mono">
                       <div>
                         <span className="text-[9px] text-text-muted uppercase font-bold block">Идут</span>
@@ -238,7 +237,6 @@ export const EveningsList: React.FC<EveningsListProps> = ({
         </>
       )}
 
-      {/* Create Evening Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-800 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white sm:max-h-[92dvh] sm:max-w-lg sm:rounded-3xl sm:p-6 sm:pb-6 space-y-5 relative">
@@ -283,12 +281,13 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                   <label className="block text-slate-400 font-bold uppercase mb-1">Формат</label>
                   <select
                     value={format}
-                    onChange={(e) => setFormat(e.target.value as any)}
+                    onChange={(e) => setFormat(e.target.value as EveningFormat)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                   >
-                    <option value="STANDARD">STANDARD (Классика)</option>
-                    <option value="NOVICE">NOVICE (Для новичков)</option>
-                    <option value="TOURNAMENT">TOURNAMENT (Турнир)</option>
+                    <option value="NOVICE">Для новичков</option>
+                    <option value="CASUAL">Для отдыха</option>
+                    <option value="RATING">Рейтинговый</option>
+                    <option value="TOURNAMENT">Турнир</option>
                   </select>
                 </div>
               </div>

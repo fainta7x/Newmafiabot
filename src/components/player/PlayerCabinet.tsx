@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 type Achievement = {
   id: string;
@@ -36,6 +36,20 @@ type TournamentAward = {
   title: string;
   tournament_title: string;
   tournament_date: string | null;
+};
+
+type RatingPlayer = {
+  place: number;
+  player_id: string;
+  nickname: string;
+  elo: number;
+  game_level: 'novice' | 'club' | 'tournament' | string;
+  avatar_url: string | null;
+};
+
+type RatingResponse = {
+  generated_at: string;
+  players: RatingPlayer[];
 };
 
 export type PlayerMeResponse = {
@@ -106,13 +120,59 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${isSelf ? 'border border-white/15 bg-white/[0.09]' : 'bg-black/20'}`}>
+      <div className="w-7 shrink-0 text-center text-sm font-semibold text-white/45">{item.place}</div>
+      {item.avatar_url ? (
+        <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+      ) : (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
+          {item.nickname.slice(0, 1).toUpperCase()}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="text-sm font-semibold text-white">{item.elo}</div>
+        <div className="text-[10px] uppercase tracking-wide text-white/35">ELO</div>
+      </div>
+    </div>
+  );
+}
+
 export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
   const { player, achievements, tournaments } = data;
+  const [rating, setRating] = useState<RatingPlayer[] | null>(null);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/rating', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить рейтинг');
+        if (!cancelled) {
+          setRating(Array.isArray((body as RatingResponse).players) ? (body as RatingResponse).players : []);
+          setRatingError(null);
+        }
+      } catch (error: any) {
+        if (!cancelled) setRatingError(error?.message || 'Не удалось загрузить рейтинг');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const earnedAchievements = achievements.categories.flatMap((category) =>
     category.achievements
       .filter((achievement) => achievement.earned)
       .map((achievement) => ({ ...achievement, categoryName: category.name })),
   );
+  const ratingTop = (rating || []).slice(0, 10);
+  const selfRating = (rating || []).find((item) => item.player_id === player.id) || null;
+  const selfOutsideTop = Boolean(selfRating && !ratingTop.some((item) => item.player_id === player.id));
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-10 pt-3 text-white">
@@ -146,6 +206,26 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
             <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div>
           </div>
         </header>
+
+        <Section title="Рейтинг клуба">
+          {ratingError ? (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p>
+          ) : rating === null ? (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка рейтинга…</p>
+          ) : ratingTop.length ? (
+            <div className="space-y-2">
+              {ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}
+              {selfOutsideTop && selfRating && (
+                <>
+                  <div className="py-0.5 text-center text-xs text-white/25">•••</div>
+                  <RatingRow item={selfRating} isSelf />
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Рейтинг пока пуст.</p>
+          )}
+        </Section>
 
         <Section title="Достижения">
           <div className="flex items-end justify-between gap-3">

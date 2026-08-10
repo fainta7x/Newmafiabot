@@ -1,0 +1,46 @@
+name: ChatGPT club game token settlement 04A first-killed fix
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-first-killed-fix-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply only first-killed LH fix
+        run: |
+          set -euo pipefail
+          cp automation/fix_club_game_token_settlement_04a_first_killed.py /tmp/fix_first_killed.py
+          git checkout --detach 390b090c6075b413f9fde4e1dbe729c253883421
+          python /tmp/fix_first_killed.py
+          files=$(git diff --name-only)
+          printf '%s\n' "$files"
+          test "$(printf '%s\n' "$files" | wc -l)" -eq 2
+          printf '%s\n' "$files" | grep -qx 'src/server/services/clubGameTokenSettlementService.ts'
+          printf '%s\n' "$files" | grep -qx 'src/tests/clubGameTokenSettlement.test.ts'
+      - name: Install dependencies
+        run: npm ci
+      - name: Focused 04A tests
+        run: npx vitest run src/tests/clubGameTokenSettlement.test.ts
+      - name: Commit verified fix
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/server/services/clubGameTokenSettlementService.ts src/tests/clubGameTokenSettlement.test.ts
+          git commit -m "fix(tokens): count only first-killed best move"
+          head=$(git rev-parse HEAD)
+          git push origin "$head:refs/heads/automation/club-game-token-settlement-04a-candidate-v2-2026-08-10"
+          echo "candidate=$head"

@@ -76,3 +76,77 @@ async def save_evening_announcement_state(evening_id: str, **fields: Any) -> dic
     except Exception:
         logger.exception("[Backend API] Failed to save announcement state")
         return {"success": False, "error": "unavailable"}
+
+
+async def get_evening_announcement_recipients(evening_id: str) -> dict[str, Any]:
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/announcement-recipients"
+    try:
+        timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_headers()) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if status == 200 and isinstance(data, dict) and isinstance(data.get("recipients"), list):
+                    return {"success": True, "data": data, "status": status}
+                if status == 404:
+                    return {"success": False, "error": "not_found", "status": status}
+                if status == 409:
+                    return {"success": False, "error": "closed", "status": status}
+                if status in (401, 403):
+                    return {"success": False, "error": "authorization", "status": status}
+                return {"success": False, "error": "unavailable", "status": status}
+    except asyncio.TimeoutError:
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError:
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Failed to load announcement recipients")
+        return {"success": False, "error": "unavailable"}
+
+
+async def save_evening_announcement_delivery(
+    evening_id: str,
+    player_id: str,
+    telegram_user_id: str,
+    telegram_message_id: int,
+) -> dict[str, Any]:
+    if not BOT_API_BASE_URL or not BOT_API_SECRET:
+        return {"success": False, "error": "configuration"}
+
+    url = f"{BOT_API_BASE_URL.rstrip('/')}/api/bot/evenings/{evening_id}/announcement-delivery"
+    payload = {
+        "player_id": player_id,
+        "telegram_user_id": telegram_user_id,
+        "telegram_message_id": int(telegram_message_id),
+    }
+    try:
+        timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_headers(), json=payload) as response:
+                status = response.status
+                try:
+                    data = await response.json()
+                except Exception:
+                    data = None
+                if status == 200 and isinstance(data, dict) and data.get("success") is True:
+                    return {"success": True, "data": data, "status": status}
+                if status == 404:
+                    return {"success": False, "error": "not_found", "status": status}
+                if status in (400, 422):
+                    return {"success": False, "error": "invalid", "status": status}
+                if status in (401, 403):
+                    return {"success": False, "error": "authorization", "status": status}
+                return {"success": False, "error": "unavailable", "status": status}
+    except asyncio.TimeoutError:
+        return {"success": False, "error": "timeout"}
+    except aiohttp.ClientError:
+        return {"success": False, "error": "unavailable"}
+    except Exception:
+        logger.exception("[Backend API] Failed to save announcement delivery")
+        return {"success": False, "error": "unavailable"}

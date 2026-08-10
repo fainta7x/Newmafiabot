@@ -1,0 +1,47 @@
+name: ChatGPT club game token settlement 04A type cleanup
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-candidate-v3-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply only 04A type cleanup
+        run: |
+          set -euo pipefail
+          cp automation/fix_club_game_token_settlement_04a_types.py /tmp/fix_04a_types.py
+          git checkout --detach c378d84d4b48cf81b45be25d3b4134d77075b06c
+          python /tmp/fix_04a_types.py
+          files=$(git diff --name-only)
+          printf '%s\n' "$files"
+          test "$(printf '%s\n' "$files" | wc -l)" -eq 3
+          printf '%s\n' "$files" | grep -qx 'src/server/routes/gamesRoutesBase.ts'
+          printf '%s\n' "$files" | grep -qx 'src/server/services/clubGameTokenSettlementService.ts'
+          printf '%s\n' "$files" | grep -qx 'src/tests/clubGameTokenSettlement.test.ts'
+      - name: Install dependencies
+        run: npm ci
+      - name: Focused 04A tests
+        run: npx vitest run src/tests/clubGameTokenSettlement.test.ts
+      - name: Commit cleaned candidate
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Patch Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/server/routes/gamesRoutesBase.ts src/server/services/clubGameTokenSettlementService.ts src/tests/clubGameTokenSettlement.test.ts
+          git commit -m "fix(tokens): type canonical club settlement"
+          head=$(git rev-parse HEAD)
+          git push origin "$head:refs/heads/automation/club-game-token-settlement-04a-final-candidate-2026-08-10"
+          echo "candidate=$head"

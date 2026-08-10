@@ -1,0 +1,58 @@
+name: ChatGPT club game token settlement 04A finalize
+
+on:
+  push:
+    branches:
+      - automation/club-game-token-settlement-04a-finalize-2026-08-10
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify exact candidate and unchanged main
+        run: |
+          set -euo pipefail
+          git fetch origin main automation/club-game-token-settlement-04a-candidate-v2-2026-08-10 --prune
+          test "$(git rev-parse origin/main)" = "1d04fbfb6f2f8b193f2d5b125859807004440be7"
+          test "$(git rev-parse origin/automation/club-game-token-settlement-04a-candidate-v2-2026-08-10)" = "c378d84d4b48cf81b45be25d3b4134d77075b06c"
+          git checkout --detach c378d84d4b48cf81b45be25d3b4134d77075b06c
+          files=$(git diff --name-only 1d04fbfb6f2f8b193f2d5b125859807004440be7..HEAD)
+          printf '%s\n' "$files"
+          test "$(printf '%s\n' "$files" | wc -l)" -eq 5
+          allowed='^(drizzle/0010_club_game_token_settlements\.sql|src/db/index\.ts|src/server/routes/gamesRoutesBase\.ts|src/server/services/clubGameTokenSettlementService\.ts|src/tests/clubGameTokenSettlement\.test\.ts)$'
+          while IFS= read -r file; do
+            [[ "$file" =~ $allowed ]] || { echo "Unexpected final file: $file"; exit 1; }
+          done <<< "$files"
+          if printf '%s\n' "$files" | grep -Eq '(^mafia_crm|checkpoint|avatar|uploads|\.sqlite$|\.db$)'; then
+            echo 'Forbidden runtime/data/avatar change detected'; exit 1
+          fi
+          git diff --check 1d04fbfb6f2f8b193f2d5b125859807004440be7..HEAD
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Final typecheck
+        run: npm run typecheck
+
+      - name: Final production build
+        run: npm run build
+
+      - name: Fast-forward main to verified candidate
+        run: |
+          set -euo pipefail
+          git fetch origin main --prune
+          test "$(git rev-parse origin/main)" = "1d04fbfb6f2f8b193f2d5b125859807004440be7"
+          git merge-base --is-ancestor origin/main c378d84d4b48cf81b45be25d3b4134d77075b06c
+          git push origin c378d84d4b48cf81b45be25d3b4134d77075b06c:refs/heads/main

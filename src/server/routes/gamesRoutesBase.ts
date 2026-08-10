@@ -6,6 +6,7 @@ import { createGameSchema } from '../validation.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
+import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
 
 const router = Router();
 
@@ -303,6 +304,10 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
       });
     });
 
+    if (previousStatus === 'completed' || status === 'completed') {
+      await rebuildCanonicalEloRatings(db);
+    }
+
     if (status === 'completed') {
       const achievementIds = incomingResults.map((item: any) => String(item.player_id || '')).filter(Boolean);
       if (judge.judge_player_id) achievementIds.push(String(judge.judge_player_id));
@@ -340,6 +345,7 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
         await tx.run('UPDATE games SET archived_at = ? WHERE id = ?', [new Date().toISOString(), gameId]);
         await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'archive' });
       });
+      if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
     }
     const row = await db.get(
       `SELECT g.*, et.name AS table_name FROM games g
@@ -368,6 +374,7 @@ router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) =
       await tx.run('UPDATE games SET archived_at = NULL WHERE id = ?', [gameId]);
       await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'restore' });
     });
+    if (protocol.protocol?.status === 'completed') await rebuildCanonicalEloRatings(db);
     const row = await db.get(
       `SELECT g.*, et.name AS table_name FROM games g
        LEFT JOIN evening_tables et ON et.id = g.evening_table_id WHERE g.id = ?`,

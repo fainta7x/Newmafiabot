@@ -1,119 +1,103 @@
-import path from 'path';
+import 'dotenv/config';
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
+import zlib from 'zlib';
 import Database from 'better-sqlite3';
-import { getDb, type DatabaseWrapper } from '../db/index.ts';
-import {
-  verifyDatabaseIntegrityAndStats,
-  compressAndSaveGitCheckpoint,
-  restoreGitCheckpointToSqlite,
-} from '../db/gitCheckpointUtils.ts';
+import { verifySqliteFile } from '../db/previewRecovery.ts';
 import { readCanonicalSnapshotMeta, stampRepositorySnapshot } from '../db/canonicalSnapshot.ts';
+import {
+  currentSchemaMarker,
+  requireNonEmptyFile,
+  resolveActiveRuntimeDbPath,
+  sha256Bytes,
+  type GuardedCheckpointMeta,
+} from './checkpointSyncShared.ts';
 
-export interface GitCheckpointOptions {
-  getDbFn?: () => Promise<DatabaseWrapper>;
-  dbWrapper?: DatabaseWrapper;
-  dbPath?: string;
-  targetB64Path?: string;
+function atomicWriteText(targetPath: string, content: string): void {
+  const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(tempPath, content, 'utf8');
+    fs.renameSync(tempPath, targetPath);
+  } finally {
+    if (fs.existsSync(tempPath)) {
+      try { fs.unlinkSync(tempPath); } catch {}
+    }
+  }
 }
 
-export async function runGitCheckpointScript(options: GitCheckpointOptions = {}): Promise<boolean> {
-  console.log('=== CREATING GIT CHECKPOINT FROM ACTIVE RUNTIME DB ===');
-
+export async function runGitCheckpointScript(): Promise<boolean> {
   const rootDir = process.cwd();
-  const targetB64Path = options.targetB64Path ?? path.join(rootDir, 'mafia_crm.checkpoint.sqlite.gz.b64');
+  const runtimePath = resolveActiveRuntimeDbPath(rootDir);
+  const metaPath = path.join(rootDir, 'mafia_crm.checkpoint.meta.json');
+  const existingMeta = readCanonicalSnapshotMeta(rootDir) as GuardedCheckpointMeta | null;
 
-  const tmpDir = path.join(os.tmpdir(), `git_checkpoint_${Date.now()}_${Math.random().toString(36).substring(7)}`);
-  fs.mkdirSync(tmpDir, { recursive: true });
+  if (!existingMeta) {
+    console.error('Canonical checkpoint metadata is missing or invalid. Refusing export.');
+    return false;
+  }
 
-  const backupSqlitePath = path.join(tmpDir, 'backup.sqlite');
-  const pendingB64Path = path.join(tmpDir, 'mafia_crm.checkpoint.sqlite.gz.b64.pending');
-  const restoredSqlitePath = path.join(tmpDir, 'restored.sqlite');
+  const targetPath = path.join(rootDir, existingMeta.checkpoint_file);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'newmafia-git-export-'));
+  const snapshotPath = path.join(tempDir, 'snapshot.sqlite');
 
-  let dbToClose: Database.Database | null = null;
-
+  let sourceDb: Database.Database | null = null;
   try {
-    // 1. Get DB connection to actual runtime database or options source
-    if (options.dbPath) {
-      console.log(`Runtime DB Path: ${options.dbPath}`);
-      dbToClose = new Database(options.dbPath, { readonly: true });
-      console.log('1. Performing online SQLite backup to temporary file...');
-      await dbToClose.backup(backupSqlitePath);
-    } else if (options.dbWrapper) {
-      console.log(`Runtime DB Path: ${options.dbWrapper.dbPath}`);
-      console.log('1. Performing online SQLite backup to temporary file...');
-      await options.dbWrapper.sqlite.backup(backupSqlitePath);
-    } else {
-      const dbWrapper = options.getDbFn ? await options.getDbFn() : await getDb();
-      console.log(`Runtime DB Path: ${dbWrapper.dbPath}`);
-      console.log('1. Performing online SQLite backup to temporary file...');
-      await dbWrapper.sqlite.backup(backupSqlitePath);
+    requireNonEmptyFile(runtimePath, 'Active runtime database');
+    console.log(`Active runtime DB: ${runtimePath}`);
+    console.log('Creating a consistent SQLite online backup...');
+
+    sourceDb = new Database(runtimePath, { readonly: true, fileMustExist: true });
+    await sourceDb.backup(snapshotPath);
+
+    if (!verifySqliteFile(snapshotPath)) {
+      throw new Error('Temporary SQLite snapshot failed integrity_check.');
     }
 
-    const canonicalMeta = readCanonicalSnapshotMeta(rootDir);
-    if (canonicalMeta?.snapshot_version) {
-      stampRepositorySnapshot(backupSqlitePath, canonicalMeta.snapshot_version);
-      console.log(`Stamped repository snapshot version: ${canonicalMeta.snapshot_version}`);
+    stampRepositorySnapshot(snapshotPath, existingMeta.snapshot_version);
+    if (!verifySqliteFile(snapshotPath)) {
+      throw new Error('Stamped SQLite snapshot failed integrity_check.');
     }
 
-    // 2. Verify backup database integrity and tournament stats
-    console.log('2. Verifying temporary backup database integrity and stats...');
-    const backupStats = verifyDatabaseIntegrityAndStats(backupSqlitePath);
+    const sqliteBytes = fs.readFileSync(snapshotPath);
+    const checkpointSha256 = sha256Bytes(sqliteBytes);
+    const encoded = zlib.gzipSync(sqliteBytes).toString('base64');
+    const metadata: GuardedCheckpointMeta = {
+      ...existingMeta,
+      checkpoint_file: path.basename(targetPath),
+      created_at: new Date().toISOString(),
+      checksum_algorithm: 'sha256',
+      checkpoint_sha256: checkpointSha256,
+      schema_marker: currentSchemaMarker(rootDir),
+      import_condition: 'development/AI Studio only; target runtime database must be absent or zero-length',
+    };
 
-    console.log(`✓ Integrity: ok. Total tournaments: ${backupStats.totalTournaments}`);
-    console.log(`✓ "Турнир Богдана 1.08": ${backupStats.bogdanaStats.totalGames} games total, ${backupStats.bogdanaStats.completedProtocols} completed protocols.`);
-    console.log(`  - Game #7: game status=${backupStats.bogdanaStats.game7.gameStatus}, protocol status=${backupStats.bogdanaStats.game7.protocolStatus}, results=${backupStats.bogdanaStats.game7.resultsCount}`);
-    console.log(`  - Game #8: game status=${backupStats.bogdanaStats.game8.gameStatus}, protocol status=${backupStats.bogdanaStats.game8.protocolStatus}, results=${backupStats.bogdanaStats.game8.resultsCount}`);
-
-    // 3. Compress to temporary pending b64 file inside temp dir
-    console.log('3. Compressing backup to temporary pending checkpoint file...');
-    compressAndSaveGitCheckpoint(backupSqlitePath, pendingB64Path);
-
-    // 4. Restore pending b64 file to second temp SQLite file and repeat verification
-    console.log('4. Restoring pending checkpoint to verify roundtrip integrity...');
-    restoreGitCheckpointToSqlite(pendingB64Path, restoredSqlitePath);
-
-    const restoredStats = verifyDatabaseIntegrityAndStats(restoredSqlitePath);
-    console.log(`✓ Restored checkpoint integrity OK (${restoredStats.totalTournaments} tournaments)! Games #7 & #8 verified.`);
-
-    // 5. Atomically replace target checkpoint file ONLY after successful verification
-    console.log('5. Atomically replacing target checkpoint file...');
-    const targetDir = path.dirname(targetB64Path);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+    // Verify the encoded payload before replacing either canonical artifact.
+    const roundTrip = zlib.gunzipSync(Buffer.from(encoded, 'base64'));
+    if (sha256Bytes(roundTrip) !== checkpointSha256) {
+      throw new Error('Checkpoint round-trip checksum mismatch. Refusing export.');
     }
-    const tmpRootSwap = `${targetB64Path}.swap_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    fs.copyFileSync(pendingB64Path, tmpRootSwap);
-    fs.renameSync(tmpRootSwap, targetB64Path);
 
-    const rootFileSize = fs.statSync(targetB64Path).size;
-    console.log(`✓ Target checkpoint updated atomically: ${path.basename(targetB64Path)} (${rootFileSize} bytes)`);
+    atomicWriteText(targetPath, encoded);
+    atomicWriteText(metaPath, `${JSON.stringify(metadata, null, 2)}\n`);
 
-    console.log('\n======================================================');
-    console.log('SUCCESS: Git checkpoint updated and verified 100%!');
-    console.log('======================================================');
+    console.log(`Canonical checkpoint exported: ${path.basename(targetPath)}`);
+    console.log(`SHA-256: ${checkpointSha256}`);
+    console.log(`Schema marker: ${metadata.schema_marker}`);
     return true;
-  } catch (err: any) {
-    console.error('\n❌ FAILED TO CREATE GIT CHECKPOINT:');
-    console.error(err?.message || String(err));
+  } catch (error: any) {
+    console.error(`Checkpoint export refused: ${error?.message || String(error)}`);
     return false;
   } finally {
-    if (dbToClose) {
-      try { dbToClose.close(); } catch (_) {}
-    }
-    try {
-      if (fs.existsSync(tmpDir)) {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    } catch (_) {}
+    try { sourceDb?.close(); } catch {}
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   }
 }
 
 async function main() {
-  const success = await runGitCheckpointScript();
-  process.exitCode = success ? 0 : 1;
+  process.exitCode = (await runGitCheckpointScript()) ? 0 : 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  void main();
 }

@@ -11,6 +11,7 @@ from handlers import start_profile, payment, booking, profile, admin_judges
 from handlers import achievements
 from handlers import shop
 from handlers import crm_evening_response
+from handlers import admin_crm
 import admin
 from game import router as game_router  # игровой роутер
 from commands import setup_bot_commands
@@ -92,7 +93,8 @@ def setup_handlers():
 
     # 1. Сначала самые специфичные хендлеры с фильтрами
     dp.include_router(admin_judges.router)  # управление судьями
-    dp.include_router(admin.router)  # админ-панель
+    dp.include_router(admin_crm.router)  # новая CRM-панель организатора
+    dp.include_router(admin.router)  # legacy админ-панель (/admin)
 
     # 2. Пользовательские хендлеры
     dp.include_router(start_profile.router)  # /start
@@ -113,7 +115,7 @@ def setup_handlers():
 
 # Автоматические бэкапы в 3:00
 async def daily_backup_task():
-    """Фоновая задача для ежедневного бэкапа в 3:00"""
+    """Фоновая задача для ежедневного бэкапа"""
     global bot
     
     while True:

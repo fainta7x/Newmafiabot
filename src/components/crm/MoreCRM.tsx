@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, ChevronRight, ClipboardList, Gamepad2, LogOut, Palette } from 'lucide-react';
+import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -29,6 +30,8 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         <h2 className="text-[24px] font-black tracking-tight text-text-primary">Ещё</h2>
         <p className="mt-1 text-[13px] text-text-secondary">Редкие инструменты и настройки — отдельно от ежедневной работы.</p>
       </div>
+
+      <RatingPeriodsCRM />
 
       <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
         {items.map(({ id, label, detail, icon: Icon, onClick }, index) => (

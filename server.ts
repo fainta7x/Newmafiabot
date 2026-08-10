@@ -29,12 +29,20 @@ function requireProductionSecret(name: 'ORGANIZER_PASSWORD' | 'JWT_SECRET' | 'BO
 function validateProductionEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') return;
 
-  const databasePath = process.env.DATABASE_PATH;
-  if (!databasePath) {
-    throw new Error('DATABASE_PATH must be set in production.');
+  const tursoUrl = String(process.env.TURSO_DATABASE_URL || '').trim();
+  const tursoToken = String(process.env.TURSO_AUTH_TOKEN || '').trim();
+  if (Boolean(tursoUrl) !== Boolean(tursoToken)) {
+    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must either both be set or both be absent.');
   }
-  if (!path.isAbsolute(databasePath)) {
-    throw new Error('DATABASE_PATH must be an absolute path in production.');
+
+  if (!tursoUrl) {
+    const databasePath = process.env.DATABASE_PATH;
+    if (!databasePath) {
+      throw new Error('Set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN, or DATABASE_PATH, in production.');
+    }
+    if (!path.isAbsolute(databasePath)) {
+      throw new Error('DATABASE_PATH must be an absolute path in production.');
+    }
   }
 
   requireProductionSecret('ORGANIZER_PASSWORD', 12);

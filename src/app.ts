@@ -7,6 +7,7 @@ import { DatabaseWrapper, getDb } from './db/index.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
+import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
 import playersRoutes from './server/routes/playersRoutes.ts';
@@ -66,6 +67,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use(parseUserSession);
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/player', playerSelfRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningsRoutes);

@@ -9,7 +9,7 @@ const participant = (id: string, patch: Partial<EveningParticipant> = {}): Eveni
   nickname: id,
   lifecycle_status: 'regular',
   elo: 1000,
-  registration_status: 'registered',
+  response_status: 'going',
   attendance_status: 'pending',
   arrival_status: 'unknown',
   payment_status: 'unpaid',
@@ -27,18 +27,18 @@ describe('evening roster without hard table binding', () => {
   });
 
   it('excludes cancelled, waitlist and no-show players', () => {
-    expect(isEveningGameEligible(participant('A', { registration_status: 'cancelled' }))).toBe(false);
-    expect(isEveningGameEligible(participant('B', { registration_status: 'waitlist' }))).toBe(false);
+    expect(isEveningGameEligible(participant('A', { response_status: 'declined' }))).toBe(false);
+    expect(isEveningGameEligible(participant('B', { response_status: 'thinking' }))).toBe(false);
     expect(isEveningGameEligible(participant('C', { attendance_status: 'no_show' }))).toBe(false);
   });
 
   it('prioritizes attended players, then confirmed players', () => {
     const sorted = sortEveningRoster([
-      participant('registered'),
+      participant('going'),
       participant('attended', { attendance_status: 'attended' }),
-      participant('confirmed', { registration_status: 'confirmed' }),
+      participant('going', { response_status: 'going' }),
     ]);
-    expect(sorted.map((item) => item.id)).toEqual(['attended', 'confirmed', 'registered']);
+    expect(sorted.map((item) => item.id)).toEqual(['attended', 'going', 'going']);
   });
 
   it('fills the next free seat and toggles selected player off', () => {

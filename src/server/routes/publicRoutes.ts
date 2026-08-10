@@ -28,7 +28,7 @@ router.get('/evenings/:id', async (req: Request, res: Response) => {
     // Get tables
     let tables = await db.all(
       `SELECT t.id, t.name, t.format, t.capacity, t.starts_at, t.default_price,
-        (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.registration_status NOT IN ('cancelled', 'waitlist')) as registered_count
+        (SELECT COUNT(*) FROM evening_participants p WHERE p.table_id = t.id AND p.response_status IN ('going','late')) as registered_count
        FROM evening_tables t
        WHERE t.evening_id = ?
        ORDER BY t.sort_order ASC, t.created_at ASC`,
@@ -38,7 +38,7 @@ router.get('/evenings/:id', async (req: Request, res: Response) => {
     if (tables.length === 0) {
       // Return synthetic default table
       const registeredCountRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND response_status IN ('going','late')`,
         [req.params.id]
       );
       const registered = registeredCountRow?.cnt || 0;
@@ -151,7 +151,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
       [eveningId, player.id]
     );
 
-    if (existingParticipation && existingParticipation.registration_status !== 'cancelled') {
+    if (existingParticipation) {
       return res.json({
         success: true,
         alreadyRegistered: true,
@@ -170,7 +170,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
       if (tbl) {
         selectedTableName = tbl.name;
         const countRow = await db.get(
-          `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND registration_status IN ('registered', 'confirmed')`,
+          `SELECT COUNT(*) as cnt FROM evening_participants WHERE table_id = ? AND response_status IN ('going','late')`,
           [targetTableId]
         );
         if ((countRow?.cnt || 0) >= tbl.capacity) {
@@ -180,7 +180,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
     } else {
       // Check total evening capacity
       const countRow = await db.get(
-        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status IN ('registered', 'confirmed')`,
+        `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND response_status IN ('going','late')`,
         [eveningId]
       );
       if ((countRow?.cnt || 0) >= (evening.capacity || 20)) {
@@ -204,8 +204,8 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
       );
     } else {
       await db.run(
-        `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+        `INSERT INTO evening_participants (id, evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
         [participantId, eveningId, player.id, targetTableId, regStatus, paymentStatus, amountDue, nowIso, nowIso, nowIso]
       );
     }

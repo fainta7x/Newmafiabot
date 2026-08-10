@@ -84,8 +84,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     // 3. Registration & Attendance stats ONLY for COMPLETED past evenings
     const participantStats = await db.get(`
       SELECT 
-        COUNT(*) as total_registrations,
-        SUM(CASE WHEN ep.registration_status = 'cancelled' THEN 1 ELSE 0 END) as total_cancelled,
+        SUM(CASE WHEN ep.response_status IN ('going','late') THEN 1 ELSE 0 END) as total_registrations,
+        SUM(CASE WHEN ep.response_status = 'declined' THEN 1 ELSE 0 END) as total_cancelled,
         SUM(CASE WHEN ep.attendance_status = 'attended' THEN 1 ELSE 0 END) as total_attended,
         SUM(CASE WHEN ep.attendance_status = 'no_show' THEN 1 ELSE 0 END) as total_no_show
       FROM evening_participants ep

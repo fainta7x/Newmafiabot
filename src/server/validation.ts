@@ -15,12 +15,15 @@ export const createEveningSchema = z.object({
 
 export const updateEveningSchema = createEveningSchema.partial();
 
-const eveningRegistrationStatusSchema = z.enum(['going', 'late', 'thinking', 'declined', 'invited', 'registered', 'confirmed', 'waitlist', 'cancelled']);
+const eveningResponseStatusSchema = z.enum(['unanswered', 'going', 'late', 'thinking', 'declined']);
+const eveningRegistrationStatusSchema = z.enum(['unanswered','going','late','thinking','declined','invited','registered','confirmed','waitlist','cancelled']); // compatibility input only
+const eveningAttendanceFactSchema = z.enum(['pending','on_time','late','no_show']);
 
 export const bulkAddParticipantsSchema = z.object({
   player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
   table_id: z.string().nullable().optional(),
-  registration_status: eveningRegistrationStatusSchema.default('going'),
+  response_status: eveningResponseStatusSchema.optional(),
+  registration_status: eveningRegistrationStatusSchema.optional(),
   amount_due: z.number().int().min(0).optional(),
 });
 
@@ -29,7 +32,8 @@ export const addSingleParticipantSchema = z.object({
   nickname: z.string().optional(),
   phone: z.string().optional(),
   table_id: z.string().nullable().optional(),
-  registration_status: eveningRegistrationStatusSchema.default('going'),
+  response_status: eveningResponseStatusSchema.optional(),
+  registration_status: eveningRegistrationStatusSchema.optional(),
   amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).default(0),
   notes: z.string().nullable().optional(),
@@ -37,7 +41,9 @@ export const addSingleParticipantSchema = z.object({
 
 export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(),
+  response_status: eveningResponseStatusSchema.optional(),
   registration_status: eveningRegistrationStatusSchema.optional(),
+  attendance_fact: eveningAttendanceFactSchema.optional(),
   attendance_status: z.enum(['pending', 'attended', 'no_show']).optional(),
   arrival_status: z.enum(['unknown', 'on_time', 'late']).optional(),
   payment_status: z.enum(['unpaid', 'partial', 'paid', 'waived']).optional(),

@@ -4,6 +4,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
+import { normalizeEveningResponse, normalizeLegacyEveningResponseInput, resolveAttendanceWrite } from '../../lib/eveningResponse.ts';
 import {
   createEveningSchema,
   updateEveningSchema,
@@ -367,7 +368,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
 
           const partId = crypto.randomUUID();
           await db.run(
-            `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, confirmed_at, created_at, updated_at)
+            `INSERT INTO evening_participants (id, evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, confirmed_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               partId,
@@ -419,7 +420,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
 // PATCH /api/evenings/:id/participants/bulk - Bulk update participant statuses in single transaction (Auth required)
 router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => {
   try {
-    const { updates } = req.body; // Array of { id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes }
+    const { updates } = req.body; // Array of { id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes }
     if (!Array.isArray(updates) || updates.length === 0) {
       return res.status(400).json({ error: 'Список обновлений участников пуст или некорректен' });
     }
@@ -544,7 +545,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     }
 
     const calculatedAmountDue = data.amount_due ?? evening.default_price;
-    const finalRegStatus = data.registration_status;
+    const finalResponse = data.response_status !== undefined ? normalizeEveningResponse(data.response_status) : data.registration_status !== undefined ? normalizeLegacyEveningResponseInput(data.registration_status) : 'going';
 
     const partId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -552,7 +553,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     const paymentStatus = (data as any).payment_status ?? (calculatedAmountDue === 0 ? 'waived' : (amountPaid >= calculatedAmountDue && calculatedAmountDue > 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid'));
 
     await db.run(
-      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes, registered_at, confirmed_at, created_at, updated_at)
+      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, notes, registered_at, confirmed_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         partId,
@@ -567,7 +568,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
         amountPaid,
         data.notes || null,
         now,
-        finalRegStatus === 'confirmed' ? now : null,
+        null,
         now,
         now,
       ]

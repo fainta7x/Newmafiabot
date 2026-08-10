@@ -138,6 +138,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   };
 
   addColumnIfNotExists('evening_participants', 'table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
+  addColumnIfNotExists('evening_participants', 'response_status', "TEXT NOT NULL DEFAULT 'unanswered'");
   addColumnIfNotExists('games', 'evening_table_id', 'TEXT REFERENCES evening_tables(id) ON DELETE SET NULL');
   addColumnIfNotExists('games', 'archived_at', 'TEXT');
   addColumnIfNotExists('games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
@@ -190,6 +191,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
     '0008_canonical_nomination_resolution.sql',
     '0009_token_ledger.sql',
     '0010_club_game_token_settlements.sql',
+    '0011_canonical_evening_response_attendance.sql',
   ];
   for (const file of migrations) {
     const migrationPath = path.join(process.cwd(), 'drizzle', file);

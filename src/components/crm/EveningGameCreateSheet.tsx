@@ -3,6 +3,7 @@ import { Search, Shuffle, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { isEveningGameEligible, sortEveningRoster, toggleParticipantInSeats } from '../../lib/eveningRoster';
+import { getActualAttendanceFact, normalizeEveningResponse } from '../../lib/eveningResponse';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
 
@@ -14,7 +15,7 @@ interface EveningGameCreateSheetProps {
   onCreated: (game: ClubGameRecord) => void;
 }
 
-type PlayerFilter = 'all' | 'attended' | 'confirmed';
+type PlayerFilter = 'all' | 'arrived' | 'expected';
 
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
@@ -32,8 +33,9 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return eligible.filter((participant) => {
-      if (filter === 'attended' && participant.attendance_status !== 'attended') return false;
-      if (filter === 'confirmed' && participant.registration_status !== 'confirmed') return false;
+      const fact = getActualAttendanceFact(participant.attendance_status, participant.arrival_status);
+      if (filter === 'arrived' && !['on_time','late','attended_unknown'].includes(String(fact))) return false;
+      if (filter === 'expected' && !(fact === 'pending' && ['going','late'].includes(normalizeEveningResponse(participant.response_status, participant.registration_status)))) return false;
       return !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q);
     });
   }, [eligible, filter, query]);
@@ -121,13 +123,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </div>
 
         <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
-          {([['all', `Все ${eligible.length}`], ['attended', 'Пришли'], ['confirmed', 'Подтв.']] as Array<[PlayerFilter, string]>).map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-11 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>)}
+          {([['all', `Все ${eligible.length}`], ['arrived', 'Пришли'], ['expected', 'Ожидаются']] as Array<[PlayerFilter, string]>).map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-11 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>)}
         </div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" /></div>
         <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">{participant.attendance_status === 'attended' ? 'Пришёл' : participant.registration_status === 'confirmed' ? 'Подтверждён' : 'На вечере'}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">{(() => { const fact = getActualAttendanceFact(participant.attendance_status, participant.arrival_status); return fact === 'on_time' ? 'Пришёл вовремя' : fact === 'late' ? 'Пришёл позже' : fact === 'attended_unknown' ? 'Пришёл' : 'Ожидается'; })()}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-xs text-slate-500">Игроков не найдено</div>}
         </div>

@@ -70,7 +70,8 @@ export const eveningParticipants = sqliteTable('evening_participants', {
   evening_id: text('evening_id').notNull().references(() => gameEvenings.id, { onDelete: 'cascade' }),
   player_id: text('player_id').notNull().references(() => players.id, { onDelete: 'cascade' }),
   table_id: text('table_id').references(() => eveningTables.id, { onDelete: 'set null' }),
-  registration_status: text('registration_status').notNull().default('registered'), // invited, registered, confirmed, waitlist, cancelled
+  response_status: text('response_status').notNull().default('unanswered'), // unanswered, going, late, thinking, declined
+  registration_status: text('registration_status').notNull().default('unanswered'), // compatibility mirror of response_status
   attendance_status: text('attendance_status').notNull().default('pending'), // pending, attended, no_show
   arrival_status: text('arrival_status').notNull().default('unknown'), // unknown, on_time, late
   payment_status: text('payment_status').notNull().default('unpaid'), // unpaid, partial, paid, waived

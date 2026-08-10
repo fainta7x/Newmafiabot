@@ -3,6 +3,7 @@ import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
+import { isEveningParticipantEligibleForGame } from '../../lib/eveningResponse.ts';
 
 const router = Router();
 
@@ -35,7 +36,7 @@ const validateEveningGameSeats = async (db: any, eveningId: string, seats: any[]
   }
   const placeholders = participantIds.map(() => '?').join(',');
   const rows = await db.all(
-    `SELECT ep.id AS participant_id, ep.player_id, ep.evening_id, p.nickname, p.full_name
+    `SELECT ep.id AS participant_id, ep.player_id, ep.evening_id, ep.response_status, ep.registration_status, ep.attendance_status, ep.arrival_status, p.nickname, p.full_name
        FROM evening_participants ep
        JOIN players p ON p.id = ep.player_id
       WHERE ep.id IN (${placeholders})`,
@@ -44,6 +45,8 @@ const validateEveningGameSeats = async (db: any, eveningId: string, seats: any[]
   if (rows.length !== 10 || rows.some((row: any) => row.evening_id !== eveningId)) {
     throw new Error('Все выбранные игроки должны быть участниками этого вечера');
   }
+  const ineligible = rows.filter((row: any) => !isEveningParticipantEligibleForGame(row));
+  if (ineligible.length) throw new Error('В игру можно добавить только ожидаемых или фактически пришедших игроков');
   const byParticipant = new Map(rows.map((row: any) => [row.participant_id, row]));
   return seats.map((seat) => {
     const source: any = byParticipant.get(String(seat.participant_id));

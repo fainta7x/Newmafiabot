@@ -304,7 +304,9 @@ export interface GameEvening {
   available_spots?: number;
 }
 
-export type EveningRegistrationStatus = 'going' | 'late' | 'thinking' | 'declined' | 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled';
+export type EveningResponseStatus = 'unanswered' | 'going' | 'late' | 'thinking' | 'declined';
+export type EveningRegistrationStatus = EveningResponseStatus; // compatibility mirror only
+export type EveningAttendanceFact = 'pending' | 'on_time' | 'late' | 'no_show' | 'attended_unknown';
 
 export interface EveningParticipant {
   id: string;
@@ -316,7 +318,9 @@ export interface EveningParticipant {
   telegram_username?: string | null;
   lifecycle_status: string;
   elo: number;
+  response_status: EveningResponseStatus;
   registration_status: EveningRegistrationStatus;
+  attendance_fact?: EveningAttendanceFact;
   attendance_status: 'pending' | 'attended' | 'no_show';
   arrival_status: 'unknown' | 'on_time' | 'late';
   payment_status: 'unpaid' | 'partial' | 'paid' | 'waived';
@@ -742,10 +746,10 @@ export const api = {
     }),
 
   // Participants
-  bulkAddParticipants: (eveningId: string, playerIds: string[], tableId?: string | null, registrationStatus: string = 'registered', amountDue?: number) =>
+  bulkAddParticipants: (eveningId: string, playerIds: string[], tableId?: string | null, responseStatus: EveningResponseStatus = 'going', amountDue?: number) =>
     request<{ success: boolean; addedCount: number; waitlistCount: number; skippedCount: number; participants: EveningParticipant[] }>(
       `/api/evenings/${eveningId}/participants/bulk`,
-      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, table_id: tableId, registration_status: registrationStatus, amount_due: amountDue }) }
+      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, table_id: tableId, response_status: responseStatus, amount_due: amountDue }) }
     ),
   bulkUpdateParticipants: (eveningId: string, updates: Partial<EveningParticipant>[]) =>
     request<{ success: boolean; participants: EveningParticipant[] }>(
@@ -754,7 +758,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; response_status?: EveningResponseStatus; registration_status?: string; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',
@@ -877,7 +881,7 @@ export const api = {
     eveningId: string,
     data: { nickname: string; telegram_username?: string; phone?: string; table_id?: string; source?: string }
   ) =>
-    request<{ success: boolean; registration_status: string; tableName: string; message: string; alreadyRegistered?: boolean }>(
+    request<{ success: boolean; response_status: EveningResponseStatus; registration_status: EveningResponseStatus; tableName: string; message: string; alreadyRegistered?: boolean }>(
       `/api/public/evenings/${eveningId}/join`,
       { method: 'POST', body: JSON.stringify(data) }
     ),

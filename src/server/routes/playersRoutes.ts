@@ -403,7 +403,8 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
         success: true,
         alreadyParticipant: true,
         participant,
-        registration_status: participant.registration_status,
+        response_status: participant.response_status,
+        registration_status: participant.response_status,
         telegramLink,
         message: 'Игрок уже добавлен на этот вечер',
       });
@@ -411,8 +412,8 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
 
     const partId = crypto.randomUUID();
     await db.run(
-      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
       [partId, evening_id, req.params.id, selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
     );
     participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);

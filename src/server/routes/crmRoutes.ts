@@ -106,7 +106,6 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
        JOIN game_evenings ge ON ge.id = ep.evening_id
        WHERE (ge.status = 'completed' OR ge.settled_at IS NOT NULL)
          AND ep.attendance_status = 'attended'
-         AND ep.registration_status NOT IN ('cancelled', 'declined', 'invited', 'thinking', 'waitlist')
          AND ep.payment_status != 'waived' AND ep.amount_due > ep.amount_paid
        ORDER BY ge.starts_at DESC`,
     );

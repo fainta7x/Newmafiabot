@@ -9,7 +9,7 @@ vi.mock('../lib/api', () => ({ api: { getEvening: mocks.getEvening, getPlayers: 
 vi.mock('../components/ui/PlayerAvatar', () => ({ PlayerAvatar: () => <span data-testid="player-avatar" /> }));
 import { EveningParticipantsView } from '../components/crm/EveningParticipantsView';
 
-const participant = { id: 'ep-1', evening_id: 'evening-1', player_id: 'player-1', table_id: null, nickname: 'Спящий', phone: null, telegram_username: null, lifecycle_status: 'regular', elo: 1000, registration_status: 'going', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 500, amount_paid: 0, notes: null, registered_at: null, confirmed_at: null, checked_in_at: null, created_at: '2026-08-07T18:00:00.000Z', updated_at: '2026-08-07T18:00:00.000Z' };
+const participant = { id: 'ep-1', evening_id: 'evening-1', player_id: 'player-1', table_id: null, nickname: 'Спящий', phone: null, telegram_username: null, lifecycle_status: 'regular', elo: 1000, response_status: 'going', registration_status: 'going', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 500, amount_paid: 0, notes: null, registered_at: null, confirmed_at: null, checked_in_at: null, created_at: '2026-08-07T18:00:00.000Z', updated_at: '2026-08-07T18:00:00.000Z' };
 const evening = { id: 'evening-1', title: 'Пятничный вечер', starts_at: '2026-08-07T18:00:00.000Z', ends_at: null, timezone: 'Europe/Moscow', venue: 'Клуб', format: 'STANDARD', status: 'active', capacity: 1, default_price: 500, notes: null, settled_at: null, created_at: '2026-08-01T18:00:00.000Z', updated_at: '2026-08-07T18:00:00.000Z', tables: [], participants: [participant] };
 
 describe('EveningParticipantsView response/attendance/payment model', () => {
@@ -31,8 +31,12 @@ describe('EveningParticipantsView response/attendance/payment model', () => {
     fireEvent.click(screen.getByText('Спящий').closest('button')!);
     expect(onOpenPlayerCard).toHaveBeenCalledWith('player-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Пришёл' }));
-    await waitFor(() => expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', { attendance_status: 'attended' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Вовремя' }));
+    await waitFor(() => expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', { attendance_fact: 'on_time' }));
+    expect(mocks.updateParticipant).not.toHaveBeenCalledWith('ep-1', expect.objectContaining({ response_status: expect.anything() }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Позже' }));
+    await waitFor(() => expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', { attendance_fact: 'late' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Действия Спящий' }));
     expect(await screen.findByText('Ответ на вечер')).toBeTruthy();

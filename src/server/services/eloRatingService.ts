@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 
 export const DEFAULT_ELO = 1000;
 
@@ -21,8 +22,23 @@ export interface CanonicalEloPlayerDelta {
   totalDelta: number;
 }
 
+type PreparedEloPlayer = Omit<CanonicalEloGamePlayer, 'elo'>;
+
+type PreparedEloEvent = {
+  source: 'tournament' | 'club';
+  sourceId: string;
+  sortAt: string;
+  sortOrder: number;
+  winnerTeam: EloTeam;
+  players: PreparedEloPlayer[];
+};
+
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+const numeric = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
 
 export function calculateCanonicalEloGame(
   players: CanonicalEloGamePlayer[],
@@ -83,6 +99,80 @@ const normalizeWinner = (value: unknown): EloTeam | null => {
   return null;
 };
 
+const safeJsonParse = <T>(value: unknown, fallback: T): T => {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+};
+
+const bestMovePoints = (seatNumbers: unknown, results: any[]): number => {
+  if (!Array.isArray(seatNumbers)) return 0;
+  const teams = new Map<number, EloTeam | null>(
+    results.map((result: any) => [Number(result?.seat_number), teamFromRole(result?.role)]),
+  );
+  const blackCount = seatNumbers.reduce(
+    (sum: number, seat: unknown) => sum + (teams.get(Number(seat)) === 'black' ? 1 : 0),
+    0,
+  );
+  if (blackCount >= 3) return 0.6;
+  if (blackCount === 2) return 0.3;
+  if (blackCount === 1) return 0.1;
+  return 0;
+};
+
+const clubBestMovePointsForParticipant = (protocol: any, participantId: string, results: any[]): number => {
+  const modern = Array.isArray(protocol?.best_moves) ? protocol.best_moves : [];
+  const relevant = modern.filter((move: any) => String(move?.participant_id || '') === participantId);
+  if (relevant.length) {
+    return relevant.reduce(
+      (sum: number, move: any) => sum + bestMovePoints(move?.seat_numbers, results),
+      0,
+    );
+  }
+
+  if (String(protocol?.best_move_participant_id || '') === participantId) {
+    return bestMovePoints(protocol?.best_move_seats, results);
+  }
+  return 0;
+};
+
+const clubPersonalGamePoints = (payload: any, result: any, results: any[]): number => {
+  const participantId = String(result?.participant_id || '');
+  const isPpkCulprit = payload?.protocol?.end_reason === 'ppk'
+    && participantId
+    && participantId === String(payload?.protocol?.ppk_culprit_participant_id || '');
+  const disciplinaryPenalty = calculateDisciplinaryPenalty(
+    Math.max(0, Math.trunc(numeric(result?.minor_technical_fouls))),
+    Math.max(0, Math.trunc(numeric(result?.major_technical_fouls))),
+    result?.exit_type === 'removed',
+    Boolean(isPpkCulprit),
+  );
+
+  // Same personal component used by tournament Elo: game_total - win_point.
+  // Positive/negative judge and protocol points collapse back to their signed values;
+  // team victory is handled separately by the Elo result component.
+  return numeric(result?.judge_bonus)
+    + numeric(result?.protocol_bonus)
+    + clubBestMovePointsForParticipant(payload?.protocol, participantId, results)
+    + numeric(result?.ci_points)
+    - disciplinaryPenalty;
+};
+
+const sortTime = (value: string) => {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const validatePreparedEvent = (event: PreparedEloEvent) => {
+  if (event.players.length !== 10 || new Set(event.players.map((player) => player.playerId)).size !== 10) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 10 unique linked players.`);
+  }
+  const red = event.players.filter((player) => player.team === 'red').length;
+  const black = event.players.filter((player) => player.team === 'black').length;
+  if (red !== 7 || black !== 3) {
+    throw new Error(`Canonical Elo cannot rate ${event.source} game ${event.sourceId}: expected 7 red and 3 black roles.`);
+  }
+};
+
 export interface EloRebuildRow {
   player_id: string;
   nickname: string;
@@ -91,13 +181,13 @@ export interface EloRebuildRow {
 }
 
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
-  // Tournament standings owns the canonical personal game score. Importing it lazily
+  // Tournament standings owns the canonical tournament personal game score. Importing it lazily
   // avoids a startup module cycle with tournamentProtocolRoutes.
   const { internalGetStandings } = await import('../routes/tournamentsRoutesBase.ts');
 
   const players = await db.all<any>('SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id');
-  const ratings = new Map<string, number>(players.map((player) => [String(player.id), DEFAULT_ELO]));
-  const gameCounts = new Map<string, number>();
+  const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const events: PreparedEloEvent[] = [];
 
   const tournaments = await db.all<any>(`
     SELECT DISTINCT t.id, t.date, t.created_at
@@ -125,7 +215,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
       const winner = normalizeWinner(game.winner_team);
       if (!winner) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: winner is missing.`);
 
-      const gamePlayers: CanonicalEloGamePlayer[] = [];
+      const eventPlayers: PreparedEloPlayer[] = [];
       for (const participant of standings) {
         if (!participant.player_id) continue;
         const canonicalGame = Array.isArray(participant.games)
@@ -136,25 +226,89 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
         const team = teamFromRole(canonicalGame.role);
         if (!team) throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: role is missing.`);
         const playerId = String(participant.player_id);
-        const currentElo = ratings.get(playerId);
-        if (currentElo === undefined) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
+        if (!knownPlayerIds.has(playerId)) throw new Error(`Canonical Elo cannot find player ${playerId}.`);
 
-        // game_total is the canonical tournament score for this game:
-        // win_point + judge + protocol + best move + CI - game/disciplinary penalties.
         const canonicalPersonalGamePoints = Number(canonicalGame.game_total || 0) - Number(canonicalGame.win_point || 0);
-        gamePlayers.push({ playerId, team, elo: currentElo, canonicalPersonalGamePoints });
+        eventPlayers.push({ playerId, team, canonicalPersonalGamePoints });
       }
 
-      if (gamePlayers.length !== 10 || new Set(gamePlayers.map((player) => player.playerId)).size !== 10) {
-        throw new Error(`Canonical Elo cannot rate tournament game ${game.id}: expected 10 unique linked players.`);
-      }
+      const event: PreparedEloEvent = {
+        source: 'tournament',
+        sourceId: String(game.id),
+        sortAt: String(game.sort_at || tournament.date || tournament.created_at || ''),
+        sortOrder: Number(game.game_number || 0),
+        winnerTeam: winner,
+        players: eventPlayers,
+      };
+      validatePreparedEvent(event);
+      events.push(event);
+    }
+  }
 
-      const deltas = calculateCanonicalEloGame(gamePlayers, winner);
-      // Simultaneous application: all deltas were calculated from one pre-game rating snapshot.
-      for (const delta of deltas) {
-        ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? DEFAULT_ELO) + delta.totalDelta);
-        gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
+  const clubGames = await db.all<any>(`
+    SELECT id, global_game_number, game_date, created_at, winner_team, protocol_text
+      FROM games
+     WHERE evening_id IS NOT NULL
+       AND archived_at IS NULL
+       AND protocol_text IS NOT NULL
+     ORDER BY COALESCE(game_date, created_at) ASC, global_game_number ASC, id ASC
+  `);
+
+  for (const game of clubGames) {
+    const payload = safeJsonParse<any>(game.protocol_text, null);
+    if (!payload || payload.version !== 1 || payload.kind !== 'club_evening_protocol') continue;
+    if (payload.protocol?.status !== 'completed') continue;
+
+    const winner = normalizeWinner(payload.protocol?.winner_team || game.winner_team);
+    if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
+    const results = Array.isArray(payload.player_results) ? payload.player_results : [];
+    const eventPlayers: PreparedEloPlayer[] = results.map((result: any) => {
+      const playerId = String(result?.player_id || '').trim();
+      if (!playerId || !knownPlayerIds.has(playerId)) {
+        throw new Error(`Canonical Elo cannot rate club game ${game.id}: linked player is missing.`);
       }
+      const team = teamFromRole(result?.role);
+      if (!team) throw new Error(`Canonical Elo cannot rate club game ${game.id}: role is missing.`);
+      return {
+        playerId,
+        team,
+        canonicalPersonalGamePoints: clubPersonalGamePoints(payload, result, results),
+      };
+    });
+
+    const event: PreparedEloEvent = {
+      source: 'club',
+      sourceId: String(game.id),
+      // game_date is the evening date and stays stable when a completed protocol is corrected later.
+      sortAt: String(game.game_date || game.created_at || ''),
+      sortOrder: Number(game.global_game_number || game.id || 0),
+      winnerTeam: winner,
+      players: eventPlayers,
+    };
+    validatePreparedEvent(event);
+    events.push(event);
+  }
+
+  events.sort((a, b) =>
+    sortTime(a.sortAt) - sortTime(b.sortAt)
+    || a.sortOrder - b.sortOrder
+    || a.source.localeCompare(b.source)
+    || a.sourceId.localeCompare(b.sourceId),
+  );
+
+  const ratings = new Map<string, number>(players.map((player) => [String(player.id), DEFAULT_ELO]));
+  const gameCounts = new Map<string, number>();
+
+  for (const event of events) {
+    const gamePlayers: CanonicalEloGamePlayer[] = event.players.map((player) => ({
+      ...player,
+      elo: ratings.get(player.playerId) ?? DEFAULT_ELO,
+    }));
+    const deltas = calculateCanonicalEloGame(gamePlayers, event.winnerTeam);
+    // Simultaneous application: all deltas were calculated from one pre-game rating snapshot.
+    for (const delta of deltas) {
+      ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? DEFAULT_ELO) + delta.totalDelta);
+      gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
     }
   }
 

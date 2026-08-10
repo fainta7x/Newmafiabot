@@ -46,6 +46,26 @@ export function generateOrganizerToken(): string {
   return jwt.sign({ role: 'ORGANIZER' }, JWT_SECRET, { expiresIn: '7d' });
 }
 
+export function generatePlayerSessionToken(playerId: string): string {
+  return jwt.sign({ session: 'PLAYER', playerId }, JWT_SECRET, { expiresIn: '7d' });
+}
+
+export function getPlayerSessionId(req: Request): string | null {
+  const token = req.cookies?.player_token;
+  if (!token || typeof token !== 'string') return null;
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { session?: string; playerId?: string };
+    if (decoded.session === 'PLAYER' && typeof decoded.playerId === 'string' && decoded.playerId) {
+      return decoded.playerId;
+    }
+  } catch {
+    // Invalid or expired player session is treated as unlinked.
+  }
+
+  return null;
+}
+
 export interface AuthenticatedRequest extends Request {
   userRole?: 'PLAYER' | 'ORGANIZER';
 }

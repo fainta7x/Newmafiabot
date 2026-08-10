@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './tournamentsRoutesBase.ts';
+export { internalGetStandings, internalGetNominations } from './tournamentsRoutesBase.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 

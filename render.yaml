@@ -29,3 +29,5 @@ services:
         generateValue: true
       - key: BOT_API_SECRET
         generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

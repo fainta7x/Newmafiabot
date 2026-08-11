@@ -40,7 +40,7 @@ describe('club evening game archive', () => {
     const gameId = initial.body[0].id;
 
     const archive = await request(app).post(`/api/games/${gameId}/archive`).set('Cookie', cookie);
-    expect(archive.status).toBe(200);
+    expect(archive.status, JSON.stringify(archive.body)).toBe(200);
     expect(archive.body.archived_at).toBeTruthy();
     expect(archive.body.status).toBe('completed');
 
@@ -56,13 +56,14 @@ describe('club evening game archive', () => {
     expect(editWhileArchived.status).toBe(409);
 
     const restore = await request(app).post(`/api/games/${gameId}/archive/restore`).set('Cookie', cookie);
-    expect(restore.status).toBe(200);
+    expect(restore.status, JSON.stringify(restore.body)).toBe(200);
     expect(restore.body.archived_at).toBeNull();
     expect((await request(app).get(`/api/games?evening_id=${eveningId}`)).body).toHaveLength(1);
 
-    await request(app).post(`/api/games/${gameId}/archive`).set('Cookie', cookie);
+    const archiveAgain = await request(app).post(`/api/games/${gameId}/archive`).set('Cookie', cookie);
+    expect(archiveAgain.status, JSON.stringify(archiveAgain.body)).toBe(200);
     const permanent = await request(app).delete(`/api/games/${gameId}/archive`).set('Cookie', cookie);
-    expect(permanent.status).toBe(200);
+    expect(permanent.status, JSON.stringify(permanent.body)).toBe(200);
     expect(permanent.body.success).toBe(true);
     expect((await request(app).get(`/api/games?evening_id=${eveningId}&archived=1`)).body).toHaveLength(0);
   });

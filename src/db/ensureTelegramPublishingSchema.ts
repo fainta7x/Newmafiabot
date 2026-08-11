@@ -118,6 +118,7 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     CREATE TRIGGER IF NOT EXISTS trg_evening_telegram_sync_delete
     AFTER DELETE ON game_evenings
     BEGIN
+      DELETE FROM telegram_sync_outbox WHERE sync_key = 'evening:' || OLD.id;
       INSERT INTO telegram_sync_outbox
         (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
       VALUES

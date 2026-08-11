@@ -9,6 +9,7 @@ import {
   resetLoginRateLimit,
 } from '../auth.ts';
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
+import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
 
 const router = Router();
 
@@ -21,19 +22,31 @@ const toSafePlayer = (player: any) => ({
   tokens: Number(player.tokens || 0),
 });
 
-router.post('/telegram', async (req, res) => {
-  const initData = req.body?.initData;
-  if (typeof initData !== 'string' || !initData) {
-    return res.status(400).json({ error: 'Telegram init data is required.' });
-  }
+const setPlayerCookie = (res: Response, playerId: string) => {
+  const token = generatePlayerSessionToken(playerId);
+  res.cookie('player_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
 
+const validateTelegramRequest = (initData: unknown) => {
+  if (typeof initData !== 'string' || !initData) {
+    throw new TelegramInitDataError('Telegram init data is required.');
+  }
   const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   if (!botToken) {
-    return res.status(503).json({ error: 'Telegram authentication is not configured.' });
+    throw new TelegramInitDataError('Telegram authentication is not configured.');
   }
+  return validateTelegramInitData(initData, botToken);
+};
 
+router.post('/telegram', async (req, res) => {
   try {
-    const telegram = validateTelegramInitData(initData, botToken);
+    const telegram = validateTelegramRequest(req.body?.initData);
     const db = (req as any).db;
     const player = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens
@@ -48,21 +61,43 @@ router.post('/telegram', async (req, res) => {
       return res.json({ ...telegram, linked: false });
     }
 
-    const token = generatePlayerSessionToken(player.id);
-    res.cookie('player_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
+    setPlayerCookie(res, String(player.id));
     return res.json({ ...telegram, linked: true });
   } catch (error) {
     if (error instanceof TelegramInitDataError) {
-      return res.status(401).json({ error: error.message });
+      const status = error.message === 'Telegram authentication is not configured.' ? 503 : 401;
+      return res.status(status).json({ error: error.message });
     }
     return res.status(401).json({ error: 'Invalid Telegram init data.' });
+  }
+});
+
+router.post('/register', async (req, res) => {
+  try {
+    const telegram = validateTelegramRequest(req.body?.initData);
+    const db = (req as any).db;
+    const result = await registerNewPlayer(db, {
+      telegramUserId: telegram.id,
+      telegramUsername: telegram.username,
+      fullName: telegram.first_name,
+      nickname: String(req.body?.nickname ?? ''),
+      source: 'telegram_webapp_registration',
+    });
+    setPlayerCookie(res, result.player.id);
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      created: result.created,
+      player: toSafePlayer(result.player),
+    });
+  } catch (error: any) {
+    if (error instanceof PlayerRegistrationError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof TelegramInitDataError) {
+      const status = error.message === 'Telegram authentication is not configured.' ? 503 : 401;
+      return res.status(status).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error?.message || 'Не удалось создать профиль игрока' });
   }
 });
 
@@ -89,7 +124,7 @@ router.post('/login', (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.json({

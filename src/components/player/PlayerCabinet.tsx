@@ -17,19 +17,52 @@ type AchievementCategory = {
   achievements: Achievement[];
 };
 
-type TournamentGame = {
+type PlayerGame = {
   id: string;
+  source: 'club' | 'tournament';
   title: string;
   date: string | null;
   game_number: number;
   role: string | null;
   status: string;
   won: boolean | null;
+  seat_number: number;
+  judge_name: string | null;
+  table_name: string | null;
   judge_bonus: number;
   protocol_bonus: number;
   ci_points: number;
   penalty_points: number;
   disciplinary_penalty_points: number;
+  regular_fouls: number;
+  minor_technical_fouls: number;
+  major_technical_fouls: number;
+  best_move: boolean;
+  first_killed: boolean;
+  zero_round_voted: boolean;
+};
+
+type PlayerGameStats = {
+  totalGames: number;
+  completedGames: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  clubGames: number;
+  tournamentGames: number;
+  redGames: number;
+  blackGames: number;
+  bestMoves: number;
+  firstKilled: number;
+  zeroRoundVoted: number;
+  lastGameAt: string | null;
+  roleCounts: {
+    citizen: number;
+    sheriff: number;
+    mafia: number;
+    don: number;
+    unknown: number;
+  };
 };
 
 type TournamentAward = {
@@ -95,8 +128,12 @@ export type PlayerMeResponse = {
     percentage: number;
     categories: AchievementCategory[];
   };
+  games: {
+    all: PlayerGame[];
+    stats: PlayerGameStats;
+  };
   tournaments: {
-    games: TournamentGame[];
+    games: PlayerGame[];
     awards: TournamentAward[];
     award_stats: {
       firstPlaces: number;
@@ -135,19 +172,25 @@ const roleLabel = (role: string | null) => {
   return role || 'Роль не указана';
 };
 
-const resultLabel = (game: TournamentGame) => {
+const resultLabel = (game: PlayerGame) => {
   if (game.status !== 'completed') return 'Не завершена';
   if (game.won === true) return 'Победа';
   if (game.won === false) return 'Поражение';
   return 'Результат не определён';
 };
 
-const pointLabels = (game: TournamentGame) => [
+const pointLabels = (game: PlayerGame) => [
   game.judge_bonus ? `судья ${game.judge_bonus > 0 ? '+' : ''}${game.judge_bonus}` : null,
   game.protocol_bonus ? `бонус ${game.protocol_bonus > 0 ? '+' : ''}${game.protocol_bonus}` : null,
   game.ci_points ? `CI ${game.ci_points > 0 ? '+' : ''}${game.ci_points}` : null,
   game.penalty_points ? `штраф ${game.penalty_points}` : null,
   game.disciplinary_penalty_points ? `дисц. ${game.disciplinary_penalty_points}` : null,
+].filter(Boolean) as string[];
+
+const foulLabels = (game: PlayerGame) => [
+  game.regular_fouls ? `фолы ${game.regular_fouls}` : null,
+  game.minor_technical_fouls ? `мал. тех ${game.minor_technical_fouls}` : null,
+  game.major_technical_fouls ? `бол. тех ${game.major_technical_fouls}` : null,
 ].filter(Boolean) as string[];
 
 const RESPONSE_OPTIONS: Array<{ status: EveningResponseStatus; label: string }> = [
@@ -188,8 +231,18 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
   );
 }
 
+function StatCard({ value, label }: { value: React.ReactNode; label: string }) {
+  return (
+    <div className="rounded-2xl bg-black/20 p-3">
+      <div className="text-xl font-semibold text-white">{value}</div>
+      <div className="mt-1 text-[11px] text-white/40">{label}</div>
+    </div>
+  );
+}
+
 export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
   const { player, achievements, tournaments } = data;
+  const gameProfile = data.games;
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
@@ -262,6 +315,7 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
   const ratingTop = (rating || []).slice(0, 10);
   const selfRating = (rating || []).find((item) => item.player_id === player.id) || null;
   const selfOutsideTop = Boolean(selfRating && !ratingTop.some((item) => item.player_id === player.id));
+  const stats = gameProfile.stats;
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-10 pt-3 text-white">
@@ -346,6 +400,76 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
           )}
         </Section>
 
+        <Section title="Статистика">
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard value={stats.completedGames} label="игр" />
+            <StatCard value={stats.wins} label="побед" />
+            <StatCard value={`${stats.winRate}%`} label="винрейт" />
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <StatCard value={stats.redGames} label="за красных" />
+            <StatCard value={stats.blackGames} label="за чёрных" />
+          </div>
+          <div className="mt-3 rounded-2xl bg-black/20 p-3">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Роли</div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
+              <div><div className="text-base font-semibold">{stats.roleCounts.citizen}</div><div className="text-[10px] text-white/35">Мирный</div></div>
+              <div><div className="text-base font-semibold">{stats.roleCounts.sheriff}</div><div className="text-[10px] text-white/35">Шериф</div></div>
+              <div><div className="text-base font-semibold">{stats.roleCounts.mafia}</div><div className="text-[10px] text-white/35">Мафия</div></div>
+              <div><div className="text-base font-semibold">{stats.roleCounts.don}</div><div className="text-[10px] text-white/35">Дон</div></div>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <StatCard value={stats.firstKilled} label="ПУ" />
+            <StatCard value={stats.bestMoves} label="ЛХ" />
+            <StatCard value={stats.zeroRoundVoted} label="0 круг" />
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-white/35">
+            <span>Клубные: {stats.clubGames}</span>
+            <span>Турнирные: {stats.tournamentGames}</span>
+          </div>
+        </Section>
+
+        <Section title="Мои игры">
+          {gameProfile.all.length ? (
+            <div className="space-y-2">
+              {gameProfile.all.map((game) => {
+                const points = pointLabels(game);
+                const fouls = foulLabels(game);
+                return (
+                  <article key={game.id} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{game.title}</div>
+                        <div className="mt-1 text-xs text-white/40">
+                          {formatDate(game.date)} · {game.source === 'tournament' ? 'Турнир' : 'Клуб'}
+                          {game.game_number ? ` · Игра №${game.game_number}` : ''}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-xs text-white/65">{resultLabel(game)}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>
+                      {game.seat_number > 0 && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">место {game.seat_number}</span>}
+                      {game.first_killed && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ПУ</span>}
+                      {game.best_move && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ЛХ</span>}
+                      {points.map((part) => <span key={part} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}
+                      {fouls.map((part) => <span key={part} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/45">{part}</span>)}
+                    </div>
+                    {(game.table_name || game.judge_name) && (
+                      <div className="mt-2 text-[11px] text-white/30">
+                        {[game.table_name, game.judge_name ? `судья ${game.judge_name}` : null].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сохранённых игр пока нет.</p>
+          )}
+        </Section>
+
         <Section title="ELO клуба">
           {ratingError ? (
             <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p>
@@ -381,20 +505,6 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
               ))}
             </div>
           ) : <p className="mt-4 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Пока нет полученных достижений.</p>}
-        </Section>
-
-        <Section title="Турнирные игры">
-          {tournaments.games.length ? (
-            <div className="space-y-2">
-              {tournaments.games.map((game) => {
-                const points = pointLabels(game);
-                return <article key={game.id} className="rounded-2xl bg-black/20 p-3">
-                  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)} · Игра №{game.game_number}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-xs text-white/65">{resultLabel(game)}</span></div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>{points.map((part) => <span key={part} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}</div>
-                </article>;
-              })}
-            </div>
-          ) : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Турнирных игр пока нет.</p>}
         </Section>
 
         <Section title="Награды турниров">

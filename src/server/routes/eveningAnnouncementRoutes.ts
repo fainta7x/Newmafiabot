@@ -1,29 +1,15 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
-import {
-  requestBotEveningTelegramSync,
-  requestBotPublicRouterSync,
-} from '../services/botTelegramSyncService.ts';
+import { requestBotEveningTelegramSync } from '../services/botTelegramSyncService.ts';
+import { drainTelegramSyncOutbox } from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
 const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
 
-const logBestEffortSync = async (eveningId: string | null, publicOnly = false) => {
-  try {
-    const result = publicOnly || !eveningId
-      ? await requestBotPublicRouterSync()
-      : await requestBotEveningTelegramSync(eveningId);
-    if (!result.success) {
-      console.warn('[TELEGRAM] Background sync failed:', eveningId || 'public-router', result.error);
-    }
-  } catch (error) {
-    console.warn('[TELEGRAM] Background sync threw:', eveningId || 'public-router', error);
-  }
-};
-
-// This router is mounted before the evening CRUD router. Observe successful event mutations
-// and synchronize Telegram afterwards without making a Telegram outage fail the CRM write.
+// This router is mounted before the evening CRUD router. The database trigger records the
+// sync intent transactionally; this middleware only nudges the durable outbox immediately
+// after a successful response so normal updates still feel instant.
 router.use((req: any, res: any, next) => {
   const oneId = req.path.match(/^\/([^/]+)$/);
   const settle = req.path.match(/^\/([^/]+)\/settle$/);
@@ -34,23 +20,11 @@ router.use((req: any, res: any, next) => {
 
   if (!creationPath && !isPatch && !isDelete && !isSettle) return next();
 
-  let responseBody: any = null;
-  const originalJson = res.json.bind(res);
-  res.json = (body: any) => {
-    responseBody = body;
-    return originalJson(body);
-  };
-
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
-    if (isDelete) {
-      void logBestEffortSync(null, true);
-      return;
-    }
-    const eveningId = String(
-      responseBody?.id || responseBody?.evening?.id || settle?.[1] || oneId?.[1] || '',
-    ).trim();
-    if (eveningId) void logBestEffortSync(eveningId);
+    void drainTelegramSyncOutbox(req.db, { limit: 8 }).catch((error) => {
+      console.warn('[TELEGRAM] Immediate outbox drain failed:', error);
+    });
   });
 
   next();

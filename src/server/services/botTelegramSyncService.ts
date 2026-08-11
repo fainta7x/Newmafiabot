@@ -35,6 +35,9 @@ async function postToBot(path: string): Promise<{ success: boolean; status: numb
 export const requestBotEveningTelegramSync = async (eveningId: string) =>
   postToBot(`/crm/evenings/${encodeURIComponent(eveningId)}/sync-telegram`);
 
+export const requestBotTournamentTelegramSync = async (tournamentId: string) =>
+  postToBot(`/crm/tournaments/${encodeURIComponent(tournamentId)}/sync-telegram`);
+
 export const requestBotPublicRouterSync = async () =>
   postToBot('/crm/telegram/sync-public');
 

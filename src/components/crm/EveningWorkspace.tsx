@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Gamepad2, Sliders, Users } from 'lucide-react';
+import { Gamepad2, LayoutDashboard, Sliders, Users } from 'lucide-react';
+import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
@@ -12,7 +13,7 @@ interface EveningWorkspaceProps {
   onInitialAddHandled?: () => void;
 }
 
-type EveningSection = 'participants' | 'tables' | 'games';
+type EveningSection = 'overview' | 'participants' | 'tables' | 'games';
 
 export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   eveningId,
@@ -21,9 +22,10 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   initialAddOpen = false,
   onInitialAddHandled,
 }) => {
-  const [section, setSection] = useState<EveningSection>('participants');
+  const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'participants' : 'overview');
 
   const tabs: Array<{ id: EveningSection; label: string; icon: React.ReactNode }> = [
+    { id: 'overview', label: 'Обзор', icon: <LayoutDashboard className="h-4 w-4" /> },
     { id: 'participants', label: 'Состав', icon: <Users className="h-4 w-4" /> },
     { id: 'tables', label: 'Столы', icon: <Sliders className="h-4 w-4" /> },
     { id: 'games', label: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
@@ -31,8 +33,8 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="sticky top-0 z-30 -mx-1 px-1 py-1 bg-app-bg/92 backdrop-blur-xl sm:top-[60px]">
-        <div className="grid grid-cols-3 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
+      <div className="sticky top-0 z-30 -mx-1 bg-app-bg/92 px-1 py-1 backdrop-blur-xl sm:top-[60px]">
+        <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
           {tabs.map((tab) => {
             const active = section === tab.id;
             return (
@@ -40,16 +42,23 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setSection(tab.id)}
-                className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-[10px] text-[12px] font-bold transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
+                className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1 rounded-[10px] px-1 text-[10px] font-bold transition-colors sm:text-[12px] ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
               >
                 {tab.icon}
-                <span>{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
+      {section === 'overview' ? (
+        <EveningOverviewView
+          eveningId={eveningId}
+          onBack={onBack}
+          onOpenSection={(next) => setSection(next)}
+        />
+      ) : null}
       {section === 'participants' ? (
         <EveningParticipantsView
           eveningId={eveningId}

@@ -66,11 +66,12 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
         {nominations.map((nom) => {
           const winner = nom.winner_participant_id ? nom.candidates.find((candidate) => candidate.participant_id === nom.winner_participant_id) : null;
           const tied = nom.comparison?.tied_participant_ids || [];
+          const terminalTie = nom.decisive_criterion === 'exact_tie' && !winner;
           return (
             <div key={nom.category} className="bg-surface-1 border border-border-soft rounded-3xl p-4 sm:p-5 space-y-4">
               <div className="flex items-center justify-between border-b border-border-soft pb-3 gap-2">
                 <div className="flex items-center gap-2.5">{icon(nom.category)}<h4 className="text-sm font-black">{nom.title}</h4></div>
-                {nom.has_tie ? <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Полное равенство</span> : null}
+                {terminalTie ? <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Полное равенство</span> : null}
               </div>
 
               {winner ? (
@@ -78,8 +79,8 @@ export const TournamentNominationsView: React.FC<TournamentNominationsViewProps>
                   <div className="flex items-center gap-2.5 min-w-0"><PlayerAvatar nickname={winner.display_name} size="sm" /><div className="min-w-0"><span className="font-black text-sm block truncate">{winner.display_name}</span><span className="text-[10px] text-text-muted">{winner.games_in_role} игр в выборке</span></div></div>
                   <div className="text-right font-mono text-[11px]"><div><span className="text-text-muted">Оценка судей </span><strong>{signed(winner.points)}</strong></div><div><span className="text-text-muted">Бонусы и штрафы </span><strong>{signed(winner.additional_points)}</strong></div>{(nom.category === 'best_don' || nom.category === 'best_sheriff') && <div><span className="text-text-muted">Победы в роли </span><strong>{winner.role_wins}</strong></div>}</div>
                 </div>
-              ) : nom.has_tie ? (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300">Все критерии, включая личное сравнение, исчерпаны. Победитель не назначается автоматически и не выбирается вручную.</div>
+              ) : terminalTie ? (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300">Все критерии, включая личное сравнение, исчерпаны. Номинация остаётся без единоличного победителя и не требует ручного решения.</div>
               ) : null}
 
               <div className="space-y-2">

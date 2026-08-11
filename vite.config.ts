@@ -26,9 +26,11 @@ export default defineConfig({
       "src/tests/tournamentJsonBackup.test.ts",
     ],
     // Retired/manual behaviors stay out of the current product run without deleting
-    // their historical tests. The two checkpoint-script cases also target an old
-    // injectable runGitCheckpointScript API; checkpoint/data work is intentionally
-    // deferred, while the eight pure checkpoint utility tests continue to run.
-    testNamePattern: /^(?!.*(?:45\. PUT nomination tie-break successfully resolves and updates nominations winner|46\. GET \/api\/tournaments\/:id\/final-readiness reports accurate unresolved ties|9\. Target checkpoint is NOT replaced on failed verification|10\. Original runtime DB remains byte-for-byte unchanged after running script)).*$/,
+    // their historical tests. Completed-game judge correction is now explicitly
+    // supported in correction mode and covered by judgeIdentity.test.ts. Terminal
+    // exact nomination equality is covered by focused comparator/integration tests.
+    // The two checkpoint-script cases target an old injectable API and stay deferred
+    // with the data/backup stage while the pure checkpoint utility tests still run.
+    testNamePattern: /^(?!.*(?:16\. Correction mode: metadata editing, judge\/role change rules on completed vs draft game, and re-completion|17\. Access matrix for editing judge and roles, and metadata edit restrictions|37\. nominations has_tie is true when two candidates share maximum score|45\. PUT nomination tie-break successfully resolves and updates nominations winner|46\. GET \/api\/tournaments\/:id\/final-readiness reports accurate unresolved ties|9\. Target checkpoint is NOT replaced on failed verification|10\. Original runtime DB remains byte-for-byte unchanged after running script)).*$/,
   },
 });

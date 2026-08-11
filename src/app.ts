@@ -18,6 +18,7 @@ import playersRoutes from './server/routes/playersRoutes.ts';
 import playerTokensRoutes from './server/routes/playerTokensRoutes.ts';
 import ratingRoutes from './server/routes/ratingRoutes.ts';
 import ratingPeriodRoutes from './server/routes/ratingPeriodRoutes.ts';
+import ratingPeriodStandingsRoutes from './server/routes/ratingPeriodStandingsRoutes.ts';
 import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
@@ -79,6 +80,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/rating', ratingRoutes);
+  app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/public', publicRoutes);

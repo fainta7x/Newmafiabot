@@ -68,6 +68,8 @@ export function getPlayerSessionId(req: Request): string | null {
 
 export interface AuthenticatedRequest extends Request {
   userRole?: 'PLAYER' | 'ORGANIZER';
+  delegatedOrganizerAccess?: boolean;
+  delegatedPlayerId?: string;
 }
 
 export function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
@@ -99,7 +101,7 @@ export function parseUserSession(req: AuthenticatedRequest, _res: Response, next
 }
 
 export function requireOrganizerAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (req.userRole !== 'ORGANIZER') {
+  if (req.userRole !== 'ORGANIZER' && !req.delegatedOrganizerAccess) {
     return res.status(401).json({
       error: 'Доступ запрещён',
       message: 'Доступ разрешен только авторизованным организаторам клуба',

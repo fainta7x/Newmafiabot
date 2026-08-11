@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId } from '../auth.ts';
+import { reconcileAllBettingPools } from '../services/bettingPoolService.ts';
 import {
   getTokenLedgerPage,
   mutateTokenBalance,
@@ -44,6 +45,7 @@ router.get('/economy', async (req, res) => {
 
   try {
     const db = (req as any).db as DatabaseWrapper;
+    await reconcileAllBettingPools(db);
     const [wallet, items, purchases] = await Promise.all([
       getTokenLedgerPage(db, playerId, 50, 0),
       db.all<any>(`

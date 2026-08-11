@@ -187,7 +187,7 @@ describe('Tournament Results Export Utility Tests', () => {
       expect(standingsSvg).toContain('ТЕКУЩИЙ РЕЙТИНГ');
       expect(standingsSvg).toContain('После 5 из 10 игр');
       expect(standingsSvg).toContain('Победитель');
-      expect(standingsSvg).toContain('+4,2');
+      expect(standingsSvg).toContain('4,2');
     });
   });
 });

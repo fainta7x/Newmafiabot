@@ -173,6 +173,11 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   try { dbWrapper.sqlite.exec(`UPDATE players SET contact_status = CASE WHEN lifecycle_status='blocked' THEN 'blocked' WHEN lifecycle_status='paused' THEN 'paused' ELSE 'normal' END WHERE contact_status IS NULL OR contact_status='' OR contact_status='normal';`); }
   catch (e) { console.error('Failed to migrate contact_status:', e); }
 
+  // Migration 0008 builds canonical nomination objects that depend on this table.
+  // Create the empty table first for new/in-memory databases; existing databases are untouched.
+  try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS tournament_final_resolutions (id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,type TEXT NOT NULL,category TEXT,participant_ids_json TEXT NOT NULL,ordered_participant_ids_json TEXT,winner_participant_id TEXT,resolution_method TEXT NOT NULL,comment TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);`); }
+  catch (e) { console.error('Failed to create tournament_final_resolutions table:', e); }
+
   const migrations = [
     '0001_complete_club_workflow.sql','0002_tournaments.sql','0003_protocol_imports.sql','0004_tournament_game_protocols.sql','0005_tournament_game_best_moves.sql','0006_tournament_award_overrides.sql','0007_player_historical_awards.sql','0008_canonical_nomination_resolution.sql','0009_token_ledger.sql','0010_club_game_token_settlements.sql','0011_canonical_evening_attendance.sql',
   ];
@@ -194,8 +199,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('tournament_game_player_results', 'major_technical_fouls', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'disciplinary_penalty_points', 'REAL NOT NULL DEFAULT 0');
   addColumnIfNotExists('tournament_game_player_results', 'removal_reason', 'TEXT');
-  try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS tournament_final_resolutions (id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,type TEXT NOT NULL,category TEXT,participant_ids_json TEXT NOT NULL,ordered_participant_ids_json TEXT,winner_participant_id TEXT,resolution_method TEXT NOT NULL,comment TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);`); }
-  catch (e) { console.error('Failed to create tournament_final_resolutions table:', e); }
   try { dbWrapper.sqlite.exec(`UPDATE tournament_game_player_results SET judge_bonus=-penalty_points,penalty_points=0 WHERE penalty_points>0 AND (judge_bonus=0 OR judge_bonus IS NULL);`); }
   catch (e) { console.error('Failed to migrate legacy penalty_points to judge_bonus:', e); }
   try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS player_avatars (player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,mime_type TEXT NOT NULL,image_data BLOB NOT NULL,byte_size INTEGER NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,updated_at TEXT NOT NULL);CREATE INDEX IF NOT EXISTS idx_player_avatars_updated_at ON player_avatars(updated_at);`); }

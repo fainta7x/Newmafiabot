@@ -76,12 +76,26 @@ def _grouped_participants(participants: list[dict]) -> dict[str, list[str]]:
 
 def _stats_text(participants: list[dict]) -> str:
     grouped = _grouped_participants(participants)
-    expected = len(grouped["going"]) + len(grouped["late"])
-    lines = [f"\n👥 Планируют прийти: <b>{expected}</b>"]
-    for status, label in _RESPONSE_LABELS.items():
+    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
+    lines = [f"\n👥 Идут / думают: <b>{active_total}</b>"]
+
+    next_number = 1
+    for status in ("going", "late", "thinking"):
         names = grouped[status]
-        if names:
-            lines.append(f"{label}: " + ", ".join(escape(name) for name in names))
+        if not names:
+            continue
+        lines.append(_RESPONSE_LABELS[status])
+        for name in names:
+            lines.append(f"{next_number}. {escape(name)}")
+            next_number += 1
+
+    declined = grouped["declined"]
+    if declined:
+        lines.append("")
+        lines.append(_RESPONSE_LABELS["declined"])
+        for index, name in enumerate(declined, start=1):
+            lines.append(f"{index}. {escape(name)}")
+
     return "\n".join(lines)
 
 
@@ -110,19 +124,6 @@ def _thematic_event_text(evening: dict, participants: list[dict]) -> str:
     return f"{escape(label)} · 2LA noire\n\n{_event_base_text(evening)}\n{_stats_text(participants)}\n\nКак планируешь?"
 
 
-def _public_event_text(evening: dict) -> str:
-    canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL")
-    if canonical_format == "NOVICE":
-        intro = "🌱 <b>Игра для новичков</b> — можно спокойно начать со Школы мафии."
-    else:
-        intro = (
-            "🎭 <b>Клубный игровой вечер</b>\n"
-            "Для игроков, уже знакомых со спортивной мафией. "
-            "Доступ в основной клуб — после подтверждения организатора."
-        )
-    return f"{intro}\n\n{_event_base_text(evening)}"
-
-
 def _closed_text(evening: dict, cancelled: bool = False, obsolete: bool = False) -> str:
     if obsolete:
         heading = "ℹ️ Этот анонс больше не актуален"
@@ -131,22 +132,6 @@ def _closed_text(evening: dict, cancelled: bool = False, obsolete: bool = False)
     else:
         heading = "🔒 Запись закрыта"
     return f"{heading}\n\n{_event_base_text(evening)}"
-
-
-def _public_event_keyboard(
-    school_url: str | None,
-    bot_url: str | None,
-    club_access_url: str | None,
-    novice: bool,
-) -> InlineKeyboardMarkup | None:
-    rows: list[list[InlineKeyboardButton]] = []
-    if novice and school_url:
-        rows.append([InlineKeyboardButton(text="🌱 Школа мафии", url=school_url)])
-    if not novice and club_access_url:
-        rows.append([InlineKeyboardButton(text="🎭 Проверить доступ в основной клуб", url=club_access_url)])
-    if bot_url:
-        rows.append([InlineKeyboardButton(text="🤖 Записаться на игру", url=bot_url)])
-    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
 async def _edit_message(
@@ -176,6 +161,21 @@ async def _edit_message(
         return False
 
 
+async def _delete_message(bot: Bot, chat_id: str | int, message_id: int) -> bool:
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=int(message_id))
+        return True
+    except TelegramBadRequest as exc:
+        message = str(exc).lower()
+        if "message to delete not found" in message or "message not found" in message:
+            return True
+        print(f"[TELEGRAM PUBLISH] Failed to delete {chat_id}/{message_id}: {exc}")
+        return False
+    except Exception as exc:
+        print(f"[TELEGRAM PUBLISH] Failed to delete {chat_id}/{message_id}: {exc}")
+        return False
+
+
 async def _send_message(
     bot: Bot,
     chat_id: str | int,
@@ -195,6 +195,49 @@ async def _send_message(
     return await bot.send_message(**kwargs)
 
 
+async def _cleanup_public_event_post(bot: Bot, publication: dict | None) -> bool:
+    """Remove obsolete per-evening posts from the public welcome group.
+
+    The public destination is router-only: it must contain one persistent navigation
+    message that is edited in place, never separate evening announcements.
+    """
+    if not publication:
+        return True
+    chat_id = publication.get("chat_id")
+    message_id = publication.get("message_id")
+    if not chat_id or not message_id:
+        return True
+    return await _delete_message(bot, chat_id, int(message_id))
+
+
+async def _cleanup_current_public_event_posts(bot: Bot, evenings: list[dict | None]) -> list[dict]:
+    results: list[dict] = []
+    seen: set[str] = set()
+    for evening in evenings:
+        evening_id = str((evening or {}).get("id") or "").strip()
+        if not evening_id or evening_id in seen:
+            continue
+        seen.add(evening_id)
+        plan_result = await get_evening_telegram_plan(evening_id)
+        if not plan_result.get("success"):
+            results.append({"evening_id": evening_id, "success": False, "error": plan_result.get("error")})
+            continue
+        plan = plan_result.get("data") or {}
+        publication = next(
+            (
+                item
+                for item in (plan.get("publications") or [])
+                if str(item.get("destination_id") or "") == "public"
+            ),
+            None,
+        )
+        if not publication:
+            continue
+        ok = await _cleanup_public_event_post(bot, publication)
+        results.append({"evening_id": evening_id, "success": ok})
+    return results
+
+
 async def sync_evening_telegram(
     bot: Bot,
     evening_id: str,
@@ -212,11 +255,18 @@ async def sync_evening_telegram(
     destinations = {str(item.get("id")): item for item in (plan.get("destinations") or [])}
     publications = {str(item.get("destination_id")): item for item in (plan.get("publications") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
-    bot_url = await _bot_url(bot)
-    club_access_url = await _bot_url(bot, "club_access")
     results: list[dict] = []
 
+    # Public welcome group is router-only. Never create or refresh a separate evening post there.
+    desired.discard("public")
+    public_publication = publications.get("public")
+    if public_publication:
+        public_removed = await _cleanup_public_event_post(bot, public_publication)
+        results.append({"destination_id": "public", "action": "removed_event_post", "success": public_removed})
+
     for destination_id, publication in publications.items():
+        if destination_id == "public":
+            continue
         if destination_id in desired:
             continue
         status = str(evening.get("status") or "")
@@ -237,21 +287,8 @@ async def sync_evening_telegram(
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
         publication = publications.get(destination_id)
-        is_public = destination_id == "public"
-        canonical_format = str(evening.get("canonical_format") or "CASUAL")
-
-        if is_public:
-            novice_destination = destinations.get("novice") or {}
-            text = _public_event_text(evening)
-            keyboard = _public_event_keyboard(
-                str(novice_destination.get("invite_url") or "").strip() or None,
-                bot_url,
-                club_access_url,
-                canonical_format == "NOVICE",
-            )
-        else:
-            text = _thematic_event_text(evening, participants)
-            keyboard = crm_evening_response_kb(evening_id)
+        text = _thematic_event_text(evening, participants)
+        keyboard = crm_evening_response_kb(evening_id)
 
         if publication:
             ok = await _edit_message(
@@ -321,6 +358,10 @@ async def sync_public_router(bot: Bot) -> dict:
     novice_destination = payload.get("novice_destination") or {}
     novice_evening = payload.get("novice_evening")
     club_evening = payload.get("club_evening")
+
+    # Clean up the old event-specific public posts left by the previous publishing model.
+    cleanup_results = await _cleanup_current_public_event_posts(bot, [novice_evening, club_evening])
+
     bot_url = await _bot_url(bot)
     club_access_url = await _bot_url(bot, "club_access")
 
@@ -354,12 +395,18 @@ async def sync_public_router(bot: Bot) -> dict:
         keyboard_rows.append([InlineKeyboardButton(text="🤖 Записаться на игру", url=bot_url)])
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows) if keyboard_rows else None
 
+    cleanup_failed = [item for item in cleanup_results if not item.get("success")]
     chat_id = str(public_destination.get("chat_id")).strip()
     message_id = public_destination.get("router_message_id")
     if message_id:
         edited = await _edit_message(bot, chat_id, int(message_id), text, keyboard)
         if edited:
-            return {"success": True, "action": "edited", "message_id": int(message_id)}
+            return {
+                "success": not cleanup_failed,
+                "action": "edited",
+                "message_id": int(message_id),
+                "cleanup": cleanup_results,
+            }
 
     try:
         message = await _send_message(bot, chat_id, None, text, keyboard)
@@ -368,10 +415,15 @@ async def sync_public_router(bot: Bot) -> dict:
             await bot.pin_chat_message(chat_id=chat_id, message_id=message.message_id, disable_notification=True)
         except Exception as exc:
             print(f"[TELEGRAM ROUTER] Message sent but pin failed: {exc}")
-        return {"success": True, "action": "created", "message_id": message.message_id}
+        return {
+            "success": not cleanup_failed,
+            "action": "created",
+            "message_id": message.message_id,
+            "cleanup": cleanup_results,
+        }
     except Exception as exc:
         print(f"[TELEGRAM ROUTER] Failed to create public router: {exc}")
-        return {"success": False, "error": str(exc)}
+        return {"success": False, "error": str(exc), "cleanup": cleanup_results}
 
 
 async def test_telegram_destination(bot: Bot, destination_id: str) -> dict:

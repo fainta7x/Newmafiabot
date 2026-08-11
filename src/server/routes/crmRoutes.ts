@@ -55,6 +55,17 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     const today = getMoscowDateStr(nowIso)!; const overdueTasks: any[] = []; const todayTasks: any[] = []; const noDeadlineTasks: any[] = [];
     for (const task of activeTasks) { const day = getMoscowDateStr(task.due_at); if (!day) noDeadlineTasks.push(task); else if (day < today) overdueTasks.push(task); else if (day === today) todayTasks.push(task); }
     const newcomersAfterFirst = await db.all<any>(`SELECT p.*,(SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS attendance_count,(SELECT MAX(ge.starts_at) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended') AS last_visit FROM players p WHERE (SELECT COUNT(*) FROM evening_participants ep WHERE ep.player_id=p.id AND ep.attendance_status='attended')=1 AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled') AND (ot.type='feedback' OR ot.title LIKE '%первой игры%')) LIMIT 10`);
+    const clubAccessReview = await db.all<any>(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND ge.status='completed') AS attendance_count,
+        (SELECT MAX(ge.starts_at) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND ge.status='completed') AS last_visit
+      FROM players p
+      WHERE COALESCE(p.game_level,'club')='novice'
+        AND COALESCE(p.contact_status,'normal')='normal'
+        AND (SELECT COUNT(*) FROM evening_participants ep JOIN game_evenings ge ON ge.id=ep.evening_id WHERE ep.player_id=p.id AND ep.attendance_status='attended' AND ge.status='completed')>=2
+      ORDER BY attendance_count DESC,last_visit DESC
+      LIMIT 10
+    `);
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE p.lifecycle_status!='blocked' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
     const unpaidParticipants = await db.all<any>(`SELECT ep.*,p.nickname,p.phone,p.telegram_username,ge.title AS evening_title,ge.starts_at AS evening_date FROM evening_participants ep JOIN players p ON p.id=ep.player_id JOIN game_evenings ge ON ge.id=ep.evening_id WHERE (ge.status='completed' OR ge.settled_at IS NOT NULL) AND ep.attendance_status='attended' AND ep.payment_status!='waived' AND ep.amount_due>ep.amount_paid ORDER BY ge.starts_at DESC`);
@@ -84,8 +95,8 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
         gamesCount,
         completedGamesCount,
       } : null,
-      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants },
-      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount },
+      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants },
+      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount },
     });
   } catch (err: any) { return res.status(500).json({ error: 'Database error', message: err.message }); }
 });

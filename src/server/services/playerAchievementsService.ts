@@ -1,9 +1,11 @@
 import {
-  ACHIEVEMENT_BY_ID,
   ACHIEVEMENT_CATEGORIES,
   ACHIEVEMENT_RARITIES,
   ACHIEVEMENTS,
+  type AchievementCategoryId,
   type AchievementDefinition,
+  type AchievementMetric,
+  type AchievementRarity,
 } from '../../lib/achievementCatalog.ts';
 
 export interface AchievementStats {
@@ -72,6 +74,44 @@ const normalizeWinner = (winner: unknown): 'red' | 'black' | null => {
 };
 
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
+const VALID_CATEGORIES = new Set<AchievementCategoryId>(['games', 'wins', 'rating', 'roles', 'judge', 'special']);
+const VALID_METRICS = new Set<AchievementMetric>(['games', 'wins', 'rating', 'judged', 'role', 'pu', 'perfect_game']);
+const VALID_RARITIES = new Set<AchievementRarity>(['common', 'rare', 'epic', 'legendary']);
+
+const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.get(
+  "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='achievement_definitions'"
+));
+
+export const loadAchievementDefinitions = async (db: any, includeInactive = false): Promise<AchievementDefinition[]> => {
+  if (!(await achievementDefinitionsTableExists(db))) return ACHIEVEMENTS.slice();
+  const rows = await db.all(`
+    SELECT id, name, description, icon, category, metric, threshold, role, rarity, sort_order, active
+      FROM achievement_definitions
+     ${includeInactive ? '' : 'WHERE active = 1'}
+     ORDER BY sort_order ASC, id ASC
+  `);
+  if (!rows.length && !includeInactive) return [];
+  return rows.flatMap((row: any) => {
+    const fallback = ACHIEVEMENTS.find((item) => item.id === String(row.id));
+    const category = VALID_CATEGORIES.has(row.category as AchievementCategoryId) ? row.category as AchievementCategoryId : fallback?.category;
+    const metric = VALID_METRICS.has(row.metric as AchievementMetric) ? row.metric as AchievementMetric : fallback?.metric;
+    const rarity = VALID_RARITIES.has(row.rarity as AchievementRarity) ? row.rarity as AchievementRarity : fallback?.rarity;
+    if (!category || !metric || !rarity) return [];
+    const role = ['sheriff', 'mafia', 'don'].includes(String(row.role || '')) ? row.role as 'sheriff' | 'mafia' | 'don' : undefined;
+    return [{
+      id: String(row.id),
+      name: String(row.name || fallback?.name || row.id),
+      description: String(row.description || fallback?.description || ''),
+      icon: String(row.icon || fallback?.icon || '🏅'),
+      category,
+      metric,
+      threshold: Number.isFinite(Number(row.threshold)) ? Number(row.threshold) : Number(fallback?.threshold || 1),
+      role,
+      rarity,
+      order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : Number(fallback?.order || 0),
+    }];
+  });
+};
 
 export const getAchievementMetricValue = (achievement: AchievementDefinition, stats: AchievementStats): number => {
   switch (achievement.metric) {
@@ -174,7 +214,6 @@ export const collectPlayerAchievementStats = async (db: any, playerId: string): 
     if (numberOrZero(row.regular_fouls) === 0 && technical === 0) stats.perfectGames += 1;
   }
 
-  // Judge milestones deliberately require stable UUID identity. judge_name text is never matched.
   const judgedClubRows = await db.all(`
     SELECT g.id, g.protocol_text, e.status AS evening_status
       FROM games g
@@ -222,8 +261,13 @@ export const importLegacyPlayerAchievements = async (db: any): Promise<number> =
 };
 
 export const evaluatePlayerAchievements = async (db: any, playerId: string): Promise<string[]> => {
-  const stats = await collectPlayerAchievementStats(db, playerId);
-  const qualifying = ACHIEVEMENTS.filter((achievement) => qualifiesForAchievement(achievement, stats));
+  const [stats, definitions, overrideRows] = await Promise.all([
+    collectPlayerAchievementStats(db, playerId),
+    loadAchievementDefinitions(db),
+    db.all('SELECT achievement_id, state FROM player_achievement_overrides WHERE player_id = ?', [playerId]),
+  ]);
+  const overrides = new Map(overrideRows.map((row: any) => [String(row.achievement_id), String(row.state)]));
+  const qualifying = definitions.filter((achievement) => overrides.get(achievement.id) !== 'revoke' && qualifiesForAchievement(achievement, stats));
   if (!qualifying.length) return [];
   const now = new Date().toISOString();
   const newlyEarned: string[] = [];
@@ -254,21 +298,29 @@ export const reconcileAllPlayerAchievements = async (db: any) => {
 
 export const loadPlayerAchievementProfile = async (db: any, playerId: string, evaluate = true): Promise<PlayerAchievementProfile> => {
   if (evaluate) await evaluatePlayerAchievements(db, playerId);
-  const stats = await collectPlayerAchievementStats(db, playerId);
-  const earnedRows = await db.all('SELECT achievement_id, earned_at FROM player_achievements WHERE player_id = ?', [playerId]);
+  const [stats, definitions, earnedRows, overrideRows] = await Promise.all([
+    collectPlayerAchievementStats(db, playerId),
+    loadAchievementDefinitions(db),
+    db.all('SELECT achievement_id, earned_at FROM player_achievements WHERE player_id = ?', [playerId]),
+    db.all('SELECT achievement_id, state FROM player_achievement_overrides WHERE player_id = ?', [playerId]),
+  ]);
+  const definitionIds = new Set(definitions.map((item) => item.id));
   const earnedMap = new Map<string, string | null>();
   for (const row of earnedRows) {
-    if (ACHIEVEMENT_BY_ID.has(String(row.achievement_id))) earnedMap.set(String(row.achievement_id), row.earned_at || null);
+    if (definitionIds.has(String(row.achievement_id))) earnedMap.set(String(row.achievement_id), row.earned_at || null);
   }
+  const overrides = new Map(overrideRows.map((row: any) => [String(row.achievement_id), String(row.state)]));
 
   const categories = ACHIEVEMENT_CATEGORIES
     .slice()
     .sort((a, b) => a.order - b.order)
     .map((category) => {
-      const definitions = ACHIEVEMENTS.filter((achievement) => achievement.category === category.id);
-      const achievements = definitions.map((achievement) => {
+      const categoryDefinitions = definitions.filter((achievement) => achievement.category === category.id).sort((a, b) => a.order - b.order);
+      const achievements = categoryDefinitions.map((achievement) => {
         const rarity = ACHIEVEMENT_RARITIES[achievement.rarity];
-        const earnedAt = earnedMap.get(achievement.id) || null;
+        const override = overrides.get(achievement.id);
+        const isEarned = override === 'grant' || (override !== 'revoke' && earnedMap.has(achievement.id));
+        const earnedAt = isEarned ? earnedMap.get(achievement.id) || null : null;
         return {
           id: achievement.id,
           name: achievement.name,
@@ -277,7 +329,7 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
           rarity: achievement.rarity,
           rarity_name: rarity.name,
           rarity_icon: rarity.icon,
-          earned: earnedMap.has(achievement.id),
+          earned: isEarned,
           earned_at: earnedAt,
           progress: { current: getAchievementMetricValue(achievement, stats), target: achievement.threshold },
         };
@@ -290,7 +342,9 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
         percentage: achievements.length ? Math.round((earned / achievements.length) * 100) : 0,
         achievements,
       };
-    });
-  const earned = earnedMap.size;
-  return { earned, total: ACHIEVEMENTS.length, percentage: Math.round((earned / ACHIEVEMENTS.length) * 100), categories };
+    })
+    .filter((category) => category.total > 0);
+  const earned = categories.reduce((sum, category) => sum + category.earned, 0);
+  const total = definitions.length;
+  return { earned, total, percentage: total ? Math.round((earned / total) * 100) : 0, categories };
 };

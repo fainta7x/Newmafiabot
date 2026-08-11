@@ -43,10 +43,13 @@ def _evening_prompt(evening: dict) -> str:
     )
 
 
-def _stats_block(title: str, players: list[str]) -> str:
+def _numbered_stats_block(title: str, players: list[str], start: int = 1) -> tuple[str | None, int]:
     if not players:
-        return f"{title}: —"
-    return f"{title}:\n" + "\n".join(f"{index}. {name}" for index, name in enumerate(players, start=1))
+        return None, start
+    lines = [title]
+    for offset, name in enumerate(players):
+        lines.append(f"{start + offset}. {name}")
+    return "\n".join(lines), start + len(players)
 
 
 async def build_crm_evening_stats_text(evening_id: str) -> str | None:
@@ -67,17 +70,26 @@ async def build_crm_evening_stats_text(evening_id: str) -> str | None:
         nickname = str(participant.get("nickname") or "Игрок без профиля")
         grouped[status].append(nickname)
 
-    expected = len(grouped["going"]) + len(grouped["late"])
+    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
     title = str(evening.get("title") or "Игровой вечер")
     starts = _format_start(evening.get("starts_at"))
 
-    return "\n\n".join([
-        f"📊 <b>{title}</b>\n🕗 {starts}\nПланируют прийти: <b>{expected}</b>",
-        _stats_block("✅ Идут", grouped["going"]),
-        _stats_block("⏳ Придут позже", grouped["late"]),
-        _stats_block("🤔 Пока думают", grouped["thinking"]),
-        _stats_block("❌ Не идут", grouped["declined"]),
-    ])
+    sections = [f"📊 <b>{title}</b>\n🕗 {starts}\nИдут / думают: <b>{active_total}</b>"]
+    next_number = 1
+    for status, label in (
+        ("going", "✅ Идут"),
+        ("late", "⏳ Придут позже"),
+        ("thinking", "🤔 Пока думают"),
+    ):
+        block, next_number = _numbered_stats_block(label, grouped[status], next_number)
+        if block:
+            sections.append(block)
+
+    declined_block, _ = _numbered_stats_block("❌ Не идут", grouped["declined"], 1)
+    if declined_block:
+        sections.append(declined_block)
+
+    return "\n\n".join(sections)
 
 
 async def _load_open_evenings() -> list[dict] | None:

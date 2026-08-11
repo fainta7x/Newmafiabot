@@ -27,7 +27,7 @@ from handlers import registration
 from handlers import shop
 from handlers import start_profile
 from handlers import telegram_admin_tools
-from handlers.crm_evening_announcement import send_crm_evening_announcement
+from handlers.crm_evening_announcement import send_crm_evening_announcement, send_crm_evening_reminders
 from handlers.crm_group_announcement import send_crm_group_announcement
 from handlers.crm_telegram_publishing import (
     sync_evening_telegram,
@@ -132,6 +132,18 @@ async def handle_crm_evening_announcement_request(request: web.Request):
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
     return _announcement_result_response(await send_crm_evening_announcement(bot, evening_id))
+
+
+async def handle_crm_evening_reminder_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+    evening_id = str(request.match_info.get("evening_id") or "").strip()
+    if not evening_id:
+        return web.json_response({"error": "evening_id_required"}, status=400)
+    return _announcement_result_response(await send_crm_evening_reminders(bot, evening_id))
 
 
 async def handle_crm_telegram_sync_request(request: web.Request):
@@ -306,6 +318,7 @@ async def start_webhook():
     app.router.add_post("/webhook", handle_webhook)
     app.router.add_post("/crm/evenings/{evening_id}/announce", handle_crm_evening_announcement_request)
     app.router.add_post("/crm/evenings/{evening_id}/announce-group", handle_crm_group_announcement_request)
+    app.router.add_post("/crm/evenings/{evening_id}/remind-unanswered", handle_crm_evening_reminder_request)
     app.router.add_post("/crm/evenings/{evening_id}/sync-telegram", handle_crm_telegram_sync_request)
     app.router.add_post("/crm/tournaments/{tournament_id}/sync-telegram", handle_crm_tournament_sync_request)
     app.router.add_post("/crm/telegram/sync-public", handle_crm_public_router_sync_request)

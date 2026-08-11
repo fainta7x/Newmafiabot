@@ -35,7 +35,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       unseatedExpectedCount = Math.max(0, expectedPlayersCount - seatedExpectedCount);
       const gameSummary = await db.get<any>(`
         SELECT COUNT(*) AS total,
-               SUM(CASE WHEN status='completed' OR winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed
+               SUM(CASE WHEN winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed
           FROM games
          WHERE evening_id=?
       `, [nextEvening.id]);
@@ -98,6 +98,9 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants },
       summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount },
     });
-  } catch (err: any) { return res.status(500).json({ error: 'Database error', message: err.message }); }
+  } catch (err: any) {
+    console.error('[CRM] Overview database error:', err);
+    return res.status(500).json({ error: 'Database error', message: err.message });
+  }
 });
 export default router;

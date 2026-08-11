@@ -13,6 +13,14 @@ const requireClubUser = (req: AuthenticatedRequest, res: Response): string | nul
   return null;
 };
 
+const repositoryAvatarAvailable = (playerId: string, suppressed: unknown) =>
+  !Number(suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(playerId));
+
+const playerAvatarUrl = (playerId: string, hasDbAvatar: unknown, suppressed: unknown) =>
+  Number(hasDbAvatar || 0) || repositoryAvatarAvailable(playerId, suppressed)
+    ? `/api/player/players/${encodeURIComponent(playerId)}/avatar`
+    : null;
+
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   if (!requireClubUser(req, res)) return;
 
@@ -24,7 +32,9 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         p.nickname,
         p.elo,
         p.game_level,
-        p.contact_status
+        p.contact_status,
+        EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
+        EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
       FROM players p
       WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
       ORDER BY COALESCE(p.elo, 1000) DESC, p.nickname COLLATE NOCASE ASC, p.id ASC
@@ -32,14 +42,13 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const leaderboard = rows.map((row: any, index: number) => {
       const playerId = String(row.id);
-      const repositoryAvatar = getRepositoryPlayerAvatarAsset(playerId);
       return {
         place: index + 1,
         player_id: playerId,
         nickname: String(row.nickname || 'Игрок'),
         elo: Math.round(Number(row.elo || 1000)),
         game_level: row.game_level || 'club',
-        avatar_url: repositoryAvatar ? `/player-avatars/${encodeURIComponent(repositoryAvatar.file)}` : null,
+        avatar_url: playerAvatarUrl(playerId, row.has_db_avatar, row.avatar_suppressed),
       };
     });
 

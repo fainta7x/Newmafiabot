@@ -24,6 +24,52 @@ type PeriodEvening = {
   effective_included: boolean;
 };
 
+type PeriodGame = {
+  id: number;
+  global_game_number: number;
+  game_date: string;
+  winner_team: string;
+  evening_id: string;
+  evening_title: string;
+  starts_at: string;
+  format: PeriodEvening['format'];
+  auto_included: boolean;
+  evening_override_included: boolean | null;
+  game_override_included: boolean | null;
+  effective_included: boolean;
+};
+
+type PeriodStanding = {
+  place: number;
+  player_id: string;
+  nickname: string;
+  total_points: number;
+  additional_total: number;
+  wins: number;
+  don_wins: number;
+  sheriff_wins: number;
+  first_killed_count: number;
+  games_played: number;
+  ci_points: number;
+  tie_group_id: string | null;
+  ci_calculation?: {
+    distance_games: number;
+    threshold_b: number;
+    first_killed_count: number;
+    ci_rate: number;
+    provisional: boolean;
+  };
+};
+
+type StandingsResponse = {
+  selected_games_count: number;
+  completed_games_count: number;
+  distance_games: number;
+  ci_threshold_b: number;
+  standings: PeriodStanding[];
+  warnings: string[];
+};
+
 const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(url, {
     credentials: 'include',
@@ -33,15 +79,6 @@ const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || 'Ошибка запроса');
   return body as T;
-};
-
-const toDateInput = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 const formatDate = (value: string) => new Intl.DateTimeFormat('ru-RU', {
@@ -55,12 +92,18 @@ const formatLabels: Record<PeriodEvening['format'], string> = {
   TOURNAMENT: 'Турнир',
 };
 
+const points = (value: number) => Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+
 export const RatingPeriodsCRM: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
   const [periods, setPeriods] = useState<RatingPeriod[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PeriodEvening[]>([]);
+  const [games, setGames] = useState<PeriodGame[]>([]);
+  const [standings, setStandings] = useState<StandingsResponse | null>(null);
+  const [showGames, setShowGames] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
@@ -84,12 +127,22 @@ export const RatingPeriodsCRM: React.FC = () => {
     }
   };
 
-  const loadEvenings = async (periodId: string) => {
+  const loadSelected = async (periodId: string) => {
+    setDetailsLoading(true);
+    setError(null);
     try {
-      const data = await apiJson<{ evenings: PeriodEvening[] }>(`/api/rating-periods/${periodId}/evenings`);
-      setEvenings(data.evenings || []);
+      const [eveningData, gameData, standingsData] = await Promise.all([
+        apiJson<{ evenings: PeriodEvening[] }>(`/api/rating-periods/${periodId}/evenings`),
+        apiJson<{ games: PeriodGame[] }>(`/api/rating-periods/${periodId}/games`),
+        apiJson<StandingsResponse>(`/api/rating-periods/${periodId}/standings`),
+      ]);
+      setEvenings(eveningData.evenings || []);
+      setGames(gameData.games || []);
+      setStandings(standingsData);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить вечера периода');
+      setError(err?.message || 'Не удалось загрузить расчёт периода');
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -101,9 +154,11 @@ export const RatingPeriodsCRM: React.FC = () => {
   useEffect(() => {
     if (!expanded || !selectedId) {
       setEvenings([]);
+      setGames([]);
+      setStandings(null);
       return;
     }
-    void loadEvenings(selectedId);
+    void loadSelected(selectedId);
   }, [expanded, selectedId]);
 
   const createPeriod = async (event: React.FormEvent) => {
@@ -143,9 +198,23 @@ export const RatingPeriodsCRM: React.FC = () => {
         method: 'PUT',
         body: JSON.stringify({ included }),
       });
-      await loadEvenings(selectedId);
+      await loadSelected(selectedId);
     } catch (err: any) {
       setError(err?.message || 'Не удалось изменить участие вечера');
+    }
+  };
+
+  const setGameOverride = async (gameId: number, included: boolean | null) => {
+    if (!selectedId) return;
+    setError(null);
+    try {
+      await apiJson(`/api/rating-periods/${selectedId}/games/${gameId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ included }),
+      });
+      await loadSelected(selectedId);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось изменить участие игры');
     }
   };
 
@@ -223,29 +292,114 @@ export const RatingPeriodsCRM: React.FC = () => {
           </div>
 
           {selected ? (
-            <div className="space-y-2 border-t border-border-soft pt-4">
+            <div className="space-y-4 border-t border-border-soft pt-4">
               <div>
-                <div className="text-[13px] font-bold text-text-primary">Вечера · {selected.title}</div>
-                <div className="mt-1 text-[11px] text-text-secondary">Авто = по типу и датам. «Включить» и «Исключить» имеют приоритет и могут быть поставлены на любой вечер.</div>
+                <div className="text-[15px] font-black text-text-primary">{selected.title}</div>
+                <div className="mt-1 text-[11px] text-text-secondary">Таблица пересчитывается сразу после изменения состава зачётных игр.</div>
               </div>
-              {evenings.map((evening) => (
-                <div key={evening.id} className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold text-text-primary">{evening.title}</div>
-                      <div className="mt-1 text-[11px] text-text-secondary">{formatDate(evening.starts_at)} · {formatLabels[evening.format]} · игр: {Number(evening.games_count || 0)}</div>
+
+              {detailsLoading ? <div className="text-[12px] text-text-secondary">Пересчитываем период…</div> : null}
+
+              {standings ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-[14px] bg-surface-2 p-3 text-center">
+                      <div className="text-[10px] uppercase tracking-wide text-text-muted">Дистанция CI</div>
+                      <div className="mt-1 text-[18px] font-black text-text-primary">{standings.distance_games}</div>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${evening.effective_included ? 'bg-success-soft text-success' : 'bg-surface-3 text-text-muted'}`}>
-                      {evening.effective_included ? 'В зачёте' : 'Не в зачёте'}
-                    </span>
+                    <div className="rounded-[14px] bg-surface-2 p-3 text-center">
+                      <div className="text-[10px] uppercase tracking-wide text-text-muted">Выбрано игр</div>
+                      <div className="mt-1 text-[18px] font-black text-text-primary">{standings.selected_games_count}</div>
+                    </div>
+                    <div className="rounded-[14px] bg-surface-2 p-3 text-center">
+                      <div className="text-[10px] uppercase tracking-wide text-text-muted">Порог B</div>
+                      <div className="mt-1 text-[18px] font-black text-text-primary">{standings.ci_threshold_b}</div>
+                    </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-1.5">
-                    <button type="button" onClick={() => void setEveningOverride(evening.id, null)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === null ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft text-text-secondary'}`}>Авто</button>
-                    <button type="button" onClick={() => void setEveningOverride(evening.id, true)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === true ? 'border-success/40 bg-success-soft text-success' : 'border-border-soft text-text-secondary'}`}>Включить</button>
-                    <button type="button" onClick={() => void setEveningOverride(evening.id, false)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === false ? 'border-danger/40 bg-danger-soft text-danger' : 'border-border-soft text-text-secondary'}`}>Исключить</button>
+
+                  {standings.warnings?.map((warning) => (
+                    <div key={warning} className="rounded-[12px] border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">{warning}</div>
+                  ))}
+
+                  <div className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-2">
+                    <div className="grid grid-cols-[34px_minmax(0,1fr)_50px_62px] gap-2 border-b border-border-soft px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                      <span>#</span><span>Игрок</span><span className="text-center">Игры</span><span className="text-right">Баллы</span>
+                    </div>
+                    {standings.standings.length ? standings.standings.map((row) => (
+                      <div key={row.player_id} className="border-b border-border-soft/70 px-3 py-2.5 last:border-b-0">
+                        <div className="grid grid-cols-[34px_minmax(0,1fr)_50px_62px] items-center gap-2">
+                          <span className="text-[13px] font-black text-text-muted">{row.place}</span>
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-bold text-text-primary">{row.nickname}</div>
+                            <div className="mt-0.5 truncate text-[10px] text-text-muted">
+                              доп. {points(row.additional_total)} · побед {row.wins} · CI {points(row.ci_points)}
+                            </div>
+                          </div>
+                          <span className="text-center text-[12px] font-semibold text-text-secondary">{row.games_played}</span>
+                          <span className="text-right text-[14px] font-black text-text-primary">{points(row.total_points)}</span>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="px-3 py-5 text-center text-[12px] text-text-secondary">Завершённых игр в зачёте пока нет.</div>
+                    )}
                   </div>
                 </div>
-              ))}
+              ) : null}
+
+              <div className="space-y-2 border-t border-border-soft pt-4">
+                <div>
+                  <div className="text-[13px] font-bold text-text-primary">Вечера</div>
+                  <div className="mt-1 text-[11px] text-text-secondary">Авто = по типу и датам. Ручное решение имеет приоритет.</div>
+                </div>
+                {evenings.map((evening) => (
+                  <div key={evening.id} className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-[13px] font-semibold text-text-primary">{evening.title}</div>
+                        <div className="mt-1 text-[11px] text-text-secondary">{formatDate(evening.starts_at)} · {formatLabels[evening.format]} · игр: {Number(evening.games_count || 0)}</div>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${evening.effective_included ? 'bg-success-soft text-success' : 'bg-surface-3 text-text-muted'}`}>
+                        {evening.effective_included ? 'В зачёте' : 'Не в зачёте'}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-1.5">
+                      <button type="button" onClick={() => void setEveningOverride(evening.id, null)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === null ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft text-text-secondary'}`}>Авто</button>
+                      <button type="button" onClick={() => void setEveningOverride(evening.id, true)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === true ? 'border-success/40 bg-success-soft text-success' : 'border-border-soft text-text-secondary'}`}>Включить</button>
+                      <button type="button" onClick={() => void setEveningOverride(evening.id, false)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${evening.override_included === false ? 'border-danger/40 bg-danger-soft text-danger' : 'border-border-soft text-text-secondary'}`}>Исключить</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-border-soft pt-4">
+                <button type="button" onClick={() => setShowGames((value) => !value)} className="flex min-h-11 w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left text-[13px] font-bold text-text-primary">
+                  <span>Отдельные игры · {games.length}</span>
+                  {showGames ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
+                </button>
+                {showGames ? (
+                  <div className="mt-2 space-y-2">
+                    {games.map((game) => (
+                      <div key={game.id} className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-[12px] font-bold text-text-primary">Игра №{game.global_game_number} · {game.evening_title}</div>
+                            <div className="mt-1 text-[10px] text-text-secondary">{formatDate(game.starts_at)} · {formatLabels[game.format]}</div>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${game.effective_included ? 'bg-success-soft text-success' : 'bg-surface-3 text-text-muted'}`}>
+                            {game.effective_included ? 'В зачёте' : 'Нет'}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-1.5">
+                          <button type="button" onClick={() => void setGameOverride(game.id, null)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${game.game_override_included === null ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft text-text-secondary'}`}>По вечеру</button>
+                          <button type="button" onClick={() => void setGameOverride(game.id, true)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${game.game_override_included === true ? 'border-success/40 bg-success-soft text-success' : 'border-border-soft text-text-secondary'}`}>Включить</button>
+                          <button type="button" onClick={() => void setGameOverride(game.id, false)} className={`min-h-9 rounded-[10px] border px-2 text-[11px] font-bold ${game.game_override_included === false ? 'border-danger/40 bg-danger-soft text-danger' : 'border-border-soft text-text-secondary'}`}>Исключить</button>
+                        </div>
+                      </div>
+                    ))}
+                    {!games.length ? <div className="rounded-[12px] bg-surface-2 px-3 py-4 text-[12px] text-text-secondary">Клубных игр пока нет.</div> : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>

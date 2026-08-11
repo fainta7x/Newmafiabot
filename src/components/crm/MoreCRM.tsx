@@ -1,10 +1,11 @@
 import React from 'react';
-import { BarChart3, ChevronRight, ClipboardList, Gamepad2, LogOut, Palette } from 'lucide-react';
+import { BarChart3, ChevronRight, ClipboardList, Database, Gamepad2, LogOut, Palette } from 'lucide-react';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
   onOpenAnalytics: () => void;
+  onOpenData: () => void;
   onOpenTheme: () => void;
   onOpenGameEngine?: () => void;
   onLogout: () => void | Promise<void>;
@@ -13,6 +14,7 @@ interface MoreCRMProps {
 export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenTasks,
   onOpenAnalytics,
+  onOpenData,
   onOpenTheme,
   onOpenGameEngine,
   onLogout,
@@ -20,6 +22,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   const items = [
     { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, удержание и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+    { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, ручные начисления и правка базы', icon: Database, onClick: onOpenData },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
   ];

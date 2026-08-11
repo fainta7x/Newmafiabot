@@ -16,6 +16,7 @@ export type TodayActionKind =
   | 'evening_responses'
   | 'evening_seating'
   | 'evening_payments'
+  | 'evening_ready'
   | 'evening_live'
   | 'overdue_task'
   | 'today_task'
@@ -125,7 +126,16 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
       actionLabel: 'К оплатам', eveningId: evening.id, payload, sortAt,
     };
   }
-  return null;
+
+  const hasStarted = Number.isFinite(sortAt) && sortAt <= Date.now();
+  return {
+    key: `evening:${evening.id}:ready`, kind: 'evening_ready', priority: -1,
+    title: hasStarted ? 'Можно начинать вечер' : 'Подготовка завершена',
+    reason: hasStarted
+      ? 'Рассылка, ответы, рассадка и оплаты проверены. Время начала уже наступило.'
+      : 'Рассылка, ответы, рассадка и оплаты проверены. До начала критичных действий нет.',
+    actionLabel: hasStarted ? 'Начать вечер' : 'Открыть вечер', eveningId: evening.id, payload, sortAt,
+  };
 }
 
 export function buildTodayActionQueue(overview: CrmOverview | null): TodayActionItem[] {

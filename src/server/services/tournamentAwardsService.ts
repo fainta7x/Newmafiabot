@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { internalGetNominations, internalGetStandings } from '../routes/tournamentsRoutes.ts';
+import { internalGetNominations } from '../routes/tournamentsRoutesBase.ts';
+import { getFlexibleTournamentStandings as internalGetStandings } from './flexibleTournamentStandingsService.ts';
 
 export type TournamentAwardKind = 'placement' | 'nomination';
 export type TournamentAwardSource = 'automatic' | 'manual' | 'suppressed' | 'unresolved';
@@ -132,8 +133,6 @@ export async function loadTournamentAwardSnapshot(db: DatabaseWrapper, tournamen
     let source: TournamentAwardSource = calculated ? 'automatic' : 'unresolved';
     let comment: string | null = null;
 
-    // Placements keep the existing manual correction flow. Nomination winners
-    // are canonical and never accept manual/suppressed overrides.
     if (override && definition.kind === 'placement') {
       comment = override.comment || null;
       if (override.action === 'suppress') {

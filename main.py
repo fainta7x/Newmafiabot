@@ -33,6 +33,7 @@ from handlers.crm_telegram_publishing import (
     sync_public_router,
     test_telegram_destination,
 )
+from handlers.crm_tournament_publishing import sync_tournament_telegram
 
 
 class MyLoggerMiddleware(BaseMiddleware):
@@ -154,6 +155,18 @@ async def handle_crm_telegram_sync_request(request: web.Request):
     return _announcement_result_response(await sync_evening_telegram(bot, evening_id))
 
 
+async def handle_crm_tournament_sync_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+    tournament_id = str(request.match_info.get("tournament_id") or "").strip()
+    if not tournament_id:
+        return web.json_response({"error": "tournament_id_required"}, status=400)
+    return _announcement_result_response(await sync_tournament_telegram(bot, tournament_id))
+
+
 async def handle_crm_public_router_sync_request(request: web.Request):
     global bot
     if not _crm_request_authorized(request):
@@ -179,40 +192,28 @@ def setup_handlers():
     """Регистрация всех хендлеров и роутеров"""
     global dp, bot
 
-    # Логгер (перехватывает все апдейты)
     dp.update.outer_middleware(MyLoggerMiddleware())
-
-    # Передаём bot в модули, где он нужен
     payment.setup_payment_handlers(bot)
     admin.setup_admin_handlers(bot)
 
-    # ========== РЕГИСТРАЦИЯ РОУТЕРОВ (ВАЖНЫЙ ПОРЯДОК!) ==========
+    dp.include_router(admin_judges.router)
+    dp.include_router(admin_crm.router)
+    dp.include_router(admin.router)
 
-    # 1. Сначала самые специфичные хендлеры с фильтрами
-    dp.include_router(admin_judges.router)  # управление судьями
-    dp.include_router(admin_crm.router)  # новая CRM-панель организатора
-    dp.include_router(admin.router)  # legacy админ-панель (/admin)
+    # Canonical registration must see /start before the legacy profile router.
+    dp.include_router(registration.router)
+    dp.include_router(start_profile.router)
+    dp.include_router(profile.router)
+    dp.include_router(payment.router)
+    dp.include_router(crm_evening_response.router)
+    dp.include_router(crm_booking.router)
+    dp.include_router(booking.router)
 
-    # 2. Пользовательские хендлеры. Canonical registration must see /start first.
-    dp.include_router(registration.router)  # /start + новая CRM-регистрация
-    dp.include_router(start_profile.router)  # legacy профиль и остальные команды
-    dp.include_router(profile.router)  # профиль
-    dp.include_router(payment.router)  # оплата
-    dp.include_router(crm_evening_response.router)  # CRM-ответы на анонс вечера
-    dp.include_router(crm_booking.router)  # CRM-запись и список игроков
-    dp.include_router(booking.router)  # legacy запись на игру (fallback)
-
-    # 3. Игровые роутеры
-    dp.include_router(game_router)  # игровая логика
-
-    # 5. Ачивки
+    dp.include_router(game_router)
     dp.include_router(achievements.router)
-
-    # 6. Магазин
     dp.include_router(shop.router)
 
 
-# Автоматические бэкапы в 3:00
 async def daily_backup_task():
     """Фоновая задача для ежедневного бэкапа в 3:00"""
     global bot
@@ -264,7 +265,6 @@ async def public_router_refresh_task():
         await asyncio.sleep(60 * 30)
 
 
-# Старт вебхуков для сервера
 async def start_webhook():
     global bot, dp
     storage = MemoryStorage()
@@ -273,7 +273,6 @@ async def start_webhook():
 
     setup_handlers()
 
-    # Проверка связи с бэкендом
     try:
         from bot_api import check_backend_connection
         res = await check_backend_connection()
@@ -295,6 +294,7 @@ async def start_webhook():
     app.router.add_post("/crm/evenings/{evening_id}/announce", handle_crm_evening_announcement_request)
     app.router.add_post("/crm/evenings/{evening_id}/announce-group", handle_crm_group_announcement_request)
     app.router.add_post("/crm/evenings/{evening_id}/sync-telegram", handle_crm_telegram_sync_request)
+    app.router.add_post("/crm/tournaments/{tournament_id}/sync-telegram", handle_crm_tournament_sync_request)
     app.router.add_post("/crm/telegram/sync-public", handle_crm_public_router_sync_request)
     app.router.add_post("/crm/telegram/test/{destination_id}", handle_crm_telegram_test_request)
     app.router.add_get("/health", lambda request: web.Response(text="OK"))
@@ -312,14 +312,13 @@ async def start_webhook():
     await asyncio.Event().wait()
 
 
-async def start_polling():  # запуск в режиме polling (для локальной разработки)
+async def start_polling():
     global bot, dp
     storage = MemoryStorage()
     bot = Bot(token=config.TOKEN)
     dp = Dispatcher(storage=storage)
     setup_handlers()
 
-    # Проверка связи с бэкендом
     try:
         from bot_api import check_backend_connection
         res = await check_backend_connection()

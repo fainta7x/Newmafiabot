@@ -14,6 +14,10 @@ const CONFIRMED_LINKS = [
 ] as const;
 
 export function applyConfirmedTelegramPlayerLinksMigration(db: DatabaseWrapper): void {
+  // This migration links specific canonical club UUIDs. A clean in-memory test DB
+  // intentionally has none of those rows and must not be treated as corrupted production data.
+  if (db.dbPath === ':memory:') return;
+
   const existingMigration = db.sqlite
     .prepare('SELECT status FROM migration_history WHERE migration_name = ? LIMIT 1')
     .get(MIGRATION_KEY) as { status?: string } | undefined;

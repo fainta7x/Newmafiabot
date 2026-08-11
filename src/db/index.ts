@@ -167,6 +167,9 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   addColumnIfNotExists('players', 'do_not_invite_until', 'TEXT');
   addColumnIfNotExists('players', 'pause_reason', 'TEXT');
   addColumnIfNotExists('players', 'contact_status', "TEXT NOT NULL DEFAULT 'normal'");
+  addColumnIfNotExists('players', 'elo_seed', 'INTEGER NOT NULL DEFAULT 1000');
+  addColumnIfNotExists('players', 'elo_seed_reason', 'TEXT');
+  addColumnIfNotExists('players', 'elo_seed_set_at', 'TEXT');
 
   try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS player_achievements (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,achievement_id TEXT NOT NULL,earned_at TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'evaluator',legacy_user_id TEXT,created_at TEXT NOT NULL,UNIQUE(player_id,achievement_id));CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON player_achievements(player_id);`); }
   catch (e) { console.error('Failed to initialize player_achievements:', e); }

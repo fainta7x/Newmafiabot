@@ -156,7 +156,7 @@ export async function loadReminderRecipients(db: Db, eveningId: string) {
   return {
     evening,
     recipients: players
-      .filter((player: any) => player.first_sent_at && player.response_status === 'unanswered')
+      .filter((player: any) => player.eligible_now && player.first_sent_at && player.response_status === 'unanswered')
       .map((player: any) => ({
         id: player.id,
         nickname: player.nickname,
@@ -173,10 +173,11 @@ export async function loadAnnouncementOverview(db: Db, eveningId: string) {
   if (!evening) return null;
 
   const sent = players.filter((player: any) => Boolean(player.first_sent_at));
-  const answered = players.filter((player: any) => player.response_status !== 'unanswered');
-  const unanswered = sent.filter((player: any) => player.response_status === 'unanswered');
+  const answered = players.filter((player: any) => player.eligible_now && player.response_status !== 'unanswered');
+  const unanswered = sent.filter((player: any) => player.eligible_now && player.response_status === 'unanswered');
   const failed = players.filter((player: any) => (
-    player.response_status === 'unanswered'
+    player.eligible_now
+    && player.response_status === 'unanswered'
     && !player.first_sent_at
     && player.delivery_status === 'failed'
   ));

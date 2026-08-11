@@ -183,9 +183,13 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
   ];
   for (const file of migrations) { const migrationPath = path.join(process.cwd(), 'drizzle', file); if (fs.existsSync(migrationPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationPath, 'utf8')); }
 
-  applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
-  applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
-  applyApprovedEloBaselineMigration(dbWrapper);
+  // These three steps migrate specific real 2LA Noire player identities/links/baselines.
+  // Generic Vitest databases (including temporary SQLite files) must contain only test fixtures.
+  if (!process.env.VITEST) {
+    applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
+    applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
+    applyApprovedEloBaselineMigration(dbWrapper);
+  }
 
   addColumnIfNotExists('tournament_games', 'judge_player_id', 'TEXT REFERENCES players(id) ON DELETE SET NULL');
   addColumnIfNotExists('tournament_games', 'draft_protocol_json', 'TEXT');

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerGameDetail, { formatEloDelta, type PlayerGameDetailData, type PlayerGameEloChange } from './PlayerGameDetail.tsx';
+import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 
 type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'profile';
 type GameScope = 'mine' | 'all';
@@ -450,7 +451,14 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
 
         {tab === 'rating' && (
           <>
-            <PageHeading title="Рейтинг" subtitle="ELO сейчас; рейтинговые периоды добавим сюда же" />
+            <PageHeading title="Рейтинг" subtitle="Рейтинговые периоды и общий Elo клуба" />
+            <PlayerRatingPeriods
+              playerId={player.id}
+              onOpenGame={(gameKey) => {
+                setTab('games');
+                void openGameDetail(gameKey);
+              }}
+            />
             <Section title="ELO клуба">
               {ratingError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p> : rating === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка ELO…</p> : ratingTop.length ? <div className="space-y-2">{ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}{selfOutsideTop && selfRating && <><div className="py-0.5 text-center text-xs text-white/25">•••</div><RatingRow item={selfRating} isSelf /></>}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">ELO пока пуст.</p>}
             </Section>

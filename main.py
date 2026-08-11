@@ -28,7 +28,6 @@ from handlers import shop
 from handlers import start_profile
 from handlers import telegram_admin_tools
 from handlers.crm_evening_announcement import send_crm_evening_announcement, send_crm_evening_reminders
-from handlers.crm_group_announcement import send_crm_group_announcement
 from handlers.crm_telegram_publishing import (
     sync_evening_telegram,
     sync_public_router,
@@ -119,7 +118,7 @@ async def handle_crm_group_announcement_request(request: web.Request):
     evening_id = str(request.match_info.get("evening_id") or "").strip()
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
-    return _announcement_result_response(await send_crm_group_announcement(bot, evening_id))
+    return _announcement_result_response(await sync_evening_telegram(bot, evening_id))
 
 
 async def handle_crm_evening_announcement_request(request: web.Request):

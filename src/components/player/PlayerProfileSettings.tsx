@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 
@@ -21,6 +21,26 @@ export default function PlayerProfileSettings({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/player/profile-settings', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить данные профиля');
+        if (cancelled || !body?.player) return;
+        const next = { ...player, ...body.player } as Player;
+        onPlayerChange(next);
+        setNickname(next.nickname || '');
+        setFullName(next.full_name || '');
+        setPhone(next.phone || '');
+      } catch (loadError: any) {
+        if (!cancelled) setError(loadError?.message || 'Не удалось загрузить данные профиля');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const saveProfile = async () => {
     if (saving) return;

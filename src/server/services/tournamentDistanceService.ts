@@ -119,7 +119,9 @@ export async function computeFlexibleCompleteReadiness(
     [tournamentId],
   );
 
-  if (games.length !== distance) {
+  if (games.length === 0) {
+    errors.push('В турнире ещё нет запланированных игр');
+  } else if (games.length !== distance) {
     errors.push(`Необходимо ${distance} игр (найдено: ${games.length})`);
   }
 
@@ -128,7 +130,8 @@ export async function computeFlexibleCompleteReadiness(
 
   const completedCount = games.filter((game: any) => game.status === 'completed').length;
   if (completedCount !== distance) {
-    errors.push(`Не все игры завершены (${completedCount} из ${distance})`);
+    const remaining = Math.max(0, distance - completedCount);
+    errors.push(`Ещё не сыграно или не завершено игр: ${remaining} (${completedCount} из ${distance} завершено)`);
   }
 
   for (const game of games) {

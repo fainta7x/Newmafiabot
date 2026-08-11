@@ -15,9 +15,12 @@ const syncInBackground = async (tournamentId: string) => {
 
 router.use((req: any, res: any, next) => {
   const transition = req.path.match(/^\/([^/]+)\/(start|complete)$/);
-  if (req.method !== 'POST' || !transition) return next();
+  const participantUpdate = req.path.match(/^\/([^/]+)\/participants$/);
+  const shouldSync = (req.method === 'POST' && Boolean(transition)) || (req.method === 'PUT' && Boolean(participantUpdate));
+  if (!shouldSync) return next();
+  const tournamentId = String(transition?.[1] || participantUpdate?.[1] || '');
   res.on('finish', () => {
-    if (res.statusCode >= 200 && res.statusCode < 300) void syncInBackground(String(transition[1]));
+    if (res.statusCode >= 200 && res.statusCode < 300 && tournamentId) void syncInBackground(tournamentId);
   });
   next();
 });

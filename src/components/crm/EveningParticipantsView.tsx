@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
-import { EveningAttendanceQuickControls } from './EveningAttendanceQuickControls.tsx';
 
 interface EveningParticipantsViewProps {
   eveningId: string;
@@ -119,7 +118,6 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
-      <EveningAttendanceQuickControls eveningId={props.eveningId} />
       <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
     </div>
   );

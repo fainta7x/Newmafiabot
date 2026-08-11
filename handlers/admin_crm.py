@@ -3,8 +3,12 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 import config
+from handlers.registration import router as registration_router
 
 router = Router()
+# admin_crm is mounted before the legacy start_profile router in main.py, so nesting
+# onboarding here lets canonical /start registration run before the legacy /start handler.
+router.include_router(registration_router)
 
 
 def _is_admin(user_id: int) -> bool:

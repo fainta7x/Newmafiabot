@@ -52,7 +52,6 @@ import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
-import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -91,11 +90,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {
     console.error('[TOKENS] Opening-balance reconciliation failed:', error);
-  }
-  try {
-    await reconcileAllTournamentGameTokenSettlements(db);
-  } catch (error) {
-    console.error('[TOKENS] Tournament settlement backfill failed:', error);
   }
   try {
     await reconcileAllBettingPools(db);

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
+import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import {
   requestBotEveningTelegramSync,
   requestBotPublicRouterSync,
@@ -55,7 +56,12 @@ router.use((req: any, res: any, next) => {
   next();
 });
 
-async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announce-group') {
+const botConnection = () => ({
+  url: String(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL).trim().replace(/\/+$/, ''),
+  secret: String(process.env.BOT_API_SECRET || '').trim(),
+});
+
+async function proxyBotAction(req: any, res: any, action: 'announce' | 'announce-group' | 'remind-unanswered') {
   try {
     const db = req.db;
     const evening = await db.get(
@@ -64,21 +70,20 @@ async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announc
     );
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
-      return res.status(409).json({ error: 'Анонс можно отправить только для опубликованного или активного вечера' });
+      return res.status(409).json({ error: 'Действие доступно только для опубликованного или активного вечера' });
     }
 
-    const botServiceUrl = String(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL).trim().replace(/\/+$/, '');
-    const botApiSecret = String(process.env.BOT_API_SECRET || '').trim();
-    if (!botServiceUrl || !botApiSecret) {
+    const connection = botConnection();
+    if (!connection.url || !connection.secret) {
       return res.status(503).json({ error: 'Связь web → bot ещё не настроена' });
     }
 
     const response = await fetch(
-      `${botServiceUrl}/crm/evenings/${encodeURIComponent(req.params.id)}/${mode}`,
+      `${connection.url}/crm/evenings/${encodeURIComponent(req.params.id)}/${action}`,
       {
         method: 'POST',
         headers: {
-          'X-Bot-Token': botApiSecret,
+          'X-Bot-Token': connection.secret,
           'Content-Type': 'application/json',
         },
       },
@@ -97,6 +102,16 @@ async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announc
   }
 }
 
+router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) => {
+  try {
+    const overview = await loadAnnouncementOverview((req as any).db, req.params.id);
+    if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
+    return res.json(overview);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние рассылки' });
+  }
+});
+
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
   const db = (req as any).db;
   const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
@@ -107,7 +122,8 @@ router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
   );
 });
 
-router.post('/:id/announce', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce'));
-router.post('/:id/announce-group', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce-group'));
+router.post('/:id/announce', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'announce'));
+router.post('/:id/announce-group', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'announce-group'));
+router.post('/:id/remind-unanswered', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'remind-unanswered'));
 
 export default router;

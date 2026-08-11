@@ -121,7 +121,7 @@ describe('Official tournament PNG export', () => {
     expect(modalSource).toContain('return navigatorLike.canShare({ files });');
     expect(modalSource).not.toContain('window.location.href');
     expect(modalSource).not.toContain('renderSvgToPngDataUrl');
-    expect(officialSource).toContain('Сформировать итоговый PNG');
+    expect(officialSource).toContain('Посмотреть итоговый результат');
     expect(officialSource).not.toContain('publishTournamentResults');
     expect(officialSource).not.toContain('public_token');
     expect(officialSource).not.toContain('Скопировать ссылку');

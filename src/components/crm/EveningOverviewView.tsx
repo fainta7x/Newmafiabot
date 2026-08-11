@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CircleDollarSign, Clock3, Gamepad2, Play, RefreshCw, Users } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
 
 interface EveningOverviewViewProps {
   eveningId: string;
@@ -134,6 +135,14 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       <button onClick={() => onOpenSection('games')} className="rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left"><Gamepad2 className="h-4 w-4 text-accent" /><div className="mt-3 text-[22px] font-black">{stats.completedGames}<span className="text-[12px] text-text-muted">/{stats.games.length}</span></div><div className="text-[10px] text-text-muted">игр завершено</div></button>
       <button onClick={() => onOpenSection('participants')} className="rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left"><CircleDollarSign className="h-4 w-4 text-success" /><div className="mt-3 text-[18px] font-black">{money(stats.paid)}</div><div className="text-[10px] text-text-muted">оплачено из {money(stats.due)}</div></button>
     </div>
+
+    <EveningAnnouncementPanel
+      eveningId={eveningId}
+      eveningTitle={evening.title}
+      startsAt={evening.starts_at}
+      status={evening.status}
+      readonly={readonly}
+    />
 
     <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
       <h3 className="text-[14px] font-black text-text-primary">Готовность вечера</h3>

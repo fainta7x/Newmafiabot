@@ -179,7 +179,7 @@ export interface EloRebuildRow {
 }
 
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
-  const { internalGetStandings } = await import('../routes/tournamentsRoutesBase.ts');
+  const { getFlexibleTournamentStandings: internalGetStandings } = await import('./flexibleTournamentStandingsService.ts');
 
   const players = await db.all<any>('SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id');
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));

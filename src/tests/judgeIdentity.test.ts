@@ -10,12 +10,12 @@ let app: Awaited<ReturnType<typeof createApp>>;
 const auth = () => ({ Authorization: `Bearer ${generateOrganizerToken()}` });
 const now = () => new Date().toISOString();
 
-const addPlayer = async (id: string, nickname: string) => {
+const addPlayer = async (id: string, nickname: string, judgeLevel: 'none' | 'trainee' | 'host' | 'judge' = 'none') => {
   const stamp = now();
   await db.run(
-    `INSERT INTO players (id, nickname, contact_status, lifecycle_status, elo, tokens, created_at, updated_at)
-     VALUES (?, ?, 'normal', 'normal', 1000, 0, ?, ?)`,
-    [id, nickname, stamp, stamp],
+    `INSERT INTO players (id, nickname, contact_status, lifecycle_status, judge_level, elo, tokens, created_at, updated_at)
+     VALUES (?, ?, 'normal', 'normal', ?, 1000, 0, ?, ?)`,
+    [id, nickname, judgeLevel, stamp, stamp],
   );
 };
 
@@ -26,6 +26,7 @@ const seedEvening = async () => {
      VALUES ('ev-judge', 'Judge test', ?, 'Europe/Moscow', 'STANDARD', 'active', 20, 0, ?, ?)`,
     [stamp, stamp, stamp],
   );
+  const roles = ['don', 'mafia', 'mafia', 'sheriff', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen'];
   for (let index = 1; index <= 10; index += 1) {
     const playerId = `p-${index}`;
     await addPlayer(playerId, `Player ${index}`);
@@ -36,7 +37,11 @@ const seedEvening = async () => {
       [`ep-${index}`, playerId, stamp, stamp],
     );
   }
-  return Array.from({ length: 10 }, (_, index) => ({ participant_id: `ep-${index + 1}`, seat_number: index + 1 }));
+  return Array.from({ length: 10 }, (_, index) => ({
+    participant_id: `ep-${index + 1}`,
+    seat_number: index + 1,
+    role: roles[index],
+  }));
 };
 
 beforeEach(async () => {
@@ -75,7 +80,7 @@ describe('stable judge identity', () => {
 
   it('stores explicit club UUID + nickname snapshot and awards first_judge once', async () => {
     const seats = await seedEvening();
-    await addPlayer('judge-club', 'Judge Club');
+    await addPlayer('judge-club', 'Judge Club', 'judge');
     const created = await request(app).post('/api/games/evening/ev-judge').set(auth()).send({ judge_player_id: 'judge-club', judge_name: 'Wrong text', seats });
     expect(created.status).toBe(201);
     expect(created.body.judge_player_id).toBe('judge-club');
@@ -88,7 +93,7 @@ describe('stable judge identity', () => {
   });
 
   it('supports explicit tournament judge correction on a completed game and stays idempotent', async () => {
-    await addPlayer('judge-tournament', 'Judge Tournament');
+    await addPlayer('judge-tournament', 'Judge Tournament', 'judge');
     const stamp = now();
     await db.run(
       `INSERT INTO tournaments (id, title, date, status, created_at, updated_at)

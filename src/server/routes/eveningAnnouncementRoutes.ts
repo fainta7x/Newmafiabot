@@ -26,12 +26,12 @@ const logBestEffortSync = async (eveningId: string | null, publicOnly = false) =
 router.use((req: any, res: any, next) => {
   const oneId = req.path.match(/^\/([^/]+)$/);
   const settle = req.path.match(/^\/([^/]+)\/settle$/);
-  const isCreate = req.method === 'POST' && req.path === '/';
+  const creationPath = req.method === 'POST' && ['/', '/create-next-friday', '/duplicate-last'].includes(req.path);
   const isPatch = req.method === 'PATCH' && Boolean(oneId);
   const isDelete = req.method === 'DELETE' && Boolean(oneId);
   const isSettle = req.method === 'POST' && Boolean(settle);
 
-  if (!isCreate && !isPatch && !isDelete && !isSettle) return next();
+  if (!creationPath && !isPatch && !isDelete && !isSettle) return next();
 
   let responseBody: any = null;
   const originalJson = res.json.bind(res);

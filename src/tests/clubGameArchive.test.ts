@@ -15,6 +15,29 @@ describe('club evening game archive', () => {
     app = await createApp(db);
     cookie = `organizer_token=${generateOrganizerToken()}`;
     const now = new Date().toISOString();
+
+    const playerResults = [] as Array<Record<string, unknown>>;
+    const roles = ['Дон', 'Мафия', 'Мафия', 'Шериф', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный'];
+    for (let index = 0; index < 10; index += 1) {
+      const playerId = `archive-player-${index + 1}`;
+      await db.run(
+        `INSERT INTO players (id, nickname, contact_status, lifecycle_status, source, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, 'normal', 'normal', 'test', 1000, 0, ?, ?)`,
+        [playerId, `Archive ${index + 1}`, now, now],
+      );
+      playerResults.push({
+        player_id: playerId,
+        participant_id: playerId,
+        seat_number: index + 1,
+        role: roles[index],
+        judge_bonus: 0,
+        protocol_bonus: 0,
+        ci_points: 0,
+        minor_technical_fouls: 0,
+        major_technical_fouls: 0,
+      });
+    }
+
     await db.run(
       `INSERT INTO game_evenings (id, title, starts_at, timezone, format, status, default_price, created_at, updated_at)
        VALUES (?, ?, ?, 'Europe/Moscow', 'STANDARD', 'active', 0, ?, ?)`,
@@ -24,7 +47,7 @@ describe('club evening game archive', () => {
       version: 1,
       kind: 'club_evening_protocol',
       protocol: { game_id: '1', status: 'completed', winner_team: 'red' },
-      player_results: [],
+      player_results: playerResults,
     };
     await db.run(
       `INSERT INTO games (evening_id, global_game_number, game_date, winner_team, winner_label, protocol_text, slots_json, created_at)

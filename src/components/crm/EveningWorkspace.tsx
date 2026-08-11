@@ -4,6 +4,7 @@ import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
+import { EveningTelegramCard } from './EveningTelegramCard.tsx';
 
 interface EveningWorkspaceProps {
   eveningId: string;
@@ -53,11 +54,14 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       </div>
 
       {section === 'overview' ? (
-        <EveningOverviewView
-          eveningId={eveningId}
-          onBack={onBack}
-          onOpenSection={(next) => setSection(next)}
-        />
+        <>
+          <EveningOverviewView
+            eveningId={eveningId}
+            onBack={onBack}
+            onOpenSection={(next) => setSection(next)}
+          />
+          <EveningTelegramCard eveningId={eveningId} />
+        </>
       ) : null}
       {section === 'participants' ? (
         <EveningParticipantsView

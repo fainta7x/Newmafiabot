@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { playerLevelAllowsEveningFormat } from '../db/ensureInviteAudienceSchema.ts';
+import { afterEach, describe, expect, it } from 'vitest';
+import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { ensureInviteAudienceSchema, playerLevelAllowsEveningFormat } from '../db/ensureInviteAudienceSchema.ts';
+
+let db: DatabaseWrapper | null = null;
+
+afterEach(() => {
+  try { db?.sqlite.close(); } catch {}
+  db = null;
+});
 
 describe('Telegram invite audience by player level', () => {
   it('routes novices only to novice evenings', () => {
@@ -21,5 +29,18 @@ describe('Telegram invite audience by player level', () => {
     expect(playerLevelAllowsEveningFormat('tournament', 'CASUAL')).toBe(true);
     expect(playerLevelAllowsEveningFormat('tournament', 'RATING')).toBe(true);
     expect(playerLevelAllowsEveningFormat('tournament', 'TOURNAMENT')).toBe(true);
+  });
+
+  it('forces future organizer-created CRM players onto the novice path', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureInviteAudienceSchema(db);
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO players (id, nickname, contact_status, lifecycle_status, source, elo, tokens, created_at, updated_at)
+       VALUES (?, ?, 'normal', 'normal', 'crm_manual', 1000, 0, ?, ?)`,
+      ['manual-novice-test', 'Новый вручную', now, now],
+    );
+    const player = await db.get<{ game_level: string }>('SELECT game_level FROM players WHERE id = ?', ['manual-novice-test']);
+    expect(player?.game_level).toBe('novice');
   });
 });

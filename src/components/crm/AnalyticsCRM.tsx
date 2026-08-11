@@ -1,34 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import {
-  TrendingUp,
-  Users,
-  AlertTriangle,
-  Palette,
-  Check,
-} from 'lucide-react';
-import { api, AnalyticsData } from '../../lib/api.ts';
-import { THEMES, ThemeId, applyTheme, getStoredTheme } from '../../lib/theme.ts';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign, Send, TrendingUp, Users } from 'lucide-react';
+import { api, type AnalyticsData } from '../../lib/api.ts';
 
-interface AnalyticsCRMProps {
-  onOpenThemeModal?: () => void;
-}
+type AnalyticsViewData = AnalyticsData & {
+  playerJourney?: {
+    neverPlayed: number;
+    playedOnce: number;
+    playedTwoOrThree: number;
+    playedFourPlus: number;
+    noviceLevel: number;
+    clubApproved: number;
+    tournamentApproved: number;
+    readyForClubReview: number;
+  };
+  communicationFunnel?: {
+    delivered: number;
+    failed: number;
+    answered: number;
+    positive: number;
+    attended: number;
+    reminded: number;
+    answerRate: number;
+    positiveRate: number;
+    attendanceRate: number;
+  };
+};
 
-export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
-  const [data, setData] = useState<AnalyticsData | null>(null);
+const card = 'rounded-[16px] border border-border-soft bg-surface-1 p-4';
+const formatMoney = (value: number) => `${Math.round(Number(value || 0)).toLocaleString('ru-RU')} ₽`;
+
+export const AnalyticsCRM: React.FC = () => {
+  const [data, setData] = useState<AnalyticsViewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>('all');
-  const [currentTheme, setCurrentTheme] = useState<ThemeId>('noir-cherry');
 
-  useEffect(() => {
-    setCurrentTheme(getStoredTheme());
-    loadAnalytics(period);
-  }, [period]);
+  useEffect(() => { void loadAnalytics(period); }, [period]);
 
   const loadAnalytics = async (selectedPeriod: string) => {
     setLoading(true);
     try {
-      const res = await api.getAnalytics({ period: selectedPeriod });
-      setData(res);
+      setData(await api.getAnalytics({ period: selectedPeriod }) as AnalyticsViewData);
     } catch (err: any) {
       console.error('Error loading analytics:', err);
     } finally {
@@ -36,219 +47,99 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
     }
   };
 
-  const handleSelectTheme = (id: ThemeId) => {
-    applyTheme(id);
-    setCurrentTheme(id);
-  };
+  if (loading || !data) return <div className="p-12 text-center text-xs text-text-secondary">Загрузка аналитики клуба...</div>;
 
-  if (loading || !data) {
-    return <div className="p-12 text-center text-text-secondary text-xs">Загрузка аналитики клуба...</div>;
-  }
+  const journey = data.playerJourney || { neverPlayed: 0, playedOnce: 0, playedTwoOrThree: 0, playedFourPlus: 0, noviceLevel: 0, clubApproved: 0, tournamentApproved: 0, readyForClubReview: 0 };
+  const communication = data.communicationFunnel || { delivered: 0, failed: 0, answered: 0, positive: 0, attended: 0, reminded: 0, answerRate: 0, positiveRate: 0, attendanceRate: 0 };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Settings Block: Interface Theme */}
-      <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-4">
-        <div className="flex items-center gap-3 border-b border-border-soft pb-3">
-          <div className="w-10 h-10 rounded-[12px] bg-accent-soft border border-accent/30 flex items-center justify-center text-accent shrink-0">
-            <Palette className="w-5 h-5 stroke-[1.8]" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-text-primary">Тема интерфейса</h3>
-            <p className="text-xs text-text-secondary">
-              Выберите визуальный стиль CRM системы. Изменения применяются мгновенно и сохраняются.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {THEMES.map((t) => {
-            const isActive = currentTheme === t.id;
-            return (
-              <div
-                key={t.id}
-                onClick={() => handleSelectTheme(t.id)}
-                className={`p-3.5 rounded-[14px] border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                  isActive
-                    ? 'bg-surface-2 border-accent shadow-md'
-                    : 'bg-surface-1 hover:bg-surface-2 border-border-soft hover:border-border-strong'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-xs text-text-primary">{t.name}</span>
-                    {isActive && (
-                      <span className="w-4 h-4 rounded-full bg-accent text-text-primary flex items-center justify-center shrink-0">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-text-secondary leading-tight">{t.tagline}</p>
-                </div>
-
-                {/* Color preview swatches */}
-                <div className="flex items-center gap-1.5 pt-2 border-t border-border-soft">
-                  <div
-                    className="w-4 h-4 rounded-full border border-white/20"
-                    style={{ backgroundColor: t.bgHex }}
-                    title="Фон"
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full border border-white/20"
-                    style={{ backgroundColor: t.surfaceHex }}
-                    title="Поверхность"
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full border border-white/20"
-                    style={{ backgroundColor: t.accentHex }}
-                    title="Акцент"
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center text-[8px] font-bold"
-                    style={{ backgroundColor: t.surfaceHex, color: t.textHex }}
-                    title="Текст"
-                  >
-                    Aa
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Top Banner with Period Selector */}
-      <div className="bg-surface-1 border border-border-soft p-5 rounded-[16px] flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="mx-auto max-w-5xl space-y-5">
+      <section className={`${card} flex flex-col gap-4 md:flex-row md:items-center md:justify-between`}>
         <div>
-          <h2 className="text-xl font-bold text-text-primary tracking-tight">Сквозная аналитика клуба</h2>
-          <p className="text-xs text-text-secondary mt-0.5">Когортный Retention, начисления, долги и финансы по транзакциям</p>
+          <h2 className="text-[20px] font-black tracking-tight text-text-primary">Аналитика клуба</h2>
+          <p className="mt-1 text-[12px] text-text-secondary">Где теряются игроки, как работают приглашения и возвращаются ли новички.</p>
         </div>
-        <div className="flex items-center gap-1.5 bg-surface-2 p-1 rounded-[12px] border border-border-soft text-xs">
-          {['7d', '30d', '90d', 'all'].map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-[10px] font-semibold transition-colors cursor-pointer ${
-                period === p ? 'bg-accent text-text-primary' : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {p === 'all' ? 'Всё время' : p}
-            </button>
-          ))}
+        <div className="flex items-center gap-1 rounded-[12px] border border-border-soft bg-surface-2 p-1 text-xs">
+          {['7d', '30d', '90d', 'all'].map((value) => <button key={value} onClick={() => setPeriod(value)} className={`min-h-9 rounded-[9px] px-3 font-bold transition-colors ${period === value ? 'bg-accent text-white' : 'text-text-secondary'}`}>{value === 'all' ? 'Всё' : value}</button>)}
         </div>
+      </section>
+
+      <section className={card}>
+        <div className="flex items-start justify-between gap-3">
+          <div><h3 className="text-[15px] font-black text-text-primary">Путь игрока</h3><p className="mt-1 text-[11px] text-text-secondary">Текущее состояние всей базы. Допуск в основной клуб остаётся решением организатора.</p></div>
+          <Users className="h-5 w-5 shrink-0 text-accent" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="rounded-[13px] bg-surface-2 p-3"><div className="text-[23px] font-black">{journey.neverPlayed}</div><div className="text-[10px] text-text-muted">ещё не были</div></div>
+          <div className="rounded-[13px] bg-surface-2 p-3"><div className="text-[23px] font-black">{journey.playedOnce}</div><div className="text-[10px] text-text-muted">сыграли 1 вечер</div></div>
+          <div className="rounded-[13px] bg-surface-2 p-3"><div className="text-[23px] font-black">{journey.playedTwoOrThree}</div><div className="text-[10px] text-text-muted">сыграли 2–3</div></div>
+          <div className="rounded-[13px] bg-success-soft p-3"><div className="text-[23px] font-black text-success">{journey.playedFourPlus}</div><div className="text-[10px] text-text-muted">4+ посещений</div></div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-[13px] border border-border-soft px-3 py-3"><div className="text-[11px] text-text-muted">Уровень «новичок»</div><strong className="mt-1 block text-[18px]">{journey.noviceLevel}</strong></div>
+          <div className="rounded-[13px] border border-border-soft px-3 py-3"><div className="text-[11px] text-text-muted">Допущены в основной клуб</div><strong className="mt-1 block text-[18px] text-success">{journey.clubApproved}</strong></div>
+          <div className={`rounded-[13px] border px-3 py-3 ${journey.readyForClubReview ? 'border-warning/30 bg-warning-soft' : 'border-border-soft'}`}><div className="text-[11px] text-text-muted">Новички с 2+ визитами</div><strong className={`mt-1 block text-[18px] ${journey.readyForClubReview ? 'text-warning' : ''}`}>{journey.readyForClubReview}</strong><div className="mt-0.5 text-[9px] text-text-muted">Можно проверить, пора ли давать допуск</div></div>
+        </div>
+      </section>
+
+      <section className={card}>
+        <div className="flex items-start justify-between gap-3">
+          <div><h3 className="text-[15px] font-black text-text-primary">Личная рассылка → приход</h3><p className="mt-1 text-[11px] text-text-secondary">Воронка только по личным анонсам MafiaBot за выбранный период.</p></div>
+          <Send className="h-5 w-5 shrink-0 text-accent" />
+        </div>
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-1">
+          {[
+            ['Доставлено', communication.delivered],
+            ['Ответили', communication.answered],
+            ['Идут', communication.positive],
+            ['Пришли', communication.attended],
+          ].map(([label, value], index) => <React.Fragment key={String(label)}><div className="rounded-[12px] bg-surface-2 p-2.5 text-center"><strong className="block text-[20px] text-text-primary">{value}</strong><span className="text-[9px] text-text-muted">{label}</span></div>{index < 3 ? <ArrowRight className="h-3.5 w-3.5 text-text-muted" /> : null}</React.Fragment>)}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.answerRate}%</strong><span className="text-[9px] text-text-muted">ответили</span></div>
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.positiveRate}%</strong><span className="text-[9px] text-text-muted">сказали «иду»</span></div>
+          <div className="rounded-[11px] bg-accent-soft p-2"><strong className="block text-[14px] text-accent">{communication.attendanceRate}%</strong><span className="text-[9px] text-text-muted">реально пришли</span></div>
+        </div>
+        <p className="mt-3 text-[10px] text-text-muted">Напоминание получали: {communication.reminded} · ошибок первичной доставки: {communication.failed}. «Пришли» считается только по уже завершённым вечерам.</p>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className={card}><div className="flex items-center justify-between"><span className="text-[11px] font-bold text-text-secondary">Retention новичков 30д</span><TrendingUp className="h-4 w-4 text-success" /></div><div className="mt-2 text-[28px] font-black text-success">{data.cohortRetention30dRate}%</div><p className="mt-1 text-[10px] text-text-muted">{data.cohortReturnedIn30Days} из {data.cohortFirstVisits} первых визитов вернулись за 30 дней</p></div>
+        <div className={card}><div className="flex items-center justify-between"><span className="text-[11px] font-bold text-text-secondary">Неактивные 30+ дней</span><AlertTriangle className="h-4 w-4 text-warning" /></div><div className="mt-2 text-[28px] font-black text-warning">{data.inactive30}</div><p className="mt-1 text-[10px] text-text-muted">60+ дней: {data.inactive60} · 90+ дней: {data.inactive90}</p></div>
+        <div className={card}><div className="flex items-center justify-between"><span className="text-[11px] font-bold text-text-secondary">Игроков в базе</span><Users className="h-4 w-4 text-accent" /></div><div className="mt-2 text-[28px] font-black">{data.totalPlayers}</div><p className="mt-1 text-[10px] text-text-muted">Турнирный допуск: {journey.tournamentApproved}</p></div>
       </div>
 
-      {/* Grid 1: Player Acquisition & Conversion */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-2">
-          <div className="flex items-center justify-between text-text-secondary">
-            <span className="text-xs font-semibold">Всего в базе</span>
-            <Users className="w-4 h-4 text-accent" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <section className={card}>
+          <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black">Вечера за период</h3></div>
+          <div className="mt-3 space-y-2 text-[11px]">
+            <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Завершено</span><strong>{data.completedEvenings}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Записей</span><strong>{data.totalRegistrations}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-success-soft p-3"><span className="text-text-secondary">Пришли</span><strong className="text-success">{data.totalAttended}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Отменили</span><strong>{data.totalCancelled} · {data.cancellationRate}%</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-danger-soft p-3"><span className="text-text-secondary">No-show</span><strong className="text-danger">{data.totalNoShow} · {data.noShowRate}%</strong></div>
           </div>
-          <div className="text-3xl font-bold text-text-primary">{data.totalPlayers}</div>
-          <p className="text-xs text-text-secondary">Первых визитов в периоде: {data.cohortFirstVisits}</p>
-        </div>
+        </section>
 
-        <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-2">
-          <div className="flex items-center justify-between text-text-secondary">
-            <span className="text-xs font-semibold">Когортный Retention 30д</span>
-            <TrendingUp className="w-4 h-4 text-success" />
+        <section className={card}>
+          <div className="flex items-center gap-2"><CircleDollarSign className="h-4 w-4 text-success" /><h3 className="text-[14px] font-black">Финансы за период</h3></div>
+          <div className="mt-3 space-y-2 text-[11px]">
+            <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Начислено</span><strong>{formatMoney(data.financials.accrued)}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-success-soft p-3"><span className="text-text-secondary">Оплачено</span><strong className="text-success">{formatMoney(data.financials.incomePaid)}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-danger-soft p-3"><span className="text-text-secondary">Открытые долги</span><strong className="text-danger">{formatMoney(data.financials.outstandingDebt)}</strong></div>
+            <div className="flex justify-between rounded-[11px] bg-surface-2 p-3"><span className="text-text-secondary">Средний доход / вечер</span><strong>{formatMoney(data.financials.avgRevenuePerEvening)}</strong></div>
           </div>
-          <div className="text-3xl font-bold text-success">{data.cohortRetention30dRate}%</div>
-          <p className="text-xs text-text-secondary">
-            {data.cohortReturnedIn30Days} из {data.cohortFirstVisits} новичков вернулись в течение 30 дней
-          </p>
-        </div>
-
-        <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-2">
-          <div className="flex items-center justify-between text-text-secondary">
-            <span className="text-xs font-semibold">Неактивные (Накопительно)</span>
-            <AlertTriangle className="w-4 h-4 text-warning" />
-          </div>
-          <div className="text-3xl font-bold text-warning">
-            {data.inactive30}
-          </div>
-          <p className="text-xs text-text-secondary">
-            30+ дн: {data.inactive30} • 60+ дн: {data.inactive60} • 90+ дн: {data.inactive90}
-          </p>
-        </div>
+        </section>
       </div>
 
-      {/* Grid 2: Attendance & Conversion Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Attendance conversion */}
-        <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-4">
-          <h3 className="text-sm font-bold text-text-primary">Записи и дисциплина (Завершённые вечера)</h3>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Завершено вечеров:</span>
-              <span className="font-semibold text-text-primary">{data.completedEvenings}</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Всего записей:</span>
-              <span className="font-semibold text-text-primary">{data.totalRegistrations}</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Посещений (Attended):</span>
-              <span className="font-semibold text-success">{data.totalAttended}</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Отмены записей:</span>
-              <span className="font-semibold text-text-secondary">{data.totalCancelled} ({data.cancellationRate}%)</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Пропуски (No-show):</span>
-              <span className="font-semibold text-danger">{data.totalNoShow} ({data.noShowRate}%)</span>
-            </div>
-          </div>
+      <section className={card}>
+        <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black">Откуда приходят игроки</h3></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {Object.entries(data.sourceBreakdown || {}).map(([src, count]) => <div key={src} className="rounded-[11px] bg-surface-2 p-3"><span className="block truncate text-[9px] font-bold uppercase text-text-muted">{src}</span><strong className="mt-1 block text-[16px]">{count} чел.</strong></div>)}
         </div>
-
-        {/* Financial Economy */}
-        <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-4">
-          <h3 className="text-sm font-bold text-text-primary">Финансы клуба (по транзакциям)</h3>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Начислено (Accrued):</span>
-              <span className="font-semibold text-text-primary">{data.financials.accrued} ₽</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Оплачено (Income Paid):</span>
-              <span className="font-semibold text-success">{data.financials.incomePaid} ₽</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Открытые долги (Outstanding):</span>
-              <span className="font-semibold text-danger">{data.financials.outstandingDebt} ₽</span>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-[12px] border border-border-soft">
-              <span className="text-text-secondary">Средний доход за вечер:</span>
-              <span className="font-semibold text-success">{data.financials.avgRevenuePerEvening} ₽</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sources Breakdown */}
-      <div className="bg-surface-1 border border-border-soft rounded-[16px] p-5 space-y-4">
-        <h3 className="text-sm font-bold text-text-primary">Источники прихода новых игроков</h3>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          {Object.entries(data.sourceBreakdown || {}).map(([src, count]) => (
-            <div key={src} className="p-3 bg-surface-2 border border-border-soft rounded-[12px] space-y-1">
-              <span className="text-[10px] text-text-muted uppercase font-semibold block">{src}</span>
-              <span className="text-base font-bold text-text-primary">{count} чел.</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      </section>
     </div>
   );
 };
+
+export default AnalyticsCRM;

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 
 const router = Router();
@@ -6,7 +7,7 @@ const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
 
 router.get('/', requireOrganizerAuth, async (req, res) => {
   const checkedAt = new Date().toISOString();
-  const db = (req as any).db;
+  const db = (req as any).db as DatabaseWrapper;
 
   let database = { ok: false, latency_ms: null as number | null, error: null as string | null };
   const dbStarted = Date.now();

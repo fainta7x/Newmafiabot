@@ -5,6 +5,7 @@ import { PlayerTokenLedgerCard } from './PlayerTokenLedgerCard.tsx';
 
 export type PlayerProfileContentProps = React.ComponentProps<typeof PlayerProfileContentBase>;
 type GameLevel = 'novice' | 'club' | 'tournament';
+type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
 const GAME_LEVEL_HINTS: Record<GameLevel, string> = {
   novice: 'Получает приглашения только на новичковые вечера',
@@ -12,16 +13,29 @@ const GAME_LEVEL_HINTS: Record<GameLevel, string> = {
   tournament: 'Получает приглашения на обычные и турнирные вечера',
 };
 
+const JUDGE_LEVEL_HINTS: Record<JudgeLevel, string> = {
+  none: 'Не может самостоятельно вести игры',
+  trainee: 'Может вести только игры новичков',
+  host: 'Может вести новичковые и обычные клубные игры',
+  judge: 'Может вести любые клубные, рейтинговые и турнирные игры',
+};
+
 export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = (props) => {
   const initialLevel = ((props.player as any).game_level || 'club') as GameLevel;
+  const initialJudgeLevel = ((props.player as any).judge_level || 'none') as JudgeLevel;
   const [gameLevel, setGameLevel] = useState<GameLevel>(initialLevel);
+  const [judgeLevel, setJudgeLevel] = useState<JudgeLevel>(initialJudgeLevel);
   const [levelSaving, setLevelSaving] = useState(false);
+  const [judgeLevelSaving, setJudgeLevelSaving] = useState(false);
   const [levelError, setLevelError] = useState<string | null>(null);
+  const [judgeLevelError, setJudgeLevelError] = useState<string | null>(null);
 
   useEffect(() => {
     setGameLevel((((props.player as any).game_level || 'club') as GameLevel));
+    setJudgeLevel((((props.player as any).judge_level || 'none') as JudgeLevel));
     setLevelError(null);
-  }, [props.player.id, (props.player as any).game_level]);
+    setJudgeLevelError(null);
+  }, [props.player.id, (props.player as any).game_level, (props.player as any).judge_level]);
 
   const changeGameLevel = async (next: GameLevel) => {
     if (levelSaving || next === gameLevel) return;
@@ -36,6 +50,22 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = (props)
       setLevelError(error?.message || 'Не удалось сохранить уровень игрока');
     } finally {
       setLevelSaving(false);
+    }
+  };
+
+  const changeJudgeLevel = async (next: JudgeLevel) => {
+    if (judgeLevelSaving || next === judgeLevel) return;
+    const previous = judgeLevel;
+    setJudgeLevel(next);
+    setJudgeLevelSaving(true);
+    setJudgeLevelError(null);
+    try {
+      await api.updatePlayer(props.player.id, { judge_level: next } as any);
+    } catch (error: any) {
+      setJudgeLevel(previous);
+      setJudgeLevelError(error?.message || 'Не удалось сохранить полномочия ведущего');
+    } finally {
+      setJudgeLevelSaving(false);
     }
   };
 
@@ -70,6 +100,28 @@ export const PlayerProfileContent: React.FC<PlayerProfileContentProps> = (props)
         </div>
         {levelSaving ? <p className="mt-2 text-[11px] text-text-muted">Сохраняем…</p> : null}
         {levelError ? <p className="mt-2 text-[11px] text-danger">{levelError}</p> : null}
+      </div>
+
+      <div className="rounded-[14px] border border-accent/20 bg-surface-1 px-3.5 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">Полномочия ведущего</span>
+            <span className="mt-0.5 block text-[11px] leading-4 text-text-secondary">{JUDGE_LEVEL_HINTS[judgeLevel]}</span>
+          </div>
+          <select
+            value={judgeLevel}
+            disabled={judgeLevelSaving}
+            onChange={(event) => void changeJudgeLevel(event.target.value as JudgeLevel)}
+            className="mobile-field min-h-[44px] sm:w-[210px]"
+          >
+            <option value="none">Нет полномочий</option>
+            <option value="trainee">Начинающий ведущий</option>
+            <option value="host">Ведущий</option>
+            <option value="judge">Судья</option>
+          </select>
+        </div>
+        {judgeLevelSaving ? <p className="mt-2 text-[11px] text-text-muted">Сохраняем полномочия…</p> : null}
+        {judgeLevelError ? <p className="mt-2 text-[11px] text-danger">{judgeLevelError}</p> : null}
       </div>
 
       <PlayerTokenLedgerCard

@@ -5,6 +5,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
+import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
@@ -15,6 +16,8 @@ import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerGameDetailRoutes from './server/routes/playerGameDetailRoutes.ts';
 import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.ts';
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
+import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
+import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
@@ -36,6 +39,7 @@ import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
+import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -64,12 +68,18 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
   await ensurePlayerShopSchema(db);
+  await ensurePlayerBettingSchema(db);
   await ensureRatingPeriodsSchema(db);
   await ensureTournamentDistanceSchema(db);
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {
     console.error('[TOKENS] Opening-balance reconciliation failed:', error);
+  }
+  try {
+    await reconcileAllBettingPools(db);
+  } catch (error) {
+    console.error('[BETS] Betting reconciliation failed:', error);
   }
   try {
     await reconcileAllPlayerAchievements(db);
@@ -88,6 +98,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerGameDetailRoutes);
   app.use('/api/player', playerRatingPeriodRoutes);
   app.use('/api/player', playerEconomyRoutes);
+  app.use('/api/player', playerBettingRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
@@ -104,6 +115,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.post('/api/games', requireOrganizerAuth, (_req, res) => {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });
+  app.use('/api/games', organizerBettingRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/tournaments', flexibleTournamentResultsRoutes);
   app.use('/api/tournaments', tournamentsRoutes);

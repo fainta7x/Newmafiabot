@@ -134,7 +134,7 @@ router.patch('/achievements/:id', async (req, res) => {
       category: String(req.body?.category ?? before.category),
       metric: String(req.body?.metric ?? before.metric),
       threshold: Number(req.body?.threshold ?? before.threshold),
-      role: req.body?.role === null || req.body?.role === '' ? null : String(req.body?.role ?? before.role || ''),
+      role: req.body?.role === null || req.body?.role === '' ? null : String(req.body?.role ?? before.role ?? ''),
       rarity: String(req.body?.rarity ?? before.rarity),
       sort_order: Math.trunc(Number(req.body?.order ?? req.body?.sort_order ?? before.sort_order)),
       active: req.body?.active === undefined ? Number(before.active || 0) : req.body.active ? 1 : 0,

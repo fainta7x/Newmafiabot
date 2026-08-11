@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
+import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
@@ -19,6 +20,7 @@ import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.t
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
+import adminDataRoutes from './server/routes/adminDataRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
@@ -73,6 +75,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensurePlayerBettingSchema(db);
   await ensureRatingPeriodsSchema(db);
   await ensureTournamentDistanceSchema(db);
+  await ensureAdminDataSchema(db);
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {
@@ -103,6 +106,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerEconomyRoutes);
   app.use('/api/player', playerBettingRoutes);
   app.use('/api/player', playerPaymentRoutes);
+  app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);

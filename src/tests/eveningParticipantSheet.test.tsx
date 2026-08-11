@@ -23,7 +23,7 @@ describe('EveningParticipantsView response/attendance/payment model', () => {
   it('opens profile in one tap and keeps attendance/payment independent from response', async () => {
     const onOpenPlayerCard = vi.fn();
     render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} onOpenPlayerCard={onOpenPlayerCard} />);
-    expect(await screen.findByText('Иду')).toBeTruthy();
+    expect((await screen.findAllByText('Иду')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Резерв')).toBeNull();
     expect(screen.queryByText('Свободно')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();

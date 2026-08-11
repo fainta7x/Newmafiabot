@@ -36,7 +36,10 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       .then(([nextTournament, nextPlayers]) => {
         if (cancelled) return;
         setTournament(nextTournament);
-        setPlayers(nextPlayers.slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')));
+        setPlayers(nextPlayers
+          .filter((player) => (player as any).judge_level === 'judge')
+          .slice()
+          .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')));
         setSelectedGameId((current) => current || nextTournament.games?.[0]?.id || '');
       })
       .catch(() => undefined);
@@ -120,7 +123,7 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
             <span className="shrink-0 text-[10px] font-bold text-accent">Настроить</span>
           </summary>
           <div className="space-y-3 border-t border-border-soft p-3.5">
-            <p className="text-[11px] leading-4 text-text-muted">Выбери игрока CRM для учёта судейских ачивок или явно оставь внешнего судью текстом.</p>
+            <p className="text-[11px] leading-4 text-text-muted">Для связанного судьи доступны только игроки CRM со званием «Судья». Внешнего судью можно оставить текстом для истории.</p>
             <label className="block min-w-0 text-[10px] font-black uppercase tracking-wide text-text-muted">
               Игра
               <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)} className="mt-1 min-h-[44px] w-full min-w-0 rounded-xl border border-border-soft bg-surface-2 px-3 text-sm text-text-primary">

@@ -23,6 +23,13 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
+const lifecycleStages = [
+  { id: 'draft', label: 'Создан' },
+  { id: 'published', label: 'Опубликован' },
+  { id: 'active', label: 'Идёт' },
+  { id: 'completed', label: 'Завершён' },
+] as const;
+
 const money = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
 
 export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack, onOpenSection }) => {
@@ -108,6 +115,28 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   const readonly = evening.status === 'completed' || Boolean(evening.settled_at);
   const readyToClose = stats.pendingExpected.length === 0;
+  const stageIndex = evening.status === 'cancelled'
+    ? -1
+    : Math.max(0, lifecycleStages.findIndex((stage) => stage.id === evening.status));
+  const lifecycleHint = evening.status === 'draft'
+    ? 'Проверь дату, место, формат и цену. После публикации Telegram и личные приглашения смогут работать с этим вечером.'
+    : evening.status === 'published'
+      ? stats.unanswered.length
+        ? `Вечер опубликован. Собираем состав: ${stats.unanswered.length} участник(ов) пока без ответа.`
+        : stats.expected.length
+          ? `Состав собирается: ${stats.expected.length} игрок(ов) подтвердили участие. Когда начнётся встреча — переведи вечер в активный режим.`
+          : 'Вечер опубликован. Следующий этап — собрать ответы игроков, затем начать вечер.'
+      : evening.status === 'active'
+        ? stats.pendingExpected.length
+          ? `Вечер идёт. Перед завершением отметь явку ещё у ${stats.pendingExpected.length} ожидаемых игроков.`
+          : stats.games.length > stats.completedGames
+            ? `Вечер идёт. Завершено ${stats.completedGames} из ${stats.games.length} созданных игр.`
+            : stats.games.length
+              ? 'Все созданные игры завершены, явка заполнена. Можно продолжить новыми играми или закрыть вечер.'
+              : 'Вечер идёт. Явка заполнена; можно создавать игры или завершить вечер, если игр сегодня не было.'
+        : evening.status === 'completed'
+          ? 'Вечер завершён и зафиксирован в истории клуба.'
+          : 'Вечер отменён. Активные игровые действия отключены.';
 
   return <div className="space-y-4 pb-4">
     <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
@@ -117,10 +146,24 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
           <h2 className="break-words text-[20px] font-black leading-tight text-text-primary">{evening.title}</h2>
           <p className="mt-1 text-[12px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold ${evening.status === 'active' ? 'bg-success-soft text-success' : evening.status === 'completed' ? 'bg-surface-2 text-text-secondary' : 'bg-accent-soft text-text-primary'}`}>{statusLabel[evening.status] || evening.status}</span>
+        <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold ${evening.status === 'active' ? 'bg-success-soft text-success' : evening.status === 'completed' ? 'bg-surface-2 text-text-secondary' : evening.status === 'cancelled' ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-primary'}`}>{statusLabel[evening.status] || evening.status}</span>
       </div>
 
-      {!readonly ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      <div className="mt-4">
+        <div className="grid grid-cols-4 gap-1.5">
+          {lifecycleStages.map((stage, index) => {
+            const done = stageIndex >= 0 && index < stageIndex;
+            const current = stageIndex === index;
+            return <div key={stage.id} className="min-w-0 text-center">
+              <div className={`mx-auto grid h-7 w-7 place-items-center rounded-full text-[10px] font-black ${done ? 'bg-success text-white' : current ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted'}`}>{done ? '✓' : index + 1}</div>
+              <div className={`mt-1 truncate text-[9px] font-semibold ${current ? 'text-text-primary' : 'text-text-muted'}`}>{stage.label}</div>
+            </div>;
+          })}
+        </div>
+        <div className={`mt-3 rounded-[12px] px-3 py-2.5 text-[11px] leading-4 ${evening.status === 'cancelled' ? 'bg-danger-soft text-danger' : evening.status === 'completed' ? 'bg-success-soft text-text-secondary' : 'bg-surface-2 text-text-secondary'}`}>{lifecycleHint}</div>
+      </div>
+
+      {!readonly && evening.status !== 'cancelled' ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {evening.status === 'draft' ? <button disabled={Boolean(busy)} onClick={() => void updateStatus('published')} className="min-h-[46px] rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
         {evening.status === 'published' ? <button disabled={Boolean(busy)} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
         {evening.status === 'active' && readyToClose ? <button disabled={Boolean(busy)} onClick={() => void settle()} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Закрыть вечер</button> : null}
@@ -162,7 +205,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       </div>
     </section>
 
-    {!readonly && stats.pendingExpected.length ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4">
+    {!readonly && evening.status === 'active' && stats.pendingExpected.length ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4">
       <h3 className="text-[13px] font-black text-text-primary">Перед закрытием вечера</h3>
       <p className="mt-1 text-[11px] leading-5 text-text-secondary">У {stats.pendingExpected.length} ожидаемых игроков ещё не отмечена явка. Их нужно отметить вручную или, если вечер уже закончился, массово поставить «Не пришёл».</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">

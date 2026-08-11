@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, ChevronDown, ChevronUp, MessageCircle, RefreshCw, Send } from 'lucide-react';
+import { MobileSheet } from '../ui/MobileSheet.tsx';
 
 type AnnouncementPlayer = {
   id: string;
@@ -32,6 +33,8 @@ type AnnouncementOverview = {
   players: AnnouncementPlayer[];
 };
 
+type DetailKind = 'sent' | 'answered' | 'unanswered' | 'failed';
+
 interface Props {
   eveningId: string;
   eveningTitle: string;
@@ -63,6 +66,14 @@ const responseLabel: Record<string, string> = {
   late: 'Приду позже',
   thinking: 'Пока думаю',
   declined: 'Не иду',
+  unanswered: 'Нет ответа',
+};
+
+const detailTitle: Record<DetailKind, string> = {
+  sent: 'Доставлено',
+  answered: 'Ответили',
+  unanswered: 'Ждём ответа',
+  failed: 'Не доставлено',
 };
 
 const buildPersonalMessage = (title: string, startsAt: string) => {
@@ -84,7 +95,8 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
   const [overview, setOverview] = useState<AnnouncementOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [detailKind, setDetailKind] = useState<DetailKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -106,6 +118,15 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
     () => (overview?.players || []).filter((player) => player.eligible_now && player.attention_status !== 'answered'),
     [overview],
   );
+
+  const detailPlayers = useMemo(() => {
+    const players = overview?.players || [];
+    if (!detailKind) return [];
+    if (detailKind === 'sent') return players.filter((player) => Boolean(player.first_sent_at));
+    if (detailKind === 'answered') return players.filter((player) => player.eligible_now && player.response_status !== 'unanswered');
+    if (detailKind === 'unanswered') return players.filter((player) => player.eligible_now && Boolean(player.first_sent_at) && player.response_status === 'unanswered');
+    return players.filter((player) => player.eligible_now && player.response_status === 'unanswered' && !player.first_sent_at && player.delivery_status === 'failed');
+  }, [detailKind, overview]);
 
   const canSend = !readonly && ['published', 'active'].includes(status);
   const pendingInitial = (overview?.summary.not_sent || 0) + (overview?.summary.failed || 0);
@@ -146,12 +167,21 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
     } finally { setBusy(null); }
   };
 
+  const renderPlayerMeta = (player: AnnouncementPlayer) => {
+    const sentAt = dateTime(player.first_sent_at);
+    const remindedAt = dateTime(player.last_reminded_at);
+    if (player.attention_status === 'failed') return player.last_error ? `Ошибка: ${player.last_error}` : 'Бот не смог доставить сообщение';
+    if (player.response_status !== 'unanswered') return `${responseLabel[player.response_status] || player.response_status}${sentAt ? ` · доставлено ${sentAt}` : ''}`;
+    if (player.first_sent_at) return `Доставлено${sentAt ? ` ${sentAt}` : ''}${player.reminder_count ? ` · напоминаний ${player.reminder_count}${remindedAt ? `, последнее ${remindedAt}` : ''}` : ''}`;
+    return 'Сообщение ещё не доставлено';
+  };
+
   return (
     <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-[14px] font-black text-text-primary">📨 Личная рассылка</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Кому дошёл анонс, кто уже ответил и кого ещё нужно догнать.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Нажми на любую цифру, чтобы увидеть конкретных игроков.</p>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={Boolean(busy)} className="rounded-full bg-surface-2 p-2 text-text-muted disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -164,10 +194,10 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
 
       {overview ? <>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-[13px] bg-surface-2 p-3"><div className="text-[20px] font-black text-text-primary">{overview.summary.sent}</div><div className="mt-1 text-[10px] text-text-muted">доставлено</div></div>
-          <div className="rounded-[13px] bg-success-soft p-3"><div className="text-[20px] font-black text-success">{overview.summary.answered}</div><div className="mt-1 text-[10px] text-text-muted">ответили</div></div>
-          <div className="rounded-[13px] bg-warning-soft p-3"><div className="text-[20px] font-black text-warning">{overview.summary.unanswered}</div><div className="mt-1 text-[10px] text-text-muted">ждём ответа</div></div>
-          <div className={`rounded-[13px] p-3 ${overview.summary.failed ? 'bg-danger-soft' : 'bg-surface-2'}`}><div className={`text-[20px] font-black ${overview.summary.failed ? 'text-danger' : 'text-text-primary'}`}>{overview.summary.failed}</div><div className="mt-1 text-[10px] text-text-muted">не доставлено</div></div>
+          <button type="button" onClick={() => setDetailKind('sent')} className={`rounded-[13px] border p-3 text-left transition-colors ${detailKind === 'sent' ? 'border-accent bg-accent-soft' : 'border-transparent bg-surface-2'}`}><div className="text-[20px] font-black text-text-primary">{overview.summary.sent}</div><div className="mt-1 text-[10px] text-text-muted">доставлено →</div></button>
+          <button type="button" onClick={() => setDetailKind('answered')} className={`rounded-[13px] border p-3 text-left transition-colors ${detailKind === 'answered' ? 'border-success bg-success-soft' : 'border-transparent bg-success-soft'}`}><div className="text-[20px] font-black text-success">{overview.summary.answered}</div><div className="mt-1 text-[10px] text-text-muted">ответили →</div></button>
+          <button type="button" onClick={() => setDetailKind('unanswered')} className={`rounded-[13px] border p-3 text-left transition-colors ${detailKind === 'unanswered' ? 'border-warning bg-warning-soft' : 'border-transparent bg-warning-soft'}`}><div className="text-[20px] font-black text-warning">{overview.summary.unanswered}</div><div className="mt-1 text-[10px] text-text-muted">ждём ответа →</div></button>
+          <button type="button" onClick={() => setDetailKind('failed')} className={`rounded-[13px] border p-3 text-left transition-colors ${detailKind === 'failed' ? 'border-danger bg-danger-soft' : `border-transparent ${overview.summary.failed ? 'bg-danger-soft' : 'bg-surface-2'}`}`}><div className={`text-[20px] font-black ${overview.summary.failed ? 'text-danger' : 'text-text-primary'}`}>{overview.summary.failed}</div><div className="mt-1 text-[10px] text-text-muted">не доставлено →</div></button>
         </div>
 
         <div className="mt-2 text-[10px] text-text-muted">Аудитория этого формата: {overview.summary.audience} · ещё не отправлено: {overview.summary.not_sent}</div>
@@ -187,8 +217,6 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
         {expanded ? <div className="mt-2 space-y-2">
           {attentionPlayers.length === 0 ? <div className="rounded-[12px] bg-success-soft px-3 py-3 text-[11px] text-success">Сейчас никого не нужно догонять.</div> : attentionPlayers.map((player) => {
             const chatUrl = personalChatUrl(player, personalMessage);
-            const sentAt = dateTime(player.first_sent_at);
-            const remindedAt = dateTime(player.last_reminded_at);
             const failed = player.attention_status === 'failed';
             const notSent = player.attention_status === 'not_sent';
             return <div key={player.id} className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
@@ -198,23 +226,38 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
                 </div>
                 <div className="min-w-0 flex-1">
                   <strong className="block truncate text-[12px] text-text-primary">{player.nickname}</strong>
-                  <div className="mt-1 text-[10px] leading-4 text-text-muted">
-                    {failed ? 'Бот не смог доставить анонс.' : notSent ? 'Личный анонс ещё не отправлялся.' : `Анонс доставлен${sentAt ? ` · ${sentAt}` : ''}, ответа пока нет.`}
-                    {player.reminder_count > 0 ? ` Напоминаний: ${player.reminder_count}${remindedAt ? ` · последнее ${remindedAt}` : ''}.` : ''}
-                  </div>
-                  {failed && player.last_error ? <div className="mt-1 line-clamp-1 text-[9px] text-danger/80">{player.last_error}</div> : null}
+                  <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-text-muted">{renderPlayerMeta(player)}</div>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="flex min-h-[38px] items-center justify-center rounded-[10px] bg-surface-1 px-2 text-[10px] font-bold text-text-secondary">
-                  {player.response_status === 'unanswered' ? 'Нет ответа' : responseLabel[player.response_status] || player.response_status}
-                </div>
+                <div className="flex min-h-[38px] items-center justify-center rounded-[10px] bg-surface-1 px-2 text-[10px] font-bold text-text-secondary">{responseLabel[player.response_status] || player.response_status}</div>
                 {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-[10px] bg-accent px-2 text-[10px] font-bold text-white"><MessageCircle className="h-3.5 w-3.5" /> Написать лично</a> : <div className="flex min-h-[38px] items-center justify-center rounded-[10px] bg-surface-1 px-2 text-[10px] text-text-muted">Нет контакта</div>}
               </div>
             </div>;
           })}
         </div> : null}
       </> : null}
+
+      <MobileSheet
+        open={Boolean(detailKind)}
+        onClose={() => setDetailKind(null)}
+        title={detailKind ? detailTitle[detailKind] : 'Детализация'}
+        subtitle={detailKind ? `${detailPlayers.length} игроков · ${eveningTitle}` : eveningTitle}
+        widthClass="sm:max-w-md"
+      >
+        <div className="space-y-2">
+          {detailPlayers.length ? detailPlayers.map((player) => {
+            const chatUrl = personalChatUrl(player, personalMessage);
+            return <div key={player.id} className="flex min-h-[56px] items-center gap-3 rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <strong className="block truncate text-[12px] text-text-primary">{player.nickname}</strong>
+                <span className={`mt-0.5 block truncate text-[10px] ${player.attention_status === 'failed' ? 'text-danger' : 'text-text-muted'}`}>{renderPlayerMeta(player)}</span>
+              </div>
+              {chatUrl ? <a href={chatUrl} target="_blank" rel="noreferrer" aria-label={`Написать ${player.nickname}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-accent text-white"><MessageCircle className="h-4 w-4" /></a> : null}
+            </div>;
+          }) : <div className="rounded-[13px] bg-surface-2 p-5 text-center text-[12px] text-text-muted">В этой группе сейчас никого нет.</div>}
+        </div>
+      </MobileSheet>
     </section>
   );
 };

@@ -133,6 +133,7 @@ const createEmptyStats = (player: any) => ({
   games_played: 0,
   games: [] as any[],
   tie_group_id: null as string | null,
+  ci_calculation: null as any,
 });
 
 export async function calculateRatingPeriodStandings(db: DatabaseWrapper, periodId: string) {
@@ -310,7 +311,7 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
       first_killed_count: redFirstKilledCounts.get(item.player_id) || 0,
       ci_rate: ciRates.get(item.player_id) || 0,
       provisional: String(period.status) !== 'completed',
-    } as any;
+    };
   }
 
   standings.sort((a, b) => {

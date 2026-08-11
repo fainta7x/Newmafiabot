@@ -8,9 +8,28 @@ type StatusData = {
   database: { ok: boolean; latency_ms: number | null; error: string | null };
   bot: { ok: boolean; latency_ms: number | null; error: string | null };
   telegram: { ok: boolean; configured: number; active: number; total: number; error: string | null };
+  sync_queue: {
+    ok: boolean;
+    pending: number;
+    retrying: number;
+    last_attempt_at: string | null;
+    next_attempt_at: string | null;
+    last_error: string | null;
+  };
 };
 
 const label = (ok: boolean) => ok ? 'Работает' : 'Проблема';
+
+const queueDetail = (queue: StatusData['sync_queue']) => {
+  if (queue.retrying > 0) {
+    const retryAt = queue.next_attempt_at
+      ? ` · повтор ${new Date(queue.next_attempt_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+      : '';
+    return `${queue.retrying} на повторе${retryAt}${queue.last_error ? ` · ${queue.last_error}` : ''}`;
+  }
+  if (queue.pending > 0) return `${queue.pending} ждут отправки`;
+  return 'Очередь пуста';
+};
 
 export const SystemStatusCard: React.FC = () => {
   const [data, setData] = useState<StatusData | null>(null);
@@ -39,6 +58,7 @@ export const SystemStatusCard: React.FC = () => {
     { key: 'db', name: 'База', ok: data.database.ok, icon: Database, detail: data.database.ok ? `${data.database.latency_ms ?? 0} мс` : data.database.error || 'Нет ответа' },
     { key: 'bot', name: 'MafiaBot', ok: data.bot.ok, icon: Bot, detail: data.bot.ok ? `${data.bot.latency_ms ?? 0} мс` : data.bot.error || 'Нет ответа' },
     { key: 'telegram', name: 'Telegram', ok: data.telegram.ok, icon: Send, detail: `${data.telegram.active}/${data.telegram.total} направлений включено` },
+    { key: 'sync', name: 'Синхронизация', ok: data.sync_queue.ok, icon: RefreshCw, detail: queueDetail(data.sync_queue) },
   ] : [];
 
   return (
@@ -49,7 +69,7 @@ export const SystemStatusCard: React.FC = () => {
             {data?.overall_ok ? <CheckCircle2 className="h-5 w-5 text-success" /> : <AlertTriangle className="h-5 w-5 text-warning" />}
             <h3 className="text-[14px] font-black text-text-primary">Состояние системы</h3>
           </div>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Быстрая проверка приложения, бота и Telegram-публикаций.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Приложение, база, бот, Telegram и очередь синхронизации.</p>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={loading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить статус"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>

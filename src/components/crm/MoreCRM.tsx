@@ -4,6 +4,7 @@ import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 import { TelegramCRM } from './TelegramCRM.tsx';
+import { SystemStatusCard } from './SystemStatusCard.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -41,7 +42,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
 
   const items = [
     { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
-    { id: 'analytics', label: 'Аналитика', detail: 'Посещения, удержание и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+    { id: 'analytics', label: 'Аналитика', detail: 'Воронка игроков, рассылки, посещения и финансы', icon: BarChart3, onClick: onOpenAnalytics },
     { id: 'telegram', label: 'Telegram', detail: 'Каналы, темы и автоматическая публикация событий', icon: Send, onClick: () => setSubscreen('telegram') },
     { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, ручные начисления и правка базы', icon: Database, onClick: () => setSubscreen('data') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, ставки игроков, выплаты, возвраты и пересчёт', icon: Dice5, onClick: () => setSubscreen('betting') },
@@ -53,9 +54,10 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
     <div className="mx-auto w-full max-w-xl space-y-4">
       <div>
         <h2 className="text-[24px] font-black tracking-tight text-text-primary">Ещё</h2>
-        <p className="mt-1 text-[13px] text-text-secondary">Редкие инструменты и настройки — отдельно от ежедневной работы.</p>
+        <p className="mt-1 text-[13px] text-text-secondary">Редкие инструменты, мониторинг и настройки — отдельно от ежедневной работы.</p>
       </div>
 
+      <SystemStatusCard />
       <RatingPeriodsCRM />
 
       <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">

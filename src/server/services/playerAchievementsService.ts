@@ -82,6 +82,15 @@ const achievementDefinitionsTableExists = async (db: any) => Boolean(await db.ge
   "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='achievement_definitions'"
 ));
 
+const achievementOverridesTableExists = async (db: any) => Boolean(await db.get(
+  "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='player_achievement_overrides'"
+));
+
+const loadAchievementOverrides = async (db: any, playerId: string) => {
+  if (!(await achievementOverridesTableExists(db))) return [];
+  return db.all('SELECT achievement_id, state FROM player_achievement_overrides WHERE player_id = ?', [playerId]);
+};
+
 export const loadAchievementDefinitions = async (db: any, includeInactive = false): Promise<AchievementDefinition[]> => {
   if (!(await achievementDefinitionsTableExists(db))) return ACHIEVEMENTS.slice();
   const rows = await db.all(`
@@ -264,7 +273,7 @@ export const evaluatePlayerAchievements = async (db: any, playerId: string): Pro
   const [stats, definitions, overrideRows] = await Promise.all([
     collectPlayerAchievementStats(db, playerId),
     loadAchievementDefinitions(db),
-    db.all('SELECT achievement_id, state FROM player_achievement_overrides WHERE player_id = ?', [playerId]),
+    loadAchievementOverrides(db, playerId),
   ]);
   const overrides = new Map(overrideRows.map((row: any) => [String(row.achievement_id), String(row.state)]));
   const qualifying = definitions.filter((achievement) => overrides.get(achievement.id) !== 'revoke' && qualifiesForAchievement(achievement, stats));
@@ -302,7 +311,7 @@ export const loadPlayerAchievementProfile = async (db: any, playerId: string, ev
     collectPlayerAchievementStats(db, playerId),
     loadAchievementDefinitions(db),
     db.all('SELECT achievement_id, earned_at FROM player_achievements WHERE player_id = ?', [playerId]),
-    db.all('SELECT achievement_id, state FROM player_achievement_overrides WHERE player_id = ?', [playerId]),
+    loadAchievementOverrides(db, playerId),
   ]);
   const definitionIds = new Set(definitions.map((item) => item.id));
   const earnedMap = new Map<string, string | null>();

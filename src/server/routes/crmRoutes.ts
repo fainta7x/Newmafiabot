@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
-import { countEveningResponses } from '../../lib/eveningResponse.ts';
+import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
+import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 
 const router = Router();
 function getMoscowDateStr(value: string | null | undefined): string | null {
@@ -20,11 +21,32 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     let tables: any[] = []; let participants: any[] = [];
     let counts = { going: 0, late: 0, thinking: 0, declined: 0, unanswered: 0, responded: 0, audience: 0 };
     let newcomersOnEvening: any[] = []; let expectedToPayAmount = 0; let expectedToPayCount = 0;
+    let expectedPlayersCount = 0; let seatedExpectedCount = 0; let unseatedExpectedCount = 0;
+    let gamesCount = 0; let completedGamesCount = 0;
+    let announcementSummary = { audience: 0, sent: 0, answered: 0, unanswered: 0, failed: 0, not_sent: 0, reminded: 0 };
     if (nextEvening) {
       participants = await db.all<any>(`SELECT ep.*,p.nickname,p.telegram_username,p.phone,p.lifecycle_status,(SELECT COUNT(*) FROM evening_participants p2 WHERE p2.player_id=ep.player_id AND p2.attendance_status='attended') AS total_attended FROM evening_participants ep JOIN players p ON p.id=ep.player_id WHERE ep.evening_id=?`, [nextEvening.id]);
       tables = await db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC', [nextEvening.id]);
       counts = countEveningResponses(participants);
       newcomersOnEvening = participants.filter((p: any) => p.total_attended <= 1);
+      const expectedPlayers = participants.filter((p: any) => ['going', 'late'].includes(getEveningResponse(p)));
+      expectedPlayersCount = expectedPlayers.length;
+      seatedExpectedCount = expectedPlayers.filter((p: any) => Boolean(p.table_id)).length;
+      unseatedExpectedCount = Math.max(0, expectedPlayersCount - seatedExpectedCount);
+      const gameSummary = await db.get<any>(`
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN status='completed' OR winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed
+          FROM games
+         WHERE evening_id=?
+      `, [nextEvening.id]);
+      gamesCount = Number(gameSummary?.total || 0);
+      completedGamesCount = Number(gameSummary?.completed || 0);
+      try {
+        const announcement = await loadAnnouncementOverview(db, String(nextEvening.id));
+        if (announcement?.summary) announcementSummary = { ...announcementSummary, ...announcement.summary };
+      } catch (error) {
+        console.warn('[CRM] Could not load announcement readiness:', error);
+      }
       const unpaidNow = participants.filter((p: any) => p.attendance_status === 'attended' && p.payment_status !== 'waived' && Number(p.amount_due || 0) > Number(p.amount_paid || 0));
       expectedToPayAmount = unpaidNow.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
       expectedToPayCount = unpaidNow.length;
@@ -38,7 +60,30 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     const unpaidParticipants = await db.all<any>(`SELECT ep.*,p.nickname,p.phone,p.telegram_username,ge.title AS evening_title,ge.starts_at AS evening_date FROM evening_participants ep JOIN players p ON p.id=ep.player_id JOIN game_evenings ge ON ge.id=ep.evening_id WHERE (ge.status='completed' OR ge.settled_at IS NOT NULL) AND ep.attendance_status='attended' AND ep.payment_status!='waived' AND ep.amount_due>ep.amount_paid ORDER BY ge.starts_at DESC`);
     const totalUnpaidAmount = unpaidParticipants.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
     return res.json({
-      nextEvening: nextEvening ? { ...nextEvening, tables, invitedCount: counts.unanswered, registeredCount: counts.going + counts.late, confirmedCount: 0, waitlistCount: 0, newcomersCount: newcomersOnEvening.length, expectedToPayAmount, expectedToPayCount, goingCount: counts.going, laterCount: counts.late, thinkingCount: counts.thinking, declinedCount: counts.declined, unansweredCount: counts.unanswered, respondedCount: counts.responded, audienceCount: counts.audience } : null,
+      nextEvening: nextEvening ? {
+        ...nextEvening,
+        tables,
+        invitedCount: counts.unanswered,
+        registeredCount: counts.going + counts.late,
+        confirmedCount: 0,
+        waitlistCount: 0,
+        newcomersCount: newcomersOnEvening.length,
+        expectedToPayAmount,
+        expectedToPayCount,
+        goingCount: counts.going,
+        laterCount: counts.late,
+        thinkingCount: counts.thinking,
+        declinedCount: counts.declined,
+        unansweredCount: counts.unanswered,
+        respondedCount: counts.responded,
+        audienceCount: counts.audience,
+        announcementSummary,
+        expectedPlayersCount,
+        seatedExpectedCount,
+        unseatedExpectedCount,
+        gamesCount,
+        completedGamesCount,
+      } : null,
       actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants },
       summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount },
     });

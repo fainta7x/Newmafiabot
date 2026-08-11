@@ -20,7 +20,7 @@ export function playerLevelAllowsEveningFormat(level: string | null | undefined,
 
   if (normalizedLevel === 'novice') return normalizedFormat === 'NOVICE';
   if (normalizedLevel === 'club') {
-    return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING';
+    return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
   }
   return normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING' || normalizedFormat === 'TOURNAMENT';
 }

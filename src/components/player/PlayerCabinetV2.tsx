@@ -200,6 +200,7 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
 export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
   const { player, achievements, tournaments, games } = data;
   const [tab, setTab] = useState<PlayerTab>('home');
+  const [tokensOpen, setTokensOpen] = useState(false);
   const [gameScope, setGameScope] = useState<GameScope>('mine');
   const [profileScope, setProfileScope] = useState<ProfileScope>('self');
   const [tokenBalance, setTokenBalance] = useState(Number(player.tokens || 0));
@@ -384,9 +385,34 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
-        {tab === 'home' && (
+        {tokensOpen && (
+          <>
+            <button type="button" onClick={() => setTokensOpen(false)} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>
+            <PageHeading title="Жетоны" subtitle="Кошелёк, магазин и история операций" />
+            <PlayerEconomy onBalanceChange={setTokenBalance} />
+            <Section title="Ставки">
+              <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Ставки на игры появятся здесь следующим этапом и будут использовать этот же баланс жетонов.</p>
+            </Section>
+          </>
+        )}
+
+        {!tokensOpen && tab === 'home' && (
           <>
             <PageHeading title="Главная" subtitle={`Привет, ${player.nickname}`} />
+            <button
+              type="button"
+              onClick={() => setTokensOpen(true)}
+              className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.035] p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition active:bg-white/[0.08]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Жетоны</div>
+                  <div className="mt-2 text-3xl font-semibold text-white">{tokenBalance.toLocaleString('ru-RU')} 🪙</div>
+                  <div className="mt-1 text-sm text-white/40">Кошелёк, магазин и история</div>
+                </div>
+                <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.07] text-lg text-white/55">→</div>
+              </div>
+            </button>
             <Section title="Ближайшие игры">
               {eveningsError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">{eveningsError}</p>}
               {evenings === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p> : evenings.length ? (
@@ -407,7 +433,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           </>
         )}
 
-        {tab === 'games' && (
+        {!tokensOpen && tab === 'games' && (
           selectedGameKey ? (
             <PlayerGameDetail
               detail={selectedGameDetail}
@@ -451,7 +477,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           )
         )}
 
-        {tab === 'rating' && (
+        {!tokensOpen && tab === 'rating' && (
           <>
             <PageHeading title="Рейтинг" subtitle="Рейтинговые периоды и общий Elo клуба" />
             <PlayerRatingPeriods
@@ -467,7 +493,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           </>
         )}
 
-        {tab === 'stats' && (
+        {!tokensOpen && tab === 'stats' && (
           <>
             <PageHeading title="Статистика" subtitle="Игровые показатели, достижения и турнирные награды" />
             <Section title="Игровая статистика">
@@ -489,7 +515,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           </>
         )}
 
-        {tab === 'profile' && (
+        {!tokensOpen && tab === 'profile' && (
           <>
             <PageHeading title="Профиль" subtitle="Мой аккаунт и игроки клуба" />
             <Toggle<ProfileScope> value={profileScope} onChange={(value) => { setProfileScope(value); if (value === 'self') setSelectedProfile(null); }} items={[{ value: 'self', label: 'Мой профиль' }, { value: 'players', label: 'Игроки клуба' }]} />
@@ -497,11 +523,10 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
               <>
                 <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
                   <div className="flex items-center gap-4">{player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h2 className="truncate text-2xl font-semibold">{player.nickname}</h2>{player.full_name && <p className="mt-1 truncate text-sm text-white/60">{player.full_name}</p>}{player.telegram_username && <p className="mt-1 truncate text-sm text-white/45">@{player.telegram_username.replace(/^@/, '')}</p>}<p className="mt-2 text-xs text-white/35">{gameLevelLabel(player.game_level)}</p></div></div>
-                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{tokenBalance.toLocaleString('ru-RU')}</div></div></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Статус</div><div className="mt-1 text-sm font-semibold text-white/80">{gameLevelLabel(player.game_level)}</div></div></div>
                   {canOpenAdmin && <a href="/admin" className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80">Панель организатора</a>}
                 </header>
-                <PlayerEconomy onBalanceChange={setTokenBalance} />
-                <Section title="Настройки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Дальше сюда перенесём оплату, регламент и настройки профиля по мере отключения соответствующих кнопок в боте.</p></Section>
+                <Section title="Настройки профиля"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Здесь будут личные данные игрока, смена ника и аватарки, а позже — оформление и кастомизация профиля.</p></Section>
               </>
             ) : selectedProfile ? (
               <>
@@ -522,12 +547,12 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
         )}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
+      {!tokensOpen && <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-1">{NAV_ITEMS.map((item) => {
           const active = item.id === tab;
           return <button key={item.id} type="button" onClick={() => { setTab(item.id); if (item.id !== 'games') closeGameDetail(); }} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl px-1 text-[10px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}><span className="text-lg leading-none">{item.icon}</span><span className="mt-1 truncate">{item.label}</span></button>;
         })}</div>
-      </nav>
+      </nav>}
     </main>
   );
 }

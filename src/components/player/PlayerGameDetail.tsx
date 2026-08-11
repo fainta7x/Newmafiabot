@@ -243,6 +243,18 @@ export default function PlayerGameDetail({
             <div className="mt-3 space-y-2">
               <PersonTag person={detail.protocol.first_killed} prefix="ПУ" />
               <PersonTag person={detail.protocol.zero_round_voted} prefix="Заголосован в 0 круг" />
+              {detail.players.filter((player) => player.best_move).map((player) => (
+                <div key={`best-move:${player.participant_id}`} className="rounded-2xl bg-black/20 px-3 py-2 text-sm text-white/70">
+                  <span className="text-white/40">ЛХ: </span>
+                  <span className="font-medium text-white/85">#{player.seat_number} {player.nickname}</span>
+                  {player.best_move_source && (
+                    <span className="text-white/35"> · {player.best_move_source === 'first_killed' ? 'от ПУ' : player.best_move_source === 'zero_round_voted' ? 'от 0 круга' : player.best_move_source}</span>
+                  )}
+                  {player.best_move_seats.length > 0 && (
+                    <span className="text-white/55"> · оставил {player.best_move_seats.map((seat) => `#${seat}`).join(', ')}</span>
+                  )}
+                </div>
+              ))}
               <PersonTag person={detail.protocol.ppk_culprit} prefix="ППК" />
             </div>
             {detail.protocol.judge_notes && (

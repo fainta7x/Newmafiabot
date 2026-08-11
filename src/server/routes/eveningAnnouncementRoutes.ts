@@ -1,8 +1,59 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
+import {
+  requestBotEveningTelegramSync,
+  requestBotPublicRouterSync,
+} from '../services/botTelegramSyncService.ts';
 
 const router = Router();
 const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
+
+const logBestEffortSync = async (eveningId: string | null, publicOnly = false) => {
+  try {
+    const result = publicOnly || !eveningId
+      ? await requestBotPublicRouterSync()
+      : await requestBotEveningTelegramSync(eveningId);
+    if (!result.success) {
+      console.warn('[TELEGRAM] Background sync failed:', eveningId || 'public-router', result.error);
+    }
+  } catch (error) {
+    console.warn('[TELEGRAM] Background sync threw:', eveningId || 'public-router', error);
+  }
+};
+
+// This router is mounted before the evening CRUD router. Observe successful event mutations
+// and synchronize Telegram afterwards without making a Telegram outage fail the CRM write.
+router.use((req: any, res: any, next) => {
+  const oneId = req.path.match(/^\/([^/]+)$/);
+  const settle = req.path.match(/^\/([^/]+)\/settle$/);
+  const isCreate = req.method === 'POST' && req.path === '/';
+  const isPatch = req.method === 'PATCH' && Boolean(oneId);
+  const isDelete = req.method === 'DELETE' && Boolean(oneId);
+  const isSettle = req.method === 'POST' && Boolean(settle);
+
+  if (!isCreate && !isPatch && !isDelete && !isSettle) return next();
+
+  let responseBody: any = null;
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    responseBody = body;
+    return originalJson(body);
+  };
+
+  res.on('finish', () => {
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+    if (isDelete) {
+      void logBestEffortSync(null, true);
+      return;
+    }
+    const eveningId = String(
+      responseBody?.id || responseBody?.evening?.id || settle?.[1] || oneId?.[1] || '',
+    ).trim();
+    if (eveningId) void logBestEffortSync(eveningId);
+  });
+
+  next();
+});
 
 async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announce-group') {
   try {
@@ -45,6 +96,16 @@ async function proxyAnnouncement(req: any, res: any, mode: 'announce' | 'announc
     return res.status(502).json({ error: error?.message || 'Не удалось связаться с Telegram-ботом' });
   }
 }
+
+router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
+  const db = (req as any).db;
+  const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
+  if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
+  const result = await requestBotEveningTelegramSync(req.params.id);
+  return res.status(result.success ? 200 : result.status || 502).json(
+    result.success ? result.data : { error: result.error, bot: result.data || null },
+  );
+});
 
 router.post('/:id/announce', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce'));
 router.post('/:id/announce-group', requireOrganizerAuth, (req, res) => proxyAnnouncement(req, res, 'announce-group'));

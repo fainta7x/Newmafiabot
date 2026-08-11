@@ -109,14 +109,16 @@ router.patch('/evenings/:eveningId/announcement-state', async (req, res) => {
   }
 });
 
-const requireOpenEvening = async (db: any, eveningId: string) => {
+type OpenEveningResult = { error?: 'not_found' | 'closed'; evening?: any };
+
+const requireOpenEvening = async (db: any, eveningId: string): Promise<OpenEveningResult> => {
   const evening = await db.get(
     'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
     [eveningId],
   );
-  if (!evening) return { error: 'not_found' as const };
+  if (!evening) return { error: 'not_found' };
   if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
-    return { error: 'closed' as const };
+    return { error: 'closed' };
   }
   return { evening };
 };
@@ -208,7 +210,8 @@ router.post('/evenings/:eveningId/reminder-attempt', async (req, res) => {
     const telegramUserId = String(req.body?.telegram_user_id || '').trim();
     const success = Boolean(req.body?.success);
     const telegramMessageId = req.body?.telegram_message_id == null ? null : Number(req.body.telegram_message_id);
-    if (!playerId || !telegramUserId || (success && (!Number.isInteger(telegramMessageId) || Number(telegramMessageId) <= 0))) {
+    const parsedMessageId = Number(telegramMessageId || 0);
+    if (!playerId || !telegramUserId || (success && (!Number.isInteger(parsedMessageId) || parsedMessageId <= 0))) {
       return res.status(400).json({ error: 'Некорректные данные напоминания' });
     }
 
@@ -217,7 +220,7 @@ router.post('/evenings/:eveningId/reminder-attempt', async (req, res) => {
       playerId,
       telegramUserId,
       success,
-      telegramMessageId: success ? Number(telegramMessageId) : null,
+      telegramMessageId: success ? parsedMessageId : null,
       error: success ? null : String(req.body?.error || 'Telegram reminder failed'),
     });
     res.json(result);

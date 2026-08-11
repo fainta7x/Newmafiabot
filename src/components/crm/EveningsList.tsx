@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
-import { EVENING_FORMAT_LABELS, type EveningFormat } from '../../lib/eveningFormat.ts';
+import { EVENING_FORMAT_LABELS, normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
 import { TournamentDetailView } from './tournaments/TournamentDetailView.tsx';
 
@@ -169,7 +169,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
             {evenings.map((e) => {
               const isCompleted = e.status === 'completed' || !!e.settled_at;
               const isActive = e.status === 'active';
-              const canonicalFormat = String(e.format || 'CASUAL') as EveningFormat;
+              const canonicalFormat = normalizeEveningFormat(e.format);
 
               return (
                 <div
@@ -195,7 +195,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                       </span>
 
                       <span className="text-right text-[11px] font-bold text-text-secondary">
-                        {EVENING_FORMAT_LABELS[canonicalFormat] || canonicalFormat}
+                        {EVENING_FORMAT_LABELS[canonicalFormat]}
                       </span>
                     </div>
 

@@ -58,6 +58,7 @@ import { reconcileAllPlayerAchievements } from './server/services/playerAchievem
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
+import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOutboxService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -93,6 +94,9 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
+  if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
+    startTelegramSyncOutboxWorker(db);
+  }
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {

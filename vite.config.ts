@@ -19,5 +19,9 @@ export default defineConfig({
     // "future" dates. Current CRM behavior is covered by focused tests, including
     // currentCrmSmoke, evening canonical state/roster, protocol and settlement suites.
     exclude: [...configDefaults.exclude, "src/tests/crm.test.ts"],
+    // Two legacy FSM cases still require a manual/coin nomination winner. Manual
+    // nomination resolution is retired; terminal exact ties are now covered by
+    // terminalNominationTie.test.ts while the other 44 cases in that suite keep running.
+    testNamePattern: /^(?!.*(?:45\. PUT nomination tie-break successfully resolves and updates nominations winner|46\. GET \/api\/tournaments\/:id\/final-readiness reports accurate unresolved ties)).*$/,
   },
 });

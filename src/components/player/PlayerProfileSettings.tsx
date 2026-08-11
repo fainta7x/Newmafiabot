@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
+import PlayerJudging, { loadPlayerJudgingDashboard, type PlayerJudgingDashboard } from './PlayerJudging.tsx';
 
 type Player = PlayerMeResponse['player'] & { phone?: string | null };
 
@@ -20,6 +21,8 @@ export default function PlayerProfileSettings({
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [judging, setJudging] = useState<PlayerJudgingDashboard | null>(null);
+  const [judgingOpen, setJudgingOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -39,6 +42,14 @@ export default function PlayerProfileSettings({
         if (!cancelled) setError(loadError?.message || 'Не удалось загрузить данные профиля');
       }
     })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadPlayerJudgingDashboard()
+      .then((data) => { if (!cancelled) setJudging(data); })
+      .catch(() => { if (!cancelled) setJudging(null); });
     return () => { cancelled = true; };
   }, []);
 
@@ -117,6 +128,10 @@ export default function PlayerProfileSettings({
     }
   };
 
+  if (judgingOpen) {
+    return <PlayerJudging onBack={() => setJudgingOpen(false)} />;
+  }
+
   return (
     <div className="space-y-3">
       <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
@@ -144,6 +159,20 @@ export default function PlayerProfileSettings({
         {message && <p className="mt-3 rounded-2xl bg-emerald-400/[0.07] px-3 py-3 text-sm text-emerald-100/75">{message}</p>}
         <button type="button" disabled={saving} onClick={() => void saveProfile()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{saving ? 'Сохраняем…' : 'Сохранить изменения'}</button>
       </section>
+
+      {judging && judging.player.judge_level !== 'none' && (
+        <section className="rounded-3xl border border-amber-200/15 bg-gradient-to-b from-amber-200/[0.07] to-white/[0.025] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/45">Судейство</div>
+              <div className="mt-2 text-xl font-semibold text-white">{judging.player.judge_level_label}</div>
+              <p className="mt-1 text-sm leading-5 text-white/35">Назначенных активных игр: {judging.club_games.filter((game) => game.status !== 'completed').length + judging.tournament_games.filter((game) => game.status !== 'completed').length}</p>
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-200/[0.08] text-xl">⚖️</div>
+          </div>
+          <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">Открыть судейство</button>
+        </section>
+      )}
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Оформление профиля</div>

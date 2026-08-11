@@ -19,6 +19,30 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return playerId;
 };
 
+const repositoryAvatarAvailable = (playerId: string, suppressed: unknown) =>
+  !Number(suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(playerId));
+
+const playerAvatarUrl = (playerId: string, hasDbAvatar: unknown, suppressed: unknown) =>
+  Number(hasDbAvatar || 0) || repositoryAvatarAvailable(playerId, suppressed)
+    ? `/api/player/players/${encodeURIComponent(playerId)}/avatar`
+    : null;
+
+const safeJsonParse = (value: unknown): any => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
+  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
+  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
+  return null;
+};
+
 router.get('/me', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
@@ -26,7 +50,9 @@ router.get('/me', async (req, res) => {
   try {
     const db = (req as any).db;
     const player = await db.get(
-      `SELECT id, nickname, full_name, telegram_username, elo, tokens, game_level
+      `SELECT id, nickname, full_name, telegram_username, elo, tokens, game_level,
+              EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = players.id) AS has_db_avatar,
+              EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = players.id) AS avatar_suppressed
          FROM players
         WHERE id = ?
         LIMIT 1`,
@@ -42,7 +68,6 @@ router.get('/me', async (req, res) => {
       loadPlayerAchievementProfile(db, playerId, false),
     ]);
 
-    const repositoryAvatar = getRepositoryPlayerAvatarAsset(playerId);
     const allGames = [...gameProfile.clubGames, ...gameProfile.tournamentGames].sort((a, b) => {
       const aTime = a.date ? new Date(a.date).getTime() : 0;
       const bTime = b.date ? new Date(b.date).getTime() : 0;
@@ -58,7 +83,7 @@ router.get('/me', async (req, res) => {
         elo: Number(player.elo || 0),
         tokens: Number(player.tokens || 0),
         game_level: String(player.game_level || 'club'),
-        avatar_url: repositoryAvatar ? `/player-avatars/${encodeURIComponent(repositoryAvatar.file)}` : null,
+        avatar_url: playerAvatarUrl(String(player.id), player.has_db_avatar, player.avatar_suppressed),
       },
       achievements,
       games: {
@@ -74,6 +99,173 @@ router.get('/me', async (req, res) => {
     });
   } catch (error: any) {
     return res.status(500).json({ error: 'Database error', message: error?.message || String(error) });
+  }
+});
+
+router.get('/players', async (req, res) => {
+  const playerId = requirePlayerId(req, res);
+  if (!playerId) return;
+
+  try {
+    const db = (req as any).db;
+    const rows = await db.all(`
+      SELECT p.id, p.nickname, p.elo, p.game_level,
+             EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
+             EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
+        FROM players p
+       WHERE TRIM(COALESCE(p.nickname, '')) <> ''
+       ORDER BY p.nickname COLLATE NOCASE ASC
+    `);
+
+    return res.json({
+      players: rows.map((row: any) => ({
+        id: String(row.id),
+        nickname: String(row.nickname),
+        elo: Number(row.elo || 0),
+        game_level: String(row.game_level || 'club'),
+        avatar_url: playerAvatarUrl(String(row.id), row.has_db_avatar, row.avatar_suppressed),
+      })),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить список игроков' });
+  }
+});
+
+router.get('/players/:playerId/avatar', async (req, res) => {
+  const viewerId = requirePlayerId(req, res);
+  if (!viewerId) return;
+
+  try {
+    const db = (req as any).db;
+    const targetId = String(req.params.playerId);
+    const avatar = await db.get(
+      'SELECT mime_type, image_data FROM player_avatars WHERE player_id = ? LIMIT 1',
+      [targetId],
+    );
+
+    if (avatar?.image_data != null) {
+      let bytes: Buffer;
+      if (Buffer.isBuffer(avatar.image_data)) bytes = avatar.image_data;
+      else if (avatar.image_data instanceof Uint8Array) bytes = Buffer.from(avatar.image_data);
+      else bytes = Buffer.from(String(avatar.image_data), 'base64');
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.type(String(avatar.mime_type || 'image/jpeg'));
+      return res.send(bytes);
+    }
+
+    const suppressed = await db.get(
+      'SELECT 1 AS suppressed FROM player_avatar_repository_suppression WHERE player_id = ? LIMIT 1',
+      [targetId],
+    );
+    const asset = suppressed ? null : getRepositoryPlayerAvatarAsset(targetId);
+    if (!asset) return res.status(404).end();
+    return res.redirect(302, `/player-avatars/${encodeURIComponent(asset.file)}`);
+  } catch {
+    return res.status(404).end();
+  }
+});
+
+router.get('/players/:playerId', async (req, res) => {
+  const viewerId = requirePlayerId(req, res);
+  if (!viewerId) return;
+
+  try {
+    const db = (req as any).db;
+    const targetId = String(req.params.playerId);
+    const player = await db.get(
+      `SELECT p.id, p.nickname, p.elo, p.game_level,
+              EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
+              EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
+         FROM players p
+        WHERE p.id = ?
+        LIMIT 1`,
+      [targetId],
+    );
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+
+    const gameProfile = await loadPlayerGameProfile(db, targetId);
+    return res.json({
+      player: {
+        id: String(player.id),
+        nickname: String(player.nickname),
+        elo: Number(player.elo || 0),
+        game_level: String(player.game_level || 'club'),
+        avatar_url: playerAvatarUrl(String(player.id), player.has_db_avatar, player.avatar_suppressed),
+      },
+      stats: gameProfile.gameStats,
+      tournament_awards: gameProfile.awardStats,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль игрока' });
+  }
+});
+
+router.get('/games/all', async (req, res) => {
+  const playerId = requirePlayerId(req, res);
+  if (!playerId) return;
+
+  try {
+    const db = (req as any).db;
+    const [clubRows, tournamentRows] = await Promise.all([
+      db.all(`
+        SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.judge_name, g.protocol_text,
+               e.title AS evening_title, e.starts_at AS evening_date, e.format AS evening_format
+          FROM games g
+     LEFT JOIN game_evenings e ON e.id = g.evening_id
+         WHERE g.evening_id IS NOT NULL
+           AND g.archived_at IS NULL
+           AND g.protocol_text IS NOT NULL
+         ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC, g.id DESC
+         LIMIT 250
+      `),
+      db.all(`
+        SELECT tg.id, tg.game_number, tg.winner_team, tg.judge_name, tg.completed_at,
+               t.id AS tournament_id, t.title AS tournament_title, t.date AS tournament_date
+          FROM tournament_games tg
+          JOIN tournaments t ON t.id = tg.tournament_id
+         WHERE tg.status = 'completed'
+         ORDER BY COALESCE(tg.completed_at, t.date) DESC, tg.game_number DESC
+         LIMIT 250
+      `),
+    ]);
+
+    const clubGames = clubRows.flatMap((row: any) => {
+      const payload = safeJsonParse(row.protocol_text);
+      if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') return [];
+      return [{
+        id: `club:${row.id}`,
+        source: 'club',
+        title: row.evening_title || 'Клубный вечер',
+        date: row.evening_date || row.game_date || null,
+        game_number: Number(row.global_game_number || 0),
+        format: String(row.evening_format || 'CASUAL'),
+        winner_team: normalizeWinner(payload.protocol?.winner_team || row.winner_team),
+        judge_name: row.judge_name || null,
+      }];
+    });
+
+    const tournamentGames = tournamentRows.map((row: any) => ({
+      id: `tournament:${row.id}`,
+      source: 'tournament',
+      title: row.tournament_title || 'Турнир',
+      date: row.completed_at || row.tournament_date || null,
+      game_number: Number(row.game_number || 0),
+      format: 'TOURNAMENT',
+      winner_team: normalizeWinner(row.winner_team),
+      judge_name: row.judge_name || null,
+    }));
+
+    const games = [...clubGames, ...tournamentGames]
+      .sort((a: any, b: any) => {
+        const aTime = a.date ? new Date(a.date).getTime() : 0;
+        const bTime = b.date ? new Date(b.date).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 300);
+
+    return res.json({ games });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить общий архив игр' });
   }
 });
 

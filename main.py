@@ -179,30 +179,58 @@ async def handle_crm_telegram_test_request(request: web.Request):
     return _announcement_result_response(await test_telegram_destination(bot, destination_id))
 
 
+def _root_router(router):
+    """Return the top-level aiogram Router for a possibly nested router tree."""
+    current = router
+    seen = set()
+    while getattr(current, "parent_router", None) is not None:
+        marker = id(current)
+        if marker in seen:
+            raise RuntimeError("Circular aiogram router nesting detected")
+        seen.add(marker)
+        current = current.parent_router
+    return current
+
+
 def setup_handlers():
-    """Регистрация всех хендлеров и роутеров"""
+    """Register every aiogram router tree exactly once."""
     global dp, bot
     dp.update.outer_middleware(MyLoggerMiddleware())
     payment.setup_payment_handlers(bot)
     admin.setup_admin_handlers(bot)
 
-    dp.include_router(admin_judges.router)
-    dp.include_router(admin_crm.router)
-    dp.include_router(telegram_admin_tools.router)
-    dp.include_router(admin.router)
+    ordered_routers = [
+        admin_judges.router,
+        admin_crm.router,
+        telegram_admin_tools.router,
+        admin.router,
+        # Canonical registration must see /start before the legacy profile router.
+        registration.router,
+        start_profile.router,
+        profile.router,
+        payment.router,
+        crm_evening_response.router,
+        crm_booking.router,
+        booking.router,
+        game_router,
+        achievements.router,
+        shop.router,
+    ]
 
-    # Canonical registration must see /start before the legacy profile router.
-    dp.include_router(registration.router)
-    dp.include_router(start_profile.router)
-    dp.include_router(profile.router)
-    dp.include_router(payment.router)
-    dp.include_router(crm_evening_response.router)
-    dp.include_router(crm_booking.router)
-    dp.include_router(booking.router)
+    roots = []
+    root_ids = set()
+    for router in ordered_routers:
+        root = _root_router(router)
+        marker = id(root)
+        if marker in root_ids:
+            continue
+        root_ids.add(marker)
+        roots.append(root)
 
-    dp.include_router(game_router)
-    dp.include_router(achievements.router)
-    dp.include_router(shop.router)
+    for root in roots:
+        dp.include_router(root)
+
+    logger.info("✅ Aiogram роутеры подключены: %s корневых деревьев", len(roots))
 
 
 async def daily_backup_task():
@@ -319,6 +347,7 @@ async def start_polling():
     logger.info("✅ БД инициализирована")
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(public_router_refresh_task())
+
     logger.info("🚀 Бот запущен в режиме polling (локально)")
     await dp.start_polling(bot)
 

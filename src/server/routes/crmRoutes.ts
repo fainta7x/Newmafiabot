@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDb } from '../../db/index.ts';
+import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
@@ -15,7 +15,7 @@ function getMoscowDateStr(value: string | null | undefined): string | null {
 
 router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db: DatabaseWrapper = (req as any).db || (await getDb());
     const nowIso = new Date().toISOString();
     const nextEvening = await db.get<any>(`SELECT e.* FROM game_evenings e WHERE e.status NOT IN ('cancelled','completed') AND e.starts_at >= ? ORDER BY e.starts_at ASC LIMIT 1`, [nowIso]);
     let tables: any[] = []; let participants: any[] = [];

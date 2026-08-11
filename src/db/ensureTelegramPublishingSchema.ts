@@ -26,6 +26,22 @@ const DEFAULT_DESTINATIONS: Array<{ id: TelegramDestinationId; name: string; des
   },
 ];
 
+const eveningOutboxUpsertSql = (entityExpression: string) => `
+  INSERT INTO telegram_sync_outbox
+    (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+  VALUES
+    ('evening:' || ${entityExpression}, 'evening', ${entityExpression}, 1, 0,
+     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL, NULL, NULL)
+  ON CONFLICT(sync_key) DO UPDATE SET
+    entity_id = excluded.entity_id,
+    version = telegram_sync_outbox.version + 1,
+    attempt_count = 0,
+    requested_at = excluded.requested_at,
+    last_attempt_at = NULL,
+    next_attempt_at = NULL,
+    last_error = NULL;
+`;
+
 export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS telegram_destinations (
@@ -62,10 +78,59 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
       PRIMARY KEY (tournament_id, destination_id)
     );
 
+    CREATE TABLE IF NOT EXISTS telegram_sync_outbox (
+      sync_key TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('evening', 'public_router')),
+      entity_id TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      requested_at TEXT NOT NULL,
+      last_attempt_at TEXT,
+      next_attempt_at TEXT,
+      last_error TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_evening_telegram_publications_destination
       ON evening_telegram_publications(destination_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_tournament_telegram_publications_destination
       ON tournament_telegram_publications(destination_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_telegram_sync_outbox_due
+      ON telegram_sync_outbox(next_attempt_at, requested_at);
+  `);
+
+  // Keep CREATE TRIGGER as single statements. Turso's exec compatibility splits scripts on semicolons,
+  // while run() passes the whole trigger body through unchanged.
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_telegram_sync_insert
+    AFTER INSERT ON game_evenings
+    BEGIN
+      ${eveningOutboxUpsertSql('NEW.id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_telegram_sync_update
+    AFTER UPDATE ON game_evenings
+    BEGIN
+      ${eveningOutboxUpsertSql('NEW.id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_telegram_sync_delete
+    AFTER DELETE ON game_evenings
+    BEGIN
+      INSERT INTO telegram_sync_outbox
+        (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+      VALUES
+        ('public-router', 'public_router', NULL, 1, 0,
+         strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL, NULL, NULL)
+      ON CONFLICT(sync_key) DO UPDATE SET
+        version = telegram_sync_outbox.version + 1,
+        attempt_count = 0,
+        requested_at = excluded.requested_at,
+        last_attempt_at = NULL,
+        next_attempt_at = NULL,
+        last_error = NULL;
+    END
   `);
 
   const now = new Date().toISOString();

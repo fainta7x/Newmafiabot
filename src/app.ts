@@ -5,6 +5,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
+import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
@@ -13,6 +14,7 @@ import authRoutes from './server/routes/authRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerGameDetailRoutes from './server/routes/playerGameDetailRoutes.ts';
 import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.ts';
+import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
@@ -61,6 +63,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
+  await ensurePlayerShopSchema(db);
   await ensureRatingPeriodsSchema(db);
   await ensureTournamentDistanceSchema(db);
   try {
@@ -84,6 +87,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/player', playerGameDetailRoutes);
   app.use('/api/player', playerRatingPeriodRoutes);
+  app.use('/api/player', playerEconomyRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);

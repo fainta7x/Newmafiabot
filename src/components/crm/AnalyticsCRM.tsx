@@ -26,10 +26,14 @@ type AnalyticsViewData = AnalyticsData & {
   };
 };
 
+interface AnalyticsCRMProps {
+  onOpenThemeModal?: () => void;
+}
+
 const card = 'rounded-[16px] border border-border-soft bg-surface-1 p-4';
 const formatMoney = (value: number) => `${Math.round(Number(value || 0)).toLocaleString('ru-RU')} ₽`;
 
-export const AnalyticsCRM: React.FC = () => {
+export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
   const [data, setData] = useState<AnalyticsViewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>('all');

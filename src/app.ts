@@ -13,6 +13,7 @@ import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
+import playerProfileSettingsRoutes from './server/routes/playerProfileSettingsRoutes.ts';
 import playerGameDetailRoutes from './server/routes/playerGameDetailRoutes.ts';
 import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.ts';
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
@@ -96,6 +97,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerSelfRoutes);
+  app.use('/api/player', playerProfileSettingsRoutes);
   app.use('/api/player', playerGameDetailRoutes);
   app.use('/api/player', playerRatingPeriodRoutes);
   app.use('/api/player', playerEconomyRoutes);

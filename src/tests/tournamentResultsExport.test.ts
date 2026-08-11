@@ -108,19 +108,14 @@ describe('Tournament Results Export Utility Tests', () => {
       ];
 
       const rows = buildGameExportRows(mockPlayerResults, mockStandings, 1);
-
-      // Verify they are sorted by seat number (1, 2, 3)
       expect(rows[0].seat_number).toBe(1);
       expect(rows[1].seat_number).toBe(2);
       expect(rows[2].seat_number).toBe(3);
-
-      // Verify that game_total was taken from standings for Player 1
       expect(rows[0].game_total).toBe(1.5);
-      // Verify Player 2 (not found in standings yet) defaults game_total to 0
       expect(rows[1].game_total).toBe(0);
     });
 
-    it('should render SVG for game and standings correctly with correct properties', () => {
+    it('should render SVG for game and standings correctly with current noir publication copy', () => {
       const mockTournament: Tournament = {
         id: 't-1',
         title: 'Тест Турнир',
@@ -141,30 +136,28 @@ describe('Tournament Results Export Utility Tests', () => {
         completed_at: '2026-08-01T19:00:00Z',
       };
 
-      const exportRows = [
-        {
-          seat_number: 1,
-          display_name: 'Игрок 1',
-          role: 'citizen',
-          game_total: 1.5,
-          win_point: 1,
-          judge_bonus: 0.2,
-          protocol_bonus: 0,
-          best_move_points: 0.3,
-          game_penalty_points: 0,
-          disciplinary_penalty_points: 0,
-          ci_points: 0,
-        },
-      ];
+      const exportRows = [{
+        seat_number: 1,
+        display_name: 'Игрок 1',
+        role: 'citizen',
+        game_total: 1.5,
+        win_point: 1,
+        judge_bonus: 0.2,
+        protocol_bonus: 0,
+        best_move_points: 0.3,
+        game_penalty_points: 0,
+        disciplinary_penalty_points: 0,
+        ci_points: 0,
+      }];
 
       const svg = generateGameResultsSvg(mockTournament, mockGame, exportRows);
       expect(svg).toContain('Тест Турнир');
-      expect(svg).toContain('Результаты игры №1');
-      expect(svg).toContain('Победа: Красные');
-      expect(svg).toContain('Судья:');
+      expect(svg).toContain('ИТОГИ ИГРЫ');
+      expect(svg).toContain('ИГРА №1');
+      expect(svg).toContain('ПОБЕДА КРАСНЫХ');
+      expect(svg).toContain('Судья · Чагин');
       expect(svg).toContain('Игрок 1');
 
-      // Standings SVG test
       const mockStandings: TournamentStandingItem[] = [
         {
           place: 1,
@@ -190,10 +183,11 @@ describe('Tournament Results Export Utility Tests', () => {
       ];
 
       const standingsSvg = generateStandingsSvg(mockTournament, mockStandings, 5, 10);
-      expect(standingsSvg).toContain('Промежуточная турнирная таблица');
+      expect(standingsSvg).toContain('ПРОМЕЖУТОЧНЫЕ ИТОГИ');
+      expect(standingsSvg).toContain('ТЕКУЩИЙ РЕЙТИНГ');
       expect(standingsSvg).toContain('После 5 из 10 игр');
       expect(standingsSvg).toContain('Победитель');
-      expect(standingsSvg).toContain('+4,2'); // Total points formatted
+      expect(standingsSvg).toContain('+4,2');
     });
   });
 });

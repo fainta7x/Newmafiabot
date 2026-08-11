@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
+import PlayerEconomy from './PlayerEconomy.tsx';
 import PlayerGameDetail, { formatEloDelta, type PlayerGameDetailData, type PlayerGameEloChange } from './PlayerGameDetail.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 
@@ -201,6 +202,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
   const [tab, setTab] = useState<PlayerTab>('home');
   const [gameScope, setGameScope] = useState<GameScope>('mine');
   const [profileScope, setProfileScope] = useState<ProfileScope>('self');
+  const [tokenBalance, setTokenBalance] = useState(Number(player.tokens || 0));
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
@@ -495,10 +497,11 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
               <>
                 <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
                   <div className="flex items-center gap-4">{player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h2 className="truncate text-2xl font-semibold">{player.nickname}</h2>{player.full_name && <p className="mt-1 truncate text-sm text-white/60">{player.full_name}</p>}{player.telegram_username && <p className="mt-1 truncate text-sm text-white/45">@{player.telegram_username.replace(/^@/, '')}</p>}<p className="mt-2 text-xs text-white/35">{gameLevelLabel(player.game_level)}</p></div></div>
-                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{tokenBalance.toLocaleString('ru-RU')}</div></div></div>
                   {canOpenAdmin && <a href="/admin" className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80">Панель организатора</a>}
                 </header>
-                <Section title="Настройки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Здесь будут настройки профиля, оплата, магазин и другие личные действия. Переносим их сюда по мере отключения кнопок в боте.</p></Section>
+                <PlayerEconomy onBalanceChange={setTokenBalance} />
+                <Section title="Настройки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Дальше сюда перенесём оплату, регламент и настройки профиля по мере отключения соответствующих кнопок в боте.</p></Section>
               </>
             ) : selectedProfile ? (
               <>

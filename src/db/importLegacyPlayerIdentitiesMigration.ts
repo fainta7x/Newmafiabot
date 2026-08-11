@@ -38,6 +38,8 @@ const norm = (v: unknown) => String(v ?? '').trim().toLocaleLowerCase('ru-RU');
 const text = (v: unknown) => String(v ?? '').trim();
 
 export function applyImportLegacyPlayerIdentitiesMigration(db: DatabaseWrapper): void {
+  if (db.dbPath === ':memory:') return;
+
   const existing = db.sqlite.prepare('SELECT status FROM migration_history WHERE migration_name=? LIMIT 1').get(MIGRATION_KEY) as {status?: string}|undefined;
   if (existing?.status === 'completed') return;
   if (existing) throw new Error('Legacy player identity migration has an unexpected existing status.');

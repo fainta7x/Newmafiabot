@@ -41,6 +41,12 @@ export interface NominationComparatorStage {
 export interface NominationComparatorResult {
   winner_participant_id: string | null;
   tied_participant_ids: string[];
+  /**
+   * Legacy blocking flag consumed by final-readiness. A true exact equality after
+   * every canonical criterion is terminal (no award is assigned), so it does not
+   * require or permit a manual resolution and this flag remains false.
+   * Use decisive_criterion === 'exact_tie' to display the terminal equality.
+   */
   has_exact_tie: boolean;
   decisive_criterion: NominationCriterion | null;
   decisive_value: number | null;
@@ -199,10 +205,13 @@ export function compareTournamentNominationCandidates(
     };
   }
 
+  // All canonical criteria are exhausted. This is a valid final state: there is
+  // no sole winner for the nomination, no award is granted, and no manual/coin
+  // decision is allowed. final-readiness therefore must not wait for a resolution.
   return {
     winner_participant_id: null,
     tied_participant_ids: stableIds(advancing.map((candidate) => candidate.participant_id)),
-    has_exact_tie: true,
+    has_exact_tie: false,
     decisive_criterion: 'exact_tie',
     decisive_value: null,
     head_to_head_scores: headToHeadScores,

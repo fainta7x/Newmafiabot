@@ -21,6 +21,20 @@ const formatDateTime = (value: string) => {
     time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
   };
 };
+
+const formatRelativeStart = (value: string) => {
+  const start = new Date(value);
+  const now = new Date();
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((startDay - today) / 86_400_000);
+  if (days < 0) return 'дата уже прошла';
+  if (days === 0) return 'сегодня';
+  if (days === 1) return 'завтра';
+  if (days <= 4) return `через ${days} дня`;
+  return `через ${days} дней`;
+};
+
 const formatLabel = (format: string) => format === 'NOVICE' ? 'Новичковый вечер' : format === 'TOURNAMENT' ? 'Турнир' : 'Клубный вечер';
 
 export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvening, onOpenPlayer, onNavigateTab, onCreateEvening, onCompleteTask, onRefresh }) => {
@@ -32,7 +46,16 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
   if (!overview) return <div className="flex min-h-[46vh] items-center justify-center text-[13px] text-text-secondary">Загружаем сегодняшний план…</div>;
 
   const { nextEvening } = overview;
-  const shownQueue = queue.filter((item) => item.key !== nextEveningAction?.key).slice(0, 7);
+  const secondaryQueue = queue.filter((item) => {
+    if (item.key === nextEveningAction?.key) return false;
+    if (
+      nextEveningAction?.kind === 'evening_payments'
+      && item.kind === 'unpaid'
+      && String(item.eveningId || '') === String(nextEvening?.id || '')
+    ) return false;
+    return true;
+  });
+  const shownQueue = secondaryQueue.slice(0, 7);
 
   const runAction = async (item: TodayActionItem) => {
     if (busyKey) return;
@@ -104,6 +127,14 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
         const expected = Number(evening.expectedPlayersCount || going + later);
         const seated = Number(evening.seatedExpectedCount || 0);
         const unseated = Number(evening.unseatedExpectedCount || 0);
+        const unpaidForEvening = (overview.actionLists.unpaidParticipants || []).filter(
+          (participant: any) => String(participant.evening_id || '') === String(evening.id || ''),
+        );
+        const unpaidCount = unpaidForEvening.length;
+        const unpaidAmount = unpaidForEvening.reduce(
+          (sum: number, participant: any) => sum + Math.max(0, Number(participant.amount_due || 0) - Number(participant.amount_paid || 0)),
+          0,
+        );
         const games = Number(evening.gamesCount || 0);
         const completedGames = Number(evening.completedGamesCount || 0);
         const isDraft = evening.status === 'draft';
@@ -117,6 +148,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                   <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-accent">{formatLabel(evening.format)}</p>
                   <h3 className="mt-1 break-words text-[19px] font-black leading-tight text-text-primary">{evening.title}</h3>
                   <p className="mt-1 text-[13px] text-text-secondary">{when.date} · {when.time}{evening.venue ? ` · ${evening.venue}` : ''}</p>
+                  <p className="mt-1 text-[11px] font-bold text-accent">{formatRelativeStart(evening.starts_at)}</p>
                 </div>
               </div>
 
@@ -149,6 +181,14 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                   </span>
                 </div>
 
+                {expected || unpaidCount ? <div className="flex min-h-[54px] items-center gap-3 rounded-[13px] bg-surface-2 px-3">
+                  <CheckCircle2 className={`h-5 w-5 shrink-0 ${unpaidCount ? 'text-warning' : 'text-success'}`} />
+                  <span className="min-w-0 flex-1">
+                    <strong className="block text-[12px] text-text-primary">Оплаты</strong>
+                    <span className="text-[10px] leading-4 text-text-muted">{unpaidCount ? `${unpaidCount} не оплатили · долг ${Math.round(unpaidAmount).toLocaleString('ru-RU')} ₽` : 'Долгов по ближайшему вечеру нет'}</span>
+                  </span>
+                </div> : null}
+
                 {isActive ? <div className="flex min-h-[54px] items-center gap-3 rounded-[13px] bg-surface-2 px-3">
                   <Gamepad2 className={`h-5 w-5 shrink-0 ${games > completedGames ? 'text-accent' : games ? 'text-success' : 'text-warning'}`} />
                   <span className="min-w-0 flex-1"><strong className="block text-[12px] text-text-primary">Игры</strong><span className="text-[10px] leading-4 text-text-muted">{games ? `Завершено ${completedGames} из ${games}` : 'Первая игра ещё не создана'}</span></span>
@@ -161,7 +201,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                   <div className="min-w-0 flex-1"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">Следующий шаг</span><strong className="mt-0.5 block text-[13px] text-text-primary">{nextEveningAction.title}</strong><span className="mt-1 block text-[11px] leading-4 text-text-secondary">{nextEveningAction.reason}</span></div>
                 </div>
                 <button type="button" onClick={() => void runAction(nextEveningAction)} className="mt-3 min-h-[44px] w-full rounded-[11px] bg-accent px-3 text-[12px] font-bold text-white">{nextEveningAction.actionLabel}</button>
-              </div> : !isActive ? <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-success-soft px-3.5 py-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-success" /><div><strong className="block text-[12px] text-text-primary">Подготовка выглядит завершённой</strong><span className="text-[10px] leading-4 text-text-muted">Критичных действий по рассылке, ответам и рассадке сейчас нет.</span></div></div> : null}
+              </div> : !isActive ? <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-success-soft px-3.5 py-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-success" /><div><strong className="block text-[12px] text-text-primary">Подготовка выглядит завершённой</strong><span className="text-[10px] leading-4 text-text-muted">Критичных действий по рассылке, ответам, рассадке и оплатам сейчас нет.</span></div></div> : null}
             </div>
             <div className="border-t border-border-soft p-3">
               <button type="button" onClick={() => onOpenEvening(evening.id)} className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary">Открыть весь вечер <ArrowRight className="h-4 w-4" /></button>
@@ -180,7 +220,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div><h3 className="text-[18px] font-black text-text-primary">Остальное внимание</h3><p className="mt-0.5 text-[12px] text-text-secondary">Решения по игрокам и задачи клуба после главного шага по ближайшему вечеру.</p></div>
-          {queue.length - (nextEveningAction ? 1 : 0) > shownQueue.length ? <button type="button" onClick={() => onNavigateTab('tasks')} className="min-h-[44px] shrink-0 text-[12px] font-bold text-accent">Показать всё</button> : null}
+          {secondaryQueue.length > shownQueue.length ? <button type="button" onClick={() => onNavigateTab('tasks')} className="min-h-[44px] shrink-0 text-[12px] font-bold text-accent">Показать всё</button> : null}
         </div>
         {shownQueue.length === 0 ? (
           <div className="flex min-h-[88px] items-center gap-3 rounded-[18px] border border-border-soft bg-surface-1 px-4 py-3">

@@ -23,17 +23,26 @@ const responseSet = new Set<string>(EVENING_RESPONSE_STATUSES);
 
 export const normalizeEveningResponse = (
   responseStatus: unknown,
-  _legacyArrivalStatus?: unknown,
+  legacyArrivalStatus?: unknown,
 ): EveningResponseStatus => {
   const value = String(responseStatus || '').trim().toLowerCase();
   if (responseSet.has(value)) return value as EveningResponseStatus;
-  if (value === 'registered' || value === 'confirmed') return 'going';
+
+  // Legacy registration statuses described intent before response_status existed.
+  // "waitlist" is no longer a reserve state in the current product and therefore
+  // keeps the same attending intent as registered/confirmed.
+  if (value === 'registered' || value === 'confirmed' || value === 'waitlist') {
+    return String(legacyArrivalStatus || '').trim().toLowerCase() === 'late' ? 'late' : 'going';
+  }
   if (value === 'cancelled') return 'declined';
   return 'unanswered';
 };
 
 export const getEveningResponse = (participant: any): EveningResponseStatus =>
-  normalizeEveningResponse(participant?.response_status ?? participant?.registration_status);
+  normalizeEveningResponse(
+    participant?.response_status ?? participant?.registration_status,
+    participant?.arrival_status,
+  );
 
 export const getEveningResponseLabel = (participantOrStatus: any): string => {
   const status = typeof participantOrStatus === 'string'
@@ -54,10 +63,11 @@ export const getEveningAttendanceLabel = (participant: any): string =>
   EVENING_ATTENDANCE_LABELS[getEveningAttendanceFact(participant)];
 
 export const getEveningTimelineLabel = (participant: any): string => {
+  const response = getEveningResponseLabel(participant);
   const attendance = getEveningAttendanceFact(participant);
   return attendance === 'pending'
-    ? getEveningResponseLabel(participant)
-    : EVENING_ATTENDANCE_LABELS[attendance];
+    ? response
+    : `${response} → ${EVENING_ATTENDANCE_LABELS[attendance]}`;
 };
 
 export const isAttendingResponse = (statusOrParticipant: any): boolean => {

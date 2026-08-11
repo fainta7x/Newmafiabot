@@ -26,6 +26,7 @@ from handlers import profile
 from handlers import registration
 from handlers import shop
 from handlers import start_profile
+from handlers import telegram_admin_tools
 from handlers.crm_evening_announcement import send_crm_evening_announcement
 from handlers.crm_group_announcement import send_crm_group_announcement
 from handlers.crm_telegram_publishing import (
@@ -62,15 +63,11 @@ dp = None
 
 async def on_startup():
     global bot, dp
-
     await init_db()
     logger.info("✅ БД инициализирована")
-
     await bot.delete_webhook(drop_pending_updates=True)
-
     await setup_bot_commands(bot)
     logger.info("✅ Команды для меню установлены!")
-
     webhook_url = f"{config.WEBHOOK_URL}/webhook"
     await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     logger.info(f"✅ Вебхук установлен: {webhook_url}")
@@ -85,7 +82,6 @@ async def on_shutdown():
 
 async def handle_webhook(request):
     global dp, bot
-
     try:
         update_data = await request.json()
         update = Update(**update_data)
@@ -120,11 +116,9 @@ async def handle_crm_group_announcement_request(request: web.Request):
         return web.json_response({"error": "unauthorized"}, status=401)
     if bot is None:
         return web.json_response({"error": "bot_not_ready"}, status=503)
-
     evening_id = str(request.match_info.get("evening_id") or "").strip()
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
-
     return _announcement_result_response(await send_crm_group_announcement(bot, evening_id))
 
 
@@ -134,11 +128,9 @@ async def handle_crm_evening_announcement_request(request: web.Request):
         return web.json_response({"error": "unauthorized"}, status=401)
     if bot is None:
         return web.json_response({"error": "bot_not_ready"}, status=503)
-
     evening_id = str(request.match_info.get("evening_id") or "").strip()
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
-
     return _announcement_result_response(await send_crm_evening_announcement(bot, evening_id))
 
 
@@ -148,7 +140,6 @@ async def handle_crm_telegram_sync_request(request: web.Request):
         return web.json_response({"error": "unauthorized"}, status=401)
     if bot is None:
         return web.json_response({"error": "bot_not_ready"}, status=503)
-
     evening_id = str(request.match_info.get("evening_id") or "").strip()
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
@@ -191,13 +182,13 @@ async def handle_crm_telegram_test_request(request: web.Request):
 def setup_handlers():
     """Регистрация всех хендлеров и роутеров"""
     global dp, bot
-
     dp.update.outer_middleware(MyLoggerMiddleware())
     payment.setup_payment_handlers(bot)
     admin.setup_admin_handlers(bot)
 
     dp.include_router(admin_judges.router)
     dp.include_router(admin_crm.router)
+    dp.include_router(telegram_admin_tools.router)
     dp.include_router(admin.router)
 
     # Canonical registration must see /start before the legacy profile router.
@@ -217,23 +208,18 @@ def setup_handlers():
 async def daily_backup_task():
     """Фоновая задача для ежедневного бэкапа в 3:00"""
     global bot
-
     while True:
         now = datetime.datetime.now()
         next_backup = now.replace(hour=3, minute=0, second=0, microsecond=0)
         if now >= next_backup:
             next_backup += datetime.timedelta(days=1)
-
         wait_seconds = (next_backup - now).total_seconds()
         logger.info(f"⏰ Следующий бэкап через {wait_seconds/3600:.1f} часов")
         await asyncio.sleep(wait_seconds)
-
         if bot is None:
             logger.error("❌ Бот не инициализирован, бэкап не создан")
             continue
-
         backup_path = await db.create_backup_file()
-
         if backup_path:
             try:
                 await bot.send_document(
@@ -270,7 +256,6 @@ async def start_webhook():
     storage = MemoryStorage()
     bot = Bot(token=config.TOKEN)
     dp = Dispatcher(storage=storage)
-
     setup_handlers()
 
     try:
@@ -334,7 +319,6 @@ async def start_polling():
     logger.info("✅ БД инициализирована")
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(public_router_refresh_task())
-
     logger.info("🚀 Бот запущен в режиме polling (локально)")
     await dp.start_polling(bot)
 
@@ -342,11 +326,9 @@ async def start_polling():
 if __name__ == "__main__":
     try:
         USE_WEBHOOK = os.environ.get("USE_WEBHOOK", "False").lower() == "true"
-
         if USE_WEBHOOK:
             asyncio.run(start_webhook())
         else:
             asyncio.run(start_polling())
-
     except KeyboardInterrupt:
         print("❌ Бот выключен")

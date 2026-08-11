@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmentFields.tsx';
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
+import { TournamentLifecycleOverview } from './TournamentLifecycleOverview.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -93,40 +94,62 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     }
   };
 
+  const openWorkspace = () => {
+    window.requestAnimationFrame(() => {
+      document.getElementById('tournament-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   return (
-    <div data-stable-judge-view className="min-w-0 overflow-x-hidden">
+    <div data-stable-judge-view className="min-w-0 space-y-4 overflow-x-hidden">
       <style>{`[data-stable-judge-view] button:has(svg.lucide-edit-2),[data-stable-judge-view] button:has(svg.lucide-square-pen){display:none!important;}`}</style>
-      {tournament && games.length ? (
-        <section className="mb-4 min-w-0 space-y-3 rounded-[18px] border border-accent/20 bg-surface-1 p-3.5" data-testid="tournament-judge-assignment">
-          <div className="min-w-0">
-            <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Судья игры · стабильная привязка</h3>
-            <p className="mt-1 text-[11px] leading-4 text-text-muted">Выбери игрока CRM для учёта судейских ачивок или явно оставь внешнего судью текстом.</p>
-          </div>
-          <label className="block min-w-0 text-[10px] font-black uppercase tracking-wide text-text-muted">
-            Игра
-            <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)} className="mt-1 min-h-[44px] w-full min-w-0 rounded-xl border border-border-soft bg-surface-2 px-3 text-sm text-text-primary">
-              {games.map((game: any) => <option key={game.id} value={game.id}>Игра №{game.game_number} · {game.status === 'completed' ? 'завершена' : game.status === 'active' ? 'идёт' : 'запланирована'}</option>)}
-            </select>
-          </label>
-          <JudgeAssignmentFields
-            mode={mode}
-            players={players}
-            judgePlayerId={judgePlayerId}
-            judgeName={judgeName}
-            disabled={!canEdit || saving}
-            onModeChange={(nextMode) => { setMode(nextMode); if (nextMode === 'external') setJudgePlayerId(''); }}
-            onJudgePlayerIdChange={setJudgePlayerId}
-            onJudgeNameChange={setJudgeName}
-          />
-          {!canEdit ? <p className="text-[11px] text-text-muted">Для этой игры изменение судьи сейчас недоступно. Завершённая игра редактируется только после перевода турнира в режим корректировки.</p> : null}
-          {message ? <div className="rounded-xl border border-success/20 bg-success-soft px-3 py-2 text-[11px] font-bold text-success">{message}</div> : null}
-          {error ? <div className="rounded-xl border border-danger/25 bg-danger-soft px-3 py-2 text-[11px] font-bold text-danger">{error}</div> : null}
-          <button type="button" disabled={!canEdit || saving || (mode === 'linked' && !judgePlayerId)} onClick={() => void save()} className="min-h-[46px] w-full rounded-xl bg-accent px-4 text-xs font-black text-white disabled:opacity-40">
-            {saving ? 'Сохраняем…' : 'Сохранить судью'}
-          </button>
-        </section>
+
+      {tournament ? (
+        <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
       ) : null}
-      <TournamentDetailViewBase key={revision} tournamentId={tournamentId} onBack={onBack} />
+
+      {tournament && games.length ? (
+        <details className="min-w-0 rounded-[18px] border border-border-soft bg-surface-1" data-testid="tournament-judge-assignment">
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3">
+            <div className="min-w-0">
+              <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Судья игры · стабильная привязка</h3>
+              <p className="mt-0.5 truncate text-[10px] text-text-muted">
+                {selectedGame ? `Игра №${selectedGame.game_number} · ${selectedGame.judge_name || 'судья не указан'}` : 'Настройка судьи'}
+              </p>
+            </div>
+            <span className="shrink-0 text-[10px] font-bold text-accent">Настроить</span>
+          </summary>
+          <div className="space-y-3 border-t border-border-soft p-3.5">
+            <p className="text-[11px] leading-4 text-text-muted">Выбери игрока CRM для учёта судейских ачивок или явно оставь внешнего судью текстом.</p>
+            <label className="block min-w-0 text-[10px] font-black uppercase tracking-wide text-text-muted">
+              Игра
+              <select value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)} className="mt-1 min-h-[44px] w-full min-w-0 rounded-xl border border-border-soft bg-surface-2 px-3 text-sm text-text-primary">
+                {games.map((game: any) => <option key={game.id} value={game.id}>Игра №{game.game_number} · {game.status === 'completed' ? 'завершена' : game.status === 'active' ? 'идёт' : 'запланирована'}</option>)}
+              </select>
+            </label>
+            <JudgeAssignmentFields
+              mode={mode}
+              players={players}
+              judgePlayerId={judgePlayerId}
+              judgeName={judgeName}
+              disabled={!canEdit || saving}
+              onModeChange={(nextMode) => { setMode(nextMode); if (nextMode === 'external') setJudgePlayerId(''); }}
+              onJudgePlayerIdChange={setJudgePlayerId}
+              onJudgeNameChange={setJudgeName}
+            />
+            {!canEdit ? <p className="text-[11px] text-text-muted">Для этой игры изменение судьи сейчас недоступно. Завершённая игра редактируется только после перевода турнира в режим корректировки.</p> : null}
+            {message ? <div className="rounded-xl border border-success/20 bg-success-soft px-3 py-2 text-[11px] font-bold text-success">{message}</div> : null}
+            {error ? <div className="rounded-xl border border-danger/25 bg-danger-soft px-3 py-2 text-[11px] font-bold text-danger">{error}</div> : null}
+            <button type="button" disabled={!canEdit || saving || (mode === 'linked' && !judgePlayerId)} onClick={() => void save()} className="min-h-[46px] w-full rounded-xl bg-accent px-4 text-xs font-black text-white disabled:opacity-40">
+              {saving ? 'Сохраняем…' : 'Сохранить судью'}
+            </button>
+          </div>
+        </details>
+      ) : null}
+
+      <div id="tournament-workspace" className="scroll-mt-3">
+        <TournamentDetailViewBase key={revision} tournamentId={tournamentId} onBack={onBack} />
+      </div>
     </div>
   );
 };

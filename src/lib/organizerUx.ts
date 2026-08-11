@@ -9,7 +9,19 @@ export const ORGANIZER_PRIMARY_NAV: Array<{ id: OrganizerPrimaryTab; label: stri
   { id: 'more', label: 'Ещё' },
 ];
 
-export type TodayActionKind = 'overdue_task' | 'today_task' | 'unpaid' | 'newcomer_followup' | 'lapsed_player' | 'undated_task';
+export type TodayActionKind =
+  | 'evening_publish'
+  | 'evening_announce'
+  | 'evening_delivery'
+  | 'evening_responses'
+  | 'evening_seating'
+  | 'evening_live'
+  | 'overdue_task'
+  | 'today_task'
+  | 'unpaid'
+  | 'newcomer_followup'
+  | 'lapsed_player'
+  | 'undated_task';
 
 export interface TodayActionItem {
   key: string;
@@ -30,6 +42,74 @@ const toTime = (value?: string | null) => {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 };
 
+export function buildNextEveningAction(overview: CrmOverview | null): TodayActionItem | null {
+  const evening: any = overview?.nextEvening;
+  if (!evening) return null;
+  const sortAt = toTime(evening.starts_at);
+  const payload = evening;
+  const announcement = evening.announcementSummary || {};
+  const failed = Number(announcement.failed || 0);
+  const notSent = Number(announcement.not_sent || 0);
+  const unanswered = Number(announcement.unanswered || 0);
+  const unseated = Number(evening.unseatedExpectedCount || 0);
+  const games = Number(evening.gamesCount || 0);
+  const completedGames = Number(evening.completedGamesCount || 0);
+
+  if (evening.status === 'draft') {
+    return {
+      key: `evening:${evening.id}:publish`, kind: 'evening_publish', priority: -6,
+      title: 'Опубликовать ближайший вечер',
+      reason: 'Пока это черновик: игроки и Telegram ещё не видят событие.',
+      actionLabel: 'Открыть', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  if (evening.status === 'active') {
+    return {
+      key: `evening:${evening.id}:live`, kind: 'evening_live', priority: -6,
+      title: games > completedGames ? 'Продолжить текущий вечер' : 'Вечер идёт сейчас',
+      reason: games > completedGames
+        ? `Завершено ${completedGames} из ${games} созданных игр.`
+        : games > 0
+          ? `Все ${games} созданных игр завершены — можно запускать следующую.`
+          : 'Игры ещё не созданы — пора запускать первую.',
+      actionLabel: 'К вечеру', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  if (failed > 0) {
+    return {
+      key: `evening:${evening.id}:delivery`, kind: 'evening_delivery', priority: -5,
+      title: `Не доставлено: ${failed}`,
+      reason: 'Бот не смог отправить этим игрокам анонс — их стоит проверить или написать лично.',
+      actionLabel: 'Разобрать', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  if (notSent > 0) {
+    return {
+      key: `evening:${evening.id}:announce`, kind: 'evening_announce', priority: -4,
+      title: `Разослать личный анонс · ${notSent}`,
+      reason: 'Эти игроки подходят под формат вечера, ещё не ответили и пока не получили личное приглашение.',
+      actionLabel: 'Разослать', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  if (unanswered > 0) {
+    return {
+      key: `evening:${evening.id}:responses`, kind: 'evening_responses', priority: -3,
+      title: `Ждём ответ: ${unanswered}`,
+      reason: 'Анонс доставлен, но решения пока нет. В карточке вечера можно посмотреть людей и при необходимости напомнить.',
+      actionLabel: 'Проверить', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  if (unseated > 0) {
+    return {
+      key: `evening:${evening.id}:seating`, kind: 'evening_seating', priority: -2,
+      title: `Рассадить игроков · ${unseated}`,
+      reason: 'Эти игроки идут или придут позже, но ещё не привязаны к столу.',
+      actionLabel: 'Рассадить', eveningId: evening.id, payload, sortAt,
+    };
+  }
+  return null;
+}
+
 export function buildTodayActionQueue(overview: CrmOverview | null): TodayActionItem[] {
   if (!overview) return [];
   const { actionLists } = overview;
@@ -40,6 +120,9 @@ export function buildTodayActionQueue(overview: CrmOverview | null): TodayAction
     seen.add(dedupeKey);
     queue.push(item);
   };
+
+  const eveningAction = buildNextEveningAction(overview);
+  if (eveningAction) push(eveningAction);
 
   for (const task of actionLists.overdueTasks || []) push({ key: `task:${task.id}`, kind: 'overdue_task', priority: 0, title: task.player_nickname || task.title, reason: task.player_nickname ? task.title : 'Просроченная задача', actionLabel: 'Выполнить', playerId: task.player_id, eveningId: task.evening_id, payload: task, sortAt: toTime(task.due_at || task.created_at) });
   for (const task of actionLists.todayTasks || []) push({ key: `task:${task.id}`, kind: 'today_task', priority: 1, title: task.player_nickname || task.title, reason: task.player_nickname ? task.title : 'Задача на сегодня', actionLabel: 'Выполнить', playerId: task.player_id, eveningId: task.evening_id, payload: task, sortAt: toTime(task.due_at || task.created_at) });

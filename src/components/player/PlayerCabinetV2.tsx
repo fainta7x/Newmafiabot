@@ -4,6 +4,7 @@ import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerEconomy from './PlayerEconomy.tsx';
 import PlayerGameDetail, { formatEloDelta, type PlayerGameDetailData, type PlayerGameEloChange } from './PlayerGameDetail.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
+import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
 type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'profile';
 type GameScope = 'mine' | 'all';
@@ -198,7 +199,8 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
 }
 
 export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
-  const { player, achievements, tournaments, games } = data;
+  const { achievements, tournaments, games } = data;
+  const [player, setPlayer] = useState(data.player);
   const [tab, setTab] = useState<PlayerTab>('home');
   const [tokensOpen, setTokensOpen] = useState(false);
   const [gameScope, setGameScope] = useState<GameScope>('mine');
@@ -388,11 +390,8 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
         {tokensOpen && (
           <>
             <button type="button" onClick={() => setTokensOpen(false)} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>
-            <PageHeading title="Жетоны" subtitle="Кошелёк, магазин и история операций" />
+            <PageHeading title="Жетоны" subtitle="Кошелёк, магазин, ставки и история операций" />
             <PlayerEconomy onBalanceChange={setTokenBalance} />
-            <Section title="Ставки">
-              <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Ставки на игры появятся здесь следующим этапом и будут использовать этот же баланс жетонов.</p>
-            </Section>
           </>
         )}
 
@@ -408,7 +407,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Жетоны</div>
                   <div className="mt-2 text-3xl font-semibold text-white">{tokenBalance.toLocaleString('ru-RU')} 🪙</div>
-                  <div className="mt-1 text-sm text-white/40">Кошелёк, магазин и история</div>
+                  <div className="mt-1 text-sm text-white/40">Кошелёк, магазин, ставки и история</div>
                 </div>
                 <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.07] text-lg text-white/55">→</div>
               </div>
@@ -526,7 +525,13 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
                   <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Статус</div><div className="mt-1 text-sm font-semibold text-white/80">{gameLevelLabel(player.game_level)}</div></div></div>
                   {canOpenAdmin && <a href="/admin" className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80">Панель организатора</a>}
                 </header>
-                <Section title="Настройки профиля"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Здесь будут личные данные игрока, смена ника и аватарки, а позже — оформление и кастомизация профиля.</p></Section>
+                <PlayerProfileSettings
+                  player={player}
+                  onPlayerChange={(next) => {
+                    setPlayer(next);
+                    setClubPlayers((current) => current ? current.map((item) => item.id === next.id ? { ...item, nickname: next.nickname, elo: next.elo, game_level: next.game_level, avatar_url: next.avatar_url } : item) : current);
+                  }}
+                />
               </>
             ) : selectedProfile ? (
               <>

@@ -89,7 +89,7 @@ const mapEngineResult = (
 
   const protocol: TournamentGameProtocolData = {
     ...previousProtocol,
-    status: 'completed',
+    status: 'draft',
     winner_team: gameData?.winning_team === 'Красные' ? 'red' : 'black',
     end_reason: (gameData?.end_reason || 'normal') as any,
     ppk_culprit_participant_id: gameData?.end_reason === 'ppk' ? (ppkPlayer?.participant_id || null) : null,
@@ -99,7 +99,7 @@ const mapEngineResult = (
     best_move_participant_id: bestMoves[0]?.participant_id || null,
     best_move_source: bestMoves[0]?.source || null,
     best_move_seats: bestMoves[0]?.seat_numbers || [],
-    judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text].filter(Boolean).join('\n') || null,
+    judge_notes: [previousProtocol.judge_notes, gameData?.protocol_text, 'Живое ведение завершено. Проверьте журнал голосований/ночей перед финальным подтверждением.'].filter(Boolean).join('\n') || null,
   };
 
   return { protocol, player_results: playerResults };
@@ -110,13 +110,13 @@ export default function TournamentLiveGameModal({
   gameId,
   judgeName,
   onClose,
-  onCompleted,
+  onPrepared,
 }: {
   tournamentId: string;
   gameId: string;
   judgeName?: string | null;
   onClose: () => void;
-  onCompleted: () => void;
+  onPrepared: () => void;
 }) {
   const [payload, setPayload] = useState<{ protocol: TournamentGameProtocolData; player_results: PlayerResultData[] } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,7 +167,7 @@ export default function TournamentLiveGameModal({
 
       {loading ? <div className="flex h-[70vh] items-center justify-center text-sm text-slate-400">Загрузка игры…</div> : null}
       {error ? <div className="m-4 rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div> : null}
-      {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Сохраняем турнирный протокол…</div> : null}
+      {saving ? <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/90 text-sm font-black text-white">Переносим результат в протокол…</div> : null}
 
       {payload && !loading ? (
         <div className="tournament-live-shell">
@@ -180,15 +180,15 @@ export default function TournamentLiveGameModal({
               setError(null);
               try {
                 const next = mapEngineResult(payload.protocol, payload.player_results, gameData);
-                const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol/complete`, {
-                  method: 'POST',
+                const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/games/${encodeURIComponent(gameId)}/protocol`, {
+                  method: 'PUT',
                   credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(next),
                 });
                 const body = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(body?.error || 'Не удалось завершить турнирную игру');
-                onCompleted();
+                if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
+                onPrepared();
                 onClose();
               } catch (saveError: any) {
                 setError(saveError?.message || 'Не удалось сохранить результат игры');

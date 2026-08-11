@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { isAttendingResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
 
 const router = Router();
@@ -13,6 +14,9 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return playerId;
 };
 
+const isPaymentExpected = (row: any): boolean =>
+  String(row.attendance_status || '') === 'attended' || isAttendingResponse(row.registration_status);
+
 const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: unknown) => {
   if (amountDue <= 0) return 'waived';
   if (amountPaid >= amountDue) return 'paid';
@@ -21,7 +25,9 @@ const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: u
 };
 
 const serializePayment = (row: any) => {
-  const amountDue = Math.max(0, Number(row.amount_due || 0));
+  const paymentExpected = isPaymentExpected(row);
+  const storedAmountDue = Math.max(0, Number(row.amount_due || 0));
+  const amountDue = paymentExpected ? storedAmountDue : 0;
   const amountPaid = Math.max(0, Number(row.amount_paid || 0));
   const outstanding = Math.max(0, amountDue - amountPaid);
   return {
@@ -32,10 +38,11 @@ const serializePayment = (row: any) => {
     venue: row.venue || null,
     evening_status: String(row.evening_status || ''),
     attendance_status: String(row.attendance_status || 'pending'),
+    payment_expected: paymentExpected,
     amount_due: amountDue,
     amount_paid: amountPaid,
     outstanding,
-    payment_status: normalizePaymentStatus(amountDue, amountPaid, row.payment_status),
+    payment_status: paymentExpected ? normalizePaymentStatus(amountDue, amountPaid, row.payment_status) : 'waived',
     updated_at: row.updated_at || null,
   };
 };
@@ -50,7 +57,7 @@ router.get('/payments', async (req, res) => {
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
     const rows = await db.all<any>(`
-      SELECT ep.id AS participant_id, ep.evening_id, ep.payment_status,
+      SELECT ep.id AS participant_id, ep.evening_id, ep.registration_status, ep.payment_status,
              ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
              e.title, e.starts_at, e.venue, e.status AS evening_status
         FROM evening_participants ep
@@ -60,7 +67,9 @@ router.get('/payments', async (req, res) => {
        LIMIT 200
     `, [playerId]);
 
-    const items = rows.map(serializePayment);
+    const items = rows
+      .map(serializePayment)
+      .filter((item) => item.payment_expected || item.amount_paid > 0);
     const current = items.filter((item) => item.evening_status !== 'completed' || item.outstanding > 0);
     const history = items.filter((item) => item.evening_status === 'completed' && item.outstanding === 0);
     const summary = items.reduce((acc, item) => {
@@ -101,7 +110,8 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
 
     const result = await db.transaction(async (tx) => {
       const participant = await tx.get<any>(`
-        SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status,
+        SELECT ep.id, ep.player_id, ep.registration_status, ep.attendance_status,
+               ep.amount_due, ep.amount_paid, ep.payment_status,
                e.id AS evening_id, e.title, e.status AS evening_status
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id
@@ -110,6 +120,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
       `, [participantId, playerId]);
       if (!participant) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
       if (String(participant.evening_status) === 'cancelled') throw Object.assign(new Error('Отменённый вечер оплачивать не нужно'), { statusCode: 409 });
+      if (!isPaymentExpected(participant)) throw Object.assign(new Error('Для этого вечера оплата не ожидается'), { statusCode: 409 });
       if (Number(participant.amount_paid || 0) > 0) throw Object.assign(new Error('Бесплатный вечер нельзя применить после частичной оплаты'), { statusCode: 409 });
       if (Number(participant.amount_due || 0) <= 0 || ['paid', 'waived'].includes(String(participant.payment_status))) {
         throw Object.assign(new Error('Этот вечер уже закрыт по оплате'), { statusCode: 409 });

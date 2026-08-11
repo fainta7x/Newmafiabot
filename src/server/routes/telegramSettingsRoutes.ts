@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import {
   requestBotDestinationTest,
@@ -28,6 +29,13 @@ const sanitizeInviteUrl = (value: unknown): string | null => {
   return text.slice(0, 500);
 };
 
+const routingForFormat = (format: unknown): string[] => {
+  const normalized = normalizeEveningFormat(format);
+  if (normalized === 'NOVICE') return ['public', 'novice'];
+  if (normalized === 'CASUAL') return ['public', 'club'];
+  return ['rating'];
+};
+
 router.get('/', async (req, res) => {
   try {
     const db = (req as any).db;
@@ -52,6 +60,45 @@ router.get('/', async (req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить Telegram-настройки' });
+  }
+});
+
+router.get('/evenings/:eveningId', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const evening = await db.get('SELECT id, format, status, settled_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
+    if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
+    const desiredIds = ['published', 'active'].includes(String(evening.status)) && !evening.settled_at
+      ? routingForFormat(evening.format)
+      : [];
+    const destinations = await db.all(
+      `SELECT id, name, chat_id, topic_id, active FROM telegram_destinations`,
+    );
+    const publications = await db.all(
+      `SELECT destination_id, chat_id, topic_id, message_id, sent_at, updated_at
+         FROM evening_telegram_publications WHERE evening_id = ?`,
+      [req.params.eveningId],
+    );
+    const pubById = new Map(publications.map((item: any) => [String(item.destination_id), item]));
+    res.json({
+      canonical_format: normalizeEveningFormat(evening.format),
+      desired_destination_ids: desiredIds,
+      destinations: desiredIds.map((id) => {
+        const config = destinations.find((item: any) => String(item.id) === id) || {};
+        const publication = pubById.get(id) || null;
+        return {
+          id,
+          name: config.name || id,
+          active: Boolean(config.active),
+          configured: Boolean(String(config.chat_id || '').trim()),
+          published: Boolean(publication),
+          message_id: publication?.message_id || null,
+          updated_at: publication?.updated_at || null,
+        };
+      }),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось загрузить статус Telegram-публикации' });
   }
 });
 

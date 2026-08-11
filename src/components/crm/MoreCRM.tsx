@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart3, ChevronRight, ClipboardList, Database, Dice5, Gamepad2, LogOut, Palette } from 'lucide-react';
+import { ArrowLeft, BarChart3, ChevronRight, ClipboardList, Database, Dice5, Gamepad2, LogOut, Palette, Send } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
+import { TelegramCRM } from './TelegramCRM.tsx';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -12,7 +13,7 @@ interface MoreCRMProps {
   onLogout: () => void | Promise<void>;
 }
 
-type Subscreen = 'data' | 'betting' | null;
+type Subscreen = 'data' | 'betting' | 'telegram' | null;
 
 export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenTasks,
@@ -33,7 +34,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         >
           <ArrowLeft className="h-4 w-4" /> Назад в «Ещё»
         </button>
-        {subscreen === 'data' ? <DataSettingsCRM /> : <BettingAdminCRM />}
+        {subscreen === 'data' ? <DataSettingsCRM /> : subscreen === 'betting' ? <BettingAdminCRM /> : <TelegramCRM />}
       </div>
     );
   }
@@ -41,6 +42,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   const items = [
     { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, удержание и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+    { id: 'telegram', label: 'Telegram', detail: 'Каналы, темы и автоматическая публикация событий', icon: Send, onClick: () => setSubscreen('telegram') },
     { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, ручные начисления и правка базы', icon: Database, onClick: () => setSubscreen('data') },
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, ставки игроков, выплаты, возвраты и пересчёт', icon: Dice5, onClick: () => setSubscreen('betting') },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },

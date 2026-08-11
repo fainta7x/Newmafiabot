@@ -55,14 +55,14 @@ router.get('/payments', async (req, res) => {
              e.title, e.starts_at, e.venue, e.status AS evening_status
         FROM evening_participants ep
         JOIN game_evenings e ON e.id = ep.evening_id
-       WHERE ep.player_id = ?
+       WHERE ep.player_id = ? AND e.status <> 'cancelled'
        ORDER BY COALESCE(e.starts_at, ep.created_at) DESC, ep.created_at DESC
        LIMIT 200
     `, [playerId]);
 
     const items = rows.map(serializePayment);
-    const current = items.filter((item) => !['completed', 'cancelled'].includes(item.evening_status) || item.outstanding > 0);
-    const history = items.filter((item) => ['completed', 'cancelled'].includes(item.evening_status) && item.outstanding === 0);
+    const current = items.filter((item) => item.evening_status !== 'completed' || item.outstanding > 0);
+    const history = items.filter((item) => item.evening_status === 'completed' && item.outstanding === 0);
     const summary = items.reduce((acc, item) => {
       acc.amount_due += item.amount_due;
       acc.amount_paid += item.amount_paid;

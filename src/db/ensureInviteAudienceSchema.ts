@@ -13,9 +13,11 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
     "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('novice','club','tournament')",
   );
 
+  // Turso's exec compatibility splits scripts on semicolons. CREATE TRIGGER must be sent
+  // as one complete statement, so use run() just like the Telegram publishing triggers.
   // Historical databases use `club` as the column default. Preserve existing players,
   // but make every future organizer-created CRM profile enter through the novice path.
-  await db.exec(`
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice
     AFTER INSERT ON players
     WHEN NEW.source = 'crm_manual'

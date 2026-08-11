@@ -118,7 +118,7 @@ describe('Official tournament PNG export', () => {
     expect(modalSource).toContain("exportType: 'game' | 'standings' | 'official'");
     expect(modalSource).toContain('requestSeqRef');
     expect(modalSource).toContain('clearPreview();');
-    expect(modalSource).toContain('navigator.canShare({ files: [shareFile] })');
+    expect(modalSource).toContain('return navigatorLike.canShare({ files });');
     expect(modalSource).not.toContain('window.location.href');
     expect(modalSource).not.toContain('renderSvgToPngDataUrl');
     expect(officialSource).toContain('Сформировать итоговый PNG');

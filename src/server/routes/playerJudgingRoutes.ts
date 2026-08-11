@@ -1,8 +1,5 @@
-import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
-import gamesRoutes from './gamesRoutes.ts';
-import tournamentsRoutes from './tournamentsRoutes.ts';
-import tournamentProtocolRoutes from './tournamentProtocolRoutes.ts';
+import { Router, type Request, type Response } from 'express';
+import { getPlayerSessionId } from '../auth.ts';
 import {
   judgeLevelAllowsEveningFormat,
   normalizeJudgeLevel,
@@ -148,102 +145,5 @@ router.get('/judging', async (req, res) => {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить судейство' });
   }
 });
-
-const clubDelegateGate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const playerId = requirePlayer(req, res);
-  if (!playerId) return;
-  if (req.method !== 'PUT' || !/^\/\d+\/evening-protocol$/.test(req.path)) {
-    return res.status(403).json({ error: 'Эта операция не входит в полномочия ведущего' });
-  }
-
-  try {
-    const gameId = Number(req.path.split('/')[1]);
-    const db = (req as any).db;
-    const game = await db.get(`
-      SELECT g.*, e.format AS evening_format
-        FROM games g
-        JOIN game_evenings e ON e.id = g.evening_id
-       WHERE g.id = ?
-    `, [gameId]);
-    if (!game) return res.status(404).json({ error: 'Игра не найдена' });
-    if (String(game.judge_player_id || '') !== playerId) return res.status(403).json({ error: 'Вы не назначены ведущим этой игры' });
-    const player = await db.get('SELECT judge_level FROM players WHERE id = ?', [playerId]);
-    if (!judgeLevelAllowsEveningFormat(player?.judge_level, game.evening_format)) {
-      return res.status(403).json({ error: 'Ваш уровень ведущего недостаточен для этого формата' });
-    }
-    const current = safeJsonParse<any>(game.protocol_text, null);
-    if (current?.protocol?.status === 'completed') {
-      return res.status(409).json({ error: 'Завершённую игру может корректировать только организатор' });
-    }
-    req.delegatedOrganizerAccess = true;
-    req.delegatedPlayerId = playerId;
-    return next();
-  } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось проверить полномочия ведущего' });
-  }
-};
-
-const tournamentDelegateGate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const playerId = requirePlayer(req, res);
-  if (!playerId) return;
-
-  const path = req.path;
-  const detailMatch = path.match(/^\/([^/]+)$/);
-  const rolesMatch = path.match(/^\/([^/]+)\/games\/([^/]+)\/roles$/);
-  const startMatch = path.match(/^\/([^/]+)\/games\/([^/]+)\/start$/);
-  const protocolMatch = path.match(/^\/([^/]+)\/games\/([^/]+)\/protocol$/);
-  const completeMatch = path.match(/^\/([^/]+)\/games\/([^/]+)\/protocol\/complete$/);
-
-  const allowedShape =
-    (req.method === 'GET' && detailMatch) ||
-    (req.method === 'PATCH' && rolesMatch) ||
-    (req.method === 'POST' && startMatch) ||
-    ((req.method === 'GET' || req.method === 'PUT') && protocolMatch) ||
-    (req.method === 'POST' && completeMatch);
-  if (!allowedShape) return res.status(403).json({ error: 'Эта операция не входит в полномочия судьи' });
-
-  const match = detailMatch || rolesMatch || startMatch || protocolMatch || completeMatch;
-  const tournamentId = match?.[1];
-  const gameId = match?.[2] || null;
-
-  try {
-    const db = (req as any).db;
-    const player = await db.get('SELECT judge_level FROM players WHERE id = ?', [playerId]);
-    if (normalizeJudgeLevel(player?.judge_level) !== 'judge') {
-      return res.status(403).json({ error: 'Турнирные игры доступны только игроку со званием «Судья»' });
-    }
-
-    if (gameId) {
-      const game = await db.get(
-        'SELECT tg.*, t.status AS tournament_status FROM tournament_games tg JOIN tournaments t ON t.id = tg.tournament_id WHERE tg.id = ? AND tg.tournament_id = ?',
-        [gameId, tournamentId],
-      );
-      if (!game) return res.status(404).json({ error: 'Турнирная игра не найдена' });
-      if (String(game.judge_player_id || '') !== playerId) return res.status(403).json({ error: 'Вы не назначены судьёй этой игры' });
-      const isMutation = req.method !== 'GET';
-      if (isMutation && game.tournament_status !== 'active') {
-        return res.status(409).json({ error: 'Проводить игру можно только в активном турнире' });
-      }
-      if (isMutation && game.status === 'completed') {
-        return res.status(409).json({ error: 'Завершённую игру может корректировать только организатор' });
-      }
-    } else {
-      const assigned = await db.get(
-        'SELECT 1 AS ok FROM tournament_games WHERE tournament_id = ? AND judge_player_id = ? LIMIT 1',
-        [tournamentId, playerId],
-      );
-      if (!assigned) return res.status(403).json({ error: 'В этом турнире у вас нет назначенных игр' });
-    }
-
-    req.delegatedOrganizerAccess = true;
-    req.delegatedPlayerId = playerId;
-    return next();
-  } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось проверить полномочия судьи' });
-  }
-};
-
-router.use('/judging/delegated/games', clubDelegateGate, gamesRoutes);
-router.use('/judging/delegated/tournaments', tournamentDelegateGate, tournamentsRoutes, tournamentProtocolRoutes);
 
 export default router;

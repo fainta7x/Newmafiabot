@@ -119,7 +119,9 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
       const result = await request(`/api/evenings/${encodeURIComponent(eveningId)}/announce`, { method: 'POST' });
       const sent = Number(result?.dm?.sent || 0);
       const failed = Number(result?.dm?.failed || 0);
-      setMessage(`Рассылка завершена: доставлено ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
+      setMessage(result?.queued
+        ? `Сейчас доставлено ${sent}. Остальная рассылка сохранена в очереди — бот повторит автоматически.`
+        : `Рассылка завершена: доставлено ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
       await load(true);
     } catch (err: any) {
       setError(err?.message || 'Не удалось отправить анонс');
@@ -135,7 +137,9 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
       const result = await request(`/api/evenings/${encodeURIComponent(eveningId)}/remind-unanswered`, { method: 'POST' });
       const sent = Number(result?.sent || 0);
       const failed = Number(result?.failed || 0);
-      setMessage(`Напоминания отправлены: ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
+      setMessage(result?.queued
+        ? `Сейчас отправлено ${sent}. Остальные напоминания сохранены в очереди — бот повторит автоматически без дублей.`
+        : `Напоминания отправлены: ${sent}${failed ? `, ошибок ${failed}` : ''}.`);
       await load(true);
     } catch (err: any) {
       setError(err?.message || 'Не удалось отправить напоминания');

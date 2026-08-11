@@ -50,14 +50,26 @@ export async function ensureEveningAnnouncementTrackingSchema(db: Db): Promise<v
       last_reminded_at TEXT,
       last_reminder_message_id INTEGER,
       last_reminder_error TEXT,
+      last_reminder_campaign INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (evening_id, player_id)
     );
 
+    CREATE TABLE IF NOT EXISTS evening_reminder_campaign_state (
+      evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id) ON DELETE CASCADE,
+      generation INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_evening_announcement_tracking_evening
       ON evening_announcement_dm_tracking(evening_id, delivery_status);
   `);
+
+  const columns = await db.all<any>('PRAGMA table_info(evening_announcement_dm_tracking)');
+  if (!columns.some((column: any) => String(column.name) === 'last_reminder_campaign')) {
+    await db.run('ALTER TABLE evening_announcement_dm_tracking ADD COLUMN last_reminder_campaign INTEGER NOT NULL DEFAULT 0');
+  }
 
   const now = new Date().toISOString();
   await db.run(
@@ -76,6 +88,33 @@ export async function ensureEveningAnnouncementTrackingSchema(db: Db): Promise<v
   );
 }
 
+export async function getReminderCampaignGeneration(db: Db, eveningId: string): Promise<number> {
+  await ensureEveningAnnouncementTrackingSchema(db);
+  const row = await db.get(
+    'SELECT generation FROM evening_reminder_campaign_state WHERE evening_id = ?',
+    [eveningId],
+  );
+  return Number(row?.generation || 0);
+}
+
+export async function beginReminderCampaign(db: Db, eveningId: string): Promise<number> {
+  await ensureEveningAnnouncementTrackingSchema(db);
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO evening_reminder_campaign_state (evening_id, generation, updated_at)
+     VALUES (?, 1, ?)
+     ON CONFLICT(evening_id) DO UPDATE SET
+       generation = evening_reminder_campaign_state.generation + 1,
+       updated_at = excluded.updated_at`,
+    [eveningId, now],
+  );
+  const row = await db.get(
+    'SELECT generation FROM evening_reminder_campaign_state WHERE evening_id = ?',
+    [eveningId],
+  );
+  return Number(row?.generation || 1);
+}
+
 const loadEvening = async (db: Db, eveningId: string) => db.get(
   `SELECT id, title, starts_at, venue, format, status, settled_at
      FROM game_evenings WHERE id = ?`,
@@ -90,7 +129,7 @@ const loadAudienceRows = async (db: Db, eveningId: string) => db.all(
       t.first_message_id, t.first_sent_at, t.delivery_status,
       t.last_attempt_at, t.last_error, t.reminder_count,
       t.last_reminder_attempt_at, t.last_reminded_at,
-      t.last_reminder_message_id, t.last_reminder_error,
+      t.last_reminder_message_id, t.last_reminder_error, t.last_reminder_campaign,
       CASE WHEN t.player_id IS NULL THEN 0 ELSE 1 END AS tracked
     FROM players p
     LEFT JOIN evening_participants ep
@@ -127,6 +166,7 @@ const audience = async (db: Db, eveningId: string) => {
       last_reminded_at: row.last_reminded_at || null,
       last_reminder_message_id: row.last_reminder_message_id == null ? null : Number(row.last_reminder_message_id),
       last_reminder_error: row.last_reminder_error || null,
+      last_reminder_campaign: Number(row.last_reminder_campaign || 0),
       eligible_now: isCurrentlyEligible(row, evening),
     }));
   return { evening, players };
@@ -153,10 +193,17 @@ export async function loadInitialAnnouncementRecipients(db: Db, eveningId: strin
 export async function loadReminderRecipients(db: Db, eveningId: string) {
   const { evening, players } = await audience(db, eveningId);
   if (!evening) return null;
+  const campaignGeneration = await getReminderCampaignGeneration(db, eveningId);
   return {
     evening,
+    campaign_generation: campaignGeneration,
     recipients: players
-      .filter((player: any) => player.eligible_now && player.first_sent_at && player.response_status === 'unanswered')
+      .filter((player: any) => (
+        player.eligible_now
+        && player.first_sent_at
+        && player.response_status === 'unanswered'
+        && (campaignGeneration <= 0 || player.last_reminder_campaign !== campaignGeneration)
+      ))
       .map((player: any) => ({
         id: player.id,
         nickname: player.nickname,
@@ -164,6 +211,7 @@ export async function loadReminderRecipients(db: Db, eveningId: string) {
         telegram_username: player.telegram_username,
         reminder_count: player.reminder_count,
         last_reminded_at: player.last_reminded_at,
+        campaign_generation: campaignGeneration,
       })),
   };
 }
@@ -289,6 +337,7 @@ export async function recordReminderAttempt(
     [input.eveningId, input.playerId],
   );
   if (!current) throw new Error('Первичная доставка анонса не найдена');
+  const campaignGeneration = await getReminderCampaignGeneration(db, input.eveningId);
 
   await db.run(
     `UPDATE evening_announcement_dm_tracking
@@ -298,6 +347,7 @@ export async function recordReminderAttempt(
             last_reminded_at = CASE WHEN ? = 1 THEN ? ELSE last_reminded_at END,
             last_reminder_message_id = CASE WHEN ? = 1 THEN ? ELSE last_reminder_message_id END,
             last_reminder_error = ?,
+            last_reminder_campaign = CASE WHEN ? = 1 AND ? > 0 THEN ? ELSE last_reminder_campaign END,
             updated_at = ?
       WHERE evening_id = ? AND player_id = ?`,
     [
@@ -309,10 +359,13 @@ export async function recordReminderAttempt(
       input.success ? 1 : 0,
       input.success && input.telegramMessageId ? Number(input.telegramMessageId) : null,
       error,
+      input.success ? 1 : 0,
+      campaignGeneration,
+      campaignGeneration,
       now,
       input.eveningId,
       input.playerId,
     ],
   );
-  return { success: true, attempted_at: now };
+  return { success: true, attempted_at: now, campaign_generation: campaignGeneration };
 }

@@ -42,6 +42,22 @@ const eveningOutboxUpsertSql = (entityExpression: string) => `
     last_error = NULL;
 `;
 
+const tournamentDispatchUpsertSql = (entityExpression: string) => `
+  INSERT INTO telegram_dispatch_outbox
+    (dispatch_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+  VALUES
+    ('tournament:' || ${entityExpression}, 'tournament', ${entityExpression}, 1, 0,
+     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL, NULL, NULL)
+  ON CONFLICT(dispatch_key) DO UPDATE SET
+    entity_id = excluded.entity_id,
+    version = telegram_dispatch_outbox.version + 1,
+    attempt_count = 0,
+    requested_at = excluded.requested_at,
+    last_attempt_at = NULL,
+    next_attempt_at = NULL,
+    last_error = NULL;
+`;
+
 export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS telegram_destinations (
@@ -90,12 +106,26 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
       last_error TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS telegram_dispatch_outbox (
+      dispatch_key TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('tournament', 'announcement', 'reminder')),
+      entity_id TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      requested_at TEXT NOT NULL,
+      last_attempt_at TEXT,
+      next_attempt_at TEXT,
+      last_error TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_evening_telegram_publications_destination
       ON evening_telegram_publications(destination_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_tournament_telegram_publications_destination
       ON tournament_telegram_publications(destination_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_telegram_sync_outbox_due
       ON telegram_sync_outbox(next_attempt_at, requested_at);
+    CREATE INDEX IF NOT EXISTS idx_telegram_dispatch_outbox_due
+      ON telegram_dispatch_outbox(next_attempt_at, requested_at);
   `);
 
   // Keep CREATE TRIGGER as single statements. Turso's exec compatibility splits scripts on semicolons,
@@ -119,6 +149,7 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     AFTER DELETE ON game_evenings
     BEGIN
       DELETE FROM telegram_sync_outbox WHERE sync_key = 'evening:' || OLD.id;
+      DELETE FROM telegram_dispatch_outbox WHERE dispatch_key IN ('announcement:' || OLD.id, 'reminder:' || OLD.id);
       INSERT INTO telegram_sync_outbox
         (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
       VALUES
@@ -157,6 +188,67 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     WHEN EXISTS (SELECT 1 FROM game_evenings WHERE id = OLD.evening_id)
     BEGIN
       ${eveningOutboxUpsertSql('OLD.evening_id')}
+    END
+  `);
+
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_tournament_telegram_dispatch_update
+    AFTER UPDATE OF title, date, venue, stage, status, chief_judge_name, notes, game_count
+    ON tournaments
+    WHEN NEW.status <> 'draft'
+      OR EXISTS (SELECT 1 FROM tournament_telegram_publications WHERE tournament_id = NEW.id)
+    BEGIN
+      ${tournamentDispatchUpsertSql('NEW.id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_tournament_participant_telegram_dispatch_insert
+    AFTER INSERT ON tournament_participants
+    WHEN EXISTS (
+      SELECT 1 FROM tournaments t
+       WHERE t.id = NEW.tournament_id
+         AND (t.status <> 'draft' OR EXISTS (
+           SELECT 1 FROM tournament_telegram_publications p WHERE p.tournament_id = t.id
+         ))
+    )
+    BEGIN
+      ${tournamentDispatchUpsertSql('NEW.tournament_id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_tournament_participant_telegram_dispatch_update
+    AFTER UPDATE OF player_id, display_name, participant_number, tournament_id
+    ON tournament_participants
+    WHEN EXISTS (
+      SELECT 1 FROM tournaments t
+       WHERE t.id = NEW.tournament_id
+         AND (t.status <> 'draft' OR EXISTS (
+           SELECT 1 FROM tournament_telegram_publications p WHERE p.tournament_id = t.id
+         ))
+    )
+    BEGIN
+      ${tournamentDispatchUpsertSql('NEW.tournament_id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_tournament_participant_telegram_dispatch_delete
+    AFTER DELETE ON tournament_participants
+    WHEN EXISTS (
+      SELECT 1 FROM tournaments t
+       WHERE t.id = OLD.tournament_id
+         AND (t.status <> 'draft' OR EXISTS (
+           SELECT 1 FROM tournament_telegram_publications p WHERE p.tournament_id = t.id
+         ))
+    )
+    BEGIN
+      ${tournamentDispatchUpsertSql('OLD.tournament_id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_tournament_telegram_dispatch_delete
+    AFTER DELETE ON tournaments
+    BEGIN
+      DELETE FROM telegram_dispatch_outbox WHERE dispatch_key = 'tournament:' || OLD.id;
     END
   `);
 

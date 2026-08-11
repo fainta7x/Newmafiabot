@@ -1,38 +1,65 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
-import { requestBotTournamentTelegramSync } from '../services/botTelegramSyncService.ts';
+import {
+  drainTelegramSyncOutbox,
+  enqueueTelegramTournamentSync,
+  getTelegramDispatchJob,
+} from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
 
-const syncInBackground = async (tournamentId: string) => {
+const nudgeTournamentSync = async (db: any, tournamentId: string, enqueue = false) => {
   try {
-    const result = await requestBotTournamentTelegramSync(tournamentId);
-    if (!result.success) console.warn('[TELEGRAM] Tournament background sync failed:', tournamentId, result.error);
+    if (enqueue) await enqueueTelegramTournamentSync(db, tournamentId);
+    await drainTelegramSyncOutbox(db, { limit: 50 });
   } catch (error) {
-    console.warn('[TELEGRAM] Tournament background sync threw:', tournamentId, error);
+    console.warn('[TELEGRAM] Tournament durable sync nudge failed:', tournamentId, error);
   }
 };
 
 router.use((req: any, res: any, next) => {
   const transition = req.path.match(/^\/([^/]+)\/(start|complete)$/);
   const participantUpdate = req.path.match(/^\/([^/]+)\/participants$/);
-  const shouldSync = (req.method === 'POST' && Boolean(transition)) || (req.method === 'PUT' && Boolean(participantUpdate));
-  if (!shouldSync) return next();
-  const tournamentId = String(transition?.[1] || participantUpdate?.[1] || '');
+  const participantCorrection = req.path.match(/^\/([^/]+)\/participants\/[^/]+\/correct-player$/);
+  const metadataUpdate = req.path.match(/^\/([^/]+)$/);
+  const shouldNudge = (
+    (req.method === 'POST' && Boolean(transition))
+    || (req.method === 'PUT' && Boolean(participantUpdate))
+    || (req.method === 'PATCH' && Boolean(participantCorrection))
+    || (req.method === 'PATCH' && Boolean(metadataUpdate))
+  );
+  if (!shouldNudge) return next();
+
+  const tournamentId = String(
+    transition?.[1]
+    || participantUpdate?.[1]
+    || participantCorrection?.[1]
+    || metadataUpdate?.[1]
+    || '',
+  );
   res.on('finish', () => {
-    if (res.statusCode >= 200 && res.statusCode < 300 && tournamentId) void syncInBackground(tournamentId);
+    if (res.statusCode < 200 || res.statusCode >= 300 || !tournamentId) return;
+    // DB triggers persist live/published tournament changes transactionally. The explicit
+    // enqueue preserves the previous behavior for a draft roster that is published manually.
+    const needsExplicitEnqueue = req.method === 'PUT' && Boolean(participantUpdate);
+    void nudgeTournamentSync(req.db, tournamentId, needsExplicitEnqueue);
   });
   next();
 });
 
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
-  const db = (req as any).db;
-  const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.id]);
-  if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
-  const result = await requestBotTournamentTelegramSync(req.params.id);
-  return res.status(result.success ? 200 : result.status || 502).json(
-    result.success ? result.data : { error: result.error, bot: result.data || null },
-  );
+  try {
+    const db = (req as any).db;
+    const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.id]);
+    if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+
+    await enqueueTelegramTournamentSync(db, req.params.id);
+    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const queued = Boolean(await getTelegramDispatchJob(db, 'tournament', req.params.id));
+    return res.json({ success: true, queued, drain });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось поставить публикацию турнира в очередь' });
+  }
 });
 
 export default router;

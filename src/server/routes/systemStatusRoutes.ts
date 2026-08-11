@@ -39,23 +39,14 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
   };
   try {
     const summary = await getTelegramSyncOutboxSummary(db);
-    const latestRetry = summary.retrying > 0
-      ? await db.get<any>(
-          `SELECT last_error, next_attempt_at
-             FROM telegram_sync_outbox
-            WHERE attempt_count > 0
-            ORDER BY last_attempt_at DESC
-            LIMIT 1`,
-        )
-      : null;
     syncQueue = {
       // A freshly queued job is normal; only jobs already waiting for a retry are degraded.
       ok: summary.retrying === 0,
       pending: summary.pending,
       retrying: summary.retrying,
       last_attempt_at: summary.lastAttemptAt,
-      next_attempt_at: latestRetry?.next_attempt_at || null,
-      last_error: latestRetry?.last_error || null,
+      next_attempt_at: summary.nextAttemptAt,
+      last_error: summary.lastError,
     };
   } catch (error: any) {
     syncQueue = {

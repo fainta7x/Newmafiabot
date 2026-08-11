@@ -38,6 +38,12 @@ export const requestBotEveningTelegramSync = async (eveningId: string) =>
 export const requestBotTournamentTelegramSync = async (tournamentId: string) =>
   postToBot(`/crm/tournaments/${encodeURIComponent(tournamentId)}/sync-telegram`);
 
+export const requestBotEveningAnnouncement = async (eveningId: string) =>
+  postToBot(`/crm/evenings/${encodeURIComponent(eveningId)}/announce`);
+
+export const requestBotEveningReminders = async (eveningId: string) =>
+  postToBot(`/crm/evenings/${encodeURIComponent(eveningId)}/remind-unanswered`);
+
 export const requestBotPublicRouterSync = async () =>
   postToBot('/crm/telegram/sync-public');
 

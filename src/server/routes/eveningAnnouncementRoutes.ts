@@ -1,13 +1,22 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
-import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
-import { requestBotEveningTelegramSync } from '../services/botTelegramSyncService.ts';
-import { drainTelegramSyncOutbox } from '../services/telegramSyncOutboxService.ts';
+import {
+  beginReminderCampaign,
+  getReminderCampaignGeneration,
+  loadAnnouncementOverview,
+  loadReminderRecipients,
+} from '../services/eveningAnnouncementTrackingService.ts';
+import {
+  drainTelegramSyncOutbox,
+  enqueueTelegramAnnouncement,
+  enqueueTelegramEveningSync,
+  enqueueTelegramReminder,
+  getTelegramDispatchJob,
+} from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
-const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
 
-// This router is mounted before the evening CRUD router. The database trigger records the
+// This router is mounted before the evening CRUD router. Database triggers record the
 // sync intent transactionally; this middleware only nudges the durable outbox immediately
 // after a successful response so normal updates still feel instant.
 router.use((req: any, res: any, next) => {
@@ -30,50 +39,20 @@ router.use((req: any, res: any, next) => {
   next();
 });
 
-const botConnection = () => ({
-  url: String(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL).trim().replace(/\/+$/, ''),
-  secret: String(process.env.BOT_API_SECRET || '').trim(),
-});
-
-async function proxyBotAction(req: any, res: any, action: 'announce' | 'announce-group' | 'remind-unanswered') {
-  try {
-    const db = req.db;
-    const evening = await db.get(
-      'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
-      [req.params.id],
-    );
-    if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
-      return res.status(409).json({ error: 'Действие доступно только для опубликованного или активного вечера' });
-    }
-
-    const connection = botConnection();
-    if (!connection.url || !connection.secret) {
-      return res.status(503).json({ error: 'Связь web → bot ещё не настроена' });
-    }
-
-    const response = await fetch(
-      `${connection.url}/crm/evenings/${encodeURIComponent(req.params.id)}/${action}`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Bot-Token': connection.secret,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-
-    let payload: any = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = { error: 'Бот вернул некорректный ответ' };
-    }
-
-    return res.status(response.status).json(payload);
-  } catch (error: any) {
-    return res.status(502).json({ error: error?.message || 'Не удалось связаться с Telegram-ботом' });
+async function loadActionableEvening(db: any, eveningId: string) {
+  const evening = await db.get(
+    'SELECT id, status, settled_at FROM game_evenings WHERE id = ?',
+    [eveningId],
+  );
+  if (!evening) return { error: 'Игровой вечер не найден', status: 404 as const, evening: null };
+  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    return {
+      error: 'Действие доступно только для опубликованного или активного вечера',
+      status: 409 as const,
+      evening: null,
+    };
   }
+  return { error: null, status: 200 as const, evening };
 }
 
 router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) => {
@@ -87,17 +66,103 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
 });
 
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
-  const db = (req as any).db;
-  const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
-  if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
-  const result = await requestBotEveningTelegramSync(req.params.id);
-  return res.status(result.success ? 200 : result.status || 502).json(
-    result.success ? result.data : { error: result.error, bot: result.data || null },
-  );
+  try {
+    const db = (req as any).db;
+    const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
+    if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
+    await enqueueTelegramEveningSync(db, req.params.id);
+    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const queued = Boolean(await db.get(
+      'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
+      [`evening:${req.params.id}`],
+    ));
+    return res.json({ success: true, queued, drain });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось поставить Telegram-синхронизацию в очередь' });
+  }
 });
 
-router.post('/:id/announce', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'announce'));
-router.post('/:id/announce-group', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'announce-group'));
-router.post('/:id/remind-unanswered', requireOrganizerAuth, (req, res) => proxyBotAction(req, res, 'remind-unanswered'));
+router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const availability = await loadActionableEvening(db, req.params.id);
+    if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
+
+    const before = await loadAnnouncementOverview(db, req.params.id);
+    await enqueueTelegramAnnouncement(db, req.params.id);
+    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const queued = Boolean(await getTelegramDispatchJob(db, 'announcement', req.params.id));
+    const after = await loadAnnouncementOverview(db, req.params.id);
+    const sentBefore = Number(before?.summary?.sent || 0);
+    const sentAfter = Number(after?.summary?.sent || 0);
+
+    return res.json({
+      success: true,
+      queued,
+      drain,
+      dm: {
+        sent: Math.max(0, sentAfter - sentBefore),
+        failed: Number(after?.summary?.failed || 0),
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось поставить личную рассылку в очередь' });
+  }
+});
+
+router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const availability = await loadActionableEvening(db, req.params.id);
+    if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
+
+    await enqueueTelegramEveningSync(db, req.params.id);
+    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const queued = Boolean(await db.get(
+      'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
+      [`evening:${req.params.id}`],
+    ));
+    return res.json({ success: true, queued, drain });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось поставить групповую публикацию в очередь' });
+  }
+});
+
+router.post('/:id/remind-unanswered', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const availability = await loadActionableEvening(db, req.params.id);
+    if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
+
+    const existing = await getTelegramDispatchJob(db, 'reminder', req.params.id);
+    const campaignGeneration = existing
+      ? await getReminderCampaignGeneration(db, req.params.id)
+      : await beginReminderCampaign(db, req.params.id);
+
+    await enqueueTelegramReminder(db, req.params.id);
+    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const queued = Boolean(await getTelegramDispatchJob(db, 'reminder', req.params.id));
+    const remaining = await loadReminderRecipients(db, req.params.id);
+    const sentInCampaign = campaignGeneration > 0
+      ? await db.get<any>(
+          `SELECT COUNT(*) AS count
+             FROM evening_announcement_dm_tracking
+            WHERE evening_id = ? AND last_reminder_campaign = ?`,
+          [req.params.id, campaignGeneration],
+        )
+      : null;
+
+    return res.json({
+      success: true,
+      queued,
+      drain,
+      campaign_generation: campaignGeneration,
+      sent: Number(sentInCampaign?.count || 0),
+      failed: queued ? Number(remaining?.recipients?.length || 0) : 0,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось поставить напоминания в очередь' });
+  }
+});
 
 export default router;

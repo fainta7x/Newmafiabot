@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 type Achievement = {
   id: string;
@@ -52,6 +53,31 @@ type RatingResponse = {
   players: RatingPlayer[];
 };
 
+type EveningResponseStatus = 'going' | 'late' | 'thinking' | 'declined';
+
+type PlayerEvening = {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+  venue: string | null;
+  format: string;
+  status: string;
+  capacity: number | null;
+  default_price: number | null;
+  notes: string | null;
+  response_status: EveningResponseStatus | 'unanswered' | string;
+  registration_status: string;
+  attending_count: number;
+  thinking_count: number;
+};
+
+type PlayerEveningsResponse = {
+  player_id: string;
+  game_level: string;
+  evenings: PlayerEvening[];
+};
+
 export type PlayerMeResponse = {
   player: {
     id: string;
@@ -60,6 +86,7 @@ export type PlayerMeResponse = {
     telegram_username: string | null;
     elo: number;
     tokens: number;
+    game_level: string;
     avatar_url: string | null;
   };
   achievements: {
@@ -88,6 +115,18 @@ const formatDate = (value: string | null) => {
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 };
 
+const formatEveningDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+};
+
 const roleLabel = (role: string | null) => {
   if (role === 'citizen') return 'Мирный';
   if (role === 'sheriff') return 'Шериф';
@@ -110,6 +149,13 @@ const pointLabels = (game: TournamentGame) => [
   game.penalty_points ? `штраф ${game.penalty_points}` : null,
   game.disciplinary_penalty_points ? `дисц. ${game.disciplinary_penalty_points}` : null,
 ].filter(Boolean) as string[];
+
+const RESPONSE_OPTIONS: Array<{ status: EveningResponseStatus; label: string }> = [
+  { status: 'going', label: '✅ Иду' },
+  { status: 'late', label: '⏳ Приду позже' },
+  { status: 'thinking', label: '🤔 Пока думаю' },
+  { status: 'declined', label: '❌ Не иду' },
+];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -146,6 +192,9 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
   const { player, achievements, tournaments } = data;
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [ratingError, setRatingError] = useState<string | null>(null);
+  const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
+  const [eveningsError, setEveningsError] = useState<string | null>(null);
+  const [savingEveningId, setSavingEveningId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +213,46 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
     })();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/player/evenings', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игровые вечера');
+        if (!cancelled) {
+          setEvenings(Array.isArray((body as PlayerEveningsResponse).evenings) ? (body as PlayerEveningsResponse).evenings : []);
+          setEveningsError(null);
+        }
+      } catch (error: any) {
+        if (!cancelled) setEveningsError(error?.message || 'Не удалось загрузить игровые вечера');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const respondToEvening = async (eveningId: string, status: EveningResponseStatus) => {
+    setSavingEveningId(eveningId);
+    try {
+      const response = await fetch(`/api/player/evenings/${encodeURIComponent(eveningId)}/respond`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response_status: status }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить ответ');
+      setEvenings((current) => (current || []).map((evening) =>
+        evening.id === eveningId ? { ...evening, response_status: status, registration_status: status } : evening
+      ));
+      setEveningsError(null);
+    } catch (error: any) {
+      setEveningsError(error?.message || 'Не удалось сохранить ответ');
+    } finally {
+      setSavingEveningId(null);
+    }
+  };
 
   const earnedAchievements = achievements.categories.flatMap((category) =>
     category.achievements
@@ -206,6 +295,56 @@ export default function PlayerCabinet({ data, canOpenAdmin = false }: { data: Pl
             <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div>
           </div>
         </header>
+
+        <Section title="Ближайшие игры">
+          {eveningsError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">{eveningsError}</p>}
+          {evenings === null ? (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p>
+          ) : evenings.length ? (
+            <div className="space-y-3">
+              {evenings.map((evening) => {
+                const format = normalizeEveningFormat(evening.format);
+                const saving = savingEveningId === evening.id;
+                return (
+                  <article key={evening.id} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{evening.title}</div>
+                        <div className="mt-1 text-xs text-white/45">{formatEveningDate(evening.starts_at)}</div>
+                        {evening.venue && <div className="mt-1 truncate text-xs text-white/35">📍 {evening.venue}</div>}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] font-medium text-white/60">
+                        {EVENING_FORMAT_LABELS[format]}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-white/40">
+                      <span>Идут: {evening.attending_count}</span>
+                      {evening.default_price != null && <span>{Number(evening.default_price)} ₽</span>}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {RESPONSE_OPTIONS.map((option) => {
+                        const selected = evening.response_status === option.status;
+                        return (
+                          <button
+                            key={option.status}
+                            type="button"
+                            disabled={saving}
+                            onClick={() => void respondToEvening(evening.id, option.status)}
+                            className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium transition ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-white/[0.05] text-white/70'} ${saving ? 'opacity-50' : ''}`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сейчас нет доступных игровых вечеров.</p>
+          )}
+        </Section>
 
         <Section title="ELO клуба">
           {ratingError ? (

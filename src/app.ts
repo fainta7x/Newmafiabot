@@ -11,6 +11,7 @@ import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
+import { ensureTelegramPublishingSchema } from './db/ensureTelegramPublishingSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
@@ -49,6 +50,8 @@ import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSett
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
+import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
+import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
@@ -87,6 +90,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentDistanceSchema(db);
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
+  await ensureTelegramPublishingSchema(db);
   try {
     await reconcileTokenOpeningBalances(db);
   } catch (error) {
@@ -124,6 +128,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerBettingRoutes);
   app.use('/api/player', playerPaymentRoutes);
   app.use('/api/admin-data', adminDataRoutes);
+  app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
@@ -152,6 +157,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/tournaments', tournamentAwardsRoutes);
   app.use('/api/bot', botRoutes);
   app.use('/api/bot', botAnnouncementRoutes);
+  app.use('/api/bot', botTelegramRoutes);
 
   app.use('/api/*', (_req, res) => {
     res.status(404).json({ error: 'API endpoint not found' });

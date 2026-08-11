@@ -2,10 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { ensureEloSeedSchema } from '../db/ensureEloSeedSchema.ts';
 import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
-import {
-  PlayerRegistrationError,
-  registerNewPlayer,
-} from '../server/services/playerRegistrationService.ts';
+import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 
 let db: DatabaseWrapper | null = null;
 
@@ -71,7 +68,7 @@ describe('canonical Telegram player registration', () => {
     await expect(registerNewPlayer(database, {
       telegramUserId: 222,
       nickname: 'матроскина',
-    })).rejects.toMatchObject<Partial<PlayerRegistrationError>>({
+    })).rejects.toMatchObject({
       code: 'nickname_taken',
       status: 409,
     });

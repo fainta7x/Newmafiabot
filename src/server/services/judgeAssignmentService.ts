@@ -1,8 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { judgeLevelAtLeast, normalizeJudgeLevel, type JudgeLevel } from '../../db/ensureJudgeAuthoritySchema.ts';
 
 export interface JudgeAssignmentInput {
   judge_player_id?: string | null;
   judge_name?: string | null;
+  required_level?: JudgeLevel;
 }
 
 export interface ResolvedJudgeAssignment {
@@ -18,6 +20,13 @@ const normalizeOptionalText = (value: unknown): string | null => {
   return text || null;
 };
 
+const JUDGE_LEVEL_LABELS: Record<JudgeLevel, string> = {
+  none: 'нет полномочий',
+  trainee: 'Начинающий ведущий',
+  host: 'Ведущий',
+  judge: 'Судья',
+};
+
 export async function resolveJudgeAssignment(
   db: DatabaseWrapper,
   input: JudgeAssignmentInput,
@@ -30,12 +39,19 @@ export async function resolveJudgeAssignment(
     };
   }
 
-  const player = await db.get<{ id: string; nickname: string }>(
-    'SELECT id, nickname FROM players WHERE id = ?',
+  const player = await db.get<{ id: string; nickname: string; judge_level?: string | null }>(
+    'SELECT id, nickname, judge_level FROM players WHERE id = ?',
     [judgePlayerId],
   );
   if (!player) {
     throw new JudgeAssignmentError('Игрок-судья не найден в CRM');
+  }
+
+  if (input.required_level && !judgeLevelAtLeast(player.judge_level, input.required_level)) {
+    const actual = normalizeJudgeLevel(player.judge_level);
+    throw new JudgeAssignmentError(
+      `${player.nickname}: уровень «${JUDGE_LEVEL_LABELS[actual]}» недостаточен. Требуется «${JUDGE_LEVEL_LABELS[input.required_level]}»`,
+    );
   }
 
   return {

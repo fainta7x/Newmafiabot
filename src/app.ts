@@ -17,6 +17,7 @@ import playerGameDetailRoutes from './server/routes/playerGameDetailRoutes.ts';
 import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.ts';
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
+import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
@@ -99,6 +100,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerRatingPeriodRoutes);
   app.use('/api/player', playerEconomyRoutes);
   app.use('/api/player', playerBettingRoutes);
+  app.use('/api/player', playerPaymentRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);

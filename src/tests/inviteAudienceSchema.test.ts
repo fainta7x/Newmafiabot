@@ -46,7 +46,6 @@ describe('invite audience schema', () => {
     };
 
     await expect(ensureInviteAudienceSchema(db)).resolves.toBeUndefined();
-    expect(schema.get('players')).toEqual(expect.objectContaining(new Set()));
     expect(schema.get('players')?.has('game_level')).toBe(true);
     expect(schema.get('players')?.has('contact_status')).toBe(true);
     expect(schema.get('players')?.has('do_not_invite_until')).toBe(true);

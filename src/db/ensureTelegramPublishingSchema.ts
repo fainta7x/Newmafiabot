@@ -134,6 +134,32 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     END
   `);
 
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_participant_telegram_sync_insert
+    AFTER INSERT ON evening_participants
+    WHEN EXISTS (SELECT 1 FROM game_evenings WHERE id = NEW.evening_id)
+    BEGIN
+      ${eveningOutboxUpsertSql('NEW.evening_id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_participant_telegram_sync_update
+    AFTER UPDATE OF evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status
+    ON evening_participants
+    WHEN EXISTS (SELECT 1 FROM game_evenings WHERE id = NEW.evening_id)
+    BEGIN
+      ${eveningOutboxUpsertSql('NEW.evening_id')}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_participant_telegram_sync_delete
+    AFTER DELETE ON evening_participants
+    WHEN EXISTS (SELECT 1 FROM game_evenings WHERE id = OLD.evening_id)
+    BEGIN
+      ${eveningOutboxUpsertSql('OLD.evening_id')}
+    END
+  `);
+
   const now = new Date().toISOString();
   for (const destination of DEFAULT_DESTINATIONS) {
     await db.run(

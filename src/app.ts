@@ -38,6 +38,7 @@ import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
+import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
 import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
@@ -129,6 +130,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
   app.use('/api/games', organizerBettingRoutes);
   app.use('/api/games', gamesRoutes);
+  app.use('/api/tournaments', judgeAuthorityAdminRoutes);
   app.use('/api/tournaments', flexibleTournamentResultsRoutes);
   app.use('/api/tournaments', tournamentsRoutes);
   app.use('/api/tournaments', protocolImportsRoutes);

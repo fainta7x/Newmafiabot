@@ -1,8 +1,9 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { DEFAULT_ELO_SEED } from '../../db/ensureEloSeedSchema.ts';
 import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { eveningFormatAffectsElo } from '../../lib/eveningFormat.ts';
 
-export const DEFAULT_ELO = 1000;
+export const DEFAULT_ELO = DEFAULT_ELO_SEED;
 
 export type EloTeam = 'red' | 'black';
 
@@ -181,8 +182,15 @@ export interface EloRebuildRow {
 export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<EloRebuildRow[]> {
   const { getFlexibleTournamentStandings: internalGetStandings } = await import('./flexibleTournamentStandingsService.ts');
 
-  const players = await db.all<any>('SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id');
+  const players = await db.all<any>(
+    'SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed FROM players ORDER BY nickname COLLATE NOCASE, id',
+    [DEFAULT_ELO],
+  );
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const seedByPlayer = new Map<string, number>(players.map((player) => {
+    const seed = Number(player.elo_seed);
+    return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
+  }));
   const events: PreparedEloEvent[] = [];
 
   const tournaments = await db.all<any>(`
@@ -295,25 +303,30 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     || a.sourceId.localeCompare(b.sourceId),
   );
 
-  const ratings = new Map<string, number>(players.map((player) => [String(player.id), DEFAULT_ELO]));
+  const ratings = new Map<string, number>(players.map((player) => [
+    String(player.id),
+    seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO,
+  ]));
   const gameCounts = new Map<string, number>();
 
   for (const event of events) {
     const gamePlayers: CanonicalEloGamePlayer[] = event.players.map((player) => ({
       ...player,
-      elo: ratings.get(player.playerId) ?? DEFAULT_ELO,
+      elo: ratings.get(player.playerId) ?? seedByPlayer.get(player.playerId) ?? DEFAULT_ELO,
     }));
     const deltas = calculateCanonicalEloGame(gamePlayers, event.winnerTeam);
     for (const delta of deltas) {
-      ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? DEFAULT_ELO) + delta.totalDelta);
+      const fallbackSeed = seedByPlayer.get(delta.playerId) ?? DEFAULT_ELO;
+      ratings.set(delta.playerId, (ratings.get(delta.playerId) ?? fallbackSeed) + delta.totalDelta);
       gameCounts.set(delta.playerId, (gameCounts.get(delta.playerId) || 0) + 1);
     }
   }
 
   await db.transaction(async (tx) => {
-    await tx.run('UPDATE players SET elo = ?', [DEFAULT_ELO]);
-    for (const [playerId, rating] of ratings) {
-      if (!gameCounts.get(playerId)) continue;
+    for (const player of players) {
+      const playerId = String(player.id);
+      const seed = seedByPlayer.get(playerId) ?? DEFAULT_ELO;
+      const rating = ratings.get(playerId) ?? seed;
       await tx.run('UPDATE players SET elo = ? WHERE id = ?', [Math.round(rating), playerId]);
     }
   });
@@ -323,7 +336,7 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     .map((player) => ({
       player_id: String(player.id),
       nickname: String(player.nickname || 'Игрок'),
-      elo: Math.round(ratings.get(String(player.id)) ?? DEFAULT_ELO),
+      elo: Math.round(ratings.get(String(player.id)) ?? seedByPlayer.get(String(player.id)) ?? DEFAULT_ELO),
       games: gameCounts.get(String(player.id)) || 0,
     }))
     .sort((a, b) => b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru'));

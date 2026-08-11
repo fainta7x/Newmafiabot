@@ -122,14 +122,28 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
     ].slice(0, 12);
   }, [dashboard]);
 
-  const handleClubUpdated = (updated: ClubGameRecord) => {
-    setClubLiveGame(null);
-    setClubProtocolGame(null);
+  const patchClubInDashboard = (updated: ClubGameRecord) => {
     setDashboard((current) => current ? {
       ...current,
-      club_games: current.club_games.map((game) => game.id === updated.id ? { ...game, ...updated, can_conduct: updated.status !== 'completed' && game.can_conduct } : game),
+      club_games: current.club_games.map((game) => game.id === updated.id
+        ? { ...game, ...updated, can_conduct: updated.status !== 'completed' && game.can_conduct }
+        : game),
     } : current);
+  };
+
+  const handleClubLiveUpdated = (updated: ClubGameRecord) => {
+    patchClubInDashboard(updated);
+    setClubLiveGame(null);
     void reload();
+  };
+
+  const handleClubProtocolUpdated = (updated: ClubGameRecord) => {
+    patchClubInDashboard(updated);
+    setClubProtocolGame((current) => current ? ({ ...current, ...updated } as JudgingClubGame) : current);
+    if (updated.status === 'completed') {
+      setClubProtocolGame(null);
+      void reload();
+    }
   };
 
   const openTournament = async (game: JudgingTournamentGame) => {
@@ -163,7 +177,7 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
   };
 
   if (clubLiveGame) {
-    return <EveningLiveGameModal game={clubLiveGame} onClose={() => setClubLiveGame(null)} onUpdated={handleClubUpdated} />;
+    return <EveningLiveGameModal game={clubLiveGame} onClose={() => setClubLiveGame(null)} onUpdated={handleClubLiveUpdated} />;
   }
 
   if (clubProtocolGame) {
@@ -171,8 +185,8 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
       <EveningGameProtocolModal
         game={clubProtocolGame}
         isOpen={true}
-        onClose={() => setClubProtocolGame(null)}
-        onUpdated={handleClubUpdated}
+        onClose={() => { setClubProtocolGame(null); void reload(); }}
+        onUpdated={handleClubProtocolUpdated}
       />
     );
   }

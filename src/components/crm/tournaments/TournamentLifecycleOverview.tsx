@@ -1,15 +1,10 @@
 import React from 'react';
-import { AlertCircle, CheckCircle2, ClipboardCheck, Play, RotateCcw, Trophy, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ClipboardCheck, Trophy, Users } from 'lucide-react';
 import type { Tournament } from '../../../lib/api.ts';
-
-type TournamentTab = 'organization' | 'games' | 'standings' | 'nominations';
 
 interface TournamentLifecycleOverviewProps {
   tournament: Tournament;
-  onNavigate: (tab: TournamentTab) => void;
-  onStart: () => void;
-  onComplete: () => void;
-  onReopen: () => void;
+  onOpenWorkspace: () => void;
 }
 
 const statusLabel = (status: Tournament['status']) => {
@@ -21,10 +16,7 @@ const statusLabel = (status: Tournament['status']) => {
 
 export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewProps> = ({
   tournament,
-  onNavigate,
-  onStart,
-  onComplete,
-  onReopen,
+  onOpenWorkspace,
 }) => {
   const games = tournament.games || [];
   const completedGames = games.filter((game) => game.status === 'completed').length;
@@ -32,7 +24,6 @@ export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewPr
   const completedProtocols = games.filter((game) => game.protocol_status === 'completed').length;
   const draftProtocols = games.filter((game) => game.protocol_status === 'draft').length;
   const participants = tournament.participants?.length ?? tournament.participants_count ?? 0;
-
   const startReady = Boolean(tournament.start_readiness?.ready);
   const completeReady = Boolean(tournament.complete_readiness?.isReady);
   const blockers = tournament.status === 'draft'
@@ -41,39 +32,18 @@ export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewPr
       ? (tournament.complete_readiness?.errors || [])
       : [];
 
-  let actionLabel = 'Открыть игры';
-  let actionDisabled = false;
-  let action: () => void = () => onNavigate('games');
-
-  if (tournament.status === 'draft') {
-    if (startReady) {
-      actionLabel = 'Запустить турнир';
-      action = onStart;
-    } else {
-      actionLabel = 'Исправить подготовку';
-      action = () => onNavigate('organization');
-    }
-  } else if (tournament.status === 'active') {
-    if (completeReady) {
-      actionLabel = 'Завершить турнир';
-      action = onComplete;
-    } else if (activeGame) {
-      actionLabel = `Продолжить игру №${activeGame.game_number}`;
-      action = () => onNavigate('games');
-    } else {
+  let actionLabel = 'Открыть турнир ↓';
+  if (tournament.status === 'draft') actionLabel = startReady ? 'Готов к запуску ↓' : 'Исправить подготовку ↓';
+  if (tournament.status === 'active') {
+    if (completeReady) actionLabel = 'Готов к завершению ↓';
+    else if (activeGame) actionLabel = `Продолжить игру №${activeGame.game_number} ↓`;
+    else {
       const nextGame = games.find((game) => game.status === 'planned');
-      actionLabel = nextGame ? `Перейти к игре №${nextGame.game_number}` : 'Проверить завершение';
-      action = () => onNavigate(nextGame ? 'games' : 'organization');
+      actionLabel = nextGame ? `Следующая игра №${nextGame.game_number} ↓` : 'Проверить завершение ↓';
     }
-  } else if (tournament.status === 'correction') {
-    actionLabel = completeReady ? 'Завершить корректировку' : 'Открыть игры для исправления';
-    action = completeReady ? onComplete : () => onNavigate('games');
-  } else {
-    actionLabel = 'Открыть итоговую таблицу';
-    action = () => onNavigate('standings');
   }
-
-  if (!games.length && tournament.status !== 'draft') actionDisabled = true;
+  if (tournament.status === 'correction') actionLabel = completeReady ? 'Можно завершать исправления ↓' : 'Исправить результаты ↓';
+  if (tournament.status === 'completed') actionLabel = 'Открыть результаты ↓';
 
   const progress = games.length ? Math.round((completedGames / games.length) * 100) : 0;
 
@@ -107,9 +77,8 @@ export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewPr
         </div>
         <button
           type="button"
-          disabled={actionDisabled}
-          onClick={action}
-          className="min-h-[44px] shrink-0 rounded-[12px] bg-accent px-4 text-[12px] font-black text-white disabled:opacity-40"
+          onClick={onOpenWorkspace}
+          className="min-h-[44px] shrink-0 rounded-[12px] bg-accent px-4 text-[12px] font-black text-white"
         >
           {actionLabel}
         </button>
@@ -159,12 +128,6 @@ export const TournamentLifecycleOverview: React.FC<TournamentLifecycleOverviewPr
             {blockers.map((error, index) => <li key={`${index}:${error}`}>• {error}</li>)}
           </ul>
         </details>
-      ) : null}
-
-      {tournament.status === 'completed' ? (
-        <button type="button" onClick={onReopen} className="mt-4 inline-flex min-h-[40px] items-center gap-2 rounded-[11px] border border-warning/25 bg-warning-soft px-3 text-[11px] font-bold text-warning">
-          <RotateCcw className="h-4 w-4" /> Вернуть на корректировку
-        </button>
       ) : null}
     </section>
   );

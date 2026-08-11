@@ -15,6 +15,7 @@ type AnnouncementPlayer = {
   reminder_count: number;
   last_reminded_at: string | null;
   last_reminder_error: string | null;
+  eligible_now: boolean;
   attention_status: 'answered' | 'unanswered' | 'failed' | 'not_sent';
 };
 
@@ -102,7 +103,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
   useEffect(() => { void load(); }, [eveningId]);
 
   const attentionPlayers = useMemo(
-    () => (overview?.players || []).filter((player) => player.attention_status !== 'answered'),
+    () => (overview?.players || []).filter((player) => player.eligible_now && player.attention_status !== 'answered'),
     [overview],
   );
 
@@ -112,7 +113,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
 
   const sendAnnouncement = async () => {
     if (busy || !canSend || pendingInitial <= 0) return;
-    if (!window.confirm(`Отправить личный анонс ${pendingInitial} игрокам?\n\nУже успешно получившим анонс повторное сообщение не уйдёт.`)) return;
+    if (!window.confirm(`Отправить личный анонс ${pendingInitial} игрокам?\n\nУже ответившим и уже успешно получившим анонс повторное сообщение не уйдёт.`)) return;
     setBusy('announce'); setError(null); setMessage(null);
     try {
       const result = await request(`/api/evenings/${encodeURIComponent(eveningId)}/announce`, { method: 'POST' });
@@ -170,7 +171,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
         {!canSend && status === 'draft' ? <div className="mt-3 rounded-[12px] bg-accent-soft px-3 py-2 text-[11px] text-text-secondary">Личная рассылка станет доступна после публикации вечера.</div> : null}
 
         {canSend ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {pendingInitial > 0 ? <button type="button" disabled={Boolean(busy)} onClick={() => void sendAnnouncement()} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] bg-accent px-3 text-[11px] font-bold text-white disabled:opacity-50"><Send className="h-4 w-4" />{busy === 'announce' ? 'Рассылаем…' : `Разослать / повторить · ${pendingInitial}`}</button> : <div className="flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] bg-success-soft px-3 text-[11px] font-bold text-success"><CheckCircle2 className="h-4 w-4" /> Всем доступным отправлено</div>}
+          {pendingInitial > 0 ? <button type="button" disabled={Boolean(busy)} onClick={() => void sendAnnouncement()} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] bg-accent px-3 text-[11px] font-bold text-white disabled:opacity-50"><Send className="h-4 w-4" />{busy === 'announce' ? 'Рассылаем…' : `Разослать / повторить · ${pendingInitial}`}</button> : <div className="flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] bg-success-soft px-3 text-[11px] font-bold text-success"><CheckCircle2 className="h-4 w-4" /> Некого приглашать дополнительно</div>}
           <button type="button" disabled={Boolean(busy) || overview.summary.unanswered === 0} onClick={() => void remindUnanswered()} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-primary disabled:opacity-40"><BellRing className="h-4 w-4" />{busy === 'remind' ? 'Напоминаем…' : `Напомнить неответившим · ${overview.summary.unanswered}`}</button>
         </div> : null}
 
@@ -180,7 +181,7 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
         </button>
 
         {expanded ? <div className="mt-2 space-y-2">
-          {attentionPlayers.length === 0 ? <div className="rounded-[12px] bg-success-soft px-3 py-3 text-[11px] text-success">Все получившие анонс уже ответили.</div> : attentionPlayers.map((player) => {
+          {attentionPlayers.length === 0 ? <div className="rounded-[12px] bg-success-soft px-3 py-3 text-[11px] text-success">Сейчас никого не нужно догонять.</div> : attentionPlayers.map((player) => {
             const chatUrl = personalChatUrl(player, personalMessage);
             const sentAt = dateTime(player.first_sent_at);
             const remindedAt = dateTime(player.last_reminded_at);

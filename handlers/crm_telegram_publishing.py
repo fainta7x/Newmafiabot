@@ -31,12 +31,17 @@ _FORMAT_LABELS = {
     "TOURNAMENT": "Турнир",
 }
 
+_MONTHS_RU = (
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+)
+
 
 def _format_start(value: object) -> str:
     raw = str(value or "")
     try:
         parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        return parsed.strftime("%d.%m.%Y · %H:%M")
+        return f"{parsed.day} {_MONTHS_RU[parsed.month - 1]} · {parsed:%H:%M}"
     except (TypeError, ValueError):
         return raw or "Дата уточняется"
 
@@ -49,10 +54,13 @@ def _price(value: object) -> str | None:
     return f"{amount} ₽" if amount > 0 else None
 
 
-async def _bot_url(bot: Bot) -> str | None:
+async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
     try:
         me = await bot.get_me()
-        return f"https://t.me/{me.username}" if me.username else None
+        if not me.username:
+            return None
+        base = f"https://t.me/{me.username}"
+        return f"{base}?start={start}" if start else base
     except Exception:
         return None
 
@@ -61,9 +69,8 @@ def _grouped_participants(participants: list[dict]) -> dict[str, list[str]]:
     grouped = {key: [] for key in _RESPONSE_LABELS}
     for participant in participants:
         status = str(participant.get("response_status") or "")
-        if status not in grouped:
-            continue
-        grouped[status].append(str(participant.get("nickname") or "Игрок"))
+        if status in grouped:
+            grouped[status].append(str(participant.get("nickname") or "Игрок"))
     return grouped
 
 
@@ -105,7 +112,14 @@ def _thematic_event_text(evening: dict, participants: list[dict]) -> str:
 
 def _public_event_text(evening: dict) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL")
-    intro = "🌱 Новичкам — можно начать здесь." if canonical_format == "NOVICE" else "🎲 Уже умеете играть? Присоединяйтесь к клубному вечеру."
+    if canonical_format == "NOVICE":
+        intro = "🌱 <b>Игра для новичков</b> — можно спокойно начать со Школы мафии."
+    else:
+        intro = (
+            "🎭 <b>Клубный игровой вечер</b>\n"
+            "Для игроков, уже знакомых со спортивной мафией. "
+            "Доступ в основной клуб — после подтверждения организатора."
+        )
     return f"{intro}\n\n{_event_base_text(evening)}"
 
 
@@ -119,12 +133,19 @@ def _closed_text(evening: dict, cancelled: bool = False, obsolete: bool = False)
     return f"{heading}\n\n{_event_base_text(evening)}"
 
 
-def _public_event_keyboard(route_url: str | None, bot_url: str | None, novice: bool) -> InlineKeyboardMarkup | None:
+def _public_event_keyboard(
+    school_url: str | None,
+    bot_url: str | None,
+    club_access_url: str | None,
+    novice: bool,
+) -> InlineKeyboardMarkup | None:
     rows: list[list[InlineKeyboardButton]] = []
-    if route_url:
-        rows.append([InlineKeyboardButton(text="🌱 Школа мафии" if novice else "🎭 Основной клуб", url=route_url)])
+    if novice and school_url:
+        rows.append([InlineKeyboardButton(text="🌱 Школа мафии", url=school_url)])
+    if not novice and club_access_url:
+        rows.append([InlineKeyboardButton(text="🎭 Проверить доступ в основной клуб", url=club_access_url)])
     if bot_url:
-        rows.append([InlineKeyboardButton(text="🤖 Записаться через MafiaBot", url=bot_url)])
+        rows.append([InlineKeyboardButton(text="🤖 Записаться на игру", url=bot_url)])
     return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
@@ -192,10 +213,9 @@ async def sync_evening_telegram(
     publications = {str(item.get("destination_id")): item for item in (plan.get("publications") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
     bot_url = await _bot_url(bot)
+    club_access_url = await _bot_url(bot, "club_access")
     results: list[dict] = []
 
-    # Existing publications that are no longer routed to this event are retained as history,
-    # but clearly marked non-current and stripped of interactive controls.
     for destination_id, publication in publications.items():
         if destination_id in desired:
             continue
@@ -221,11 +241,12 @@ async def sync_evening_telegram(
         canonical_format = str(evening.get("canonical_format") or "CASUAL")
 
         if is_public:
-            route_destination = destinations.get("novice" if canonical_format == "NOVICE" else "club") or {}
+            novice_destination = destinations.get("novice") or {}
             text = _public_event_text(evening)
             keyboard = _public_event_keyboard(
-                str(route_destination.get("invite_url") or "").strip() or None,
+                str(novice_destination.get("invite_url") or "").strip() or None,
                 bot_url,
+                club_access_url,
                 canonical_format == "NOVICE",
             )
         else:
@@ -268,10 +289,7 @@ async def sync_evening_telegram(
             print(f"[TELEGRAM PUBLISH] Failed to send {destination_id} for {evening_id}: {exc}")
             results.append({"destination_id": destination_id, "action": "create_failed", "success": False, "error": str(exc)})
 
-    router_result = None
-    if refresh_router:
-        router_result = await sync_public_router(bot)
-
+    router_result = await sync_public_router(bot) if refresh_router else None
     failures = [item for item in results if not item.get("success")]
     return {
         "success": not failures,
@@ -281,10 +299,10 @@ async def sync_evening_telegram(
     }
 
 
-def _router_event_block(title: str, evening: dict | None) -> list[str]:
+def _router_event_block(title: str, empty_text: str, evening: dict | None) -> list[str]:
     if not evening:
-        return [title, "Новая дата скоро появится."]
-    lines = [title, f"📅 {_format_start(evening.get('starts_at'))}"]
+        return [title, empty_text]
+    lines = [title, f"Ближайшая игра: <b>{_format_start(evening.get('starts_at'))}</b>"]
     if evening.get("venue"):
         lines.append(f"📍 {escape(str(evening.get('venue')))}")
     return lines
@@ -301,31 +319,39 @@ async def sync_public_router(bot: Bot) -> dict:
         return {"success": True, "skipped": True, "reason": "public_destination_disabled"}
 
     novice_destination = payload.get("novice_destination") or {}
-    club_destination = payload.get("club_destination") or {}
     novice_evening = payload.get("novice_evening")
     club_evening = payload.get("club_evening")
     bot_url = await _bot_url(bot)
+    club_access_url = await _bot_url(bot, "club_access")
 
     lines = [
         "🎭 <b>Спортивная мафия в Туле | 2LA Noire</b>",
         "",
-        "Вы попали в клуб спортивной мафии в Туле. Выберите свой путь:",
+        "Хотите поиграть? Выберите подходящий вариант:",
         "",
-        *_router_event_block("🌱 <b>Я новичок или играл совсем немного</b>", novice_evening),
+        *_router_event_block(
+            "🌱 <b>Я новичок или играл совсем немного</b>",
+            "Ближайшая игра для новичков пока не назначена.",
+            novice_evening,
+        ),
         "",
-        *_router_event_block("🎲 <b>Я уже умею играть в спортивную мафию</b>", club_evening),
+        *_router_event_block(
+            "🎭 <b>Я уже играю в спортивную мафию</b>",
+            "Ближайший клубный вечер пока не назначен.",
+            club_evening,
+        ),
+        "Доступ в основной клуб — после подтверждения организатора.",
     ]
     text = "\n".join(lines)
 
     keyboard_rows: list[list[InlineKeyboardButton]] = []
     novice_url = str(novice_destination.get("invite_url") or "").strip()
-    club_url = str(club_destination.get("invite_url") or "").strip()
     if novice_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🌱 Вступить в Школу мафии", url=novice_url)])
-    if club_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🎭 Основной клуб", url=club_url)])
+        keyboard_rows.append([InlineKeyboardButton(text="🌱 Школа мафии", url=novice_url)])
+    if club_access_url:
+        keyboard_rows.append([InlineKeyboardButton(text="🎭 Проверить доступ в основной клуб", url=club_access_url)])
     if bot_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🤖 Открыть MafiaBot", url=bot_url)])
+        keyboard_rows.append([InlineKeyboardButton(text="🤖 Записаться на игру", url=bot_url)])
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows) if keyboard_rows else None
 
     chat_id = str(public_destination.get("chat_id")).strip()

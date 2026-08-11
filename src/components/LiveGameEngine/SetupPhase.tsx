@@ -17,6 +17,15 @@ interface SetupPhaseProps {
   validateSetupAndStart: () => void;
 }
 
+const protocolRoleToLiveRole = (value: string): "Мирный" | "Шериф" | "Мафия" | "Дон" | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'citizen' || normalized === 'мирный') return 'Мирный';
+  if (normalized === 'sheriff' || normalized === 'шериф') return 'Шериф';
+  if (normalized === 'mafia' || normalized === 'мафия') return 'Мафия';
+  if (normalized === 'don' || normalized === 'дон') return 'Дон';
+  return null;
+};
+
 export default function SetupPhase({
   players,
   judgeId,
@@ -32,15 +41,25 @@ export default function SetupPhase({
   const [showPassCardModal, setShowPassCardModal] = React.useState(false);
   const [passSlot, setPassSlot] = React.useState(1);
   const [isCardRevealed, setIsCardRevealed] = React.useState(false);
-  const eveningPrefillDone = React.useRef(false);
+  const managedPrefillDone = React.useRef(false);
   const isClubEveningEngine = players.some((player) => player.notes === '__club_evening_engine_judge__');
+  const isTournamentEngine = players.some((player) => player.notes === '__tournament_engine_judge__');
+  const isManagedEngine = isClubEveningEngine || isTournamentEngine;
 
   React.useEffect(() => {
-    if (!isClubEveningEngine || eveningPrefillDone.current) return;
+    if (!isManagedEngine || managedPrefillDone.current) return;
     if (!activePlayers.every((player) => !player.user_id)) return;
-    eveningPrefillDone.current = true;
+    managedPrefillDone.current = true;
     handleAutoFillSetupPlayers();
-  }, [isClubEveningEngine, activePlayers, handleAutoFillSetupPlayers]);
+
+    if (isTournamentEngine) {
+      players.slice(0, 10).forEach((player, index) => {
+        const match = String(player.notes || '').match(/^__tournament_role__:(.+)$/);
+        const role = match ? protocolRoleToLiveRole(match[1]) : null;
+        if (role) handleSelectSetupRole(index + 1, role);
+      });
+    }
+  }, [isManagedEngine, isTournamentEngine, activePlayers, players, handleAutoFillSetupPlayers, handleSelectSetupRole]);
 
   return (
     <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 space-y-4">
@@ -49,10 +68,10 @@ export default function SetupPhase({
           <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
             <Shield className="w-5 h-5 text-rose-500" /> Живое Судейство ФСМ
           </h2>
-          <p className="text-[10px] text-slate-500">{isClubEveningEngine ? 'Состав и ведущий уже взяты из игры вечера. Остаётся назначить роли.' : 'Укажите рассадку игроков и роли для ведения лога'}</p>
+          <p className="text-[10px] text-slate-500">{isTournamentEngine ? 'Состав, роли и судья уже взяты из турнирной игры.' : isClubEveningEngine ? 'Состав и ведущий уже взяты из игры вечера. Остаётся назначить роли.' : 'Укажите рассадку игроков и роли для ведения лога'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!isClubEveningEngine && (
+          {!isManagedEngine && (
             <button
               onClick={handleAutoFillSetupPlayers}
               className="bg-slate-880 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded cursor-pointer transition-all"
@@ -60,24 +79,28 @@ export default function SetupPhase({
               👥 Авто-игроки
             </button>
           )}
-          <button
-            onClick={handleAutoFillSetupRoles}
-            className="bg-slate-880 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded cursor-pointer transition-all"
-          >
-            🎭 Авто-роли ФСМ
-          </button>
-          <button
-            onClick={() => {
-              handleAutoFillSetupRoles();
-              setShowPassCardModal(true);
-              setPassSlot(1);
-              setIsCardRevealed(false);
-            }}
-            className="bg-purple-900/60 hover:bg-purple-800 border border-purple-500/50 text-purple-200 text-[10px] font-extrabold px-3 py-1.5 rounded cursor-pointer transition-all flex items-center gap-1.5 shadow"
-            title="Раздать карты с передачей устройства от игрока к игроку"
-          >
-            <span>📱 Тайный показ ролей</span>
-          </button>
+          {!isTournamentEngine && (
+            <>
+              <button
+                onClick={handleAutoFillSetupRoles}
+                className="bg-slate-880 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded cursor-pointer transition-all"
+              >
+                🎭 Авто-роли ФСМ
+              </button>
+              <button
+                onClick={() => {
+                  handleAutoFillSetupRoles();
+                  setShowPassCardModal(true);
+                  setPassSlot(1);
+                  setIsCardRevealed(false);
+                }}
+                className="bg-purple-900/60 hover:bg-purple-800 border border-purple-500/50 text-purple-200 text-[10px] font-extrabold px-3 py-1.5 rounded cursor-pointer transition-all flex items-center gap-1.5 shadow"
+                title="Раздать карты с передачей устройства от игрока к игроку"
+              >
+                <span>📱 Тайный показ ролей</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -87,7 +110,7 @@ export default function SetupPhase({
           <select
             value={isNaN(judgeId) || judgeId == null ? 0 : judgeId}
             onChange={(e) => setJudgeId(parseInt(e.target.value) || 0)}
-            disabled={isClubEveningEngine}
+            disabled={isManagedEngine}
             className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-xs text-slate-200 disabled:opacity-70"
           >
             <option value={0}>-- Выбрать судью --</option>
@@ -100,7 +123,7 @@ export default function SetupPhase({
         </div>
         <div className="flex items-center text-[10px] text-slate-500 leading-snug pl-1">
           <Info className="w-3.5 h-3.5 text-rose-500 mr-1.5 flex-shrink-0" />
-          {isClubEveningEngine ? 'Игра сохранится обратно в этот вечер без пересчёта старого ELO.' : 'Рассадите 10 игроков для ведения игрового протокола.'}
+          {isTournamentEngine ? 'Результат движка будет сохранён в этот же турнирный протокол.' : isClubEveningEngine ? 'Игра сохранится обратно в этот вечер через общий протокол.' : 'Рассадите 10 игроков для ведения игрового протокола.'}
         </div>
       </div>
 
@@ -110,11 +133,12 @@ export default function SetupPhase({
             .filter((p) => p.slot_num !== s.slot_num && p.user_id > 0)
             .map((p) => p.user_id);
           if (judgeId > 0) uids.push(judgeId);
-          const avail = players.filter((p) => !uids.includes(p.user_id) && p.notes !== '__club_evening_engine_judge__');
+          const avail = players.filter((p) => !uids.includes(p.user_id) && p.notes !== '__club_evening_engine_judge__' && p.notes !== '__tournament_engine_judge__');
 
           const isMir = s.role === "Мирный";
           const isSheriff = s.role === "Шериф";
           const isMafia = s.role === "Мафия";
+          const roleButtonClass = (active: boolean, activeClass: string) => `py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${isTournamentEngine ? 'cursor-default' : 'cursor-pointer'} ${active ? activeClass : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`;
 
           return (
             <div
@@ -151,7 +175,7 @@ export default function SetupPhase({
                 <select
                   value={isNaN(s.user_id) || s.user_id == null ? 0 : s.user_id}
                   onChange={(e) => handleSelectSetupPlayer(s.slot_num, parseInt(e.target.value) || 0)}
-                  disabled={isClubEveningEngine}
+                  disabled={isManagedEngine}
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500 disabled:opacity-80"
                 >
                   <option value={0}>-- Выбрать игрока --</option>
@@ -170,10 +194,10 @@ export default function SetupPhase({
               <div className="space-y-1.5">
                 <label className="text-[9px] text-slate-500 font-bold uppercase block">Роль игрока</label>
                 <div className="grid grid-cols-4 gap-1">
-                  <button type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мирный")} className={`py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${s.role === "Мирный" ? "bg-rose-500/15 border-rose-500/50 text-rose-500 scale-105 shadow-md shadow-rose-500/5" : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`} title="Красный (Мирный)"><Heart className={`w-4 h-4 ${s.role === "Мирный" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Мир</span></button>
-                  <button type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Шериф")} className={`py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${s.role === "Шериф" ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 scale-105 shadow-md shadow-emerald-500/5" : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`} title="Шериф (Красный)"><Star className={`w-4 h-4 ${s.role === "Шериф" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Шер</span></button>
-                  <button type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мафия")} className={`py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${s.role === "Мафия" ? "bg-slate-200 border-slate-400 text-slate-950 scale-105 shadow-md shadow-slate-200/5" : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`} title="Мафия (Чёрный)"><PistolIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Маф</span></button>
-                  <button type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Дон")} className={`py-1.5 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${s.role === "Дон" ? "bg-purple-500/15 border-purple-500/50 text-purple-400 scale-105 shadow-md shadow-purple-500/5" : "bg-slate-900/60 border-slate-800 text-slate-500 hover:text-slate-400 hover:bg-slate-900"}`} title="Дон (Чёрный)"><MafiaHatIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Дон</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мирный")} className={roleButtonClass(s.role === "Мирный", "bg-rose-500/15 border-rose-500/50 text-rose-500 scale-105 shadow-md shadow-rose-500/5")} title="Красный (Мирный)"><Heart className={`w-4 h-4 ${s.role === "Мирный" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Мир</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Шериф")} className={roleButtonClass(s.role === "Шериф", "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 scale-105 shadow-md shadow-emerald-500/5")} title="Шериф (Красный)"><Star className={`w-4 h-4 ${s.role === "Шериф" ? "fill-current" : ""}`} /><span className="text-[8px] font-bold">Шер</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Мафия")} className={roleButtonClass(s.role === "Мафия", "bg-slate-200 border-slate-400 text-slate-950 scale-105 shadow-md shadow-slate-200/5")} title="Мафия (Чёрный)"><PistolIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Маф</span></button>
+                  <button disabled={isTournamentEngine} type="button" onClick={() => handleSelectSetupRole(s.slot_num, "Дон")} className={roleButtonClass(s.role === "Дон", "bg-purple-500/15 border-purple-500/50 text-purple-400 scale-105 shadow-md shadow-purple-500/5")} title="Дон (Чёрный)"><MafiaHatIcon className="w-4 h-4" /><span className="text-[8px] font-bold">Дон</span></button>
                 </div>
               </div>
             </div>

@@ -3,8 +3,10 @@ import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/evening
 import type { Tournament, TournamentGame } from '../../lib/api.ts';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
+import { EveningGameProtocolModal } from '../crm/EveningGameProtocolModal.tsx';
 import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import { TournamentGameSetup } from '../crm/tournaments/TournamentGameSetup.tsx';
+import TournamentLiveGameModal from './TournamentLiveGameModal.tsx';
 
 type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
@@ -77,11 +79,13 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
   const [dashboard, setDashboard] = useState<PlayerJudgingDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [clubGame, setClubGame] = useState<JudgingClubGame | null>(null);
+  const [clubLiveGame, setClubLiveGame] = useState<JudgingClubGame | null>(null);
+  const [clubProtocolGame, setClubProtocolGame] = useState<JudgingClubGame | null>(null);
   const [tournamentGame, setTournamentGame] = useState<JudgingTournamentGame | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [tournamentLoading, setTournamentLoading] = useState(false);
   const [protocolOpen, setProtocolOpen] = useState(false);
+  const [tournamentLiveOpen, setTournamentLiveOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const reload = async () => {
@@ -118,6 +122,16 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
     ].slice(0, 12);
   }, [dashboard]);
 
+  const handleClubUpdated = (updated: ClubGameRecord) => {
+    setClubLiveGame(null);
+    setClubProtocolGame(null);
+    setDashboard((current) => current ? {
+      ...current,
+      club_games: current.club_games.map((game) => game.id === updated.id ? { ...game, ...updated, can_conduct: updated.status !== 'completed' && game.can_conduct } : game),
+    } : current);
+    void reload();
+  };
+
   const openTournament = async (game: JudgingTournamentGame) => {
     if (!game.can_conduct) return;
     setTournamentLoading(true);
@@ -138,19 +152,27 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
     }
   };
 
-  if (clubGame) {
+  const refreshTournament = async () => {
+    if (!tournamentGame) return;
+    await reload();
+    try {
+      const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentGame.tournament_id)}`, { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) setTournament(body as Tournament);
+    } catch {}
+  };
+
+  if (clubLiveGame) {
+    return <EveningLiveGameModal game={clubLiveGame} onClose={() => setClubLiveGame(null)} onUpdated={handleClubUpdated} />;
+  }
+
+  if (clubProtocolGame) {
     return (
-      <EveningLiveGameModal
-        game={clubGame}
-        onClose={() => setClubGame(null)}
-        onUpdated={(updated) => {
-          setClubGame(null);
-          setDashboard((current) => current ? {
-            ...current,
-            club_games: current.club_games.map((game) => game.id === updated.id ? { ...game, ...updated, can_conduct: false } : game),
-          } : current);
-          void reload();
-        }}
+      <EveningGameProtocolModal
+        game={clubProtocolGame}
+        isOpen={true}
+        onClose={() => setClubProtocolGame(null)}
+        onUpdated={handleClubUpdated}
       />
     );
   }
@@ -161,12 +183,12 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
 
     return (
       <div className="space-y-3">
-        <button type="button" onClick={() => { setTournamentGame(null); setTournament(null); setProtocolOpen(false); }} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/60">← К назначениям</button>
+        <button type="button" onClick={() => { setTournamentGame(null); setTournament(null); setProtocolOpen(false); setTournamentLiveOpen(false); }} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/60">← К назначениям</button>
         <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Турнир · игра №{currentGame.game_number}</div>
           <h2 className="mt-2 text-xl font-semibold text-white">{tournamentGame.tournament_title}</h2>
           <div className="mt-1 text-sm text-white/40">{formatDate(tournamentGame.tournament_date)}{tournamentGame.venue ? ` · ${tournamentGame.venue}` : ''}</div>
-          <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">Вы назначены судьёй только этой игры. Управление турниром, составом и результатами других игр недоступно.</div>
+          <div className="mt-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">Вы назначены судьёй только этой игры. Способ ведения можно выбрать после подготовки ролей и запуска игры.</div>
         </section>
 
         {feedback && <div className={`rounded-2xl px-3 py-3 text-sm ${feedback.type === 'success' ? 'bg-emerald-400/[0.08] text-emerald-100/75' : 'bg-rose-400/[0.08] text-rose-100/75'}`}>{feedback.text}</div>}
@@ -190,7 +212,8 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
                   games: current.games?.map((game) => game.id === currentGame.id ? { ...game, status: 'active' } : game),
                 } : current);
                 setTournamentGame((current) => current ? { ...current, status: 'active' } : current);
-                setProtocolOpen(true);
+                setProtocolOpen(false);
+                setTournamentLiveOpen(false);
                 void reload();
               }}
               setFeedbackMsg={setFeedback}
@@ -198,9 +221,12 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
           </section>
         ) : currentGame.status === 'active' ? (
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-            <div className="text-sm font-medium text-white">Игра идёт</div>
-            <p className="mt-1 text-sm leading-5 text-white/40">Откройте протокол и ведите голосования, ночи, фолы, ЛХ и результат игры.</p>
-            <button type="button" onClick={() => setProtocolOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">Открыть протокол игры</button>
+            <div className="text-sm font-medium text-white">Как проводить игру?</div>
+            <p className="mt-1 text-sm leading-5 text-white/40">Оба режима сохраняют один и тот же турнирный протокол и запускают одинаковые расчёты после завершения.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setTournamentLiveOpen(true)} className="min-h-12 rounded-2xl bg-white px-3 text-sm font-semibold text-black">Вести игру</button>
+              <button type="button" onClick={() => setProtocolOpen(true)} className="min-h-12 rounded-2xl border border-white/15 bg-white/[0.05] px-3 text-sm font-semibold text-white">Заполнить протокол</button>
+            </div>
           </section>
         ) : (
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/45">Игра завершена. Исправление завершённого протокола доступно только организатору.</section>
@@ -213,16 +239,19 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
           onClose={() => setProtocolOpen(false)}
           onProtocolUpdated={() => {
             setProtocolOpen(false);
-            void (async () => {
-              await reload();
-              try {
-                const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentGame.tournament_id)}`, { credentials: 'include' });
-                const body = await response.json().catch(() => ({}));
-                if (response.ok) setTournament(body as Tournament);
-              } catch {}
-            })();
+            void refreshTournament();
           }}
         />
+
+        {tournamentLiveOpen && currentGame.status === 'active' ? (
+          <TournamentLiveGameModal
+            tournamentId={tournamentGame.tournament_id}
+            gameId={String(currentGame.id)}
+            judgeName={currentGame.judge_name}
+            onClose={() => setTournamentLiveOpen(false)}
+            onCompleted={() => void refreshTournament()}
+          />
+        ) : null}
       </div>
     );
   }
@@ -261,13 +290,13 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
                   return <article key={`club:${game.id}`} className="rounded-2xl bg-black/20 p-3">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.evening_title}</div><div className="mt-1 text-xs text-white/35">Игра #{game.global_game_number} · {formatDate(game.evening_starts_at)}</div></div><span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-1 text-[10px] text-white/50">{EVENING_FORMAT_LABELS[format]}</span></div>
                     {game.table_name && <div className="mt-1 text-xs text-white/30">Стол: {game.table_name}</div>}
-                    {game.can_conduct ? <button type="button" onClick={() => setClubGame(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black">Провести игру</button> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Ваш текущий ранг не позволяет вести этот формат.</div>}
+                    {game.can_conduct ? <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setClubLiveGame(game)} className="min-h-11 rounded-xl bg-white px-2 text-xs font-semibold text-black">Вести игру</button><button type="button" onClick={() => setClubProtocolGame(game)} className="min-h-11 rounded-xl border border-white/15 bg-white/[0.05] px-2 text-xs font-semibold text-white">Заполнить протокол</button></div> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Ваш текущий ранг не позволяет вести этот формат.</div>}
                   </article>;
                 }
                 const game = assignment.game as JudgingTournamentGame;
                 return <article key={`tournament:${game.id}`} className="rounded-2xl bg-black/20 p-3">
                   <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-medium text-white">{game.tournament_title}</div><div className="mt-1 text-xs text-white/35">Игра №{game.game_number} · {formatDate(game.tournament_date)}</div></div><span className="shrink-0 rounded-full bg-amber-300/[0.08] px-2 py-1 text-[10px] text-amber-100/65">Турнир</span></div>
-                  {game.can_conduct ? <button type="button" disabled={tournamentLoading} onClick={() => void openTournament(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{tournamentLoading ? 'Открываем…' : game.status === 'active' ? 'Продолжить игру' : 'Подготовить и провести'}</button> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Проведение станет доступно после запуска турнира организатором.</div>}
+                  {game.can_conduct ? <button type="button" disabled={tournamentLoading} onClick={() => void openTournament(game)} className="mt-3 min-h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{tournamentLoading ? 'Открываем…' : game.status === 'active' ? 'Открыть игру' : 'Подготовить игру'}</button> : <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/35">Проведение станет доступно после запуска турнира организатором.</div>}
                 </article>;
               }) : <div className="rounded-2xl bg-black/20 px-3 py-8 text-center text-sm text-white/35">Сейчас у вас нет назначенных активных игр.</div>}
             </div>

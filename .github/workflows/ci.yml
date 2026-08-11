@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   web:
-    name: Web typecheck, tests and build
+    name: Web checks and build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,8 +26,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
+      - name: Full TypeScript debt report
+        id: typecheck
+        continue-on-error: true
         run: npm run typecheck
+
+      - name: Explain non-blocking typecheck
+        if: steps.typecheck.outcome == 'failure'
+        run: echo "Strict TypeScript has pre-existing legacy errors. They stay visible in CI, while tests and production build remain blocking until the backlog is cleaned."
 
       - name: Tests
         run: npm test

@@ -13,6 +13,71 @@ router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'mafia-webapp', api_version: '1' });
 });
 
+router.post('/players/link-telegram', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
+    const telegramUsernameRaw = String(req.body?.telegram_username ?? '').trim().replace(/^@/, '');
+    const nickname = String(req.body?.nickname ?? '').trim();
+
+    if (!telegramUserId || !/^\d+$/.test(telegramUserId)) {
+      return res.status(400).json({ error: 'Некорректный telegram_user_id' });
+    }
+    if (!nickname) return res.status(400).json({ error: 'Игровой ник обязателен' });
+
+    const alreadyLinked = await db.get(
+      'SELECT id, nickname, telegram_user_id FROM players WHERE telegram_user_id = ? LIMIT 1',
+      [telegramUserId],
+    );
+    if (alreadyLinked) {
+      return res.json({
+        success: true,
+        already_linked: true,
+        player: { id: alreadyLinked.id, nickname: alreadyLinked.nickname },
+      });
+    }
+
+    const matches = await db.all(
+      `SELECT id, nickname, telegram_user_id, telegram_username
+         FROM players
+        WHERE lower(trim(nickname)) = lower(trim(?))
+        ORDER BY created_at ASC`,
+      [nickname],
+    );
+
+    if (!Array.isArray(matches) || matches.length === 0) {
+      return res.status(404).json({ error: 'Профиль с таким игровым ником не найден', code: 'profile_not_found' });
+    }
+    if (matches.length !== 1) {
+      return res.status(409).json({ error: 'Найдено несколько профилей с таким ником', code: 'ambiguous_profile' });
+    }
+
+    const player = matches[0];
+    const existingTelegramId = String(player.telegram_user_id ?? '').trim();
+    if (existingTelegramId && existingTelegramId !== telegramUserId) {
+      return res.status(409).json({ error: 'Этот профиль уже привязан к другому Telegram', code: 'already_claimed' });
+    }
+
+    const now = new Date().toISOString();
+    await db.run(
+      `UPDATE players
+          SET telegram_user_id = ?,
+              telegram_username = CASE WHEN ? <> '' THEN ? ELSE telegram_username END,
+              updated_at = ?
+        WHERE id = ?`,
+      [telegramUserId, telegramUsernameRaw, telegramUsernameRaw, now, player.id],
+    );
+
+    return res.json({
+      success: true,
+      already_linked: false,
+      player: { id: player.id, nickname: player.nickname },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось привязать Telegram к профилю' });
+  }
+});
+
 router.get('/evenings/open', async (req, res) => {
   try {
     const db = (req as any).db;

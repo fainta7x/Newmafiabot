@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart3, ChevronRight, ClipboardList, Database, Gamepad2, LogOut, Palette } from 'lucide-react';
+import { ArrowLeft, BarChart3, ChevronRight, ClipboardList, Database, Dice5, Gamepad2, LogOut, Palette } from 'lucide-react';
+import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
@@ -11,6 +12,8 @@ interface MoreCRMProps {
   onLogout: () => void | Promise<void>;
 }
 
+type Subscreen = 'data' | 'betting' | null;
+
 export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenTasks,
   onOpenAnalytics,
@@ -18,19 +21,19 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenGameEngine,
   onLogout,
 }) => {
-  const [dataOpen, setDataOpen] = useState(false);
+  const [subscreen, setSubscreen] = useState<Subscreen>(null);
 
-  if (dataOpen) {
+  if (subscreen) {
     return (
       <div className="space-y-4">
         <button
           type="button"
-          onClick={() => setDataOpen(false)}
+          onClick={() => setSubscreen(null)}
           className="inline-flex min-h-10 items-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[12px] font-bold text-text-secondary"
         >
           <ArrowLeft className="h-4 w-4" /> Назад в «Ещё»
         </button>
-        <DataSettingsCRM />
+        {subscreen === 'data' ? <DataSettingsCRM /> : <BettingAdminCRM />}
       </div>
     );
   }
@@ -38,7 +41,8 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   const items = [
     { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, удержание и финансы', icon: BarChart3, onClick: onOpenAnalytics },
-    { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, ручные начисления и правка базы', icon: Database, onClick: () => setDataOpen(true) },
+    { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, ручные начисления и правка базы', icon: Database, onClick: () => setSubscreen('data') },
+    { id: 'betting', label: 'Управление ставками', detail: 'Банки, ставки игроков, выплаты, возвраты и пересчёт', icon: Dice5, onClick: () => setSubscreen('betting') },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
   ];

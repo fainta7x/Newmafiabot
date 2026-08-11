@@ -52,8 +52,20 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
       PRIMARY KEY (evening_id, destination_id)
     );
 
+    CREATE TABLE IF NOT EXISTS tournament_telegram_publications (
+      tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      destination_id TEXT NOT NULL REFERENCES telegram_destinations(id) ON DELETE CASCADE,
+      chat_id TEXT NOT NULL,
+      message_id INTEGER NOT NULL,
+      sent_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (tournament_id, destination_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_evening_telegram_publications_destination
       ON evening_telegram_publications(destination_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_tournament_telegram_publications_destination
+      ON tournament_telegram_publications(destination_id, updated_at DESC);
   `);
 
   const now = new Date().toISOString();

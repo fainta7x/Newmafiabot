@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 
@@ -20,5 +22,44 @@ describe('invite audience schema', () => {
     await expect(ensureInviteAudienceSchema(db)).resolves.toBeUndefined();
     expect(runSql.some((sql) => sql.includes('CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice'))).toBe(true);
     expect(execSql.some((sql) => sql.includes('CREATE TRIGGER'))).toBe(false);
+  });
+
+  it('adds missing organizer-critical columns to an existing Turso-like schema', async () => {
+    const schema = new Map<string, Set<string>>([
+      ['players', new Set(['id', 'source', 'lifecycle_status'])],
+      ['organizer_tasks', new Set(['id'])],
+      ['evening_participants', new Set(['id'])],
+      ['game_evenings', new Set(['id'])],
+    ]);
+    const runSql: string[] = [];
+    const db: any = {
+      all: async (sql: string) => {
+        const table = sql.match(/PRAGMA table_info\(([^)]+)\)/)?.[1] || '';
+        return [...(schema.get(table) || new Set<string>())].map((name) => ({ name }));
+      },
+      run: async (sql: string) => {
+        runSql.push(sql);
+        const alter = sql.match(/ALTER TABLE\s+(\S+)\s+ADD COLUMN\s+(\S+)/i);
+        if (alter) schema.get(alter[1])?.add(alter[2]);
+        return { changes: 0 };
+      },
+    };
+
+    await expect(ensureInviteAudienceSchema(db)).resolves.toBeUndefined();
+    expect(schema.get('players')).toEqual(expect.objectContaining(new Set()));
+    expect(schema.get('players')?.has('game_level')).toBe(true);
+    expect(schema.get('players')?.has('contact_status')).toBe(true);
+    expect(schema.get('players')?.has('do_not_invite_until')).toBe(true);
+    expect(schema.get('organizer_tasks')?.has('automation_key')).toBe(true);
+    expect(schema.get('evening_participants')?.has('table_id')).toBe(true);
+    expect(schema.get('evening_participants')?.has('response_status')).toBe(true);
+    expect(schema.get('game_evenings')?.has('settled_at')).toBe(true);
+    expect(runSql.some((sql) => sql.includes('UPDATE players SET contact_status = CASE'))).toBe(true);
+  });
+
+  it('does not query the legacy games.status column from the CRM overview', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/crmRoutes.ts'), 'utf8');
+    expect(source).not.toContain("status='completed' OR winner_team IS NOT NULL");
+    expect(source).toContain('SUM(CASE WHEN winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed');
   });
 });

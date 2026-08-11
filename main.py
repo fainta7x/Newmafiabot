@@ -23,10 +23,16 @@ from handlers import crm_booking
 from handlers import crm_evening_response
 from handlers import payment
 from handlers import profile
+from handlers import registration
 from handlers import shop
 from handlers import start_profile
 from handlers.crm_evening_announcement import send_crm_evening_announcement
 from handlers.crm_group_announcement import send_crm_group_announcement
+from handlers.crm_telegram_publishing import (
+    sync_evening_telegram,
+    sync_public_router,
+    test_telegram_destination,
+)
 
 
 class MyLoggerMiddleware(BaseMiddleware):
@@ -100,8 +106,10 @@ def _announcement_result_response(result: dict):
         return web.json_response(result)
     if result.get("error") == "closed":
         return web.json_response(result, status=409)
-    if result.get("error") in {"not_found", "evening_unavailable"}:
+    if result.get("error") in {"not_found", "evening_unavailable", "destination_not_found"}:
         return web.json_response(result, status=404)
+    if result.get("error") in {"chat_id_missing", "invalid"}:
+        return web.json_response(result, status=400)
     return web.json_response(result, status=502)
 
 
@@ -133,6 +141,40 @@ async def handle_crm_evening_announcement_request(request: web.Request):
     return _announcement_result_response(await send_crm_evening_announcement(bot, evening_id))
 
 
+async def handle_crm_telegram_sync_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+
+    evening_id = str(request.match_info.get("evening_id") or "").strip()
+    if not evening_id:
+        return web.json_response({"error": "evening_id_required"}, status=400)
+    return _announcement_result_response(await sync_evening_telegram(bot, evening_id))
+
+
+async def handle_crm_public_router_sync_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+    return _announcement_result_response(await sync_public_router(bot))
+
+
+async def handle_crm_telegram_test_request(request: web.Request):
+    global bot
+    if not _crm_request_authorized(request):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if bot is None:
+        return web.json_response({"error": "bot_not_ready"}, status=503)
+    destination_id = str(request.match_info.get("destination_id") or "").strip()
+    if not destination_id:
+        return web.json_response({"error": "destination_id_required"}, status=400)
+    return _announcement_result_response(await test_telegram_destination(bot, destination_id))
+
+
 def setup_handlers():
     """Регистрация всех хендлеров и роутеров"""
     global dp, bot
@@ -151,8 +193,9 @@ def setup_handlers():
     dp.include_router(admin_crm.router)  # новая CRM-панель организатора
     dp.include_router(admin.router)  # legacy админ-панель (/admin)
 
-    # 2. Пользовательские хендлеры
-    dp.include_router(start_profile.router)  # /start
+    # 2. Пользовательские хендлеры. Canonical registration must see /start first.
+    dp.include_router(registration.router)  # /start + новая CRM-регистрация
+    dp.include_router(start_profile.router)  # legacy профиль и остальные команды
     dp.include_router(profile.router)  # профиль
     dp.include_router(payment.router)  # оплата
     dp.include_router(crm_evening_response.router)  # CRM-ответы на анонс вечера
@@ -206,6 +249,21 @@ async def daily_backup_task():
                 await db.delete_temp_file(backup_path)
 
 
+async def public_router_refresh_task():
+    """Keep the public entry message current even when no organizer action happens."""
+    global bot
+    await asyncio.sleep(20)
+    while True:
+        if bot is not None:
+            try:
+                result = await sync_public_router(bot)
+                if not result.get("success"):
+                    logger.warning("⚠️ Не удалось обновить публичный Telegram-маршрутизатор: %s", result.get("error"))
+            except Exception as exc:
+                logger.warning("⚠️ Ошибка фонового обновления Telegram-маршрутизатора: %s", exc)
+        await asyncio.sleep(60 * 30)
+
+
 # Старт вебхуков для сервера
 async def start_webhook():
     global bot, dp
@@ -228,12 +286,17 @@ async def start_webhook():
         logger.warning(f"⚠️ [Backend API] Не удалось установить связь с бэкендом: {res.get('message')}. Бот продолжает работу в автономном режиме.")
 
     asyncio.create_task(daily_backup_task())
+    asyncio.create_task(public_router_refresh_task())
     logger.info("✅ Задача ежедневного бэкапа запущена")
+    logger.info("✅ Автообновление публичного Telegram-маршрутизатора запущено")
 
     app = web.Application()
     app.router.add_post("/webhook", handle_webhook)
     app.router.add_post("/crm/evenings/{evening_id}/announce", handle_crm_evening_announcement_request)
     app.router.add_post("/crm/evenings/{evening_id}/announce-group", handle_crm_group_announcement_request)
+    app.router.add_post("/crm/evenings/{evening_id}/sync-telegram", handle_crm_telegram_sync_request)
+    app.router.add_post("/crm/telegram/sync-public", handle_crm_public_router_sync_request)
+    app.router.add_post("/crm/telegram/test/{destination_id}", handle_crm_telegram_test_request)
     app.router.add_get("/health", lambda request: web.Response(text="OK"))
     app.on_startup.append(lambda _: on_startup())
     app.on_shutdown.append(lambda _: on_shutdown())
@@ -271,6 +334,7 @@ async def start_polling():  # запуск в режиме polling (для ло�
     await init_db()
     logger.info("✅ БД инициализирована")
     await bot.delete_webhook(drop_pending_updates=True)
+    asyncio.create_task(public_router_refresh_task())
 
     logger.info("🚀 Бот запущен в режиме polling (локально)")
     await dp.start_polling(bot)

@@ -3,6 +3,12 @@ import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import {
+  findPlayersByNickname,
+  getPlayerByTelegramId,
+  PlayerRegistrationError,
+  registerNewPlayer,
+} from '../services/playerRegistrationService.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -11,6 +17,40 @@ const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'decline
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'mafia-webapp', api_version: '1' });
+});
+
+router.get('/players/by-telegram/:telegramUserId/profile', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const player = await getPlayerByTelegramId(db, String(req.params.telegramUserId));
+    if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+    return res.json({ success: true, player });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль игрока' });
+  }
+});
+
+router.post('/players/register', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const result = await registerNewPlayer(db, {
+      telegramUserId: String(req.body?.telegram_user_id ?? '').trim(),
+      telegramUsername: String(req.body?.telegram_username ?? '').trim(),
+      fullName: String(req.body?.full_name ?? '').trim(),
+      nickname: String(req.body?.nickname ?? '').trim(),
+      source: 'telegram_bot_registration',
+    });
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      created: result.created,
+      player: result.player,
+    });
+  } catch (error: any) {
+    if (error instanceof PlayerRegistrationError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    return res.status(500).json({ error: error?.message || 'Не удалось зарегистрировать игрока' });
+  }
 });
 
 router.post('/players/link-telegram', async (req, res) => {
@@ -25,10 +65,7 @@ router.post('/players/link-telegram', async (req, res) => {
     }
     if (!nickname) return res.status(400).json({ error: 'Игровой ник обязателен' });
 
-    const alreadyLinked = await db.get(
-      'SELECT id, nickname, telegram_user_id FROM players WHERE telegram_user_id = ? LIMIT 1',
-      [telegramUserId],
-    );
+    const alreadyLinked = await getPlayerByTelegramId(db, telegramUserId);
     if (alreadyLinked) {
       return res.json({
         success: true,
@@ -37,15 +74,8 @@ router.post('/players/link-telegram', async (req, res) => {
       });
     }
 
-    const matches = await db.all(
-      `SELECT id, nickname, telegram_user_id, telegram_username
-         FROM players
-        WHERE lower(trim(nickname)) = lower(trim(?))
-        ORDER BY created_at ASC`,
-      [nickname],
-    );
-
-    if (!Array.isArray(matches) || matches.length === 0) {
+    const matches = await findPlayersByNickname(db, nickname);
+    if (matches.length === 0) {
       return res.status(404).json({ error: 'Профиль с таким игровым ником не найден', code: 'profile_not_found' });
     }
     if (matches.length !== 1) {

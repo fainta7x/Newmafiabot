@@ -37,7 +37,7 @@ async def link_crm_profile(message: Message):
     legacy_user = await database.get_user_by_id(message.from_user.id)
     if not legacy_user:
         await message.answer(
-            "Сначала нажмите /start и укажите свой игровой ник в старом профиле, затем снова отправьте /linkprofile."
+            "Сначала нажмите /start. Если профиль уже есть в клубной базе, организатор поможет привязать его без создания дубля."
         )
         return
 
@@ -45,7 +45,7 @@ async def link_crm_profile(message: Message):
     nickname = str(nickname or "").strip()
     if not nickname:
         await message.answer(
-            "В старом профиле не указан игровой ник. Сначала укажите его, затем снова отправьте /linkprofile."
+            "В старом профиле нет игрового ника. Нажмите /start — новый игрок сможет зарегистрироваться, а существующий профиль организатор привяжет вручную."
         )
         return
 
@@ -66,7 +66,7 @@ async def link_crm_profile(message: Message):
     error = result.get("error")
     if error == "profile_not_found":
         text = (
-            f"Не нашёл в CRM профиль с ником «{nickname}». Напишите организатору — он проверит, под каким ником вы сохранены."
+            f"Не нашёл в CRM профиль с ником «{nickname}». Если вы новый игрок — нажмите /start и зарегистрируйтесь. Если уже играли — напишите организатору."
         )
     elif error == "ambiguous_profile":
         text = (
@@ -171,7 +171,7 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
 
     error = result.get("error")
     if error == "not_found":
-        message = "Telegram не привязан к профилю клуба. Напишите боту /linkprofile и затем повторите ответ."
+        message = "Профиль клуба не найден. Откройте личный чат с ботом, нажмите /start и завершите регистрацию, затем повторите ответ."
     elif error == "closed":
         message = "Этот вечер уже закрыт"
     elif error == "invalid":

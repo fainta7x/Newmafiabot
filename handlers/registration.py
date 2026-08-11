@@ -74,9 +74,10 @@ async def start_with_registration(message: Message, command: CommandObject, stat
         return
 
     if canonical.get("error") != "not_found":
-        await message.answer(
-            "Не удалось проверить профиль клуба. Попробуйте /start ещё раз через минуту."
-        )
+        # Preserve legacy bot usability if the web backend is temporarily unavailable.
+        await state.clear()
+        await message.answer("⚠️ Новая клубная база временно недоступна, но бот продолжает работать.")
+        await _send_normal_start(message, command)
         return
 
     # Existing legacy users with a saved nickname can be migrated without creating a duplicate.
@@ -103,7 +104,12 @@ async def start_with_registration(message: Message, command: CommandObject, stat
     )
 
 
-@router.message(RegistrationForm.waiting_for_nickname, F.chat.type == "private")
+@router.message(
+    RegistrationForm.waiting_for_nickname,
+    F.chat.type == "private",
+    F.text,
+    ~F.text.startswith("/"),
+)
 async def finish_registration(message: Message, state: FSMContext):
     if not message.from_user:
         return

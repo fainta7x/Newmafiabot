@@ -33,7 +33,13 @@ const recalculateCi = (row: any, distanceGames: number, thresholdB: number) => {
     if (game.ci_reason === 'red_loss_full') ciPoints = rate;
     if (game.ci_reason === 'red_win_half_with_black_lh') ciPoints = roundToTwo(rate * 0.5);
     ciTotal = roundToTwo(ciTotal + ciPoints);
-    return { ...game, ci_points: ciPoints, ci_rate: rate };
+    const previousGameCi = Number(game.ci_points || 0);
+    return {
+      ...game,
+      ci_points: ciPoints,
+      ci_rate: rate,
+      game_total: roundToTwo(Number(game.game_total || 0) - previousGameCi + ciPoints),
+    };
   }) : [];
 
   const previousCi = Number(row.ci_points || 0);

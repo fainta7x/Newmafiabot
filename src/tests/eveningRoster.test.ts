@@ -21,18 +21,19 @@ const participant = (id: string, patch: Partial<EveningParticipant> = {}): Eveni
 });
 
 describe('evening roster without hard table binding', () => {
-  it('allows a participant regardless of table_id', () => {
-    expect(isEveningGameEligible(participant('A', { table_id: null }))).toBe(true);
-    expect(isEveningGameEligible(participant('B', { table_id: 'legacy-table' }))).toBe(true);
+  it('allows an actually present participant regardless of table_id', () => {
+    expect(isEveningGameEligible(participant('A', { table_id: null, attendance_status: 'attended' }))).toBe(true);
+    expect(isEveningGameEligible(participant('B', { table_id: 'legacy-table', attendance_status: 'attended' }))).toBe(true);
   });
 
-  it('excludes cancelled, waitlist and no-show players', () => {
-    expect(isEveningGameEligible(participant('A', { registration_status: 'cancelled' }))).toBe(false);
-    expect(isEveningGameEligible(participant('B', { registration_status: 'waitlist' }))).toBe(false);
-    expect(isEveningGameEligible(participant('C', { attendance_status: 'no_show' }))).toBe(false);
+  it('uses actual attendance, not the earlier response, as game eligibility', () => {
+    expect(isEveningGameEligible(participant('A', { attendance_status: 'pending' }))).toBe(false);
+    expect(isEveningGameEligible(participant('B', { attendance_status: 'no_show' }))).toBe(false);
+    expect(isEveningGameEligible(participant('C', { registration_status: 'cancelled', attendance_status: 'attended' }))).toBe(true);
+    expect(isEveningGameEligible(participant('D', { registration_status: 'waitlist', attendance_status: 'attended' }))).toBe(true);
   });
 
-  it('prioritizes attended players, then confirmed players', () => {
+  it('prioritizes actual attendance and otherwise sorts stably by nickname', () => {
     const sorted = sortEveningRoster([
       participant('registered'),
       participant('attended', { attendance_status: 'attended' }),

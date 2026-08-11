@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
@@ -133,7 +134,7 @@ export default function App() {
   }
 
   if (isAdminRoute || !isPlayerContext) {
-    return <OrganizerCRM />;
+    return <><BettingLiveBridge /><OrganizerCRM /></>;
   }
 
   if (rootState.status === 'loading') {

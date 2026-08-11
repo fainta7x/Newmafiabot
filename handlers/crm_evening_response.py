@@ -6,7 +6,9 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 import config
+import database
 from bot_api import submit_evening_response
+from bot_profile_link_api import link_legacy_profile
 from crm_evening_keyboard import crm_evening_response_kb
 from handlers.crm_group_stats import refresh_crm_group_stats
 
@@ -25,6 +27,56 @@ def _parse_starts_at(value: str) -> datetime | None:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
+
+
+@router.message(Command("linkprofile"))
+async def link_crm_profile(message: Message):
+    if not message.from_user:
+        return
+
+    legacy_user = await database.get_user_by_id(message.from_user.id)
+    if not legacy_user:
+        await message.answer(
+            "Сначала нажмите /start и укажите свой игровой ник в старом профиле, затем снова отправьте /linkprofile."
+        )
+        return
+
+    _, _, _, nickname = legacy_user
+    nickname = str(nickname or "").strip()
+    if not nickname:
+        await message.answer(
+            "В старом профиле не указан игровой ник. Сначала укажите его, затем снова отправьте /linkprofile."
+        )
+        return
+
+    result = await link_legacy_profile(
+        telegram_user_id=message.from_user.id,
+        telegram_username=message.from_user.username,
+        nickname=nickname,
+    )
+
+    if result.get("success"):
+        player = (result.get("data") or {}).get("player") or {}
+        linked_nickname = player.get("nickname") or nickname
+        await message.answer(
+            f"✅ Профиль «{linked_nickname}» привязан к вашему Telegram. Теперь можно снова нажать кнопку ответа в анонсе."
+        )
+        return
+
+    error = result.get("error")
+    if error == "profile_not_found":
+        text = (
+            f"Не нашёл в CRM профиль с ником «{nickname}». Напишите организатору — он проверит, под каким ником вы сохранены."
+        )
+    elif error == "ambiguous_profile":
+        text = (
+            f"В CRM найдено несколько профилей с ником «{nickname}». Автоматически привязывать небезопасно — напишите организатору."
+        )
+    elif error == "already_claimed":
+        text = "Этот профиль уже привязан к другому Telegram. Напишите организатору."
+    else:
+        text = "Не удалось привязать профиль сейчас. Попробуйте ещё раз позже или напишите организатору."
+    await message.answer(text)
 
 
 @router.message(Command("testcrm"))
@@ -119,7 +171,7 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
 
     error = result.get("error")
     if error == "not_found":
-        message = "Вечер или профиль не найден"
+        message = "Telegram не привязан к профилю клуба. Напишите боту /linkprofile и затем повторите ответ."
     elif error == "closed":
         message = "Этот вечер уже закрыт"
     elif error == "invalid":

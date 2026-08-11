@@ -5,6 +5,7 @@ import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
 import PlayerCabinetV2 from "./components/player/PlayerCabinetV2.tsx";
+import PlayerPayments from "./components/player/PlayerPayments.tsx";
 
 type RootState =
   | { status: 'loading' }
@@ -153,6 +154,14 @@ export default function App() {
 
   if (rootState.status === 'error') {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
+  }
+
+  if (pathname.startsWith('/player/payments')) {
+    const goHome = () => {
+      window.history.pushState({}, '', '/player');
+      setPathname('/player');
+    };
+    return <main className="min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 text-white"><PlayerPayments onBack={goHome} /></main>;
   }
 
   return <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />;

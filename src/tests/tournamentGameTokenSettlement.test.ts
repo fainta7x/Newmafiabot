@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,93 +15,58 @@ describe('tournament game token settlement', () => {
 
   beforeEach(async () => {
     dbPath = path.join(os.tmpdir(), `tournament-token-${crypto.randomUUID()}.sqlite`);
-    const raw = new Database(dbPath);
-    raw.exec(`
-      CREATE TABLE players (
-        id TEXT PRIMARY KEY,
-        nickname TEXT NOT NULL,
-        tokens INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT
-      );
-      CREATE TABLE token_ledger (
-        id TEXT PRIMARY KEY,
-        player_id TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        balance_after INTEGER NOT NULL,
-        reason_type TEXT NOT NULL,
-        description TEXT NOT NULL,
-        source_type TEXT NOT NULL,
-        source_id TEXT,
-        idempotency_key TEXT NOT NULL UNIQUE,
-        payload_hash TEXT NOT NULL,
-        actor_type TEXT,
-        actor_id TEXT,
-        metadata_json TEXT,
-        created_at TEXT NOT NULL
-      );
-      CREATE TABLE tournaments (id TEXT PRIMARY KEY, title TEXT NOT NULL);
-      CREATE TABLE tournament_games (
-        id TEXT PRIMARY KEY,
-        tournament_id TEXT NOT NULL,
-        game_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        winner_team TEXT,
-        judge_player_id TEXT,
-        completed_at TEXT
-      );
-      CREATE TABLE tournament_game_protocols (
-        game_id TEXT PRIMARY KEY,
-        status TEXT NOT NULL,
-        winner_team TEXT,
-        end_reason TEXT,
-        ppk_culprit_participant_id TEXT
-      );
-      CREATE TABLE tournament_participants (
-        id TEXT PRIMARY KEY,
-        player_id TEXT NOT NULL,
-        display_name TEXT
-      );
-      CREATE TABLE tournament_game_seats (
-        game_id TEXT NOT NULL,
-        participant_id TEXT NOT NULL,
-        seat_number INTEGER NOT NULL,
-        role TEXT
-      );
-      CREATE TABLE tournament_game_player_results (
-        game_id TEXT NOT NULL,
-        participant_id TEXT NOT NULL,
-        exit_type TEXT,
-        judge_bonus REAL,
-        protocol_bonus REAL,
-        ci_points REAL,
-        disciplinary_penalty_points REAL,
-        regular_fouls INTEGER,
-        minor_technical_fouls INTEGER,
-        major_technical_fouls INTEGER
-      );
-      CREATE TABLE tournament_game_best_moves (
-        game_id TEXT NOT NULL,
-        participant_id TEXT NOT NULL,
-        source TEXT NOT NULL,
-        seat_numbers_json TEXT NOT NULL
-      );
-    `);
-    for (let i = 1; i <= 11; i += 1) {
-      raw.prepare('INSERT INTO players (id, nickname, tokens) VALUES (?, ?, 0)').run(`p-${i}`, `P${i}`);
-    }
-    raw.prepare("INSERT INTO tournaments (id, title) VALUES ('t-1', 'Test cup')").run();
-    raw.prepare("INSERT INTO tournament_games (id, tournament_id, game_number, status, winner_team, judge_player_id) VALUES ('g-1','t-1',1,'completed','red','p-11')").run();
-    raw.prepare("INSERT INTO tournament_game_protocols (game_id,status,winner_team,end_reason,ppk_culprit_participant_id) VALUES ('g-1','completed','red','normal',NULL)").run();
-    for (let seat = 1; seat <= 10; seat += 1) {
-      raw.prepare('INSERT INTO tournament_participants (id, player_id, display_name) VALUES (?, ?, ?)').run(`tp-${seat}`, `p-${seat}`, `P${seat}`);
-      raw.prepare('INSERT INTO tournament_game_seats (game_id, participant_id, seat_number, role) VALUES (?, ?, ?, ?)').run('g-1', `tp-${seat}`, seat, roleForSeat(seat));
-      raw.prepare(`INSERT INTO tournament_game_player_results
-        (game_id,participant_id,exit_type,judge_bonus,protocol_bonus,ci_points,disciplinary_penalty_points,regular_fouls,minor_technical_fouls,major_technical_fouls)
-        VALUES ('g-1',?,'alive',0,0,0,0,0,0,0)`).run(`tp-${seat}`);
-    }
-    raw.close();
     db = createDatabaseConnection(dbPath);
     await ensureTournamentGameTokenSchema(db);
+
+    const now = new Date().toISOString();
+    for (let i = 1; i <= 11; i += 1) {
+      await db.run(
+        `INSERT INTO players
+          (id, nickname, lifecycle_status, contact_status, source, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, 'normal', 'normal', 'test', 1000, 0, ?, ?)`,
+        [`p-${i}`, `P${i}`, now, now],
+      );
+    }
+
+    await db.run(
+      `INSERT INTO tournaments (id, title, date, status, created_at, updated_at)
+       VALUES ('t-1', 'Test cup', ?, 'active', ?, ?)`,
+      [now, now, now],
+    );
+    await db.run(
+      `INSERT INTO tournament_games
+        (id, tournament_id, game_number, judge_name, judge_player_id, status, winner_team, completed_at)
+       VALUES ('g-1', 't-1', 1, 'P11', 'p-11', 'completed', 'red', ?)`,
+      [now],
+    );
+    await db.run(
+      `INSERT INTO tournament_game_protocols
+        (id, game_id, status, winner_team, end_reason, ppk_culprit_participant_id, created_at, updated_at, completed_at)
+       VALUES ('protocol-1', 'g-1', 'completed', 'red', 'normal', NULL, ?, ?, ?)`,
+      [now, now, now],
+    );
+
+    for (let seat = 1; seat <= 10; seat += 1) {
+      await db.run(
+        `INSERT INTO tournament_participants
+          (id, tournament_id, player_id, display_name, participant_number)
+         VALUES (?, 't-1', ?, ?, ?)`,
+        [`tp-${seat}`, `p-${seat}`, `P${seat}`, seat],
+      );
+      await db.run(
+        `INSERT INTO tournament_game_seats
+          (id, game_id, participant_id, seat_number, role)
+         VALUES (?, 'g-1', ?, ?, ?)`,
+        [`seat-${seat}`, `tp-${seat}`, seat, roleForSeat(seat)],
+      );
+      await db.run(
+        `INSERT INTO tournament_game_player_results
+          (id, game_id, participant_id, exit_type, judge_bonus, protocol_bonus, ci_points,
+           disciplinary_penalty_points, regular_fouls, minor_technical_fouls, major_technical_fouls)
+         VALUES (?, 'g-1', ?, 'alive', 0, 0, 0, 0, 0, 0, 0)`,
+        [`result-${seat}`, `tp-${seat}`],
+      );
+    }
   });
 
   afterEach(() => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine.tsx';
+import { GameProtocolModal } from '../crm/tournaments/GameProtocolModal.tsx';
 import type { Player as LegacyPlayer, GameSlot } from '../../types.ts';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api.ts';
 
@@ -110,19 +111,20 @@ export default function TournamentLiveGameModal({
   gameId,
   judgeName,
   onClose,
-  onPrepared,
+  onCompleted,
 }: {
   tournamentId: string;
   gameId: string;
   judgeName?: string | null;
   onClose: () => void;
-  onPrepared: () => void;
+  onCompleted: () => void;
 }) {
   const [payload, setPayload] = useState<{ protocol: TournamentGameProtocolData; player_results: PlayerResultData[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rolesHidden, setRolesHidden] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +146,21 @@ export default function TournamentLiveGameModal({
   }, [tournamentId, gameId]);
 
   const legacyPlayers = useMemo(() => payload ? buildLegacyPlayers(payload.player_results, judgeName) : [], [payload, judgeName]);
+
+  if (reviewMode) {
+    return (
+      <GameProtocolModal
+        tournamentId={tournamentId}
+        gameId={gameId}
+        isOpen={true}
+        onClose={onClose}
+        onProtocolUpdated={() => {
+          onCompleted();
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <div className={`fixed inset-0 z-[96] overflow-hidden bg-slate-950 ${rolesHidden ? 'tournament-live-roles-hidden' : ''}`}>
@@ -188,8 +205,7 @@ export default function TournamentLiveGameModal({
                 });
                 const body = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(body?.error || 'Не удалось перенести результат в турнирный протокол');
-                onPrepared();
-                onClose();
+                setReviewMode(true);
               } catch (saveError: any) {
                 setError(saveError?.message || 'Не удалось сохранить результат игры');
               } finally {

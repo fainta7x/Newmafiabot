@@ -74,6 +74,11 @@ export default function App() {
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = pathname === '/player' || pathname.startsWith('/player/') || (pathname === '/' && Boolean(telegramInitData));
 
+  const navigatePlayer = (path: string) => {
+    window.history.pushState({}, '', path);
+    setPathname(path);
+  };
+
   const bootstrapPlayer = useCallback(async () => {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     setRootState({ status: 'loading' });
@@ -157,12 +162,19 @@ export default function App() {
   }
 
   if (pathname.startsWith('/player/payments')) {
-    const goHome = () => {
-      window.history.pushState({}, '', '/player');
-      setPathname('/player');
-    };
-    return <main className="min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 text-white"><PlayerPayments onBack={goHome} /></main>;
+    return <main className="min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 text-white"><PlayerPayments onBack={() => navigatePlayer('/player')} /></main>;
   }
 
-  return <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />;
+  return (
+    <>
+      <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />
+      <button
+        type="button"
+        onClick={() => navigatePlayer('/player/payments')}
+        className="fixed bottom-[104px] right-3 z-40 rounded-2xl border border-white/10 bg-[#1b1c21]/95 px-3 py-2 text-xs font-semibold text-white/75 shadow-xl backdrop-blur"
+      >
+        ₽ Оплата
+      </button>
+    </>
+  );
 }

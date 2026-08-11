@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Send } from 'lucide-react';
 import { api, type Player } from '../../../lib/api.ts';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmentFields.tsx';
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
@@ -29,6 +30,8 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +100,29 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
     }
   };
 
+  const publishTelegram = async () => {
+    if (telegramBusy) return;
+    setTelegramBusy(true); setTelegramMessage(null); setError(null);
+    try {
+      const response = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/sync-telegram`, {
+        method: 'POST', credentials: 'include', headers: organizerHeaders(),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || body.message || 'Не удалось обновить Telegram');
+      const actions = Array.isArray(body?.results) ? body.results : [];
+      const skipped = actions.length && actions.every((item: any) => item.action === 'skipped');
+      setTelegramMessage(skipped
+        ? 'Закрытый канал пока не включён в «Ещё → Telegram». Сначала настрой его там.'
+        : tournament?.status === 'completed'
+          ? 'Telegram-публикация турнира закрыта и обновлена.'
+          : 'Турнир опубликован или обновлён в закрытом канале.');
+    } catch (err: any) {
+      setError(err.message || 'Не удалось обновить Telegram');
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
   const openWorkspace = () => {
     window.requestAnimationFrame(() => {
       document.getElementById('tournament-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -109,6 +135,22 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
 
       {tournament ? (
         <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
+      ) : null}
+
+      {tournament ? (
+        <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-5 w-5" /></span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[12px] font-black uppercase tracking-wider text-text-primary">Telegram · Рейтинг и турниры</h3>
+              <p className="mt-1 text-[11px] leading-4 text-text-muted">Отдельная публикация в закрытом канале. Игровой статус турнира эта кнопка не меняет; повторное нажатие редактирует то же сообщение.</p>
+            </div>
+          </div>
+          {telegramMessage ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] font-bold text-success">{telegramMessage}</div> : null}
+          <button type="button" disabled={telegramBusy} onClick={() => void publishTelegram()} className="mt-3 min-h-[44px] w-full rounded-xl bg-accent px-4 text-[11px] font-black text-white disabled:opacity-40">
+            {telegramBusy ? 'Обновляем Telegram…' : tournament.status === 'completed' ? 'Обновить закрытый анонс' : 'Опубликовать / обновить в Telegram'}
+          </button>
+        </section>
       ) : null}
 
       {tournament && games.length ? (

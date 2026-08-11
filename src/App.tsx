@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
-import PlayerCabinet, { type PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
+import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
+import PlayerCabinetV2 from "./components/player/PlayerCabinetV2.tsx";
 
 type RootState =
   | { status: 'loading' }
@@ -153,5 +154,5 @@ export default function App() {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
-  return <PlayerCabinet data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />;
+  return <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />;
 }

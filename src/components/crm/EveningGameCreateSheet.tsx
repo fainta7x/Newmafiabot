@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Shuffle, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningGameEligible, sortEveningRoster, toggleParticipantInSeats } from '../../lib/eveningRoster';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
@@ -15,6 +16,14 @@ interface EveningGameCreateSheetProps {
 }
 
 type PlayerFilter = 'all' | 'attended' | 'confirmed';
+
+const playerCanJudgeFormat = (player: Player, format: string) => {
+  const level = String((player as any).judge_level || 'none');
+  const normalized = normalizeEveningFormat(format);
+  if (normalized === 'NOVICE') return level === 'trainee' || level === 'host' || level === 'judge';
+  if (normalized === 'CASUAL') return level === 'host' || level === 'judge';
+  return level === 'judge';
+};
 
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
@@ -42,9 +51,14 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    void api.getPlayers().then((items) => setCrmPlayers(items.slice().sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')))).catch(() => setCrmPlayers([]));
+    void api.getPlayers()
+      .then((items) => setCrmPlayers(items
+        .filter((player) => playerCanJudgeFormat(player, evening.format))
+        .slice()
+        .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru'))))
+      .catch(() => setCrmPlayers([]));
     return () => { document.body.style.overflow = previousOverflow; };
-  }, []);
+  }, [evening.format]);
 
   const changeTable = (tableId: string) => {
     setSelectedTableId(tableId);
@@ -94,7 +108,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-x-hidden rounded-t-3xl border border-slate-700 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-3xl sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, судью и 10 игроков из общего состава вечера.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, ведущего нужного уровня и 10 игроков из общего состава вечера.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400 sm:h-9 sm:w-9"><X className="h-4 w-4" /></button>
         </div>
 

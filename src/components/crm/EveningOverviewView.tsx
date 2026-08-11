@@ -61,10 +61,11 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     const noShow = participants.filter((item) => item.attendance_status === 'no_show');
     const thinking = participants.filter((item) => getEveningResponse(item) === 'thinking');
     const unanswered = participants.filter((item) => getEveningResponse(item) === 'unanswered');
-    const due = participants.reduce((sum, item) => sum + Number(item.amount_due || 0), 0);
-    const paid = participants.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
-    const outstanding = participants.reduce((sum, item) => sum + Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0)), 0);
-    const unpaidPeople = participants.filter((item) => item.payment_status !== 'paid' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
+    const paymentExpected = participants.filter((item) => item.attendance_status === 'attended' || ['going', 'late'].includes(getEveningResponse(item)));
+    const due = paymentExpected.reduce((sum, item) => sum + Number(item.amount_due || 0), 0);
+    const paid = paymentExpected.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
+    const outstanding = paymentExpected.reduce((sum, item) => sum + Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0)), 0);
+    const unpaidPeople = paymentExpected.filter((item) => item.payment_status !== 'paid' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
     const games = evening?.games || [];
     const completedGames = games.filter((game) => game.status === 'completed' || game.protocol_status === 'completed' || Boolean(game.winner_team)).length;
     return { participants, expected, pendingExpected, attended, noShow, thinking, unanswered, due, paid, outstanding, unpaidPeople, games, completedGames };

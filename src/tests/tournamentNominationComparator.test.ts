@@ -90,10 +90,10 @@ describe('canonical tournament nomination comparator', () => {
     expect(second.decisive_criterion).toBe(first.decisive_criterion);
   });
 
-  it('returns an explicit exact tie instead of an arbitrary winner', () => {
+  it('returns a terminal exact tie instead of an arbitrary/manual winner', () => {
     const result = run('best_mafia', [c('a', 3, 1), c('b', 3, 1)], []);
     expect(result.winner_participant_id).toBeNull();
-    expect(result.has_exact_tie).toBe(true);
+    expect(result.has_exact_tie).toBe(false);
     expect(result.decisive_criterion).toBe('exact_tie');
     expect(result.tied_participant_ids).toEqual(['a', 'b']);
   });

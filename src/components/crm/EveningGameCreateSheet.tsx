@@ -73,10 +73,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     if (creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
     setCreating(true);
     try {
+      const linkedJudge = judgeMode === 'linked'
+        ? crmPlayers.find((player) => String(player.id) === String(judgePlayerId))
+        : null;
       const created = await clubGamesApi.create(evening.id, {
         evening_table_id: selectedTableId || null,
         judge_player_id: judgeMode === 'linked' ? judgePlayerId : null,
-        judge_name: judgeMode === 'external' ? (judgeName.trim() || null) : null,
+        judge_name: judgeMode === 'linked' ? (linkedJudge?.nickname || null) : (judgeName.trim() || null),
         seats: seats.map((participantId, index) => ({ participant_id: participantId, seat_number: index + 1 })),
       });
       onCreated(created);

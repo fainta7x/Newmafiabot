@@ -43,6 +43,11 @@ router.get('/me', async (req, res) => {
     ]);
 
     const repositoryAvatar = getRepositoryPlayerAvatarAsset(playerId);
+    const allGames = [...gameProfile.clubGames, ...gameProfile.tournamentGames].sort((a, b) => {
+      const aTime = a.date ? new Date(a.date).getTime() : 0;
+      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      return bTime - aTime;
+    });
 
     return res.json({
       player: {
@@ -56,6 +61,10 @@ router.get('/me', async (req, res) => {
         avatar_url: repositoryAvatar ? `/player-avatars/${encodeURIComponent(repositoryAvatar.file)}` : null,
       },
       achievements,
+      games: {
+        all: allGames,
+        stats: gameProfile.gameStats,
+      },
       tournaments: {
         games: gameProfile.tournamentGames,
         awards: gameProfile.tournamentAwards,

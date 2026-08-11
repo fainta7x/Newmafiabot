@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
+import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
@@ -71,6 +72,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
+  await ensureJudgeAuthoritySchema(db);
   await ensurePlayerShopSchema(db);
   await ensurePlayerBettingSchema(db);
   await ensureRatingPeriodsSchema(db);
@@ -138,22 +140,25 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
 
   app.use('/api/*', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('API Error:', err);
-    res.status(err.status || 500).json({ error: err.message || 'Внутренняя ошибка сервера' });
+    console.error('[API] Unhandled error:', err);
+    if (res.headersSent) return;
+    res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
   });
 
-  if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const distPath = path.resolve(process.cwd(), 'dist');
+
+  if (isProduction) {
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else if (process.env.NODE_ENV === 'production') {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   return app;

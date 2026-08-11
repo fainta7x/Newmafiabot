@@ -67,6 +67,26 @@ async def save_evening_telegram_publication(
     )
 
 
+async def get_tournament_telegram_plan(tournament_id: str) -> dict[str, Any]:
+    return await _request("GET", f"/api/bot/tournaments/{tournament_id}/telegram-plan")
+
+
+async def save_tournament_telegram_publication(
+    tournament_id: str,
+    destination_id: str,
+    chat_id: str | int,
+    message_id: int,
+) -> dict[str, Any]:
+    return await _request(
+        "PUT",
+        f"/api/bot/tournaments/{tournament_id}/telegram-publications/{destination_id}",
+        {
+            "chat_id": str(chat_id),
+            "message_id": int(message_id),
+        },
+    )
+
+
 async def get_public_router_payload() -> dict[str, Any]:
     return await _request("GET", "/api/bot/telegram/public-router")
 

@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { calculateBestMovePoints } from '../routes/tournamentProtocolRoutes.ts';
 import {
   calculateCiRate,
@@ -233,7 +234,14 @@ export async function calculateRatingPeriodStandings(db: DatabaseWrapper, period
       const role = normalizeRole(result?.role);
       const judgeBonus = Number(result?.judge_bonus || 0);
       const protocolBonus = Number(result?.protocol_bonus || 0);
-      const disciplinaryPenalty = Number(result?.disciplinary_penalty_points || 0);
+      const isPpkCulprit = protocol.end_reason === 'ppk'
+        && participantId === String(protocol.ppk_culprit_participant_id || '');
+      const disciplinaryPenalty = calculateDisciplinaryPenalty(
+        Math.max(0, Math.trunc(Number(result?.minor_technical_fouls || 0))),
+        Math.max(0, Math.trunc(Number(result?.major_technical_fouls || 0))),
+        result?.exit_type === 'removed',
+        isPpkCulprit,
+      );
       const positiveJudge = Math.max(judgeBonus, 0);
       const negativeJudge = Math.max(-judgeBonus, 0);
       const positiveProtocol = Math.max(protocolBonus, 0);

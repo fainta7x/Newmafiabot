@@ -45,6 +45,21 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
       if (item.playerId) onOpenPlayer(item.playerId);
       return;
     }
+    if (item.kind === 'club_access_review') {
+      if (!item.playerId) return;
+      const nickname = String(item.payload?.nickname || item.title || 'игрока');
+      if (!window.confirm(`Допустить «${nickname}» в основной клуб?\n\nПосле этого MafiaBot сможет выдать игроку закрытую ссылку основного клуба. Турнирный доступ это не откроет.`)) return;
+      setBusyKey(item.key);
+      try {
+        await api.updatePlayer(item.playerId, { game_level: 'club' } as any);
+        await onRefresh?.();
+      } catch (err: any) {
+        setActionError({ key: item.key, message: err?.message || 'Не удалось изменить уровень игрока' });
+      } finally {
+        setBusyKey(null);
+      }
+      return;
+    }
     setBusyKey(item.key);
     try {
       if (item.kind === 'overdue_task' || item.kind === 'today_task' || item.kind === 'undated_task') {
@@ -164,7 +179,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
 
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
-          <div><h3 className="text-[18px] font-black text-text-primary">Остальное внимание</h3><p className="mt-0.5 text-[12px] text-text-secondary">Задачи клуба после главного шага по ближайшему вечеру.</p></div>
+          <div><h3 className="text-[18px] font-black text-text-primary">Остальное внимание</h3><p className="mt-0.5 text-[12px] text-text-secondary">Решения по игрокам и задачи клуба после главного шага по ближайшему вечеру.</p></div>
           {queue.length - (nextEveningAction ? 1 : 0) > shownQueue.length ? <button type="button" onClick={() => onNavigateTab('tasks')} className="min-h-[44px] shrink-0 text-[12px] font-bold text-accent">Показать всё</button> : null}
         </div>
         {shownQueue.length === 0 ? (
@@ -180,7 +195,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
               return <div key={item.key} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}>
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={() => item.playerId && onOpenPlayer(item.playerId)} disabled={!item.playerId} className="min-w-0 flex-1 text-left disabled:cursor-default"><strong className="block break-words text-[14px] font-bold text-text-primary">{item.title}</strong><span className="mt-0.5 block text-[12px] leading-4 text-text-secondary">{item.reason}</span></button>
-                  <button type="button" disabled={Boolean(busyKey)} onClick={() => void runAction(item)} className={`min-h-[44px] shrink-0 rounded-[11px] px-3 text-[12px] font-bold disabled:opacity-50 ${item.priority <= 1 ? 'bg-accent text-white' : 'border border-border-soft bg-surface-2 text-text-primary'}`}>{busy ? '…' : item.actionLabel}</button>
+                  <button type="button" disabled={Boolean(busyKey)} onClick={() => void runAction(item)} className={`min-h-[44px] shrink-0 rounded-[11px] px-3 text-[12px] font-bold disabled:opacity-50 ${item.kind === 'club_access_review' || item.priority <= 1 ? 'bg-accent text-white' : 'border border-border-soft bg-surface-2 text-text-primary'}`}>{busy ? '…' : item.actionLabel}</button>
                 </div>
                 {inlineError ? <div className="mt-2 flex items-start gap-1.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {inlineError}</div> : null}
               </div>;

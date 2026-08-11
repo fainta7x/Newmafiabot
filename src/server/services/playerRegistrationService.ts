@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
+import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.ts';
+import { ensureEloSeedSchema } from '../../db/ensureEloSeedSchema.ts';
 
 export class PlayerRegistrationError extends Error {
   code: string;
@@ -87,8 +89,10 @@ export async function registerNewPlayer(
   },
 ): Promise<{ created: boolean; player: RegisteredPlayer }> {
   // Registration is also used directly by bot/service tests and maintenance paths,
-  // so it must not depend on createApp having already added the access column.
+  // so it must not depend on createApp having already added player access/rating fields.
   await ensureInviteAudienceSchema(db);
+  await ensureJudgeAuthoritySchema(db);
+  await ensureEloSeedSchema(db);
 
   const telegramUserId = String(input.telegramUserId ?? '').trim();
   if (!/^\d+$/.test(telegramUserId)) {

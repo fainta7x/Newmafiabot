@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Router } from 'express';
+import type { DatabaseWrapper } from '../../db/index.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import {
   getTokenLedgerPage,
@@ -29,7 +30,7 @@ const sendTokenError = (res: any, error: any) => {
   return res.status(500).json({ error: error?.message || 'Не удалось выполнить операцию с жетонами' });
 };
 
-const loadPurchase = async (db: any, playerId: string, requestId: string) => db.get<any>(`
+const loadPurchase = async (db: DatabaseWrapper, playerId: string, requestId: string) => db.get<any>(`
   SELECT id, player_id, item_id, item_name_snapshot, item_type_snapshot, price_snapshot,
          status, request_id, token_ledger_entry_id, purchased_at, redeemed_at, notes
     FROM shop_purchases
@@ -42,7 +43,7 @@ router.get('/economy', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = (req as any).db as DatabaseWrapper;
     const [wallet, items, purchases] = await Promise.all([
       getTokenLedgerPage(db, playerId, 50, 0),
       db.all<any>(`
@@ -86,7 +87,7 @@ router.post('/shop/purchase', async (req, res) => {
   if (!requestId || requestId.length > 160) return res.status(400).json({ error: 'Некорректный идентификатор покупки' });
 
   try {
-    const db = (req as any).db;
+    const db = (req as any).db as DatabaseWrapper;
     const alreadyPurchased = await loadPurchase(db, playerId, requestId);
     if (alreadyPurchased) {
       const player = await db.get<any>('SELECT tokens FROM players WHERE id = ?', [playerId]);
@@ -104,7 +105,7 @@ router.post('/shop/purchase', async (req, res) => {
     const price = Number(item.price);
     if (!Number.isInteger(price) || price <= 0) return res.status(500).json({ error: 'У товара некорректная цена' });
 
-    const result = await db.transaction(async (tx: any) => {
+    const result = await db.transaction(async (tx: DatabaseWrapper) => {
       const duplicate = await loadPurchase(tx, playerId, requestId);
       if (duplicate) {
         const player = await tx.get<any>('SELECT tokens FROM players WHERE id = ?', [playerId]);

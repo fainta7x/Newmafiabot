@@ -12,6 +12,17 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
   await db.run(
     "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('novice','club','tournament')",
   );
+
+  // Historical databases use `club` as the column default. Preserve existing players,
+  // but make every future organizer-created CRM profile enter through the novice path.
+  await db.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice
+    AFTER INSERT ON players
+    WHEN NEW.source = 'crm_manual'
+    BEGIN
+      UPDATE players SET game_level = 'novice' WHERE id = NEW.id;
+    END;
+  `);
 }
 
 export function playerLevelAllowsEveningFormat(level: string | null | undefined, format: string | null | undefined): boolean {

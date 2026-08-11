@@ -113,6 +113,73 @@ router.put('/evenings/:eveningId/telegram-publications/:destinationId', async (r
   }
 });
 
+router.get('/tournaments/:tournamentId/telegram-plan', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const tournament = await db.get(
+      `SELECT id, title, date, venue, stage, status, chief_judge_name, notes, game_count, updated_at
+         FROM tournaments WHERE id = ?`,
+      [req.params.tournamentId],
+    );
+    if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+    const participants = await db.all(
+      `SELECT tp.player_id, tp.display_name, tp.participant_number, p.nickname
+         FROM tournament_participants tp
+         LEFT JOIN players p ON p.id = tp.player_id
+        WHERE tp.tournament_id = ?
+        ORDER BY tp.participant_number ASC`,
+      [req.params.tournamentId],
+    );
+    const destinations = await listDestinations(db);
+    const publications = await db.all(
+      `SELECT tournament_id, destination_id, chat_id, message_id, sent_at, updated_at
+         FROM tournament_telegram_publications
+        WHERE tournament_id = ?`,
+      [req.params.tournamentId],
+    );
+    res.json({
+      tournament,
+      participants,
+      destinations,
+      desired_destination_ids: String(tournament.status || '') === 'completed' ? [] : ['rating'],
+      publications,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось собрать план Telegram-публикации турнира' });
+  }
+});
+
+router.put('/tournaments/:tournamentId/telegram-publications/:destinationId', async (req, res) => {
+  try {
+    const db = (req as any).db;
+    const destinationId = String(req.params.destinationId || '');
+    if (!isTelegramDestinationId(destinationId)) return res.status(404).json({ error: 'Неизвестное Telegram-направление' });
+    const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.tournamentId]);
+    const destination = await db.get('SELECT id FROM telegram_destinations WHERE id = ?', [destinationId]);
+    if (!tournament || !destination) return res.status(404).json({ error: 'Турнир или Telegram-направление не найдены' });
+
+    const chatId = String(req.body?.chat_id ?? '').trim();
+    const messageId = Number(req.body?.message_id || 0);
+    if (!chatId || !Number.isInteger(messageId) || messageId <= 0) {
+      return res.status(400).json({ error: 'Некорректные данные Telegram-публикации турнира' });
+    }
+    const now = new Date().toISOString();
+    const existing = await db.get(
+      'SELECT sent_at FROM tournament_telegram_publications WHERE tournament_id = ? AND destination_id = ?',
+      [req.params.tournamentId, destinationId],
+    );
+    await db.run(
+      `INSERT OR REPLACE INTO tournament_telegram_publications
+         (tournament_id, destination_id, chat_id, message_id, sent_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.params.tournamentId, destinationId, chatId, messageId, existing?.sent_at || now, now],
+    );
+    res.json({ success: true, updated_at: now });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось сохранить Telegram-публикацию турнира' });
+  }
+});
+
 router.get('/telegram/public-router', async (req, res) => {
   try {
     const db = (req as any).db;

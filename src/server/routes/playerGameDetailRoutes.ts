@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.ts';
+import { calculateDisciplinaryPenalty } from '../../lib/gameDiscipline.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadPlayerEloHistory, type PlayerEloHistoryEvent } from '../services/playerEloHistoryService.ts';
 
@@ -7,6 +8,7 @@ const router = Router();
 
 type GameSource = 'club' | 'tournament';
 type Team = 'red' | 'black' | null;
+type CanonicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don' | null;
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -17,12 +19,12 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return playerId;
 };
 
-const safeJsonParse = (value: unknown): any => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try { return JSON.parse(value); } catch { return null; }
+const safeJsonParse = <T = any>(value: unknown, fallback: T | null = null): T | null => {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
-const normalizeRole = (role: unknown): 'citizen' | 'sheriff' | 'mafia' | 'don' | null => {
+const normalizeRole = (role: unknown): CanonicalRole => {
   const value = String(role || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
   if (['citizen', 'мирный', 'мирный житель', 'красный'].includes(value)) return 'citizen';
   if (['sheriff', 'шериф'].includes(value)) return 'sheriff';
@@ -49,6 +51,8 @@ const numeric = (value: unknown) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 };
+
+const roundToTwo = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 const repositoryAvatarAvailable = (playerId: string, suppressed: unknown) =>
   !Number(suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(playerId));
@@ -88,17 +92,98 @@ const playerRowsById = async (db: any) => {
   return result;
 };
 
-const clubBestMoveParticipantIds = (protocol: any) => {
-  const result = new Set<string>();
-  if (Array.isArray(protocol?.best_moves)) {
-    for (const move of protocol.best_moves) {
-      const participantId = String(move?.participant_id || '').trim();
-      if (participantId) result.add(participantId);
-    }
+const bestMovePoints = (seatNumbers: number[], roleBySeat: Map<number, CanonicalRole>) => {
+  let guessedBlacks = 0;
+  for (const seat of seatNumbers) {
+    const role = roleBySeat.get(Number(seat));
+    if (role === 'mafia' || role === 'don') guessedBlacks += 1;
   }
-  const legacy = String(protocol?.best_move_participant_id || '').trim();
-  if (legacy) result.add(legacy);
-  return result;
+  if (guessedBlacks >= 3) return 0.6;
+  if (guessedBlacks === 2) return 0.3;
+  if (guessedBlacks === 1) return 0.1;
+  return 0;
+};
+
+const normalizedSeats = (value: unknown): number[] => (
+  Array.isArray(value)
+    ? value.map(Number).filter((seat) => Number.isInteger(seat) && seat >= 1 && seat <= 10)
+    : []
+);
+
+const normalizeVotes = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((round: any, index: number) => ({
+    round_number: numeric(round?.round_number) || index + 1,
+    day_number: round?.day_number == null ? (index === 0 ? 0 : 1) : numeric(round.day_number),
+    is_revote: Boolean(round?.is_revote),
+    parent_round_number: round?.parent_round_number == null ? null : numeric(round.parent_round_number),
+    eligible_voters: round?.eligible_voters == null ? null : numeric(round.eligible_voters),
+    nominated_seats: normalizedSeats(round?.nominated_seats),
+    vote_counts: typeof round?.vote_counts === 'object' && round.vote_counts && !Array.isArray(round.vote_counts)
+      ? Object.fromEntries(Object.entries(round.vote_counts).map(([seat, count]) => [String(seat), numeric(count)]))
+      : {},
+    outcome: round?.outcome ? String(round.outcome) : null,
+  }));
+};
+
+const normalizeShots = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((shot: any, index: number) => ({
+    night_number: numeric(shot?.night_number) || index + 1,
+    target_seat: numeric(shot?.target_seat),
+    result: shot?.result ? String(shot.result) : null,
+  }));
+};
+
+const normalizeColorProtocol = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: any) => {
+    const mark = String(entry?.mark || '').trim();
+    if (!mark) return [];
+    return [{ mark, seat_numbers: normalizedSeats(entry?.seat_numbers) }];
+  });
+};
+
+const normalizeReplacement = (value: unknown) => {
+  if (!value || typeof value !== 'object') return null;
+  return value;
+};
+
+const buildScore = ({
+  won,
+  judgeBonus,
+  protocolBonus,
+  ciPoints,
+  bestMove,
+  disciplinaryPenalty,
+}: {
+  won: boolean;
+  judgeBonus: number;
+  protocolBonus: number;
+  ciPoints: number;
+  bestMove: number;
+  disciplinaryPenalty: number;
+}) => {
+  const winPoint = won ? 1 : 0;
+  const total = winPoint + judgeBonus + protocolBonus + ciPoints + bestMove - disciplinaryPenalty;
+  return {
+    win_point: winPoint,
+    judge_bonus: roundToTwo(judgeBonus),
+    protocol_bonus: roundToTwo(protocolBonus),
+    ci_points: roundToTwo(ciPoints),
+    best_move_points: roundToTwo(bestMove),
+    disciplinary_penalty_points: roundToTwo(disciplinaryPenalty),
+    total_points: roundToTwo(total),
+  };
+};
+
+const participantInfo = (
+  participantId: string | null,
+  players: Array<{ participant_id: string; seat_number: number; nickname: string }>,
+) => {
+  if (!participantId) return null;
+  const item = players.find((player) => player.participant_id === participantId);
+  return item ? { participant_id: item.participant_id, seat_number: item.seat_number, nickname: item.nickname } : null;
 };
 
 router.get('/games/elo', async (req, res) => {
@@ -148,7 +233,7 @@ router.get('/games/:gameKey', async (req, res) => {
       `, [parsed.sourceId]);
       if (!row) return res.status(404).json({ error: 'Игра не найдена' });
 
-      const payload = safeJsonParse(row.protocol_text);
+      const payload = safeJsonParse<any>(row.protocol_text);
       const protocol = payload?.protocol || {};
       if (!payload || payload.kind !== 'club_evening_protocol' || protocol.status !== 'completed') {
         return res.status(409).json({ error: 'Игра ещё не завершена' });
@@ -156,10 +241,36 @@ router.get('/games/:gameKey', async (req, res) => {
 
       const winnerTeam = normalizeWinner(protocol.winner_team || row.winner_team);
       const playersById = await playerRowsById(db);
-      const bestMoveIds = clubBestMoveParticipantIds(protocol);
       const firstKilledId = String(protocol.first_killed_participant_id || '');
       const zeroRoundVotedId = String(protocol.zero_round_voted_participant_id || '');
+      const ppkCulpritId = String(protocol.ppk_culprit_participant_id || '');
       const results = Array.isArray(payload.player_results) ? payload.player_results : [];
+      const roleBySeat = new Map<number, CanonicalRole>(
+        results.map((result: any) => [numeric(result?.seat_number), normalizeRole(result?.role)]),
+      );
+      const modernBestMoves = Array.isArray(protocol.best_moves) ? protocol.best_moves : [];
+      const legacyBestMove = protocol.best_move_participant_id
+        ? [{
+          participant_id: protocol.best_move_participant_id,
+          source: protocol.best_move_source || null,
+          seat_numbers: protocol.best_move_seats || [],
+        }]
+        : [];
+      const bestMoves = (modernBestMoves.length ? modernBestMoves : legacyBestMove).map((move: any) => ({
+        participant_id: String(move?.participant_id || ''),
+        source: move?.source ? String(move.source) : null,
+        seat_numbers: normalizedSeats(move?.seat_numbers),
+      }));
+
+      const participantDirectory = results.map((result: any) => {
+        const playerId = String(result?.player_id || '').trim() || null;
+        const player = playerId ? playersById.get(playerId) : null;
+        return {
+          participant_id: String(result?.participant_id || ''),
+          seat_number: numeric(result?.seat_number),
+          nickname: player?.nickname || result?.display_name || 'Игрок',
+        };
+      });
 
       const players = results.map((result: any) => {
         const playerId = String(result?.player_id || '').trim() || null;
@@ -167,9 +278,27 @@ router.get('/games/:gameKey', async (req, res) => {
         const player = playerId ? playersById.get(playerId) : null;
         const role = normalizeRole(result?.role);
         const team = teamFromRole(role);
+        const won = Boolean(team && winnerTeam && team === winnerTeam);
         const elo = eloForPlayer(eloEvent, playerId);
+        const bestMove = bestMoves.find((move) => move.participant_id === participantId) || null;
+        const bestMoveSeatNumbers = bestMove?.seat_numbers || [];
+        const bestMoveBonus = bestMovePoints(bestMoveSeatNumbers, roleBySeat);
+        const regularFouls = numeric(result?.regular_fouls);
+        const minorTechnicalFouls = numeric(result?.minor_technical_fouls);
+        const majorTechnicalFouls = numeric(result?.major_technical_fouls);
+        const disciplinaryPenalty = calculateDisciplinaryPenalty(
+          minorTechnicalFouls,
+          majorTechnicalFouls,
+          result?.exit_type === 'removed',
+          participantId === ppkCulpritId,
+        );
+        const judgeBonus = numeric(result?.judge_bonus);
+        const protocolBonus = numeric(result?.protocol_bonus);
+        const ciPoints = numeric(result?.ci_points);
+
         return {
           player_id: playerId,
+          participant_id: participantId,
           nickname: player?.nickname || result?.display_name || 'Игрок',
           avatar_url: playerId && player
             ? playerAvatarUrl(playerId, player.has_db_avatar, player.avatar_suppressed)
@@ -177,19 +306,26 @@ router.get('/games/:gameKey', async (req, res) => {
           seat_number: numeric(result?.seat_number),
           role,
           team,
-          won: Boolean(team && winnerTeam && team === winnerTeam),
+          won,
           exit_type: result?.exit_type || null,
-          regular_fouls: numeric(result?.regular_fouls),
-          minor_technical_fouls: numeric(result?.minor_technical_fouls),
-          major_technical_fouls: numeric(result?.major_technical_fouls),
-          judge_bonus: numeric(result?.judge_bonus),
-          protocol_bonus: numeric(result?.protocol_bonus),
-          ci_points: numeric(result?.ci_points),
+          exit_order: result?.exit_order == null ? null : numeric(result.exit_order),
+          regular_fouls: regularFouls,
+          minor_technical_fouls: minorTechnicalFouls,
+          major_technical_fouls: majorTechnicalFouls,
+          removal_reason: result?.removal_reason || null,
+          notes: result?.notes || null,
+          color_protocol: normalizeColorProtocol(result?.color_protocol),
+          judge_bonus: judgeBonus,
+          protocol_bonus: protocolBonus,
+          ci_points: ciPoints,
           penalty_points: numeric(result?.penalty_points),
-          disciplinary_penalty_points: numeric(result?.disciplinary_penalty_points),
+          disciplinary_penalty_points: roundToTwo(disciplinaryPenalty),
           first_killed: participantId === firstKilledId,
           zero_round_voted: participantId === zeroRoundVotedId,
-          best_move: bestMoveIds.has(participantId),
+          best_move: Boolean(bestMove),
+          best_move_source: bestMove?.source || null,
+          best_move_seats: bestMoveSeatNumbers,
+          score: buildScore({ won, judgeBonus, protocolBonus, ciPoints, bestMove: bestMoveBonus, disciplinaryPenalty }),
           elo_before: elo?.eloBefore ?? null,
           elo_after: elo?.eloAfter ?? null,
           elo_delta: elo?.totalDelta ?? null,
@@ -209,6 +345,16 @@ router.get('/games/:gameKey', async (req, res) => {
           table_name: row.table_name || null,
           elo_affected: Boolean(eloEvent),
         },
+        protocol: {
+          end_reason: protocol.end_reason || 'normal',
+          votes: normalizeVotes(protocol.votes),
+          shots: normalizeShots(protocol.shots),
+          replacement: normalizeReplacement(protocol.replacement),
+          judge_notes: protocol.judge_notes || null,
+          first_killed: participantInfo(firstKilledId || null, participantDirectory),
+          zero_round_voted: participantInfo(zeroRoundVotedId || null, participantDirectory),
+          ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
+        },
         players,
       });
     }
@@ -216,7 +362,10 @@ router.get('/games/:gameKey', async (req, res) => {
     const game = await db.get(`
       SELECT tg.id, tg.game_number, tg.judge_name, tg.completed_at,
              COALESCE(tgp.winner_team, tg.winner_team) AS winner_team,
-             t.title AS tournament_title, t.date AS tournament_date
+             t.title AS tournament_title, t.date AS tournament_date,
+             tgp.votes_json, tgp.shots_json, tgp.replacement_json, tgp.judge_notes,
+             tgp.end_reason, tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id,
+             tgp.ppk_culprit_participant_id
         FROM tournament_games tg
         JOIN tournaments t ON t.id = tg.tournament_id
    LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
@@ -227,16 +376,16 @@ router.get('/games/:gameKey', async (req, res) => {
 
     const winnerTeam = normalizeWinner(game.winner_team);
     const rows = await db.all(`
-      SELECT tp.id AS participant_id, p.id AS player_id, p.nickname,
+      SELECT tp.id AS participant_id, p.id AS player_id, COALESCE(p.nickname, tp.display_name) AS nickname,
              tgs.seat_number, tgs.role,
-             tgpr.exit_type, tgpr.regular_fouls, tgpr.minor_technical_fouls,
+             tgpr.exit_type, tgpr.exit_order, tgpr.regular_fouls, tgpr.minor_technical_fouls,
              tgpr.major_technical_fouls, tgpr.judge_bonus, tgpr.protocol_bonus,
              tgpr.ci_points, tgpr.penalty_points, tgpr.disciplinary_penalty_points,
-             tgp.first_killed_participant_id, tgp.zero_round_voted_participant_id,
-             EXISTS(
-               SELECT 1 FROM tournament_game_best_moves tgbm
-                WHERE tgbm.game_id = tgs.game_id AND tgbm.participant_id = tp.id
-             ) AS best_move,
+             tgpr.color_protocol_json, tgpr.removal_reason, tgpr.notes,
+             (SELECT tgbm.source FROM tournament_game_best_moves tgbm
+               WHERE tgbm.game_id = tgs.game_id AND tgbm.participant_id = tp.id LIMIT 1) AS best_move_source,
+             (SELECT tgbm.seat_numbers_json FROM tournament_game_best_moves tgbm
+               WHERE tgbm.game_id = tgs.game_id AND tgbm.participant_id = tp.id LIMIT 1) AS best_move_seats_json,
              EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
              EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
         FROM tournament_game_seats tgs
@@ -244,19 +393,45 @@ router.get('/games/:gameKey', async (req, res) => {
    LEFT JOIN players p ON p.id = tp.player_id
    LEFT JOIN tournament_game_player_results tgpr
           ON tgpr.game_id = tgs.game_id AND tgpr.participant_id = tp.id
-   LEFT JOIN tournament_game_protocols tgp ON tgp.game_id = tgs.game_id
        WHERE tgs.game_id = ?
        ORDER BY tgs.seat_number ASC
     `, [parsed.sourceId]);
+
+    const roleBySeat = new Map<number, CanonicalRole>(
+      rows.map((row: any) => [numeric(row.seat_number), normalizeRole(row.role)]),
+    );
+    const participantDirectory = rows.map((row: any) => ({
+      participant_id: String(row.participant_id || ''),
+      seat_number: numeric(row.seat_number),
+      nickname: row.nickname || 'Игрок',
+    }));
+    const ppkCulpritId = String(game.ppk_culprit_participant_id || '');
 
     const players = rows.map((row: any) => {
       const playerId = row.player_id ? String(row.player_id) : null;
       const participantId = String(row.participant_id || '');
       const role = normalizeRole(row.role);
       const team = teamFromRole(role);
+      const won = Boolean(team && winnerTeam && team === winnerTeam);
       const elo = eloForPlayer(eloEvent, playerId);
+      const bestMoveSeats = normalizedSeats(safeJsonParse<any[]>(row.best_move_seats_json, []) || []);
+      const bestMoveBonus = bestMovePoints(bestMoveSeats, roleBySeat);
+      const regularFouls = numeric(row.regular_fouls);
+      const minorTechnicalFouls = numeric(row.minor_technical_fouls);
+      const majorTechnicalFouls = numeric(row.major_technical_fouls);
+      const disciplinaryPenalty = calculateDisciplinaryPenalty(
+        minorTechnicalFouls,
+        majorTechnicalFouls,
+        row.exit_type === 'removed',
+        participantId === ppkCulpritId,
+      );
+      const judgeBonus = numeric(row.judge_bonus);
+      const protocolBonus = numeric(row.protocol_bonus);
+      const ciPoints = numeric(row.ci_points);
+
       return {
         player_id: playerId,
+        participant_id: participantId,
         nickname: row.nickname || 'Игрок',
         avatar_url: playerId
           ? playerAvatarUrl(playerId, row.has_db_avatar, row.avatar_suppressed)
@@ -264,19 +439,26 @@ router.get('/games/:gameKey', async (req, res) => {
         seat_number: numeric(row.seat_number),
         role,
         team,
-        won: Boolean(team && winnerTeam && team === winnerTeam),
+        won,
         exit_type: row.exit_type || null,
-        regular_fouls: numeric(row.regular_fouls),
-        minor_technical_fouls: numeric(row.minor_technical_fouls),
-        major_technical_fouls: numeric(row.major_technical_fouls),
-        judge_bonus: numeric(row.judge_bonus),
-        protocol_bonus: numeric(row.protocol_bonus),
-        ci_points: numeric(row.ci_points),
+        exit_order: row.exit_order == null ? null : numeric(row.exit_order),
+        regular_fouls: regularFouls,
+        minor_technical_fouls: minorTechnicalFouls,
+        major_technical_fouls: majorTechnicalFouls,
+        removal_reason: row.removal_reason || null,
+        notes: row.notes || null,
+        color_protocol: normalizeColorProtocol(safeJsonParse<any[]>(row.color_protocol_json, []) || []),
+        judge_bonus: judgeBonus,
+        protocol_bonus: protocolBonus,
+        ci_points: ciPoints,
         penalty_points: numeric(row.penalty_points),
-        disciplinary_penalty_points: numeric(row.disciplinary_penalty_points),
-        first_killed: participantId === String(row.first_killed_participant_id || ''),
-        zero_round_voted: participantId === String(row.zero_round_voted_participant_id || ''),
-        best_move: Boolean(row.best_move),
+        disciplinary_penalty_points: roundToTwo(disciplinaryPenalty),
+        first_killed: participantId === String(game.first_killed_participant_id || ''),
+        zero_round_voted: participantId === String(game.zero_round_voted_participant_id || ''),
+        best_move: Boolean(row.best_move_source),
+        best_move_source: row.best_move_source || null,
+        best_move_seats: bestMoveSeats,
+        score: buildScore({ won, judgeBonus, protocolBonus, ciPoints, bestMove: bestMoveBonus, disciplinaryPenalty }),
         elo_before: elo?.eloBefore ?? null,
         elo_after: elo?.eloAfter ?? null,
         elo_delta: elo?.totalDelta ?? null,
@@ -295,6 +477,16 @@ router.get('/games/:gameKey', async (req, res) => {
         judge_name: game.judge_name || null,
         table_name: null,
         elo_affected: Boolean(eloEvent),
+      },
+      protocol: {
+        end_reason: game.end_reason || 'normal',
+        votes: normalizeVotes(safeJsonParse<any[]>(game.votes_json, []) || []),
+        shots: normalizeShots(safeJsonParse<any[]>(game.shots_json, []) || []),
+        replacement: normalizeReplacement(safeJsonParse<any>(game.replacement_json, null)),
+        judge_notes: game.judge_notes || null,
+        first_killed: participantInfo(String(game.first_killed_participant_id || '') || null, participantDirectory),
+        zero_round_voted: participantInfo(String(game.zero_round_voted_participant_id || '') || null, participantDirectory),
+        ppk_culprit: participantInfo(ppkCulpritId || null, participantDirectory),
       },
       players,
     });

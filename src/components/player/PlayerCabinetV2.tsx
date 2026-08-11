@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 
 type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'profile';
+type GameScope = 'mine' | 'all';
+type ProfileScope = 'self' | 'players';
 type EveningResponseStatus = 'going' | 'late' | 'thinking' | 'declined';
 
 type PlayerEvening = {
@@ -22,6 +24,55 @@ type RatingPlayer = {
   nickname: string;
   elo: number;
   avatar_url: string | null;
+};
+
+type AllGame = {
+  id: string;
+  source: 'club' | 'tournament';
+  title: string;
+  date: string | null;
+  game_number: number;
+  format: string;
+  winner_team: 'red' | 'black' | null;
+  judge_name: string | null;
+};
+
+type DirectoryPlayer = {
+  id: string;
+  nickname: string;
+  elo: number;
+  game_level: string;
+  avatar_url: string | null;
+};
+
+type PublicPlayerProfile = {
+  player: DirectoryPlayer;
+  stats: {
+    completedGames: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+    clubGames: number;
+    tournamentGames: number;
+    redGames: number;
+    blackGames: number;
+    bestMoves: number;
+    firstKilled: number;
+    zeroRoundVoted: number;
+    roleCounts: {
+      citizen: number;
+      sheriff: number;
+      mafia: number;
+      don: number;
+      unknown: number;
+    };
+  };
+  tournament_awards: {
+    firstPlaces: number;
+    secondPlaces: number;
+    thirdPlaces: number;
+    nominations: number;
+  };
 };
 
 const NAV_ITEMS: Array<{ id: PlayerTab; icon: string; label: string }> = [
@@ -72,6 +123,12 @@ const gameLevelLabel = (level: string) => {
   return 'Игрок клуба';
 };
 
+const winnerLabel = (winner: 'red' | 'black' | null) => {
+  if (winner === 'red') return '🔴 Победа красных';
+  if (winner === 'black') return '⚫ Победа чёрных';
+  return 'Результат';
+};
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
@@ -100,6 +157,23 @@ function StatCard({ value, label }: { value: React.ReactNode; label: string }) {
   );
 }
 
+function Toggle<T extends string>({ value, onChange, items }: { value: T; onChange: (value: T) => void; items: Array<{ value: T; label: string }> }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.045] p-1">
+      {items.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          onClick={() => onChange(item.value)}
+          className={`min-h-10 rounded-xl px-3 text-sm font-medium transition ${value === item.value ? 'bg-white text-black' : 'text-white/50'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
   return (
     <div className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${isSelf ? 'border border-white/15 bg-white/[0.09]' : 'bg-black/20'}`}>
@@ -107,15 +181,10 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
       {item.avatar_url ? (
         <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
-          {item.nickname.slice(0, 1).toUpperCase()}
-        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">{item.nickname.slice(0, 1).toUpperCase()}</div>
       )}
       <div className="min-w-0 flex-1 truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div>
-      <div className="shrink-0 text-right">
-        <div className="text-sm font-semibold text-white">{item.elo}</div>
-        <div className="text-[10px] uppercase tracking-wide text-white/35">ELO</div>
-      </div>
+      <div className="shrink-0 text-right"><div className="text-sm font-semibold text-white">{item.elo}</div><div className="text-[10px] uppercase tracking-wide text-white/35">ELO</div></div>
     </div>
   );
 }
@@ -123,11 +192,21 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
 export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
   const { player, achievements, tournaments, games } = data;
   const [tab, setTab] = useState<PlayerTab>('home');
+  const [gameScope, setGameScope] = useState<GameScope>('mine');
+  const [profileScope, setProfileScope] = useState<ProfileScope>('self');
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
   const [eveningsError, setEveningsError] = useState<string | null>(null);
   const [savingEveningId, setSavingEveningId] = useState<string | null>(null);
+  const [allGames, setAllGames] = useState<AllGame[] | null>(null);
+  const [allGamesError, setAllGamesError] = useState<string | null>(null);
+  const [clubPlayers, setClubPlayers] = useState<DirectoryPlayer[] | null>(null);
+  const [playersError, setPlayersError] = useState<string | null>(null);
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState<PublicPlayerProfile | null>(null);
+  const [selectedProfileLoading, setSelectedProfileLoading] = useState(false);
+  const [selectedProfileError, setSelectedProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +238,38 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (tab !== 'games' || gameScope !== 'all' || allGames !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/player/games/all', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить все игры');
+        if (!cancelled) setAllGames(Array.isArray(body?.games) ? body.games : []);
+      } catch (error: any) {
+        if (!cancelled) setAllGamesError(error?.message || 'Не удалось загрузить все игры');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tab, gameScope, allGames]);
+
+  useEffect(() => {
+    if (tab !== 'profile' || profileScope !== 'players' || clubPlayers !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/player/players', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игроков');
+        if (!cancelled) setClubPlayers(Array.isArray(body?.players) ? body.players : []);
+      } catch (error: any) {
+        if (!cancelled) setPlayersError(error?.message || 'Не удалось загрузить игроков');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tab, profileScope, clubPlayers]);
+
   const respondToEvening = async (eveningId: string, status: EveningResponseStatus) => {
     setSavingEveningId(eveningId);
     try {
@@ -179,15 +290,33 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
     }
   };
 
+  const openPlayerProfile = async (targetId: string) => {
+    setSelectedProfileLoading(true);
+    setSelectedProfileError(null);
+    try {
+      const response = await fetch(`/api/player/players/${encodeURIComponent(targetId)}`, { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить профиль');
+      setSelectedProfile(body as PublicPlayerProfile);
+    } catch (error: any) {
+      setSelectedProfileError(error?.message || 'Не удалось загрузить профиль');
+    } finally {
+      setSelectedProfileLoading(false);
+    }
+  };
+
   const earnedAchievements = achievements.categories.flatMap((category) =>
-    category.achievements
-      .filter((achievement) => achievement.earned)
-      .map((achievement) => ({ ...achievement, categoryName: category.name })),
+    category.achievements.filter((achievement) => achievement.earned).map((achievement) => ({ ...achievement, categoryName: category.name })),
   );
   const ratingTop = (rating || []).slice(0, 10);
   const selfRating = (rating || []).find((item) => item.player_id === player.id) || null;
   const selfOutsideTop = Boolean(selfRating && !ratingTop.some((item) => item.player_id === player.id));
   const stats = games.stats;
+  const filteredPlayers = useMemo(() => {
+    const query = playerSearch.trim().toLocaleLowerCase('ru-RU');
+    if (!query) return clubPlayers || [];
+    return (clubPlayers || []).filter((item) => item.nickname.toLocaleLowerCase('ru-RU').includes(query));
+  }, [clubPlayers, playerSearch]);
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -197,95 +326,50 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
             <PageHeading title="Главная" subtitle={`Привет, ${player.nickname}`} />
             <Section title="Ближайшие игры">
               {eveningsError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">{eveningsError}</p>}
-              {evenings === null ? (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p>
-              ) : evenings.length ? (
-                <div className="space-y-3">
-                  {evenings.map((evening) => {
-                    const format = normalizeEveningFormat(evening.format);
-                    const saving = savingEveningId === evening.id;
-                    return (
-                      <article key={evening.id} className="rounded-2xl bg-black/20 p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{evening.title}</div>
-                            <div className="mt-1 text-xs text-white/45">{formatEveningDate(evening.starts_at)}</div>
-                            {evening.venue && <div className="mt-1 truncate text-xs text-white/35">📍 {evening.venue}</div>}
-                          </div>
-                          <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] font-medium text-white/60">{EVENING_FORMAT_LABELS[format]}</span>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-white/40">
-                          <span>Идут: {evening.attending_count}</span>
-                          {evening.default_price != null && <span>{Number(evening.default_price)} ₽</span>}
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          {RESPONSE_OPTIONS.map((option) => {
-                            const selected = evening.response_status === option.status;
-                            return (
-                              <button
-                                key={option.status}
-                                type="button"
-                                disabled={saving}
-                                onClick={() => void respondToEvening(evening.id, option.status)}
-                                className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium transition ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-white/[0.05] text-white/70'} ${saving ? 'opacity-50' : ''}`}
-                              >
-                                {option.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сейчас нет доступных игровых вечеров.</p>
-              )}
+              {evenings === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p> : evenings.length ? (
+                <div className="space-y-3">{evenings.map((evening) => {
+                  const format = normalizeEveningFormat(evening.format);
+                  const saving = savingEveningId === evening.id;
+                  return <article key={evening.id} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{evening.title}</div><div className="mt-1 text-xs text-white/45">{formatEveningDate(evening.starts_at)}</div>{evening.venue && <div className="mt-1 truncate text-xs text-white/35">📍 {evening.venue}</div>}</div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] font-medium text-white/60">{EVENING_FORMAT_LABELS[format]}</span></div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-white/40"><span>Идут: {evening.attending_count}</span>{evening.default_price != null && <span>{Number(evening.default_price)} ₽</span>}</div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">{RESPONSE_OPTIONS.map((option) => {
+                      const selected = evening.response_status === option.status;
+                      return <button key={option.status} type="button" disabled={saving} onClick={() => void respondToEvening(evening.id, option.status)} className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium transition ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-white/[0.05] text-white/70'} ${saving ? 'opacity-50' : ''}`}>{option.label}</button>;
+                    })}</div>
+                  </article>;
+                })}</div>
+              ) : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сейчас нет доступных игровых вечеров.</p>}
             </Section>
           </>
         )}
 
         {tab === 'games' && (
           <>
-            <PageHeading title="Мои игры" subtitle="Вся история клубных и турнирных игр" />
-            <Section title="История игр">
-              {games.all.length ? (
-                <div className="space-y-2">
-                  {games.all.map((game: any) => {
-                    const points = [
-                      game.judge_bonus ? `судья ${game.judge_bonus > 0 ? '+' : ''}${game.judge_bonus}` : null,
-                      game.protocol_bonus ? `бонус ${game.protocol_bonus > 0 ? '+' : ''}${game.protocol_bonus}` : null,
-                      game.ci_points ? `CI ${game.ci_points > 0 ? '+' : ''}${game.ci_points}` : null,
-                      game.penalty_points ? `штраф ${game.penalty_points}` : null,
-                      game.disciplinary_penalty_points ? `дисц. ${game.disciplinary_penalty_points}` : null,
-                    ].filter(Boolean);
-                    return (
-                      <article key={game.id} className="rounded-2xl bg-black/20 p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{game.title}</div>
-                            <div className="mt-1 text-xs text-white/40">{formatDate(game.date)} · {game.source === 'tournament' ? 'Турнир' : 'Клуб'}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-xs text-white/65">
-                            {game.status !== 'completed' ? 'Не завершена' : game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Результат'}
-                          </span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                          <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>
-                          {game.seat_number > 0 && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">место {game.seat_number}</span>}
-                          {game.first_killed && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ПУ</span>}
-                          {game.best_move && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ЛХ</span>}
-                          {points.map((part) => <span key={String(part)} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}
-                        </div>
-                        {(game.table_name || game.judge_name) && <div className="mt-2 text-[11px] text-white/30">{[game.table_name, game.judge_name ? `судья ${game.judge_name}` : null].filter(Boolean).join(' · ')}</div>}
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сохранённых игр пока нет.</p>
-              )}
-            </Section>
+            <PageHeading title="Игры" subtitle="Личная история и общий архив клуба" />
+            <Toggle<GameScope> value={gameScope} onChange={setGameScope} items={[{ value: 'mine', label: 'Мои игры' }, { value: 'all', label: 'Все игры' }]} />
+            {gameScope === 'mine' ? (
+              <Section title="Моя история">
+                {games.all.length ? <div className="space-y-2">{games.all.map((game: any) => {
+                  const points = [game.judge_bonus ? `судья ${game.judge_bonus > 0 ? '+' : ''}${game.judge_bonus}` : null, game.protocol_bonus ? `бонус ${game.protocol_bonus > 0 ? '+' : ''}${game.protocol_bonus}` : null, game.ci_points ? `CI ${game.ci_points > 0 ? '+' : ''}${game.ci_points}` : null, game.penalty_points ? `штраф ${game.penalty_points}` : null, game.disciplinary_penalty_points ? `дисц. ${game.disciplinary_penalty_points}` : null].filter(Boolean);
+                  return <article key={game.id} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)} · {game.source === 'tournament' ? 'Турнир' : 'Клуб'}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-xs text-white/65">{game.status !== 'completed' ? 'Не завершена' : game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Результат'}</span></div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>{game.seat_number > 0 && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">место {game.seat_number}</span>}{game.first_killed && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ПУ</span>}{game.best_move && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ЛХ</span>}{points.map((part) => <span key={String(part)} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}</div>
+                    {(game.table_name || game.judge_name) && <div className="mt-2 text-[11px] text-white/30">{[game.table_name, game.judge_name ? `судья ${game.judge_name}` : null].filter(Boolean).join(' · ')}</div>}
+                  </article>;
+                })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сохранённых игр пока нет.</p>}
+              </Section>
+            ) : (
+              <Section title="Все игры клуба">
+                {allGamesError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{allGamesError}</p> : allGames === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка общего архива…</p> : allGames.length ? <div className="space-y-2">{allGames.map((game) => {
+                  const normalizedFormat = normalizeEveningFormat(game.format);
+                  return <article key={game.id} className="rounded-2xl bg-black/20 p-3">
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] text-white/55">{game.source === 'tournament' ? 'Турнир' : EVENING_FORMAT_LABELS[normalizedFormat]}</span></div>
+                    <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="text-white/65">{winnerLabel(game.winner_team)}</span>{game.judge_name && <span className="truncate text-right text-white/30">судья {game.judge_name}</span>}</div>
+                  </article>;
+                })}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Завершённых игр пока нет.</p>}
+              </Section>
+            )}
           </>
         )}
 
@@ -293,18 +377,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           <>
             <PageHeading title="Рейтинг" subtitle="ELO сейчас; рейтинговые периоды добавим сюда же" />
             <Section title="ELO клуба">
-              {ratingError ? (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p>
-              ) : rating === null ? (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка ELO…</p>
-              ) : ratingTop.length ? (
-                <div className="space-y-2">
-                  {ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}
-                  {selfOutsideTop && selfRating && <><div className="py-0.5 text-center text-xs text-white/25">•••</div><RatingRow item={selfRating} isSelf /></>}
-                </div>
-              ) : (
-                <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">ELO пока пуст.</p>
-              )}
+              {ratingError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{ratingError}</p> : rating === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка ELO…</p> : ratingTop.length ? <div className="space-y-2">{ratingTop.map((item) => <RatingRow key={item.player_id} item={item} isSelf={item.player_id === player.id} />)}{selfOutsideTop && selfRating && <><div className="py-0.5 text-center text-xs text-white/25">•••</div><RatingRow item={selfRating} isSelf /></>}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">ELO пока пуст.</p>}
             </Section>
           </>
         )}
@@ -313,56 +386,19 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
           <>
             <PageHeading title="Статистика" subtitle="Игровые показатели, достижения и турнирные награды" />
             <Section title="Игровая статистика">
-              <div className="grid grid-cols-3 gap-2">
-                <StatCard value={stats.completedGames} label="игр" />
-                <StatCard value={stats.wins} label="побед" />
-                <StatCard value={`${stats.winRate}%`} label="винрейт" />
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <StatCard value={stats.redGames} label="за красных" />
-                <StatCard value={stats.blackGames} label="за чёрных" />
-              </div>
-              <div className="mt-3 rounded-2xl bg-black/20 p-3">
-                <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Роли</div>
-                <div className="mt-2 grid grid-cols-4 gap-1.5 text-center">
-                  <div><div className="text-base font-semibold">{stats.roleCounts.citizen}</div><div className="text-[10px] text-white/35">Мирный</div></div>
-                  <div><div className="text-base font-semibold">{stats.roleCounts.sheriff}</div><div className="text-[10px] text-white/35">Шериф</div></div>
-                  <div><div className="text-base font-semibold">{stats.roleCounts.mafia}</div><div className="text-[10px] text-white/35">Мафия</div></div>
-                  <div><div className="text-base font-semibold">{stats.roleCounts.don}</div><div className="text-[10px] text-white/35">Дон</div></div>
-                </div>
-              </div>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <StatCard value={stats.firstKilled} label="ПУ" />
-                <StatCard value={stats.bestMoves} label="ЛХ" />
-                <StatCard value={stats.zeroRoundVoted} label="0 круг" />
-              </div>
+              <div className="grid grid-cols-3 gap-2"><StatCard value={stats.completedGames} label="игр" /><StatCard value={stats.wins} label="побед" /><StatCard value={`${stats.winRate}%`} label="винрейт" /></div>
+              <div className="mt-2 grid grid-cols-2 gap-2"><StatCard value={stats.redGames} label="за красных" /><StatCard value={stats.blackGames} label="за чёрных" /></div>
+              <div className="mt-3 rounded-2xl bg-black/20 p-3"><div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Роли</div><div className="mt-2 grid grid-cols-4 gap-1.5 text-center"><div><div className="text-base font-semibold">{stats.roleCounts.citizen}</div><div className="text-[10px] text-white/35">Мирный</div></div><div><div className="text-base font-semibold">{stats.roleCounts.sheriff}</div><div className="text-[10px] text-white/35">Шериф</div></div><div><div className="text-base font-semibold">{stats.roleCounts.mafia}</div><div className="text-[10px] text-white/35">Мафия</div></div><div><div className="text-base font-semibold">{stats.roleCounts.don}</div><div className="text-[10px] text-white/35">Дон</div></div></div></div>
+              <div className="mt-2 grid grid-cols-3 gap-2"><StatCard value={stats.firstKilled} label="ПУ" /><StatCard value={stats.bestMoves} label="ЛХ" /><StatCard value={stats.zeroRoundVoted} label="0 круг" /></div>
               <div className="mt-3 flex items-center justify-between text-xs text-white/35"><span>Клубные: {stats.clubGames}</span><span>Турнирные: {stats.tournamentGames}</span></div>
             </Section>
-
             <Section title="Достижения">
-              <div className="flex items-end justify-between gap-3">
-                <div><div className="text-2xl font-semibold">{achievements.earned} / {achievements.total}</div><div className="text-sm text-white/45">получено достижений</div></div>
-                <div className="text-lg font-semibold text-white/75">{achievements.percentage}%</div>
-              </div>
+              <div className="flex items-end justify-between gap-3"><div><div className="text-2xl font-semibold">{achievements.earned} / {achievements.total}</div><div className="text-sm text-white/45">получено достижений</div></div><div className="text-lg font-semibold text-white/75">{achievements.percentage}%</div></div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white/70" style={{ width: `${Math.max(0, Math.min(100, achievements.percentage))}%` }} /></div>
-              {earnedAchievements.length ? (
-                <div className="mt-4 space-y-2">
-                  {earnedAchievements.map((achievement) => (
-                    <div key={achievement.id} className="rounded-2xl bg-black/20 p-3">
-                      <div className="flex gap-3"><div className="text-2xl">{achievement.icon}</div><div className="min-w-0 flex-1"><div className="font-medium">{achievement.name}</div><div className="mt-1 text-sm text-white/50">{achievement.description}</div><div className="mt-1 text-xs text-white/35">{achievement.categoryName} · {achievement.rarity_icon} {achievement.rarity_name}</div></div></div>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="mt-4 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Пока нет полученных достижений.</p>}
+              {earnedAchievements.length ? <div className="mt-4 space-y-2">{earnedAchievements.map((achievement) => <div key={achievement.id} className="rounded-2xl bg-black/20 p-3"><div className="flex gap-3"><div className="text-2xl">{achievement.icon}</div><div className="min-w-0 flex-1"><div className="font-medium">{achievement.name}</div><div className="mt-1 text-sm text-white/50">{achievement.description}</div><div className="mt-1 text-xs text-white/35">{achievement.categoryName} · {achievement.rarity_icon} {achievement.rarity_name}</div></div></div></div>)}</div> : <p className="mt-4 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Пока нет полученных достижений.</p>}
             </Section>
-
             <Section title="Награды турниров">
-              <div className="mb-3 grid grid-cols-4 gap-1.5 text-center">
-                <div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.firstPlaces}</div><div className="text-[10px] text-white/40">1 место</div></div>
-                <div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.secondPlaces}</div><div className="text-[10px] text-white/40">2 место</div></div>
-                <div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.thirdPlaces}</div><div className="text-[10px] text-white/40">3 место</div></div>
-                <div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.nominations}</div><div className="text-[10px] text-white/40">Номинации</div></div>
-              </div>
+              <div className="mb-3 grid grid-cols-4 gap-1.5 text-center"><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.firstPlaces}</div><div className="text-[10px] text-white/40">1 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.secondPlaces}</div><div className="text-[10px] text-white/40">2 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.thirdPlaces}</div><div className="text-[10px] text-white/40">3 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.nominations}</div><div className="text-[10px] text-white/40">Номинации</div></div></div>
               {tournaments.awards.length ? <div className="space-y-2">{tournaments.awards.map((award) => <div key={award.id} className="rounded-2xl bg-black/20 p-3"><div className="font-medium">{award.title}</div><div className="mt-1 text-sm text-white/50">{award.tournament_title}</div><div className="mt-1 text-xs text-white/35">{formatDate(award.tournament_date)}</div></div>)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Турнирных наград пока нет.</p>}
             </Section>
           </>
@@ -370,46 +406,41 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
 
         {tab === 'profile' && (
           <>
-            <PageHeading title="Профиль" subtitle="Аккаунт игрока и клубные данные" />
-            <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
-              <div className="flex items-center gap-4">
-                {player.avatar_url ? (
-                  <img src={player.avatar_url} alt={player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" />
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-2xl font-semibold">{player.nickname}</h2>
-                  {player.full_name && <p className="mt-1 truncate text-sm text-white/60">{player.full_name}</p>}
-                  {player.telegram_username && <p className="mt-1 truncate text-sm text-white/45">@{player.telegram_username.replace(/^@/, '')}</p>}
-                  <p className="mt-2 text-xs text-white/35">{gameLevelLabel(player.game_level)}</p>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div>
-                <div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div>
-              </div>
-              {canOpenAdmin && <a href="/admin" className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80">Панель организатора</a>}
-            </header>
-            <Section title="Настройки">
-              <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Здесь будут настройки профиля, оплата, магазин и другие личные действия. Переносим их сюда по мере отключения кнопок в боте.</p>
-            </Section>
+            <PageHeading title="Профиль" subtitle="Мой аккаунт и игроки клуба" />
+            <Toggle<ProfileScope> value={profileScope} onChange={(value) => { setProfileScope(value); if (value === 'self') setSelectedProfile(null); }} items={[{ value: 'self', label: 'Мой профиль' }, { value: 'players', label: 'Игроки клуба' }]} />
+            {profileScope === 'self' ? (
+              <>
+                <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
+                  <div className="flex items-center gap-4">{player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h2 className="truncate text-2xl font-semibold">{player.nickname}</h2>{player.full_name && <p className="mt-1 truncate text-sm text-white/60">{player.full_name}</p>}{player.telegram_username && <p className="mt-1 truncate text-sm text-white/45">@{player.telegram_username.replace(/^@/, '')}</p>}<p className="mt-2 text-xs text-white/35">{gameLevelLabel(player.game_level)}</p></div></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">ELO</div><div className="mt-1 text-xl font-semibold">{player.elo}</div></div><div className="rounded-2xl bg-black/25 px-3 py-3"><div className="text-xs text-white/45">Жетоны</div><div className="mt-1 text-xl font-semibold">{player.tokens}</div></div></div>
+                  {canOpenAdmin && <a href="/admin" className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80">Панель организатора</a>}
+                </header>
+                <Section title="Настройки"><p className="rounded-2xl bg-black/20 px-3 py-4 text-sm leading-6 text-white/45">Здесь будут настройки профиля, оплата, магазин и другие личные действия. Переносим их сюда по мере отключения кнопок в боте.</p></Section>
+              </>
+            ) : selectedProfile ? (
+              <>
+                <button type="button" onClick={() => setSelectedProfile(null)} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← Все игроки</button>
+                <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
+                  <div className="flex items-center gap-4">{selectedProfile.player.avatar_url ? <img src={selectedProfile.player.avatar_url} alt={selectedProfile.player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">{selectedProfile.player.nickname.slice(0, 1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h2 className="truncate text-2xl font-semibold">{selectedProfile.player.nickname}</h2><p className="mt-2 text-xs text-white/35">{gameLevelLabel(selectedProfile.player.game_level)}</p><div className="mt-2 text-sm text-white/55">ELO {selectedProfile.player.elo}</div></div></div>
+                </header>
+                <Section title="Статистика игрока"><div className="grid grid-cols-3 gap-2"><StatCard value={selectedProfile.stats.completedGames} label="игр" /><StatCard value={selectedProfile.stats.wins} label="побед" /><StatCard value={`${selectedProfile.stats.winRate}%`} label="винрейт" /></div><div className="mt-2 grid grid-cols-3 gap-2"><StatCard value={selectedProfile.stats.firstKilled} label="ПУ" /><StatCard value={selectedProfile.stats.bestMoves} label="ЛХ" /><StatCard value={selectedProfile.tournament_awards.nominations} label="номинаций" /></div></Section>
+              </>
+            ) : (
+              <Section title="Игроки клуба">
+                <input value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} placeholder="Найти игрока" className="mb-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25" />
+                {selectedProfileError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/45">{selectedProfileError}</p>}
+                {playersError ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{playersError}</p> : clubPlayers === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игроков…</p> : filteredPlayers.length ? <div className="space-y-2">{filteredPlayers.map((item) => <button key={item.id} type="button" disabled={selectedProfileLoading} onClick={() => void openPlayerProfile(item.id)} className="flex w-full items-center gap-3 rounded-2xl bg-black/20 p-3 text-left disabled:opacity-50">{item.avatar_url ? <img src={item.avatar_url} alt={item.nickname} className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-white/10" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">{item.nickname.slice(0, 1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><div className="truncate font-medium text-white">{item.nickname}{item.id === player.id ? ' · вы' : ''}</div><div className="mt-1 text-xs text-white/35">{gameLevelLabel(item.game_level)}</div></div><div className="shrink-0 text-sm font-semibold text-white/60">{item.elo} ELO</div></button>)}</div> : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Игроки не найдены.</p>}
+              </Section>
+            )}
           </>
         )}
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-1">
-          {NAV_ITEMS.map((item) => {
-            const active = item.id === tab;
-            return (
-              <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl px-1 text-[10px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
-                <span className="text-lg leading-none">{item.icon}</span>
-                <span className="mt-1 truncate">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-1">{NAV_ITEMS.map((item) => {
+          const active = item.id === tab;
+          return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl px-1 text-[10px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}><span className="text-lg leading-none">{item.icon}</span><span className="mt-1 truncate">{item.label}</span></button>;
+        })}</div>
       </nav>
     </main>
   );

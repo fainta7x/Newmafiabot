@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.ts';
 
 export class PlayerRegistrationError extends Error {
   code: string;
@@ -85,6 +86,10 @@ export async function registerNewPlayer(
     source?: string;
   },
 ): Promise<{ created: boolean; player: RegisteredPlayer }> {
+  // Registration is also used directly by bot/service tests and maintenance paths,
+  // so it must not depend on createApp having already added the access column.
+  await ensureInviteAudienceSchema(db);
+
   const telegramUserId = String(input.telegramUserId ?? '').trim();
   if (!/^\d+$/.test(telegramUserId)) {
     throw new PlayerRegistrationError('invalid_telegram', 'Некорректный Telegram ID');

@@ -29,7 +29,7 @@ describe('EveningParticipantsView response/attendance/payment model', () => {
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
 
     const sleeperLabels = screen.getAllByText('Спящий');
-    fireEvent.click(sleeperLabels[0].closest('button')!);
+    fireEvent.click(sleeperLabels[0]);
     expect(onOpenPlayerCard).toHaveBeenCalledWith('player-1');
 
     fireEvent.click(screen.getByRole('button', { name: 'Пришёл' }));

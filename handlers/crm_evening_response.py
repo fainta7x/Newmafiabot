@@ -172,6 +172,8 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
     error = result.get("error")
     if error == "not_found":
         message = "Профиль клуба не найден. Откройте личный чат с ботом, нажмите /start и завершите регистрацию, затем повторите ответ."
+    elif error == "attendance_locked":
+        message = "Явка на этот вечер уже отмечена. Если ответ нужно исправить, напишите организатору."
     elif error == "closed":
         message = "Этот вечер уже закрыт"
     elif error == "invalid":

@@ -11,6 +11,8 @@ type Seat = {
 type Props = {
   seats: Seat[];
   initialAssignments?: Record<number, PhysicalRole>;
+  musicTrackId?: string | null;
+  musicTrackTitle?: string | null;
   onCancel: () => void;
   onComplete: (assignments: Record<number, PhysicalRole>) => void;
 };
@@ -24,7 +26,14 @@ const ROLE_META: Record<PhysicalRole, { label: string; icon: string; max: number
 
 const ROLES = Object.keys(ROLE_META) as PhysicalRole[];
 
-export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCancel, onComplete }: Props) {
+export default function PhysicalRoleDeal({
+  seats,
+  initialAssignments = {},
+  musicTrackId,
+  musicTrackTitle,
+  onCancel,
+  onComplete,
+}: Props) {
   const sortedSeats = useMemo(() => seats.slice().sort((a, b) => a.seat_number - b.seat_number).slice(0, 10), [seats]);
   const [started, setStarted] = useState(false);
   const [assignments, setAssignments] = useState<Record<number, PhysicalRole>>(() => {
@@ -52,6 +61,7 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
   const exactComplete = sortedSeats.length === 10
     && assignedCount === 10
     && ROLES.every((role) => counts[role] === ROLE_META[role].max);
+  const musicDisabled = musicTrackId === null;
 
   const cancel = () => {
     requestJudgeGameMusicStop();
@@ -99,7 +109,7 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
         <section className="w-full max-w-md rounded-3xl border border-violet-300/15 bg-slate-900 p-5 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">🃏 Раздача ролей</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">Фаза 1 · 🃏 Раздача ролей</div>
               <h2 className="mt-2 text-2xl font-black text-white">Подготовьте 10 карт</h2>
             </div>
             <button type="button" onClick={cancel} className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
@@ -113,17 +123,22 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-xs leading-5 text-slate-400">
             Перемешайте карты и положите их перед собой рубашкой вверх. Игроки по очереди вслепую тянут карту. Приложение только фиксирует фактический результат.
           </div>
+          {!musicDisabled && (
+            <div className="mt-3 rounded-2xl border border-violet-300/10 bg-violet-300/[0.05] px-3 py-3 text-xs text-violet-100/65">
+              ♫ На раздаче: <strong>{musicTrackTitle || 'выбранный трек'}</strong> · громкость плавно нарастёт.
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {
-              requestJudgeGameMusicStart();
+              if (!musicDisabled) requestJudgeGameMusicStart(musicTrackId || undefined);
               setStarted(true);
             }}
             className="mt-4 min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl"
           >
-            ♫ Включить музыку и начать раздачу
+            {musicDisabled ? 'Начать раздачу' : '♫ Включить музыку и начать раздачу'}
           </button>
-          <p className="mt-2 text-center text-[10px] leading-4 text-slate-500">Это нажатие одновременно разрешает браузеру воспроизведение звука.</p>
+          {!musicDisabled && <p className="mt-2 text-center text-[10px] leading-4 text-slate-500">Это нажатие одновременно разрешает браузеру воспроизведение звука.</p>}
         </section>
       </div>
     );
@@ -135,7 +150,7 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
         <section className="rounded-3xl border border-white/10 bg-slate-900 p-4 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">♫ Музыка · 🃏 Раздача ролей</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">{musicDisabled ? '🃏 Раздача ролей' : '♫ Музыка · 🃏 Раздача ролей'}</div>
               <h2 className="mt-1 text-xl font-black text-white">Физические карты</h2>
               <p className="mt-1 text-xs leading-5 text-slate-400">Игрок вслепую тянет карту со стола. Вы только фиксируете в приложении роль, которую он получил.</p>
             </div>
@@ -231,7 +246,7 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
           onClick={complete}
           className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl disabled:bg-slate-800 disabled:text-slate-500"
         >
-          {exactComplete ? '✓ Раздача завершена — сохранить роли' : `Нужно распределить 6 / 1 / 2 / 1 · ${assignedCount}/10`}
+          {exactComplete ? '✓ Роли зафиксированы — перейти к договорке' : `Нужно распределить 6 / 1 / 2 / 1 · ${assignedCount}/10`}
         </button>
       </div>
     </div>

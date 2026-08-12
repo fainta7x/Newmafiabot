@@ -35,7 +35,11 @@
     pointer-events: none !important;
   }
 
+  /* The DOM contains a textual fallback (for example ✓0 / !0) while V4/V5 draw
+     the final glyph and count with ::before/::after. Hide that fallback completely
+     so each discipline value is rendered only once. */
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count] {
+    position: relative !important;
     width: 25px !important;
     min-width: 25px !important;
     max-width: 25px !important;
@@ -43,6 +47,17 @@
     padding: 0 2px !important;
     gap: 2px !important;
     justify-content: center !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    letter-spacing: 0 !important;
+    text-indent: -999px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count]::before,
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count]::after {
+    text-indent: 0 !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count]::before {
@@ -55,6 +70,7 @@
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count]::after {
     min-width: 6px !important;
     font-size: 8px !important;
+    line-height: 1 !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline-major[data-count]::before {

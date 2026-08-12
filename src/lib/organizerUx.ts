@@ -57,14 +57,8 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
   const unseated = Number(evening.unseatedExpectedCount || 0);
   const games = Number(evening.gamesCount || 0);
   const completedGames = Number(evening.completedGamesCount || 0);
-  const unpaidParticipants = (overview?.actionLists?.unpaidParticipants || []).filter(
-    (participant: any) => String(participant.evening_id || '') === String(evening.id || ''),
-  );
-  const unpaidCount = unpaidParticipants.length;
-  const unpaidAmount = unpaidParticipants.reduce(
-    (sum: number, participant: any) => sum + Math.max(0, Number(participant.amount_due || 0) - Number(participant.amount_paid || 0)),
-    0,
-  );
+  const unpaidCount = Number(evening.expectedToPayCount || 0);
+  const unpaidAmount = Number(evening.expectedToPayAmount || 0);
 
   if (evening.status === 'draft') {
     return {
@@ -122,7 +116,7 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
     return {
       key: `evening:${evening.id}:payments`, kind: 'evening_payments', priority: -1,
       title: `Проверить оплаты · ${unpaidCount}`,
-      reason: `По ближайшему вечеру не закрыто ${Math.round(unpaidAmount)} ₽. Проверь оплаты перед началом вечера.`,
+      reason: `По ближайшему вечеру ожидаем ещё ${Math.round(unpaidAmount)} ₽ от тех, кто идёт или придёт позже.`,
       actionLabel: 'К оплатам', eveningId: evening.id, payload, sortAt,
     };
   }

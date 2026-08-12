@@ -20,12 +20,10 @@ export default function EventsPanel({
   protocolNotes,
   setProtocolNotes,
   winTeam,
-  handleEndGameWithWinner,
   onUndoLastLog,
 }: EventsPanelProps) {
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<"all" | "day" | "night">("all");
-  const [mvpSlot, setMvpSlot] = useState<number | null>(null);
 
   if (phase === "setup") return null;
 
@@ -35,18 +33,15 @@ export default function EventsPanel({
     return true;
   });
 
-  // Calculate FIIM Scores per player
   const calculatePlayerScore = (player: ActivePlayerState) => {
     let score = 0;
     const isWin = winTeam && player.team === winTeam;
     if (isWin) score += 1.0;
 
-    // Direct bonus points
     if (player.bonus_points) score += parseFloat(player.bonus_points as any) || 0;
     if (player.lh_points) score += parseFloat(player.lh_points as any) || 0;
     if (player.will_protocol_points) score += parseFloat(player.will_protocol_points as any) || 0;
 
-    // Best move bonus calculation for 1st killed red
     if (player.best_move_guesses && player.best_move_guesses.length === 3 && !player.lh_points) {
       const blackSlots = activePlayers.filter((p) => p.team === "Чёрные").map((p) => p.slot_num);
       const correctGuesses = player.best_move_guesses.filter((g) => blackSlots.includes(g)).length;
@@ -54,20 +49,8 @@ export default function EventsPanel({
       else if (correctGuesses === 2) score += 0.25;
     }
 
-    // MVP bonus
-    if (mvpSlot === player.slot_num) {
-      score += 0.5;
-    }
-
-    // Add DC (Additional points / Штрафы ДЦ)
-    if (player.dc_points) {
-      score += parseFloat(player.dc_points as any) || 0;
-    }
-
-    // Deduct penalty for 4 fouls / penalty flag (-0.5б)
-    if (player.has_foul_penalty || player.fouls >= 4) {
-      score -= 0.5;
-    }
+    if (player.dc_points) score += parseFloat(player.dc_points as any) || 0;
+    if (player.has_foul_penalty || player.fouls >= 4) score -= 0.5;
 
     return Math.max(0, score).toFixed(2);
   };
@@ -82,11 +65,10 @@ export default function EventsPanel({
     text += `👥 *ИТОГОВАЯ ТАБЛИЦА И БАЛЛЫ:*\n`;
     activePlayers.forEach((s) => {
       const pts = winTeam ? calculatePlayerScore(s) : "—";
-      const mvpBadge = mvpSlot === s.slot_num ? " ⭐ [MVP]" : "";
       const bmText = s.best_move_guesses && s.best_move_guesses.length > 0 ? ` | ЛХ: [${s.best_move_guesses.join(", ")}]` : "";
       const dcText = s.dc_points ? ` (Доп: ${s.dc_points > 0 ? "+" : ""}${s.dc_points})` : "";
       const noteText = s.note ? ` [Заметка: ${s.note}]` : "";
-      text += `${s.slot_num}. *${s.nickname || "Игрок " + s.slot_num}* (${s.role}) — *${pts} б.*${mvpBadge}${dcText}${bmText}${noteText}\n`;
+      text += `${s.slot_num}. *${s.nickname || "Игрок " + s.slot_num}* (${s.role}) — *${pts} б.*${dcText}${bmText}${noteText}\n`;
     });
 
     if (nightLogs.length > 0) {
@@ -106,12 +88,11 @@ export default function EventsPanel({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="md:col-span-2 bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
+    <div className="grid grid-cols-1 gap-4">
+      <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-[10px] font-bold text-white uppercase tracking-wider">События и Проверки</h3>
-            {/* Filter Tabs */}
             <div className="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
               <button
                 type="button"
@@ -168,7 +149,7 @@ export default function EventsPanel({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Протокол в Telegram 📋</span>
+                  <span>Протокол в Telegram</span>
                 </>
               )}
             </button>
@@ -207,69 +188,6 @@ export default function EventsPanel({
             className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none"
             rows={1}
           />
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-br from-rose-900/10 to-slate-900 border border-rose-500/10 rounded-xl p-4 flex flex-col justify-between gap-3">
-        <div>
-          <h3 className="text-xs font-bold text-rose-400 uppercase tracking-wider">Завершить игру</h3>
-          <div className="mt-1.5 p-2 bg-slate-900/60 rounded border border-slate-800 text-[10px] flex justify-between items-center">
-            <span>
-              Красных: <strong className="text-rose-400">{activePlayers.filter((p) => p.alive && p.team === "Красные").length}</strong>
-            </span>
-            <span>
-              Черных: <strong className="text-slate-400">{activePlayers.filter((p) => p.alive && p.team === "Чёрные").length}</strong>
-            </span>
-          </div>
-
-          {/* MVP Selection Dropdown */}
-          <div className="mt-2 space-y-1">
-            <label className="text-[9px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1">
-              ⭐ Выбрать MVP (Лучший игрок +0.5б)
-            </label>
-            <select
-              value={mvpSlot || 0}
-              onChange={(e) => setMvpSlot(e.target.value === "0" ? null : parseInt(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded p-1 text-[10px] text-slate-200"
-            >
-              <option value={0}>-- Без MVP --</option>
-              {activePlayers.map((p) => (
-                <option key={p.slot_num} value={p.slot_num}>
-                  #{p.slot_num} {p.nickname || `Игрок ${p.slot_num}`} ({p.role})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="text-[10px] font-bold">
-          {winTeam ? (
-            <div className="space-y-1.5">
-              <div className="p-1 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-center uppercase tracking-wider text-[9px]">
-                Авто-победа: {winTeam}!
-              </div>
-              <button
-                onClick={() => handleEndGameWithWinner(winTeam)}
-                className="w-full bg-rose-600 text-white py-1.5 rounded uppercase tracking-wider cursor-pointer font-extrabold"
-              >
-                Применить авто-победу
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                onClick={() => handleEndGameWithWinner("Красные")}
-                className="bg-rose-600 text-white py-1.5 rounded uppercase text-[9px] tracking-wider cursor-pointer font-extrabold"
-              >
-                Победа Красных
-              </button>
-              <button
-                onClick={() => handleEndGameWithWinner("Чёрные")}
-                className="bg-slate-800 text-slate-300 py-1.5 rounded uppercase text-[9px] tracking-wider cursor-pointer font-extrabold"
-              >
-                Победа Чёрных
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

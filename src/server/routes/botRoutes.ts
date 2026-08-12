@@ -184,7 +184,18 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
-      return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны' });
+      return res.status(409).json({ error: 'Ответы на этот вечер уже недоступны', code: 'closed' });
+    }
+
+    const existingParticipant = await db.get(
+      'SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
+      [evening.id, player.id],
+    );
+    if (existingParticipant && String(existingParticipant.attendance_status || 'pending') !== 'pending') {
+      return res.status(409).json({
+        error: 'Явка уже отмечена. Изменить ответ после этого может только организатор.',
+        code: 'attendance_locked',
+      });
     }
 
     const now = new Date().toISOString();
@@ -209,8 +220,8 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
       ],
     );
 
-    const participant = await db.get(
-      'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
+    const participant = existingParticipant || await db.get(
+      'SELECT id, attendance_status FROM evening_participants WHERE evening_id = ? AND player_id = ?',
       [evening.id, player.id],
     );
     if (!participant) return res.status(500).json({ error: 'Не удалось создать участника вечера' });

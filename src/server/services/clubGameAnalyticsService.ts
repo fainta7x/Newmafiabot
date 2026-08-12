@@ -90,7 +90,7 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
     if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
     const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
     const eventDate = validDate(row.evening_date || row.game_date || row.created_at);
-    const playedDate = validDate(row.game_date || row.created_at || row.evening_date) || eventDate;
+    const playedDate = validDate(row.created_at || row.game_date || row.evening_date) || eventDate;
     const eventId = String(row.evening_id || '').trim();
     if (!winner || !eventDate || !playedDate || !eventId) continue;
 

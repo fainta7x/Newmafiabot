@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CircleDollarSign, Clock3, Gamepad2, Play, RefreshCw, Users } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
 
 interface EveningOverviewViewProps {
@@ -49,6 +50,8 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmNoShow, setConfirmNoShow] = useState(false);
+  const [confirmSettle, setConfirmSettle] = useState(false);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -99,12 +102,10 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   const markPendingAsNoShow = async () => {
     if (busy || !stats.pendingExpected.length) return;
-    const names = stats.pendingExpected.slice(0, 6).map((item) => item.nickname).join(', ');
-    const tail = stats.pendingExpected.length > 6 ? ` и ещё ${stats.pendingExpected.length - 6}` : '';
-    if (!window.confirm(`Отметить как «Не пришёл»: ${names}${tail}?\n\nДействие можно затем исправить вручную в составе вечера.`)) return;
     setBusy('no-show'); setError(null); setMessage(null);
     try {
       await api.bulkUpdateParticipants(eveningId, stats.pendingExpected.map((item) => ({ id: item.id, attendance_fact: 'no_show' } as any)));
+      setConfirmNoShow(false);
       await load(true);
       setMessage('Неотмеченные ожидаемые игроки помечены как не пришедшие.');
     } catch (err: any) {
@@ -114,10 +115,10 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   const settle = async () => {
     if (busy) return;
-    if (!window.confirm(`Закрыть вечер «${evening?.title || ''}»?\n\nПосле закрытия явка и оплаты фиксируются в истории. Неоплаченные суммы останутся долгом.`)) return;
     setBusy('settle'); setError(null); setMessage(null);
     try {
       await api.settleEvening(eveningId);
+      setConfirmSettle(false);
       await load(true);
       setMessage('Вечер закрыт и зафиксирован в истории клуба.');
     } catch (err: any) {
@@ -154,6 +155,9 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
           ? 'Вечер завершён и зафиксирован в истории клуба.'
           : 'Вечер отменён. Активные игровые действия отключены.';
 
+  const pendingNames = stats.pendingExpected.slice(0, 6).map((item) => item.nickname).join(', ');
+  const pendingTail = stats.pendingExpected.length > 6 ? ` и ещё ${stats.pendingExpected.length - 6}` : '';
+
   return <div className="space-y-4 pb-4">
     <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -182,7 +186,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       {!readonly && evening.status !== 'cancelled' ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {evening.status === 'draft' ? <button disabled={Boolean(busy)} onClick={() => void updateStatus('published')} className="min-h-[46px] rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
         {evening.status === 'published' ? <button disabled={Boolean(busy)} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
-        {evening.status === 'active' && readyToClose ? <button disabled={Boolean(busy)} onClick={() => void settle()} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Закрыть вечер</button> : null}
+        {evening.status === 'active' && readyToClose ? <button disabled={Boolean(busy)} onClick={() => setConfirmSettle(true)} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Закрыть вечер</button> : null}
       </div> : null}
       {message ? <p className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
       {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
@@ -195,52 +199,25 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       <button onClick={() => onOpenSection('participants')} className="rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left"><CircleDollarSign className="h-4 w-4 text-success" /><div className="mt-3 text-[18px] font-black">{money(stats.paid)}</div><div className="text-[10px] text-text-muted">оплачено из {money(stats.due)}</div></button>
     </div>
 
-    <EveningAnnouncementPanel
-      eveningId={eveningId}
-      eveningTitle={evening.title}
-      startsAt={evening.starts_at}
-      status={evening.status}
-      readonly={readonly}
-    />
+    <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} />
 
     <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
       <h3 className="text-[14px] font-black text-text-primary">Готовность вечера</h3>
       <div className="mt-3 space-y-2">
-        <button onClick={() => onOpenSection('participants')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">
-          {stats.pendingExpected.length ? <AlertTriangle className="h-5 w-5 shrink-0 text-warning" /> : <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
-          <span className="min-w-0 flex-1"><strong className="block text-[12px]">Явка</strong><span className="text-[10px] text-text-muted">{stats.pendingExpected.length ? `Не отмечено: ${stats.pendingExpected.length}` : `Отмечено всё · пришли ${stats.attended.length}, не пришли ${stats.noShow.length}`}</span></span>
-        </button>
-        <button onClick={() => onOpenSection('participants')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">
-          {stats.outstanding > 0 ? <Clock3 className="h-5 w-5 shrink-0 text-warning" /> : <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
-          <span className="min-w-0 flex-1"><strong className="block text-[12px]">Оплата</strong><span className="text-[10px] text-text-muted">{stats.outstanding > 0 ? `${stats.unpaidPeople} чел. · осталось ${money(stats.outstanding)}` : 'Все начисления закрыты'}</span></span>
-        </button>
-        <button onClick={() => onOpenSection('games')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">
-          {hasUnfinishedGames ? <AlertTriangle className="h-5 w-5 shrink-0 text-warning" /> : <Gamepad2 className="h-5 w-5 shrink-0 text-accent" />}
-          <span className="min-w-0 flex-1"><strong className="block text-[12px]">Игры</strong><span className="text-[10px] text-text-muted">Завершено {stats.completedGames} из {stats.games.length}</span></span>
-        </button>
+        <button onClick={() => onOpenSection('participants')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">{stats.pendingExpected.length ? <AlertTriangle className="h-5 w-5 shrink-0 text-warning" /> : <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}<span className="min-w-0 flex-1"><strong className="block text-[12px]">Явка</strong><span className="text-[10px] text-text-muted">{stats.pendingExpected.length ? `Не отмечено: ${stats.pendingExpected.length}` : `Отмечено всё · пришли ${stats.attended.length}, не пришли ${stats.noShow.length}`}</span></span></button>
+        <button onClick={() => onOpenSection('participants')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">{stats.outstanding > 0 ? <Clock3 className="h-5 w-5 shrink-0 text-warning" /> : <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}<span className="min-w-0 flex-1"><strong className="block text-[12px]">Оплата</strong><span className="text-[10px] text-text-muted">{stats.outstanding > 0 ? `${stats.unpaidPeople} чел. · осталось ${money(stats.outstanding)}` : 'Все начисления закрыты'}</span></span></button>
+        <button onClick={() => onOpenSection('games')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">{hasUnfinishedGames ? <AlertTriangle className="h-5 w-5 shrink-0 text-warning" /> : <Gamepad2 className="h-5 w-5 shrink-0 text-accent" />}<span className="min-w-0 flex-1"><strong className="block text-[12px]">Игры</strong><span className="text-[10px] text-text-muted">Завершено {stats.completedGames} из {stats.games.length}</span></span></button>
       </div>
     </section>
 
-    {!readonly && evening.status === 'active' && stats.pendingExpected.length ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4">
-      <h3 className="text-[13px] font-black text-text-primary">Перед закрытием вечера</h3>
-      <p className="mt-1 text-[11px] leading-5 text-text-secondary">У {stats.pendingExpected.length} ожидаемых игроков ещё не отмечена явка. Их нужно отметить вручную или, если вечер уже закончился, массово поставить «Не пришёл».</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <button onClick={() => onOpenSection('participants')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-1 text-[11px] font-bold">Отметить вручную</button>
-        <button disabled={Boolean(busy)} onClick={() => void markPendingAsNoShow()} className="min-h-[44px] rounded-[12px] bg-warning text-[11px] font-bold text-white disabled:opacity-50">Оставшихся → не пришли</button>
-      </div>
-    </section> : null}
+    {!readonly && evening.status === 'active' && stats.pendingExpected.length ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4"><h3 className="text-[13px] font-black text-text-primary">Перед закрытием вечера</h3><p className="mt-1 text-[11px] leading-5 text-text-secondary">У {stats.pendingExpected.length} ожидаемых игроков ещё не отмечена явка. Их нужно отметить вручную или, если вечер уже закончился, массово поставить «Не пришёл».</p><div className="mt-3 grid gap-2 sm:grid-cols-2"><button onClick={() => onOpenSection('participants')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-1 text-[11px] font-bold">Отметить вручную</button><button disabled={Boolean(busy)} onClick={() => setConfirmNoShow(true)} className="min-h-[44px] rounded-[12px] bg-warning text-[11px] font-bold text-white disabled:opacity-50">Оставшихся → не пришли</button></div></section> : null}
 
-    {!readonly && evening.status === 'active' && stats.pendingExpected.length === 0 && hasUnfinishedGames ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4">
-      <h3 className="text-[13px] font-black text-text-primary">Сначала завершите игры</h3>
-      <p className="mt-1 text-[11px] leading-5 text-text-secondary">Незавершённых игр: {stats.games.length - stats.completedGames}. Вечер нельзя закрыть, пока у каждой созданной игры не зафиксирован результат.</p>
-      <button onClick={() => onOpenSection('games')} className="mt-3 min-h-[44px] w-full rounded-[12px] bg-warning text-[11px] font-bold text-white">Перейти к играм</button>
-    </section> : null}
+    {!readonly && evening.status === 'active' && stats.pendingExpected.length === 0 && hasUnfinishedGames ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4"><h3 className="text-[13px] font-black text-text-primary">Сначала завершите игры</h3><p className="mt-1 text-[11px] leading-5 text-text-secondary">Незавершённых игр: {stats.games.length - stats.completedGames}. Вечер нельзя закрыть, пока у каждой созданной игры не зафиксирован результат.</p><button onClick={() => onOpenSection('games')} className="mt-3 min-h-[44px] w-full rounded-[12px] bg-warning text-[11px] font-bold text-white">Перейти к играм</button></section> : null}
 
-    {!readonly && evening.status === 'active' && readyToClose ? <section className="rounded-[18px] border border-success/25 bg-success-soft p-4">
-      <h3 className="text-[13px] font-black">Вечер можно закрывать</h3>
-      <p className="mt-1 text-[11px] leading-5 text-text-secondary">Явка ожидаемых игроков заполнена, все созданные игры завершены. Неоплаченные суммы будут сохранены как задолженность игрока.</p>
-      <button disabled={Boolean(busy)} onClick={() => void settle()} className="mt-3 min-h-[46px] w-full rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50">{busy === 'settle' ? 'Закрываем…' : 'Завершить и зафиксировать вечер'}</button>
-    </section> : null}
+    {!readonly && evening.status === 'active' && readyToClose ? <section className="rounded-[18px] border border-success/25 bg-success-soft p-4"><h3 className="text-[13px] font-black">Вечер можно закрывать</h3><p className="mt-1 text-[11px] leading-5 text-text-secondary">Явка ожидаемых игроков заполнена, все созданные игры завершены. Неоплаченные суммы будут сохранены как задолженность игрока.</p><button disabled={Boolean(busy)} onClick={() => setConfirmSettle(true)} className="mt-3 min-h-[46px] w-full rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50">{busy === 'settle' ? 'Закрываем…' : 'Завершить и зафиксировать вечер'}</button></section> : null}
+
+    <ConfirmDialog open={confirmNoShow} title="Отметить оставшихся как «Не пришёл»?" description={`${pendingNames}${pendingTail}. Действие можно затем исправить вручную в составе вечера.`} confirmLabel="Отметить" tone="warning" busy={busy === 'no-show'} onCancel={() => !busy && setConfirmNoShow(false)} onConfirm={markPendingAsNoShow} />
+    <ConfirmDialog open={confirmSettle} title={`Закрыть вечер «${evening.title}»?`} description="После закрытия явка и оплаты фиксируются в истории. Неоплаченные суммы останутся долгом." confirmLabel="Закрыть вечер" tone="warning" busy={busy === 'settle'} onCancel={() => !busy && setConfirmSettle(false)} onConfirm={settle} />
   </div>;
 };
 

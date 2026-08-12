@@ -11,7 +11,7 @@ const cleanFileTitle = (name: string) => name.replace(/\.[a-z0-9]{2,5}$/i, '').t
 export default function JudgeMusicPlaylist() {
   const [tracks, setTracks] = useState<JudgeMusicTrack[]>([]);
   const [limit, setLimit] = useState(10);
-  const [maxBytes, setMaxBytes] = useState(8 * 1024 * 1024);
+  const [maxBytes, setMaxBytes] = useState(15 * 1024 * 1024);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);

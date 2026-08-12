@@ -129,7 +129,8 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[13px] text-danger">{error || 'Вечер не найден'}</div>;
 
   const readonly = evening.status === 'completed' || Boolean(evening.settled_at);
-  const readyToClose = stats.pendingExpected.length === 0;
+  const hasUnfinishedGames = stats.games.length > stats.completedGames;
+  const readyToClose = stats.pendingExpected.length === 0 && !hasUnfinishedGames;
   const stageIndex = evening.status === 'cancelled'
     ? -1
     : Math.max(0, lifecycleStages.findIndex((stage) => stage.id === evening.status));
@@ -144,7 +145,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       : evening.status === 'active'
         ? stats.pendingExpected.length
           ? `Вечер идёт. Перед завершением отметь явку ещё у ${stats.pendingExpected.length} ожидаемых игроков.`
-          : stats.games.length > stats.completedGames
+          : hasUnfinishedGames
             ? `Вечер идёт. Завершено ${stats.completedGames} из ${stats.games.length} созданных игр.`
             : stats.games.length
               ? 'Все созданные игры завершены, явка заполнена. Можно продолжить новыми играми или закрыть вечер.'
@@ -214,7 +215,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
           <span className="min-w-0 flex-1"><strong className="block text-[12px]">Оплата</strong><span className="text-[10px] text-text-muted">{stats.outstanding > 0 ? `${stats.unpaidPeople} чел. · осталось ${money(stats.outstanding)}` : 'Все начисления закрыты'}</span></span>
         </button>
         <button onClick={() => onOpenSection('games')} className="flex min-h-[54px] w-full items-center gap-3 rounded-[13px] bg-surface-2 px-3 text-left">
-          <Gamepad2 className="h-5 w-5 shrink-0 text-accent" />
+          {hasUnfinishedGames ? <AlertTriangle className="h-5 w-5 shrink-0 text-warning" /> : <Gamepad2 className="h-5 w-5 shrink-0 text-accent" />}
           <span className="min-w-0 flex-1"><strong className="block text-[12px]">Игры</strong><span className="text-[10px] text-text-muted">Завершено {stats.completedGames} из {stats.games.length}</span></span>
         </button>
       </div>
@@ -229,9 +230,15 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       </div>
     </section> : null}
 
+    {!readonly && evening.status === 'active' && stats.pendingExpected.length === 0 && hasUnfinishedGames ? <section className="rounded-[18px] border border-warning/25 bg-warning-soft p-4">
+      <h3 className="text-[13px] font-black text-text-primary">Сначала завершите игры</h3>
+      <p className="mt-1 text-[11px] leading-5 text-text-secondary">Незавершённых игр: {stats.games.length - stats.completedGames}. Вечер нельзя закрыть, пока у каждой созданной игры не зафиксирован результат.</p>
+      <button onClick={() => onOpenSection('games')} className="mt-3 min-h-[44px] w-full rounded-[12px] bg-warning text-[11px] font-bold text-white">Перейти к играм</button>
+    </section> : null}
+
     {!readonly && evening.status === 'active' && readyToClose ? <section className="rounded-[18px] border border-success/25 bg-success-soft p-4">
       <h3 className="text-[13px] font-black">Вечер можно закрывать</h3>
-      <p className="mt-1 text-[11px] leading-5 text-text-secondary">Явка ожидаемых игроков заполнена. Неоплаченные суммы будут сохранены как задолженность игрока.</p>
+      <p className="mt-1 text-[11px] leading-5 text-text-secondary">Явка ожидаемых игроков заполнена, все созданные игры завершены. Неоплаченные суммы будут сохранены как задолженность игрока.</p>
       <button disabled={Boolean(busy)} onClick={() => void settle()} className="mt-3 min-h-[46px] w-full rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50">{busy === 'settle' ? 'Закрываем…' : 'Завершить и зафиксировать вечер'}</button>
     </section> : null}
   </div>;

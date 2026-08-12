@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useJudgeGameMusic } from '../hooks/useJudgeGameMusic.ts';
+import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 
 const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
@@ -28,6 +29,10 @@ export default function JudgeGameMusicController() {
   const [nightWanted, setNightWanted] = useState(false);
   const manualRef = useRef(false);
   const wantedRef = useRef(false);
+
+  useEffect(() => {
+    recoverInterruptedTestGameSandbox();
+  }, []);
 
   useEffect(() => { manualRef.current = manualDeal; }, [manualDeal]);
   useEffect(() => { wantedRef.current = manualDeal || nightWanted; }, [manualDeal, nightWanted]);

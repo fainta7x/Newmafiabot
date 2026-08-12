@@ -1,9 +1,9 @@
 export const CANONICAL_EVENING_RESPONSES = [
-  'unanswered',
   'going',
   'late',
   'thinking',
   'declined',
+  'unanswered',
 ] as const;
 
 export type CanonicalEveningResponse = typeof CANONICAL_EVENING_RESPONSES[number];
@@ -29,24 +29,32 @@ export interface PhysicalAttendancePair {
 const canonicalResponseSet = new Set<string>(CANONICAL_EVENING_RESPONSES);
 
 /**
- * Normalizes canonical and legacy registration/response values into the canonical response domain.
- * Unknown or empty legacy values are treated as unanswered; attendance is intentionally ignored.
+ * Single normalization rule for current response_status values and legacy
+ * registration_status values. Current canonical values always pass through
+ * unchanged. Legacy waitlist is not a reserve state in the current product:
+ * without an explicit historical late marker it means that no answer exists.
  */
-export function normalizeCanonicalEveningResponse(value: unknown): CanonicalEveningResponse {
+export function normalizeCanonicalEveningResponse(
+  value: unknown,
+  legacyArrivalStatus?: unknown,
+): CanonicalEveningResponse {
   const normalized = String(value ?? '').trim().toLowerCase();
 
   if (canonicalResponseSet.has(normalized)) {
     return normalized as CanonicalEveningResponse;
   }
 
+  const legacyLate = String(legacyArrivalStatus ?? '').trim().toLowerCase() === 'late';
+
   switch (normalized) {
     case 'registered':
     case 'confirmed':
-      return 'going';
+      return legacyLate ? 'late' : 'going';
+    case 'waitlist':
+      return legacyLate ? 'late' : 'unanswered';
     case 'cancelled':
       return 'declined';
     case 'invited':
-    case 'waitlist':
     case '':
       return 'unanswered';
     default:
@@ -55,8 +63,30 @@ export function normalizeCanonicalEveningResponse(value: unknown): CanonicalEven
 }
 
 /**
- * Converts the persisted physical attendance pair into one canonical attendance fact.
- * Impossible combinations throw rather than being guessed or repaired silently.
+ * Tolerant read projection for persisted attendance. It preserves the legacy
+ * "attended, but exact arrival time is unknown" state instead of guessing.
+ * UI adapters may intentionally collapse attended_unknown for old screens.
+ */
+export function normalizeCanonicalEveningAttendance(
+  attendanceStatus: unknown,
+  arrivalStatus: unknown,
+): CanonicalEveningAttendance {
+  const attendance = String(attendanceStatus ?? '').trim().toLowerCase();
+  const arrival = String(arrivalStatus ?? '').trim().toLowerCase();
+
+  if (attendance === 'no_show') return 'no_show';
+  if (attendance === 'attended') {
+    if (arrival === 'late') return 'late';
+    if (arrival === 'on_time') return 'on_time';
+    return 'attended_unknown';
+  }
+  return 'pending';
+}
+
+/**
+ * Converts a valid persisted physical attendance pair into the full-fidelity
+ * canonical attendance domain. Impossible combinations throw rather than
+ * being silently repaired on a write-oriented path.
  */
 export function attendanceFactFromPhysicalPair(
   attendanceStatus: unknown,

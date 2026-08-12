@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 
 export type PlayerGameLevel = 'novice' | 'club' | 'tournament';
+export type PlayerClubRole = 'guest' | 'member' | 'team' | 'organizer';
 
 const tableColumns = async (db: DatabaseWrapper, table: string) =>
   new Set((await db.all<{ name: string }>(`PRAGMA table_info(${table})`)).map((column) => String(column.name)));
@@ -21,6 +22,7 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
   // Existing Turso databases skip the local initializeDatabase() migration path. Keep the
   // organizer-critical compatibility columns present here as wrapper-safe, idempotent ALTERs.
   await ensureColumn(db, 'players', 'game_level', "TEXT NOT NULL DEFAULT 'club'");
+  await ensureColumn(db, 'players', 'club_role', "TEXT NOT NULL DEFAULT 'member'");
   await ensureColumn(db, 'players', 'contact_status', "TEXT NOT NULL DEFAULT 'normal'");
   await ensureColumn(db, 'players', 'do_not_invite_until', 'TEXT');
   await ensureColumn(db, 'organizer_tasks', 'automation_key', 'TEXT');
@@ -30,6 +32,9 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
 
   await db.run(
     "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('novice','club','tournament')",
+  );
+  await db.run(
+    "UPDATE players SET club_role = 'member' WHERE club_role IS NULL OR club_role = '' OR club_role NOT IN ('guest','member','team','organizer')",
   );
 
   const playerColumns = await tableColumns(db, 'players');

@@ -129,6 +129,7 @@ export function useJudgeGameMusic() {
     if (!track) return false;
 
     const sameTrack = currentTrackIdRef.current === track.id && Boolean(audio.src);
+    if (sameTrack && !audio.paused && !fadingOutRef.current) return true;
     cancelFade();
     if (!sameTrack) {
       audio.pause();

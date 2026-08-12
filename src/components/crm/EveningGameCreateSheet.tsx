@@ -15,8 +15,6 @@ interface EveningGameCreateSheetProps {
   onCreated: (game: ClubGameRecord) => void;
 }
 
-type PlayerFilter = 'all' | 'attended' | 'confirmed';
-
 const playerCanJudgeFormat = (player: Player, format: string) => {
   const level = String((player as any).judge_level || 'none');
   const normalized = normalizeEveningFormat(format);
@@ -33,19 +31,14 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [crmPlayers, setCrmPlayers] = useState<Player[]>([]);
   const [seats, setSeats] = useState<string[]>(Array(10).fill(''));
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<PlayerFilter>('all');
   const [creating, setCreating] = useState(false);
 
   const eligible = useMemo(() => sortEveningRoster(participants.filter(isEveningGameEligible)), [participants]);
   const byId = useMemo(() => new Map(participants.map((participant) => [participant.id, participant])), [participants]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
-    return eligible.filter((participant) => {
-      if (filter === 'attended' && participant.attendance_status !== 'attended') return false;
-      if (filter === 'confirmed' && participant.registration_status !== 'confirmed') return false;
-      return !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q);
-    });
-  }, [eligible, filter, query]);
+    return eligible.filter((participant) => !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q));
+  }, [eligible, query]);
   const selectedCount = seats.filter(Boolean).length;
 
   useEffect(() => {
@@ -108,7 +101,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-x-hidden rounded-t-3xl border border-slate-700 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-3xl sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, ведущего нужного уровня и 10 игроков из общего состава вечера.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, ведущего нужного уровня и 10 игроков из тех, чья явка уже отмечена.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400 sm:h-9 sm:w-9"><X className="h-4 w-4" /></button>
         </div>
 
@@ -137,14 +130,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
-          {([['all', `Все ${eligible.length}`], ['attended', 'Пришли'], ['confirmed', 'Подтв.']] as Array<[PlayerFilter, string]>).map(([id, label]) => <button key={id} type="button" onClick={() => setFilter(id)} className={`min-h-11 rounded-lg text-[9px] font-black ${filter === id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>{label}</button>)}
-        </div>
+        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-slate-500"><span>Доступны только пришедшие</span><span>{visible.length} игроков</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" /></div>
         <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">{participant.attendance_status === 'attended' ? 'Пришёл' : participant.registration_status === 'confirmed' ? 'Подтверждён' : 'На вечере'}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">Явка отмечена</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-xs text-slate-500">Игроков не найдено</div>}
         </div>

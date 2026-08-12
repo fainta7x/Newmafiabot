@@ -12,8 +12,10 @@ export type AnalyticsPlayerResult = {
 export type CompletedGameSnapshot = {
   id: string;
   source: 'club' | 'tournament';
+  event_id: string;
   date: string;
   dateMs: number;
+  played_at: string;
   title: string;
   game_number: number;
   winner_team: AnalyticsTeam;
@@ -59,7 +61,8 @@ const validDate = (value: unknown): { iso: string; ms: number } | null => {
 export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGameSnapshot[]> {
   const [clubRows, tournamentRows] = await Promise.all([
     db.all(`
-      SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.protocol_text,
+      SELECT g.id, g.evening_id, g.global_game_number, g.game_date, g.created_at,
+             g.winner_team, g.protocol_text,
              e.title AS evening_title, e.starts_at AS evening_date
         FROM games g
    LEFT JOIN game_evenings e ON e.id = g.evening_id
@@ -68,7 +71,7 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
          AND g.protocol_text IS NOT NULL
     `),
     db.all(`
-      SELECT tg.id AS game_id, tg.game_number, tg.winner_team, tg.completed_at,
+      SELECT t.id AS tournament_id, tg.id AS game_id, tg.game_number, tg.winner_team, tg.completed_at,
              t.title AS tournament_title, t.date AS tournament_date,
              tp.player_id, p.nickname, tgs.seat_number, tgs.role
         FROM tournament_game_seats tgs
@@ -86,8 +89,10 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
     const payload = safeJsonParse(row.protocol_text);
     if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
     const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
-    const date = validDate(row.evening_date || row.game_date);
-    if (!winner || !date) continue;
+    const eventDate = validDate(row.evening_date || row.game_date || row.created_at);
+    const playedDate = validDate(row.game_date || row.created_at || row.evening_date) || eventDate;
+    const eventId = String(row.evening_id || '').trim();
+    if (!winner || !eventDate || !playedDate || !eventId) continue;
 
     const players = payload.player_results.flatMap((result: any) => {
       const playerId = String(result.player_id || '').trim();
@@ -107,8 +112,10 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
     snapshots.push({
       id: `club:${row.id}`,
       source: 'club',
-      date: date.iso,
-      dateMs: date.ms,
+      event_id: eventId,
+      date: eventDate.iso,
+      dateMs: playedDate.ms,
+      played_at: playedDate.iso,
       title: String(row.evening_title || 'Клубный вечер'),
       game_number: Number(row.global_game_number || 0),
       winner_team: winner,
@@ -127,8 +134,10 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
   for (const [gameId, rows] of tournamentByGame.entries()) {
     const head = rows[0];
     const winner = normalizeWinner(head?.winner_team);
-    const date = validDate(head?.completed_at || head?.tournament_date);
-    if (!winner || !date) continue;
+    const eventDate = validDate(head?.tournament_date || head?.completed_at);
+    const playedDate = validDate(head?.completed_at || head?.tournament_date) || eventDate;
+    const eventId = String(head?.tournament_id || '').trim();
+    if (!winner || !eventDate || !playedDate || !eventId) continue;
     const players = rows.flatMap((row: any) => {
       const playerId = String(row.player_id || '').trim();
       const team = teamFromRole(row.role);
@@ -147,8 +156,10 @@ export async function loadCompletedGameSnapshots(db: any): Promise<CompletedGame
     snapshots.push({
       id: `tournament:${gameId}`,
       source: 'tournament',
-      date: date.iso,
-      dateMs: date.ms,
+      event_id: eventId,
+      date: eventDate.iso,
+      dateMs: playedDate.ms,
+      played_at: playedDate.iso,
       title: String(head?.tournament_title || 'Турнир'),
       game_number: Number(head?.game_number || 0),
       winner_team: winner,

@@ -78,6 +78,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
             const completedGames = t.completed_games_count || 0;
             const selectedDistance = Number((t as Tournament & { game_count?: number }).game_count || 10);
             const totalGames = Number(t.total_games_count || selectedDistance);
+            const participantsCount = Number(t.participants_count ?? 0);
 
             return (
               <div
@@ -152,7 +153,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                     <div>
                       <span className="text-[9px] text-text-muted uppercase font-bold block">Участники</span>
                       <span className="text-sm font-bold text-text-primary">
-                        {t.participants_count || 10} / 10
+                        {participantsCount} / 10
                       </span>
                     </div>
                     <div>

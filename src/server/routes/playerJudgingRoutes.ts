@@ -6,6 +6,7 @@ import {
   requiredJudgeLevelForEveningFormat,
   type JudgeLevel,
 } from '../../db/ensureJudgeAuthoritySchema.ts';
+import { getEveningAttendanceFact } from '../../lib/eveningResponse.ts';
 
 const router = Router();
 
@@ -86,6 +87,65 @@ const requirePlayer = (req: Request, res: Response): string | null => {
   return playerId;
 };
 
+const loadAvailableEvenings = async (db: any, judgeLevel: JudgeLevel) => {
+  if (judgeLevel === 'none') return [];
+  const evenings = await db.all(`
+    SELECT e.*,
+           (SELECT COUNT(*) FROM games g WHERE g.evening_id = e.id AND g.archived_at IS NULL) AS games_count
+      FROM game_evenings e
+     WHERE e.status IN ('published', 'active')
+     ORDER BY CASE WHEN e.status = 'active' THEN 0 ELSE 1 END, e.starts_at ASC
+     LIMIT 20
+  `);
+
+  const allowed = evenings.filter((evening: any) => judgeLevelAllowsEveningFormat(judgeLevel, evening.format));
+  return Promise.all(allowed.map(async (evening: any) => {
+    const [participants, tables] = await Promise.all([
+      db.all(`
+        SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status,
+               ep.attendance_status, ep.arrival_status, ep.table_id,
+               p.nickname, p.contact_status,
+               (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) AS avatar_updated_at
+          FROM evening_participants ep
+          JOIN players p ON p.id = ep.player_id
+         WHERE ep.evening_id = ?
+           AND COALESCE(p.contact_status, 'normal') <> 'blocked'
+         ORDER BY CASE
+           WHEN ep.attendance_status = 'attended' THEN 0
+           WHEN ep.response_status IN ('going', 'late') THEN 1
+           WHEN ep.registration_status IN ('going', 'late', 'registered', 'confirmed') THEN 2
+           ELSE 3 END,
+           p.nickname COLLATE NOCASE ASC
+      `, [evening.id]),
+      db.all(`SELECT id, name, host_name FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, name ASC`, [evening.id]),
+    ]);
+
+    return {
+      id: String(evening.id),
+      title: evening.title,
+      starts_at: evening.starts_at,
+      venue: evening.venue ?? null,
+      format: evening.format,
+      status: evening.status,
+      games_count: Number(evening.games_count || 0),
+      tables: tables.map((table: any) => ({
+        id: String(table.id),
+        name: String(table.name || 'Стол'),
+        host_name: table.host_name ?? null,
+      })),
+      participants: participants.map((participant: any) => ({
+        id: String(participant.id),
+        player_id: String(participant.player_id),
+        nickname: String(participant.nickname || 'Игрок'),
+        response_status: participant.response_status || participant.registration_status || 'unanswered',
+        attendance_fact: getEveningAttendanceFact(participant),
+        table_id: participant.table_id ?? null,
+        avatar_updated_at: participant.avatar_updated_at ?? null,
+      })),
+    };
+  }));
+};
+
 router.get('/judging', async (req, res) => {
   const playerId = requirePlayer(req, res);
   if (!playerId) return;
@@ -95,26 +155,28 @@ router.get('/judging', async (req, res) => {
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     const judgeLevel = normalizeJudgeLevel(player.judge_level);
 
-    const clubRows = await db.all(`
-      SELECT g.*, e.title AS evening_title, e.format AS evening_format, e.starts_at AS evening_starts_at,
-             et.name AS table_name
-        FROM games g
-        JOIN game_evenings e ON e.id = g.evening_id
-   LEFT JOIN evening_tables et ON et.id = g.evening_table_id
-       WHERE g.judge_player_id = ? AND g.archived_at IS NULL
-       ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
-       LIMIT 60
-    `, [playerId]);
-
-    const tournamentRows = await db.all(`
-      SELECT tg.*, t.title AS tournament_title, t.date AS tournament_date,
-             t.status AS tournament_status, t.venue
-        FROM tournament_games tg
-        JOIN tournaments t ON t.id = tg.tournament_id
-       WHERE tg.judge_player_id = ?
-       ORDER BY COALESCE(tg.started_at, t.date) DESC, tg.game_number DESC
-       LIMIT 60
-    `, [playerId]);
+    const [clubRows, tournamentRows, availableEvenings] = await Promise.all([
+      db.all(`
+        SELECT g.*, e.title AS evening_title, e.format AS evening_format, e.starts_at AS evening_starts_at,
+               et.name AS table_name
+          FROM games g
+          JOIN game_evenings e ON e.id = g.evening_id
+     LEFT JOIN evening_tables et ON et.id = g.evening_table_id
+         WHERE g.judge_player_id = ? AND g.archived_at IS NULL
+         ORDER BY COALESCE(e.starts_at, g.game_date) DESC, g.global_game_number DESC
+         LIMIT 60
+      `, [playerId]),
+      db.all(`
+        SELECT tg.*, t.title AS tournament_title, t.date AS tournament_date,
+               t.status AS tournament_status, t.venue
+          FROM tournament_games tg
+          JOIN tournaments t ON t.id = tg.tournament_id
+         WHERE tg.judge_player_id = ?
+         ORDER BY COALESCE(tg.started_at, t.date) DESC, tg.game_number DESC
+         LIMIT 60
+      `, [playerId]),
+      loadAvailableEvenings(db, judgeLevel),
+    ]);
 
     const clubGames = clubRows.map((row: any) => {
       const game = normalizeClubGame(row);
@@ -135,6 +197,7 @@ router.get('/judging', async (req, res) => {
         rating: judgeLevel === 'judge',
         tournament: judgeLevel === 'judge',
       },
+      available_evenings: availableEvenings,
       club_games: clubGames,
       tournament_games: tournamentGames.map((game) => ({
         ...game,

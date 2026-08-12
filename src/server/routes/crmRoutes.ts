@@ -55,7 +55,12 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       } catch (error) {
         console.warn('[CRM] Could not load announcement readiness:', error);
       }
-      const unpaidNow = participants.filter((p: any) => p.attendance_status === 'attended' && p.payment_status !== 'waived' && Number(p.amount_due || 0) > Number(p.amount_paid || 0));
+      const paymentExpected = participants.filter((p: any) => (
+        p.attendance_status === 'attended' || ['going', 'late'].includes(getEveningResponse(p))
+      ));
+      const unpaidNow = paymentExpected.filter((p: any) => (
+        p.payment_status !== 'waived' && Number(p.amount_due || 0) > Number(p.amount_paid || 0)
+      ));
       expectedToPayAmount = unpaidNow.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
       expectedToPayCount = unpaidNow.length;
     }

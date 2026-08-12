@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PLAYER_TITLES, type PlayerTitleId } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
 
@@ -30,17 +31,15 @@ type ProgressStats = {
   form: boolean[];
 };
 
-const TITLE_DEFS = [
-  { id: 'veteran', label: 'Ветеран стола', icon: '🎖️', hint: '25 сыгранных игр', unlocked: (s: ProgressStats) => s.games >= 25 },
-  { id: 'red_wave', label: 'Красная волна', icon: '🔴', hint: '10 побед за красных', unlocked: (s: ProgressStats) => s.redWins >= 10 },
-  { id: 'black_mark', label: 'Чёрная метка', icon: '⚫', hint: '10 побед за чёрных', unlocked: (s: ProgressStats) => s.blackWins >= 10 },
-  { id: 'sheriff_hunter', label: 'Охотник на мафию', icon: '⭐', hint: '5 побед Шерифом', unlocked: (s: ProgressStats) => s.roleWins.sheriff >= 5 },
-  { id: 'iron_don', label: 'Железный Дон', icon: '🎩', hint: '3 победы Доном', unlocked: (s: ProgressStats) => s.roleWins.don >= 3 },
-  { id: 'universal', label: 'Универсал', icon: '🎭', hint: 'Победа каждой ролью', unlocked: (s: ProgressStats) => s.rolesWon === 4 },
-  { id: 'on_fire', label: 'На серии', icon: '🔥', hint: '5 побед подряд', unlocked: (s: ProgressStats) => s.streak >= 5 },
-] as const;
-
-type TitleId = typeof TITLE_DEFS[number]['id'];
+const TITLE_UNLOCKERS: Record<PlayerTitleId, (stats: ProgressStats) => boolean> = {
+  veteran: (stats) => stats.games >= 25,
+  red_wave: (stats) => stats.redWins >= 10,
+  black_mark: (stats) => stats.blackWins >= 10,
+  sheriff_hunter: (stats) => stats.roleWins.sheriff >= 5,
+  iron_don: (stats) => stats.roleWins.don >= 3,
+  universal: (stats) => stats.rolesWon === 4,
+  on_fire: (stats) => stats.streak >= 5,
+};
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -158,16 +157,13 @@ const buildProgression = async (db: any, playerId: string) => {
     challenge('veteran_25', 'Дистанция', '🎖️', stats.games, 25, '25 завершённых игр'),
   ];
 
-  const titles = TITLE_DEFS.map((title) => ({
-    id: title.id,
-    label: title.label,
-    icon: title.icon,
-    hint: title.hint,
-    unlocked: title.unlocked(stats),
+  const titles = PLAYER_TITLES.map((title) => ({
+    ...title,
+    unlocked: TITLE_UNLOCKERS[title.id](stats),
   }));
   const unlockedIds = new Set(titles.filter((title) => title.unlocked).map((title) => title.id));
-  const selectedId = cosmetics?.selected_title && unlockedIds.has(String(cosmetics.selected_title))
-    ? String(cosmetics.selected_title) as TitleId
+  const selectedId = cosmetics?.selected_title && unlockedIds.has(String(cosmetics.selected_title) as PlayerTitleId)
+    ? String(cosmetics.selected_title) as PlayerTitleId
     : null;
   const selectedTitle = titles.find((title) => title.id === selectedId) || null;
 

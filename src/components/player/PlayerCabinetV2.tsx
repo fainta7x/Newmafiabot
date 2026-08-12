@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
+import PlayerClubSection from './PlayerClubSection.tsx';
 import PlayerEconomy from './PlayerEconomy.tsx';
 import PlayerGameDetail, { formatEloDelta, type PlayerGameDetailData, type PlayerGameEloChange } from './PlayerGameDetail.tsx';
+import PlayerPayments from './PlayerPayments.tsx';
 import PlayerRatingPeriods from './PlayerRatingPeriods.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
-type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'profile';
+export type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'club' | 'payments' | 'profile';
 type GameScope = 'mine' | 'all';
 type ProfileScope = 'self' | 'players';
 type EveningResponseStatus = 'going' | 'late' | 'thinking' | 'declined';
@@ -83,7 +85,9 @@ const NAV_ITEMS: Array<{ id: PlayerTab; icon: string; label: string }> = [
   { id: 'home', icon: '⌂', label: 'Главная' },
   { id: 'games', icon: '◫', label: 'Игры' },
   { id: 'rating', icon: '★', label: 'Рейтинг' },
-  { id: 'stats', icon: '▥', label: 'Статистика' },
+  { id: 'stats', icon: '▥', label: 'Статы' },
+  { id: 'club', icon: '◆', label: 'Клуб' },
+  { id: 'payments', icon: '₽', label: 'Оплата' },
   { id: 'profile', icon: '●', label: 'Профиль' },
 ];
 
@@ -198,10 +202,20 @@ function RatingRow({ item, isSelf }: { item: RatingPlayer; isSelf: boolean }) {
   );
 }
 
-export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: PlayerMeResponse; canOpenAdmin?: boolean }) {
+export default function PlayerCabinetV2({
+  data,
+  canOpenAdmin = false,
+  initialTab = 'home',
+  onTabChange,
+}: {
+  data: PlayerMeResponse;
+  canOpenAdmin?: boolean;
+  initialTab?: PlayerTab;
+  onTabChange?: (tab: PlayerTab) => void;
+}) {
   const { achievements, tournaments, games } = data;
   const [player, setPlayer] = useState(data.player);
-  const [tab, setTab] = useState<PlayerTab>('home');
+  const [tab, setTab] = useState<PlayerTab>(initialTab);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [gameScope, setGameScope] = useState<GameScope>('mine');
   const [profileScope, setProfileScope] = useState<ProfileScope>('self');
@@ -493,6 +507,7 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
               playerId={player.id}
               onOpenGame={(gameKey) => {
                 setTab('games');
+                onTabChange?.('games');
                 void openGameDetail(gameKey);
               }}
             />
@@ -523,6 +538,15 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
             </Section>
           </>
         )}
+
+        {!tokensOpen && tab === 'club' && (
+          <>
+            <PageHeading title="Клуб" subtitle="Текущая форма, серии, связи и жизнь 2LA Noire" />
+            <PlayerClubSection games={games.all} />
+          </>
+        )}
+
+        {!tokensOpen && tab === 'payments' && <PlayerPayments />}
 
         {!tokensOpen && tab === 'profile' && (
           <>
@@ -562,10 +586,10 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
         )}
       </div>
 
-      {!tokensOpen && <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-1">{NAV_ITEMS.map((item) => {
+      {!tokensOpen && <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-1.5 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
+        <div className="mx-auto grid w-full max-w-[430px] grid-cols-7 gap-0.5">{NAV_ITEMS.map((item) => {
           const active = item.id === tab;
-          return <button key={item.id} type="button" onClick={() => { setTab(item.id); if (item.id !== 'games') closeGameDetail(); }} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl px-1 text-[10px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}><span className="text-lg leading-none">{item.icon}</span><span className="mt-1 truncate">{item.label}</span></button>;
+          return <button key={item.id} type="button" onClick={() => { setTab(item.id); onTabChange?.(item.id); if (item.id !== 'games') closeGameDetail(); }} className={`flex min-h-14 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}><span className="text-base leading-none">{item.icon}</span><span className="mt-1 max-w-full truncate">{item.label}</span></button>;
         })}</div>
       </nav>}
     </main>

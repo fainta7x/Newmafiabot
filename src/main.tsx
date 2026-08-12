@@ -11,6 +11,7 @@ import "./components/crm/eveningLiveTableDecisionFix.css";
 import "./components/crm/eveningLivePlayerStatePolish.css";
 import "./components/crm/liveGameVisualV2.css";
 import "./components/crm/liveGameRoleGlyphsV2.css";
+import "./components/crm/liveGameControlsPolishV3.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

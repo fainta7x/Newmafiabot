@@ -213,7 +213,7 @@ export default function PlayerCabinetV2({
   initialTab?: PlayerTab;
   onTabChange?: (tab: PlayerTab) => void;
 }) {
-  const { achievements, tournaments, games } = data;
+  const { tournaments, games } = data;
   const [player, setPlayer] = useState(data.player);
   const [tab, setTab] = useState<PlayerTab>(initialTab);
   const [tokensOpen, setTokensOpen] = useState(false);
@@ -395,9 +395,6 @@ export default function PlayerCabinetV2({
     }
   };
 
-  const earnedAchievements = achievements.categories.flatMap((category) =>
-    category.achievements.filter((achievement) => achievement.earned).map((achievement) => ({ ...achievement, categoryName: category.name })),
-  );
   const ratingTop = (rating || []).slice(0, 10);
   const selfRating = (rating || []).find((item) => item.player_id === player.id) || null;
   const selfOutsideTop = Boolean(selfRating && !ratingTop.some((item) => item.player_id === player.id));
@@ -519,18 +516,13 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'stats' && (
           <>
-            <PageHeading title="Статистика" subtitle="Игровые показатели, достижения и турнирные награды" />
+            <PageHeading title="Статистика" subtitle="Игровые показатели и турнирные награды" />
             <Section title="Игровая статистика">
               <div className="grid grid-cols-3 gap-2"><StatCard value={stats.completedGames} label="игр" /><StatCard value={stats.wins} label="побед" /><StatCard value={`${stats.winRate}%`} label="винрейт" /></div>
               <div className="mt-2 grid grid-cols-2 gap-2"><StatCard value={stats.redGames} label="за красных" /><StatCard value={stats.blackGames} label="за чёрных" /></div>
               <div className="mt-3 rounded-2xl bg-black/20 p-3"><div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Роли</div><div className="mt-2 grid grid-cols-4 gap-1.5 text-center"><div><div className="text-base font-semibold">{stats.roleCounts.citizen}</div><div className="text-[10px] text-white/35">Мирный</div></div><div><div className="text-base font-semibold">{stats.roleCounts.sheriff}</div><div className="text-[10px] text-white/35">Шериф</div></div><div><div className="text-base font-semibold">{stats.roleCounts.mafia}</div><div className="text-[10px] text-white/35">Мафия</div></div><div><div className="text-base font-semibold">{stats.roleCounts.don}</div><div className="text-[10px] text-white/35">Дон</div></div></div></div>
               <div className="mt-2 grid grid-cols-3 gap-2"><StatCard value={stats.firstKilled} label="ПУ" /><StatCard value={stats.bestMoves} label="ЛХ" /><StatCard value={stats.zeroRoundVoted} label="0 круг" /></div>
               <div className="mt-3 flex items-center justify-between text-xs text-white/35"><span>Клубные: {stats.clubGames}</span><span>Турнирные: {stats.tournamentGames}</span></div>
-            </Section>
-            <Section title="Достижения">
-              <div className="flex items-end justify-between gap-3"><div><div className="text-2xl font-semibold">{achievements.earned} / {achievements.total}</div><div className="text-sm text-white/45">получено достижений</div></div><div className="text-lg font-semibold text-white/75">{achievements.percentage}%</div></div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white/70" style={{ width: `${Math.max(0, Math.min(100, achievements.percentage))}%` }} /></div>
-              {earnedAchievements.length ? <div className="mt-4 space-y-2">{earnedAchievements.map((achievement) => <div key={achievement.id} className="rounded-2xl bg-black/20 p-3"><div className="flex gap-3"><div className="text-2xl">{achievement.icon}</div><div className="min-w-0 flex-1"><div className="font-medium">{achievement.name}</div><div className="mt-1 text-sm text-white/50">{achievement.description}</div><div className="mt-1 text-xs text-white/35">{achievement.categoryName} · {achievement.rarity_icon} {achievement.rarity_name}</div></div></div></div>)}</div> : <p className="mt-4 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Пока нет полученных достижений.</p>}
             </Section>
             <Section title="Награды турниров">
               <div className="mb-3 grid grid-cols-4 gap-1.5 text-center"><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.firstPlaces}</div><div className="text-[10px] text-white/40">1 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.secondPlaces}</div><div className="text-[10px] text-white/40">2 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.thirdPlaces}</div><div className="text-[10px] text-white/40">3 место</div></div><div className="rounded-xl bg-black/20 p-2"><div className="text-lg font-semibold">{tournaments.award_stats.nominations}</div><div className="text-[10px] text-white/40">Номинации</div></div></div>

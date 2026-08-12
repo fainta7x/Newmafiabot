@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Check, Search, ShieldCheck, UserCog, UsersRound } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import PlayerCareerProfile from '../player/PlayerCareerProfile.tsx';
 
 type GameLevel = 'novice' | 'club' | 'tournament';
 type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
@@ -63,6 +64,7 @@ export function PlayerRolesAdminCRM() {
   const [players, setPlayers] = useState<EditablePlayer[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [profilePreviewId, setProfilePreviewId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,6 +134,14 @@ export function PlayerRolesAdminCRM() {
     }
   };
 
+  if (profilePreviewId) {
+    return (
+      <div className="fixed inset-0 z-[160] overflow-y-auto bg-[#090a0d]">
+        <PlayerCareerProfile playerId={profilePreviewId} onBack={() => setProfilePreviewId(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-xl space-y-4">
       <div>
@@ -162,6 +172,10 @@ export function PlayerRolesAdminCRM() {
             </div>
             <button type="button" onClick={() => { setSelectedId(null); setDraft(null); setMessage(null); setError(null); }} className="min-h-9 rounded-[10px] border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-secondary">Закрыть</button>
           </div>
+
+          <button type="button" onClick={() => setProfilePreviewId(selected.id)} className="mt-3 min-h-11 w-full rounded-[12px] border border-accent/30 bg-accent-soft px-3 text-[12px] font-bold text-accent">
+            Открыть игровой профиль игрока
+          </button>
 
           <div className="mt-4 space-y-4">
             <label className="block">

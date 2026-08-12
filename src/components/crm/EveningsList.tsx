@@ -13,6 +13,8 @@ interface EveningsListProps {
   onInitialCreateHandled?: () => void;
 }
 
+const toMoscowStartsAt = (value: string) => `${value.length === 16 ? `${value}:00` : value}+03:00`;
+
 export const EveningsList: React.FC<EveningsListProps> = ({
   evenings,
   onOpenEvening,
@@ -24,22 +26,33 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const tournamentListScrollRef = useRef(0);
 
+  const latestDefaultPrice = Number(evenings.find((item) => Number(item.default_price) >= 0)?.default_price ?? 500);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [format, setFormat] = useState<EveningFormat>('CASUAL');
-  const [defaultPrice, setDefaultPrice] = useState(400);
-  const [venue, setVenue] = useState('Зал #1 (Главный)');
+  const [defaultPrice, setDefaultPrice] = useState(500);
+  const [venue, setVenue] = useState('Суп с Котом');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const openCreateModal = () => {
+    setDefaultPrice(latestDefaultPrice);
+    setVenue('Суп с Котом');
+    setFormat('CASUAL');
+    setShowCreateModal(true);
+  };
 
   useEffect(() => {
     if (!initialCreateOpen) return;
     setSubTab('evenings');
     setActiveTournamentId(null);
+    setDefaultPrice(latestDefaultPrice);
+    setVenue('Суп с Котом');
+    setFormat('CASUAL');
     setShowCreateModal(true);
     onInitialCreateHandled?.();
-  }, [initialCreateOpen, onInitialCreateHandled]);
+  }, [initialCreateOpen, latestDefaultPrice, onInitialCreateHandled]);
 
   useEffect(() => {
     if (!showCreateModal) return;
@@ -61,17 +74,20 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     try {
       await onCreateEvening({
         title,
-        starts_at: new Date(startsAt).toISOString(),
+        starts_at: toMoscowStartsAt(startsAt),
+        timezone: 'Europe/Moscow',
         format,
         default_price: defaultPrice,
-        venue,
+        venue: venue.trim() || 'Суп с Котом',
         notes,
-        status: 'published',
+        status: 'draft',
       } as Partial<GameEvening>);
       setShowCreateModal(false);
       setTitle('');
       setStartsAt('');
       setFormat('CASUAL');
+      setDefaultPrice(latestDefaultPrice);
+      setVenue('Суп с Котом');
       setNotes('');
     } catch (err: any) {
       alert(err.message || 'Ошибка создания вечера');
@@ -143,7 +159,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 onClick={async () => {
                   try {
                     const res = await api.createNextFriday();
-                    alert(`Создан вечер для отдыха на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')})!`);
+                    alert(`Создан черновик вечера на следующую пятницу (${new Date(res.starts_at).toLocaleDateString('ru-RU')})!`);
                     onOpenEvening(res.id);
                   } catch (err: any) {
                     alert(err.message || 'Ошибка создания вечера на пятницу');
@@ -156,7 +172,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
               </button>
 
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreateModal}
                 className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-accent/20"
               >
                 <Plus className="w-4 h-4" />
@@ -189,9 +205,11 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse'
                           : isCompleted
                           ? 'bg-surface-2 text-text-muted border-border-soft'
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          : e.status === 'draft'
+                            ? 'bg-surface-2 text-text-secondary border-border-soft'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                       }`}>
-                        {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : 'Запланирован'}
+                        {isActive ? 'Идёт сейчас' : isCompleted ? 'Рассчитан и закрыт' : e.status === 'draft' ? 'Черновик' : 'Запланирован'}
                       </span>
 
                       <span className="text-right text-[11px] font-bold text-text-secondary">
@@ -249,7 +267,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
             <div className="space-y-1">
               <h3 className="text-lg font-black uppercase tracking-tight">Запланировать новый вечер</h3>
-              <p className="text-xs text-slate-400">Создание нового игрового мероприятия для клуба</p>
+              <p className="text-xs text-slate-400">Сначала создаём черновик. Telegram-рассылка появится после публикации.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
@@ -260,14 +278,14 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Пятничный мафия-вечер (07.08.2026)"
+                  placeholder="Игровой вечер — 14 августа"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-slate-400 font-bold uppercase mb-1">Дата и время начала</label>
+                  <label className="block text-slate-400 font-bold uppercase mb-1">Дата и время · Москва</label>
                   <input
                     type="datetime-local"
                     required
@@ -297,6 +315,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                   <label className="block text-slate-400 font-bold uppercase mb-1">Цена по умолч. (₽)</label>
                   <input
                     type="number"
+                    min="0"
                     value={defaultPrice}
                     onChange={(e) => setDefaultPrice(parseInt(e.target.value) || 0)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
@@ -320,7 +339,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Сбор гостей в 19:00, старт первой игры в 19:30"
+                  placeholder="Дополнительная информация для организатора"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 resize-none"
                 />
               </div>
@@ -329,9 +348,9 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="min-h-11 flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  className="min-h-11 flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {saving ? 'Сохранение...' : 'Запланировать вечер'}
+                  {saving ? 'Сохранение...' : 'Создать черновик'}
                 </button>
                 <button
                   type="button"

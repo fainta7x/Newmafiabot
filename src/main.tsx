@@ -14,6 +14,7 @@ import "./components/crm/liveGameVisualV2.css";
 import "./components/crm/liveGameRoleGlyphsV2.css";
 import "./components/crm/liveGameControlsPolishV3.css";
 import "./components/crm/liveGameDisciplineGlyphsV4.css";
+import "./components/crm/liveGameActionGroupsV5.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

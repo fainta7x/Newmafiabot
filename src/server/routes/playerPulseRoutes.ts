@@ -1,10 +1,20 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
-import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { loadCompletedGameSnapshots, type AnalyticsTeam } from '../services/clubGameAnalyticsService.ts';
 
 const router = Router();
 
 type Result = { dateMs: number; won: boolean };
+type PersonStat = { player_id: string; nickname: string; games: number; wins: number };
+type DuoStat = {
+  a_id: string;
+  a_name: string;
+  b_id: string;
+  b_name: string;
+  team: AnalyticsTeam;
+  games: number;
+  wins: number;
+};
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
@@ -14,6 +24,9 @@ const requirePlayerId = (req: any, res: any): string | null => {
   }
   return playerId;
 };
+
+const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
+const winRate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 
 const lastResultsAt = (results: Result[], cutoffMs = Number.POSITIVE_INFINITY) => results
   .filter((result) => result.dateMs <= cutoffMs)
@@ -101,7 +114,7 @@ router.get('/pulse', async (req, res) => {
         ...entry,
         place,
         movement: oldPlace == null ? null : oldPlace - place,
-        avatar_url: `/api/player/players/${encodeURIComponent(entry.player_id)}/avatar`,
+        avatar_url: avatarUrl(entry.player_id),
       };
     });
 
@@ -110,7 +123,7 @@ router.get('/pulse', async (req, res) => {
         return [{
           player_id: entry.player_id,
           nickname: entry.nickname,
-          avatar_url: `/api/player/players/${encodeURIComponent(entry.player_id)}/avatar`,
+          avatar_url: avatarUrl(entry.player_id),
           type: 'win_streak',
           value: entry.streak,
           text: `${entry.streak} побед подряд`,
@@ -121,7 +134,7 @@ router.get('/pulse', async (req, res) => {
         return [{
           player_id: entry.player_id,
           nickname: entry.nickname,
-          avatar_url: `/api/player/players/${encodeURIComponent(entry.player_id)}/avatar`,
+          avatar_url: avatarUrl(entry.player_id),
           type: 'hot_form',
           value: entry.last5_wins,
           text: `${entry.last5_wins}/5 побед в последних играх`,
@@ -144,6 +157,111 @@ router.get('/pulse', async (req, res) => {
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось рассчитать пульс клуба' });
+  }
+});
+
+router.get('/relationships', async (req, res) => {
+  const viewerId = requirePlayerId(req, res);
+  if (!viewerId) return;
+
+  try {
+    const db = (req as any).db;
+    const snapshots = await loadCompletedGameSnapshots(db);
+    const opponents = new Map<string, PersonStat>();
+    const teammates = new Map<string, PersonStat>();
+    const duos = new Map<string, DuoStat>();
+
+    const bumpPerson = (target: Map<string, PersonStat>, playerId: string, nickname: string, won: boolean) => {
+      const stat = target.get(playerId) || { player_id: playerId, nickname, games: 0, wins: 0 };
+      stat.games += 1;
+      if (won) stat.wins += 1;
+      target.set(playerId, stat);
+    };
+
+    for (const game of snapshots) {
+      const viewer = game.players.find((player) => player.player_id === String(viewerId));
+      if (viewer) {
+        for (const other of game.players) {
+          if (other.player_id === String(viewerId)) continue;
+          if (other.team === viewer.team) bumpPerson(teammates, other.player_id, other.nickname, viewer.won);
+          else bumpPerson(opponents, other.player_id, other.nickname, viewer.won);
+        }
+      }
+
+      for (const team of ['red', 'black'] as const) {
+        const members = game.players.filter((player) => player.team === team);
+        for (let first = 0; first < members.length; first += 1) {
+          for (let second = first + 1; second < members.length; second += 1) {
+            const a = members[first];
+            const b = members[second];
+            const [left, right] = a.player_id.localeCompare(b.player_id) <= 0 ? [a, b] : [b, a];
+            const key = `${team}:${left.player_id}:${right.player_id}`;
+            const stat = duos.get(key) || {
+              a_id: left.player_id,
+              a_name: left.nickname,
+              b_id: right.player_id,
+              b_name: right.nickname,
+              team,
+              games: 0,
+              wins: 0,
+            };
+            stat.games += 1;
+            if (a.won) stat.wins += 1;
+            duos.set(key, stat);
+          }
+        }
+      }
+    }
+
+    const personPayload = (stat: PersonStat) => ({
+      ...stat,
+      win_rate: winRate(stat.wins, stat.games),
+      avatar_url: avatarUrl(stat.player_id),
+    });
+
+    const rivals = [...opponents.values()]
+      .sort((a, b) => b.games - a.games || Math.abs(winRate(a.wins, a.games) - 50) - Math.abs(winRate(b.wins, b.games) - 50) || a.nickname.localeCompare(b.nickname, 'ru'))
+      .slice(0, 8)
+      .map(personPayload);
+
+    const personalDuos = [...teammates.values()]
+      .sort((a, b) => b.games - a.games || winRate(b.wins, b.games) - winRate(a.wins, a.games) || a.nickname.localeCompare(b.nickname, 'ru'))
+      .slice(0, 8)
+      .map(personPayload);
+
+    const duoPool = [...duos.values()].filter((duo) => duo.games >= 2);
+    const rankDuos = (team: AnalyticsTeam) => duoPool
+      .filter((duo) => duo.team === team)
+      .sort((a, b) => {
+        const aRate = winRate(a.wins, a.games);
+        const bRate = winRate(b.wins, b.games);
+        const aScore = aRate + Math.min(10, a.games) * 2;
+        const bScore = bRate + Math.min(10, b.games) * 2;
+        return bScore - aScore || b.games - a.games || bRate - aRate;
+      })
+      .slice(0, 5)
+      .map((duo) => ({
+        ...duo,
+        win_rate: winRate(duo.wins, duo.games),
+        a_avatar_url: avatarUrl(duo.a_id),
+        b_avatar_url: avatarUrl(duo.b_id),
+      }));
+
+    return res.json({
+      viewer_id: String(viewerId),
+      rivals,
+      teammates: personalDuos,
+      club_duos: {
+        red: rankDuos('red'),
+        black: rankDuos('black'),
+      },
+      meta: {
+        rivalry: 'Считаются только завершённые игры, где игроки были по разные стороны.',
+        duo: 'Связки считаются по завершённым играм в одной команде. В клубный топ попадают пары минимум с двумя совместными играми.',
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось рассчитать связи игроков' });
   }
 });
 

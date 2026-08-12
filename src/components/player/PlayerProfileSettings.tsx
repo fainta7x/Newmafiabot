@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerJudging, { loadPlayerJudgingDashboard, type PlayerJudgingDashboard } from './PlayerJudging.tsx';
+import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
 
 type Player = PlayerMeResponse['player'] & { phone?: string | null };
 
@@ -173,6 +174,8 @@ export default function PlayerProfileSettings({
           <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">Открыть судейство</button>
         </section>
       )}
+
+      {judging && (judging.player.judge_level === 'host' || judging.player.judge_level === 'judge') && <JudgeMusicPlaylist />}
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Оформление профиля</div>

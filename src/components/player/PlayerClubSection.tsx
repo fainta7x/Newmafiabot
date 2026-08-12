@@ -195,7 +195,7 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
     <div>
       <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/[0.05] p-1">
         {([
-          ['mine', 'Моя форма'],
+          ['mine', 'Прогресс'],
           ['club', 'Клуб'],
           ['relations', 'Связи'],
           ['stories', 'Лента'],
@@ -215,7 +215,9 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
         <div className="mt-4">
           {form.length ? (
             <>
-              <div className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
+              <PlayerProgressionPanel />
+
+              <div className="mt-4 rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние {form.length} игр</div>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <div><div className="text-3xl font-black">{wins}<span className="text-white/25">/{form.length}</span></div><div className="mt-1 text-[11px] text-white/35">{streakText}</div></div>
@@ -236,8 +238,6 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
                 ))}</div>
               </div>
 
-              <PlayerProgressionPanel />
-
               <div className="mt-4 space-y-1.5">{form.map((game, index) => (
                 <div key={`${game.id}:row:${index}`} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] px-3 py-2.5">
                   <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl text-sm ${game.won ? 'bg-emerald-400/12 text-emerald-300' : 'bg-rose-400/12 text-rose-300'}`}>{game.won ? '✓' : '×'}</span>
@@ -248,12 +248,12 @@ export default function PlayerClubSection({ games }: { games: FormGame[] }) {
             </>
           ) : (
             <>
-              <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-center">
-                <div className="text-2xl">🎭</div><div className="mt-2 text-sm font-semibold">Личная форма ещё не началась</div>
-                <p className="mt-1 text-xs text-white/35">После первой завершённой игры здесь появятся результаты и карьера по ролям.</p>
+              <PlayerProgressionPanel />
+              <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-center">
+                <div className="text-2xl">🎭</div><div className="mt-2 text-sm font-semibold">Игровая история ещё не началась</div>
+                <p className="mt-1 text-xs text-white/35">После первой завершённой игры здесь появятся форма и карьера по ролям.</p>
                 <button type="button" onClick={() => setSection('club')} className="mt-4 min-h-10 rounded-xl bg-white px-4 text-xs font-semibold text-black">Смотреть клуб</button>
               </div>
-              <PlayerProgressionPanel />
             </>
           )}
         </div>

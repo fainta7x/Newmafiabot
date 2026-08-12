@@ -119,7 +119,7 @@ async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
 
 
 async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
-    """Remind only players who received the first invitation and still have no response."""
+    """Remind unanswered players by updating their original invitation whenever possible."""
     recipients_result = await get_evening_reminder_recipients(evening_id)
     if not recipients_result.get("success"):
         return {
@@ -135,44 +135,77 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
     state_failures = 0
     failed_players = []
 
+    reminder_text = (
+        "🔔 <b>Напоминание об игровом вечере</b>\n\n"
+        "Ты ещё не ответил на приглашение. Получится прийти?\n\n"
+        + _evening_prompt(evening)
+    )
+    compact_fallback_text = (
+        f"🔔 <b>Напоминание: {str(evening.get('title') or 'игровой вечер')}</b>\n\n"
+        "Ты ещё не ответил на приглашение. Получится прийти?"
+    )
+
     for recipient in recipients:
         player_id = str(recipient.get("id") or "").strip()
         telegram_user_id = str(recipient.get("telegram_user_id") or "").strip()
         nickname = str(recipient.get("nickname") or "Игрок")
+        original_message_id = int(recipient.get("first_message_id") or 0)
         if not player_id or not telegram_user_id:
             continue
 
-        try:
-            message = await bot.send_message(
-                int(telegram_user_id),
-                "🔔 <b>Напоминание об игровом вечере</b>\n\n"
-                "Ты ещё не ответил на приглашение. Получится прийти?\n\n"
-                + _evening_prompt(evening),
-                parse_mode="HTML",
-                reply_markup=crm_evening_response_kb(evening_id),
-            )
-        except Exception as exc:
-            failed += 1
-            failed_players.append(nickname)
-            persisted = await _retry_backend_write(lambda: save_evening_reminder_attempt(
-                evening_id,
-                player_id,
-                telegram_user_id,
-                success=False,
-                error=str(exc),
-            ))
-            if not persisted.get("success"):
-                state_failures += 1
-            print(f"[CRM REMINDER] Delivery failed for {nickname} ({telegram_user_id}): {exc}")
-            await asyncio.sleep(0.05)
-            continue
+        reminder_message_id = 0
+        edit_error = None
+        if original_message_id > 0:
+            try:
+                await bot.edit_message_text(
+                    chat_id=int(telegram_user_id),
+                    message_id=original_message_id,
+                    text=reminder_text,
+                    parse_mode="HTML",
+                    reply_markup=crm_evening_response_kb(evening_id),
+                )
+                reminder_message_id = original_message_id
+            except Exception as exc:
+                # A retry of the same campaign may hit an unchanged message. That is already a successful reminder.
+                if "message is not modified" in str(exc).lower():
+                    reminder_message_id = original_message_id
+                else:
+                    edit_error = exc
+
+        if reminder_message_id <= 0:
+            try:
+                message = await bot.send_message(
+                    int(telegram_user_id),
+                    compact_fallback_text,
+                    parse_mode="HTML",
+                    reply_markup=crm_evening_response_kb(evening_id),
+                )
+                reminder_message_id = message.message_id
+            except Exception as exc:
+                failed += 1
+                failed_players.append(nickname)
+                combined_error = str(exc)
+                if edit_error is not None:
+                    combined_error = f"edit failed: {edit_error}; fallback failed: {exc}"
+                persisted = await _retry_backend_write(lambda: save_evening_reminder_attempt(
+                    evening_id,
+                    player_id,
+                    telegram_user_id,
+                    success=False,
+                    error=combined_error,
+                ))
+                if not persisted.get("success"):
+                    state_failures += 1
+                print(f"[CRM REMINDER] Delivery failed for {nickname} ({telegram_user_id}): {combined_error}")
+                await asyncio.sleep(0.05)
+                continue
 
         persisted = await _retry_backend_write(lambda: save_evening_reminder_attempt(
             evening_id,
             player_id,
             telegram_user_id,
             success=True,
-            telegram_message_id=message.message_id,
+            telegram_message_id=reminder_message_id,
         ))
         if persisted.get("success"):
             sent += 1

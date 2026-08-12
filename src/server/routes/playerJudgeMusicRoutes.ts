@@ -5,7 +5,7 @@ import { normalizeJudgeLevel } from '../../db/ensureJudgeAuthoritySchema.ts';
 
 const router = Router();
 const MAX_TRACKS = 10;
-const MAX_TRACK_BYTES = 8 * 1024 * 1024;
+const MAX_TRACK_BYTES = 15 * 1024 * 1024;
 const AUDIO_TYPES = new Set([
   'audio/mpeg',
   'audio/mp3',
@@ -80,7 +80,7 @@ router.post('/judge-music/tracks', audioBody, async (req, res) => {
     const db = (req as any).db;
     const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
     if (!body.length) return res.status(400).json({ error: 'Аудиофайл пуст.' });
-    if (body.length > MAX_TRACK_BYTES) return res.status(413).json({ error: 'Один трек должен быть не больше 8 МБ.' });
+    if (body.length > MAX_TRACK_BYTES) return res.status(413).json({ error: 'Один трек должен быть не больше 15 МБ.' });
 
     const contentType = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
     if (!AUDIO_TYPES.has(contentType) && !contentType.startsWith('audio/')) {
@@ -200,7 +200,7 @@ router.get('/judge-music/tracks/:trackId/audio', async (req, res) => {
 
 router.use((error: any, _req: Request, res: Response, next: (error?: any) => void) => {
   if (error?.status === 413 || error?.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Один трек должен быть не больше 8 МБ.' });
+    return res.status(413).json({ error: 'Один трек должен быть не больше 15 МБ.' });
   }
   next(error);
 });

@@ -28,7 +28,7 @@ export async function loadJudgeMusicPlaylist(): Promise<JudgeMusicPayload | null
   if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить плейлист');
   return {
     limit: Number(body?.limit || 10),
-    max_track_bytes: Number(body?.max_track_bytes || 8 * 1024 * 1024),
+    max_track_bytes: Number(body?.max_track_bytes || 15 * 1024 * 1024),
     tracks: Array.isArray(body?.tracks) ? body.tracks : [],
   };
 }

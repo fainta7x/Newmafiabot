@@ -20,5 +20,30 @@ export const EVENING_FORMAT_LABELS: Record<EveningFormat, string> = {
   TOURNAMENT: 'Турнир',
 };
 
-export const eveningFormatAffectsElo = (value: unknown): boolean =>
-  normalizeEveningFormat(value) !== 'NOVICE';
+/**
+ * Product meaning of each club-evening format.
+ * CASUAL intentionally keeps Elo: it is a relaxed club night, not an unranked mode.
+ * RATING and TOURNAMENT are the explicitly competitive formats.
+ */
+export const EVENING_FORMAT_DESCRIPTIONS: Record<EveningFormat, string> = {
+  NOVICE: 'Обучающий формат. Elo не меняется.',
+  CASUAL: 'Обычный клубный вечер. Elo считается, но без акцента на жёсткий рейтинг.',
+  RATING: 'Спортивный рейтинговый вечер. Elo считается.',
+  TOURNAMENT: 'Турнирный формат с максимальным спортивным акцентом. Elo считается.',
+};
+
+export const eveningFormatAffectsElo = (value: unknown): boolean => {
+  switch (normalizeEveningFormat(value)) {
+    case 'NOVICE':
+      return false;
+    case 'CASUAL':
+    case 'RATING':
+    case 'TOURNAMENT':
+      return true;
+  }
+};
+
+export const eveningFormatIsCompetitive = (value: unknown): boolean => {
+  const format = normalizeEveningFormat(value);
+  return format === 'RATING' || format === 'TOURNAMENT';
+};

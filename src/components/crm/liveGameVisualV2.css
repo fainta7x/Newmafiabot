@@ -1,0 +1,303 @@
+/* Live game visual V2
+   Visual-only skin: colors, surfaces, borders, shadows and control states.
+   Layout, spacing, sizing and game flow intentionally stay untouched. */
+
+:is(.evening-live-engine-shell, .tournament-live-shell) {
+  --live-bg: #08080a;
+  --live-surface-1: #101014;
+  --live-surface-2: #17171d;
+  --live-surface-3: #1d1d25;
+  --live-border: rgba(255, 255, 255, 0.075);
+  --live-border-strong: rgba(255, 255, 255, 0.14);
+  --live-text: var(--text-primary, #f5f1ea);
+  --live-text-2: var(--text-secondary, #9e9a93);
+  --live-muted: var(--text-muted, #66635e);
+  --live-accent: var(--accent, #e13458);
+  --live-accent-hover: var(--accent-hover, #f04569);
+  --live-accent-soft: rgba(var(--accent-rgb, 220, 50, 85), 0.14);
+  --live-accent-border: rgba(var(--accent-rgb, 220, 50, 85), 0.34);
+  --live-accent-glow: rgba(var(--accent-rgb, 220, 50, 85), 0.2);
+  --live-success: var(--success, #42c293);
+  --live-warning: var(--warning, #e0ab49);
+  --live-danger: var(--danger, #e85555);
+  color: var(--live-text);
+  background:
+    radial-gradient(circle at 50% -15%, rgba(var(--accent-rgb, 220, 50, 85), 0.08), transparent 38%),
+    linear-gradient(180deg, #09090c 0%, #070709 100%);
+}
+
+/* The modal shell around the engine follows the same noir surface. */
+div:has(> .evening-live-engine-shell) {
+  background-color: var(--app-bg, #0a0a0c) !important;
+  background-image:
+    radial-gradient(circle at 50% -12%, rgba(var(--accent-rgb, 220, 50, 85), 0.09), transparent 35%),
+    linear-gradient(180deg, #09090c 0%, #070709 100%) !important;
+}
+
+div:has(> .evening-live-engine-shell) > div[class*="sticky"][class*="border-b"] {
+  background: rgba(10, 10, 12, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+div:has(> .evening-live-engine-shell) > div[class*="sticky"][class*="border-b"] button {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: var(--text-secondary, #9e9a93) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+/* Replace the old blue/slate UI surfaces with the app's noir surfaces. */
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-950"] {
+  background-color: rgba(8, 8, 11, 0.96) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-900"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-880"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-850"] {
+  background-color: var(--live-surface-1) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-800"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-slate-700"] {
+  background-color: var(--live-surface-2) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-slate-"] {
+  border-color: var(--live-border) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-slate-500"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-slate-600"] {
+  color: var(--live-muted) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-slate-400"] {
+  color: var(--live-text-2) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-slate-300"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-slate-200"] {
+  color: rgba(245, 241, 234, 0.82) !important;
+}
+
+/* Retire the legacy saturated blue/cyan/teal palette. */
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-blue-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-cyan-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-teal-"] {
+  background-color: var(--live-accent-soft) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-blue-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-cyan-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-teal-"] {
+  border-color: var(--live-accent-border) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-blue-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-cyan-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-teal-"] {
+  color: var(--live-accent-hover) !important;
+}
+
+/* Purple/fuchsia becomes a restrained secondary accent rather than another loud palette. */
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-purple-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-violet-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-fuchsia-"] {
+  background-color: rgba(var(--accent-rgb, 220, 50, 85), 0.11) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-purple-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-violet-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-fuchsia-"] {
+  border-color: rgba(var(--accent-rgb, 220, 50, 85), 0.28) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-purple-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-violet-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="text-fuchsia-"] {
+  color: color-mix(in srgb, var(--live-accent-hover) 74%, white 26%) !important;
+}
+
+/* Keep semantic states, but make them calmer and consistent with the rest of the app. */
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-emerald-950"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-emerald-900"] {
+  background-color: rgba(66, 194, 147, 0.11) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-amber-950"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-orange-950"] {
+  background-color: rgba(224, 171, 73, 0.11) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-rose-950"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-red-950"] {
+  background-color: rgba(232, 85, 85, 0.11) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-emerald-"] {
+  border-color: rgba(66, 194, 147, 0.28) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-amber-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-orange-"] {
+  border-color: rgba(224, 171, 73, 0.28) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-rose-"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="border-red-"] {
+  border-color: rgba(232, 85, 85, 0.3) !important;
+}
+
+/* Cards and the center HUD: same geometry, premium surface treatment. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.025), transparent 52%),
+    linear-gradient(180deg, rgba(25, 25, 31, 0.98), rgba(15, 15, 19, 0.98)) !important;
+  border-color: var(--live-border) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb, 220, 50, 85), 0.075), transparent 55%),
+    linear-gradient(180deg, rgba(24, 24, 30, 0.99), rgba(13, 13, 17, 0.99)) !important;
+  border-color: rgba(var(--accent-rgb, 220, 50, 85), 0.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 12px 36px rgba(0, 0, 0, 0.24),
+    0 0 32px rgba(var(--accent-rgb, 220, 50, 85), 0.035);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [data-table-vote-selected="true"] {
+  border-color: var(--live-accent) !important;
+  box-shadow:
+    0 0 0 1px rgba(var(--accent-rgb, 220, 50, 85), 0.34),
+    0 0 24px var(--live-accent-glow) !important;
+}
+
+/* Panels and modal cards gain subtle depth without changing their dimensions. */
+:is(.evening-live-engine-shell, .tournament-live-shell) :is(
+  div[class*="rounded-xl"][class*="border"],
+  div[class*="rounded-2xl"][class*="border"],
+  div[class*="rounded-3xl"][class*="border"]
+) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-gradient-to-"] {
+  background-image: linear-gradient(
+    180deg,
+    rgba(var(--accent-rgb, 220, 50, 85), 0.055) 0%,
+    rgba(17, 17, 21, 0.96) 58%,
+    rgba(10, 10, 13, 0.98) 100%
+  ) !important;
+}
+
+/* Controls */
+:is(.evening-live-engine-shell, .tournament-live-shell) button {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.028);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) button:not(:disabled):hover {
+  filter: brightness(1.075);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) button:not(:disabled):active {
+  filter: brightness(0.96);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) button[class*="bg-white"] {
+  background: linear-gradient(180deg, var(--live-accent-hover), var(--live-accent)) !important;
+  border-color: rgba(var(--accent-rgb, 220, 50, 85), 0.6) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 24px rgba(var(--accent-rgb, 220, 50, 85), 0.18) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) :is(select, input, textarea) {
+  background-color: var(--live-surface-2) !important;
+  border-color: var(--live-border) !important;
+  color: var(--live-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) :is(select, input, textarea):focus {
+  border-color: var(--live-accent-border) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--live-accent-soft) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) :is(input, textarea)::placeholder {
+  color: var(--live-muted) !important;
+}
+
+/* Timer / central controls */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"][class*="border"] {
+  background: rgba(8, 8, 11, 0.82) !important;
+  border-color: var(--live-border-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 5px 18px rgba(0, 0, 0, 0.16);
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="h-full"][class*="bg-emerald-600"] {
+  background: linear-gradient(90deg, var(--live-accent), var(--live-accent-hover)) !important;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 220, 50, 85), 0.22);
+}
+
+/* Small role / state chips become quieter and more legible. */
+:is(.evening-live-engine-shell, .tournament-live-shell) span[class*="rounded-full"],
+:is(.evening-live-engine-shell, .tournament-live-shell) span[class*="rounded-lg"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+/* Mobile CRM identity overlay follows the same noir visual language. */
+.evening-live-engine-shell .evening-live-player-avatar {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: #17171d !important;
+  color: var(--live-text) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34) !important;
+}
+
+.evening-live-engine-shell .evening-live-identity-name {
+  background: rgba(10, 10, 13, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: var(--live-text) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.evening-live-engine-shell .evening-live-discipline > span {
+  background: rgba(10, 10, 13, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Toasts and blocking overlays should feel like the same product, not legacy admin UI. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="fixed"][class*="backdrop-blur"] > div[class*="rounded-3xl"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb, 220, 50, 85), 0.045), transparent 48%),
+    #121216 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48) !important;
+}
+
+/* Keep warning/success/danger semantics readable while avoiding neon saturation. */
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-emerald-600"] {
+  background-color: color-mix(in srgb, var(--live-success) 82%, #111116 18%) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-amber-600"] {
+  background-color: color-mix(in srgb, var(--live-warning) 82%, #111116 18%) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-rose-600"],
+:is(.evening-live-engine-shell, .tournament-live-shell) [class*="bg-red-600"] {
+  background-color: color-mix(in srgb, var(--live-danger) 84%, #111116 16%) !important;
+}
+
+/* Accessibility: disabled stays clearly disabled without introducing another color. */
+:is(.evening-live-engine-shell, .tournament-live-shell) :disabled {
+  filter: saturate(0.45);
+}

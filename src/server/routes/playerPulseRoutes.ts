@@ -124,7 +124,6 @@ router.get('/pulse', async (req, res) => {
 
     const now = Date.now();
     const previousCutoff = now - 7 * 24 * 60 * 60 * 1000;
-    const playerMeta = new Map(players.map((player: any) => [String(player.id), player]));
 
     const currentEntries = players.flatMap((player: any) => {
       const results = lastResultsAt(byPlayer.get(String(player.id)) || []);

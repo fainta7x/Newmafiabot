@@ -1,19 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useJudgeGameMusic } from '../hooks/useJudgeGameMusic.ts';
+import { readJudgeGameMusicSelection } from '../lib/judgeGameMusicSelection.ts';
 import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 
 const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
 
-export const requestJudgeGameMusicStart = () => window.dispatchEvent(new CustomEvent(START_EVENT));
+export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
+  new CustomEvent(START_EVENT, { detail: { trackId } }),
+);
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
 
-const readLivePhase = () => {
+type LiveAudioState = {
+  phase: string | null;
+  zeroNightSubPhase: string | null;
+  isTimerRunning: boolean;
+};
+
+const readLiveAudioState = (): LiveAudioState | null => {
   try {
     const raw = localStorage.getItem('mafia_live_session');
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return typeof parsed?.phase === 'string' ? parsed.phase : null;
+    return {
+      phase: typeof parsed?.phase === 'string' ? parsed.phase : null,
+      zeroNightSubPhase: typeof parsed?.zeroNightSubPhase === 'string' ? parsed.zeroNightSubPhase : null,
+      isTimerRunning: parsed?.isTimerRunning === true,
+    };
   } catch {
     return null;
   }
@@ -25,28 +38,29 @@ const hasOpenLiveEngine = () => Boolean(
 
 export default function JudgeGameMusicController() {
   const music = useJudgeGameMusic();
-  const [manualDeal, setManualDeal] = useState(false);
-  const [nightWanted, setNightWanted] = useState(false);
   const manualRef = useRef(false);
+  const manualTrackRef = useRef<string | undefined>(undefined);
+  const nightWantedRef = useRef(false);
   const wantedRef = useRef(false);
+  const wantedTrackRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
   }, []);
 
-  useEffect(() => { manualRef.current = manualDeal; }, [manualDeal]);
-  useEffect(() => { wantedRef.current = manualDeal || nightWanted; }, [manualDeal, nightWanted]);
-
   useEffect(() => {
-    const startDeal = () => {
+    const startDeal = (event: Event) => {
+      const detail = (event as CustomEvent<{ trackId?: string }>).detail;
       manualRef.current = true;
-      setManualDeal(true);
-      void music.start();
+      manualTrackRef.current = detail?.trackId;
+      wantedRef.current = true;
+      wantedTrackRef.current = detail?.trackId;
+      void music.start(detail?.trackId);
     };
     const stopDeal = () => {
       manualRef.current = false;
-      setManualDeal(false);
-      if (!nightWanted) music.stop();
+      manualTrackRef.current = undefined;
+      if (!nightWantedRef.current) music.stop();
     };
     window.addEventListener(START_EVENT, startDeal);
     window.addEventListener(STOP_EVENT, stopDeal);
@@ -54,19 +68,30 @@ export default function JudgeGameMusicController() {
       window.removeEventListener(START_EVENT, startDeal);
       window.removeEventListener(STOP_EVENT, stopDeal);
     };
-  }, [music.start, music.stop, nightWanted]);
+  }, [music.start, music.stop]);
 
   useEffect(() => {
     const sync = () => {
-      const phase = hasOpenLiveEngine() ? readLivePhase() : null;
-      const shouldPlayForNight = phase === 'zero_night' || phase === 'night';
-      setNightWanted((current) => current === shouldPlayForNight ? current : shouldPlayForNight);
+      const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
+      const selection = readJudgeGameMusicSelection();
+      const agreementWanted = live?.phase === 'zero_night'
+        && live.zeroNightSubPhase === 'agreement'
+        && live.isTimerRunning;
+      const regularNightWanted = live?.phase === 'night';
+      const phaseWantsNightMusic = agreementWanted || regularNightWanted;
+      const configured = selection?.configured === true;
+      const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;
+      const shouldPlayForNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));
 
+      nightWantedRef.current = shouldPlayForNight;
       const shouldPlay = manualRef.current || shouldPlayForNight;
+      const desiredTrack = manualRef.current ? manualTrackRef.current : selectedNightTrack;
       wantedRef.current = shouldPlay;
+      wantedTrackRef.current = desiredTrack;
+
       if (shouldPlay) {
-        if (!music.playing && music.tracks.length) void music.start();
-      } else if (music.playing) {
+        if (music.tracks.length && !music.blocked) void music.start(desiredTrack);
+      } else {
         music.stop();
       }
     };
@@ -74,7 +99,7 @@ export default function JudgeGameMusicController() {
     sync();
     const interval = window.setInterval(sync, 350);
     return () => window.clearInterval(interval);
-  }, [music.playing, music.start, music.stop, music.tracks.length]);
+  }, [music.blocked, music.start, music.stop, music.tracks.length]);
 
   useEffect(() => () => music.stop(), [music.stop]);
 
@@ -83,7 +108,7 @@ export default function JudgeGameMusicController() {
   return (
     <button
       type="button"
-      onClick={() => void music.start()}
+      onClick={() => void music.start(wantedTrackRef.current)}
       className="fixed bottom-24 right-3 z-[190] rounded-2xl border border-violet-300/25 bg-[#17131d]/95 px-4 py-3 text-left shadow-2xl backdrop-blur-xl"
     >
       <div className="text-xs font-black text-violet-100">♫ Включить музыку</div>

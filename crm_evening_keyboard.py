@@ -3,14 +3,20 @@ from datetime import datetime
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+_RESPONSE_BUTTONS = (
+    ("going", "✅ Иду"),
+    ("late", "⏳ Приду позже"),
+    ("thinking", "🤔 Пока думаю"),
+    ("declined", "❌ Не иду"),
+)
 
-def crm_evening_response_kb(evening_id: str) -> InlineKeyboardMarkup:
-    """Canonical CRM-evening response keyboard."""
+
+def crm_evening_response_kb(evening_id: str, selected_status: str | None = None) -> InlineKeyboardMarkup:
+    """Canonical CRM-evening response keyboard with persistent selected state."""
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Иду", callback_data=f"evr:{evening_id}:going")
-    builder.button(text="⏳ Приду позже", callback_data=f"evr:{evening_id}:late")
-    builder.button(text="🤔 Пока думаю", callback_data=f"evr:{evening_id}:thinking")
-    builder.button(text="❌ Не иду", callback_data=f"evr:{evening_id}:declined")
+    for status, label in _RESPONSE_BUTTONS:
+        text = f"☑️ {label}" if selected_status == status else label
+        builder.button(text=text, callback_data=f"evr:{evening_id}:{status}")
     builder.adjust(1)
     return builder.as_markup()
 

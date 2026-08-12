@@ -323,7 +323,17 @@ export default function PlayerCabinetV2({ data, canOpenAdmin = false }: { data: 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить ответ');
-      setEvenings((current) => (current || []).map((evening) => evening.id === eveningId ? { ...evening, response_status: status } : evening));
+      setEvenings((current) => (current || []).map((evening) => {
+        if (evening.id !== eveningId) return evening;
+        const wasAttending = evening.response_status === 'going' || evening.response_status === 'late';
+        const willAttend = status === 'going' || status === 'late';
+        const delta = Number(willAttend) - Number(wasAttending);
+        return {
+          ...evening,
+          response_status: status,
+          attending_count: Math.max(0, Number(evening.attending_count || 0) + delta),
+        };
+      }));
       setEveningsError(null);
     } catch (error: any) {
       setEveningsError(error?.message || 'Не удалось сохранить ответ');

@@ -10,9 +10,20 @@ interface EveningOverviewViewProps {
   onOpenSection: (section: 'participants' | 'tables' | 'games') => void;
 }
 
+type EveningAnnouncementSummary = {
+  audience: number;
+  sent: number;
+  answered: number;
+  unanswered: number;
+  failed: number;
+  not_sent: number;
+  reminded: number;
+};
+
 type EveningData = GameEvening & {
   participants?: EveningParticipant[];
   games?: Array<{ id: number | string; status?: string | null; protocol_status?: string | null; winner_team?: string | null }>;
+  announcement?: { summary?: EveningAnnouncementSummary } | null;
 };
 
 const statusLabel: Record<string, string> = {
@@ -60,7 +71,10 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     const attended = participants.filter((item) => item.attendance_status === 'attended');
     const noShow = participants.filter((item) => item.attendance_status === 'no_show');
     const thinking = participants.filter((item) => getEveningResponse(item) === 'thinking');
-    const unanswered = participants.filter((item) => getEveningResponse(item) === 'unanswered');
+    const participantUnanswered = participants.filter((item) => getEveningResponse(item) === 'unanswered');
+    const announcementSummary = evening?.announcement?.summary;
+    const unansweredCount = Number(announcementSummary?.unanswered ?? participantUnanswered.length);
+    const audienceCount = Number(announcementSummary?.audience ?? participants.length);
     const paymentExpected = participants.filter((item) => item.attendance_status === 'attended' || ['going', 'late'].includes(getEveningResponse(item)));
     const due = paymentExpected.reduce((sum, item) => sum + Number(item.amount_due || 0), 0);
     const paid = paymentExpected.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
@@ -68,7 +82,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     const unpaidPeople = paymentExpected.filter((item) => item.payment_status !== 'paid' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
     const games = evening?.games || [];
     const completedGames = games.filter((game) => game.status === 'completed' || game.protocol_status === 'completed' || Boolean(game.winner_team)).length;
-    return { participants, expected, pendingExpected, attended, noShow, thinking, unanswered, due, paid, outstanding, unpaidPeople, games, completedGames };
+    return { participants, expected, pendingExpected, attended, noShow, thinking, participantUnanswered, unansweredCount, audienceCount, due, paid, outstanding, unpaidPeople, games, completedGames };
   }, [evening]);
 
   const updateStatus = async (status: 'published' | 'active') => {
@@ -122,8 +136,8 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   const lifecycleHint = evening.status === 'draft'
     ? 'Проверь дату, место, формат и цену. После публикации Telegram и личные приглашения смогут работать с этим вечером.'
     : evening.status === 'published'
-      ? stats.unanswered.length
-        ? `Вечер опубликован. Собираем состав: ${stats.unanswered.length} участник(ов) пока без ответа.`
+      ? stats.unansweredCount
+        ? `Вечер опубликован. Из ${stats.audienceCount} приглашённых ещё ${stats.unansweredCount} без ответа.`
         : stats.expected.length
           ? `Состав собирается: ${stats.expected.length} игрок(ов) подтвердили участие. Когда начнётся встреча — переведи вечер в активный режим.`
           : 'Вечер опубликован. Следующий этап — собрать ответы игроков, затем начать вечер.'

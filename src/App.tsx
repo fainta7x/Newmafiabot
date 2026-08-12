@@ -5,6 +5,7 @@ import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
 import PlayerCabinetV2 from "./components/player/PlayerCabinetV2.tsx";
+import PlayerFormCenter from "./components/player/PlayerFormCenter.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 import PlayerPayments from "./components/player/PlayerPayments.tsx";
 
@@ -285,6 +286,7 @@ export default function App() {
   return (
     <>
       <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />
+      <PlayerFormCenter games={rootState.data.games.all} />
       <PlayerLiveCenter />
       <button
         type="button"

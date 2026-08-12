@@ -1,7 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
-import { serializeEveningParticipant } from '../services/eveningParticipantState.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 import { internalGetNominations } from './tournamentsRoutesBase.ts';
 import baseRouter from './publicRoutesBase.ts';
@@ -10,13 +8,24 @@ const router=Router();
 const expected="response_status IN ('going','late')";
 
 router.get('/evenings/:id',async(req:Request,res:Response)=>{try{const db=(req as any).db||(await getDb());const evening=await db.get<any>('SELECT id,title,starts_at,ends_at,venue,format,status,capacity,default_price,notes FROM game_evenings WHERE id=?',[req.params.id]);if(!evening)return res.status(404).json({error:'Игровой вечер не найден'});if(evening.status==='cancelled')return res.status(400).json({error:'Этот игровой вечер отменён'});let tables=await db.all<any>(`SELECT t.id,t.name,t.format,t.capacity,t.starts_at,t.default_price,(SELECT COUNT(*) FROM evening_participants p WHERE p.table_id=t.id AND ${expected}) AS registered_count FROM evening_tables t WHERE t.evening_id=? ORDER BY t.sort_order ASC,t.created_at ASC`,[req.params.id]);if(!tables.length){const row=await db.get<any>(`SELECT COUNT(*) AS cnt FROM evening_participants WHERE evening_id=? AND ${expected}`,[req.params.id]);const registered=Number(row?.cnt||0);tables=[{id:'default',name:'Основной стол',format:evening.format||'CASUAL',capacity:evening.capacity||10,registered_count:registered,free_spots:Math.max(0,(evening.capacity||10)-registered)}];}else tables=tables.map((t:any)=>({...t,free_spots:Math.max(0,Number(t.capacity)-Number(t.registered_count))}));return res.json({...evening,venue:evening.venue||'Суп с Котом',tables});}catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}});
-router.get('/join/:id',(req,res)=>res.redirect(`/api/public/evenings/${req.params.id}`));
+router.get('/join/:id',(req,res)=>res.redirect(`/join/${encodeURIComponent(req.params.id)}`));
 
-router.post('/evenings/:id/join',async(req:Request,res:Response)=>{try{const db=(req as any).db||(await getDb());const eveningId=req.params.id;const {name,nickname,telegram_username,phone,table_id,source}=req.body;const rawName=String(nickname||name||'').trim();if(!rawName)return res.status(400).json({error:'Укажите имя или никнейм'});const evening=await db.get<any>('SELECT * FROM game_evenings WHERE id=?',[eveningId]);if(!evening)return res.status(404).json({error:'Игровой вечер не найден'});if(evening.status==='cancelled'||evening.status==='completed')return res.status(400).json({error:'Запись на этот вечер недоступна'});const tg=telegram_username?String(telegram_username).replace(/^@/,'').trim().toLowerCase():null;const digits=phone?String(phone).replace(/\D/g,''):null;let player:any=null;if(tg)player=await db.get<any>('SELECT * FROM players WHERE LOWER(telegram_username)=?',[tg]);if(!player&&digits&&digits.length>=10)player=await db.get<any>('SELECT * FROM players WHERE phone LIKE ?',[`%${digits.slice(-10)}%`]);if(!player)player=await db.get<any>('SELECT * FROM players WHERE LOWER(nickname)=?',[rawName.toLowerCase()]);const now=new Date().toISOString();if(!player){const id=`usr_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;await db.run(`INSERT INTO players (id,nickname,telegram_username,phone,lifecycle_status,source,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)`,[id,rawName,tg||null,phone||null,'normal',source||'Публичная запись',now,now]);player={id,nickname:rawName};}
-    let target=table_id&&table_id!=='default'?String(table_id):null;let tableName='Основной стол';if(target){const table=await db.get<any>('SELECT * FROM evening_tables WHERE id=? AND evening_id=?',[target,eveningId]);if(!table)return res.status(400).json({error:'Выбранный стол не относится к этому вечеру'});tableName=table.name;}
-    const existing=await db.get<any>('SELECT * FROM evening_participants WHERE evening_id=? AND player_id=?',[eveningId,player.id]);const due=Number(evening.default_price||0);const payment=due===0?'waived':'unpaid';let participantId=existing?.id;if(existing){await db.run(`UPDATE evening_participants SET table_id=?,response_status='going',registration_status='going',registered_at=?,confirmed_at=?,updated_at=? WHERE id=?`,[target,now,now,now,existing.id]);}else{participantId=`part_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,table_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,registered_at,confirmed_at,created_at,updated_at) VALUES (?,?,?,?,'going','going','pending','unknown',?,?,0,?,?,?,?)`,[participantId,eveningId,player.id,target,payment,due,now,now,now,now]);}
-    await db.run(`INSERT INTO player_activities (id,player_id,evening_id,type,outcome,description,occurred_at,created_at) VALUES (?,?,?,'response','going',?,?,?)`,[`act_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,player.id,eveningId,`Самостоятельная запись на вечер: ${tableName}`,now,now]);const row=await db.get<any>('SELECT * FROM evening_participants WHERE id=?',[participantId]);return res.json({success:true,alreadyRegistered:Boolean(existing),response_status:'going',participant:serializeEveningParticipant(row),tableName,message:`Вы записаны на «${tableName}»`});
-  }catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}});
+// Legacy public signup is intentionally retired. Player identity and RSVP now go through
+// the Telegram-authenticated player cabinet so a free-form nickname cannot create duplicates.
+router.post('/evenings/:id/join', async (req:Request,res:Response) => {
+  try {
+    const db=(req as any).db||(await getDb());
+    const evening=await db.get<any>('SELECT id,status FROM game_evenings WHERE id=?',[req.params.id]);
+    if(!evening)return res.status(404).json({error:'Игровой вечер не найден'});
+    if(evening.status==='cancelled'||evening.status==='completed')return res.status(410).json({error:'Запись на этот вечер недоступна',code:'evening_closed'});
+    return res.status(410).json({
+      error:'Запись перенесена в кабинет игрока',
+      code:'canonical_registration_required',
+      player_path:'/player',
+      message:'Откройте MafiaBot в Telegram и выберите «Записаться на игру» или откройте кабинет игрока.',
+    });
+  }catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}
+});
 
 router.get('/tournaments/results/:token',async(req:Request,res:Response)=>{try{const db=(req as any).db||(await getDb());const tournament=await db.get<any>(`SELECT id,title,date,venue,stage,chief_judge_name,status,results_published_at FROM tournaments WHERE public_token=?`,[req.params.token]);if(!tournament)return res.status(404).json({error:'Результаты турнира не найдены'});if(tournament.status!=='completed'||!tournament.results_published_at)return res.status(404).json({error:'Результаты турнира ещё не опубликованы'});const [standingsData,nominationsData]=await Promise.all([getFlexibleTournamentStandings(db,tournament.id),internalGetNominations(db,tournament.id)]);return res.json({tournament:{id:tournament.id,title:tournament.title,date:tournament.date,venue:tournament.venue,stage:tournament.stage,chief_judge_name:tournament.chief_judge_name,results_published_at:tournament.results_published_at},standings:standingsData.standings,nominations:nominationsData.nominations});}catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}});
 

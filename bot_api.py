@@ -204,7 +204,8 @@ async def submit_evening_response(evening_id: str, telegram_user_id: int, respon
                 if status == 404:
                     return {"success": False, "error": "not_found", "status": status}
                 if status == 409:
-                    return {"success": False, "error": "closed", "status": status}
+                    code = data.get("code") if isinstance(data, dict) else None
+                    return {"success": False, "error": "attendance_locked" if code == "attendance_locked" else "closed", "status": status}
                 if status in (400, 422):
                     return {"success": False, "error": "invalid", "status": status}
                 if status in (401, 403):

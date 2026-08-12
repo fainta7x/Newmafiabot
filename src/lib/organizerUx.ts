@@ -14,7 +14,6 @@ export type TodayActionKind =
   | 'evening_announce'
   | 'evening_delivery'
   | 'evening_responses'
-  | 'evening_seating'
   | 'evening_payments'
   | 'evening_ready'
   | 'evening_live'
@@ -54,7 +53,6 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
   const failed = Number(announcement.failed || 0);
   const notSent = Number(announcement.not_sent || 0);
   const unanswered = Number(announcement.unanswered || 0);
-  const unseated = Number(evening.unseatedExpectedCount || 0);
   const games = Number(evening.gamesCount || 0);
   const completedGames = Number(evening.completedGamesCount || 0);
   const unpaidCount = Number(evening.expectedToPayCount || 0);
@@ -104,14 +102,6 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
       actionLabel: 'Проверить', eveningId: evening.id, payload, sortAt,
     };
   }
-  if (unseated > 0) {
-    return {
-      key: `evening:${evening.id}:seating`, kind: 'evening_seating', priority: -2,
-      title: `Рассадить игроков · ${unseated}`,
-      reason: 'Эти игроки идут или придут позже, но ещё не привязаны к столу.',
-      actionLabel: 'Рассадить', eveningId: evening.id, payload, sortAt,
-    };
-  }
   if (unpaidCount > 0) {
     return {
       key: `evening:${evening.id}:payments`, kind: 'evening_payments', priority: -1,
@@ -126,8 +116,8 @@ export function buildNextEveningAction(overview: CrmOverview | null): TodayActio
     key: `evening:${evening.id}:ready`, kind: 'evening_ready', priority: -1,
     title: hasStarted ? 'Можно начинать вечер' : 'Подготовка завершена',
     reason: hasStarted
-      ? 'Рассылка, ответы, рассадка и оплаты проверены. Время начала уже наступило.'
-      : 'Рассылка, ответы, рассадка и оплаты проверены. До начала критичных действий нет.',
+      ? 'Рассылка, ответы и оплаты проверены. Время начала уже наступило; состав конкретной игры выберешь при её создании.'
+      : 'Рассылка, ответы и оплаты проверены. Состав конкретной игры и стол выбираются уже на игровом вечере.',
     actionLabel: hasStarted ? 'Начать вечер' : 'Открыть вечер', eveningId: evening.id, payload, sortAt,
   };
 }

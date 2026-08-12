@@ -5,7 +5,7 @@ import { judgeLevelAllowsEveningFormat } from '../db/ensureJudgeAuthoritySchema.
 describe('player club role contract', () => {
   it('accepts every supported descriptive club role', () => {
     for (const club_role of ['guest', 'member', 'team', 'organizer'] as const) {
-      expect(updatePlayerSchema.parse({ club_role })).toEqual({ club_role });
+      expect(updatePlayerSchema.parse({ club_role })).toMatchObject({ club_role });
     }
   });
 

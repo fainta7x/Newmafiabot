@@ -6,6 +6,23 @@ const router = Router();
 const CATEGORIES = new Set(['sympathy', 'best_red', 'best_black', 'best_sheriff']);
 const VOTING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+type VotingContext =
+  | { error: 'not_completed' }
+  | { error: 'not_attended'; evening: any }
+  | {
+      error: null;
+      evening: any;
+      votingOpen: boolean;
+      deadlineMs: number;
+      attendeeIds: Set<string>;
+      nominees: Array<{
+        player_id: string;
+        nickname: string;
+        avatar_url: string;
+        categories: string[];
+      }>;
+    };
+
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
   if (!playerId) {
@@ -33,14 +50,14 @@ const ensureSchema = async (db: any) => {
   `);
 };
 
-const loadVotingContext = async (db: any, eveningId: string, viewerId: string) => {
+const loadVotingContext = async (db: any, eveningId: string, viewerId: string): Promise<VotingContext> => {
   const evening = await db.get(`
     SELECT id, title, starts_at, settled_at, status
       FROM game_evenings
      WHERE id = ?
      LIMIT 1
   `, [eveningId]);
-  if (!evening || (evening.status !== 'completed' && !evening.settled_at)) return { error: 'not_completed' as const };
+  if (!evening || (evening.status !== 'completed' && !evening.settled_at)) return { error: 'not_completed' };
 
   const viewer = await db.get(`
     SELECT id
@@ -48,7 +65,7 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string) =
      WHERE evening_id = ? AND player_id = ? AND attendance_status = 'attended'
      LIMIT 1
   `, [eveningId, viewerId]);
-  if (!viewer) return { error: 'not_attended' as const, evening };
+  if (!viewer) return { error: 'not_attended', evening };
 
   const baseTime = new Date(String(evening.settled_at || evening.starts_at || '')).getTime();
   const deadlineMs = Number.isFinite(baseTime) ? baseTime + VOTING_WINDOW_MS : 0;
@@ -75,7 +92,7 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string) =
     }
   }
 
-  const attendeeIds = new Set(attendeeRows.map((row: any) => String(row.id)));
+  const attendeeIds = new Set<string>(attendeeRows.map((row: any) => String(row.id)));
   const nominees = attendeeRows.map((row: any) => ({
     player_id: String(row.id),
     nickname: String(row.nickname || 'Игрок'),
@@ -88,7 +105,7 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string) =
     ],
   }));
 
-  return { evening, votingOpen, deadlineMs, attendeeIds, nominees };
+  return { error: null, evening, votingOpen, deadlineMs, attendeeIds, nominees };
 };
 
 router.get('/stories/:eveningId/voting', async (req, res) => {
@@ -152,7 +169,7 @@ router.post('/stories/:eveningId/vote', async (req, res) => {
     if (context.error === 'not_attended') return res.status(403).json({ error: 'Голосовать могут только участники вечера' });
     if (!context.votingOpen) return res.status(409).json({ error: 'Голосование по этому вечеру уже закрыто' });
 
-    const nominee = context.nominees.find((item: any) => item.player_id === nomineePlayerId);
+    const nominee = context.nominees.find((item) => item.player_id === nomineePlayerId);
     if (!nominee || !nominee.categories.includes(category)) return res.status(400).json({ error: 'Этот игрок не подходит для выбранной номинации' });
     if (!context.attendeeIds.has(nomineePlayerId)) return res.status(400).json({ error: 'Кандидат не участвовал в вечере' });
 

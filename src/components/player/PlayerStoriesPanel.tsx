@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { PlayerGameDetailData } from './PlayerGameDetail.tsx';
+import EveningVotingPanel from './EveningVotingPanel.tsx';
 
 type StoryGame = {
   game_key: string;
@@ -178,6 +179,8 @@ export default function PlayerStoriesPanel() {
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center"><div><div className="text-[9px] uppercase tracking-[0.12em] text-rose-300/60">Красные</div><div className="mt-1 text-3xl font-black text-rose-300">{selectedEvening.score.red}</div></div><span className="text-white/20">:</span><div><div className="text-[9px] uppercase tracking-[0.12em] text-white/40">Чёрные</div><div className="mt-1 text-3xl font-black">{selectedEvening.score.black}</div></div></div>
 
       {selectedEvening.player_of_evening && <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] p-3"><Avatar src={selectedEvening.player_of_evening.avatar_url} size={42} /><div className="min-w-0 flex-1"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-100/45">👑 Игрок вечера · по результатам</div><div className="mt-0.5 truncate text-sm font-semibold">{selectedEvening.player_of_evening.nickname}</div><div className="mt-0.5 text-[10px] text-white/30">{selectedEvening.player_of_evening.wins}/{selectedEvening.player_of_evening.games} побед · {selectedEvening.player_of_evening.win_rate}%</div></div></div>}
+
+      <EveningVotingPanel eveningId={selectedEvening.id} />
 
       <div className="mt-4"><div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Как шёл вечер</div><div className="mt-2 space-y-1.5">{selectedEvening.timeline.map((item) => <button key={item.game_key} type="button" onClick={() => setSelectedGameKey(item.game_key)} className="flex w-full items-center gap-3 rounded-xl bg-black/20 px-3 py-2 text-left"><div className={`h-2 w-2 shrink-0 rounded-full ${item.winner_team === 'red' ? 'bg-rose-400' : 'bg-white/70'}`} /><div className="min-w-0 flex-1"><div className="text-[11px] font-medium">Игра {item.local_number} · победа {winnerText(item.winner_team).toLocaleLowerCase('ru-RU')}</div><div className="text-[9px] text-white/25">{timeText(item.played_at)}</div></div><div className="shrink-0 text-xs font-black tabular-nums"><span className="text-rose-300">{item.score_after.red}</span><span className="mx-1 text-white/20">:</span><span>{item.score_after.black}</span></div></button>)}</div></div>
     </div>}

@@ -14,6 +14,7 @@ import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTelegramPublishingSchema } from './db/ensureTelegramPublishingSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
+import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
@@ -99,6 +100,11 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
+  try {
+    await applyBogdanaFinalCorrection(db);
+  } catch (error) {
+    console.error('[DATA CORRECTION] Bogdana final result correction failed:', error);
+  }
   if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
     startTelegramSyncOutboxWorker(db);
   }

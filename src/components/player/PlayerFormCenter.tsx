@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import PlayerStoriesPanel from './PlayerStoriesPanel.tsx';
 
 type FormGame = {
   id: string;
@@ -106,7 +107,7 @@ const Avatar = ({ src, size = 'md' }: { src: string; size?: 'sm' | 'md' }) => (
 
 export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
   const [open, setOpen] = useState(false);
-  const [section, setSection] = useState<'mine' | 'club' | 'relations'>('mine');
+  const [section, setSection] = useState<'mine' | 'club' | 'relations' | 'stories'>('mine');
   const [pulse, setPulse] = useState<PulseData | null>(null);
   const [pulseLoading, setPulseLoading] = useState(false);
   const [pulseError, setPulseError] = useState<string | null>(null);
@@ -188,13 +189,14 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
       </button>
 
       {open && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setOpen(false)}>
-        <section role="dialog" aria-modal="true" aria-label="Форма, пульс и связи клуба" onClick={(event) => event.stopPropagation()} className="max-h-[86dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#111217] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:rounded-[28px]">
-          <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">2LA Noire</div><h2 className="mt-1 text-xl font-semibold">Игровой центр</h2><p className="mt-1 text-xs text-white/40">Форма, роли, клубные серии и противостояния.</p></div><button type="button" onClick={() => setOpen(false)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/55">×</button></div>
+        <section role="dialog" aria-modal="true" aria-label="Игровой центр клуба" onClick={(event) => event.stopPropagation()} className="max-h-[86dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#111217] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:rounded-[28px]">
+          <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">2LA Noire</div><h2 className="mt-1 text-xl font-semibold">Игровой центр</h2><p className="mt-1 text-xs text-white/40">Форма, клубные серии, противостояния и история матчей.</p></div><button type="button" onClick={() => setOpen(false)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/55">×</button></div>
 
-          <div className="mt-4 grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1">
-            <button type="button" onClick={() => setSection('mine')} className={`min-h-10 rounded-xl text-[11px] font-semibold ${section === 'mine' ? 'bg-white text-black' : 'text-white/45'}`}>Я</button>
-            <button type="button" onClick={() => setSection('club')} className={`min-h-10 rounded-xl text-[11px] font-semibold ${section === 'club' ? 'bg-white text-black' : 'text-white/45'}`}>Клуб</button>
-            <button type="button" onClick={() => setSection('relations')} className={`min-h-10 rounded-xl text-[11px] font-semibold ${section === 'relations' ? 'bg-white text-black' : 'text-white/45'}`}>Связи</button>
+          <div className="mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-white/[0.05] p-1">
+            <button type="button" onClick={() => setSection('mine')} className={`min-h-10 rounded-xl text-[10px] font-semibold ${section === 'mine' ? 'bg-white text-black' : 'text-white/45'}`}>Я</button>
+            <button type="button" onClick={() => setSection('club')} className={`min-h-10 rounded-xl text-[10px] font-semibold ${section === 'club' ? 'bg-white text-black' : 'text-white/45'}`}>Клуб</button>
+            <button type="button" onClick={() => setSection('relations')} className={`min-h-10 rounded-xl text-[10px] font-semibold ${section === 'relations' ? 'bg-white text-black' : 'text-white/45'}`}>Связи</button>
+            <button type="button" onClick={() => setSection('stories')} className={`min-h-10 rounded-xl text-[10px] font-semibold ${section === 'stories' ? 'bg-white text-black' : 'text-white/45'}`}>Лента</button>
           </div>
 
           {section === 'mine' ? <>
@@ -215,6 +217,8 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
             <div className="mt-5"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">🤝 Мои частые напарники</div>{relationships.teammates.length ? <div className="mt-2 space-y-1.5">{relationships.teammates.slice(0, 5).map((item) => <div key={item.player_id} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-2.5"><Avatar src={item.avatar_url} /><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{item.nickname}</div><div className="mt-0.5 text-[10px] text-white/30">вместе {item.games} игр · {item.wins} побед</div></div><div className="text-sm font-black">{item.win_rate}%</div></div>)}</div> : <p className="mt-2 text-xs text-white/30">Совместные игры появятся здесь.</p>}</div>
             <div className="mt-5 rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">🏆 Лучшие связки клуба</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div><div className="mb-1.5 text-[10px] font-semibold text-rose-300/70">За красных</div><div className="space-y-1.5">{relationships.club_duos.red.slice(0, 3).map(renderDuo)}{!relationships.club_duos.red.length && <div className="text-[10px] text-white/25">Нужно больше совместных игр.</div>}</div></div><div><div className="mb-1.5 text-[10px] font-semibold text-white/55">За чёрных</div><div className="space-y-1.5">{relationships.club_duos.black.slice(0, 3).map(renderDuo)}{!relationships.club_duos.black.length && <div className="text-[10px] text-white/25">Нужно больше совместных игр.</div>}</div></div></div></div>
           </> : null}</div> : null}
+
+          {section === 'stories' ? <div className="mt-4"><PlayerStoriesPanel /></div> : null}
         </section>
       </div>}
     </>

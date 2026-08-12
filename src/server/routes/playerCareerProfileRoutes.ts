@@ -1,19 +1,18 @@
 import { Router } from 'express';
 import { getPlayerTitleMeta } from '../../lib/playerTitles.ts';
-import { getPlayerSessionId } from '../auth.ts';
+import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
 import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
 type Role = typeof ROLES[number];
 
-const requireViewer = (req: any, res: any) => {
+const requireViewer = (req: AuthenticatedRequest, res: any) => {
   const viewerId = getPlayerSessionId(req);
-  if (!viewerId) {
-    res.status(401).json({ error: 'Player authentication required.' });
-    return null;
-  }
-  return String(viewerId);
+  if (viewerId) return String(viewerId);
+  if (req.userRole === 'ORGANIZER') return 'organizer';
+  res.status(401).json({ error: 'Player or organizer authentication required.' });
+  return null;
 };
 
 const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
@@ -38,11 +37,11 @@ const safeTable = async (db: any, name: string) => {
   } catch { return false; }
 };
 
-router.get('/career/:playerId', async (req, res) => {
+router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
   const viewerId = requireViewer(req, res);
   if (!viewerId) return;
   const requested = String(req.params.playerId || '').trim();
-  const playerId = requested === 'me' ? viewerId : requested;
+  const playerId = requested === 'me' ? (viewerId === 'organizer' ? '' : viewerId) : requested;
   if (!playerId) return res.status(400).json({ error: 'Игрок не указан' });
 
   try {
@@ -135,7 +134,7 @@ router.get('/career/:playerId', async (req, res) => {
 
     return res.json({
       viewer_id: viewerId,
-      is_self: playerId === viewerId,
+      is_self: viewerId !== 'organizer' && playerId === viewerId,
       player: {
         id: String(player.id),
         nickname: String(player.nickname || 'Игрок'),

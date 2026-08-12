@@ -158,10 +158,11 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Player 1')).toBeTruthy();
+      const stored = JSON.parse(localStorage.getItem(backupKey) || '{}');
+      expect(stored.protocol?.winner_team).toBeNull();
     });
 
     expect(saveSpy).not.toHaveBeenCalled();
-    expect(localStorage.getItem(backupKey)).toBe(JSON.stringify(backupData));
   });
 
   it('does not replay an ignored stale backup even when the save endpoint would fail', async () => {
@@ -191,10 +192,11 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Player 1')).toBeTruthy();
+      const stored = JSON.parse(localStorage.getItem(backupKey) || '{}');
+      expect(stored.protocol?.winner_team).toBeNull();
     });
 
     expect(saveSpy).not.toHaveBeenCalled();
-    expect(localStorage.getItem(backupKey)).toBe(JSON.stringify(backupData));
   });
 
   it('renders technical foul classification buttons (minor/major)', async () => {

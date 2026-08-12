@@ -7,7 +7,8 @@ import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
 import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 
-type Player = PlayerMeResponse['player'] & { phone?: string | null };
+type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
+type Player = PlayerMeResponse['player'] & { phone?: string | null; club_role?: ClubRole | null };
 type JudgingWithLauncher = PlayerJudgingDashboard & { available_evenings?: JudgeStartEvening[] };
 
 const normalizeNullable = (value: string) => value.trim() || null;
@@ -142,6 +143,9 @@ export default function PlayerProfileSettings({
     }
   };
 
+  const canJudgeClubGame = Boolean(judging && judging.player.judge_level !== 'none');
+  const canOpenTestGame = canJudgeClubGame || player.club_role === 'organizer';
+
   if (launchedGame) {
     return (
       <EveningLiveGameModal
@@ -184,26 +188,27 @@ export default function PlayerProfileSettings({
         <button type="button" disabled={saving} onClick={() => void saveProfile()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{saving ? 'Сохраняем…' : 'Сохранить изменения'}</button>
       </section>
 
-      {judging && judging.player.judge_level !== 'none' && (
-        <>
-          <section className="rounded-3xl border border-amber-200/15 bg-gradient-to-b from-amber-200/[0.07] to-white/[0.025] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/45">Судейство</div>
-                <div className="mt-2 text-xl font-semibold text-white">{judging.player.judge_level_label}</div>
-                <p className="mt-1 text-sm leading-5 text-white/35">Назначенных активных игр: {judging.club_games.filter((game) => game.status !== 'completed').length + judging.tournament_games.filter((game) => game.status !== 'completed').length}</p>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-200/[0.08] text-xl">⚖️</div>
+      {canJudgeClubGame && judging && (
+        <section className="rounded-3xl border border-amber-200/15 bg-gradient-to-b from-amber-200/[0.07] to-white/[0.025] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/45">Судейство</div>
+              <div className="mt-2 text-xl font-semibold text-white">{judging.player.judge_level_label}</div>
+              <p className="mt-1 text-sm leading-5 text-white/35">Назначенных активных игр: {judging.club_games.filter((game) => game.status !== 'completed').length + judging.tournament_games.filter((game) => game.status !== 'completed').length}</p>
             </div>
-            <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-semibold text-white">Назначения и история судейства</button>
-          </section>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-200/[0.08] text-xl">⚖️</div>
+          </div>
+          <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-semibold text-white">Назначения и история судейства</button>
+        </section>
+      )}
 
-          <JudgeGameLauncher
-            judge={{ id: judging.player.id, nickname: judging.player.nickname }}
-            evenings={judging.available_evenings || []}
-            onCreated={setLaunchedGame}
-          />
-        </>
+      {canOpenTestGame && (
+        <JudgeGameLauncher
+          judge={{ id: judging?.player.id || player.id, nickname: judging?.player.nickname || player.nickname }}
+          evenings={canJudgeClubGame && judging ? judging.available_evenings || [] : []}
+          onCreated={setLaunchedGame}
+          allowClubGame={canJudgeClubGame}
+        />
       )}
 
       {judging && (judging.player.judge_level === 'host' || judging.player.judge_level === 'judge') && <JudgeMusicPlaylist />}

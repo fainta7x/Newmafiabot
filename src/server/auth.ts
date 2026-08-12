@@ -110,6 +110,25 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
   if (!db) return false;
   const path = requestPath(req);
 
+  const clubCreateMatch = path.match(/^\/api\/games\/evening\/([^/]+)\/?$/);
+  if (clubCreateMatch && req.method === 'POST') {
+    const evening = await db.get(
+      'SELECT id, format, status FROM game_evenings WHERE id = ? LIMIT 1',
+      [decodeURIComponent(clubCreateMatch[1])],
+    );
+    if (!evening || !['published', 'active'].includes(String(evening.status || ''))) return false;
+
+    const player = await db.get('SELECT judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!judgeLevelAllowsEveningFormat(player?.judge_level, evening.format)) return false;
+
+    const requestedJudgeId = req.body?.judge_player_id == null ? playerId : String(req.body.judge_player_id);
+    if (requestedJudgeId !== playerId) return false;
+
+    req.delegatedOrganizerAccess = true;
+    req.delegatedPlayerId = playerId;
+    return true;
+  }
+
   const clubMatch = path.match(/^\/api\/games\/(\d+)\/evening-protocol\/?$/);
   if (clubMatch && req.method === 'PUT') {
     const game = await db.get(`
@@ -176,6 +195,6 @@ export async function requireOrganizerAuth(req: AuthenticatedRequest, res: Respo
 
   return res.status(401).json({
     error: 'Доступ запрещён',
-    message: 'Доступ разрешен только организатору или назначенному ведущему этой игры',
+    message: 'Доступ разрешен только организатору или ведущему/судье в рамках своих полномочий',
   });
 }

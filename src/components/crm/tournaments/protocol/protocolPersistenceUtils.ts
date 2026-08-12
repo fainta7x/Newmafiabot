@@ -65,38 +65,14 @@ export const serializeBlockedProtocolBackup = (
   });
 
 export const parseRestorableProtocolBackup = (
-  serializedBackup: string | null,
-  protocolStatus: TournamentGameProtocolData['status'],
-  serverUpdatedAt?: string | null
+  _serializedBackup: string | null,
+  _protocolStatus: TournamentGameProtocolData['status'],
+  _serverUpdatedAt?: string | null
 ): ProtocolLocalBackup | null => {
-  if (!serializedBackup || protocolStatus !== 'draft') {
-    return null;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(serializedBackup);
-    if (!parsed || typeof parsed !== 'object') {
-      return null;
-    }
-
-    const backup = parsed as Partial<ProtocolLocalBackup>;
-    if (
-      typeof backup.updatedAt !== 'string' ||
-      !backup.protocol ||
-      !Array.isArray(backup.playerResults)
-    ) {
-      return null;
-    }
-
-    const backupTimestamp = new Date(backup.updatedAt).getTime();
-    const serverTimestamp = new Date(serverUpdatedAt || 0).getTime();
-
-    if (!(backupTimestamp > serverTimestamp)) {
-      return null;
-    }
-
-    return backup as ProtocolLocalBackup;
-  } catch {
-    return null;
-  }
+  // The server database is canonical. Telegram/WebView localStorage can survive
+  // deployments and retain an older tournament draft with a newer client-side
+  // timestamp. Automatically replaying that draft over the server can therefore
+  // roll corrected scores back. Keep local backups only as an emergency artifact;
+  // never apply them automatically over data returned by the server.
+  return null;
 };

@@ -1,6 +1,7 @@
 import React from "react";
 import { Shield, Info, Heart, Star } from "lucide-react";
 import { Player } from "../../types.js";
+import PhysicalRoleDeal, { type PhysicalRole } from "../game/PhysicalRoleDeal.tsx";
 import { ActivePlayerState } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
 
@@ -15,6 +16,7 @@ interface SetupPhaseProps {
   handleSelectSetupRole: (slotNum: number, role: "Мирный" | "Шериф" | "Мафия" | "Дон") => void;
   onCancel: () => void;
   validateSetupAndStart: () => void;
+  onRoleDealActiveChange?: (active: boolean) => void;
 }
 
 const protocolRoleToLiveRole = (value: string): "Мирный" | "Шериф" | "Мафия" | "Дон" | null => {
@@ -24,6 +26,20 @@ const protocolRoleToLiveRole = (value: string): "Мирный" | "Шериф" | 
   if (normalized === 'mafia' || normalized === 'мафия') return 'Мафия';
   if (normalized === 'don' || normalized === 'дон') return 'Дон';
   return null;
+};
+
+const liveRoleToPhysical = (role: ActivePlayerState['role']): PhysicalRole => {
+  if (role === 'Шериф') return 'sheriff';
+  if (role === 'Мафия') return 'mafia';
+  if (role === 'Дон') return 'don';
+  return 'citizen';
+};
+
+const physicalRoleToLive = (role: PhysicalRole): ActivePlayerState['role'] => {
+  if (role === 'sheriff') return 'Шериф';
+  if (role === 'mafia') return 'Мафия';
+  if (role === 'don') return 'Дон';
+  return 'Мирный';
 };
 
 export default function SetupPhase({
@@ -37,7 +53,9 @@ export default function SetupPhase({
   handleSelectSetupRole,
   onCancel,
   validateSetupAndStart,
+  onRoleDealActiveChange,
 }: SetupPhaseProps) {
+  const [showPhysicalDeal, setShowPhysicalDeal] = React.useState(false);
   const [showPassCardModal, setShowPassCardModal] = React.useState(false);
   const [passSlot, setPassSlot] = React.useState(1);
   const [isCardRevealed, setIsCardRevealed] = React.useState(false);
@@ -61,6 +79,28 @@ export default function SetupPhase({
     }
   }, [isManagedEngine, isTournamentEngine, activePlayers, players, handleAutoFillSetupPlayers, handleSelectSetupRole]);
 
+  React.useEffect(() => () => onRoleDealActiveChange?.(false), [onRoleDealActiveChange]);
+
+  const existingRoleAssignments = React.useMemo(() => {
+    const counts = activePlayers.reduce<Record<string, number>>((acc, player) => {
+      acc[player.role] = (acc[player.role] || 0) + 1;
+      return acc;
+    }, {});
+    const alreadyValid = counts['Мирный'] === 6 && counts['Шериф'] === 1 && counts['Мафия'] === 2 && counts['Дон'] === 1;
+    if (!alreadyValid) return {} as Record<number, PhysicalRole>;
+    return Object.fromEntries(activePlayers.map((player) => [player.slot_num, liveRoleToPhysical(player.role)]));
+  }, [activePlayers]);
+
+  const openPhysicalDeal = () => {
+    setShowPhysicalDeal(true);
+    onRoleDealActiveChange?.(true);
+  };
+
+  const closePhysicalDeal = () => {
+    setShowPhysicalDeal(false);
+    onRoleDealActiveChange?.(false);
+  };
+
   return (
     <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
@@ -68,7 +108,7 @@ export default function SetupPhase({
           <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
             <Shield className="w-5 h-5 text-rose-500" /> Живое Судейство ФСМ
           </h2>
-          <p className="text-[10px] text-slate-500">{isTournamentEngine ? 'Состав, роли и судья уже взяты из турнирной игры.' : isClubEveningEngine ? 'Состав и ведущий уже взяты из игры вечера. Остаётся назначить роли.' : 'Укажите рассадку игроков и роли для ведения лога'}</p>
+          <p className="text-[10px] text-slate-500">{isTournamentEngine ? 'Состав, роли и судья уже взяты из турнирной игры.' : isClubEveningEngine ? 'Состав и ведущий уже взяты из игры вечера. Раздайте физические карты и зафиксируйте роли.' : 'Укажите рассадку игроков и роли для ведения лога'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {!isManagedEngine && (
@@ -79,7 +119,18 @@ export default function SetupPhase({
               👥 Авто-игроки
             </button>
           )}
-          {!isTournamentEngine && (
+
+          {isClubEveningEngine && (
+            <button
+              type="button"
+              onClick={openPhysicalDeal}
+              className="bg-violet-900/60 hover:bg-violet-800 border border-violet-500/50 text-violet-100 text-[10px] font-extrabold px-3 py-1.5 rounded cursor-pointer transition-all flex items-center gap-1.5 shadow"
+            >
+              🃏 Раздача физических карт
+            </button>
+          )}
+
+          {!isManagedEngine && (
             <>
               <button
                 onClick={handleAutoFillSetupRoles}
@@ -95,14 +146,30 @@ export default function SetupPhase({
                   setIsCardRevealed(false);
                 }}
                 className="bg-purple-900/60 hover:bg-purple-800 border border-purple-500/50 text-purple-200 text-[10px] font-extrabold px-3 py-1.5 rounded cursor-pointer transition-all flex items-center gap-1.5 shadow"
-                title="Раздать карты с передачей устройства от игрока к игроку"
+                title="Старый автономный режим с передачей устройства"
               >
-                <span>📱 Тайный показ ролей</span>
+                📱 Тайный показ ролей
               </button>
             </>
           )}
         </div>
       </div>
+
+      {isClubEveningEngine && (
+        <button
+          type="button"
+          onClick={openPhysicalDeal}
+          className="w-full rounded-2xl border border-violet-300/15 bg-violet-300/[0.06] p-3 text-left transition hover:bg-violet-300/[0.09]"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-black text-violet-100">🃏 Раздать роли</div>
+              <div className="mt-1 text-[10px] leading-4 text-violet-100/45">10 закрытых физических карт → игрок тянет карту → ведущий отмечает роль. Музыка включается на время раздачи.</div>
+            </div>
+            <span className="text-lg text-violet-200/60">›</span>
+          </div>
+        </button>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/40 border border-slate-850 rounded-lg">
         <div className="space-y-1">
@@ -210,6 +277,18 @@ export default function SetupPhase({
         <button onClick={validateSetupAndStart} className="bg-rose-600 text-white font-bold rounded px-5 py-1.5 text-xs shadow-lg shadow-rose-600/10 cursor-pointer">Запустить Игру 🚀</button>
       </div>
 
+      {showPhysicalDeal && (
+        <PhysicalRoleDeal
+          seats={activePlayers.map((player) => ({ seat_number: player.slot_num, nickname: player.nickname }))}
+          initialAssignments={existingRoleAssignments}
+          onCancel={closePhysicalDeal}
+          onComplete={(assignments) => {
+            Object.entries(assignments).forEach(([seat, role]) => handleSelectSetupRole(Number(seat), physicalRoleToLive(role)));
+            closePhysicalDeal();
+          }}
+        />
+      )}
+
       {showPassCardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
           <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-6">
@@ -237,7 +316,7 @@ export default function SetupPhase({
                       <button type="button" onClick={() => setIsCardRevealed(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm uppercase tracking-wider rounded-xl shadow-lg border border-purple-400/40 cursor-pointer transition-all active:scale-95">👁️ Посмотреть мою карту</button>
                     </div>
                   ) : (
-                    <div className={`p-6 rounded-2xl border-2 space-y-3 transition-all animate-fade-in ${roleText === "Мирный" ? "bg-rose-950/40 border-rose-500 text-rose-200" : roleText === "Шериф" ? "bg-emerald-950/40 border-emerald-500 text-emerald-200" : roleText === "Дон" ? "bg-purple-950/40 border-purple-500 text-purple-200" : "bg-slate-950 border-slate-400 text-slate-100"}`}>
+                    <div className={`p-6 rounded-2xl border-2 space-y-3 transition-all ${roleText === "Мирный" ? "bg-rose-950/40 border-rose-500 text-rose-200" : roleText === "Шериф" ? "bg-emerald-950/40 border-emerald-500 text-emerald-200" : roleText === "Дон" ? "bg-purple-950/40 border-purple-500 text-purple-200" : "bg-slate-950 border-slate-400 text-slate-100"}`}>
                       <div className="text-5xl">{roleText === "Мирный" && "❤️"}{roleText === "Шериф" && "⭐"}{roleText === "Дон" && "🎩"}{roleText === "Мафия" && "🕶️"}</div>
                       <h4 className="text-2xl font-black uppercase tracking-wide">{roleText}</h4>
                       <p className="text-xs font-medium opacity-90">Команда: <strong className={isRed ? "text-rose-400" : "text-slate-300"}>{isRed ? "КРАСНЫЕ" : "ЧЁРНЫЕ"}</strong></p>

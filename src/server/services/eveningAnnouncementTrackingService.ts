@@ -209,6 +209,7 @@ export async function loadReminderRecipients(db: Db, eveningId: string) {
         nickname: player.nickname,
         telegram_user_id: player.telegram_user_id,
         telegram_username: player.telegram_username,
+        first_message_id: player.first_message_id,
         reminder_count: player.reminder_count,
         last_reminded_at: player.last_reminded_at,
         campaign_generation: campaignGeneration,

@@ -24,7 +24,7 @@ router.get('/profile-settings', async (req, res) => {
   try {
     const db = (req as any).db;
     const player = await db.get(
-      `SELECT id, nickname, full_name, phone, telegram_username, game_level, elo, tokens
+      `SELECT id, nickname, full_name, phone, telegram_username, game_level, club_role, elo, tokens
          FROM players WHERE id = ? LIMIT 1`,
       [playerId],
     );
@@ -61,7 +61,7 @@ router.patch('/me', async (req, res) => {
       [nickname, fullName, phone, now, playerId],
     );
     const player = await db.get(
-      `SELECT id, nickname, full_name, phone, telegram_username, game_level, elo, tokens
+      `SELECT id, nickname, full_name, phone, telegram_username, game_level, club_role, elo, tokens
          FROM players WHERE id = ? LIMIT 1`,
       [playerId],
     );

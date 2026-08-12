@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 
 export type PhysicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
 
@@ -25,6 +26,7 @@ const ROLES = Object.keys(ROLE_META) as PhysicalRole[];
 
 export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCancel, onComplete }: Props) {
   const sortedSeats = useMemo(() => seats.slice().sort((a, b) => a.seat_number - b.seat_number).slice(0, 10), [seats]);
+  const [started, setStarted] = useState(false);
   const [assignments, setAssignments] = useState<Record<number, PhysicalRole>>(() => {
     const allowed = new Set(sortedSeats.map((seat) => seat.seat_number));
     return Object.fromEntries(
@@ -38,6 +40,8 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
     return firstMissing >= 0 ? firstMissing : Math.max(0, sortedSeats.length - 1);
   });
 
+  useEffect(() => () => requestJudgeGameMusicStop(), []);
+
   const counts = useMemo(() => ROLES.reduce<Record<PhysicalRole, number>>((acc, role) => {
     acc[role] = Object.values(assignments).filter((value) => value === role).length;
     return acc;
@@ -48,6 +52,16 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
   const exactComplete = sortedSeats.length === 10
     && assignedCount === 10
     && ROLES.every((role) => counts[role] === ROLE_META[role].max);
+
+  const cancel = () => {
+    requestJudgeGameMusicStop();
+    onCancel();
+  };
+
+  const complete = () => {
+    requestJudgeGameMusicStop();
+    onComplete(assignments);
+  };
 
   const chooseRole = (role: PhysicalRole) => {
     if (!activeSeat) return;
@@ -73,8 +87,44 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
           <div className="text-2xl">🃏</div>
           <div className="mt-2 text-lg font-black text-white">Для раздачи нужны 10 игроков</div>
           <p className="mt-2 text-sm text-slate-400">Сначала сформируйте полный стол, затем откройте раздачу ролей.</p>
-          <button type="button" onClick={onCancel} className="mt-5 min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-black">Вернуться</button>
+          <button type="button" onClick={cancel} className="mt-5 min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-black">Вернуться</button>
         </div>
+      </div>
+    );
+  }
+
+  if (!started) {
+    return (
+      <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-slate-950/95 p-4 backdrop-blur-md">
+        <section className="w-full max-w-md rounded-3xl border border-violet-300/15 bg-slate-900 p-5 shadow-2xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">🃏 Раздача ролей</div>
+              <h2 className="mt-2 text-2xl font-black text-white">Подготовьте 10 карт</h2>
+            </div>
+            <button type="button" onClick={cancel} className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
+          </div>
+          <div className="mt-4 grid grid-cols-4 gap-1.5">
+            {ROLES.map((role) => {
+              const meta = ROLE_META[role];
+              return <div key={role} className="rounded-xl border border-white/10 bg-black/20 px-2 py-2 text-center"><div className="text-lg">{meta.icon}</div><div className="mt-1 text-[9px] font-bold text-slate-300">{meta.label}</div><div className="mt-0.5 text-xs font-black text-white">{meta.max}</div></div>;
+            })}
+          </div>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-xs leading-5 text-slate-400">
+            Перемешайте карты и положите их перед собой рубашкой вверх. Игроки по очереди вслепую тянут карту. Приложение только фиксирует фактический результат.
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              requestJudgeGameMusicStart();
+              setStarted(true);
+            }}
+            className="mt-4 min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl"
+          >
+            ♫ Включить музыку и начать раздачу
+          </button>
+          <p className="mt-2 text-center text-[10px] leading-4 text-slate-500">Это нажатие одновременно разрешает браузеру воспроизведение звука.</p>
+        </section>
       </div>
     );
   }
@@ -85,11 +135,11 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
         <section className="rounded-3xl border border-white/10 bg-slate-900 p-4 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">🃏 Раздача ролей</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">♫ Музыка · 🃏 Раздача ролей</div>
               <h2 className="mt-1 text-xl font-black text-white">Физические карты</h2>
               <p className="mt-1 text-xs leading-5 text-slate-400">Игрок вслепую тянет карту со стола. Вы только фиксируете в приложении роль, которую он получил.</p>
             </div>
-            <button type="button" onClick={onCancel} className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
+            <button type="button" onClick={cancel} className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
           </div>
 
           <div className="mt-4 grid grid-cols-4 gap-1.5">
@@ -178,7 +228,7 @@ export default function PhysicalRoleDeal({ seats, initialAssignments = {}, onCan
         <button
           type="button"
           disabled={!exactComplete}
-          onClick={() => onComplete(assignments)}
+          onClick={complete}
           className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl disabled:bg-slate-800 disabled:text-slate-500"
         >
           {exactComplete ? '✓ Раздача завершена — сохранить роли' : `Нужно распределить 6 / 1 / 2 / 1 · ${assignedCount}/10`}

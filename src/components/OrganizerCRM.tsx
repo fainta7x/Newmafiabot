@@ -70,6 +70,12 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setPlayers(playerList);
   };
 
+  const refreshSnapshotAfterEvening = () => {
+    void loadAllData().catch((error: any) => {
+      console.error('Failed to refresh organizer snapshot after evening changes:', error);
+    });
+  };
+
   const checkAuthAndLoad = async () => {
     setLoading(true);
     setLoadError(null);
@@ -189,12 +195,14 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   };
 
   const switchPrimaryTab = (tab: OrganizerPrimaryTab) => {
-    const opensNewRoot = activeTab !== tab || activeEveningId !== null || activePlayerId !== null;
+    const leavingEvening = activeEveningId !== null;
+    const opensNewRoot = activeTab !== tab || leavingEvening || activePlayerId !== null;
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(null);
     if (tab === 'overview' || tab === 'evenings') setEveningIntent(null);
     setActiveTab(tab);
+    if (leavingEvening) refreshSnapshotAfterEvening();
     if (opensNewRoot) moveWindowScroll(0);
   };
 
@@ -313,6 +321,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                   onBack={() => {
                     setActiveEveningId(null);
                     setEveningIntent(null);
+                    refreshSnapshotAfterEvening();
                     moveWindowScroll(eveningListScrollRef.current);
                   }}
                   onOpenPlayerCard={handleOpenPlayer}

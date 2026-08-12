@@ -47,7 +47,6 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const tables = evening?.tables || [];
   const participants = evening?.participants || [];
 
-
   const openCreate = () => setShowCreate(true);
 
   const archiveGame = (game: ClubGameRecord) => {
@@ -185,7 +184,6 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
         })}
       </div>
 
-
       {showArchive && (
         <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -265,6 +263,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
           evening={evening}
           tables={tables}
           participants={participants}
+          games={games}
           onClose={() => setShowCreate(false)}
           onCreated={(created) => {
             setGames((previous) => [created, ...previous.filter((game) => game.id !== created.id)]);

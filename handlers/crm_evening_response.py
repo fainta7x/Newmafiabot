@@ -164,6 +164,13 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
     if result.get("success"):
         await callback.answer(f"✅ {_STATUS_LABELS[response_status]}", show_alert=False)
         try:
+            if callback.message:
+                await callback.message.edit_reply_markup(
+                    reply_markup=crm_evening_response_kb(evening_id, response_status)
+                )
+        except Exception as exc:
+            print(f"[CRM RSVP] Response saved, but selected button state was not updated: {exc}")
+        try:
             await refresh_crm_group_stats(bot, evening_id)
         except Exception as exc:
             print(f"[CRM STATS] Response saved, but group list refresh failed: {exc}")

@@ -22,7 +22,7 @@ type PrimaryItem = {
 const PRIMARY_ITEMS: PrimaryItem[] = [
   { id: 'home', icon: '⌂', label: 'Главная' },
   { id: 'games', icon: '◫', label: 'Игры' },
-  { id: 'conduct', icon: '▶', label: 'Вести' },
+  { id: 'conduct', icon: '▶', label: 'Создать игру' },
   { id: 'rating', icon: '★', label: 'Рейтинг' },
   { id: 'more', icon: '•••', label: 'Ещё' },
 ];

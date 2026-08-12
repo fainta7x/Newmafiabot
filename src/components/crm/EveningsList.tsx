@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, ArrowRight, X, Calendar, Trophy } from 'lucide-react';
 import { api, GameEvening } from '../../lib/api.ts';
-import { EVENING_FORMAT_LABELS, normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
+import { EVENING_FORMAT_DESCRIPTIONS, EVENING_FORMAT_LABELS, normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
 import { TournamentDetailView } from './tournaments/TournamentDetailView.tsx';
 
@@ -307,6 +307,9 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                     <option value="RATING">Рейтинговый</option>
                     <option value="TOURNAMENT">Турнир</option>
                   </select>
+                  <p className="mt-2 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+                    {EVENING_FORMAT_DESCRIPTIONS[format]}
+                  </p>
                 </div>
               </div>
 

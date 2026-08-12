@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import JudgeTestGameModal from './JudgeTestGameModal.tsx';
 
 export type JudgeStartParticipant = {
   id: string;
@@ -50,6 +51,8 @@ const attendanceLabel = (participant: JudgeStartParticipant) => {
 
 export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props) {
   const [open, setOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<string | null>(null);
   const [eveningId, setEveningId] = useState(evenings[0]?.id || '');
   const [tableId, setTableId] = useState('');
   const [lineup, setLineup] = useState<string[]>([]);
@@ -117,6 +120,18 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
     }
   };
 
+  if (testOpen) {
+    return (
+      <JudgeTestGameModal
+        judge={judge}
+        onClose={(completed) => {
+          setTestOpen(false);
+          if (completed) setTestFeedback('Тест завершён. Результат не сохранён и не попал в статистику.');
+        }}
+      />
+    );
+  }
+
   if (!open) {
     return (
       <section className="rounded-3xl border border-emerald-300/15 bg-gradient-to-b from-emerald-300/[0.07] to-white/[0.025] p-4">
@@ -125,20 +140,30 @@ export default function JudgeGameLauncher({ judge, evenings, onCreated }: Props)
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/45">Самостоятельное ведение</div>
             <h3 className="mt-2 text-lg font-semibold text-white">Начать новую игру</h3>
             <p className="mt-1 text-sm leading-5 text-white/35">
-              Выберите текущий вечер и десять игроков за столом. Организатору заранее создавать игру и назначать вас не нужно.
+              Клубная игра привязывается к вечеру. Тестовая запускает тот же движок локально и ничего не записывает в клубную статистику.
             </p>
           </div>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-300/[0.08] text-xl">▶</div>
         </div>
-        <button
-          type="button"
-          disabled={evenings.length === 0}
-          onClick={() => setOpen(true)}
-          className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/25"
-        >
-          {evenings.length ? 'Создать и вести игру' : 'Нет доступного игрового вечера'}
-        </button>
-        {evenings.length === 0 && <p className="mt-2 text-center text-xs leading-4 text-white/30">Нужен опубликованный или активный вечер подходящего вам формата.</p>}
+        {testFeedback && <div className="mt-3 rounded-2xl bg-emerald-300/[0.07] px-3 py-2.5 text-xs leading-5 text-emerald-100/65">{testFeedback}</div>}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={evenings.length === 0}
+            onClick={() => setOpen(true)}
+            className="min-h-12 rounded-2xl bg-white px-3 text-xs font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/25"
+          >
+            {evenings.length ? 'Клубная игра' : 'Нет вечера'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTestFeedback(null); setTestOpen(true); }}
+            className="min-h-12 rounded-2xl border border-amber-200/20 bg-amber-200/[0.08] px-3 text-xs font-semibold text-amber-100"
+          >
+            Тестовая игра
+          </button>
+        </div>
+        {evenings.length === 0 && <p className="mt-2 text-center text-xs leading-4 text-white/30">Для тестовой игры опубликованный вечер не нужен.</p>}
       </section>
     );
   }

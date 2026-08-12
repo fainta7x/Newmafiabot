@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useJudgeGameMusic } from '../hooks/useJudgeGameMusic.ts';
 import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 

@@ -1,5 +1,12 @@
-export const EVENING_RESPONSE_STATUSES = ['going', 'late', 'thinking', 'declined', 'unanswered'] as const;
-export type EveningResponseStatus = typeof EVENING_RESPONSE_STATUSES[number];
+import {
+  CANONICAL_EVENING_RESPONSES,
+  normalizeCanonicalEveningAttendance,
+  normalizeCanonicalEveningResponse,
+  type CanonicalEveningResponse,
+} from './eveningDomain.ts';
+
+export const EVENING_RESPONSE_STATUSES = CANONICAL_EVENING_RESPONSES;
+export type EveningResponseStatus = CanonicalEveningResponse;
 
 export const EVENING_ATTENDANCE_FACTS = ['pending', 'attended_on_time', 'attended_late', 'no_show'] as const;
 export type EveningAttendanceFact = typeof EVENING_ATTENDANCE_FACTS[number];
@@ -19,24 +26,14 @@ export const EVENING_ATTENDANCE_LABELS: Record<EveningAttendanceFact, string> = 
   no_show: 'Не пришёл',
 };
 
-const responseSet = new Set<string>(EVENING_RESPONSE_STATUSES);
-
+/**
+ * Public compatibility adapter used by the current CRM/API layer.
+ * Canonical response normalization lives in eveningDomain.ts.
+ */
 export const normalizeEveningResponse = (
   responseStatus: unknown,
   legacyArrivalStatus?: unknown,
-): EveningResponseStatus => {
-  const value = String(responseStatus || '').trim().toLowerCase();
-  if (responseSet.has(value)) return value as EveningResponseStatus;
-
-  // Legacy registration statuses described intent before response_status existed.
-  // "waitlist" is no longer a reserve state in the current product and therefore
-  // keeps the same attending intent as registered/confirmed.
-  if (value === 'registered' || value === 'confirmed' || value === 'waitlist') {
-    return String(legacyArrivalStatus || '').trim().toLowerCase() === 'late' ? 'late' : 'going';
-  }
-  if (value === 'cancelled') return 'declined';
-  return 'unanswered';
-};
+): EveningResponseStatus => normalizeCanonicalEveningResponse(responseStatus, legacyArrivalStatus);
 
 export const getEveningResponse = (participant: any): EveningResponseStatus =>
   normalizeEveningResponse(
@@ -51,11 +48,19 @@ export const getEveningResponseLabel = (participantOrStatus: any): string => {
   return EVENING_RESPONSE_LABELS[status];
 };
 
+/**
+ * The current UI has four attendance states. Full-fidelity persisted attendance
+ * is normalized in eveningDomain.ts; legacy attended_unknown is intentionally
+ * projected as attended_on_time here to preserve the existing UI/API contract.
+ */
 export const getEveningAttendanceFact = (participant: any): EveningAttendanceFact => {
-  const attendance = String(participant?.attendance_status || 'pending').toLowerCase();
-  const arrival = String(participant?.arrival_status || 'unknown').toLowerCase();
-  if (attendance === 'no_show') return 'no_show';
-  if (attendance === 'attended') return arrival === 'late' ? 'attended_late' : 'attended_on_time';
+  const canonical = normalizeCanonicalEveningAttendance(
+    participant?.attendance_status,
+    participant?.arrival_status,
+  );
+  if (canonical === 'no_show') return 'no_show';
+  if (canonical === 'late') return 'attended_late';
+  if (canonical === 'on_time' || canonical === 'attended_unknown') return 'attended_on_time';
   return 'pending';
 };
 

@@ -14,7 +14,8 @@ export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEv
 type LiveAudioState = {
   phase: string | null;
   zeroNightSubPhase: string | null;
-  isTimerRunning: boolean;
+  nightSubPhase: string | null;
+  sheriffCheckSlot: number | null;
 };
 
 const readLiveAudioState = (): LiveAudioState | null => {
@@ -25,7 +26,10 @@ const readLiveAudioState = (): LiveAudioState | null => {
     return {
       phase: typeof parsed?.phase === 'string' ? parsed.phase : null,
       zeroNightSubPhase: typeof parsed?.zeroNightSubPhase === 'string' ? parsed.zeroNightSubPhase : null,
-      isTimerRunning: parsed?.isTimerRunning === true,
+      nightSubPhase: typeof parsed?.nightSubPhase === 'string' ? parsed.nightSubPhase : null,
+      sheriffCheckSlot: Number.isFinite(Number(parsed?.sheriffCheckSlot)) && parsed?.sheriffCheckSlot !== null
+        ? Number(parsed.sheriffCheckSlot)
+        : null,
     };
   } catch {
     return null;
@@ -35,6 +39,20 @@ const readLiveAudioState = (): LiveAudioState | null => {
 const hasOpenLiveEngine = () => Boolean(
   document.querySelector('.evening-live-engine-shell, .tournament-live-shell')
 );
+
+const zeroNightWantsMusic = (live: LiveAudioState | null) => {
+  if (live?.phase !== 'zero_night') return false;
+  return live.zeroNightSubPhase === 'agreement'
+    || live.zeroNightSubPhase === 'sheriff'
+    || live.zeroNightSubPhase === 'seating';
+};
+
+const regularNightWantsMusic = (live: LiveAudioState | null) => {
+  if (live?.phase !== 'night') return false;
+  if (live.nightSubPhase === 'best_move' || live.nightSubPhase === 'morning') return false;
+  if (live.nightSubPhase === 'sheriff' && live.sheriffCheckSlot !== null) return false;
+  return true;
+};
 
 export default function JudgeGameMusicController() {
   const music = useJudgeGameMusic();
@@ -74,11 +92,7 @@ export default function JudgeGameMusicController() {
     const sync = () => {
       const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
       const selection = readJudgeGameMusicSelection();
-      const agreementWanted = live?.phase === 'zero_night'
-        && live.zeroNightSubPhase === 'agreement'
-        && live.isTimerRunning;
-      const regularNightWanted = live?.phase === 'night';
-      const phaseWantsNightMusic = agreementWanted || regularNightWanted;
+      const phaseWantsNightMusic = zeroNightWantsMusic(live) || regularNightWantsMusic(live);
       const configured = selection?.configured === true;
       const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;
       const shouldPlayForNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));

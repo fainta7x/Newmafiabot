@@ -4,7 +4,7 @@ import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
-import PlayerCabinetV2, { type PlayerTab } from "./components/player/PlayerCabinetV2.tsx";
+import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 
 type TelegramIdentity = {
@@ -272,14 +272,40 @@ export default function App() {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
-  const initialTab: PlayerTab = pathname.startsWith('/player/payments')
-    ? 'payments'
-    : pathname.startsWith('/player/club')
-      ? 'club'
-      : 'home';
+  const initialSection: PlayerCabinetSection = pathname.startsWith('/player/conduct')
+    || pathname.startsWith('/player/judging')
+    || pathname.startsWith('/player/host')
+    || pathname.startsWith('/player/table')
+    ? 'conduct'
+    : pathname.startsWith('/player/games')
+      ? 'games'
+      : pathname.startsWith('/player/rating')
+        ? 'rating'
+        : pathname.startsWith('/player/stats')
+          ? 'stats'
+          : pathname.startsWith('/player/club')
+            ? 'club'
+            : pathname.startsWith('/player/payments')
+              ? 'payments'
+              : pathname.startsWith('/player/profile')
+                ? 'profile'
+                : pathname.startsWith('/player/more')
+                  ? 'more'
+                  : 'home';
 
-  const syncPlayerPath = (tab: PlayerTab) => {
-    const nextPath = tab === 'payments' ? '/player/payments' : tab === 'club' ? '/player/club' : '/player';
+  const syncPlayerPath = (section: PlayerCabinetSection) => {
+    const paths: Record<PlayerCabinetSection, string> = {
+      home: '/player',
+      games: '/player/games',
+      conduct: '/player/conduct',
+      rating: '/player/rating',
+      stats: '/player/stats',
+      club: '/player/club',
+      payments: '/player/payments',
+      profile: '/player/profile',
+      more: '/player/more',
+    };
+    const nextPath = paths[section];
     if (window.location.pathname === nextPath) return;
     window.history.replaceState({}, '', nextPath);
     setPathname(nextPath);
@@ -287,11 +313,11 @@ export default function App() {
 
   return (
     <>
-      <PlayerCabinetV2
+      <PlayerCabinetShell
         data={rootState.data}
         canOpenAdmin={rootState.canOpenAdmin}
-        initialTab={initialTab}
-        onTabChange={syncPlayerPath}
+        initialSection={initialSection}
+        onSectionChange={syncPlayerPath}
       />
       <PlayerLiveCenter />
     </>

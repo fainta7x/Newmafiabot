@@ -127,7 +127,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     vi.useRealTimers();
   });
 
-  it('keeps localStorage backup until the full IndexedDB backup is confirmed', async () => {
+  it('ignores a newer localStorage backup instead of replaying it over canonical server data', async () => {
     vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
       game: mockGame as any,
       protocol: mockProtocol as any,
@@ -136,7 +136,7 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
 
     const saveSpy = vi.spyOn(api, 'saveGameProtocol').mockResolvedValue({
       game: mockGame as any,
-      protocol: { ...mockProtocol, winner_team: 'red' } as any,
+      protocol: mockProtocol as any,
       player_results: mockPlayerResults as any
     });
 
@@ -157,13 +157,14 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     );
 
     await waitFor(() => {
-      expect(saveSpy).toHaveBeenCalled();
+      expect(screen.getByText('Player 1')).toBeTruthy();
     });
 
+    expect(saveSpy).not.toHaveBeenCalled();
     expect(localStorage.getItem(backupKey)).toBe(JSON.stringify(backupData));
   });
 
-  it('retains backup in localStorage if saveGameProtocol fails', async () => {
+  it('does not replay an ignored stale backup even when the save endpoint would fail', async () => {
     vi.spyOn(api, 'getGameProtocol').mockResolvedValue({
       game: mockGame as any,
       protocol: mockProtocol as any,
@@ -189,10 +190,11 @@ describe('GameProtocolModal Backup & Auto-Save Component Tests', () => {
     );
 
     await waitFor(() => {
-      expect(saveSpy).toHaveBeenCalled();
+      expect(screen.getByText('Player 1')).toBeTruthy();
     });
 
-    expect(localStorage.getItem(backupKey)).not.toBeNull();
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect(localStorage.getItem(backupKey)).toBe(JSON.stringify(backupData));
   });
 
   it('renders technical foul classification buttons (minor/major)', async () => {

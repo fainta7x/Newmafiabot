@@ -43,7 +43,15 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       completedGamesCount = Number(gameSummary?.completed || 0);
       try {
         const announcement = await loadAnnouncementOverview(db, String(nextEvening.id));
-        if (announcement?.summary) announcementSummary = { ...announcementSummary, ...announcement.summary };
+        if (announcement?.summary) {
+          announcementSummary = { ...announcementSummary, ...announcement.summary };
+          counts = {
+            ...counts,
+            unanswered: Number(announcementSummary.unanswered || 0),
+            responded: Number(announcementSummary.answered || 0),
+            audience: Number(announcementSummary.audience || 0),
+          };
+        }
       } catch (error) {
         console.warn('[CRM] Could not load announcement readiness:', error);
       }

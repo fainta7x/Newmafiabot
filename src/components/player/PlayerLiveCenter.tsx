@@ -65,6 +65,8 @@ export default function PlayerLiveCenter() {
       setLive(body?.live || null);
       setUpdatedAt(new Date());
       if (!body?.live) setOpen(false);
+    } catch {
+      // A short network interruption should not tear down the existing live snapshot.
     } finally {
       if (!silent) setLoading(false);
     }

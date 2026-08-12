@@ -66,17 +66,19 @@ describe('Preview Database Checkpoint & Recovery', () => {
     expect(verifySqliteFile(finalFile)).toBe(true);
   });
 
-  it('2. disabled in production or when DATABASE_PATH is explicitly set', async () => {
+  it('2. skips production or explicitly configured databases without reporting an error', async () => {
     process.env.NODE_ENV = 'production';
     const res1 = await createPreviewCheckpoint(wrapper);
-    expect(res1.success).toBe(false);
-    expect(res1.message).toContain('Checkpoint disabled');
+    expect(res1.success).toBe(true);
+    expect(res1.skipped).toBe(true);
+    expect(res1.message).toContain('skipped');
 
     process.env.NODE_ENV = 'development';
     process.env.DATABASE_PATH = '/custom/path.sqlite';
     const res2 = await createPreviewCheckpoint(wrapper);
-    expect(res2.success).toBe(false);
-    expect(res2.message).toContain('Checkpoint disabled');
+    expect(res2.success).toBe(true);
+    expect(res2.skipped).toBe(true);
+    expect(res2.message).toContain('skipped');
   });
 
   it('3. corrupted bootstrap is not used for restoring runtime', () => {
@@ -92,10 +94,8 @@ describe('Preview Database Checkpoint & Recovery', () => {
   });
 
   it('4. runtime is restored only from checkpoint of its own project', async () => {
-    // Generate checkpoint for dbPath
     await createPreviewCheckpoint(wrapper);
 
-    // Now check a distinct dbPath2 (different file path)
     const dbPath2 = path.join(tempDir, 'another_project.sqlite');
     const recoveryDir2 = getPreviewRecoveryDir(dbPath2);
 
@@ -111,7 +111,6 @@ describe('Preview Database Checkpoint & Recovery', () => {
   });
 
   it('6. existing runtime database is not overwritten', () => {
-    // Existing DB at dbPath has val = 'initial_val'
     expect(fs.existsSync(dbPath)).toBe(true);
 
     const connection = createDatabaseConnection(dbPath);

@@ -39,6 +39,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [playerReturnContext, setPlayerReturnContext] = useState<PlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
   const eveningListScrollRef = useRef(0);
+  const resumeRefreshTimerRef = useRef<number | null>(null);
 
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -75,6 +76,30 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       console.error('Failed to refresh organizer snapshot after evening changes:', error);
     });
   };
+
+  useEffect(() => {
+    if (!isOrganizer || typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const scheduleRefresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (resumeRefreshTimerRef.current !== null) window.clearTimeout(resumeRefreshTimerRef.current);
+      resumeRefreshTimerRef.current = window.setTimeout(() => {
+        resumeRefreshTimerRef.current = null;
+        refreshSnapshotAfterEvening();
+      }, 120);
+    };
+
+    document.addEventListener('visibilitychange', scheduleRefresh);
+    window.addEventListener('focus', scheduleRefresh);
+    return () => {
+      document.removeEventListener('visibilitychange', scheduleRefresh);
+      window.removeEventListener('focus', scheduleRefresh);
+      if (resumeRefreshTimerRef.current !== null) {
+        window.clearTimeout(resumeRefreshTimerRef.current);
+        resumeRefreshTimerRef.current = null;
+      }
+    };
+  }, [isOrganizer]);
 
   const checkAuthAndLoad = async () => {
     setLoading(true);

@@ -6,6 +6,7 @@ import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import { addSingleParticipantSchema, bulkAddParticipantsSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
+import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
@@ -86,10 +87,17 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const countRow=await db.get<any>(`SELECT COUNT(*) AS cnt FROM evening_participants WHERE evening_id=? AND ${expectedSql}`,[req.params.id]);
     const registered_count=Number(countRow?.cnt||0);
     if(req.userRole!=='ORGANIZER') return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:normalizeEveningFormat(evening.format),status:evening.status,capacity:evening.capacity,default_price:evening.default_price,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
-    const tables=await db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[req.params.id]);
-    const participants=(await db.all<any>(`${participantSelect} WHERE ep.evening_id=? ORDER BY ep.created_at ASC`,[req.params.id])).map(serializeEveningParticipant);
-    const games=await db.all<any>('SELECT * FROM games WHERE evening_id=? ORDER BY global_game_number ASC',[req.params.id]);
-    return res.json({...withCanonicalFormat(evening),registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count),tables,participants,games});
+    const [tables, participantRows, games, announcement] = await Promise.all([
+      db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[req.params.id]),
+      db.all<any>(`${participantSelect} WHERE ep.evening_id=? ORDER BY ep.created_at ASC`,[req.params.id]),
+      db.all<any>('SELECT * FROM games WHERE evening_id=? ORDER BY global_game_number ASC',[req.params.id]),
+      loadAnnouncementOverview(db, req.params.id).catch((error) => {
+        console.warn(`[CRM] Could not load announcement state for evening ${req.params.id}:`, error);
+        return null;
+      }),
+    ]);
+    const participants=participantRows.map(serializeEveningParticipant);
+    return res.json({...withCanonicalFormat(evening),registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count),tables,participants,games,announcement});
   } catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}
 });
 

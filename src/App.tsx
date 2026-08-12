@@ -4,10 +4,8 @@ import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
-import PlayerCabinetV2 from "./components/player/PlayerCabinetV2.tsx";
-import PlayerFormCenter from "./components/player/PlayerFormCenter.tsx";
+import PlayerCabinetV2, { type PlayerTab } from "./components/player/PlayerCabinetV2.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
-import PlayerPayments from "./components/player/PlayerPayments.tsx";
 
 type TelegramIdentity = {
   id: number;
@@ -184,11 +182,6 @@ export default function App() {
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = pathname === '/player' || pathname.startsWith('/player/') || (pathname === '/' && Boolean(telegramInitData));
 
-  const navigatePlayer = (path: string) => {
-    window.history.pushState({}, '', path);
-    setPathname(path);
-  };
-
   const bootstrapPlayer = useCallback(async () => {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
     setRootState({ status: 'loading' });
@@ -279,22 +272,28 @@ export default function App() {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
-  if (pathname.startsWith('/player/payments')) {
-    return <main className="min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 text-white"><PlayerPayments onBack={() => navigatePlayer('/player')} /></main>;
-  }
+  const initialTab: PlayerTab = pathname.startsWith('/player/payments')
+    ? 'payments'
+    : pathname.startsWith('/player/club')
+      ? 'club'
+      : 'home';
+
+  const syncPlayerPath = (tab: PlayerTab) => {
+    const nextPath = tab === 'payments' ? '/player/payments' : tab === 'club' ? '/player/club' : '/player';
+    if (window.location.pathname === nextPath) return;
+    window.history.replaceState({}, '', nextPath);
+    setPathname(nextPath);
+  };
 
   return (
     <>
-      <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />
-      <PlayerFormCenter games={rootState.data.games.all} />
+      <PlayerCabinetV2
+        data={rootState.data}
+        canOpenAdmin={rootState.canOpenAdmin}
+        initialTab={initialTab}
+        onTabChange={syncPlayerPath}
+      />
       <PlayerLiveCenter />
-      <button
-        type="button"
-        onClick={() => navigatePlayer('/player/payments')}
-        className="fixed bottom-[104px] right-3 z-40 rounded-2xl border border-white/10 bg-[#1b1c21]/95 px-3 py-2 text-xs font-semibold text-white/75 shadow-xl backdrop-blur"
-      >
-        ₽ Оплата
-      </button>
     </>
   );
 }

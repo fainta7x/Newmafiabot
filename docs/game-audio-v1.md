@@ -31,11 +31,16 @@ In managed club/test games, completing the tenth role advances directly into zer
 
 One global audio controller owns playback. This keeps music independent from protocol state mutations.
 
-The role-deal track starts from the explicit user gesture that begins physical dealing. The agreement/night track starts automatically while the mafia-agreement timer is running and during regular `night` phases. It does not keep playing merely because another zero-night subphase is open.
+The role-deal track starts from the explicit user gesture that begins physical dealing.
+
+The agreement/night track follows two different phase windows:
+
+- zero night: it starts with mafia agreement, continues without interruption through sheriff call and free seating, and fades out only when the city wakes up;
+- regular nights: it starts at the beginning of the night, continues through shooting, Don check and Sheriff check, and fades out as soon as the Sheriff check is recorded. Best-move/death-protocol and morning steps run without night music.
 
 Selected per-game tracks loop themselves instead of randomly moving through the playlist. Playback fades in to normal volume and fades out before stopping, so phase transitions do not cut the track abruptly.
 
-Music stops after role dealing, after mafia agreement, and during day phases. The controller only follows live-phase state while a live game engine is actually mounted, so stale localStorage sessions do not start music by themselves.
+During day phases the night track is stopped. The controller only follows live-phase state while a live game engine is actually mounted, so stale localStorage sessions do not start music by themselves.
 
 If browser/WebView autoplay protection blocks a later automatic start, the controller displays one explicit `Включить музыку` action.
 

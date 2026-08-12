@@ -76,7 +76,7 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
     .slice(0, 10), [games]);
 
   useEffect(() => {
-    if (!open || section !== 'club' || pulse !== null || pulseLoading) return;
+    if (!open || section !== 'club' || pulse !== null) return;
     let cancelled = false;
     setPulseLoading(true);
     setPulseError(null);
@@ -93,9 +93,7 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
         if (!cancelled) setPulseLoading(false);
       });
     return () => { cancelled = true; };
-  }, [open, section, pulse, pulseLoading]);
-
-  if (!form.length) return null;
+  }, [open, section, pulse]);
 
   const wins = form.filter((game) => game.won).length;
   const firstResult = form[0]?.won;
@@ -104,24 +102,28 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
     if (game.won !== firstResult) break;
     streak += 1;
   }
-  const streakText = streak >= 2
-    ? `${streak} ${firstResult ? 'победы' : 'поражения'} подряд`
-    : firstResult ? 'последняя — победа' : 'последняя — поражение';
+  const streakText = !form.length
+    ? 'Сыграй первую завершённую игру — здесь появится форма.'
+    : streak >= 2
+      ? `${streak} ${firstResult ? 'победы' : 'поражения'} подряд`
+      : firstResult ? 'последняя — победа' : 'последняя — поражение';
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { if (!form.length) setSection('club'); setOpen(true); }}
         className="fixed bottom-[104px] left-3 z-40 flex min-h-9 max-w-[58vw] items-center gap-2 rounded-2xl border border-white/10 bg-[#1b1c21]/95 px-3 py-2 text-left shadow-xl backdrop-blur"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35">Форма</span>
-        <span className="flex min-w-0 items-center gap-1">
-          {form.slice(0, 5).map((game, index) => (
-            <span key={`${game.id}:${index}`} className={`h-2 w-2 shrink-0 rounded-full ${game.won ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-          ))}
-        </span>
-        <span className="shrink-0 text-[11px] font-bold text-white/70">{wins}/{form.length}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35">{form.length ? 'Форма' : 'Пульс'}</span>
+        {form.length ? <>
+          <span className="flex min-w-0 items-center gap-1">
+            {form.slice(0, 5).map((game, index) => (
+              <span key={`${game.id}:${index}`} className={`h-2 w-2 shrink-0 rounded-full ${game.won ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+            ))}
+          </span>
+          <span className="shrink-0 text-[11px] font-bold text-white/70">{wins}/{form.length}</span>
+        </> : <span className="text-sm">🔥</span>}
       </button>
 
       {open && (
@@ -148,7 +150,7 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
             </div>
 
             {section === 'mine' ? (
-              <>
+              form.length ? <>
                 <div className="mt-4 rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Последние {form.length} игр</div>
                   <div className="mt-2 flex items-end justify-between gap-4">
@@ -175,7 +177,7 @@ export default function PlayerFormCenter({ games }: { games: FormGame[] }) {
                     </div>
                   ))}
                 </div>
-              </>
+              </> : <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-center"><div className="text-2xl">🎭</div><div className="mt-2 text-sm font-semibold">Личная форма ещё не началась</div><p className="mt-1 text-xs text-white/35">После первой завершённой игры здесь появятся результаты и серии.</p><button type="button" onClick={() => setSection('club')} className="mt-4 min-h-10 rounded-xl bg-white px-4 text-xs font-semibold text-black">Смотреть пульс клуба</button></div>
             ) : (
               <div className="mt-4">
                 {pulseError && <div className="rounded-2xl bg-rose-400/10 px-3 py-3 text-xs text-rose-200/70">{pulseError}</div>}

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, AlertTriangle, ArrowRight, Calendar, Check, CheckCircle2, Gamepad2, LayoutGrid, RefreshCw, Send, Users } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowRight, Calendar, Check, CheckCircle2, Gamepad2, RefreshCw, Send, Users } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import { buildNextEveningAction, buildTodayActionQueue, type TodayActionItem } from '../../lib/organizerUx.ts';
 
@@ -125,16 +125,8 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
         const notSent = Number(announcement.not_sent || 0);
         const announcementAudience = Number(announcement.audience || 0);
         const expected = Number(evening.expectedPlayersCount || going + later);
-        const seated = Number(evening.seatedExpectedCount || 0);
-        const unseated = Number(evening.unseatedExpectedCount || 0);
-        const unpaidForEvening = (overview.actionLists.unpaidParticipants || []).filter(
-          (participant: any) => String(participant.evening_id || '') === String(evening.id || ''),
-        );
-        const unpaidCount = unpaidForEvening.length;
-        const unpaidAmount = unpaidForEvening.reduce(
-          (sum: number, participant: any) => sum + Math.max(0, Number(participant.amount_due || 0) - Number(participant.amount_paid || 0)),
-          0,
-        );
+        const unpaidCount = Number(evening.expectedToPayCount || 0);
+        const unpaidAmount = Number(evening.expectedToPayAmount || 0);
         const games = Number(evening.gamesCount || 0);
         const completedGames = Number(evening.completedGamesCount || 0);
         const isDraft = evening.status === 'draft';
@@ -174,10 +166,10 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                 </div>
 
                 <div className="flex min-h-[54px] items-center gap-3 rounded-[13px] bg-surface-2 px-3">
-                  <LayoutGrid className={`h-5 w-5 shrink-0 ${unseated ? 'text-warning' : expected ? 'text-success' : 'text-text-muted'}`} />
+                  <Users className={`h-5 w-5 shrink-0 ${expected ? 'text-success' : 'text-text-muted'}`} />
                   <span className="min-w-0 flex-1">
-                    <strong className="block text-[12px] text-text-primary">Рассадка</strong>
-                    <span className="text-[10px] leading-4 text-text-muted">{expected ? `Рассажено ${seated} из ${expected}${unseated ? ` · без стола ${unseated}` : ''}` : 'Пока нет игроков со статусом «иду» или «приду позже»'}</span>
+                    <strong className="block text-[12px] text-text-primary">Состав вечера</strong>
+                    <span className="text-[10px] leading-4 text-text-muted">{expected ? `${expected} планируют прийти. Десятка и стол выбираются при создании каждой игры.` : 'Пока нет игроков со статусом «иду» или «приду позже»'}</span>
                   </span>
                 </div>
 
@@ -185,7 +177,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                   <CheckCircle2 className={`h-5 w-5 shrink-0 ${unpaidCount ? 'text-warning' : 'text-success'}`} />
                   <span className="min-w-0 flex-1">
                     <strong className="block text-[12px] text-text-primary">Оплаты</strong>
-                    <span className="text-[10px] leading-4 text-text-muted">{unpaidCount ? `${unpaidCount} не оплатили · долг ${Math.round(unpaidAmount).toLocaleString('ru-RU')} ₽` : 'Долгов по ближайшему вечеру нет'}</span>
+                    <span className="text-[10px] leading-4 text-text-muted">{unpaidCount ? `${unpaidCount} ожидаем оплату · осталось ${Math.round(unpaidAmount).toLocaleString('ru-RU')} ₽` : 'Ожидаемые оплаты закрыты'}</span>
                   </span>
                 </div> : null}
 
@@ -201,7 +193,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ overview, onOpenEvenin
                   <div className="min-w-0 flex-1"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-accent">Следующий шаг</span><strong className="mt-0.5 block text-[13px] text-text-primary">{nextEveningAction.title}</strong><span className="mt-1 block text-[11px] leading-4 text-text-secondary">{nextEveningAction.reason}</span></div>
                 </div>
                 <button type="button" onClick={() => void runAction(nextEveningAction)} className="mt-3 min-h-[44px] w-full rounded-[11px] bg-accent px-3 text-[12px] font-bold text-white">{nextEveningAction.actionLabel}</button>
-              </div> : !isActive ? <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-success-soft px-3.5 py-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-success" /><div><strong className="block text-[12px] text-text-primary">Подготовка выглядит завершённой</strong><span className="text-[10px] leading-4 text-text-muted">Критичных действий по рассылке, ответам, рассадке и оплатам сейчас нет.</span></div></div> : null}
+              </div> : !isActive ? <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-success-soft px-3.5 py-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-success" /><div><strong className="block text-[12px] text-text-primary">Подготовка выглядит завершённой</strong><span className="text-[10px] leading-4 text-text-muted">Критичных действий по рассылке, ответам и оплатам сейчас нет. Состав конкретной игры выбирается на вечере.</span></div></div> : null}
             </div>
             <div className="border-t border-border-soft p-3">
               <button type="button" onClick={() => onOpenEvening(evening.id)} className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-4 text-[13px] font-bold text-text-primary">Открыть весь вечер <ArrowRight className="h-4 w-4" /></button>

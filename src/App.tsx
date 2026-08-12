@@ -5,6 +5,7 @@ import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
 import PlayerCabinetV2 from "./components/player/PlayerCabinetV2.tsx";
+import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 import PlayerPayments from "./components/player/PlayerPayments.tsx";
 
 type TelegramIdentity = {
@@ -284,6 +285,7 @@ export default function App() {
   return (
     <>
       <PlayerCabinetV2 data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} />
+      <PlayerLiveCenter />
       <button
         type="button"
         onClick={() => navigatePlayer('/player/payments')}

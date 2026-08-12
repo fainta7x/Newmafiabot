@@ -171,7 +171,7 @@ export default function ClubGameSetupPhase({
               <option value="">Без музыки</option>
               {tracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
             </select>
-            <span className="mt-1.5 block text-[10px] leading-4 text-slate-500">Играет во время таймера договорки и в обычные ночи. Днём и после договорки плавно затихает.</span>
+            <span className="mt-1.5 block text-[10px] leading-4 text-slate-500">Нулевая ночь: с договорки через вызов Шерифа и свободную посадку до пробуждения города. Обычные ночи: от начала ночи до завершения проверки Шерифа.</span>
           </label>
         </div>
 

@@ -3,7 +3,8 @@ import type { EveningAttendanceFact, EveningResponseStatus } from './eveningResp
 
 declare module './api.ts' {
   interface EveningParticipant {
-    response_status?: EveningResponseStatus;
+    /** Canonical player intent for the evening. Legacy registration_status is fallback-only. */
+    response_status: EveningResponseStatus;
     attendance_fact?: EveningAttendanceFact;
   }
 }

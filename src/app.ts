@@ -23,6 +23,7 @@ import playerLiveRoutes from './server/routes/playerLiveRoutes.ts';
 import playerPulseRoutes from './server/routes/playerPulseRoutes.ts';
 import playerStoriesRoutes from './server/routes/playerStoriesRoutes.ts';
 import playerEveningVotingRoutes from './server/routes/playerEveningVotingRoutes.ts';
+import playerProgressionRoutes from './server/routes/playerProgressionRoutes.ts';
 import playerProfileSettingsRoutes from './server/routes/playerProfileSettingsRoutes.ts';
 import playerGameDetailRoutes from './server/routes/playerGameDetailRoutes.ts';
 import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.ts';
@@ -135,6 +136,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerPulseRoutes);
   app.use('/api/player', playerStoriesRoutes);
   app.use('/api/player', playerEveningVotingRoutes);
+  app.use('/api/player', playerProgressionRoutes);
   app.use('/api/player', playerProfileSettingsRoutes);
   app.use('/api/player', playerGameDetailRoutes);
   app.use('/api/player', playerRatingPeriodRoutes);

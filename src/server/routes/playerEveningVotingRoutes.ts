@@ -93,17 +93,19 @@ const loadVotingContext = async (db: any, eveningId: string, viewerId: string): 
   }
 
   const attendeeIds = new Set<string>(attendeeRows.map((row: any) => String(row.id)));
-  const nominees = attendeeRows.map((row: any) => ({
-    player_id: String(row.id),
-    nickname: String(row.nickname || 'Игрок'),
-    avatar_url: `/api/player/players/${encodeURIComponent(String(row.id))}/avatar`,
-    categories: [
-      'sympathy',
-      ...(red.has(String(row.id)) ? ['best_red'] : []),
-      ...(black.has(String(row.id)) ? ['best_black'] : []),
-      ...(sheriff.has(String(row.id)) ? ['best_sheriff'] : []),
-    ],
-  }));
+  const nominees = attendeeRows
+    .filter((row: any) => String(row.id) !== String(viewerId))
+    .map((row: any) => ({
+      player_id: String(row.id),
+      nickname: String(row.nickname || 'Игрок'),
+      avatar_url: `/api/player/players/${encodeURIComponent(String(row.id))}/avatar`,
+      categories: [
+        'sympathy',
+        ...(red.has(String(row.id)) ? ['best_red'] : []),
+        ...(black.has(String(row.id)) ? ['best_black'] : []),
+        ...(sheriff.has(String(row.id)) ? ['best_sheriff'] : []),
+      ],
+    }));
 
   return { error: null, evening, votingOpen, deadlineMs, attendeeIds, nominees };
 };

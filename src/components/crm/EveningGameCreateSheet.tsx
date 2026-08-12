@@ -3,7 +3,7 @@ import { Search, Shuffle, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import { isEveningGameEligible, sortEveningRoster, toggleParticipantInSeats } from '../../lib/eveningRoster';
+import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
 
@@ -11,6 +11,7 @@ interface EveningGameCreateSheetProps {
   evening: GameEvening;
   tables: EveningTable[];
   participants: EveningParticipant[];
+  games: ClubGameRecord[];
   onClose: () => void;
   onCreated: (game: ClubGameRecord) => void;
 }
@@ -23,7 +24,9 @@ const playerCanJudgeFormat = (player: Player, format: string) => {
   return level === 'judge';
 };
 
-export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, onClose, onCreated }) => {
+const gameIsCompleted = (game: ClubGameRecord) => game.status === 'completed' || Boolean(game.club_protocol?.protocol?.winner_team);
+
+export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, games, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
   const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('external');
   const [judgePlayerId, setJudgePlayerId] = useState('');
@@ -33,8 +36,32 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const eligible = useMemo(() => sortEveningRoster(participants.filter(isEveningGameEligible)), [participants]);
+  const playCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const game of games.filter(gameIsCompleted)) {
+      for (const result of game.club_protocol?.player_results || []) {
+        const participantId = String(result.participant_id || '');
+        if (participantId) counts.set(participantId, (counts.get(participantId) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [games]);
+
+  const eligible = useMemo(() => participants
+    .filter(isEveningGameEligible)
+    .slice()
+    .sort((a, b) => (playCounts.get(a.id) || 0) - (playCounts.get(b.id) || 0) || a.nickname.localeCompare(b.nickname, 'ru')), [participants, playCounts]);
   const byId = useMemo(() => new Map(participants.map((participant) => [participant.id, participant])), [participants]);
+  const eligibleIds = useMemo(() => new Set(eligible.map((participant) => participant.id)), [eligible]);
+  const lastCompletedLineup = useMemo(() => {
+    const lastGame = games.filter(gameIsCompleted).slice().sort((a, b) => b.id - a.id)[0];
+    if (!lastGame) return [];
+    return (lastGame.club_protocol?.player_results || [])
+      .slice()
+      .sort((a, b) => Number(a.seat_number) - Number(b.seat_number))
+      .map((result) => String(result.participant_id || ''))
+      .filter((participantId) => participantId && eligibleIds.has(participantId));
+  }, [eligibleIds, games]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return eligible.filter((participant) => !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q));
@@ -75,6 +102,14 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     }
     setSeats([...shuffled, ...Array(10 - shuffled.length).fill('')]);
   };
+  const autoSelect = () => {
+    const selected = eligible.slice(0, 10).map((participant) => participant.id);
+    setSeats([...selected, ...Array(Math.max(0, 10 - selected.length)).fill('')].slice(0, 10));
+  };
+  const reuseLastLineup = () => {
+    if (lastCompletedLineup.length !== 10) return;
+    setSeats(lastCompletedLineup.slice(0, 10));
+  };
 
   const create = async () => {
     if (creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
@@ -101,7 +136,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-x-hidden rounded-t-3xl border border-slate-700 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-3xl sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, ведущего нужного уровня и 10 игроков из тех, чья явка уже отмечена.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-lg font-black text-white">Новая игра</h3><p className="mt-0.5 text-[10px] text-slate-400">Выбери площадку, ведущего и 10 фактически пришедших игроков.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400 sm:h-9 sm:w-9"><X className="h-4 w-4" /></button>
         </div>
 
@@ -128,14 +163,20 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
               return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-xl border p-1.5 text-center ${participant ? 'border-rose-500/40 bg-rose-500/10' : 'border-slate-800 bg-slate-900/70'}`}><span className="block text-[8px] font-mono text-slate-500">#{index + 1}</span><span className={`mt-1 block truncate text-[9px] font-black ${participant ? 'text-white' : 'text-slate-700'}`}>{participant?.nickname || '—'}</span></button>;
             })}
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={autoSelect} disabled={eligible.length < 10} className="min-h-10 rounded-xl bg-slate-800 px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать 10</button>
+            <button type="button" onClick={reuseLastLineup} disabled={lastCompletedLineup.length !== 10} className="min-h-10 rounded-xl border border-slate-700 bg-slate-900 px-2 text-[10px] font-black text-slate-300 disabled:opacity-30">Прошлая десятка</button>
+          </div>
+          <p className="text-[9px] leading-4 text-slate-500">«Подобрать 10» сначала берёт тех, кто сыграл меньше игр сегодня. Порядок мест можно перемешать отдельно.</p>
         </div>
 
-        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-slate-500"><span>Доступны только пришедшие</span><span>{visible.length} игроков</span></div>
+        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-slate-500"><span>Пришедшие · меньше игр выше</span><span>{visible.length} игроков</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-9 pr-3 text-sm text-white outline-none" /></div>
         <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">Явка отмечена</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            const played = playCounts.get(participant.id) || 0;
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left ${selected ? 'border-rose-500 bg-rose-500/10' : 'border-slate-800 bg-slate-950'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{participant.nickname}</strong><span className="text-[8px] text-slate-500">Игр сегодня: {played}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-xs text-slate-500">Игроков не найдено</div>}
         </div>

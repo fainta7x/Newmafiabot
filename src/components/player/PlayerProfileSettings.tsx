@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
+import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import type { PlayerMeResponse } from './PlayerCabinet.tsx';
 import PlayerJudging, { loadPlayerJudgingDashboard, type PlayerJudgingDashboard } from './PlayerJudging.tsx';
 import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
+import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
+import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 
 type Player = PlayerMeResponse['player'] & { phone?: string | null };
+type JudgingWithLauncher = PlayerJudgingDashboard & { available_evenings?: JudgeStartEvening[] };
 
 const normalizeNullable = (value: string) => value.trim() || null;
 
@@ -22,9 +26,18 @@ export default function PlayerProfileSettings({
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [judging, setJudging] = useState<PlayerJudgingDashboard | null>(null);
+  const [judging, setJudging] = useState<JudgingWithLauncher | null>(null);
   const [judgingOpen, setJudgingOpen] = useState(false);
+  const [launchedGame, setLaunchedGame] = useState<ClubGameRecord | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const reloadJudging = async () => {
+    try {
+      setJudging(await loadPlayerJudgingDashboard() as JudgingWithLauncher);
+    } catch {
+      setJudging(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +62,7 @@ export default function PlayerProfileSettings({
   useEffect(() => {
     let cancelled = false;
     void loadPlayerJudgingDashboard()
-      .then((data) => { if (!cancelled) setJudging(data); })
+      .then((data) => { if (!cancelled) setJudging(data as JudgingWithLauncher); })
       .catch(() => { if (!cancelled) setJudging(null); });
     return () => { cancelled = true; };
   }, []);
@@ -129,8 +142,18 @@ export default function PlayerProfileSettings({
     }
   };
 
+  if (launchedGame) {
+    return (
+      <EveningLiveGameModal
+        game={launchedGame}
+        onClose={() => { setLaunchedGame(null); void reloadJudging(); }}
+        onUpdated={() => { setLaunchedGame(null); void reloadJudging(); }}
+      />
+    );
+  }
+
   if (judgingOpen) {
-    return <PlayerJudging onBack={() => setJudgingOpen(false)} />;
+    return <PlayerJudging onBack={() => { setJudgingOpen(false); void reloadJudging(); }} />;
   }
 
   return (
@@ -162,17 +185,25 @@ export default function PlayerProfileSettings({
       </section>
 
       {judging && judging.player.judge_level !== 'none' && (
-        <section className="rounded-3xl border border-amber-200/15 bg-gradient-to-b from-amber-200/[0.07] to-white/[0.025] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/45">Судейство</div>
-              <div className="mt-2 text-xl font-semibold text-white">{judging.player.judge_level_label}</div>
-              <p className="mt-1 text-sm leading-5 text-white/35">Назначенных активных игр: {judging.club_games.filter((game) => game.status !== 'completed').length + judging.tournament_games.filter((game) => game.status !== 'completed').length}</p>
+        <>
+          <section className="rounded-3xl border border-amber-200/15 bg-gradient-to-b from-amber-200/[0.07] to-white/[0.025] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/45">Судейство</div>
+                <div className="mt-2 text-xl font-semibold text-white">{judging.player.judge_level_label}</div>
+                <p className="mt-1 text-sm leading-5 text-white/35">Назначенных активных игр: {judging.club_games.filter((game) => game.status !== 'completed').length + judging.tournament_games.filter((game) => game.status !== 'completed').length}</p>
+              </div>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-200/[0.08] text-xl">⚖️</div>
             </div>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-200/[0.08] text-xl">⚖️</div>
-          </div>
-          <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black">Открыть судейство</button>
-        </section>
+            <button type="button" onClick={() => setJudgingOpen(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-semibold text-white">Назначения и история судейства</button>
+          </section>
+
+          <JudgeGameLauncher
+            judge={{ id: judging.player.id, nickname: judging.player.nickname }}
+            evenings={judging.available_evenings || []}
+            onCreated={setLaunchedGame}
+          />
+        </>
       )}
 
       {judging && (judging.player.judge_level === 'host' || judging.player.judge_level === 'judge') && <JudgeMusicPlaylist />}

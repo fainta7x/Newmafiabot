@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
+import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 
 const router = Router();
 
@@ -12,25 +13,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
     return null;
   }
   return playerId;
-};
-
-const safeJsonParse = (value: unknown): any => {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try { return JSON.parse(value); } catch { return null; }
-};
-
-const normalizeWinner = (value: unknown): 'red' | 'black' | null => {
-  const normalized = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['red', 'красные', 'красная', 'город'].includes(normalized)) return 'red';
-  if (['black', 'черные', 'черная', 'мафия'].includes(normalized)) return 'black';
-  return null;
-};
-
-const teamFromRole = (value: unknown): 'red' | 'black' | null => {
-  const role = String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  if (['mafia', 'мафия', 'маф', 'don', 'дон'].includes(role)) return 'black';
-  if (['citizen', 'мирный', 'мирный житель', 'красный', 'sheriff', 'шериф'].includes(role)) return 'red';
-  return null;
 };
 
 const lastResultsAt = (results: Result[], cutoffMs = Number.POSITIVE_INFINITY) => results
@@ -65,61 +47,23 @@ router.get('/pulse', async (req, res) => {
 
   try {
     const db = (req as any).db;
-    const [players, clubRows, tournamentRows] = await Promise.all([
+    const [players, snapshots] = await Promise.all([
       db.all(`
         SELECT id, nickname, elo
           FROM players
          WHERE TRIM(COALESCE(nickname, '')) <> ''
          ORDER BY nickname COLLATE NOCASE ASC
       `),
-      db.all(`
-        SELECT g.id, g.game_date, g.winner_team, g.protocol_text,
-               e.starts_at AS evening_date
-          FROM games g
-     LEFT JOIN game_evenings e ON e.id = g.evening_id
-         WHERE g.evening_id IS NOT NULL
-           AND g.archived_at IS NULL
-           AND g.protocol_text IS NOT NULL
-      `),
-      db.all(`
-        SELECT tp.player_id, tg.id AS game_id, tg.winner_team, tg.completed_at,
-               t.date AS tournament_date, tgs.role
-          FROM tournament_game_seats tgs
-          JOIN tournament_participants tp ON tp.id = tgs.participant_id
-          JOIN tournament_games tg ON tg.id = tgs.game_id
-          JOIN tournaments t ON t.id = tg.tournament_id
-         WHERE tg.status = 'completed'
-      `),
+      loadCompletedGameSnapshots(db),
     ]);
 
     const byPlayer = new Map<string, Result[]>();
-    const pushResult = (playerId: unknown, date: unknown, won: boolean) => {
-      const id = String(playerId || '').trim();
-      const dateMs = date ? new Date(String(date)).getTime() : 0;
-      if (!id || !Number.isFinite(dateMs) || dateMs <= 0) return;
-      const bucket = byPlayer.get(id) || [];
-      bucket.push({ dateMs, won });
-      byPlayer.set(id, bucket);
-    };
-
-    for (const row of clubRows) {
-      const payload = safeJsonParse(row.protocol_text);
-      if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed' || !Array.isArray(payload.player_results)) continue;
-      const winner = normalizeWinner(payload.protocol?.winner_team || row.winner_team);
-      if (!winner) continue;
-      const date = row.evening_date || row.game_date;
-      for (const result of payload.player_results) {
-        const team = teamFromRole(result.role);
-        if (!team || !result.player_id) continue;
-        pushResult(result.player_id, date, team === winner);
+    for (const game of snapshots) {
+      for (const result of game.players) {
+        const bucket = byPlayer.get(result.player_id) || [];
+        bucket.push({ dateMs: game.dateMs, won: result.won });
+        byPlayer.set(result.player_id, bucket);
       }
-    }
-
-    for (const row of tournamentRows) {
-      const winner = normalizeWinner(row.winner_team);
-      const team = teamFromRole(row.role);
-      if (!winner || !team) continue;
-      pushResult(row.player_id, row.completed_at || row.tournament_date, team === winner);
     }
 
     const now = Date.now();

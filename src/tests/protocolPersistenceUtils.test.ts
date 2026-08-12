@@ -37,7 +37,7 @@ describe('protocol persistence utilities', () => {
       .toBe('tournament_protocol_backup_game-42');
   });
 
-  it('serializes and restores a newer draft backup', () => {
+  it('never restores a local draft over canonical server data', () => {
     const players = [createPlayer('p-1', 0, 0, 0)];
     const serialized = serializeProtocolLocalBackup(
       protocol,
@@ -45,17 +45,13 @@ describe('protocol persistence utilities', () => {
       '2026-08-06T10:00:00.000Z'
     );
 
-    const restored = parseRestorableProtocolBackup(
-      serialized,
-      'draft',
-      '2026-08-06T09:00:00.000Z'
-    );
-
-    expect(restored).toEqual({
-      updatedAt: '2026-08-06T10:00:00.000Z',
-      protocol,
-      playerResults: players
-    });
+    expect(
+      parseRestorableProtocolBackup(
+        serialized,
+        'draft',
+        '2026-08-06T09:00:00.000Z'
+      )
+    ).toBeNull();
   });
 
   it('does not restore completed, stale or malformed backups', () => {

@@ -8,6 +8,7 @@ import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
+import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
@@ -19,6 +20,7 @@ import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
+import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerLiveRoutes from './server/routes/playerLiveRoutes.ts';
 import playerPulseRoutes from './server/routes/playerPulseRoutes.ts';
@@ -92,6 +94,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
+  await ensureJudgeMusicSchema(db);
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);
   await ensurePlayerBettingSchema(db);
@@ -137,6 +140,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerJudgingRoutes);
+  app.use('/api/player', playerJudgeMusicRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/player', playerLiveRoutes);
   app.use('/api/player', playerPulseRoutes);

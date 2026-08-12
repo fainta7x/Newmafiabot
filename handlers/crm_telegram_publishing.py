@@ -84,6 +84,8 @@ def _stats_text(participants: list[dict]) -> str:
         names = grouped[status]
         if not names:
             continue
+        if next_number > 1:
+            lines.append("")
         lines.append(_RESPONSE_LABELS[status])
         for name in names:
             lines.append(f"{next_number}. {escape(name)}")

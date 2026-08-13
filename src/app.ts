@@ -51,6 +51,7 @@ import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
+import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
@@ -167,6 +168,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
   app.use('/api/crm', crmRoutes);
+  app.use('/api/crm', tableScoutingRoutes);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);

@@ -38,6 +38,44 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   return { evening, settings, slots };
 }
 
+export async function updateEveningSlotSettings(
+  db: DatabaseWrapper,
+  eveningId: string,
+  input: { planned_slots?: unknown; price_per_game?: unknown },
+) {
+  const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
+  if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
+
+  const nextCount = Math.max(1, Math.min(12, Math.round(Number(input.planned_slots ?? settings.planned_slots ?? 6))));
+  const nextPrice = Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
+  if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice)) throw Object.assign(new Error('Некорректные настройки игровых слотов'), { statusCode: 400 });
+
+  const currentSlots = await db.all<any>('SELECT id, slot_number FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
+  const removed = currentSlots.filter((slot) => Number(slot.slot_number) > nextCount);
+  for (const slot of removed) {
+    const registrations = await db.get<any>('SELECT COUNT(*) AS count FROM evening_slot_registrations WHERE slot_id = ?', [slot.id]);
+    if (Number(registrations?.count || 0) > 0) {
+      throw Object.assign(new Error(`Нельзя убрать игру ${slot.slot_number}: на неё уже есть запись`), { statusCode: 409 });
+    }
+  }
+
+  const now = new Date().toISOString();
+  const duration = Number(settings.slot_duration_minutes || 60);
+  await db.transaction(async (tx: any) => {
+    for (const slot of removed) await tx.run('DELETE FROM evening_game_slots WHERE id = ?', [slot.id]);
+    for (let i = currentSlots.length; i < nextCount; i += 1) {
+      await tx.run(
+        'INSERT OR IGNORE INTO evening_game_slots (id, evening_id, slot_number, starts_at, ends_at, price_rub, target_players, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [randomUUID(), eveningId, i + 1, plusMinutes(evening.starts_at, i * duration), plusMinutes(evening.starts_at, (i + 1) * duration), nextPrice, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS), 'open', now, now],
+      );
+    }
+    await tx.run('UPDATE evening_game_slots SET price_rub = ?, target_players = ?, updated_at = ? WHERE evening_id = ?', [nextPrice, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS), now, eveningId]);
+    await tx.run('UPDATE evening_slot_settings SET planned_slots = ?, price_per_game = ?, updated_at = ? WHERE evening_id = ?', [nextCount, nextPrice, now, eveningId]);
+    await tx.run('UPDATE game_evenings SET ends_at = ?, default_price = ?, updated_at = ? WHERE id = ?', [plusMinutes(evening.starts_at, nextCount * duration), nextPrice, now, eveningId]);
+  });
+  return loadEveningSlotPlan(db, eveningId);
+}
+
 export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
   const own = playerId ? await db.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]) : null;

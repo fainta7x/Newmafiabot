@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Category = 'sympathy' | 'best_red' | 'best_black' | 'best_sheriff';
 

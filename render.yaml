@@ -31,3 +31,15 @@ services:
         generateValue: true
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: VK_GROUP_ID
+        value: 233806277
+      - key: VK_GROUP_SCREEN_NAME
+        value: 2lanoiremafia
+      - key: VK_GROUP_URL
+        value: https://vk.ru/2lanoiremafia
+      - key: VK_CHANNEL_URL
+        value: https://vk.ru/im/channels/-233806277
+      - key: VK_APP_ID
+        value: 54719021
+      - key: VK_API_VERSION
+        value: 5.199

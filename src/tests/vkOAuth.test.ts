@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendVkOAuthResult,
+  buildVkAuthorizationCodeTokenRequest,
   buildVkCodeChallenge,
   encodeVkTokenVerifier,
   getVkOAuthAppId,
@@ -20,9 +21,27 @@ describe('VK OAuth helpers', () => {
     expect(getVkOAuthScopes()).toEqual(['wall', 'groups']);
   });
 
-  it('matches VK ID PKCE challenge and token-verifier encoding', () => {
+  it('uses the same verifier for VK ID PKCE challenge and token exchange', () => {
     expect(buildVkCodeChallenge('abc')).toBe('ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0');
-    expect(encodeVkTokenVerifier('abc')).toBe('YWJj');
+    expect(encodeVkTokenVerifier('abc')).toBe('abc');
+  });
+
+  it('matches the current VK ID Web SDK token exchange shape', () => {
+    const request = buildVkAuthorizationCodeTokenRequest({
+      appId: '54719021',
+      verifier: 'verifier-123',
+      redirectUri: 'https://twola-noire-web-staging.onrender.com/api/integrations/vk/oauth/callback',
+      code: 'vk-code',
+      deviceId: 'device-1',
+      state: 'state-1',
+    });
+    expect(request.query.get('grant_type')).toBe('authorization_code');
+    expect(request.query.get('client_id')).toBe('54719021');
+    expect(request.query.get('code_verifier')).toBe('verifier-123');
+    expect(request.query.get('device_id')).toBe('device-1');
+    expect(request.query.get('state')).toBe('state-1');
+    expect(request.query.has('code')).toBe(false);
+    expect(request.body.get('code')).toBe('vk-code');
   });
 
   it('keeps the app hash while appending OAuth result', () => {

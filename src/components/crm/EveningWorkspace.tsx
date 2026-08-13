@@ -31,10 +31,16 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 }) => {
   const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'participants' : initialSection);
   const [slotRefreshKey, setSlotRefreshKey] = useState(0);
+  const [showSlotPlanner, setShowSlotPlanner] = useState(false);
 
   useEffect(() => {
     setSection(initialAddOpen ? 'participants' : initialSection);
   }, [eveningId, initialAddOpen, initialSection]);
+
+  useEffect(() => {
+    setShowSlotPlanner(false);
+    setSlotRefreshKey(0);
+  }, [eveningId]);
 
   const openSection = (next: EveningSection) => {
     setSection(next);
@@ -71,20 +77,30 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
         </div>
       </div>
 
-      {section === 'overview' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
-      {section === 'overview' ? <EveningSlotPlannerCard key={`${eveningId}-${slotRefreshKey}`} eveningId={eveningId} onRefresh={() => setSlotRefreshKey((value) => value + 1)} /> : null}
-
       {section === 'overview' ? (
         <EveningOverviewView eveningId={eveningId} onBack={onBack} onOpenSection={openSection} />
       ) : null}
+
+      {section === 'overview' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
+
+      {section === 'overview' ? (
+        <button
+          type="button"
+          onClick={() => setShowSlotPlanner((value) => !value)}
+          className="flex min-h-14 w-full items-center gap-3 rounded-[18px] border border-border-soft bg-surface-1 p-3 text-left"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent"><Sliders className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-[12px] text-text-primary">Игровые слоты</strong><span className="mt-0.5 block text-[9px] leading-4 text-text-muted">Расписание, цена и загрузка игр</span></span>
+          <span className="shrink-0 text-[10px] font-bold text-accent">{showSlotPlanner ? 'Скрыть' : 'Открыть'}</span>
+        </button>
+      ) : null}
+
+      {section === 'overview' && showSlotPlanner ? (
+        <EveningSlotPlannerCard key={`${eveningId}-${slotRefreshKey}`} eveningId={eveningId} onRefresh={() => setSlotRefreshKey((value) => value + 1)} />
+      ) : null}
+
       {section === 'participants' ? (
-        <EveningParticipantsView
-          eveningId={eveningId}
-          onBack={onBack}
-          onOpenPlayerCard={onOpenPlayerCard}
-          initialAddOpen={initialAddOpen}
-          onInitialAddHandled={onInitialAddHandled}
-        />
+        <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} />
       ) : null}
       {section === 'tables' ? <EveningTablesView eveningId={eveningId} onBack={onBack} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} onBack={onBack} /> : null}

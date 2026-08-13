@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Release data-safety audit
+        run: npm run release:audit
+
       - name: Full TypeScript debt report
         id: typecheck
         continue-on-error: true

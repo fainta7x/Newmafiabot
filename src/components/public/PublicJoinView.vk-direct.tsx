@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Check, ExternalLink, MapPin, Sparkles } from 'lucide-react';
-import { api, type EveningTable } from '../../lib/api.ts';
+import { api } from '../../lib/api.ts';
 
 interface PublicJoinViewProps { eveningId: string; }
 type ResponseStatus = 'going' | 'late' | 'thinking' | 'declined' | 'unanswered';
@@ -33,7 +33,8 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const [responseStatus, setResponseStatus] = useState<ResponseStatus>('unanswered');
   const [counts, setCounts] = useState<Counts | null>(null);
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const [vkReady, setVkReady] = useState(() => params.get('source') === 'vk' && !params.get('vk_error'));
+  const [vkReady, setVkReady] = useState(false);
+  const [confirmedNickname, setConfirmedNickname] = useState('');
   const oauthError = params.get('vk_error');
 
   useEffect(() => {
@@ -44,14 +45,18 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     ]).then(([event, state]) => {
       if (cancelled) return;
       setEvening(event);
-      if (state?.authenticated && !vkReady) {
+      const ready = Boolean(state?.vk_authenticated && state?.authenticated);
+      setVkReady(ready);
+      if (ready) {
         setResponseStatus((state.response_status || 'unanswered') as ResponseStatus);
+        setCounts(state.counts || null);
+        setConfirmedNickname(String(state?.player?.nickname || ''));
       }
     }).catch((err: any) => {
       if (!cancelled) setError(err?.message || 'Игровой вечер не найден или ссылка устарела');
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [eveningId, vkReady]);
+  }, [eveningId]);
 
   const startVk = async () => {
     const value = nickname.trim().replace(/\s+/g, ' ');
@@ -91,7 +96,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const formattedDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const price = Number(evening.default_price || 0);
-  const displayNickname = sessionStorage.getItem('2la_vk_nickname') || nickname || 'Игрок';
+  const displayNickname = confirmedNickname || sessionStorage.getItem('2la_vk_nickname') || nickname || 'Игрок';
   const goingCount = counts ? counts.going + counts.late : null;
 
   return (

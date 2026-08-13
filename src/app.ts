@@ -16,6 +16,8 @@ import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTelegramPublishingSchema } from './db/ensureTelegramPublishingSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
+import { ensureVkIntegrationSchema } from './db/ensureVkIntegrationSchema.ts';
+import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -74,7 +76,7 @@ import integrationRoutes from './server/routes/integrationRoutes.ts';
 import vkJoinStartRouter from './server/services/vkJoinStartRouter.ts';
 import vkJoinRegistrationCallbackRouter from './server/services/vkJoinRegistrationCallbackRouter.ts';
 import vkJoinRespondRouter from './server/services/vkJoinRespondRouter.ts';
-import vkJoinStateGetRouter from './server/services/vkJoinStateGetRouter.ts';
+import vkJoinStateRouter from './server/services/vkJoinStateRouter.ts';
 import vkDirectIntegrationRouter from './server/services/vkDirectIntegrationRouter.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
@@ -111,6 +113,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
+  await ensureVkIntegrationSchema(db);
+  await ensureVkJoinSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   if (!process.env.VITEST && process.env.NODE_ENV !== 'test') startTelegramSyncOutboxWorker(db);
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
@@ -154,7 +158,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/crm', tableScoutingRoutes);
   app.use('/api/public', vkJoinStartRouter);
   app.use('/api/public', vkJoinRespondRouter);
-  app.use('/api/public', vkJoinStateGetRouter);
+  app.use('/api/public', vkJoinStateRouter);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);

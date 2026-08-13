@@ -284,7 +284,13 @@ function createWrapper(
       const statements = splitSqlStatements(sql).map((part) => ({ sql: part }));
       if (!statements.length) return;
       if (!transactional) {
-        await session.atomicBatch(statements);
+        // An atomic batch keeps a Hrana baton alive across several HTTP calls.
+        // Never put that baton on the shared query session: a concurrent request
+        // could otherwise reuse/close the stream and Turso responds with
+        // `404 stream not found`. Transactions already use an isolated session;
+        // exec() must do the same.
+        const execSession = new TursoHttpSession(databaseUrl, authToken);
+        await execSession.atomicBatch(statements);
         return;
       }
       const data = await session.pipeline(statements.map(statementRequest), { keepOpen: true });

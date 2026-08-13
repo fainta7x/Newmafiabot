@@ -8,7 +8,7 @@ const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
 
 router.post('/evenings/:id/vk/start', async (req, res) => {
   try {
-    const db = req.db as DatabaseWrapper;
+    const db = (req as any).db as DatabaseWrapper;
     await ensureVkJoinSchema(db);
     const nickname = String(req.body?.nickname || '').trim().replace(/\s+/g, ' ');
     if (!nickname || nickname.length > 60) return res.status(400).json({ error: 'Введите игровой ник' });

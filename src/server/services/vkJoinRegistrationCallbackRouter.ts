@@ -5,11 +5,13 @@ import { ensureVkJoinSchema } from '../../db/ensureVkJoinSchema.ts';
 import { completeVkJoinOAuth, peekVkJoinOAuthState } from './vkJoinAuthService.ts';
 import { registerVkPlayer } from './vkJoinRegistrationService.ts';
 import { appendVkOAuthResult } from './vkOAuthService.ts';
+import { getPlayerSessionId } from '../auth.ts';
+import { linkVkIdentity } from './vkEveningIntegrationService.ts';
 
 const router = Router();
 
 router.get('/vk/oauth/callback', async (req, res, next) => {
-  const db = req.db as DatabaseWrapper;
+  const db = (req as any).db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   const state = String(req.query?.state || '').trim();
@@ -20,7 +22,18 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
     const result = await completeVkJoinOAuth(db, { code: req.query?.code, deviceId: req.query?.device_id, state });
     const returnUrl = new URL(result.return_to, 'https://2la-noire.local');
     const nickname = String(returnUrl.searchParams.get('nickname') || '').trim();
-    if (!result.player_id) await registerVkPlayer(db, result.vk_user_id, nickname);
+    let playerId = result.player_id;
+    if (!playerId) {
+      // If the same browser is already authenticated through Telegram/WebApp,
+      // both identities have just been proven. Link VK to that canonical player
+      // instead of creating a second profile from a typed nickname.
+      const authenticatedPlayerId = getPlayerSessionId(req);
+      if (authenticatedPlayerId) {
+        await linkVkIdentity(db, { vkUserId: result.vk_user_id, playerId: authenticatedPlayerId });
+        playerId = authenticatedPlayerId;
+      }
+    }
+    if (!playerId) await registerVkPlayer(db, result.vk_user_id, nickname);
     returnUrl.searchParams.delete('nickname');
     res.cookie('vk_join_session', result.session_token, {
       httpOnly: true,

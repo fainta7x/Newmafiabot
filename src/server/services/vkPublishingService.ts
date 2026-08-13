@@ -25,7 +25,7 @@ export type VkPublishResult = {
 export type VkPollAnswer = { id: number; text: string; votes?: number; rate?: number };
 export type VkPoll = { id: number; owner_id: number; question: string; answers: VkPollAnswer[] };
 
-const DEFAULT_PUBLIC_GROUP_ID = '233806277';
+const DEFAULT_PUBLIC_GROUP_ID = '212761164';
 const DEFAULT_PUBLIC_SCREEN_NAME = '2lanoiremafia';
 const DEFAULT_PUBLIC_URL = 'https://vk.ru/2lanoiremafia';
 const DEFAULT_CHANNEL_URL = 'https://vk.ru/im/channels/-233806277';
@@ -62,9 +62,10 @@ const getPublicUrl = () => normalizeUrl(process.env.VK_GROUP_URL) || DEFAULT_PUB
 const getChannelUrl = () => normalizeUrl(process.env.VK_CHANNEL_URL) || DEFAULT_CHANNEL_URL;
 const getChannelPeerId = () => {
   const publicAlias = getPublicGroupId() ? `-${getPublicGroupId()}` : null;
-  const explicitPeerId = normalizeChannelPeerId(
-    process.env.VK_CHANNEL_API_PEER_ID || process.env.VK_CHANNEL_PEER_ID,
-  );
+  // The old VK_CHANNEL_PEER_ID setting was populated from the browser URL and
+  // is not trustworthy as an API conversation id. Only the explicitly named
+  // API setting may enable automatic channel writes.
+  const explicitPeerId = normalizeChannelPeerId(process.env.VK_CHANNEL_API_PEER_ID);
   // /im/channels/-<community_id> is a public browser route, not an API peer_id.
   // Treating it as a conversation produces a false `is_group_channel` error.
   if (!explicitPeerId || explicitPeerId === publicAlias) return null;

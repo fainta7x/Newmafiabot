@@ -50,14 +50,14 @@ describe('VK publishing adapter', () => {
 
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        response: { object_id: 233806277, type: 'group' },
+        response: { object_id: 212761164, type: 'group' },
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         response: { post_id: 77 },
       }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await createVkWallPost({ groupId: '233806277', message: 'Анонс' });
+    const result = await createVkWallPost({ groupId: '212761164', message: 'Анонс' });
     expect(result.postId).toBe(77);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     for (const call of fetchMock.mock.calls) {

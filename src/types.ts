@@ -1,4 +1,6 @@
-export type EveningFormat = "NOVICE" | "STANDARD" | "TOURNAMENT";
+import type { StoredEveningFormat } from './lib/eveningFormat.ts';
+
+export type EveningFormat = StoredEveningFormat;
 
 export interface Player {
   id: number;
@@ -129,5 +131,4 @@ export interface OrganizerTask {
   due_date?: string;
   assigned_to?: string;
 }
-
 

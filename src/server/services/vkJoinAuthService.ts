@@ -35,6 +35,23 @@ const normalizeReturnTo = (value: unknown, eveningId: string) => {
 
 const hashSession = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
+export async function createVkJoinSession(db: DatabaseWrapper, vkUserIdInput: unknown) {
+  const vkUserId = String(vkUserIdInput || '').trim();
+  if (!/^\d+$/.test(vkUserId)) throw new Error('Некорректный VK ID');
+  const now = new Date();
+  const rawSession = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS).toISOString();
+  await db.transaction(async (tx) => {
+    await tx.run('DELETE FROM vk_join_sessions WHERE expires_at <= ?', [now.toISOString()]);
+    await tx.run(
+      `INSERT INTO vk_join_sessions (session_hash, vk_user_id, created_at, expires_at)
+       VALUES (?, ?, ?, ?)`,
+      [hashSession(rawSession), vkUserId, now.toISOString(), expiresAt],
+    );
+  });
+  return { sessionToken: rawSession, expiresAt };
+}
+
 const requestVkTokens = async (query: URLSearchParams, body: URLSearchParams): Promise<VkTokenPayload> => {
   const response = await fetch(`https://id.vk.com/oauth2/auth?${query.toString()}`, {
     method: 'POST',

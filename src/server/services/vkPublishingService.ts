@@ -97,7 +97,7 @@ export const getVkDestinations = (): VkDestination[] => {
       supported: Boolean(channelPeerId),
       reason: channelPeerId
         ? null
-        : 'VK не выдаёт API peer_id из публичной ссылки канала. Открой канал по ссылке и вставь подготовленный анонс вручную.',
+        : 'Автопубликация в каналы ещё недоступна через VK API. Кнопка «В канал» скопирует анонс и откроет канал для отправки.',
     },
   ];
 };

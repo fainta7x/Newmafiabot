@@ -34,8 +34,25 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const [counts, setCounts] = useState<Counts | null>(null);
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const [vkReady, setVkReady] = useState(false);
+  const [vkAuthenticated, setVkAuthenticated] = useState(false);
+  const [linkPending, setLinkPending] = useState(() => params.get('vk_link_pending') === '1');
+  const [linkNickname, setLinkNickname] = useState(() => params.get('vk_link_nickname') || '');
   const [confirmedNickname, setConfirmedNickname] = useState('');
   const oauthError = params.get('vk_error');
+
+  const applyJoinState = (state: any) => {
+    const ready = Boolean(state?.vk_authenticated && state?.authenticated);
+    setVkAuthenticated(Boolean(state?.vk_authenticated));
+    setVkReady(ready);
+    setLinkPending(Boolean(state?.link_pending && !ready));
+    setLinkNickname(String(state?.link_player_nickname || ''));
+    if (ready) {
+      setResponseStatus((state.response_status || 'unanswered') as ResponseStatus);
+      setCounts(state.counts || null);
+      setConfirmedNickname(String(state?.player?.nickname || ''));
+    }
+    return ready;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -45,18 +62,36 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     ]).then(([event, state]) => {
       if (cancelled) return;
       setEvening(event);
-      const ready = Boolean(state?.vk_authenticated && state?.authenticated);
-      setVkReady(ready);
-      if (ready) {
-        setResponseStatus((state.response_status || 'unanswered') as ResponseStatus);
-        setCounts(state.counts || null);
-        setConfirmedNickname(String(state?.player?.nickname || ''));
-      }
+      if (state) applyJoinState(state);
     }).catch((err: any) => {
       if (!cancelled) setError(err?.message || 'Игровой вечер не найден или ссылка устарела');
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [eveningId]);
+
+  useEffect(() => {
+    if (!linkPending) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const state = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/join-state`);
+        if (cancelled) return;
+        const ready = applyJoinState(state);
+        if (ready) {
+          setError('');
+          const url = new URL(window.location.href);
+          url.searchParams.delete('vk_link_pending');
+          url.searchParams.delete('vk_link_nickname');
+          window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+        }
+      } catch {
+        // The page keeps polling while the user confirms the private Telegram message.
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 2500);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [eveningId, linkPending]);
 
   const startVk = async () => {
     const value = nickname.trim().replace(/\s+/g, ' ');
@@ -64,6 +99,20 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     setBusy(true); setError('');
     try {
       sessionStorage.setItem('2la_vk_nickname', value);
+      if (vkAuthenticated) {
+        const claim = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/vk/claim`, {
+          method: 'POST', body: JSON.stringify({ nickname: value }),
+        });
+        if (claim?.linked) {
+          const state = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/join-state`);
+          applyJoinState(state);
+        } else {
+          setLinkPending(true);
+          setLinkNickname(String(claim?.nickname || value));
+        }
+        setBusy(false);
+        return;
+      }
       const body = await request(`/api/public/evenings/${encodeURIComponent(eveningId)}/vk/start`, {
         method: 'POST', body: JSON.stringify({ nickname: value }),
       });
@@ -115,16 +164,25 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${price.toLocaleString('ru-RU')} ₽` : 'Без оплаты'}</strong></div>
         </section>
 
-        {oauthError ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">VK: {oauthError}</div> : null}
+        {params.get('vk_linked') === '1' ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-5 text-emerald-100/80">VK успешно связан с игровым профилем.</div> : null}
+        {oauthError && !linkPending ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">VK: {oauthError}</div> : null}
         {error && evening ? <div className="rounded-2xl border border-rose-300/10 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">{error}</div> : null}
 
-        {!vkReady ? (
+        {linkPending ? (
+          <section className="rounded-3xl border border-[#2688eb]/25 bg-[#2688eb]/[0.07] p-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#75baff]">Остался один шаг</div>
+            <h2 className="mt-2 text-lg font-semibold">Подтверди профиль в MafiaBot</h2>
+            <p className="mt-2 text-sm leading-6 text-white/50">Мы отправили личное сообщение в Telegram владельцу профиля{linkNickname ? ` «${linkNickname}»` : ''}. Нажми там «Это я — связать VK».</p>
+            <div className="mt-4 rounded-2xl bg-black/20 px-4 py-3 text-sm leading-5 text-white/45">Эта страница проверяет подтверждение автоматически. Новый игрок и второй ответ созданы не будут.</div>
+            <button type="button" onClick={() => window.location.reload()} className="mt-3 min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-semibold text-white/75">Проверить сейчас</button>
+          </section>
+        ) : !vkReady ? (
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
             <h2 className="text-lg font-semibold">Записаться через VK</h2>
-            <p className="mt-1 text-sm leading-6 text-white/45">Укажи игровой ник один раз. VK ID подтвердит, что ответ принадлежит именно тебе.</p>
+            <p className="mt-1 text-sm leading-6 text-white/45">{vkAuthenticated ? 'VK ID подтверждён. Для существующего профиля осталось подтвердить связь личным сообщением в MafiaBot.' : 'Укажи игровой ник один раз. VK ID подтвердит, что ответ принадлежит именно тебе.'}</p>
             <label className="mt-4 block text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
             <input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} placeholder="Например: Чагин" className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base outline-none placeholder:text-white/20 focus:border-white/25" />
-            <button type="button" disabled={busy} onClick={() => void startVk()} className="mt-3 min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Открываем VK…' : 'Продолжить через VK ID'}</button>
+            <button type="button" disabled={busy} onClick={() => void startVk()} className="mt-3 min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50">{busy ? (vkAuthenticated ? 'Отправляем в MafiaBot…' : 'Открываем VK…') : (vkAuthenticated ? 'Подтвердить через MafiaBot' : 'Продолжить через VK ID')}</button>
             <a href="/player" className="mt-3 flex min-h-11 items-center justify-center gap-2 text-xs text-white/40">Уже вошли через Telegram? Открыть кабинет <ExternalLink className="h-3.5 w-3.5" /></a>
           </section>
         ) : (

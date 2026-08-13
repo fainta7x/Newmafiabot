@@ -53,11 +53,17 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState<VkDraft | null>(null);
+  const [showDraft, setShowDraft] = useState(false);
 
   const load = async (silent = false) => {
     if (!silent) setBusy('load');
     try {
-      setState(await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}`));
+      const [nextState, nextDraft] = await Promise.all([
+        request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}`),
+        request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/draft`).catch(() => null),
+      ]);
+      setState(nextState);
+      if (nextDraft) setDraft(nextDraft as VkDraft);
       setError(null);
     } catch (err: any) {
       setError(err?.message || 'Не удалось загрузить VK');
@@ -81,27 +87,17 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const supported = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
   const canPublish = !readonly && ['published', 'active'].includes(status);
 
-  const copyAnnouncement = async () => {
-    if (busy) return;
-    setBusy('draft'); setError(null); setMessage(null);
-    try {
-      const body = await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/draft`) as VkDraft;
-      setDraft(body);
-      let copied = false;
-      if (navigator.clipboard?.writeText) {
-        try {
-          await navigator.clipboard.writeText(body.message);
-          copied = true;
-        } catch {
-          copied = false;
-        }
-      }
-      setMessage(copied ? 'Текст анонса скопирован.' : 'Анонс подготовлен. Скопируй текст из поля ниже.');
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось подготовить VK-анонс');
-    } finally {
-      setBusy(null);
+  const copyForChannel = () => {
+    if (!draft) return;
+    setShowDraft(true);
+    setError(null);
+    if (!navigator.clipboard?.writeText) {
+      setMessage('Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.');
+      return;
     }
+    void navigator.clipboard.writeText(draft.message)
+      .then(() => setMessage('Текст скопирован. В открытом канале осталось вставить его и нажать «Отправить».'))
+      .catch(() => setMessage('Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.'));
   };
 
   const sync = async () => {
@@ -162,7 +158,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">{error}</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">{message}</div> : null}
 
-      {draft ? <div className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2.5">
+      {draft && showDraft ? <div className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2.5">
         <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="w-full resize-none rounded-lg border border-border-soft bg-surface-2 p-2 text-[10px] leading-4 text-text-primary" />
         <div className="mt-2 grid grid-cols-2 gap-2">
           <a href={draft.share_url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1 rounded-[10px] bg-[#2688eb] px-2 text-center text-[9px] font-bold text-white">Открыть публикацию <ExternalLink className="h-3 w-3" /></a>
@@ -172,8 +168,11 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>
-        <button type="button" disabled={Boolean(busy) || !canPublish} onClick={() => void copyAnnouncement()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary disabled:opacity-40"><Copy className="h-3.5 w-3.5" />{busy === 'draft' ? 'Готовим…' : 'Скопировать'}</button>
+        {draft?.channel_url && canPublish
+          ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={copyForChannel} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
+          : <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary opacity-40"><Copy className="h-3.5 w-3.5" />В канал</button>}
       </div>
+      {canPublish ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">VK пока не открыл автопубликацию для каналов: кнопка копирует готовый анонс и открывает канал. В VK останется нажать «Отправить».</p> : null}
       {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>
   );

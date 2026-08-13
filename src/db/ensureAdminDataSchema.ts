@@ -1,7 +1,10 @@
 import type { DatabaseWrapper } from './index.ts';
 import { ACHIEVEMENTS } from '../lib/achievementCatalog.ts';
+import { ensureEveningSlotsSchema } from './ensureEveningSlotsSchema.ts';
 
 export async function ensureAdminDataSchema(db: DatabaseWrapper): Promise<void> {
+  await ensureEveningSlotsSchema(db);
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS achievement_definitions (
       id TEXT PRIMARY KEY,

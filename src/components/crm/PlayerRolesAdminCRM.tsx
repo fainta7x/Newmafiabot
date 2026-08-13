@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Check, Search, ShieldCheck, UserCog, UsersRound } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';

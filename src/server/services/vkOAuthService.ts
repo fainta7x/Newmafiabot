@@ -40,7 +40,6 @@ type VkTokenPayload = {
 };
 
 const nowIso = () => new Date().toISOString();
-const base64Url = (value: Buffer | string) => Buffer.from(value).toString('base64url');
 
 export const getVkOAuthAppId = () => String(process.env.VK_APP_ID || DEFAULT_VK_APP_ID).trim() || DEFAULT_VK_APP_ID;
 export const getVkOAuthScopes = () => [...VK_SCOPES];
@@ -50,9 +49,29 @@ export const buildVkCodeChallenge = (verifier: string) => crypto
   .update(verifier)
   .digest('base64url');
 
-// Matches VK's current official SDK TokensParams implementation: the verifier value
-// used to build code_challenge is base64url-encoded when exchanged for tokens.
-export const encodeVkTokenVerifier = (verifier: string) => base64Url(verifier);
+// VK ID Web SDK sends the exact verifier used to build code_challenge.
+// Keep this helper exported so the contract is covered by tests.
+export const encodeVkTokenVerifier = (verifier: string) => verifier;
+
+export const buildVkAuthorizationCodeTokenRequest = (input: {
+  appId: string;
+  verifier: string;
+  redirectUri: string;
+  code: string;
+  deviceId: string;
+  state: string;
+}) => {
+  const query = new URLSearchParams({
+    grant_type: 'authorization_code',
+    redirect_uri: input.redirectUri,
+    client_id: input.appId,
+    code_verifier: encodeVkTokenVerifier(input.verifier),
+    state: input.state,
+    device_id: input.deviceId,
+  });
+  const body = new URLSearchParams({ code: input.code });
+  return { query, body };
+};
 
 const normalizeReturnTo = (value: unknown) => {
   const normalized = String(value || '/').trim();
@@ -69,11 +88,11 @@ export const appendVkOAuthResult = (returnTo: string, key: 'vk_connected' | 'vk_
   return `${beforeHash}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}${hash}`;
 };
 
-const requestVkTokens = async (params: URLSearchParams): Promise<VkTokenPayload> => {
-  const response = await fetch('https://id.vk.com/oauth2/auth', {
+const requestVkTokens = async (query: URLSearchParams, body: URLSearchParams): Promise<VkTokenPayload> => {
+  const response = await fetch(`https://id.vk.com/oauth2/auth?${query.toString()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-    body: params,
+    body,
   });
   const payload = await response.json().catch(() => ({})) as VkTokenPayload;
   if (!response.ok || payload.error || !payload.access_token) {
@@ -174,17 +193,20 @@ export async function completeVkOAuth(db: DatabaseWrapper, input: {
     throw new Error('VK OAuth-сессия истекла. Запусти подключение ещё раз.');
   }
 
-  const params = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: getVkOAuthAppId(),
-    code_verifier: encodeVkTokenVerifier(pending.verifier),
-    redirect_uri: pending.redirect_uri,
+  const tokenRequest = buildVkAuthorizationCodeTokenRequest({
+    appId: getVkOAuthAppId(),
+    verifier: pending.verifier,
+    redirectUri: pending.redirect_uri,
     code,
-    device_id: deviceId,
+    deviceId,
+    state,
   });
 
   try {
-    const payload = await requestVkTokens(params);
+    const payload = await requestVkTokens(tokenRequest.query, tokenRequest.body);
+    if (payload.state && payload.state !== state) {
+      throw new Error('VK ID вернул другой OAuth state');
+    }
     const credential = await saveCredential(db, payload, deviceId);
     await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
     return { ...credential, return_to: pending.return_to };
@@ -203,14 +225,16 @@ const loadCredential = (db: DatabaseWrapper) => db.get<OAuthCredentialRow>(`
 
 const refreshCredential = async (db: DatabaseWrapper, credential: OAuthCredentialRow) => {
   if (!credential.refresh_token) return false;
-  const params = new URLSearchParams({
+  const refreshState = crypto.randomBytes(16).toString('base64url');
+  const query = new URLSearchParams({
     grant_type: 'refresh_token',
     client_id: getVkOAuthAppId(),
-    refresh_token: credential.refresh_token,
     device_id: credential.device_id,
-    scope: credential.scope || VK_SCOPES.join(' '),
+    state: refreshState,
   });
-  const payload = await requestVkTokens(params);
+  const body = new URLSearchParams({ refresh_token: credential.refresh_token });
+  const payload = await requestVkTokens(query, body);
+  if (payload.state && payload.state !== refreshState) throw new Error('VK ID вернул другой refresh state');
   await saveCredential(db, payload, credential.device_id, credential);
   return true;
 };

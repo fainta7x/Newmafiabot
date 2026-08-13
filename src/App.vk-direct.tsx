@@ -1,0 +1,160 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
+import OrganizerCRM from "./components/OrganizerCRM.tsx";
+import BigScreenLive from "./components/public/BigScreenLive.tsx";
+import { PublicJoinView } from "./components/public/PublicJoinView.vk-direct.tsx";
+import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
+import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
+import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
+import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
+import AsyncState from "./components/ui/AsyncState.tsx";
+import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
+import type { PlayerMeResponse } from "./types/player.ts";
+
+type TelegramIdentity = {
+  id: number;
+  username: string | null;
+  first_name: string | null;
+};
+
+type RootState =
+  | { status: 'loading' }
+  | { status: 'player'; data: PlayerMeResponse; canOpenAdmin: boolean }
+  | { status: 'unlinked'; canOpenAdmin: boolean; telegram: TelegramIdentity | null }
+  | { status: 'error' };
+
+function getTelegramInitData(): string {
+  const telegramWebApp = (window as any).Telegram?.WebApp;
+  return typeof telegramWebApp?.initData === 'string' ? telegramWebApp.initData : '';
+}
+
+function RootMessage({ title, text, onRetry, canOpenAdmin = false, kind = 'error' }: {
+  title: string; text: string; onRetry?: () => void; canOpenAdmin?: boolean; kind?: 'loading' | 'error' | 'empty';
+}) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-5 text-white">
+      <div className="w-full max-w-[390px]">
+        <div className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
+        <AsyncState kind={kind} title={title} description={text} actionLabel="Повторить" onAction={onRetry} />
+        {canOpenAdmin && <a href="/admin" className="mt-3 block w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center text-sm font-medium text-white/80">Панель организатора</a>}
+      </div>
+    </main>
+  );
+}
+
+function PlayerRegistration({ telegram, initData, onComplete, canOpenAdmin }: {
+  telegram: TelegramIdentity | null; initData: string; onComplete: () => void; canOpenAdmin: boolean;
+}) {
+  const [nickname, setNickname] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!initData || !telegram) return <RootMessage kind="empty" title="Откройте через Telegram" text="Регистрация игрока подтверждается Telegram-аккаунтом. Откройте приложение из бота клуба и повторите вход." canOpenAdmin={canOpenAdmin} />;
+
+  const submit = async () => {
+    const value = nickname.trim().replace(/\s+/g, ' ');
+    if (!value) { setError('Введите игровой ник.'); return; }
+    if (value.length > 60) { setError('Игровой ник не должен быть длиннее 60 символов.'); return; }
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ initData, nickname: value }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (body?.code === 'nickname_taken') throw new Error('Такой ник уже есть в клубе. Если это ваш старый профиль, не создавайте новый — попросите организатора привязать существующий профиль к вашему Telegram.');
+        throw new Error(body?.error || 'Не удалось создать профиль.');
+      }
+      onComplete();
+    } catch (submitError: any) { setError(submitError?.message || 'Не удалось создать профиль.'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
+      <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+        <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
+        <h1 className="mt-3 text-2xl font-semibold">Создать профиль</h1>
+        <p className="mt-2 text-sm leading-6 text-white/50">Telegram подтверждён{telegram.first_name ? ` · ${telegram.first_name}` : ''}. Осталось выбрать игровой ник — под ним вы будете отображаться в записях, играх, рейтингах и турнирах.</p>
+        <label className="mt-5 block text-xs font-medium uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
+        <input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} autoFocus placeholder="Например: Матроскина" className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-white outline-none placeholder:text-white/20 focus:border-white/25" />
+        {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">{error}</div>}
+        <button type="button" disabled={busy} onClick={() => void submit()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{busy ? 'Создаём профиль…' : 'Зарегистрироваться'}</button>
+        <div className="mt-4 rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] px-3 py-3 text-xs leading-5 text-amber-50/50">Уже играли в 2LA noire? Если ваш профиль уже есть в клубной базе, не создавайте второй — обратитесь к организатору для привязки Telegram.</div>
+        {canOpenAdmin && <a href="/admin" className="mt-3 block text-center text-xs text-white/35">Открыть панель организатора</a>}
+      </div>
+    </main>
+  );
+}
+
+export default function App() {
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
+  const navigatePath = useCallback((nextPath: string, replace = false) => {
+    if (window.location.pathname === nextPath) { setPathname(nextPath); return; }
+    if (replace) window.history.replaceState({}, '', nextPath); else window.history.pushState({}, '', nextPath);
+    setPathname(nextPath);
+  }, []);
+
+  useEffect(() => { const handlePopState = () => setPathname(window.location.pathname); window.addEventListener('popstate', handlePopState); return () => window.removeEventListener('popstate', handlePopState); }, []);
+  useEffect(() => {
+    const backButton = (window as any).Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+    const target = appBackTarget(pathname);
+    if (!target) { backButton.hide?.(); return; }
+    const handleBack = () => navigatePath(target, true);
+    backButton.show?.(); backButton.onClick?.(handleBack);
+    return () => backButton.offClick?.(handleBack);
+  }, [navigatePath, pathname]);
+
+  const isJoinRoute = isRoutePrefix(pathname, '/join');
+  const isTournamentResultsRoute = isRoutePrefix(pathname, '/tournaments/results');
+  const isLiveRoute = isRoutePrefix(pathname, '/live');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute;
+  const isAdminRoute = isRoutePrefix(pathname, '/admin');
+  const telegramInitData = getTelegramInitData();
+  const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
+  const parsedPlayerRoute = useMemo(() => parsePlayerRoute(pathname), [pathname]);
+
+  useEffect(() => { if (!isRoutePrefix(pathname, '/player')) return; if (parsedPlayerRoute.canonicalPath !== pathname) navigatePath(parsedPlayerRoute.canonicalPath, true); }, [navigatePath, parsedPlayerRoute.canonicalPath, pathname]);
+
+  const bootstrapPlayer = useCallback(async () => {
+    if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
+    setRootState({ status: 'loading' });
+    const telegramWebApp = (window as any).Telegram?.WebApp;
+    const initData = getTelegramInitData();
+    let telegramIdentity: TelegramIdentity | null = null;
+    if (telegramWebApp) { try { telegramWebApp.ready?.(); telegramWebApp.expand?.(); } catch {} }
+    try {
+      if (initData) {
+        const telegramResponse = await fetch('/api/auth/telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ initData }) });
+        const telegramBody = await telegramResponse.json().catch(() => ({}));
+        if (!telegramResponse.ok) throw new Error('telegram-auth');
+        telegramIdentity = { id: Number(telegramBody?.id || 0), username: telegramBody?.username ?? null, first_name: telegramBody?.first_name ?? null };
+      }
+      const sessionResponse = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      if (!sessionResponse.ok) throw new Error('session');
+      const session = await sessionResponse.json();
+      const canOpenAdmin = session?.isOrganizer === true;
+      if (session?.linked === true) {
+        const profileResponse = await fetch('/api/player/me', { credentials: 'same-origin' });
+        if (!profileResponse.ok) throw new Error('player-profile');
+        setRootState({ status: 'player', data: await profileResponse.json() as PlayerMeResponse, canOpenAdmin });
+        return;
+      }
+      setRootState({ status: 'unlinked', canOpenAdmin, telegram: telegramIdentity });
+    } catch { setRootState({ status: 'error' }); }
+  }, [isAdminRoute, isPlayerContext, isPublicRoute]);
+
+  useEffect(() => { void bootstrapPlayer(); }, [bootstrapPlayer]);
+
+  if (isJoinRoute) { const parts = pathname.split('/').filter(Boolean); return <PublicJoinView eveningId={parts[1] || 'latest'} />; }
+  if (isTournamentResultsRoute) { const parts = pathname.split('/').filter(Boolean); return <PublicTournamentResults token={parts[2] || ''} />; }
+  if (isLiveRoute) return <BigScreenLive />;
+  if (isAdminRoute || !isPlayerContext) return <><BettingLiveBridge /><OrganizerCRM pathname={pathname} onNavigate={navigatePath} /></>;
+  if (rootState.status === 'loading') return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем вход через Telegram…" />;
+  if (rootState.status === 'unlinked') return <PlayerRegistration telegram={rootState.telegram} initData={telegramInitData} onComplete={() => void bootstrapPlayer()} canOpenAdmin={rootState.canOpenAdmin} />;
+  if (rootState.status === 'error') return <RootMessage kind="error" title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
+  if (parsedPlayerRoute.replayGameKey) return <><PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath('/player/games')} /><PlayerLiveCenter /></>;
+
+  const initialSection = parsedPlayerRoute.section as PlayerCabinetSection;
+  const syncPlayerPath = (section: PlayerCabinetSection, target?: string | null) => navigatePath(playerPathForSection(section as PlayerRouteSection, target));
+  return <><PlayerCabinetShell data={rootState.data} canOpenAdmin={rootState.canOpenAdmin} initialSection={initialSection} initialTarget={parsedPlayerRoute.target} onSectionChange={syncPlayerPath} /><PlayerLiveCenter /></>;
+}

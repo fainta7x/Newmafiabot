@@ -5,6 +5,7 @@ import {
   getVkDestinations,
   type VkDestination,
 } from './vkPublishingService.ts';
+import { loadVkJoinParticipants, type VkJoinParticipants } from './vkJoinRegistrationService.ts';
 
 type EveningRow = {
   id: string;
@@ -49,18 +50,16 @@ const formatDate = (evening: EveningRow) => {
   }
 };
 
-const loadCounts = async (db: DatabaseWrapper, eveningId: string) => {
-  const row = await db.get<any>(`
-    SELECT
-      SUM(CASE WHEN response_status IN ('going','late') THEN 1 ELSE 0 END) AS going_count,
-      SUM(CASE WHEN response_status = 'thinking' THEN 1 ELSE 0 END) AS thinking_count
-      FROM evening_participants
-     WHERE evening_id = ?
-  `, [eveningId]);
-  return {
-    going: Number(row?.going_count || 0),
-    thinking: Number(row?.thinking_count || 0),
-  };
+const participantLine = (icon: string, label: string, names: string[]) =>
+  names.length ? `${icon} ${label} (${names.length}): ${names.join(', ')}` : null;
+
+const buildParticipantLines = (participants: VkJoinParticipants) => {
+  const lines = [
+    participantLine('✅', 'Идут', participants.going),
+    participantLine('🕒', 'Придут позже', participants.late),
+    participantLine('🤔', 'Думают', participants.thinking),
+  ].filter((line): line is string => Boolean(line));
+  return lines.length ? ['👥 В записи:', ...lines] : ['👥 В записи пока никого — будь первым.'];
 };
 
 export const buildDirectVkEveningAnnouncement = async (
@@ -68,7 +67,7 @@ export const buildDirectVkEveningAnnouncement = async (
   evening: EveningRow,
   baseUrl: string,
 ) => {
-  const counts = await loadCounts(db, evening.id);
+  const participants = await loadVkJoinParticipants(db, evening.id);
   const lines = [
     `🕵️ ${evening.title}`,
     '',
@@ -80,7 +79,7 @@ export const buildDirectVkEveningAnnouncement = async (
   }
   lines.push(
     '',
-    `👥 Уже идут: ${counts.going} · думают: ${counts.thinking}`,
+    ...buildParticipantLines(participants),
     '',
     'Записаться или изменить ответ:',
     joinUrlFor(baseUrl, evening.id),

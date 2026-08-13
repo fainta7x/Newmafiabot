@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import PlayerEventSlotDetail from './PlayerEventSlotDetail.tsx';
 
+type EventSlot = {
+  id: string;
+  slot_number: number;
+  starts_at: string;
+  registered_count: number;
+  selected?: boolean;
+};
+
 type EventItem = {
   id: string;
   title: string;
@@ -13,6 +21,7 @@ type EventItem = {
   required_slots?: number;
   price_per_game?: number;
   participant_count?: number;
+  slots?: EventSlot[];
 };
 
 type Filter = 'all' | 'novice' | 'club' | 'rating' | 'tournament';
@@ -24,6 +33,8 @@ const FILTERS: Array<[Filter, string]> = [
   ['rating', 'Рейтинг'],
   ['tournament', 'Турниры'],
 ];
+
+const SLOT_CAPACITY = 11;
 
 const eventKind = (event: EventItem): Filter => {
   if (event.event_type === 'tournament') return 'tournament';
@@ -55,6 +66,32 @@ const formatEventDate = (value: string) => new Date(value).toLocaleString('ru-RU
   hour: '2-digit',
   minute: '2-digit',
 });
+
+const formatSlotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function SlotLoadGrid({ event, compact = false }: { event: EventItem; compact?: boolean }) {
+  if (event.event_type !== 'evening' || !event.slots?.length) return null;
+
+  return (
+    <div className={compact ? 'mt-2 flex flex-wrap gap-1' : 'mt-3 grid grid-cols-2 gap-1.5'}>
+      {event.slots.map((slot) => {
+        const full = Number(slot.registered_count || 0) >= SLOT_CAPACITY;
+        return (
+          <span
+            key={slot.id}
+            className={`${compact ? 'rounded-lg px-2 py-1 text-[9px]' : 'rounded-xl px-2.5 py-2 text-[10px]'} ${full ? 'bg-emerald-300/15 text-emerald-100' : slot.selected ? 'bg-white/[0.10] text-white/80' : 'bg-black/25 text-white/50'}`}
+          >
+            <span className="font-semibold">{formatSlotTime(slot.starts_at)}</span>
+            <span className="ml-1">· {Number(slot.registered_count || 0)}/{SLOT_CAPACITY}{full ? ' ✓' : ''}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function PlayerEventsCalendar() {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
@@ -133,6 +170,8 @@ export default function PlayerEventsCalendar() {
               <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[10px] font-medium ${kindTone(nearest)}`}>{kindLabel(nearest)}</span>
             </div>
 
+            <SlotLoadGrid event={nearest} />
+
             <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/[0.07] pt-3">
               <div>
                 {nearest.event_type === 'evening' ? (
@@ -180,8 +219,11 @@ export default function PlayerEventsCalendar() {
                 <div key={day} className="min-h-[68px] rounded-xl border border-white/[0.06] bg-black/20 p-1">
                   <div className="text-[9px] text-white/35">{day}</div>
                   {items.slice(0, 2).map((event) => (
-                    <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => setSelected(event)} className={`mt-1 block w-full truncate rounded px-1 py-1 text-left text-[7px] ${kindTone(event)}`}>
-                      {new Date(event.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} {kindLabel(event)}
+                    <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => setSelected(event)} className={`mt-1 block w-full rounded px-1 py-1 text-left text-[7px] ${kindTone(event)}`}>
+                      <span className="block truncate">{new Date(event.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} {kindLabel(event)}</span>
+                      {event.event_type === 'evening' && event.slots?.length ? (
+                        <span className="mt-0.5 block truncate opacity-80">{event.slots.map((slot) => `${slot.registered_count}/${SLOT_CAPACITY}`).join(' · ')}</span>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -196,15 +238,18 @@ export default function PlayerEventsCalendar() {
         {!loading && !error && (
           <div className="mt-3 space-y-2">
             {visible.map((event) => (
-              <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => setSelected(event)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
-                <div className="min-w-0">
-                  <b className="block truncate text-sm">{event.title}</b>
-                  <div className="mt-1 text-xs text-white/35">{formatEventDate(event.starts_at)}</div>
+              <button key={`${event.event_type}-${event.id}`} type="button" onClick={() => setSelected(event)} className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <b className="block truncate text-sm">{event.title}</b>
+                    <div className="mt-1 text-xs text-white/35">{formatEventDate(event.starts_at)}</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className={`rounded-full px-2 py-1 text-[9px] ${kindTone(event)}`}>{kindLabel(event)}</span>
+                    <div className="mt-1 text-[9px] text-white/35">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${event.required_slots || 4} игр`) : `${event.participant_count || 0} игроков`}</div>
+                  </div>
                 </div>
-                <div className="shrink-0 text-right">
-                  <span className={`rounded-full px-2 py-1 text-[9px] ${kindTone(event)}`}>{kindLabel(event)}</span>
-                  <div className="mt-1 text-[9px] text-white/35">{event.event_type === 'evening' ? (event.assembled ? 'стол собран' : `${event.assembled_slots || 0}/${event.required_slots || 4} игр`) : `${event.participant_count || 0} игроков`}</div>
-                </div>
+                <SlotLoadGrid event={event} compact />
               </button>
             ))}
             {!visible.length && <div className="rounded-2xl bg-white/[0.035] p-4 text-sm text-white/40">В этом месяце событий выбранного формата пока нет.</div>}

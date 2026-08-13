@@ -41,6 +41,14 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         <PlayerEventsCalendar />
       ) : (
         <div className="legacy-cabinet-wrap">
+          {section === 'home' && (
+            <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
+              <button type="button" onClick={() => open('events')} className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left">
+                <div className="text-sm font-semibold text-white">Запись по конкретным играм</div>
+                <div className="mt-1 text-xs text-white/45">Выбери игровые слоты и сразу увидишь итоговую стоимость →</div>
+              </button>
+            </div>
+          )}
           <LegacyPlayerCabinetShell
             {...props}
             initialSection={legacySection}

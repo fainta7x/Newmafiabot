@@ -77,17 +77,24 @@ router.post('/vk/callback', async (req, res) => {
     const db = await withVkSchema(req);
     const allowedGroups = new Set(getVkDestinations().map((item) => item.groupId).filter(Boolean).map((value) => String(value).replace(/^-/, '')));
     const groupId = String(req.body?.group_id || '').trim().replace(/^-/, '');
-    if (!groupId || (allowedGroups.size && !allowedGroups.has(groupId))) return callbackText(res, 403, 'wrong group');
+    if (!groupId) return callbackText(res, 403, 'wrong group');
 
     const callback = await getVkCallbackRequestConfig(db, groupId);
-    if (!callback.secret) return callbackText(res, 503, 'callback secret not configured');
-    if (String(req.body?.secret || '') !== callback.secret) return callbackText(res, 403, 'forbidden');
+    if (allowedGroups.size && !allowedGroups.has(groupId) && !callback.runtime) return callbackText(res, 403, 'wrong group');
 
     const type = String(req.body?.type || '').trim();
     if (type === 'confirmation') {
       if (!callback.confirmation) return callbackText(res, 503, 'callback confirmation not configured');
+      // VK may validate a newly added server before the secret starts appearing in
+      // delivery payloads. If it is present, verify it; if it is absent, the stored
+      // per-group confirmation code is sufficient for this one handshake.
+      const receivedSecret = String(req.body?.secret || '');
+      if (receivedSecret && callback.secret && receivedSecret !== callback.secret) return callbackText(res, 403, 'forbidden');
       return callbackText(res, 200, callback.confirmation);
     }
+
+    if (!callback.secret) return callbackText(res, 503, 'callback secret not configured');
+    if (String(req.body?.secret || '') !== callback.secret) return callbackText(res, 403, 'forbidden');
 
     const eventId = String(req.body?.event_id || '').trim()
       || crypto.createHash('sha256').update(JSON.stringify(req.body || {})).digest('hex');

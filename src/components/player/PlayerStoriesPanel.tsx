@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PlayerGameDetailData } from './PlayerGameDetail.tsx';
 import EveningVotingPanel from './EveningVotingPanel.tsx';
 

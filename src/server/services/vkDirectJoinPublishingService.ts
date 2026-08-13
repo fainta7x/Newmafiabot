@@ -30,6 +30,7 @@ type PublicationRow = {
 const nowIso = () => new Date().toISOString();
 
 const normalizeBaseUrl = (value: string) => String(value || '').trim().replace(/\/$/, '');
+const joinUrlFor = (baseUrl: string, eveningId: string) => `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(eveningId)}?source=vk_entry`;
 
 const formatDate = (evening: EveningRow) => {
   const date = new Date(evening.starts_at);
@@ -82,10 +83,40 @@ export const buildDirectVkEveningAnnouncement = async (
     `👥 Уже идут: ${counts.going} · думают: ${counts.thinking}`,
     '',
     'Записаться или изменить ответ:',
-    `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(evening.id)}?source=vk_entry`,
+    joinUrlFor(baseUrl, evening.id),
   );
   return lines.join('\n');
 };
+
+const loadEvening = (db: DatabaseWrapper, eveningId: string) => db.get<EveningRow>(`
+  SELECT id, title, starts_at, timezone, venue, status, default_price, settled_at
+    FROM game_evenings
+   WHERE id = ?
+   LIMIT 1
+`, [eveningId]);
+
+export async function getDirectVkEveningAnnouncementDraft(
+  db: DatabaseWrapper,
+  eveningId: string,
+  baseUrl: string,
+) {
+  const evening = await loadEvening(db, eveningId);
+  if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+  const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);
+  const joinUrl = joinUrlFor(baseUrl, evening.id);
+  const destinations = getVkDestinations();
+  return {
+    message,
+    join_url: joinUrl,
+    share_url: `https://vk.com/share.php?${new URLSearchParams({
+      url: joinUrl,
+      title: evening.title,
+      comment: message,
+    }).toString()}`,
+    public_url: destinations.find((item) => item.key === 'public')?.configuredUrl || null,
+    channel_url: destinations.find((item) => item.key === 'channel')?.configuredUrl || null,
+  };
+}
 
 const getPublication = (db: DatabaseWrapper, eveningId: string, destinationKey: string) => db.get<PublicationRow>(`
   SELECT evening_id, destination_key, group_id, post_owner_id, post_id, external_url, published_at
@@ -183,12 +214,7 @@ export async function syncDirectVkEveningPublications(
   baseUrl: string,
   options: { onlyExisting?: boolean } = {},
 ) {
-  const evening = await db.get<EveningRow>(`
-    SELECT id, title, starts_at, timezone, venue, status, default_price, settled_at
-      FROM game_evenings
-     WHERE id = ?
-     LIMIT 1
-  `, [eveningId]);
+  const evening = await loadEvening(db, eveningId);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
   if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
     throw Object.assign(new Error('VK-анонс можно публиковать только для открытого вечера'), { statusCode: 409 });

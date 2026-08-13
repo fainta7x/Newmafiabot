@@ -28,7 +28,6 @@ export type VkPoll = { id: number; owner_id: number; question: string; answers: 
 const DEFAULT_PUBLIC_GROUP_ID = '233806277';
 const DEFAULT_PUBLIC_SCREEN_NAME = '2lanoiremafia';
 const DEFAULT_PUBLIC_URL = 'https://vk.ru/2lanoiremafia';
-const DEFAULT_CHANNEL_PEER_ID = '-233806277';
 const DEFAULT_CHANNEL_URL = 'https://vk.ru/im/channels/-233806277';
 
 let runtimeVkUserToken = '';
@@ -45,7 +44,7 @@ const normalizeGroupId = (value: unknown): string | null => {
 const normalizeChannelPeerId = (value: unknown): string | null => {
   const normalized = String(value || '').trim();
   if (!/^-?\d+$/.test(normalized) || Number(normalized) === 0) return null;
-  return String(-Math.abs(Number(normalized)));
+  return String(Number(normalized));
 };
 
 const normalizeUrl = (value: unknown): string | null => {
@@ -53,24 +52,26 @@ const normalizeUrl = (value: unknown): string | null => {
   return normalized || null;
 };
 
-const channelPeerFromUrl = (value: unknown): string | null => {
-  const url = normalizeUrl(value);
-  if (!url) return null;
-  const match = url.match(/\/im\/channels\/(-?\d+)/i);
-  return match ? normalizeChannelPeerId(match[1]) : null;
-};
-
 const getVkToken = () => runtimeVkUserToken || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
+const getVkPublisherToken = () => getVkGroupToken() || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkVersion = () => String(process.env.VK_API_VERSION || '5.199').trim() || '5.199';
 const getPublicGroupId = () => normalizeGroupId(process.env.VK_GROUP_ID || DEFAULT_PUBLIC_GROUP_ID);
 const getPublicScreenName = () => String(process.env.VK_GROUP_SCREEN_NAME || DEFAULT_PUBLIC_SCREEN_NAME).trim();
 const getPublicUrl = () => normalizeUrl(process.env.VK_GROUP_URL) || DEFAULT_PUBLIC_URL;
 const getChannelUrl = () => normalizeUrl(process.env.VK_CHANNEL_URL) || DEFAULT_CHANNEL_URL;
-const getChannelPeerId = () => normalizeChannelPeerId(process.env.VK_CHANNEL_PEER_ID)
-  || normalizeChannelPeerId(process.env.VK_CHANNEL_GROUP_ID)
-  || channelPeerFromUrl(getChannelUrl())
-  || DEFAULT_CHANNEL_PEER_ID;
+const getChannelPeerId = () => {
+  const publicAlias = getPublicGroupId() ? `-${getPublicGroupId()}` : null;
+  const explicitPeerId = normalizeChannelPeerId(
+    process.env.VK_CHANNEL_API_PEER_ID || process.env.VK_CHANNEL_PEER_ID,
+  );
+  // /im/channels/-<community_id> is a public browser route, not an API peer_id.
+  // Treating it as a conversation produces a false `is_group_channel` error.
+  if (!explicitPeerId || explicitPeerId === publicAlias) return null;
+  return explicitPeerId;
+};
+
+export const hasVkPublisherToken = () => Boolean(getVkPublisherToken());
 
 export const getVkDestinations = (): VkDestination[] => {
   const publicGroupId = getPublicGroupId();
@@ -91,9 +92,11 @@ export const getVkDestinations = (): VkDestination[] => {
       name: 'Канал VK',
       groupId: channelPeerId,
       configuredUrl: getChannelUrl(),
-      active: Boolean(channelPeerId),
+      active: Boolean(getChannelUrl()),
       supported: Boolean(channelPeerId),
-      reason: channelPeerId ? null : 'Не удалось определить peer_id VK-канала',
+      reason: channelPeerId
+        ? null
+        : 'VK не выдаёт API peer_id из публичной ссылки канала. Открой канал по ссылке и вставь подготовленный анонс вручную.',
     },
   ];
 };
@@ -120,6 +123,7 @@ export const getVkCallbackConfirmation = (groupId: unknown): string => {
 export function getVkIntegrationStatus() {
   const token = getVkToken();
   const groupToken = getVkGroupToken();
+  const publisherToken = getVkPublisherToken();
   const destinations = getVkDestinations();
   const publicDestination = destinations.find((item) => item.key === 'public');
   const supportedChannel = destinations.find((item) => item.key === 'channel' && item.active && item.supported);
@@ -132,9 +136,11 @@ export function getVkIntegrationStatus() {
   );
   const channelConfirmationReady = !supportedChannel || channelUsesSameCommunity || Boolean(callback.channelConfirmation);
   return {
-    configured: Boolean(token && publicDestination?.groupId),
+    configured: Boolean(publisherToken && publicDestination?.groupId),
     token_configured: Boolean(token),
     group_token_configured: Boolean(groupToken),
+    publisher_token_configured: Boolean(publisherToken),
+    publisher_token_source: groupToken ? 'community' : publisherToken ? 'legacy_user' : null,
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,
@@ -178,8 +184,12 @@ export async function vkApi<T>(method: string, params: Record<string, string | n
   return callVkApi<T>(getVkToken(), method, params);
 }
 
+export async function vkPublisherApi<T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> {
+  return callVkApi<T>(getVkPublisherToken(), method, params);
+}
+
 const vkChannelApi = async <T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
-  const token = getVkGroupToken() || getVkToken();
+  const token = getVkPublisherToken();
   return callVkApi<T>(token, method, params);
 };
 
@@ -193,7 +203,7 @@ const verifiedOwnerIdForGroup = async (groupId: string): Promise<number> => {
   const configuredPublicId = getPublicGroupId();
   const screenName = getPublicScreenName();
   if (configuredPublicId && screenName && String(Math.abs(ownerId)) === configuredPublicId) {
-    const resolved = await vkApi<{ object_id?: number; group_id?: number; type?: string }>('utils.resolveScreenName', {
+    const resolved = await vkPublisherApi<{ object_id?: number; group_id?: number; type?: string }>('utils.resolveScreenName', {
       screen_name: screenName,
     });
     const resolvedId = Number(resolved?.group_id || resolved?.object_id || 0);
@@ -210,7 +220,7 @@ const verifiedOwnerIdForGroup = async (groupId: string): Promise<number> => {
 
 export async function createVkPoll(groupId: string, question: string, answers: string[]): Promise<VkPoll> {
   const ownerId = await verifiedOwnerIdForGroup(groupId);
-  return vkApi<VkPoll>('polls.create', {
+  return vkPublisherApi<VkPoll>('polls.create', {
     owner_id: ownerId,
     question,
     is_anonymous: false,
@@ -290,7 +300,7 @@ export async function createVkWallPost(input: {
   }
 
   const ownerId = await verifiedOwnerIdForGroup(input.groupId);
-  const result = await vkApi<{ post_id: number }>('wall.post', {
+  const result = await vkPublisherApi<{ post_id: number }>('wall.post', {
     owner_id: ownerId,
     from_group: true,
     message: input.message,
@@ -317,7 +327,7 @@ export async function editVkWallPost(input: {
     return;
   }
 
-  await vkApi<number>('wall.edit', {
+  await vkPublisherApi<number>('wall.edit', {
     owner_id: await verifiedOwnerIdForGroup(input.groupId),
     post_id: input.postId,
     message: input.message,

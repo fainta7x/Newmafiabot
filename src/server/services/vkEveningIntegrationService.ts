@@ -542,6 +542,11 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
   const publicationMap = new Map(publications.map((row) => [row.destination_key, row]));
   const destinations = getVkDestinations().map((destination) => {
     const publication = publicationMap.get(destination.key);
+    const storedError = String(publication?.last_error || '');
+    const obsoleteVkIdPublisherError = destination.key === 'public'
+      && integration.publisher_token_source === 'community'
+      && /(?:VK API 1051|profile type)/i.test(storedError);
+    const visibleError = !destination.supported || obsoleteVkIdPublisherError ? null : (publication?.last_error || null);
     return {
       key: destination.key,
       name: destination.name,
@@ -550,11 +555,13 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
       reason: destination.reason,
       configured_url: destination.configuredUrl,
       published: publication?.status === 'published',
-      status: publication?.status || (destination.active ? 'ready' : 'not_configured'),
+      status: destination.supported
+        ? (publication?.status || (destination.active ? 'ready' : 'not_configured'))
+        : (destination.active ? 'manual' : 'not_configured'),
       external_url: publication?.external_url || destination.configuredUrl,
       post_id: publication?.post_id || null,
       poll_id: publication?.poll_id || null,
-      last_error: publication?.last_error || null,
+      last_error: visibleError,
       updated_at: publication?.updated_at || null,
     };
   });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ExternalLink, Link2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 
 type VkDestination = {
   key: string;
@@ -19,9 +19,19 @@ type VkState = {
   integration: {
     configured: boolean;
     oauth?: { managed_connected: boolean; api_compatible?: boolean; token_source?: string | null };
+    publisher_token_configured?: boolean;
+    publisher_token_source?: 'community' | 'legacy_user' | null;
     mode?: string;
   };
   destinations: VkDestination[];
+};
+
+type VkDraft = {
+  message: string;
+  join_url: string;
+  share_url: string;
+  public_url: string | null;
+  channel_url: string | null;
 };
 
 interface Props { eveningId: string; status: string; readonly?: boolean; }
@@ -42,6 +52,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [draft, setDraft] = useState<VkDraft | null>(null);
 
   const load = async (silent = false) => {
     if (!silent) setBusy('load');
@@ -57,10 +68,8 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const connected = url.searchParams.get('vk_connected');
-    const oauthError = url.searchParams.get('vk_error');
-    if (connected) setMessage('Автопубликация VK подключена.');
-    if (oauthError) setError(`VK: ${oauthError}`);
+    const connected = url.searchParams.has('vk_connected');
+    const oauthError = url.searchParams.has('vk_error');
     if (connected || oauthError) {
       url.searchParams.delete('vk_connected');
       url.searchParams.delete('vk_error');
@@ -72,18 +81,25 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const supported = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
   const canPublish = !readonly && ['published', 'active'].includes(status);
 
-  const connectVk = async () => {
+  const copyAnnouncement = async () => {
     if (busy) return;
-    setBusy('connect'); setError(null); setMessage(null);
+    setBusy('draft'); setError(null); setMessage(null);
     try {
-      const body = await request('/api/integrations/vk/api-oauth/start', {
-        method: 'POST',
-        body: JSON.stringify({ return_to: `${window.location.pathname}${window.location.search}${window.location.hash}` }),
-      });
-      if (!body?.authorize_url) throw new Error('Сервер не вернул ссылку VK API');
-      window.location.assign(String(body.authorize_url));
+      const body = await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/draft`) as VkDraft;
+      setDraft(body);
+      let copied = false;
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(body.message);
+          copied = true;
+        } catch {
+          copied = false;
+        }
+      }
+      setMessage(copied ? 'Текст анонса скопирован.' : 'Анонс подготовлен. Скопируй текст из поля ниже.');
     } catch (err: any) {
-      setError(err?.message || 'Не удалось подключить автопубликацию VK');
+      setError(err?.message || 'Не удалось подготовить VK-анонс');
+    } finally {
       setBusy(null);
     }
   };
@@ -118,11 +134,10 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
       {!state.integration.configured ? (
         <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
-          <div>Запись игроков через VK ID уже готова. Для автоматической публикации постов нужно отдельно подключить VK API.</div>
-          {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void connectVk()} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#2688eb] px-3 text-[10px] font-bold text-white disabled:opacity-40"><Link2 className="h-3.5 w-3.5" />{busy === 'connect' ? 'Открываем VK…' : 'Подключить автопубликацию'}</button> : null}
+          Запись игроков через VK ID работает. Автопубликации в паблик нужен серверный ключ сообщества; до его подключения анонс можно подготовить и разместить вручную ниже.
         </div>
       ) : (
-        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Автопубликация VK подключена. Запись игроков работает через VK ID.</div>
+        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Автопубликация в паблик подключена через ключ сообщества. Запись игроков работает через VK ID.</div>
       )}
 
       <div className="mt-3 space-y-1.5">
@@ -131,7 +146,11 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
           const publicationLabel = destination.key === 'channel' ? 'Сообщение' : 'Пост';
           return <div key={destination.key} className="rounded-xl border border-border-soft bg-surface-1 px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className={`h-4 w-4 shrink-0 ${destination.published ? 'text-success' : 'text-text-muted'}`} />
+              {destination.published
+                ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                : destination.supported
+                  ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" />
+                  : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />}
               <strong className="min-w-0 flex-1 text-[11px] text-text-primary">{destination.name}</strong>
               {openUrl ? <a href={openUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-surface-2 px-2 text-[9px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
             </div>
@@ -143,8 +162,18 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">{error}</div> : null}
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">{message}</div> : null}
 
-      <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="mt-3 min-h-11 w-full rounded-[12px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Синхронизируем…' : 'Синхронизировать VK'}</button>
-      {!state.integration.configured ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала подключи автопубликацию.</p> : null}
+      {draft ? <div className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2.5">
+        <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="w-full resize-none rounded-lg border border-border-soft bg-surface-2 p-2 text-[10px] leading-4 text-text-primary" />
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <a href={draft.share_url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1 rounded-[10px] bg-[#2688eb] px-2 text-center text-[9px] font-bold text-white">Открыть публикацию <ExternalLink className="h-3 w-3" /></a>
+          {draft.channel_url ? <a href={draft.channel_url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1 rounded-[10px] bg-surface-2 px-2 text-center text-[9px] font-bold text-accent">Открыть канал <ExternalLink className="h-3 w-3" /></a> : null}
+        </div>
+      </div> : null}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>
+        <button type="button" disabled={Boolean(busy) || !canPublish} onClick={() => void copyAnnouncement()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary disabled:opacity-40"><Copy className="h-3.5 w-3.5" />{busy === 'draft' ? 'Готовим…' : 'Скопировать'}</button>
+      </div>
       {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>
   );

@@ -42,6 +42,7 @@ export const getVkDestinations = (): VkDestination[] => {
   const publicGroupId = normalizeGroupId(process.env.VK_GROUP_ID);
   const channelGroupId = normalizeGroupId(process.env.VK_CHANNEL_GROUP_ID);
   const channelUrl = normalizeUrl(process.env.VK_CHANNEL_URL);
+  const channelDuplicatesPublic = Boolean(channelGroupId && publicGroupId && channelGroupId === publicGroupId);
 
   return [
     {
@@ -59,33 +60,54 @@ export const getVkDestinations = (): VkDestination[] => {
       groupId: channelGroupId,
       configuredUrl: channelUrl || (channelGroupId ? `https://vk.com/club${channelGroupId}` : null),
       active: Boolean(channelGroupId || channelUrl),
-      supported: Boolean(channelGroupId),
-      reason: channelGroupId
-        ? null
-        : channelUrl
-          ? 'Для нового объекта «Канал ВКонтакте» в публичной схеме VK API 5.199 нет отдельного метода публикации. Если канал является стеной сообщества, укажите VK_CHANNEL_GROUP_ID.'
-          : 'Канал ещё не привязан',
+      supported: Boolean(channelGroupId) && !channelDuplicatesPublic,
+      reason: channelDuplicatesPublic
+        ? 'Канал указывает на тот же VK-паблик — отдельная публикация не создаётся.'
+        : channelGroupId
+          ? null
+          : channelUrl
+            ? 'Для нового объекта «Канал ВКонтакте» в публичной схеме VK API 5.199 нет отдельного метода публикации. Если канал является стеной сообщества, укажите VK_CHANNEL_GROUP_ID.'
+            : 'Канал ещё не привязан',
     },
   ];
 };
 
 export const getVkCallbackConfig = () => ({
   secret: String(process.env.VK_CALLBACK_SECRET || '').trim(),
-  confirmation: String(process.env.VK_CALLBACK_CONFIRMATION || '').trim(),
+  publicConfirmation: String(process.env.VK_CALLBACK_CONFIRMATION || '').trim(),
+  channelConfirmation: String(process.env.VK_CHANNEL_CALLBACK_CONFIRMATION || '').trim(),
 });
+
+export const getVkCallbackConfirmation = (groupId: unknown): string => {
+  const normalizedGroupId = normalizeGroupId(groupId);
+  if (!normalizedGroupId) return '';
+  const publicGroupId = normalizeGroupId(process.env.VK_GROUP_ID);
+  const channelGroupId = normalizeGroupId(process.env.VK_CHANNEL_GROUP_ID);
+  const callback = getVkCallbackConfig();
+  if (publicGroupId && normalizedGroupId === publicGroupId) return callback.publicConfirmation;
+  if (channelGroupId && normalizedGroupId === channelGroupId) {
+    return channelGroupId === publicGroupId ? callback.publicConfirmation : callback.channelConfirmation;
+  }
+  return '';
+};
 
 export function getVkIntegrationStatus() {
   const token = getVkToken();
   const destinations = getVkDestinations();
   const publicDestination = destinations.find((item) => item.key === 'public');
+  const supportedChannel = destinations.find((item) => item.key === 'channel' && item.active && item.supported);
   const callback = getVkCallbackConfig();
+  const publicConfirmationReady = Boolean(callback.publicConfirmation);
+  const channelConfirmationReady = !supportedChannel || Boolean(callback.channelConfirmation);
   return {
     configured: Boolean(token && publicDestination?.groupId),
     token_configured: Boolean(token),
     group_id: publicDestination?.groupId || null,
     api_version: getVkVersion(),
     callback_secret_configured: Boolean(callback.secret),
-    callback_confirmation_configured: Boolean(callback.confirmation),
+    callback_confirmation_configured: publicConfirmationReady && channelConfirmationReady,
+    public_callback_confirmation_configured: publicConfirmationReady,
+    channel_callback_confirmation_configured: channelConfirmationReady,
     destinations,
   };
 }

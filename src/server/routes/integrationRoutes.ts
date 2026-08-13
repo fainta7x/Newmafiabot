@@ -12,7 +12,12 @@ import {
   syncVkEveningPublications,
   unlinkVkIdentity,
 } from '../services/vkEveningIntegrationService.ts';
-import { getVkCallbackConfig, getVkDestinations, getVkIntegrationStatus } from '../services/vkPublishingService.ts';
+import {
+  getVkCallbackConfig,
+  getVkCallbackConfirmation,
+  getVkDestinations,
+  getVkIntegrationStatus,
+} from '../services/vkPublishingService.ts';
 
 const router = Router();
 
@@ -33,22 +38,36 @@ router.post('/vk/callback', async (req, res) => {
 
     const allowedGroups = new Set(getVkDestinations().map((item) => item.groupId).filter(Boolean).map(String));
     const groupId = String(req.body?.group_id || '').trim();
-    if (allowedGroups.size && groupId && !allowedGroups.has(groupId)) return callbackText(res, 403, 'wrong group');
+    if (!groupId || (allowedGroups.size && !allowedGroups.has(groupId))) return callbackText(res, 403, 'wrong group');
 
     const type = String(req.body?.type || '').trim();
     if (type === 'confirmation') {
-      if (!callback.confirmation) return callbackText(res, 503, 'callback confirmation not configured');
-      return callbackText(res, 200, callback.confirmation);
+      const confirmation = getVkCallbackConfirmation(groupId);
+      if (!confirmation) return callbackText(res, 503, 'callback confirmation not configured');
+      return callbackText(res, 200, confirmation);
     }
 
-    const eventId = String(req.body?.event_id || '').trim() || crypto.createHash('sha256').update(JSON.stringify(req.body || {})).digest('hex');
-    const inserted = await db.run(`INSERT OR IGNORE INTO vk_callback_events (event_id, event_type, received_at) VALUES (?, ?, ?)`, [eventId, type || 'unknown', new Date().toISOString()]);
-    if (!inserted.changes) return callbackText(res, 200, 'ok');
+    const eventId = String(req.body?.event_id || '').trim()
+      || crypto.createHash('sha256').update(JSON.stringify(req.body || {})).digest('hex');
+    let duplicate = false;
 
-    if (type === 'poll_vote_new') {
-      const vote = parseVkPollVoteCallback(req.body);
-      if (vote) await processVkPollVoteCallback(db, vote);
-    }
+    await db.transaction(async (tx) => {
+      const inserted = await tx.run(
+        `INSERT OR IGNORE INTO vk_callback_events (event_id, event_type, received_at) VALUES (?, ?, ?)`,
+        [eventId, type || 'unknown', new Date().toISOString()],
+      );
+      if (!inserted.changes) {
+        duplicate = true;
+        return;
+      }
+
+      if (type === 'poll_vote_new') {
+        const vote = parseVkPollVoteCallback(req.body);
+        if (vote) await processVkPollVoteCallback(tx, vote);
+      }
+    });
+
+    if (duplicate) return callbackText(res, 200, 'ok');
     return callbackText(res, 200, 'ok');
   } catch (error) {
     console.error('[VK CALLBACK]', error);

@@ -241,6 +241,11 @@ export default function PlayerCabinetV2({
   const [selectedProfileError, setSelectedProfileError] = useState<string | null>(null);
 
   useEffect(() => {
+    setTab(initialTab);
+    if (initialTab !== 'home') setTokensOpen(false);
+  }, [initialTab]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {

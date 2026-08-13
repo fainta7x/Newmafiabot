@@ -53,6 +53,26 @@ export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<vo
       received_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS vk_oauth_credentials (
+      credential_key TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      device_id TEXT NOT NULL,
+      user_id TEXT,
+      scope TEXT,
+      expires_at TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS vk_oauth_states (
+      state TEXT PRIMARY KEY,
+      verifier TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      return_to TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_external_identity_player
       ON player_external_identities(platform, player_id);
     CREATE INDEX IF NOT EXISTS idx_vk_publications_poll
@@ -61,5 +81,7 @@ export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<vo
       ON vk_poll_votes(evening_id, sync_status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_vk_votes_user
       ON vk_poll_votes(vk_user_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_vk_oauth_states_expiry
+      ON vk_oauth_states(expires_at);
   `);
 }

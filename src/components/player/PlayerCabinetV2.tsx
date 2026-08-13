@@ -11,7 +11,6 @@ import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 export type PlayerTab = 'home' | 'games' | 'rating' | 'stats' | 'club' | 'payments' | 'profile';
 type GameScope = 'mine' | 'all';
 type ProfileScope = 'self' | 'players';
-type EveningResponseStatus = 'going' | 'late' | 'thinking' | 'declined';
 
 type PlayerEvening = {
   id: string;
@@ -20,8 +19,6 @@ type PlayerEvening = {
   venue: string | null;
   format: string;
   default_price: number | null;
-  response_status: EveningResponseStatus | 'unanswered' | string;
-  attending_count: number;
 };
 
 type RatingPlayer = {
@@ -89,13 +86,6 @@ const NAV_ITEMS: Array<{ id: PlayerTab; icon: string; label: string }> = [
   { id: 'club', icon: '◆', label: 'Клуб' },
   { id: 'payments', icon: '₽', label: 'Оплата' },
   { id: 'profile', icon: '●', label: 'Профиль' },
-];
-
-const RESPONSE_OPTIONS: Array<{ status: EveningResponseStatus; label: string }> = [
-  { status: 'going', label: '✅ Иду' },
-  { status: 'late', label: '⏳ Приду позже' },
-  { status: 'thinking', label: '🤔 Пока думаю' },
-  { status: 'declined', label: '❌ Не иду' },
 ];
 
 const formatDate = (value: string | null) => {
@@ -224,7 +214,6 @@ export default function PlayerCabinetV2({
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
   const [eveningsError, setEveningsError] = useState<string | null>(null);
-  const [savingEveningId, setSavingEveningId] = useState<string | null>(null);
   const [allGames, setAllGames] = useState<AllGame[] | null>(null);
   const [allGamesError, setAllGamesError] = useState<string | null>(null);
   const [eloGames, setEloGames] = useState<Record<string, PlayerGameEloChange> | null>(null);
@@ -331,36 +320,6 @@ export default function PlayerCabinetV2({
     return () => { cancelled = true; };
   }, [tab, profileScope, clubPlayers]);
 
-  const respondToEvening = async (eveningId: string, status: EveningResponseStatus) => {
-    setSavingEveningId(eveningId);
-    try {
-      const response = await fetch(`/api/player/evenings/${encodeURIComponent(eveningId)}/respond`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ response_status: status }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить ответ');
-      setEvenings((current) => (current || []).map((evening) => {
-        if (evening.id !== eveningId) return evening;
-        const wasAttending = evening.response_status === 'going' || evening.response_status === 'late';
-        const willAttend = status === 'going' || status === 'late';
-        const delta = Number(willAttend) - Number(wasAttending);
-        return {
-          ...evening,
-          response_status: status,
-          attending_count: Math.max(0, Number(evening.attending_count || 0) + delta),
-        };
-      }));
-      setEveningsError(null);
-    } catch (error: any) {
-      setEveningsError(error?.message || 'Не удалось сохранить ответ');
-    } finally {
-      setSavingEveningId(null);
-    }
-  };
-
   const openGameDetail = async (gameKey: string) => {
     setSelectedGameKey(gameKey);
     setSelectedGameDetail(null);
@@ -443,14 +402,10 @@ export default function PlayerCabinetV2({
               {evenings === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p> : evenings.length ? (
                 <div className="space-y-3">{evenings.map((evening) => {
                   const format = normalizeEveningFormat(evening.format);
-                  const saving = savingEveningId === evening.id;
                   return <article key={evening.id} className="rounded-2xl bg-black/20 p-3">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{evening.title}</div><div className="mt-1 text-xs text-white/45">{formatEveningDate(evening.starts_at)}</div>{evening.venue && <div className="mt-1 truncate text-xs text-white/35">📍 {evening.venue}</div>}</div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-[10px] font-medium text-white/60">{EVENING_FORMAT_LABELS[format]}</span></div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-white/40"><span>Идут: {evening.attending_count}</span>{evening.default_price != null && <span>{Number(evening.default_price)} ₽</span>}</div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">{RESPONSE_OPTIONS.map((option) => {
-                      const selected = evening.response_status === option.status;
-                      return <button key={option.status} type="button" disabled={saving} onClick={() => void respondToEvening(evening.id, option.status)} className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-medium transition ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-white/[0.05] text-white/70'} ${saving ? 'opacity-50' : ''}`}>{option.label}</button>;
-                    })}</div>
+                    <div className="mt-3 text-xs leading-5 text-white/40">Запись теперь идёт по конкретным игровым слотам. Выбери игры, на которые приедешь — сумма посчитается автоматически.</div>
+                    <a href={`/player/events?event=${encodeURIComponent(evening.id)}`} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-white px-3 text-xs font-semibold text-black"><span>Выбрать игры</span><span>→</span></a>
                   </article>;
                 })}</div>
               ) : <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сейчас нет доступных игровых вечеров.</p>}

@@ -1,19 +1,12 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
+  canEditVkWallPosts,
   createVkWallPost,
   editVkWallPost,
   getVkDestinations,
   type VkDestination,
 } from './vkPublishingService.ts';
 import { loadVkJoinParticipants, type VkJoinParticipants } from './vkJoinRegistrationService.ts';
-
-// Direct-join publishing uses the server-side community key. VK rejects the
-// legacy screen-name verification preflight for that auth type (API error 27),
-// while wall publishing itself is supported. Disable only that redundant
-// preflight and keep the configured numeric community ID as the source of truth.
-if (String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim()) {
-  process.env.VK_GROUP_SCREEN_NAME = ' ';
-}
 
 type EveningRow = {
   id: string;
@@ -162,15 +155,28 @@ const syncDestination = async (
   message: string,
   onlyExisting: boolean,
 ) => {
-  if (!destination.groupId || !destination.supported) return null;
+  if (!destination.groupId || !destination.supported) return { publication: null, skipped: true };
   const existing = await getPublication(db, evening.id, destination.key);
-  if (onlyExisting && !existing?.post_id) return null;
+  if (onlyExisting && !existing?.post_id) return { publication: null, skipped: true };
 
   let postOwnerId = Number(existing?.post_owner_id || 0);
   let postId = Number(existing?.post_id || 0);
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
   if (postId > 0) {
+    if (destination.key === 'public' && !canEditVkWallPosts()) {
+      const now = nowIso();
+      await db.run(`
+        UPDATE vk_evening_publications
+           SET status='published', last_error=NULL, updated_at=?
+         WHERE evening_id=? AND destination_key=? AND post_id IS NOT NULL
+      `, [now, evening.id, destination.key]);
+      return {
+        publication: await getPublication(db, evening.id, destination.key),
+        skipped: true,
+        reason: 'Пост уже опубликован. Свежий текст можно скопировать и вставить через редактирование в VK.',
+      };
+    }
     await editVkWallPost({ groupId: destination.groupId, postId, message });
     if (destination.key === 'public') {
       postOwnerId = -Math.abs(Number(destination.groupId));
@@ -212,7 +218,7 @@ const syncDestination = async (
     now,
   ]);
 
-  return getPublication(db, evening.id, destination.key);
+  return { publication: await getPublication(db, evening.id, destination.key), skipped: false };
 };
 
 export async function syncDirectVkEveningPublications(
@@ -229,14 +235,14 @@ export async function syncDirectVkEveningPublications(
 
   const message = await buildDirectVkEveningAnnouncement(db, evening, baseUrl);
   const onlyExisting = Boolean(options.onlyExisting);
-  const results: Array<{ destination: string; success: boolean; skipped?: boolean; error?: string }> = [];
+  const results: Array<{ destination: string; success: boolean; skipped?: boolean; reason?: string; error?: string }> = [];
 
   for (const destination of getVkDestinations()) {
     if (!destination.active || !destination.supported || !destination.groupId) continue;
     try {
-      const publication = await syncDestination(db, evening, destination, message, onlyExisting);
-      if (!publication) {
-        results.push({ destination: destination.key, success: true, skipped: true });
+      const synced = await syncDestination(db, evening, destination, message, onlyExisting);
+      if (!synced.publication || synced.skipped) {
+        results.push({ destination: destination.key, success: true, skipped: true, reason: synced.reason });
       } else {
         results.push({ destination: destination.key, success: true });
       }

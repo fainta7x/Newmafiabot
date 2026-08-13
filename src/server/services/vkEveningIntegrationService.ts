@@ -546,7 +546,14 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
     const obsoleteVkIdPublisherError = destination.key === 'public'
       && integration.publisher_token_source === 'community'
       && /(?:VK API 1051|profile type)/i.test(storedError);
-    const visibleError = !destination.supported || obsoleteVkIdPublisherError ? null : (publication?.last_error || null);
+    const communityEditError = destination.key === 'public'
+      && integration.publisher_token_source === 'community'
+      && Boolean(publication?.post_id)
+      && /(?:VK API 27|group auth|group authorization)/i.test(storedError);
+    const recoverablePublisherError = obsoleteVkIdPublisherError || communityEditError;
+    const effectivelyPublished = Boolean(publication?.post_id)
+      && (publication?.status === 'published' || recoverablePublisherError);
+    const visibleError = !destination.supported || recoverablePublisherError ? null : (publication?.last_error || null);
     return {
       key: destination.key,
       name: destination.name,
@@ -554,9 +561,9 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
       supported: destination.supported,
       reason: destination.reason,
       configured_url: destination.configuredUrl,
-      published: publication?.status === 'published',
+      published: effectivelyPublished,
       status: destination.supported
-        ? (publication?.status || (destination.active ? 'ready' : 'not_configured'))
+        ? (effectivelyPublished ? 'published' : (publication?.status || (destination.active ? 'ready' : 'not_configured')))
         : (destination.active ? 'manual' : 'not_configured'),
       external_url: publication?.external_url || destination.configuredUrl,
       post_id: publication?.post_id || null,

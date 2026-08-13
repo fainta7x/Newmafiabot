@@ -21,6 +21,7 @@ type VkState = {
     oauth?: { managed_connected: boolean; api_compatible?: boolean; token_source?: string | null };
     publisher_token_configured?: boolean;
     publisher_token_source?: 'community' | 'legacy_user' | null;
+    public_post_edit_supported?: boolean;
     mode?: string;
   };
   destinations: VkDestination[];
@@ -86,18 +87,29 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
   const supported = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
   const canPublish = !readonly && ['published', 'active'].includes(status);
+  const publicDestination = state?.destinations.find((item) => item.key === 'public');
+  const publicNeedsManualEdit = Boolean(
+    publicDestination?.published
+    && state?.integration.publisher_token_source === 'community'
+    && !state?.integration.public_post_edit_supported,
+  );
 
-  const copyForChannel = () => {
+  const copyDraft = (target: 'public' | 'channel') => {
     if (!draft) return;
     setShowDraft(true);
     setError(null);
+    const fallback = target === 'public'
+      ? 'Пост открыт. Скопируй подготовленный текст ниже и вставь его через «Редактировать» в VK.'
+      : 'Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.';
     if (!navigator.clipboard?.writeText) {
-      setMessage('Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.');
+      setMessage(fallback);
       return;
     }
     void navigator.clipboard.writeText(draft.message)
-      .then(() => setMessage('Текст скопирован. В открытом канале осталось вставить его и нажать «Отправить».'))
-      .catch(() => setMessage('Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.'));
+      .then(() => setMessage(target === 'public'
+        ? 'Свежий текст скопирован. В открытом посте выбери «Редактировать» и вставь его.'
+        : 'Текст скопирован. В открытом канале осталось вставить его и нажать «Отправить».'))
+      .catch(() => setMessage(fallback));
   };
 
   const sync = async () => {
@@ -133,7 +145,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
           Запись игроков через VK ID работает. Автопубликации в паблик нужен серверный ключ сообщества; до его подключения анонс можно подготовить и разместить вручную ниже.
         </div>
       ) : (
-        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Автопубликация в паблик подключена через ключ сообщества. Запись игроков работает через VK ID.</div>
+        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Публикация новых анонсов в паблик подключена. Запись игроков работает через VK ID.</div>
       )}
 
       <div className="mt-3 space-y-1.5">
@@ -167,11 +179,14 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       </div> : null}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>
+        {publicNeedsManualEdit && publicDestination?.external_url
+          ? <a href={publicDestination.external_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('public')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white"><Copy className="h-3.5 w-3.5" />Обновить пост</a>
+          : <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>}
         {draft?.channel_url && canPublish
-          ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={copyForChannel} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
+          ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('channel')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
           : <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary opacity-40"><Copy className="h-3.5 w-3.5" />В канал</button>}
       </div>
+      {publicNeedsManualEdit ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Живой список игроков обновляется на странице записи. Для изменения текста уже опубликованного поста кнопка скопирует свежую версию и откроет его в VK.</p> : null}
       {canPublish ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">VK пока не открыл автопубликацию для каналов: кнопка копирует готовый анонс и открывает канал. В VK останется нажать «Отправить».</p> : null}
       {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>

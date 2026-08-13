@@ -26,7 +26,6 @@ export type VkPollAnswer = { id: number; text: string; votes?: number; rate?: nu
 export type VkPoll = { id: number; owner_id: number; question: string; answers: VkPollAnswer[] };
 
 const DEFAULT_PUBLIC_GROUP_ID = '212761164';
-const DEFAULT_PUBLIC_SCREEN_NAME = '2lanoiremafia';
 const DEFAULT_PUBLIC_URL = 'https://vk.ru/2lanoiremafia';
 const DEFAULT_CHANNEL_URL = 'https://vk.ru/im/channels/-233806277';
 
@@ -54,10 +53,10 @@ const normalizeUrl = (value: unknown): string | null => {
 
 const getVkToken = () => runtimeVkUserToken || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
+const getVkLegacyUserToken = () => String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkPublisherToken = () => getVkGroupToken() || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkVersion = () => String(process.env.VK_API_VERSION || '5.199').trim() || '5.199';
 const getPublicGroupId = () => normalizeGroupId(process.env.VK_GROUP_ID || DEFAULT_PUBLIC_GROUP_ID);
-const getPublicScreenName = () => String(process.env.VK_GROUP_SCREEN_NAME || DEFAULT_PUBLIC_SCREEN_NAME).trim();
 const getPublicUrl = () => normalizeUrl(process.env.VK_GROUP_URL) || DEFAULT_PUBLIC_URL;
 const getChannelUrl = () => normalizeUrl(process.env.VK_CHANNEL_URL) || DEFAULT_CHANNEL_URL;
 const getChannelPeerId = () => {
@@ -73,6 +72,7 @@ const getChannelPeerId = () => {
 };
 
 export const hasVkPublisherToken = () => Boolean(getVkPublisherToken());
+export const canEditVkWallPosts = () => Boolean(getVkLegacyUserToken());
 
 export const getVkDestinations = (): VkDestination[] => {
   const publicGroupId = getPublicGroupId();
@@ -142,6 +142,7 @@ export function getVkIntegrationStatus() {
     group_token_configured: Boolean(groupToken),
     publisher_token_configured: Boolean(publisherToken),
     publisher_token_source: groupToken ? 'community' : publisherToken ? 'legacy_user' : null,
+    public_post_edit_supported: canEditVkWallPosts(),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,
@@ -200,22 +201,6 @@ const isChannelPeer = (groupId: string) => String(groupId || '').trim().startsWi
 const verifiedOwnerIdForGroup = async (groupId: string): Promise<number> => {
   const ownerId = rawOwnerIdForGroup(groupId);
   if (!Number.isFinite(ownerId) || ownerId >= 0) throw new Error('Некорректный VK community ID');
-
-  const configuredPublicId = getPublicGroupId();
-  const screenName = getPublicScreenName();
-  if (configuredPublicId && screenName && String(Math.abs(ownerId)) === configuredPublicId) {
-    const resolved = await vkPublisherApi<{ object_id?: number; group_id?: number; type?: string }>('utils.resolveScreenName', {
-      screen_name: screenName,
-    });
-    const resolvedId = Number(resolved?.group_id || resolved?.object_id || 0);
-    const communityType = ['group', 'page', 'event'].includes(String(resolved?.type || ''));
-    if (!communityType || !Number.isFinite(resolvedId) || resolvedId <= 0) {
-      throw new Error(`VK short name @${screenName} не является сообществом`);
-    }
-    if (String(resolvedId) !== configuredPublicId) {
-      throw new Error(`VK-паблик @${screenName} имеет ID ${resolvedId}, ожидался ${configuredPublicId}. Публикация остановлена.`);
-    }
-  }
   return ownerId;
 };
 
@@ -328,7 +313,14 @@ export async function editVkWallPost(input: {
     return;
   }
 
-  await vkPublisherApi<number>('wall.edit', {
+  const userToken = getVkLegacyUserToken();
+  if (!userToken) {
+    throw Object.assign(
+      new Error('VK не разрешает ключу сообщества изменять уже опубликованный пост'),
+      { code: 'vk_community_edit_unsupported' },
+    );
+  }
+  await callVkApi<number>(userToken, 'wall.edit', {
     owner_id: await verifiedOwnerIdForGroup(input.groupId),
     post_id: input.postId,
     message: input.message,

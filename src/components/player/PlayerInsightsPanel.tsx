@@ -34,7 +34,6 @@ type InsightsData = {
   meta?: { opponents?: string; elo_history?: string };
 };
 
-const roleLabel = (role: string) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : role;
 const roleIcon = (role: string) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : '🎩';
 
 const Avatar = ({ src, size = 36 }: { src: string; size?: number }) => (

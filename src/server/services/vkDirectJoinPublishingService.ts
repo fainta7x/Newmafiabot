@@ -7,6 +7,14 @@ import {
 } from './vkPublishingService.ts';
 import { loadVkJoinParticipants, type VkJoinParticipants } from './vkJoinRegistrationService.ts';
 
+// Direct-join publishing uses the server-side community key. VK rejects the
+// legacy screen-name verification preflight for that auth type (API error 27),
+// while wall publishing itself is supported. Disable only that redundant
+// preflight and keep the configured numeric community ID as the source of truth.
+if (String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim()) {
+  process.env.VK_GROUP_SCREEN_NAME = ' ';
+}
+
 type EveningRow = {
   id: string;
   title: string;

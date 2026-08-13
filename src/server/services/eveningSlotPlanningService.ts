@@ -28,22 +28,49 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   await ensureEveningSlotsSchema(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+
   const now = new Date().toISOString();
   let settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   if (!settings) {
-    await db.run('INSERT INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, 4, 11, ?, ?)', [eveningId, plannedCount(evening), now, now]);
+    await db.run(
+      'INSERT OR IGNORE INTO evening_slot_settings (evening_id, planned_slots, slot_duration_minutes, price_per_game, ready_slots_required, ready_players_per_slot, created_at, updated_at) VALUES (?, ?, 60, 100, 4, 11, ?, ?)',
+      [eveningId, plannedCount(evening), now, now],
+    );
     settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   }
+
   let slots = await db.all<any>('SELECT * FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
   if (!slots.length) {
     const duration = Number(settings.slot_duration_minutes || 60);
-    for (let i = 0; i < Number(settings.planned_slots || 6); i += 1) {
-      await db.run('INSERT OR IGNORE INTO evening_game_slots (id, evening_id, slot_number, starts_at, ends_at, price_rub, target_players, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [randomUUID(), eveningId, i + 1, plusMinutes(evening.starts_at, i * duration), plusMinutes(evening.starts_at, (i + 1) * duration), Number(settings.price_per_game || 100), Number(settings.ready_players_per_slot || 11), 'open', now, now]);
-    }
+    const count = Number(settings.planned_slots || 6);
+    const price = Number(settings.price_per_game || SLOT_PRICE);
+    const targetPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
+
+    await db.transaction(async (tx: any) => {
+      for (let i = 0; i < count; i += 1) {
+        await tx.run(
+          'INSERT OR IGNORE INTO evening_game_slots (id, evening_id, slot_number, starts_at, ends_at, price_rub, target_players, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [randomUUID(), eveningId, i + 1, plusMinutes(evening.starts_at, i * duration), plusMinutes(evening.starts_at, (i + 1) * duration), price, targetPlayers, 'open', now, now],
+        );
+      }
+
+      // Legacy going/late meant "whole evening". Migrate that state in one DB-side
+      // insert instead of issuing one remote request for every player × slot pair.
+      await tx.run(
+        `INSERT OR IGNORE INTO evening_slot_registrations
+           (id, slot_id, participant_id, created_at, updated_at)
+         SELECT lower(hex(randomblob(16))), s.id, ep.id, ?, ?
+           FROM evening_game_slots s
+           JOIN evening_participants ep ON ep.evening_id = s.evening_id
+          WHERE s.evening_id = ?
+            AND ep.response_status IN ('going', 'late')`,
+        [now, now, eveningId],
+      );
+    });
+
     slots = await db.all<any>('SELECT * FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
-    const legacy = await db.all<any>("SELECT id FROM evening_participants WHERE evening_id = ? AND response_status IN ('going','late')", [eveningId]);
-    for (const participant of legacy) for (const slot of slots) await db.run('INSERT OR IGNORE INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [randomUUID(), slot.id, participant.id, now, now]);
   }
+
   return { evening, settings, slots };
 }
 
@@ -112,18 +139,67 @@ export async function updateEveningSlotSettings(
 
 export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
-  const own = playerId ? await db.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]) : null;
-  const rows = await db.all<any>('SELECT s.id, s.slot_number, s.starts_at, s.ends_at, s.price_rub, s.target_players, s.status, COUNT(r.id) AS registered_count FROM evening_game_slots s LEFT JOIN evening_slot_registrations r ON r.slot_id = s.id WHERE s.evening_id = ? GROUP BY s.id, s.slot_number, s.starts_at, s.ends_at, s.price_rub, s.target_players, s.status ORDER BY s.slot_number', [eveningId]);
-  const slots: any[] = [];
-  for (const row of rows) {
-    const people = await db.all<any>('SELECT p.id, p.nickname FROM evening_slot_registrations r JOIN evening_participants ep ON ep.id = r.participant_id JOIN players p ON p.id = ep.player_id WHERE r.slot_id = ? ORDER BY p.nickname COLLATE NOCASE', [row.id]);
-    const selected = own ? Boolean(await db.get<any>('SELECT 1 AS ok FROM evening_slot_registrations WHERE slot_id = ? AND participant_id = ? LIMIT 1', [row.id, own.id])) : false;
-    slots.push({ id: row.id, slot_number: Number(row.slot_number), starts_at: row.starts_at, ends_at: row.ends_at, price: Number(row.price_rub || 100), target_players: Number(row.target_players || 11), registered_count: Number(row.registered_count || 0), selected, participants: people });
+  const own = playerId
+    ? await db.get<any>('SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId])
+    : null;
+
+  const rows = await db.all<any>(
+    `SELECT s.id, s.slot_number, s.starts_at, s.ends_at, s.price_rub, s.target_players, s.status,
+            COUNT(r.id) AS registered_count
+       FROM evening_game_slots s
+       LEFT JOIN evening_slot_registrations r ON r.slot_id = s.id
+      WHERE s.evening_id = ?
+      GROUP BY s.id, s.slot_number, s.starts_at, s.ends_at, s.price_rub, s.target_players, s.status
+      ORDER BY s.slot_number`,
+    [eveningId],
+  );
+
+  const peopleRows = await db.all<any>(
+    `SELECT r.slot_id, p.id, p.nickname
+       FROM evening_slot_registrations r
+       JOIN evening_game_slots s ON s.id = r.slot_id
+       JOIN evening_participants ep ON ep.id = r.participant_id
+       JOIN players p ON p.id = ep.player_id
+      WHERE s.evening_id = ?
+      ORDER BY s.slot_number, p.nickname COLLATE NOCASE`,
+    [eveningId],
+  );
+  const peopleBySlot = new Map<string, Array<{ id: string; nickname: string }>>();
+  for (const person of peopleRows) {
+    const slotId = String(person.slot_id);
+    const group = peopleBySlot.get(slotId) || [];
+    group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок') });
+    peopleBySlot.set(slotId, group);
   }
-  const requiredPlayers = Number(settings.ready_players_per_slot || 11);
-  const requiredSlots = Number(settings.ready_slots_required || 4);
-  const ready = slots.filter(s => s.registered_count >= requiredPlayers).length;
-  const selected = slots.filter(s => s.selected);
+
+  const selectedSlotIds = new Set<string>();
+  if (own) {
+    const selectedRows = await db.all<any>(
+      `SELECT r.slot_id
+         FROM evening_slot_registrations r
+         JOIN evening_game_slots s ON s.id = r.slot_id
+        WHERE s.evening_id = ? AND r.participant_id = ?`,
+      [eveningId, own.id],
+    );
+    for (const row of selectedRows) selectedSlotIds.add(String(row.slot_id));
+  }
+
+  const slots = rows.map((row) => ({
+    id: String(row.id),
+    slot_number: Number(row.slot_number),
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+    price: Number(row.price_rub || SLOT_PRICE),
+    target_players: Number(row.target_players || TABLE_MIN_PLAYERS),
+    registered_count: Number(row.registered_count || 0),
+    selected: selectedSlotIds.has(String(row.id)),
+    participants: peopleBySlot.get(String(row.id)) || [],
+  }));
+
+  const requiredPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
+  const requiredSlots = Number(settings.ready_slots_required || TABLE_MIN_READY_SLOTS);
+  const ready = slots.filter((slot) => slot.registered_count >= requiredPlayers).length;
+  const selected = slots.filter((slot) => slot.selected);
   return {
     event: {
       id: evening.id,
@@ -135,7 +211,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       format: evening.format || 'CASUAL',
       status: evening.status,
       event_type: 'evening',
-      price_per_game: Number(settings.price_per_game || 100),
+      price_per_game: Number(settings.price_per_game || SLOT_PRICE),
       slot_duration_minutes: Number(settings.slot_duration_minutes || 60),
       slot_count: slots.length,
       assembled_slots: ready,
@@ -144,7 +220,11 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       assembled: ready >= requiredSlots,
     },
     slots,
-    selection: { slot_ids: selected.map(s => s.id), games: selected.length, total: selected.reduce((sum, s) => sum + s.price, 0) },
+    selection: {
+      slot_ids: selected.map((slot) => slot.id),
+      games: selected.length,
+      total: selected.reduce((sum, slot) => sum + slot.price, 0),
+    },
   };
 }
 

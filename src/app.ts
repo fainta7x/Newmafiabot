@@ -61,7 +61,7 @@ import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.t
 import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
-import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSettlementService.ts';
+import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSettlementRoutes.ts';
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';

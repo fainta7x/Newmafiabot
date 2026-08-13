@@ -34,6 +34,15 @@ type VkState = {
     group_token_configured?: boolean;
     callback_secret_configured: boolean;
     callback_confirmation_configured: boolean;
+    callback?: {
+      configured: boolean;
+      status: string;
+      group_id?: string | null;
+      server_id?: number | null;
+      callback_url?: string | null;
+      last_error?: string | null;
+      updated_at?: string | null;
+    };
     oauth?: {
       app_id: string;
       managed_connected: boolean;
@@ -114,6 +123,8 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
   const canPublish = !readonly && ['published', 'active'].includes(status);
   const supportedDestinations = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
+  const callbackReady = Boolean(state?.integration.callback_secret_configured && state?.integration.callback_confirmation_configured);
+  const callbackError = state?.integration.callback?.last_error || null;
 
   const connectVk = async () => {
     if (busy) return;
@@ -130,6 +141,19 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       setError(err?.message || 'Не удалось подключить VK');
       setBusy(null);
     }
+  };
+
+  const repairCallback = async () => {
+    if (busy || readonly) return;
+    setBusy('callback'); setError(null); setMessage(null);
+    try {
+      await request('/api/integrations/vk/callback/setup', { method: 'POST' });
+      setMessage('Мгновенная синхронизация голосов VK подключена.');
+      await load(true);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось подключить Callback API VK');
+      await load(true);
+    } finally { setBusy(null); }
   };
 
   const sync = async () => {
@@ -200,7 +224,15 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       ) : (
         <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">VK подключён{state.integration.oauth?.managed_connected ? ' через VK ID' : ''}. Анонсы и опросы готовы к публикации.</div>
       )}
-      {state.integration.configured && (!state.integration.callback_secret_configured || !state.integration.callback_confirmation_configured) ? <div className="mt-2 rounded-xl bg-accent-soft px-3 py-2 text-[10px] leading-4 text-text-secondary">Публикация уже работает. Для мгновенного переноса голосов позже подключим Callback API; пока ответы можно забирать кнопкой ниже.</div> : null}
+      {state.integration.configured && !callbackReady ? (
+        <div className={`mt-2 rounded-xl px-3 py-2.5 text-[10px] leading-4 ${callbackError ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-secondary'}`}>
+          <div>{callbackError
+            ? `Мгновенная синхронизация голосов VK пока не включилась: ${callbackError}`
+            : 'Мгновенная синхронизация голосов VK настраивается автоматически. Пока можно забирать ответы кнопкой ниже.'}</div>
+          {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void repairCallback()} className="mt-2 inline-flex min-h-9 items-center gap-2 rounded-[10px] bg-surface-1 px-3 text-[10px] font-bold text-text-primary disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${busy === 'callback' ? 'animate-spin' : ''}`} />{busy === 'callback' ? 'Подключаем…' : 'Повторить Callback'}</button> : null}
+        </div>
+      ) : null}
+      {state.integration.configured && callbackReady ? <div className="mt-2 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">Голоса VK синхронизируются с общей БД автоматически.</div> : null}
 
       <div className="mt-3 space-y-1.5">
         {state.destinations.map((destination) => {

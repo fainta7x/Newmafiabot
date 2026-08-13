@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PlayerInsightsPanel from './PlayerInsightsPanel.tsx';
 
 type CareerData = {
   viewer_id: string;
@@ -88,6 +89,8 @@ export default function PlayerCareerProfile({ playerId, onBack }: { playerId: st
       <section className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-[22px] border border-rose-200/10 bg-rose-200/[0.03] p-4"><div className="text-[9px] uppercase tracking-[0.12em] text-rose-100/35">🔴 За красных</div><div className="mt-1 text-2xl font-black">{data.career.red.win_rate}%</div><div className="text-[9px] text-white/25">{data.career.red.wins}/{data.career.red.games} побед</div></div><div className="rounded-[22px] border border-white/[0.06] bg-white/[0.025] p-4"><div className="text-[9px] uppercase tracking-[0.12em] text-white/30">⚫ За чёрных</div><div className="mt-1 text-2xl font-black">{data.career.black.win_rate}%</div><div className="text-[9px] text-white/25">{data.career.black.wins}/{data.career.black.games} побед</div></div></section>
 
       {data.career.achievements > 0 && <section className="mt-3 rounded-[22px] border border-amber-200/10 bg-amber-200/[0.03] p-4"><div className="text-[9px] uppercase tracking-[0.12em] text-amber-100/35">🏅 Достижения</div><div className="mt-1 text-2xl font-black">{data.career.achievements}</div><div className="text-[9px] text-white/25">открыто в клубной истории</div></section>}
+
+      {data.is_self && <PlayerInsightsPanel />}
 
       <section className="mt-4"><div className="flex items-end justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">Последние игры</div><div className="mt-0.5 text-[9px] text-white/20">Завершённые клубные и турнирные партии</div></div>{data.recent_games.length > 8 && <button type="button" onClick={() => setShowAllGames((value) => !value)} className="text-[9px] font-semibold text-white/35">{showAllGames ? 'Свернуть' : 'Показать 20'}</button>}</div><div className="mt-2 space-y-1.5">{games.map((game) => <div key={game.game_key} className="flex items-center gap-3 rounded-2xl border border-white/[0.04] bg-white/[0.025] p-3"><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${game.won ? 'bg-emerald-300/10' : 'bg-rose-300/10'}`}>{game.won ? '✓' : '×'}</div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold">{game.title}</div><div className="mt-0.5 text-[9px] text-white/25">{dateText(game.date)} · {roleIcon(game.role)} {roleLabel(game.role)} · игра {game.game_number}</div></div><div className={`text-[9px] font-semibold ${game.won ? 'text-emerald-300' : 'text-rose-300'}`}>{game.won ? 'Победа' : 'Поражение'}</div></div>)}</div></section>
 

@@ -69,6 +69,7 @@ import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
+import integrationRoutes from './server/routes/integrationRoutes.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
@@ -168,6 +169,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/integrations', integrationRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);

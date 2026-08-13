@@ -6,6 +6,7 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
+import TableScoutingCard from './TableScoutingCard.tsx';
 
 interface EveningGameCreateSheetProps {
   evening: GameEvening;
@@ -67,7 +68,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return eligible.filter((participant) => !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q));
   }, [eligible, query]);
-  const selectedCount = seats.filter(Boolean).length;
+  const selectedParticipantIds = seats.filter(Boolean);
+  const selectedCount = selectedParticipantIds.length;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -173,6 +175,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           </div>
           <p className="text-[9px] leading-4 text-text-muted">«Подобрать 10» сначала берёт тех, кто сыграл меньше игр сегодня. Порядок мест можно перемешать отдельно.</p>
         </div>
+
+        <TableScoutingCard participantIds={selectedParticipantIds} />
 
         <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Пришедшие · меньше игр выше</span><span>{visible.length} игроков</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>

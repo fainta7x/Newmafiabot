@@ -4,6 +4,7 @@ import App from "./App.tsx";
 import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx";
 import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtocolOverlay.tsx";
 import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDisciplineGlyphBridge.tsx";
+import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./releasePolish.css";
 import "./components/crm/eveningLiveMobilePolish.css";
@@ -20,9 +21,11 @@ import "./components/crm/liveGameMobileGeometryV6.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
-    <JudgeGameMusicController />
-    <EveningDeathProtocolBridge />
-    <EveningLiveDisciplineGlyphBridge />
+    <AppErrorBoundary>
+      <App />
+      <JudgeGameMusicController />
+      <EveningDeathProtocolBridge />
+      <EveningLiveDisciplineGlyphBridge />
+    </AppErrorBoundary>
   </React.StrictMode>
 );

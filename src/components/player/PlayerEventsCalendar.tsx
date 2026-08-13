@@ -128,10 +128,6 @@ export default function PlayerEventsCalendar() {
 
   useEffect(() => { void load(); }, [monthKey]);
 
-  if (selected) {
-    return <PlayerEventSlotDetail event={selected} onBack={() => setSelected(null)} onSaved={() => void load()} />;
-  }
-
   const visible = events.filter((event) => filter === 'all' || eventKind(event) === filter);
   const nearest = useMemo(() => {
     const now = Date.now();
@@ -139,6 +135,10 @@ export default function PlayerEventsCalendar() {
       .filter((event) => new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000)
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0] || null;
   }, [visible]);
+
+  if (selected) {
+    return <PlayerEventSlotDetail event={selected} onBack={() => setSelected(null)} onSaved={() => void load()} />;
+  }
 
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const leading = (first.getDay() + 6) % 7;

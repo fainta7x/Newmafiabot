@@ -17,6 +17,11 @@ type StatusPayload = {
   destinations: DestinationStatus[];
 };
 
+interface EveningTelegramCardProps {
+  eveningId: string;
+  embedded?: boolean;
+}
+
 const request = async (url: string, options?: RequestInit) => {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
   const body = await response.json().catch(() => ({}));
@@ -24,7 +29,7 @@ const request = async (url: string, options?: RequestInit) => {
   return body;
 };
 
-export const EveningTelegramCard: React.FC<{ eveningId: string }> = ({ eveningId }) => {
+export const EveningTelegramCard: React.FC<EveningTelegramCardProps> = ({ eveningId, embedded = false }) => {
   const [data, setData] = useState<StatusPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,22 +67,22 @@ export const EveningTelegramCard: React.FC<{ eveningId: string }> = ({ eveningId
   if (!data || (!data.desired_destination_ids.length && !error)) return null;
 
   return (
-    <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+    <section className={embedded ? 'rounded-[14px] border border-border-soft bg-surface-2 p-3' : 'rounded-[18px] border border-border-soft bg-surface-1 p-4'}>
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Send className="h-5 w-5" /></span>
+        <span className={`grid shrink-0 place-items-center rounded-xl bg-accent-soft text-accent ${embedded ? 'h-9 w-9' : 'h-10 w-10'}`}><Send className="h-4.5 w-4.5" /></span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-black text-text-primary">Telegram</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Автоматически синхронизируется после публикации и изменений вечера.</p>
+          <h3 className="text-[13px] font-black text-text-primary">Публикация в канал</h3>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Анонс вечера синхронизируется с включёнными Telegram-направлениями.</p>
         </div>
       </div>
 
       {data?.destinations?.length ? <div className="mt-3 space-y-1.5">
         {data.destinations.map((destination) => {
           const ready = destination.active && destination.configured;
-          return <div key={destination.id} className="flex min-h-[38px] items-center gap-2 rounded-xl bg-surface-2 px-3 text-[11px]">
+          return <div key={destination.id} className="flex min-h-[38px] items-center gap-2 rounded-xl border border-border-soft bg-surface-1 px-3 text-[11px]">
             {destination.published ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : ready ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" /> : <TriangleAlert className="h-4 w-4 shrink-0 text-warning" />}
             <span className="min-w-0 flex-1 font-bold text-text-primary">{destination.name}</span>
-            <span className="shrink-0 text-[9px] text-text-muted">{destination.published ? `#${destination.message_id}` : ready ? 'готово к публикации' : 'не настроено'}</span>
+            <span className="shrink-0 text-[9px] text-text-muted">{destination.published ? `#${destination.message_id}` : ready ? 'готово' : 'не настроено'}</span>
           </div>;
         })}
       </div> : null}
@@ -85,8 +90,8 @@ export const EveningTelegramCard: React.FC<{ eveningId: string }> = ({ eveningId
       {message ? <p className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] text-success">{message}</p> : null}
       {error ? <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[10px] text-danger">{error}</p> : null}
 
-      <button type="button" disabled={busy} onClick={() => void sync()} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-soft bg-surface-2 text-[11px] font-bold text-text-primary disabled:opacity-50">
-        <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} /> {busy ? 'Синхронизируем…' : 'Синхронизировать сейчас'}
+      <button type="button" disabled={busy} onClick={() => void sync()} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-soft bg-surface-1 text-[11px] font-bold text-text-primary disabled:opacity-50">
+        <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} /> {busy ? 'Синхронизируем…' : 'Синхронизировать'}
       </button>
     </section>
   );

@@ -27,18 +27,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       <div role="alertdialog" aria-modal="true" className="w-full max-w-sm rounded-[20px] border border-border-soft bg-surface-1 p-4 text-text-primary shadow-2xl">
         <div className="flex items-start gap-3">
-          <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center shrink-0 ${tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning'}`}>
-            <AlertTriangle className="w-5 h-5" />
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] ${tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning'}`}>
+            <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-[15px] font-bold">{title}</h3>
-            {description ? <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">{description}</p> : null}
+            {description ? <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-text-secondary">{description}</p> : null}
           </div>
-          <button type="button" onClick={onCancel} disabled={busy} className="w-11 h-11 -mr-1 -mt-1 rounded-[12px] text-text-muted hover:text-text-primary flex items-center justify-center disabled:opacity-50">
-            <X className="w-5 h-5" />
+          <button type="button" onClick={onCancel} disabled={busy} className="-mr-1 -mt-1 flex h-11 w-11 items-center justify-center rounded-[12px] text-text-muted hover:text-text-primary disabled:opacity-50">
+            <X className="h-5 w-5" />
           </button>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2">

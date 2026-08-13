@@ -3,6 +3,7 @@ import { AlertCircle, Search, Shuffle, Users, X } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { isEveningGameEligible, toggleParticipantInSeats } from '../../lib/eveningRoster';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from './JudgeAssignmentFields';
@@ -27,6 +28,13 @@ const playerCanJudgeFormat = (player: Player, format: string) => {
 
 const gameIsCompleted = (game: ClubGameRecord) => game.status === 'completed' || Boolean(game.club_protocol?.protocol?.winner_team);
 
+const priorityLabel = (reason: ReturnType<typeof getRotationPriority>['reason']) => {
+  if (reason === 'sat_out') return 'Не играл прошлую';
+  if (reason === 'early_exit') return 'ПУ / нулевой круг';
+  if (reason === 'winner') return 'Победившая команда';
+  return 'Кандидат на пропуск';
+};
+
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, games, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
   const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('external');
@@ -38,32 +46,43 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const completedGames = useMemo(() => games.filter(gameIsCompleted), [games]);
+  const lastCompletedGame = useMemo(() => completedGames.slice().sort((a, b) => b.id - a.id)[0] || null, [completedGames]);
+  const previousRotationGame = useMemo<RotationPreviousGame | null>(() => {
+    if (!lastCompletedGame?.club_protocol) return null;
+    return {
+      protocol: lastCompletedGame.club_protocol.protocol,
+      player_results: lastCompletedGame.club_protocol.player_results,
+    };
+  }, [lastCompletedGame]);
+
   const playCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const game of games.filter(gameIsCompleted)) {
+    for (const game of completedGames) {
       for (const result of game.club_protocol?.player_results || []) {
         const participantId = String(result.participant_id || '');
         if (participantId) counts.set(participantId, (counts.get(participantId) || 0) + 1);
       }
     }
     return counts;
-  }, [games]);
+  }, [completedGames]);
 
-  const eligible = useMemo(() => participants
-    .filter(isEveningGameEligible)
-    .slice()
-    .sort((a, b) => (playCounts.get(a.id) || 0) - (playCounts.get(b.id) || 0) || a.nickname.localeCompare(b.nickname, 'ru')), [participants, playCounts]);
+  const eligible = useMemo(() => sortEveningRotationCandidates(
+    participants
+      .filter(isEveningGameEligible)
+      .map((participant) => ({ ...participant, play_count: playCounts.get(participant.id) || 0 })),
+    previousRotationGame,
+  ), [participants, playCounts, previousRotationGame]);
   const byId = useMemo(() => new Map(participants.map((participant) => [participant.id, participant])), [participants]);
   const eligibleIds = useMemo(() => new Set(eligible.map((participant) => participant.id)), [eligible]);
   const lastCompletedLineup = useMemo(() => {
-    const lastGame = games.filter(gameIsCompleted).slice().sort((a, b) => b.id - a.id)[0];
-    if (!lastGame) return [];
-    return (lastGame.club_protocol?.player_results || [])
+    if (!lastCompletedGame) return [];
+    return (lastCompletedGame.club_protocol?.player_results || [])
       .slice()
       .sort((a, b) => Number(a.seat_number) - Number(b.seat_number))
       .map((result) => String(result.participant_id || ''))
       .filter((participantId) => participantId && eligibleIds.has(participantId));
-  }, [eligibleIds, games]);
+  }, [eligibleIds, lastCompletedGame]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     return eligible.filter((participant) => !q || participant.nickname.toLocaleLowerCase('ru-RU').includes(q));
@@ -173,18 +192,18 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             <button type="button" onClick={autoSelect} disabled={eligible.length < 10} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать 10</button>
             <button type="button" onClick={reuseLastLineup} disabled={lastCompletedLineup.length !== 10} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">Прошлая десятка</button>
           </div>
-          <p className="text-[9px] leading-4 text-text-muted">«Подобрать 10» сначала берёт тех, кто сыграл меньше игр сегодня. Порядок мест можно перемешать отдельно.</p>
+          <p className="text-[9px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. У проигравших выше тот, кто раньше покинул игру; дольше остававшиеся первыми идут на пропуск.</p>
         </div>
 
         <TableScoutingCard participantIds={selectedParticipantIds} />
 
-        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Пришедшие · меньше игр выше</span><span>{visible.length} игроков</span></div>
+        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Пришедшие · приоритет ротации</span><span>{visible.length} игроков</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
         <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
-            const played = playCounts.get(participant.id) || 0;
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="text-[8px] text-text-muted">Игр сегодня: {played}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            const priority = getRotationPriority(participant.id, previousRotationGame);
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Игроков не найдено</div>}
         </div>

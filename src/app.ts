@@ -5,6 +5,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
+import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
@@ -103,6 +104,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureJudgeMusicSchema(db);
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);
+  await ensureCommerceSchema(db);
   await ensurePlayerBettingSchema(db);
   await ensureRatingPeriodsSchema(db);
   await ensureTournamentDistanceSchema(db);

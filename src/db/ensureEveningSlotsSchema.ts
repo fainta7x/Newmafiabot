@@ -1,6 +1,9 @@
 import type { DatabaseWrapper } from './index.ts';
 
 export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<void> {
+  // Keep ordinary DDL in exec(). Turso's compatibility splitter treats every
+  // semicolon as a statement boundary, so CREATE TRIGGER bodies must be sent
+  // as single statements through run() instead of being embedded in this script.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS evening_slot_settings (
       evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id) ON DELETE CASCADE,
@@ -42,7 +45,9 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
       ON evening_slot_registrations(slot_id);
     CREATE INDEX IF NOT EXISTS idx_evening_slot_registrations_participant
       ON evening_slot_registrations(participant_id);
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_insert_amount
     AFTER INSERT ON evening_slot_registrations
     BEGIN
@@ -70,8 +75,10 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
              END,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = NEW.participant_id;
-    END;
+    END
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_delete_amount
     AFTER DELETE ON evening_slot_registrations
     BEGIN
@@ -99,8 +106,10 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
              END,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = OLD.participant_id;
-    END;
+    END
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_evening_slot_price_update_amount
     AFTER UPDATE OF price_rub ON evening_game_slots
     BEGIN
@@ -132,8 +141,10 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
            FROM evening_slot_registrations
           WHERE slot_id = NEW.id
        );
-    END;
+    END
+  `);
 
+  await db.run(`
     UPDATE evening_participants
        SET amount_due = (
              SELECT COALESCE(SUM(s.price_rub), 0)
@@ -157,6 +168,6 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
              ELSE 'unpaid'
            END,
            updated_at = CURRENT_TIMESTAMP
-     WHERE id IN (SELECT DISTINCT participant_id FROM evening_slot_registrations);
+     WHERE id IN (SELECT DISTINCT participant_id FROM evening_slot_registrations)
   `);
 }

@@ -3,6 +3,7 @@ import { AlertTriangle, BellRing, CheckCircle2, ChevronDown, ChevronUp, MessageC
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import EveningTelegramCard from './EveningTelegramCard.tsx';
+import EveningVkCard from './EveningVkCard.tsx';
 
 type AnnouncementPlayer = {
   id: string;
@@ -189,8 +190,8 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
     <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-[14px] font-black text-text-primary">Telegram вечера</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Публикация в канал и личные приглашения собраны в одном месте.</p>
+          <h3 className="text-[14px] font-black text-text-primary">Анонс и запись</h3>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Telegram, VK и личные приглашения собраны вокруг одной записи игроков.</p>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={Boolean(busy)} className="rounded-full bg-surface-2 p-2 text-text-muted disabled:opacity-40" aria-label="Обновить личную рассылку">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -199,6 +200,9 @@ export const EveningAnnouncementPanel: React.FC<Props> = ({ eveningId, eveningTi
 
       <div className="mt-4">
         <EveningTelegramCard eveningId={eveningId} embedded />
+      </div>
+      <div className="mt-3">
+        <EveningVkCard eveningId={eveningId} status={status} readonly={readonly} />
       </div>
 
       <div className="mt-4 border-t border-border-soft pt-4">

@@ -35,15 +35,27 @@ eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res
   try {
     const plannedSlots = Number(req.body?.planned_slots);
     const pricePerGame = Number(req.body?.price_per_game);
+    const slotDurationMinutes = Number(req.body?.slot_duration_minutes ?? 60);
+    const startsAt = String(req.body?.starts_at || '').trim();
+
     if (!Number.isInteger(plannedSlots) || plannedSlots < 1 || plannedSlots > 12) {
       return res.status(400).json({ error: 'Количество игр должно быть от 1 до 12' });
     }
     if (!Number.isFinite(pricePerGame) || pricePerGame < 0) {
       return res.status(400).json({ error: 'Некорректная цена за игру' });
     }
+    if (!Number.isInteger(slotDurationMinutes) || slotDurationMinutes < 15 || slotDurationMinutes > 180) {
+      return res.status(400).json({ error: 'Длительность игры должна быть от 15 до 180 минут' });
+    }
+    if (startsAt && !Number.isFinite(new Date(startsAt).getTime())) {
+      return res.status(400).json({ error: 'Некорректное время первой игры' });
+    }
+
     const plan = await updateEveningSlotSettings((req as any).db, req.params.eveningId, {
       planned_slots: plannedSlots,
       price_per_game: pricePerGame,
+      slot_duration_minutes: slotDurationMinutes,
+      ...(startsAt ? { starts_at: startsAt } : {}),
     });
     return res.json(plan);
   } catch (error: any) {

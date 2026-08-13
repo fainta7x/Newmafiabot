@@ -10,13 +10,11 @@ const getCommunityToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').
 
 export const hasVkCommunityToken = () => Boolean(getCommunityToken());
 
-export async function vkCommunityApi<T>(
+const callWithCommunityToken = async <T>(
+  token: string,
   method: string,
   params: Record<string, string | number | boolean | null | undefined>,
-): Promise<T> {
-  const token = getCommunityToken();
-  if (!token) return vkApi<T>(method, params);
-
+): Promise<T> => {
   const body = new URLSearchParams();
   body.set('access_token', token);
   body.set('v', getVkVersion());
@@ -38,4 +36,27 @@ export async function vkCommunityApi<T>(
   }
   if (payload.response === undefined) throw new Error('VK API returned an empty response');
   return payload.response;
+};
+
+export async function vkCommunityApi<T>(
+  method: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+): Promise<T> {
+  const token = getCommunityToken();
+  if (!token) return vkApi<T>(method, params);
+
+  try {
+    return await callWithCommunityToken<T>(token, method, params);
+  } catch (communityError) {
+    // Callback-management methods officially accept both group and user tokens.
+    // If VK rejects the community token for a specific method/permission, reuse the
+    // already connected VK ID user token instead of leaving the integration stuck.
+    try {
+      return await vkApi<T>(method, params);
+    } catch (userError) {
+      const communityMessage = communityError instanceof Error ? communityError.message : String(communityError);
+      const userMessage = userError instanceof Error ? userError.message : String(userError);
+      throw new Error(`${communityMessage}; VK ID fallback: ${userMessage}`);
+    }
+  }
 }

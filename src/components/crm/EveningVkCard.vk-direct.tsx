@@ -18,7 +18,7 @@ type VkDestination = {
 type VkState = {
   integration: {
     configured: boolean;
-    oauth?: { managed_connected: boolean };
+    oauth?: { managed_connected: boolean; api_compatible?: boolean; token_source?: string | null };
     mode?: string;
   };
   destinations: VkDestination[];
@@ -59,7 +59,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
     const url = new URL(window.location.href);
     const connected = url.searchParams.get('vk_connected');
     const oauthError = url.searchParams.get('vk_error');
-    if (connected === '1') setMessage('VK подключён. Можно публиковать анонсы со ссылкой на запись.');
+    if (connected) setMessage('Автопубликация VK подключена.');
     if (oauthError) setError(`VK: ${oauthError}`);
     if (connected || oauthError) {
       url.searchParams.delete('vk_connected');
@@ -76,14 +76,14 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
     if (busy) return;
     setBusy('connect'); setError(null); setMessage(null);
     try {
-      const body = await request('/api/integrations/vk/oauth/start', {
+      const body = await request('/api/integrations/vk/api-oauth/start', {
         method: 'POST',
         body: JSON.stringify({ return_to: `${window.location.pathname}${window.location.search}${window.location.hash}` }),
       });
-      if (!body?.authorize_url) throw new Error('Сервер не вернул ссылку VK ID');
+      if (!body?.authorize_url) throw new Error('Сервер не вернул ссылку VK API');
       window.location.assign(String(body.authorize_url));
     } catch (err: any) {
-      setError(err?.message || 'Не удалось подключить VK');
+      setError(err?.message || 'Не удалось подключить автопубликацию VK');
       setBusy(null);
     }
   };
@@ -118,11 +118,11 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
 
       {!state.integration.configured ? (
         <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
-          <div>Паблик и канал уже выбраны. Осталось один раз разрешить приложению публиковать от твоего VK.</div>
-          {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void connectVk()} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#2688eb] px-3 text-[10px] font-bold text-white disabled:opacity-40"><Link2 className="h-3.5 w-3.5" />{busy === 'connect' ? 'Открываем VK…' : 'Подключить VK'}</button> : null}
+          <div>Запись игроков через VK ID уже готова. Для автоматической публикации постов нужно отдельно подключить VK API.</div>
+          {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void connectVk()} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#2688eb] px-3 text-[10px] font-bold text-white disabled:opacity-40"><Link2 className="h-3.5 w-3.5" />{busy === 'connect' ? 'Открываем VK…' : 'Подключить автопубликацию'}</button> : null}
         </div>
       ) : (
-        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />VK подключён через VK ID. Нативный опрос и Callback больше не нужны.</div>
+        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Автопубликация VK подключена. Запись игроков работает через VK ID.</div>
       )}
 
       <div className="mt-3 space-y-1.5">
@@ -144,6 +144,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">{message}</div> : null}
 
       <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="mt-3 min-h-11 w-full rounded-[12px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Синхронизируем…' : 'Синхронизировать VK'}</button>
+      {!state.integration.configured ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала подключи автопубликацию.</p> : null}
       {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>
   );

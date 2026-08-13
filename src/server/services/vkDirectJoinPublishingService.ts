@@ -82,7 +82,7 @@ export const buildDirectVkEveningAnnouncement = async (
     `👥 Уже идут: ${counts.going} · думают: ${counts.thinking}`,
     '',
     'Записаться или изменить ответ:',
-    `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(evening.id)}?source=vk`,
+    `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(evening.id)}?source=vk_entry`,
   );
   return lines.join('\n');
 };

@@ -292,23 +292,36 @@ export default function App() {
     || pathname.startsWith('/player/host')
     || pathname.startsWith('/player/table')
     ? 'conduct'
-    : pathname.startsWith('/player/games')
-      ? 'games'
-      : pathname.startsWith('/player/rating')
-        ? 'rating'
-        : pathname.startsWith('/player/stats')
-          ? 'stats'
-          : pathname.startsWith('/player/club')
-            ? 'club'
-            : pathname.startsWith('/player/payments')
-              ? 'payments'
-              : pathname.startsWith('/player/profile')
-                ? 'profile'
-                : pathname.startsWith('/player/more')
-                  ? 'more'
-                  : 'home';
+    : pathname.startsWith('/player/elo')
+      ? 'elo'
+      : pathname.startsWith('/player/recaps')
+        ? 'recaps'
+        : pathname.startsWith('/player/career')
+          ? 'career'
+          : pathname.startsWith('/player/seasons')
+            ? 'clubworld'
+            : pathname.startsWith('/player/games')
+              ? 'games'
+              : pathname.startsWith('/player/rating')
+                ? 'rating'
+                : pathname.startsWith('/player/stats')
+                  ? 'stats'
+                  : pathname.startsWith('/player/club')
+                    ? 'club'
+                    : pathname.startsWith('/player/payments')
+                      ? 'payments'
+                      : pathname.startsWith('/player/profile')
+                        ? 'profile'
+                        : pathname.startsWith('/player/more')
+                          ? 'more'
+                          : 'home';
 
-  const syncPlayerPath = (section: PlayerCabinetSection) => {
+  const playerPathParts = pathname.split('/').filter(Boolean);
+  const initialTarget = initialSection === 'recaps' && playerPathParts[2]
+    ? decodeURIComponent(playerPathParts[2])
+    : null;
+
+  const syncPlayerPath = (section: PlayerCabinetSection, target?: string | null) => {
     const paths: Record<PlayerCabinetSection, string> = {
       home: '/player',
       games: '/player/games',
@@ -319,6 +332,10 @@ export default function App() {
       payments: '/player/payments',
       profile: '/player/profile',
       more: '/player/more',
+      elo: '/player/elo',
+      recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
+      career: '/player/career',
+      clubworld: '/player/seasons',
     };
     navigatePath(paths[section]);
   };
@@ -329,6 +346,7 @@ export default function App() {
         data={rootState.data}
         canOpenAdmin={rootState.canOpenAdmin}
         initialSection={initialSection}
+        initialTarget={initialTarget}
         onSectionChange={syncPlayerPath}
       />
       <PlayerLiveCenter />

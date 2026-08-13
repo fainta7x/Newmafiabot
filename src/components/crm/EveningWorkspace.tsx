@@ -6,6 +6,7 @@ import { EveningTablesView } from './EveningTablesView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
 import EveningJourneyBar from './EveningJourneyBar.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
+import EveningSlotPlannerCard from './EveningSlotPlannerCard.tsx';
 
 export type EveningSection = 'overview' | 'participants' | 'tables' | 'games';
 
@@ -29,6 +30,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   onSectionChange,
 }) => {
   const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'participants' : initialSection);
+  const [slotRefreshKey, setSlotRefreshKey] = useState(0);
 
   useEffect(() => {
     setSection(initialAddOpen ? 'participants' : initialSection);
@@ -70,13 +72,10 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       </div>
 
       {section === 'overview' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
+      {section === 'overview' ? <EveningSlotPlannerCard key={`${eveningId}-${slotRefreshKey}`} eveningId={eveningId} onRefresh={() => setSlotRefreshKey((value) => value + 1)} /> : null}
 
       {section === 'overview' ? (
-        <EveningOverviewView
-          eveningId={eveningId}
-          onBack={onBack}
-          onOpenSection={openSection}
-        />
+        <EveningOverviewView eveningId={eveningId} onBack={onBack} onOpenSection={openSection} />
       ) : null}
       {section === 'participants' ? (
         <EveningParticipantsView

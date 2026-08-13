@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
+import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 
@@ -59,6 +60,7 @@ router.get('/command-center', async (req, res) => {
 
       const games = gameRows.map((row: any, index: number) => {
         const payload = safeJsonParse(row.protocol_text);
+        const protocol = payload?.kind === 'club_evening_protocol' ? (payload.protocol || {}) : {};
         const results = payload?.kind === 'club_evening_protocol' && Array.isArray(payload.player_results) ? payload.player_results : [];
         const completed = gameCompleted(row, payload);
         return {
@@ -68,12 +70,17 @@ router.get('/command-center', async (req, res) => {
           table_name: row.table_name || null,
           judge_name: row.judge_name || null,
           completed,
-          winner_team: payload?.protocol?.winner_team || row.winner_team || null,
+          winner_team: protocol.winner_team || row.winner_team || null,
+          rotation_protocol: protocol,
           players: results.slice().sort((a: any, b: any) => Number(a.seat_number) - Number(b.seat_number)).map((item: any) => ({
             participant_id: String(item.participant_id || ''),
             player_id: item.player_id ? String(item.player_id) : null,
             nickname: String(item.display_name || 'Игрок'),
             seat_number: Number(item.seat_number || 0),
+            role: item.role || null,
+            exit_type: item.exit_type || null,
+            exit_order: item.exit_order == null ? null : Number(item.exit_order),
+            notes: item.notes || null,
           })),
         };
       });
@@ -96,7 +103,18 @@ router.get('/command-center', async (req, res) => {
       const completedGames = games.filter((item: any) => item.completed);
       const draftGames = games.filter((item: any) => !item.completed);
       const currentGame = draftGames.length ? draftGames[draftGames.length - 1] : null;
-      const suggestedLineup = present.slice().sort((a: any, b: any) => a.play_count - b.play_count || b.elo - a.elo || a.nickname.localeCompare(b.nickname, 'ru')).slice(0, 10);
+      const lastCompletedGame = completedGames.length ? completedGames[completedGames.length - 1] : null;
+      const previousRotationGame: RotationPreviousGame | null = lastCompletedGame ? {
+        protocol: lastCompletedGame.rotation_protocol,
+        player_results: lastCompletedGame.players,
+      } : null;
+      const suggestedLineup = sortEveningRotationCandidates(
+        present.map((row: any) => ({ ...row, id: row.participant_id })),
+        previousRotationGame,
+      ).slice(0, 10).map((row: any) => ({
+        ...row,
+        rotation_reason: getRotationPriority(row.participant_id, previousRotationGame).reason,
+      }));
 
       const communicationAttention = (announcement?.players || [])
         .filter((player: any) => player.attention_status !== 'answered')

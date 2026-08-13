@@ -1,5 +1,6 @@
 import type { CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
+import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import OrganizerCommandCenter from './OrganizerCommandCenter.tsx';
 
 interface CRMOverviewProps {
@@ -30,16 +31,19 @@ export const CRMOverview = ({
   onCompleteTask,
   onRefresh,
 }: CRMOverviewProps) => (
-  <OrganizerCommandCenter
-    overview={overview}
-    onOpenEvening={onOpenEvening}
-    onOpenEveningSection={navigateEveningSection}
-    onOpenPlayer={onOpenPlayer}
-    onNavigateTab={(tab) => onNavigateTab(tab)}
-    onCreateEvening={onCreateEvening}
-    onCompleteTask={onCompleteTask}
-    onRefresh={onRefresh}
-  />
+  <div className="space-y-4">
+    <OrganizerCommandCenter
+      overview={overview}
+      onOpenEvening={onOpenEvening}
+      onOpenEveningSection={navigateEveningSection}
+      onOpenPlayer={onOpenPlayer}
+      onNavigateTab={(tab) => onNavigateTab(tab)}
+      onCreateEvening={onCreateEvening}
+      onCompleteTask={onCompleteTask}
+      onRefresh={onRefresh}
+    />
+    <EveningOrganizerTasksPanel onChanged={onRefresh} />
+  </div>
 );
 
 export default CRMOverview;

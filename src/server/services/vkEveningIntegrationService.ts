@@ -3,7 +3,6 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import {
   getEveningResponse,
-  isAttendingResponse,
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
@@ -335,29 +334,34 @@ const ensureParticipantForVk = async (db: DatabaseWrapper, evening: EveningRow, 
   if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {
     return { participant: null, blocked: 'Формат вечера недоступен этому игроку' };
   }
-  if (['completed', 'settled', 'cancelled'].includes(String(evening.status)) || evening.settled_at) {
-    return { participant: null, blocked: 'Вечер уже закрыт' };
+  if (!['published', 'active'].includes(String(evening.status)) || evening.settled_at) {
+    return { participant: null, blocked: 'Ответы на этот вечер уже недоступны' };
   }
 
   let participant = await db.get<any>(`
     SELECT * FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1
   `, [evening.id, playerId]);
+  if (participant && String(participant.attendance_status || 'pending') !== 'pending') {
+    return { participant: null, blocked: 'Явка уже отмечена, ответ больше не меняется автоматически' };
+  }
   if (!participant) {
     const id = crypto.randomUUID();
     const now = nowIso();
+    const defaultPrice = Math.max(0, Number(evening.default_price || 0));
     await db.run(`
       INSERT INTO evening_participants (
         id, evening_id, player_id, registration_status, response_status,
         attendance_status, arrival_status, payment_status, amount_due, amount_paid,
         registered_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', 'unpaid', ?, 0, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, 'pending', 'unknown', ?, ?, 0, ?, ?, ?)
     `, [
       id,
       evening.id,
       playerId,
       responseStatus,
       responseStatus,
-      isAttendingResponse(responseStatus) ? Math.max(0, Number(evening.default_price || 0)) : 0,
+      defaultPrice === 0 ? 'waived' : 'unpaid',
+      defaultPrice,
       now,
       now,
       now,

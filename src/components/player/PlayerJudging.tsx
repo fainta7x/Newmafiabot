@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import type { Tournament, TournamentGame } from '../../lib/api.ts';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';

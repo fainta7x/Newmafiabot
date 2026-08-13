@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from '../services/clubGameAnalyticsService.ts';
+import {
+  buildPersonalHooks,
+  buildRelationshipEvents,
+  buildWeeklyDigest,
+  weekAgoSeasonPlace,
+} from '../services/clubEngagementService.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
@@ -144,6 +150,7 @@ router.get('/club-world', async (req, res) => {
     const db = (req as any).db;
     const snapshots = await loadCompletedGameSnapshots(db);
     const now = new Date();
+    const nowMs = now.getTime();
     const currentSeason = seasonForDate(now);
     const prevSeason = previousSeason(currentSeason);
     const currentGames = snapshots.filter((game) => inRange(game, currentSeason));
@@ -210,6 +217,12 @@ router.get('/club-world', async (req, res) => {
       .slice(0, 8)
       .map((season) => seasonPayload(season, snapshots.filter((game) => inRange(game, season)), String(viewerId)));
 
+    const relationshipEvents = buildRelationshipEvents(snapshots);
+    const weeklyDigest = buildWeeklyDigest(snapshots, String(viewerId), nowMs);
+    const currentPlace = seasonRanking.find((item) => item.player_id === String(viewerId))?.place || null;
+    const previousPlace = weekAgoSeasonPlace(currentGames, String(viewerId), nowMs);
+    const personalHooks = buildPersonalHooks(snapshots, String(viewerId), currentPlace, previousPlace, relationshipEvents, nowMs);
+
     const feed: Array<any> = [];
     const clubGamesByEvent = new Map<string, CompletedGameSnapshot[]>();
     for (const game of snapshots.filter((item) => item.source === 'club')) {
@@ -223,61 +236,80 @@ router.get('/club-world', async (req, res) => {
       let black = 0;
       for (const game of ordered) game.winner_team === 'red' ? red += 1 : black += 1;
       const latest = ordered[ordered.length - 1];
+      const text = `${ordered.length} игр · итог красные ${red}:${black} чёрные`;
       feed.push({
         key: `evening:${eventId}`,
         type: 'evening_result',
         date: latest.played_at,
         icon: '🎬',
         title: latest.title,
-        text: `${ordered.length} игр · итог красные ${red}:${black} чёрные`,
+        text,
         event_id: eventId,
+        share_text: `🎬 2LA Noire · ${latest.title}\n${text}\n#2LANoire #СпортивнаяМафия`,
       });
     }
 
-    const milestones = [10, 25, 50, 100, 200];
+    const milestones = [10, 25, 50, 100, 200, 300, 500];
     for (const stat of all) {
       const chronological = stat.results.slice().sort((a, b) => a.dateMs - b.dateMs);
       for (const target of milestones) {
         if (chronological.length < target) continue;
+        const text = `Карьерная отметка: ${target} завершённых игр в 2LA Noire`;
         feed.push({
           key: `milestone:${stat.player_id}:${target}`,
           type: 'milestone',
           date: new Date(chronological[target - 1].dateMs).toISOString(),
           icon: target >= 100 ? '💯' : '🎖️',
           title: `${stat.nickname} · ${target} игр`,
-          text: `Карьерная отметка: ${target} завершённых игр в 2LA noire`,
+          text,
           player_id: stat.player_id,
           avatar_url: avatarUrl(stat.player_id),
+          share_text: `🎖️ 2LA Noire · ${stat.nickname}\n${target} завершённых игр в клубе. #2LANoire`,
         });
       }
       const streak = currentStreak(stat.results);
       if (streak >= 3) {
         const latest = stat.results.slice().sort((a, b) => b.dateMs - a.dateMs)[0];
+        const text = `${streak} побед подряд`;
         feed.push({
           key: `streak:${stat.player_id}:${streak}:${latest?.dateMs || 0}`,
           type: 'streak',
           date: latest ? new Date(latest.dateMs).toISOString() : new Date().toISOString(),
           icon: '🔥',
           title: `${stat.nickname} в огне`,
-          text: `${streak} побед подряд`,
+          text,
           player_id: stat.player_id,
           avatar_url: avatarUrl(stat.player_id),
+          share_text: `🔥 2LA Noire · ${stat.nickname} в огне\n${text}. #2LANoire`,
         });
       }
     }
 
     for (const season of seasonHistory.filter((item) => item.key !== currentSeason.key && item.champion)) {
+      const text = `${season.label}: ${season.champion.wins}/${season.champion.games} побед · ${season.champion.win_rate}%`;
       feed.push({
         key: `season-champion:${season.key}:${season.champion.player_id}`,
         type: 'season_champion',
         date: new Date(season.end - 1).toISOString(),
         icon: '👑',
         title: `${season.champion.nickname} · чемпион сезона`,
-        text: `${season.label}: ${season.champion.wins}/${season.champion.games} побед · ${season.champion.win_rate}%`,
+        text,
         player_id: season.champion.player_id,
         avatar_url: season.champion.avatar_url,
+        share_text: `👑 2LA Noire · ${season.champion.nickname} — чемпион сезона\n${text}. #2LANoire`,
       });
     }
+
+    feed.push(...relationshipEvents.map((event) => ({ ...event })));
+    feed.push({
+      key: `weekly:${weeklyDigest.period_start.slice(0, 10)}`,
+      type: 'weekly_digest',
+      date: weeklyDigest.period_end,
+      icon: '🗞️',
+      title: 'Неделя 2LA Noire',
+      text: weeklyDigest.highlights.slice(0, 2).join(' · '),
+      share_text: weeklyDigest.share_text,
+    });
 
     const previousStatMap = aggregatePlayers(previousGames);
     const viewerSeason = currentStats.get(String(viewerId));
@@ -297,10 +329,13 @@ router.get('/club-world', async (req, res) => {
       season_history: seasonHistory,
       season_records: seasonRecords,
       hall_of_fame: hallOfFame,
-      feed: feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 40),
+      weekly_digest: weeklyDigest,
+      personal_hooks: personalHooks,
+      feed: feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 60),
       meta: {
         season: 'Сезоны считаются по календарю: зима, весна, лето, осень. Это сезонная статистика, официальный Elo остаётся отдельным.',
         hall_of_fame: 'Рекорды строятся только по завершённым играм из канонических протоколов.',
+        engagement: 'Лента, дайджест и персональные поводы используют только факты завершённых игр и не меняют Elo, очередь или спортивный результат.',
       },
     });
   } catch (error: any) {

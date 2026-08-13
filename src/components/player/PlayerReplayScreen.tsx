@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AsyncState from '../ui/AsyncState.tsx';
 
 type ReplayEvent = {
   id: string;
@@ -62,15 +63,16 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
   const visibleEvents = useMemo(() => data?.events.slice(0, step + 1) || [], [data, step]);
   const current = data?.events[step] || null;
+  const goBack = onBack || (() => window.history.back());
 
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] text-white"><div className="text-center"><div className="text-4xl">🎬</div><div className="mt-3 text-xs text-white/30">Восстанавливаем партию…</div></div></main>;
-  if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="max-w-md rounded-3xl border border-rose-300/10 bg-rose-300/[0.04] p-5 text-center"><div className="text-2xl">⚠️</div><div className="mt-2 text-sm font-semibold">{error || 'Replay недоступен'}</div><button type="button" onClick={onBack || (() => window.history.back())} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button></div></main>;
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем партию…" description="Собираем сохранённую хронологию игры." /></div></main>;
+  if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="error" icon="⚠️" title="Replay недоступен" description={error || 'Не удалось загрузить сохранённую игру.'} actionLabel="Назад" onAction={goBack} /></div></main>;
 
-  if (!data.replay_available) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-center"><div className="text-3xl">📼</div><h1 className="mt-3 text-lg font-black">Подробного Replay нет</h1><p className="mt-2 text-xs leading-5 text-white/35">{data.analysis.join(' ')}</p><button type="button" onClick={onBack || (() => window.history.back())} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button></div></main>;
+  if (!data.replay_available) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="empty" icon="📼" title="Подробного Replay нет" description={data.analysis.join(' ') || 'Для этой игры нет полной пошаговой хронологии.'} actionLabel="Назад" onAction={goBack} /></div></main>;
 
   return <main className="min-h-screen bg-[#090a0d] px-3 pb-12 pt-3 text-white">
     <div className="mx-auto w-full max-w-[520px]">
-      <div className="flex items-center justify-between gap-3"><button type="button" onClick={onBack || (() => window.history.back())} className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/55">←</button><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">Replay · завершённая игра</div><div className="h-11 w-11" /></div>
+      <div className="flex items-center justify-between gap-3"><button type="button" onClick={goBack} className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/55">←</button><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">Replay · завершённая игра</div><div className="h-11 w-11" /></div>
 
       <section className="mt-3 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-4 text-center"><div className="text-[10px] uppercase tracking-[0.15em] text-white/25">{data.game?.title}</div><h1 className="mt-1 text-2xl font-black">Игра №{data.game?.number || '—'}</h1><div className={`mt-3 text-lg font-black ${data.game?.winner_team === 'red' ? 'text-rose-300' : 'text-white'}`}>{data.game?.winner_team === 'red' ? '🔴 Победа красных' : data.game?.winner_team === 'black' ? '⚫ Победа чёрных' : 'Игра завершена'}</div></section>
 

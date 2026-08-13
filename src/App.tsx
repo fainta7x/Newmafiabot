@@ -7,6 +7,7 @@ import { PublicTournamentResults } from "./components/public/PublicTournamentRes
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
+import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
 
 type TelegramIdentity = {
   id: number;
@@ -291,6 +292,16 @@ export default function App() {
 
   if (rootState.status === 'error') {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
+  }
+
+  if (pathname.startsWith('/player/replay/')) {
+    const gameKey = decodeURIComponent(pathname.split('/').filter(Boolean).slice(2).join('/'));
+    return (
+      <>
+        <PlayerReplayScreen gameKey={gameKey} onBack={() => navigatePath('/player/games')} />
+        <PlayerLiveCenter />
+      </>
+    );
   }
 
   const initialSection: PlayerCabinetSection = pathname.startsWith('/player/conduct')

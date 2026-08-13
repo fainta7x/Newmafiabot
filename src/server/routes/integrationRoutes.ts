@@ -13,8 +13,6 @@ import {
   unlinkVkIdentity,
 } from '../services/vkEveningIntegrationService.ts';
 import {
-  getVkCallbackConfig,
-  getVkCallbackConfirmation,
   getVkDestinations,
   getVkIntegrationStatus,
 } from '../services/vkPublishingService.ts';
@@ -26,6 +24,11 @@ import {
   getVkOAuthStatus,
   hydrateVkOAuthAccessToken,
 } from '../services/vkOAuthService.ts';
+import {
+  ensureVkCallbackRegistration,
+  getVkCallbackRequestConfig,
+  getVkCallbackRuntimeStatus,
+} from '../services/vkCallbackSetupService.ts';
 
 const router = Router();
 
@@ -37,23 +40,41 @@ const withVkSchema = async (req: any) => {
 };
 
 const callbackText = (res: any, status: number, text: string) => res.status(status).type('text/plain').send(text);
+const callbackUrlFor = (req: any) => `${req.protocol}://${req.get('host')}/api/integrations/vk/callback`;
+
+const enrichEveningState = async (db: DatabaseWrapper, state: any) => {
+  const [oauth, callback] = await Promise.all([
+    getVkOAuthStatus(db),
+    getVkCallbackRuntimeStatus(db),
+  ]);
+  const runtimeCallbackReady = Boolean(callback.configured);
+  return {
+    ...state,
+    integration: {
+      ...state.integration,
+      oauth,
+      callback,
+      callback_secret_configured: runtimeCallbackReady || Boolean(state.integration?.callback_secret_configured),
+      callback_confirmation_configured: runtimeCallbackReady || Boolean(state.integration?.callback_confirmation_configured),
+    },
+  };
+};
 
 router.post('/vk/callback', async (req, res) => {
   try {
     const db = await withVkSchema(req);
-    const callback = getVkCallbackConfig();
-    if (!callback.secret) return callbackText(res, 503, 'callback secret not configured');
-    if (String(req.body?.secret || '') !== callback.secret) return callbackText(res, 403, 'forbidden');
-
     const allowedGroups = new Set(getVkDestinations().map((item) => item.groupId).filter(Boolean).map((value) => String(value).replace(/^-/, '')));
     const groupId = String(req.body?.group_id || '').trim().replace(/^-/, '');
     if (!groupId || (allowedGroups.size && !allowedGroups.has(groupId))) return callbackText(res, 403, 'wrong group');
 
+    const callback = await getVkCallbackRequestConfig(db, groupId);
+    if (!callback.secret) return callbackText(res, 503, 'callback secret not configured');
+    if (String(req.body?.secret || '') !== callback.secret) return callbackText(res, 403, 'forbidden');
+
     const type = String(req.body?.type || '').trim();
     if (type === 'confirmation') {
-      const confirmation = getVkCallbackConfirmation(groupId);
-      if (!confirmation) return callbackText(res, 503, 'callback confirmation not configured');
-      return callbackText(res, 200, confirmation);
+      if (!callback.confirmation) return callbackText(res, 503, 'callback confirmation not configured');
+      return callbackText(res, 200, callback.confirmation);
     }
 
     const eventId = String(req.body?.event_id || '').trim()
@@ -101,24 +122,44 @@ router.post('/vk/oauth/start', requireOrganizerAuth, async (req, res) => {
 
 router.get('/vk/oauth/callback', async (req, res) => {
   const db = req.db as DatabaseWrapper;
+  const state = String(req.query?.state || '').trim();
+  let returnTo = '/';
   try {
     await ensureVkIntegrationSchema(db);
+    if (state) {
+      const pending = await db.get<{ return_to: string }>('SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1', [state]);
+      if (pending?.return_to) returnTo = pending.return_to;
+    }
+
     const result = await completeVkOAuth(db, {
       code: req.query?.code,
       deviceId: req.query?.device_id,
-      state: req.query?.state,
+      state,
     });
+    returnTo = result.return_to || returnTo;
+
+    // Callback registration is best-effort here: publishing + manual reconcile already
+    // work after OAuth, while any VK-side Callback issue remains visible in the CRM.
+    try {
+      await ensureVkCallbackRegistration(db, callbackUrlFor(req));
+    } catch (callbackError) {
+      console.error('[VK CALLBACK SETUP]', callbackError);
+    }
+
     res.setHeader('Cache-Control', 'no-store');
-    return res.redirect(302, appendVkOAuthResult(result.return_to, 'vk_connected', '1'));
+    return res.redirect(302, appendVkOAuthResult(returnTo, 'vk_connected', '1'));
   } catch (error: any) {
     console.error('[VK OAUTH CALLBACK]', error);
-    const state = String(req.query?.state || '').trim();
-    let returnTo = '/';
-    if (state) {
-      const pending = await db.get<{ return_to: string }>('SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1', [state]).catch(() => null);
-      if (pending?.return_to) returnTo = pending.return_to;
-    }
     return res.redirect(302, appendVkOAuthResult(returnTo, 'vk_error', error?.message || 'VK OAuth failed'));
+  }
+});
+
+router.post('/vk/callback/setup', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = await withVkSchema(req);
+    res.json(await ensureVkCallbackRegistration(db, callbackUrlFor(req)));
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось подключить Callback API VK' });
   }
 });
 
@@ -135,10 +176,17 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
     const vk = getVkIntegrationStatus();
-    const oauth = await getVkOAuthStatus(db);
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/integrations/vk/callback`;
+    const [oauth, callback] = await Promise.all([getVkOAuthStatus(db), getVkCallbackRuntimeStatus(db)]);
+    const callbackUrl = callbackUrlFor(req);
     res.json({
-      vk: { ...vk, oauth, callback_url: callbackUrl },
+      vk: {
+        ...vk,
+        oauth,
+        callback,
+        callback_url: callbackUrl,
+        callback_secret_configured: callback.configured || vk.callback_secret_configured,
+        callback_confirmation_configured: callback.configured || vk.callback_confirmation_configured,
+      },
       payments: {
         provider: 'paused',
         configured: false,
@@ -154,8 +202,7 @@ router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => 
   try {
     const db = await withVkSchema(req);
     const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    const oauth = await getVkOAuthStatus(db);
-    res.json({ ...state, integration: { ...state.integration, oauth } });
+    res.json(await enrichEveningState(db, state));
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить VK-интеграцию вечера' });
   }
@@ -166,8 +213,7 @@ router.post('/vk/evenings/:eveningId/sync', requireOrganizerAuth, async (req, re
     const db = await withVkSchema(req);
     const result = await syncVkEveningPublications(db, String(req.params.eveningId || ''));
     const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    const oauth = await getVkOAuthStatus(db);
-    res.json({ success: true, ...result, state: { ...state, integration: { ...state.integration, oauth } } });
+    res.json({ success: true, ...result, state: await enrichEveningState(db, state) });
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось синхронизировать VK' });
   }
@@ -178,8 +224,7 @@ router.post('/vk/evenings/:eveningId/reconcile', requireOrganizerAuth, async (re
     const db = await withVkSchema(req);
     const result = await reconcileVkEveningVotes(db, String(req.params.eveningId || ''));
     const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    const oauth = await getVkOAuthStatus(db);
-    res.json({ success: true, ...result, state: { ...state, integration: { ...state.integration, oauth } } });
+    res.json({ success: true, ...result, state: await enrichEveningState(db, state) });
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось забрать ответы VK' });
   }

@@ -42,5 +42,121 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
       ON evening_slot_registrations(slot_id);
     CREATE INDEX IF NOT EXISTS idx_evening_slot_registrations_participant
       ON evening_slot_registrations(participant_id);
+
+    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_insert_amount
+    AFTER INSERT ON evening_slot_registrations
+    BEGIN
+      UPDATE evening_participants
+         SET amount_due = (
+               SELECT COALESCE(SUM(s.price_rub), 0)
+                 FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = NEW.participant_id
+             ),
+             payment_status = CASE
+               WHEN (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = NEW.participant_id
+               ) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = NEW.participant_id
+               ) THEN 'paid'
+               ELSE 'unpaid'
+             END,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = NEW.participant_id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_delete_amount
+    AFTER DELETE ON evening_slot_registrations
+    BEGIN
+      UPDATE evening_participants
+         SET amount_due = (
+               SELECT COALESCE(SUM(s.price_rub), 0)
+                 FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = OLD.participant_id
+             ),
+             payment_status = CASE
+               WHEN (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = OLD.participant_id
+               ) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = OLD.participant_id
+               ) THEN 'paid'
+               ELSE 'unpaid'
+             END,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = OLD.participant_id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_price_update_amount
+    AFTER UPDATE OF price_rub ON evening_game_slots
+    BEGIN
+      UPDATE evening_participants
+         SET amount_due = (
+               SELECT COALESCE(SUM(s.price_rub), 0)
+                 FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = evening_participants.id
+             ),
+             payment_status = CASE
+               WHEN (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = evening_participants.id
+               ) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = evening_participants.id
+               ) THEN 'paid'
+               ELSE 'unpaid'
+             END,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id IN (
+         SELECT participant_id
+           FROM evening_slot_registrations
+          WHERE slot_id = NEW.id
+       );
+    END;
+
+    UPDATE evening_participants
+       SET amount_due = (
+             SELECT COALESCE(SUM(s.price_rub), 0)
+               FROM evening_slot_registrations r
+               JOIN evening_game_slots s ON s.id = r.slot_id
+              WHERE r.participant_id = evening_participants.id
+           ),
+           payment_status = CASE
+             WHEN (
+               SELECT COALESCE(SUM(s.price_rub), 0)
+                 FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = evening_participants.id
+             ) = 0 THEN 'waived'
+             WHEN COALESCE(amount_paid, 0) >= (
+               SELECT COALESCE(SUM(s.price_rub), 0)
+                 FROM evening_slot_registrations r
+                 JOIN evening_game_slots s ON s.id = r.slot_id
+                WHERE r.participant_id = evening_participants.id
+             ) THEN 'paid'
+             ELSE 'unpaid'
+           END,
+           updated_at = CURRENT_TIMESTAMP
+     WHERE id IN (SELECT DISTINCT participant_id FROM evening_slot_registrations);
   `);
 }

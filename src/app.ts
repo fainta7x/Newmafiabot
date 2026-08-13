@@ -71,6 +71,11 @@ import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
+import vkJoinStartRouter from './server/services/vkJoinStartRouter.ts';
+import vkJoinRegistrationCallbackRouter from './server/services/vkJoinRegistrationCallbackRouter.ts';
+import vkJoinRespondRouter from './server/services/vkJoinRespondRouter.ts';
+import vkJoinStateGetRouter from './server/services/vkJoinStateGetRouter.ts';
+import vkDirectIntegrationRouter from './server/services/vkDirectIntegrationRouter.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
@@ -81,12 +86,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
   app.set('trust proxy', 1);
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: false,
-    })
-  );
-
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(express.json({ limit: '2mb' }));
   app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err && (err.status === 413 || err.type === 'entity.too.large' || err.code === 'LIMIT_FILE_SIZE')) {
@@ -96,9 +96,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   });
   app.use(cookieParser());
 
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
@@ -113,38 +111,13 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
-  try {
-    await applyBogdanaFinalCorrection(db);
-  } catch (error) {
-    console.error('[DATA CORRECTION] Bogdana final result correction failed:', error);
-  }
-  if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
-    startTelegramSyncOutboxWorker(db);
-  }
-  try {
-    await reconcileTokenOpeningBalances(db);
-  } catch (error) {
-    console.error('[TOKENS] Opening-balance reconciliation failed:', error);
-  }
-  try {
-    await reconcileAllTournamentGameTokenSettlements(db);
-  } catch (error) {
-    console.error('[TOKENS] Tournament settlement backfill failed:', error);
-  }
-  try {
-    await reconcileAllBettingPools(db);
-  } catch (error) {
-    console.error('[BETS] Betting reconciliation failed:', error);
-  }
-  try {
-    await reconcileAllPlayerAchievements(db);
-  } catch (error) {
-    console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error);
-  }
-  app.use((req, _res, next) => {
-    (req as any).db = db;
-    next();
-  });
+  try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
+  if (!process.env.VITEST && process.env.NODE_ENV !== 'test') startTelegramSyncOutboxWorker(db);
+  try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
+  try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
+  try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }
+  try { await reconcileAllPlayerAchievements(db); } catch (error) { console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error); }
+  app.use((req, _res, next) => { (req as any).db = db; next(); });
 
   app.use(parseUserSession);
 
@@ -171,12 +144,17 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/integrations', vkJoinRegistrationCallbackRouter);
+  app.use('/api/integrations', vkDirectIntegrationRouter);
   app.use('/api/integrations', integrationRoutes);
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/crm', tableScoutingRoutes);
+  app.use('/api/public', vkJoinStartRouter);
+  app.use('/api/public', vkJoinRespondRouter);
+  app.use('/api/public', vkJoinStateGetRouter);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
@@ -205,10 +183,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/bot', botAnnouncementRoutes);
   app.use('/api/bot', botTelegramRoutes);
 
-  app.use('/api/*', (_req, res) => {
-    res.status(404).json({ error: 'API endpoint not found' });
-  });
-
+  app.use('/api/*', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
   app.use('/api/*', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('[API] Unhandled error:', err);
     if (res.headersSent) return;
@@ -217,19 +192,12 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   const isProduction = process.env.NODE_ENV === 'production';
   const distPath = path.resolve(process.cwd(), 'dist');
-
   if (isProduction) {
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   } else {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   }
-
   return app;
 }

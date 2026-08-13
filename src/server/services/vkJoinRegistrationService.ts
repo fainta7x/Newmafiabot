@@ -5,6 +5,12 @@ import { findPlayersByNickname } from './playerRegistrationService.ts';
 import { parseResponseStatus, setParticipantResponse } from './eveningParticipantState.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 
+export type VkJoinParticipants = {
+  going: string[];
+  late: string[];
+  thinking: string[];
+};
+
 export const loadVkJoinCounts = async (db: DatabaseWrapper, eveningId: string) => {
   const row = await db.get<any>(`
     SELECT
@@ -20,6 +26,24 @@ export const loadVkJoinCounts = async (db: DatabaseWrapper, eveningId: string) =
     thinking: Number(row?.thinking || 0),
     declined: Number(row?.declined || 0),
   };
+};
+
+export const loadVkJoinParticipants = async (db: DatabaseWrapper, eveningId: string): Promise<VkJoinParticipants> => {
+  const rows = await db.all<any>(`
+    SELECT ep.response_status, p.nickname
+      FROM evening_participants ep
+      JOIN players p ON p.id = ep.player_id
+     WHERE ep.evening_id = ?
+       AND ep.response_status IN ('going', 'late', 'thinking')
+     ORDER BY COALESCE(ep.registered_at, ep.created_at) ASC, p.nickname COLLATE NOCASE ASC
+  `, [eveningId]);
+  const result: VkJoinParticipants = { going: [], late: [], thinking: [] };
+  for (const row of rows) {
+    const status = String(row?.response_status || '') as keyof VkJoinParticipants;
+    const nickname = String(row?.nickname || '').trim();
+    if (nickname && status in result) result[status].push(nickname);
+  }
+  return result;
 };
 
 export async function registerVkPlayer(db: DatabaseWrapper, vkUserId: string, nicknameInput: unknown) {
@@ -107,5 +131,9 @@ export async function saveVkJoinResponse(db: DatabaseWrapper, eveningId: string,
   }
 
   await runCrmAutomations(db);
-  return { response_status: responseStatus, counts: await loadVkJoinCounts(db, eveningId) };
+  const [counts, participants] = await Promise.all([
+    loadVkJoinCounts(db, eveningId),
+    loadVkJoinParticipants(db, eveningId),
+  ]);
+  return { response_status: responseStatus, counts, participants };
 }

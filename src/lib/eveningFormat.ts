@@ -15,7 +15,7 @@ export const normalizeEveningFormat = (value: unknown): EveningFormat => {
 
 export const EVENING_FORMAT_LABELS: Record<EveningFormat, string> = {
   NOVICE: 'Для новичков',
-  CASUAL: 'Для отдыха',
+  CASUAL: 'Клубный',
   RATING: 'Рейтинговый',
   TOURNAMENT: 'Турнир',
 };

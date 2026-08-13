@@ -281,7 +281,7 @@ export const TournamentGameSetup: React.FC<TournamentGameSetupProps> = ({
 
       {showPhysicalDeal && (
         <PhysicalRoleDeal
-          seats={sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name }))}
+          seats={sortedSeats.map((seat) => ({ seat_number: seat.seat_number, nickname: seat.display_name || `Игрок ${seat.seat_number}` }))}
           initialAssignments={physicalAssignments}
           onCancel={() => setShowPhysicalDeal(false)}
           onComplete={applyPhysicalAssignments}

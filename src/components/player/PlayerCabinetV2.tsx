@@ -433,7 +433,7 @@ export default function PlayerCabinetV2({
                 <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.07] text-lg text-white/55">→</div>
               </div>
             </button>
-            <Section title="Ближайшие игры">
+            <Section title="Ближайшие вечера">
               {eveningsError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-sm text-white/55">{eveningsError}</p>}
               {evenings === null ? <p className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игровых вечеров…</p> : evenings.length ? (
                 <div className="space-y-3">{evenings.map((evening) => {

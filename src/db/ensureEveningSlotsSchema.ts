@@ -1,6 +1,8 @@
 import type { DatabaseWrapper } from './index.ts';
 
-export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<void> {
+const slotSchemaInitialization = new WeakMap<object, Promise<void>>();
+
+async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> {
   // Keep ordinary DDL in exec(). Turso's compatibility splitter treats every
   // semicolon as a statement boundary, so CREATE TRIGGER bodies must be sent
   // as single statements through run() instead of being embedded in this script.
@@ -144,6 +146,8 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
     END
   `);
 
+  // Reconcile existing slot registrations once per live DB connection. This used
+  // to run on every slot read, turning a simple workspace open into a remote write.
   await db.run(`
     UPDATE evening_participants
        SET amount_due = (
@@ -170,4 +174,21 @@ export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<voi
            updated_at = CURRENT_TIMESTAMP
      WHERE id IN (SELECT DISTINCT participant_id FROM evening_slot_registrations)
   `);
+}
+
+export async function ensureEveningSlotsSchema(db: DatabaseWrapper): Promise<void> {
+  const key = db as unknown as object;
+  const running = slotSchemaInitialization.get(key);
+  if (running) return running;
+
+  const initialization = initializeEveningSlotsSchema(db);
+  slotSchemaInitialization.set(key, initialization);
+  try {
+    await initialization;
+  } catch (error) {
+    if (slotSchemaInitialization.get(key) === initialization) {
+      slotSchemaInitialization.delete(key);
+    }
+    throw error;
+  }
 }

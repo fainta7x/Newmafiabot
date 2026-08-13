@@ -55,6 +55,7 @@ const channelPeerFromUrl = (value: unknown): string | null => {
 };
 
 const getVkToken = () => String(process.env.VK_ACCESS_TOKEN || '').trim();
+const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
 const getVkVersion = () => String(process.env.VK_API_VERSION || '5.199').trim() || '5.199';
 const getPublicGroupId = () => normalizeGroupId(process.env.VK_GROUP_ID || DEFAULT_PUBLIC_GROUP_ID);
 const getPublicScreenName = () => String(process.env.VK_GROUP_SCREEN_NAME || DEFAULT_PUBLIC_SCREEN_NAME).trim();
@@ -114,6 +115,7 @@ export const getVkCallbackConfirmation = (groupId: unknown): string => {
 
 export function getVkIntegrationStatus() {
   const token = getVkToken();
+  const groupToken = getVkGroupToken();
   const destinations = getVkDestinations();
   const publicDestination = destinations.find((item) => item.key === 'public');
   const supportedChannel = destinations.find((item) => item.key === 'channel' && item.active && item.supported);
@@ -128,6 +130,7 @@ export function getVkIntegrationStatus() {
   return {
     configured: Boolean(token && publicDestination?.groupId),
     token_configured: Boolean(token),
+    group_token_configured: Boolean(groupToken),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,
@@ -141,9 +144,8 @@ export function getVkIntegrationStatus() {
   };
 }
 
-export async function vkApi<T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> {
-  const token = getVkToken();
-  if (!token) throw new Error('VK_ACCESS_TOKEN is not configured');
+const callVkApi = async <T>(token: string, method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
+  if (!token) throw new Error('VK access token is not configured');
 
   const body = new URLSearchParams();
   body.set('access_token', token);
@@ -166,7 +168,16 @@ export async function vkApi<T>(method: string, params: Record<string, string | n
   }
   if (payload.response === undefined) throw new Error('VK API returned an empty response');
   return payload.response;
+};
+
+export async function vkApi<T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> {
+  return callVkApi<T>(getVkToken(), method, params);
 }
+
+const vkChannelApi = async <T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
+  const token = getVkGroupToken() || getVkToken();
+  return callVkApi<T>(token, method, params);
+};
 
 const rawOwnerIdForGroup = (groupId: string) => -Math.abs(Number(groupId));
 const isChannelPeer = (groupId: string) => String(groupId || '').trim().startsWith('-');
@@ -206,7 +217,7 @@ export async function createVkPoll(groupId: string, question: string, answers: s
 }
 
 const requireVkGroupChannel = async (peerId: number): Promise<void> => {
-  const result = await vkApi<any>('messages.getConversationsById', {
+  const result = await vkChannelApi<any>('messages.getConversationsById', {
     peer_ids: String(peerId),
   });
   const conversation = Array.isArray(result?.items) ? result.items[0] : null;
@@ -231,7 +242,7 @@ const createVkChannelMessage = async (input: {
   attachments?: string[];
 }): Promise<VkPublishResult> => {
   await requireVkGroupChannel(input.peerId);
-  const response = await vkApi<any>('messages.send', {
+  const response = await vkChannelApi<any>('messages.send', {
     peer_id: input.peerId,
     random_id: Math.floor(Math.random() * 2_000_000_000) + 1,
     message: input.message,
@@ -253,7 +264,7 @@ const editVkChannelMessage = async (input: {
   attachments?: string[];
 }): Promise<void> => {
   await requireVkGroupChannel(input.peerId);
-  await vkApi<boolean | number>('messages.edit', {
+  await vkChannelApi<boolean | number>('messages.edit', {
     peer_id: input.peerId,
     message_id: input.messageId,
     message: input.message,

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
+import { eveningSlotRoutes } from './eveningSlotRoutes.ts';
 import {
   beginReminderCampaign,
   getReminderCampaignGeneration,
@@ -15,6 +16,7 @@ import {
 } from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
+router.use(eveningSlotRoutes);
 
 // This router is mounted before the evening CRUD router. Database triggers record the
 // sync intent transactionally; this middleware only nudges the durable outbox immediately

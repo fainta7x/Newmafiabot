@@ -288,7 +288,7 @@ export interface GameEvening {
   ends_at?: string | null;
   timezone: string;
   venue?: string | null;
-  format: 'NOVICE' | 'STANDARD' | 'TOURNAMENT';
+  format: 'NOVICE' | 'CASUAL' | 'RATING' | 'TOURNAMENT' | 'STANDARD';
   status: 'draft' | 'published' | 'active' | 'completed' | 'cancelled';
   capacity: number;
   default_price: number;

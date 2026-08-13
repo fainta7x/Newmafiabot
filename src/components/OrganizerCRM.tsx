@@ -3,7 +3,7 @@ import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
 import { api, type CrmOverview, type GameEvening, type Player } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
-import { EveningWorkspace } from './crm/EveningWorkspace.tsx';
+import { EveningWorkspace, type EveningSection } from './crm/EveningWorkspace.tsx';
 import { MoreCRM } from './crm/MoreCRM.tsx';
 import { PlayersCRM } from './crm/PlayersCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
@@ -15,27 +15,116 @@ import { ORGANIZER_PRIMARY_NAV, type OrganizerPrimaryTab } from '../lib/organize
 
 interface OrganizerCRMProps {
   onReturnToGameEngine?: () => void;
+  pathname?: string;
+  onNavigate?: (path: string, replace?: boolean) => void;
 }
 
 type MainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
 
+type OrganizerRouteState = {
+  tab: MainTab;
+  eveningId: string | null;
+  eveningSection: EveningSection;
+  playerId: string | null;
+};
+
 type PlayerReturnContext = {
   tab: MainTab;
   eveningId: string | null;
+  eveningSection: EveningSection;
   scrollY: number;
 } | null;
+
+const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'tables', 'games']);
+
+const safeDecode = (value: string | undefined): string | null => {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const parseOrganizerRoute = (pathname: string): OrganizerRouteState => {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] !== 'admin') {
+    return { tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null };
+  }
+
+  if (parts[1] === 'evenings') {
+    const eveningId = safeDecode(parts[2]);
+    const section = EVENING_SECTIONS.has(parts[3] as EveningSection)
+      ? parts[3] as EveningSection
+      : 'overview';
+    return { tab: 'evenings', eveningId, eveningSection: section, playerId: null };
+  }
+
+  if (parts[1] === 'players') {
+    return {
+      tab: 'players',
+      eveningId: null,
+      eveningSection: 'overview',
+      playerId: safeDecode(parts[2]),
+    };
+  }
+
+  if (parts[1] === 'tasks') {
+    return { tab: 'tasks', eveningId: null, eveningSection: 'overview', playerId: null };
+  }
+
+  if (parts[1] === 'analytics') {
+    return { tab: 'analytics', eveningId: null, eveningSection: 'overview', playerId: null };
+  }
+
+  if (parts[1] === 'more') {
+    return { tab: 'more', eveningId: null, eveningSection: 'overview', playerId: null };
+  }
+
+  return { tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null };
+};
+
+const organizerTabPath = (tab: MainTab): string => {
+  if (tab === 'overview') return '/admin';
+  if (tab === 'evenings') return '/admin/evenings';
+  if (tab === 'players') return '/admin/players';
+  if (tab === 'tasks') return '/admin/tasks';
+  if (tab === 'analytics') return '/admin/analytics';
+  return '/admin/more';
+};
+
+const organizerEveningPath = (eveningId: string, section: EveningSection = 'overview'): string => {
+  const base = `/admin/evenings/${encodeURIComponent(eveningId)}`;
+  return section === 'overview' ? base : `${base}/${section}`;
+};
+
+const organizerPlayerPath = (playerId: string): string => `/admin/players/${encodeURIComponent(playerId)}`;
+
+const routePathForReturnContext = (context: NonNullable<PlayerReturnContext>): string => {
+  if (context.tab === 'evenings' && context.eveningId) {
+    return organizerEveningPath(context.eveningId, context.eveningSection);
+  }
+  return organizerTabPath(context.tab);
+};
 
 const moveWindowScroll = (top: number) => {
   if (typeof window === 'undefined') return;
   window.requestAnimationFrame(() => window.scrollTo({ top, left: 0, behavior: 'auto' }));
 };
 
-export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine }) => {
+export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine, pathname, onNavigate }) => {
   useMobileKeyboardViewport();
 
-  const [activeTab, setActiveTab] = useState<MainTab>('overview');
-  const [activeEveningId, setActiveEveningId] = useState<string | null>(null);
-  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [localPathname, setLocalPathname] = useState(() => pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '/admin'));
+  const routePathname = pathname ?? localPathname;
+  const initialRouteRef = useRef<OrganizerRouteState | null>(null);
+  if (initialRouteRef.current === null) initialRouteRef.current = parseOrganizerRoute(routePathname);
+  const initialRoute = initialRouteRef.current;
+
+  const [activeTab, setActiveTab] = useState<MainTab>(initialRoute.tab);
+  const [activeEveningId, setActiveEveningId] = useState<string | null>(initialRoute.eveningId);
+  const [activeEveningSection, setActiveEveningSection] = useState<EveningSection>(initialRoute.eveningSection);
+  const [activePlayerId, setActivePlayerId] = useState<string | null>(initialRoute.playerId);
   const [playerReturnContext, setPlayerReturnContext] = useState<PlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
   const eveningListScrollRef = useRef(0);
@@ -54,6 +143,34 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const navigateAdmin = (nextPath: string, replace = false) => {
+    if (onNavigate) {
+      onNavigate(nextPath, replace);
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    if (window.location.pathname !== nextPath) {
+      if (replace) window.history.replaceState({}, '', nextPath);
+      else window.history.pushState({}, '', nextPath);
+    }
+    setLocalPathname(nextPath);
+  };
+
+  useEffect(() => {
+    if (pathname !== undefined || typeof window === 'undefined') return;
+    const handlePopState = () => setLocalPathname(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [pathname]);
+
+  useEffect(() => {
+    const route = parseOrganizerRoute(routePathname);
+    setActiveTab(route.tab);
+    setActiveEveningId(route.eveningId);
+    setActiveEveningSection(route.eveningSection);
+    setActivePlayerId(route.playerId);
+  }, [routePathname]);
 
   useEffect(() => {
     setCurrentTheme(initTheme());
@@ -162,8 +279,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setEvenings([]);
     setPlayers([]);
     setActiveEveningId(null);
+    setActiveEveningSection('overview');
     setActivePlayerId(null);
     setActiveTab('overview');
+    navigateAdmin('/admin', true);
   };
 
   const handleOpenEvening = (id: string) => {
@@ -171,8 +290,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(id);
+    setActiveEveningSection('overview');
     setEveningIntent(null);
     setActiveTab('evenings');
+    navigateAdmin(organizerEveningPath(id));
     moveWindowScroll(0);
   };
 
@@ -181,8 +302,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(id);
+    setActiveEveningSection('participants');
     setEveningIntent('add');
     setActiveTab('evenings');
+    navigateAdmin(organizerEveningPath(id, 'participants'));
     moveWindowScroll(0);
   };
 
@@ -190,21 +313,34 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setPlayerReturnContext({
       tab: activeTab,
       eveningId: activeEveningId,
+      eveningSection: activeEveningSection,
       scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
     });
     setActivePlayerId(id);
     setActiveTab('players');
+    navigateAdmin(organizerPlayerPath(id));
+    moveWindowScroll(0);
   };
 
   const handleCloseExternalPlayer = () => {
     const returnContext = playerReturnContext;
     setActivePlayerId(null);
+    setPlayerReturnContext(null);
+
     if (returnContext) {
       setActiveTab(returnContext.tab);
       setActiveEveningId(returnContext.eveningId);
-      setPlayerReturnContext(null);
+      setActiveEveningSection(returnContext.eveningSection);
+      navigateAdmin(routePathForReturnContext(returnContext), true);
       moveWindowScroll(returnContext.scrollY);
+      return;
     }
+
+    setActiveTab('players');
+    setActiveEveningId(null);
+    setActiveEveningSection('overview');
+    navigateAdmin('/admin/players', true);
+    moveWindowScroll(0);
   };
 
   const handleCreateEvening = async (data: Partial<GameEvening>) => {
@@ -215,8 +351,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   const openCreateEvening = () => {
     setActiveEveningId(null);
+    setActiveEveningSection('overview');
     setEveningIntent('create');
     setActiveTab('evenings');
+    navigateAdmin('/admin/evenings');
   };
 
   const switchPrimaryTab = (tab: OrganizerPrimaryTab) => {
@@ -225,8 +363,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(null);
+    setActiveEveningSection('overview');
     if (tab === 'overview' || tab === 'evenings') setEveningIntent(null);
     setActiveTab(tab);
+    navigateAdmin(organizerTabPath(tab));
     if (leavingEvening) refreshSnapshotAfterEvening();
     if (opensNewRoot) moveWindowScroll(0);
   };
@@ -235,8 +375,10 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActivePlayerId(null);
     setPlayerReturnContext(null);
     setActiveEveningId(null);
+    setActiveEveningSection('overview');
     setEveningIntent(null);
     setActiveTab(tab);
+    navigateAdmin(organizerTabPath(tab));
     moveWindowScroll(0);
   };
 
@@ -343,9 +485,16 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
               activeEveningId ? (
                 <EveningWorkspace
                   eveningId={activeEveningId}
+                  initialSection={activeEveningSection}
+                  onSectionChange={(section) => {
+                    setActiveEveningSection(section);
+                    navigateAdmin(organizerEveningPath(activeEveningId, section));
+                  }}
                   onBack={() => {
                     setActiveEveningId(null);
+                    setActiveEveningSection('overview');
                     setEveningIntent(null);
+                    navigateAdmin('/admin/evenings', true);
                     refreshSnapshotAfterEvening();
                     moveWindowScroll(eveningListScrollRef.current);
                   }}

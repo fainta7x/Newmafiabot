@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
+import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
+import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 
 const router = Router();
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -34,6 +36,8 @@ const safeTableExists = async (db: any, table: string) => {
     return false;
   }
 };
+
+const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
 
 const buildNotifications = async (db: any, playerId: string) => {
   const now = Date.now();
@@ -108,7 +112,12 @@ const buildNotifications = async (db: any, playerId: string) => {
     }
   }
 
-  const snapshots = await loadCompletedGameSnapshots(db);
+  const [snapshots, eloTimeline, eveningSummaries] = await Promise.all([
+    loadCompletedGameSnapshots(db),
+    loadPlayerEloHistory(db),
+    loadPlayerEveningSummaries(db, playerId, 3),
+  ]);
+
   const personalGames = snapshots.filter((game) => game.players.some((item) => item.player_id === playerId));
   const recentGame = personalGames[0];
   if (recentGame && now - recentGame.dateMs <= THREE_DAYS) {
@@ -120,9 +129,42 @@ const buildNotifications = async (db: any, playerId: string) => {
       title: me.won ? 'Новая победа в истории' : 'Результат игры опубликован',
       text: `${recentGame.title} · ${me.won ? 'победа' : 'поражение'} · ${me.role === 'sheriff' ? 'Шериф' : me.role === 'don' ? 'Дон' : me.role === 'mafia' ? 'Мафия' : 'Мирный'}`,
       date: recentGame.played_at,
-      action: { kind: 'stories', target: recentGame.id },
+      action: { kind: 'games', target: recentGame.id },
       priority: 70,
     });
+  }
+
+  const latestElo = eloTimeline.slice().reverse().find((event) => event.players.some((item) => item.playerId === playerId)) || null;
+  const latestEloRow = latestElo?.players.find((item) => item.playerId === playerId) || null;
+  const latestEloMs = latestElo ? new Date(latestElo.sortAt).getTime() : 0;
+  if (latestElo && latestEloRow && Number.isFinite(latestEloMs) && now - latestEloMs <= THREE_DAYS && Math.abs(latestEloRow.totalDelta) >= 0.01) {
+    items.push({
+      key: `elo:${latestElo.source}:${latestElo.sourceId}:${Math.round(latestEloRow.eloAfter * 100)}`,
+      type: 'elo_change',
+      icon: latestEloRow.totalDelta > 0 ? '📈' : '📉',
+      title: `Elo ${signed(latestEloRow.totalDelta)}`,
+      text: `${Math.round(latestEloRow.eloBefore)} → ${Math.round(latestEloRow.eloAfter)} · команда имела ${Math.round(latestEloRow.expectedTeamResult * 100)}% расчётного шанса`,
+      date: latestElo.sortAt,
+      action: { kind: 'elo_journey', target: `${latestElo.source}:${latestElo.sourceId}` },
+      priority: 82,
+    });
+  }
+
+  const latestSummary = eveningSummaries[0] || null;
+  if (latestSummary) {
+    const summaryMs = new Date(String(latestSummary.settled_at || latestSummary.starts_at)).getTime();
+    if (Number.isFinite(summaryMs) && now - summaryMs <= SEVEN_DAYS) {
+      items.push({
+        key: `evening-summary:${latestSummary.id}:${latestSummary.score}:${latestSummary.player.elo_delta}`,
+        type: 'evening_summary',
+        icon: '🎬',
+        title: 'Итоги вечера готовы',
+        text: `Красные ${latestSummary.red_wins}:${latestSummary.black_wins} чёрные · твой результат ${latestSummary.player.wins}/${latestSummary.player.games}${Math.abs(latestSummary.player.elo_delta) >= 0.01 ? ` · Elo ${signed(latestSummary.player.elo_delta)}` : ''}`,
+        date: new Date(summaryMs).toISOString(),
+        action: { kind: 'evening_summary', target: latestSummary.id },
+        priority: 90,
+      });
+    }
   }
 
   let streak = 0;
@@ -137,9 +179,9 @@ const buildNotifications = async (db: any, playerId: string) => {
       type: 'streak',
       icon: '🔥',
       title: `${streak} побед подряд`,
-      text: 'Ты на серии. Игровой центр уже обновил текущую форму.',
+      text: 'Ты на серии. Посмотри прогресс и форму клуба.',
       date: recentGame.played_at,
-      action: { kind: 'game_center' },
+      action: { kind: 'club' },
       priority: 85,
     });
   }
@@ -176,7 +218,7 @@ const buildNotifications = async (db: any, playerId: string) => {
         title: votedCount ? `Голосование: ${votedCount}/4` : 'Выбери героев вечера',
         text: `${String(evening.title || 'Игровой вечер')} · симпатия, красный, чёрный и Шериф`,
         date: new Date(baseMs).toISOString(),
-        action: { kind: 'stories', target: String(evening.id) },
+        action: { kind: 'club', target: String(evening.id) },
         priority: 80,
       });
       break;

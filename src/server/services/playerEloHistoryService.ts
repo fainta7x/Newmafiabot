@@ -12,6 +12,9 @@ import {
 export interface PlayerEloHistoryRow extends CanonicalEloPlayerDelta {
   eloBefore: number;
   eloAfter: number;
+  team: EloTeam;
+  won: boolean;
+  canonicalPersonalGamePoints: number;
 }
 
 export interface PlayerEloHistoryEvent {
@@ -125,8 +128,15 @@ const validatePreparedEvent = (event: PreparedEvent) => {
 
 const loadPreparedEvents = async (db: DatabaseWrapper) => {
   const { getFlexibleTournamentStandings } = await import('./flexibleTournamentStandingsService.ts');
-  const players = await db.all<any>('SELECT id FROM players ORDER BY id');
+  const players = await db.all<any>(
+    'SELECT id, COALESCE(elo_seed, ?) AS elo_seed FROM players ORDER BY id',
+    [DEFAULT_ELO],
+  );
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));
+  const seedByPlayer = new Map<string, number>(players.map((player) => {
+    const seed = Number(player.elo_seed);
+    return [String(player.id), Number.isFinite(seed) ? seed : DEFAULT_ELO];
+  }));
   const events: PreparedEvent[] = [];
 
   const tournaments = await db.all<any>(`
@@ -241,12 +251,15 @@ const loadPreparedEvents = async (db: DatabaseWrapper) => {
     || a.sourceId.localeCompare(b.sourceId),
   );
 
-  return { playerIds: players.map((player) => String(player.id)), events };
+  return { playerIds: players.map((player) => String(player.id)), seedByPlayer, events };
 };
 
 export async function loadPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerEloHistoryEvent[]> {
   const prepared = await loadPreparedEvents(db);
-  const ratings = new Map<string, number>(prepared.playerIds.map((playerId) => [playerId, DEFAULT_ELO]));
+  const ratings = new Map<string, number>(prepared.playerIds.map((playerId) => [
+    playerId,
+    prepared.seedByPlayer.get(playerId) ?? DEFAULT_ELO,
+  ]));
   const timeline: PlayerEloHistoryEvent[] = [];
 
   for (const event of prepared.events) {
@@ -257,10 +270,15 @@ export async function loadPlayerEloHistory(db: DatabaseWrapper): Promise<PlayerE
     const deltas = calculateCanonicalEloGame(gamePlayers, event.winnerTeam);
     const rows = deltas.map((delta) => {
       const eloBefore = ratings.get(delta.playerId) ?? DEFAULT_ELO;
+      const preparedPlayer = event.players.find((player) => player.playerId === delta.playerId);
+      const team = preparedPlayer?.team ?? 'red';
       return {
         ...delta,
         eloBefore,
         eloAfter: eloBefore + delta.totalDelta,
+        team,
+        won: team === event.winnerTeam,
+        canonicalPersonalGamePoints: preparedPlayer?.canonicalPersonalGamePoints ?? 0,
       };
     });
 

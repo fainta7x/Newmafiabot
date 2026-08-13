@@ -36,7 +36,7 @@ describe('organizer action-first UX helpers', () => {
     expect(normalizeEveningResponse('declined')).toBe('declined');
     expect(normalizeEveningResponse('invited')).toBe('unanswered');
     expect(normalizeEveningResponse('confirmed')).toBe('going');
-    expect(normalizeEveningResponse('waitlist')).toBe('going');
+    expect(normalizeEveningResponse('waitlist')).toBe('unanswered');
     expect(normalizeEveningResponse('registered', 'late')).toBe('late');
     expect(countEveningResponses([{ registration_status: 'going' }, { registration_status: 'late' }, { registration_status: 'thinking' }, { registration_status: 'declined' }, { registration_status: 'invited' }])).toMatchObject({ going: 1, late: 1, thinking: 1, declined: 1, unanswered: 1, responded: 4, audience: 5 });
     expect(getEveningTimelineLabel({ registration_status: 'going', attendance_status: 'no_show' })).toBe('Иду → Не пришёл');

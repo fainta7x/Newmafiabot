@@ -15,6 +15,15 @@ const plannedCount = (evening: any) => {
   return hours >= 1 && hours <= 12 ? hours : 6;
 };
 
+const normalizeStartsAt = (value: unknown, fallback: string) => {
+  const raw = String(value ?? fallback).trim();
+  const time = new Date(raw).getTime();
+  if (!raw || !Number.isFinite(time)) {
+    throw Object.assign(new Error('Некорректное время первой игры'), { statusCode: 400 });
+  }
+  return raw;
+};
+
 export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningSlotsSchema(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -41,14 +50,23 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
 export async function updateEveningSlotSettings(
   db: DatabaseWrapper,
   eveningId: string,
-  input: { planned_slots?: unknown; price_per_game?: unknown },
+  input: {
+    planned_slots?: unknown;
+    price_per_game?: unknown;
+    slot_duration_minutes?: unknown;
+    starts_at?: unknown;
+  },
 ) {
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
   if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
 
   const nextCount = Math.max(1, Math.min(12, Math.round(Number(input.planned_slots ?? settings.planned_slots ?? 6))));
   const nextPrice = Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
-  if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice)) throw Object.assign(new Error('Некорректные настройки игровых слотов'), { statusCode: 400 });
+  const nextDuration = Math.max(15, Math.min(180, Math.round(Number(input.slot_duration_minutes ?? settings.slot_duration_minutes ?? 60))));
+  const nextStartsAt = normalizeStartsAt(input.starts_at, evening.starts_at);
+  if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice) || !Number.isFinite(nextDuration)) {
+    throw Object.assign(new Error('Некорректные настройки игровых слотов'), { statusCode: 400 });
+  }
 
   const currentSlots = await db.all<any>('SELECT id, slot_number FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
   const removed = currentSlots.filter((slot) => Number(slot.slot_number) > nextCount);
@@ -60,18 +78,34 @@ export async function updateEveningSlotSettings(
   }
 
   const now = new Date().toISOString();
-  const duration = Number(settings.slot_duration_minutes || 60);
+  const targetPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
   await db.transaction(async (tx: any) => {
     for (const slot of removed) await tx.run('DELETE FROM evening_game_slots WHERE id = ?', [slot.id]);
+
+    const keptSlots = currentSlots.filter((slot) => Number(slot.slot_number) <= nextCount);
+    for (const slot of keptSlots) {
+      const index = Number(slot.slot_number) - 1;
+      await tx.run(
+        'UPDATE evening_game_slots SET starts_at = ?, ends_at = ?, price_rub = ?, target_players = ?, updated_at = ? WHERE id = ?',
+        [plusMinutes(nextStartsAt, index * nextDuration), plusMinutes(nextStartsAt, (index + 1) * nextDuration), nextPrice, targetPlayers, now, slot.id],
+      );
+    }
+
     for (let i = currentSlots.length; i < nextCount; i += 1) {
       await tx.run(
         'INSERT OR IGNORE INTO evening_game_slots (id, evening_id, slot_number, starts_at, ends_at, price_rub, target_players, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [randomUUID(), eveningId, i + 1, plusMinutes(evening.starts_at, i * duration), plusMinutes(evening.starts_at, (i + 1) * duration), nextPrice, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS), 'open', now, now],
+        [randomUUID(), eveningId, i + 1, plusMinutes(nextStartsAt, i * nextDuration), plusMinutes(nextStartsAt, (i + 1) * nextDuration), nextPrice, targetPlayers, 'open', now, now],
       );
     }
-    await tx.run('UPDATE evening_game_slots SET price_rub = ?, target_players = ?, updated_at = ? WHERE evening_id = ?', [nextPrice, Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS), now, eveningId]);
-    await tx.run('UPDATE evening_slot_settings SET planned_slots = ?, price_per_game = ?, updated_at = ? WHERE evening_id = ?', [nextCount, nextPrice, now, eveningId]);
-    await tx.run('UPDATE game_evenings SET ends_at = ?, default_price = ?, updated_at = ? WHERE id = ?', [plusMinutes(evening.starts_at, nextCount * duration), nextPrice, now, eveningId]);
+
+    await tx.run(
+      'UPDATE evening_slot_settings SET planned_slots = ?, slot_duration_minutes = ?, price_per_game = ?, updated_at = ? WHERE evening_id = ?',
+      [nextCount, nextDuration, nextPrice, now, eveningId],
+    );
+    await tx.run(
+      'UPDATE game_evenings SET starts_at = ?, ends_at = ?, default_price = ?, updated_at = ? WHERE id = ?',
+      [nextStartsAt, plusMinutes(nextStartsAt, nextCount * nextDuration), nextPrice, now, eveningId],
+    );
   });
   return loadEveningSlotPlan(db, eveningId);
 }
@@ -91,7 +125,24 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
   const ready = slots.filter(s => s.registered_count >= requiredPlayers).length;
   const selected = slots.filter(s => s.selected);
   return {
-    event: { id: evening.id, title: evening.title, starts_at: evening.starts_at, ends_at: evening.ends_at, timezone: evening.timezone, venue: evening.venue, format: evening.format || 'CASUAL', status: evening.status, event_type: 'evening', price_per_game: Number(settings.price_per_game || 100), slot_count: slots.length, assembled_slots: ready, required_slots: requiredSlots, required_players_per_slot: requiredPlayers, assembled: ready >= requiredSlots },
+    event: {
+      id: evening.id,
+      title: evening.title,
+      starts_at: evening.starts_at,
+      ends_at: evening.ends_at,
+      timezone: evening.timezone,
+      venue: evening.venue,
+      format: evening.format || 'CASUAL',
+      status: evening.status,
+      event_type: 'evening',
+      price_per_game: Number(settings.price_per_game || 100),
+      slot_duration_minutes: Number(settings.slot_duration_minutes || 60),
+      slot_count: slots.length,
+      assembled_slots: ready,
+      required_slots: requiredSlots,
+      required_players_per_slot: requiredPlayers,
+      assembled: ready >= requiredSlots,
+    },
     slots,
     selection: { slot_ids: selected.map(s => s.id), games: selected.length, total: selected.reduce((sum, s) => sum + s.price, 0) },
   };

@@ -118,7 +118,8 @@ export const getRotationPriority = (
   if (special) return { tier: 1, reason: 'early_exit', survival: rotationSurvivalScore(result, protocol) };
 
   const team = rotationTeamFromRole(result.role);
-  if (team && team === protocol.winner_team) return { tier: 2, reason: 'winner', survival: rotationSurvivalScore(result, protocol) };
+  const winnerTeam = rotationTeamFromRole(protocol.winner_team);
+  if (team && winnerTeam && team === winnerTeam) return { tier: 2, reason: 'winner', survival: rotationSurvivalScore(result, protocol) };
 
   return { tier: 3, reason: 'loser', survival: rotationSurvivalScore(result, protocol) };
 };

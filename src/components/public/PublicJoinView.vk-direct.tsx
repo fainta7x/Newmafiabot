@@ -5,6 +5,9 @@ import { api } from '../../lib/api.ts';
 interface PublicJoinViewProps { eveningId: string; }
 type ResponseStatus = 'going' | 'late' | 'thinking' | 'declined' | 'unanswered';
 type Counts = { going: number; late: number; thinking: number; declined: number };
+type Participants = { going: string[]; late: string[]; thinking: string[] };
+
+const emptyParticipants: Participants = { going: [], late: [], thinking: [] };
 
 const choices: Array<{ status: Exclude<ResponseStatus, 'unanswered'>; label: string; hint: string }> = [
   { status: 'going', label: 'Иду', hint: 'Буду вовремя' },
@@ -32,6 +35,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const [busy, setBusy] = useState(false);
   const [responseStatus, setResponseStatus] = useState<ResponseStatus>('unanswered');
   const [counts, setCounts] = useState<Counts | null>(null);
+  const [participants, setParticipants] = useState<Participants>(emptyParticipants);
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const [vkReady, setVkReady] = useState(false);
   const [vkAuthenticated, setVkAuthenticated] = useState(false);
@@ -46,9 +50,10 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
     setVkReady(ready);
     setLinkPending(Boolean(state?.link_pending && !ready));
     setLinkNickname(String(state?.link_player_nickname || ''));
+    if (state?.counts) setCounts(state.counts);
+    if (state?.participants) setParticipants(state.participants as Participants);
     if (ready) {
       setResponseStatus((state.response_status || 'unanswered') as ResponseStatus);
-      setCounts(state.counts || null);
       setConfirmedNickname(String(state?.player?.nickname || ''));
     }
     return ready;
@@ -132,6 +137,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
       });
       setResponseStatus(body.response_status || status);
       if (body.counts) setCounts(body.counts);
+      if (body.participants) setParticipants(body.participants as Participants);
     } catch (err: any) {
       if (err?.status === 401) setVkReady(false);
       setError(err?.message || 'Не удалось сохранить ответ');
@@ -146,7 +152,12 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
   const formattedTime = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const price = Number(evening.default_price || 0);
   const displayNickname = confirmedNickname || sessionStorage.getItem('2la_vk_nickname') || nickname || 'Игрок';
-  const goingCount = counts ? counts.going + counts.late : null;
+  const visibleParticipantCount = participants.going.length + participants.late.length + participants.thinking.length;
+  const participantGroups = [
+    { key: 'going', label: 'Идут', icon: '✓', names: participants.going },
+    { key: 'late', label: 'Придут позже', icon: '↗', names: participants.late },
+    { key: 'thinking', label: 'Думают', icon: '?', names: participants.thinking },
+  ];
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-4 py-7 text-white">
@@ -162,6 +173,25 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
             <div className="flex items-center gap-3 rounded-2xl bg-black/20 p-3"><MapPin className="h-5 w-5 text-white/55" /><div><div className="text-[10px] uppercase tracking-wide text-white/30">Место</div><div className="mt-0.5 text-sm font-medium">{evening.venue || 'Суп с Котом'}</div></div></div>
           </div>
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-black/20 px-3 py-3 text-sm"><span className="text-white/40">Стоимость</span><strong>{price ? `${price.toLocaleString('ru-RU')} ₽` : 'Без оплаты'}</strong></div>
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Кто уже в записи</h2>
+            {visibleParticipantCount > 0 ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold text-white/45">{visibleParticipantCount}</span> : null}
+          </div>
+          {visibleParticipantCount ? (
+            <div className="mt-3 space-y-3">
+              {participantGroups.filter((group) => group.names.length).map((group) => (
+                <div key={group.key}>
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-white/45"><span className="grid h-5 w-5 place-items-center rounded-full bg-white/[0.06] text-[10px] text-white/65">{group.icon}</span>{group.label} · {group.names.length}</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {group.names.map((name) => <span key={`${group.key}-${name}`} className="rounded-full border border-white/[0.08] bg-black/20 px-2.5 py-1.5 text-xs text-white/80">{name}</span>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="mt-2 text-sm leading-6 text-white/35">Пока никто не записался. Можно быть первым.</p>}
         </section>
 
         {params.get('vk_linked') === '1' ? <div className="rounded-2xl border border-emerald-300/10 bg-emerald-400/[0.08] px-4 py-3 text-sm leading-5 text-emerald-100/80">VK успешно связан с игровым профилем.</div> : null}
@@ -195,7 +225,7 @@ export const PublicJoinView: React.FC<PublicJoinViewProps> = ({ eveningId }) => 
                 return <button key={choice.status} type="button" disabled={busy} onClick={() => void respond(choice.status)} className={`flex min-h-14 items-center justify-between rounded-2xl border px-4 text-left transition ${selected ? 'border-white/30 bg-white text-black' : 'border-white/10 bg-black/20 text-white'}`}><span><span className="block text-sm font-semibold">{choice.label}</span><span className={`mt-0.5 block text-xs ${selected ? 'text-black/50' : 'text-white/30'}`}>{choice.hint}</span></span>{selected ? <Check className="h-5 w-5" /> : null}</button>;
               })}
             </div>
-            {counts ? <div className="mt-4 rounded-2xl bg-black/20 px-3 py-3 text-center text-xs text-white/45">Уже идут: <strong className="text-white">{goingCount}</strong> · думают: <strong className="text-white">{counts.thinking}</strong></div> : <p className="mt-4 text-center text-xs leading-5 text-white/30">Ответ сразу попадёт в общую запись 2LA Noire.</p>}
+            <p className="mt-4 text-center text-xs leading-5 text-white/30">Ответ сразу попадёт в общую запись 2LA Noire.</p>
           </section>
         )}
       </div>

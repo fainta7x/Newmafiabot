@@ -169,6 +169,16 @@ export default function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const [rootState, setRootState] = useState<RootState>({ status: 'loading' });
 
+  const navigatePath = useCallback((nextPath: string, replace = false) => {
+    if (window.location.pathname === nextPath) {
+      setPathname(nextPath);
+      return;
+    }
+    if (replace) window.history.replaceState({}, '', nextPath);
+    else window.history.pushState({}, '', nextPath);
+    setPathname(nextPath);
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => setPathname(window.location.pathname);
     window.addEventListener('popstate', handlePopState);
@@ -250,7 +260,12 @@ export default function App() {
   }
 
   if (isAdminRoute || !isPlayerContext) {
-    return <><BettingLiveBridge /><OrganizerCRM /></>;
+    return (
+      <>
+        <BettingLiveBridge />
+        <OrganizerCRM pathname={pathname} onNavigate={navigatePath} />
+      </>
+    );
   }
 
   if (rootState.status === 'loading') {
@@ -305,10 +320,7 @@ export default function App() {
       profile: '/player/profile',
       more: '/player/more',
     };
-    const nextPath = paths[section];
-    if (window.location.pathname === nextPath) return;
-    window.history.replaceState({}, '', nextPath);
-    setPathname(nextPath);
+    navigatePath(paths[section]);
   };
 
   return (

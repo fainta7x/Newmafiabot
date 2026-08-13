@@ -53,22 +53,29 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
           [randomUUID(), eveningId, i + 1, plusMinutes(evening.starts_at, i * duration), plusMinutes(evening.starts_at, (i + 1) * duration), price, targetPlayers, 'open', now, now],
         );
       }
-
-      // Legacy going/late meant "whole evening". Migrate that state in one DB-side
-      // insert instead of issuing one remote request for every player × slot pair.
-      await tx.run(
-        `INSERT OR IGNORE INTO evening_slot_registrations
-           (id, slot_id, participant_id, created_at, updated_at)
-         SELECT lower(hex(randomblob(16))), s.id, ep.id, ?, ?
-           FROM evening_game_slots s
-           JOIN evening_participants ep ON ep.evening_id = s.evening_id
-          WHERE s.evening_id = ?
-            AND ep.response_status IN ('going', 'late')`,
-        [now, now, eveningId],
-      );
     });
 
     slots = await db.all<any>('SELECT * FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
+
+    // Legacy going/late meant "whole evening". This migration is only needed the
+    // first time slots are created. Keep the familiar write shape so local/test DB
+    // adapters and Turso follow the same path, while the normal read path stays lean.
+    const legacy = await db.all<any>(
+      "SELECT id FROM evening_participants WHERE evening_id = ? AND response_status IN ('going','late')",
+      [eveningId],
+    );
+    if (legacy.length && slots.length) {
+      await db.transaction(async (tx: any) => {
+        for (const participant of legacy) {
+          for (const slot of slots) {
+            await tx.run(
+              'INSERT OR IGNORE INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+              [randomUUID(), slot.id, participant.id, now, now],
+            );
+          }
+        }
+      });
+    }
   }
 
   return { evening, settings, slots };

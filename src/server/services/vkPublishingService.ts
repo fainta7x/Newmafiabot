@@ -31,6 +31,12 @@ const DEFAULT_PUBLIC_URL = 'https://vk.ru/2lanoiremafia';
 const DEFAULT_CHANNEL_PEER_ID = '-233806277';
 const DEFAULT_CHANNEL_URL = 'https://vk.ru/im/channels/-233806277';
 
+let runtimeVkUserToken = '';
+
+export const setVkRuntimeUserToken = (value: unknown) => {
+  runtimeVkUserToken = String(value || '').trim();
+};
+
 const normalizeGroupId = (value: unknown): string | null => {
   const normalized = String(value || '').trim().replace(/^[-]/, '');
   return /^\d+$/.test(normalized) && Number(normalized) > 0 ? normalized : null;
@@ -54,7 +60,7 @@ const channelPeerFromUrl = (value: unknown): string | null => {
   return match ? normalizeChannelPeerId(match[1]) : null;
 };
 
-const getVkToken = () => String(process.env.VK_ACCESS_TOKEN || '').trim();
+const getVkToken = () => runtimeVkUserToken || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
 const getVkVersion = () => String(process.env.VK_API_VERSION || '5.199').trim() || '5.199';
 const getPublicGroupId = () => normalizeGroupId(process.env.VK_GROUP_ID || DEFAULT_PUBLIC_GROUP_ID);
@@ -83,8 +89,6 @@ export const getVkDestinations = (): VkDestination[] => {
     {
       key: 'channel',
       name: 'Канал VK',
-      // Signed negative value is intentional: it distinguishes a Messenger group-channel peer
-      // from the public community wall while still mapping to the same VK community owner.
       groupId: channelPeerId,
       configuredUrl: getChannelUrl(),
       active: Boolean(channelPeerId),

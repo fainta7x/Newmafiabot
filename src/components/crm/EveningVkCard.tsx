@@ -155,22 +155,28 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
         <button type="button" onClick={() => void load()} disabled={Boolean(busy)} className="rounded-full bg-surface-1 p-2 text-text-muted disabled:opacity-40" aria-label="Обновить VK"><RefreshCw className={`h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} /></button>
       </div>
 
-      {!state.integration.configured ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">VK ещё не подключён: нужны VK_ACCESS_TOKEN и VK_GROUP_ID.</div> : null}
+      {!state.integration.configured ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">VK ещё не подключён: нужен VK_ACCESS_TOKEN. Паблик и канал 2LA Noire уже привязаны.</div> : null}
       {state.integration.configured && (!state.integration.callback_secret_configured || !state.integration.callback_confirmation_configured) ? <div className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-[10px] leading-4 text-text-secondary">Публикация готова. Для мгновенного переноса голосов осталось подключить Callback API; без него ответы можно забирать кнопкой ниже.</div> : null}
 
       <div className="mt-3 space-y-1.5">
-        {state.destinations.map((destination) => (
-          <div key={destination.key} className="rounded-xl border border-border-soft bg-surface-1 px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              {destination.published ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : destination.active && destination.supported ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />}
-              <strong className="min-w-0 flex-1 text-[11px] text-text-primary">{destination.name}</strong>
-              {destination.external_url ? <a href={destination.external_url} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-surface-2 px-2 text-[9px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
+        {state.destinations.map((destination) => {
+          const openUrl = destination.key === 'channel'
+            ? (destination.configured_url || destination.external_url)
+            : (destination.external_url || destination.configured_url);
+          const publicationLabel = destination.key === 'channel' ? 'Сообщение' : 'Пост';
+          return (
+            <div key={destination.key} className="rounded-xl border border-border-soft bg-surface-1 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                {destination.published ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : destination.active && destination.supported ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />}
+                <strong className="min-w-0 flex-1 text-[11px] text-text-primary">{destination.name}</strong>
+                {openUrl ? <a href={openUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-surface-2 px-2 text-[9px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
+              </div>
+              <div className={`mt-1 text-[9px] leading-4 ${destination.last_error ? 'text-danger' : 'text-text-muted'}`}>
+                {destination.last_error || (destination.published ? `${publicationLabel} #${destination.post_id} · опрос #${destination.poll_id}` : destination.reason || 'Готово к публикации')}
+              </div>
             </div>
-            <div className={`mt-1 text-[9px] leading-4 ${destination.last_error ? 'text-danger' : 'text-text-muted'}`}>
-              {destination.last_error || (destination.published ? `Пост #${destination.post_id} · опрос #${destination.poll_id}` : destination.reason || 'Готово к публикации')}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {state.votes.total > 0 ? <div className="mt-3 grid grid-cols-3 gap-2">

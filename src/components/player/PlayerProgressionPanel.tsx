@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type ProgressTab = 'goals' | 'achievements' | 'titles';
 type AchievementCategory = 'all' | 'career' | 'wins' | 'form' | 'sides' | 'roles' | 'special';

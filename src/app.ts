@@ -33,6 +33,7 @@ import playerRatingPeriodRoutes from './server/routes/playerRatingPeriodRoutes.t
 import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
+import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
 import adminDataRoutes from './server/routes/adminDataRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
@@ -153,6 +154,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerEconomyRoutes);
   app.use('/api/player', playerBettingRoutes);
   app.use('/api/player', playerPaymentRoutes);
+  app.use('/api/player', playerExperienceRoutes);
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);

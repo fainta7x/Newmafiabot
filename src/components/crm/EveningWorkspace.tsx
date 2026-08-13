@@ -4,7 +4,6 @@ import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
-import { EveningTelegramCard } from './EveningTelegramCard.tsx';
 
 export type EveningSection = 'overview' | 'participants' | 'tables' | 'games';
 
@@ -67,14 +66,11 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       </div>
 
       {section === 'overview' ? (
-        <>
-          <EveningOverviewView
-            eveningId={eveningId}
-            onBack={onBack}
-            onOpenSection={openSection}
-          />
-          <EveningTelegramCard eveningId={eveningId} />
-        </>
+        <EveningOverviewView
+          eveningId={eveningId}
+          onBack={onBack}
+          onOpenSection={openSection}
+        />
       ) : null}
       {section === 'participants' ? (
         <EveningParticipantsView

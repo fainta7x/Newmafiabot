@@ -27,27 +27,41 @@ const roleToProtocol = (role: string | null | undefined): string | null => {
   return null;
 };
 
+/**
+ * LiveGameEngine still declares its legacy identity as a number, but the club
+ * branch only compares/serializes that value. Keep the unsafe cast at this
+ * single compatibility boundary so the runtime identity is the real CRM UUID.
+ */
+const asLegacyIdentity = (value: string): number => value as unknown as number;
+
+const getClubJudgeIdentity = (game: ClubGameRecord): number =>
+  asLegacyIdentity(game.judge_player_id || `legacy-judge:${game.id}`);
+
 const buildLegacyPlayers = (game: ClubGameRecord): LegacyPlayer[] => {
   const results = (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number);
-  const seated: LegacyPlayer[] = results.map((player, index) => ({
-    id: index + 1,
-    user_id: index + 1,
-    nickname: player.display_name,
-    full_name: player.display_name,
-    username: '',
-    games_played: 0,
-    games_won: 0,
-    elo: 0,
-    debt: 0,
-    total_paid: 0,
-    tokens: 0,
-    achievements: [],
-    last_visit: null,
-  }));
+  const seated: LegacyPlayer[] = results.map((player) => {
+    const identity = player.player_id || `legacy-participant:${player.participant_id}`;
+    return {
+      id: asLegacyIdentity(identity),
+      user_id: asLegacyIdentity(identity),
+      nickname: player.display_name,
+      full_name: player.display_name,
+      username: '',
+      games_played: 0,
+      games_won: 0,
+      elo: 0,
+      debt: 0,
+      total_paid: 0,
+      tokens: 0,
+      achievements: [],
+      last_visit: null,
+    };
+  });
 
+  const judgeIdentity = getClubJudgeIdentity(game);
   seated.push({
-    id: 10001,
-    user_id: 10001,
+    id: judgeIdentity,
+    user_id: judgeIdentity,
     nickname: game.judge_name || 'Ведущий',
     full_name: game.judge_name || 'Ведущий',
     username: '',
@@ -94,7 +108,10 @@ const mapEngineResultToProtocol = (
   }
 
   const playerResults = applyStoredDeathProtocolsToResults(previousResults.map((previous) => {
-    const slot = slots.find((candidate) => candidate.slot_num === previous.seat_number) as any;
+    const slot = (
+      slots.find((candidate) => String((candidate as any).user_id || '') === previous.player_id)
+      || slots.find((candidate) => candidate.slot_num === previous.seat_number)
+    ) as any;
     if (!slot) return previous;
     return {
       ...previous,
@@ -639,7 +656,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       <div className="evening-live-engine-shell py-0.5 md:py-3">
         <LiveGameEngine
           players={legacyPlayers}
-          initialJudgeId={10001}
+          initialJudgeId={getClubJudgeIdentity(game)}
           onCancel={onClose}
           onPhaseChange={setLivePhase}
           onGameFinished={async (gameData) => {

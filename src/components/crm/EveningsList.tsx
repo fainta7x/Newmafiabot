@@ -5,6 +5,7 @@ import { EVENING_FORMAT_DESCRIPTIONS, EVENING_FORMAT_LABELS, normalizeEveningFor
 import MobileSheet from '../ui/MobileSheet.tsx';
 import { TournamentsList } from './tournaments/TournamentsList.tsx';
 import { TournamentDetailView } from './tournaments/TournamentDetailView.tsx';
+import { OrganizerEventsCalendar } from './OrganizerEventsCalendar.tsx';
 
 interface EveningsListProps {
   evenings: GameEvening[];
@@ -29,12 +30,12 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const tournamentListScrollRef = useRef(0);
 
-  const latestDefaultPrice = Number(evenings.find((item) => Number(item.default_price) >= 0)?.default_price ?? 500);
+  const latestDefaultPrice = Number(evenings.find((item) => Number(item.default_price) >= 0)?.default_price ?? 100);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [format, setFormat] = useState<EveningFormat>('CASUAL');
-  const [defaultPrice, setDefaultPrice] = useState(500);
+  const [defaultPrice, setDefaultPrice] = useState(100);
   const [venue, setVenue] = useState('Суп с Котом');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,7 +47,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     setTitle('');
     setStartsAt('');
     setFormat('CASUAL');
-    setDefaultPrice(latestDefaultPrice);
+    setDefaultPrice(100);
     setVenue('Суп с Котом');
     setNotes('');
     setCreateError(null);
@@ -55,7 +56,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
   const openCreateModal = () => {
     setPageError(null);
     setCreateError(null);
-    setDefaultPrice(latestDefaultPrice);
+    setDefaultPrice(100);
     setVenue('Суп с Котом');
     setFormat('CASUAL');
     setShowCreateModal(true);
@@ -71,7 +72,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     if (!initialCreateOpen) return;
     setSubTab('evenings');
     setActiveTournamentId(null);
-    setDefaultPrice(latestDefaultPrice);
+    setDefaultPrice(100);
     setVenue('Суп с Котом');
     setFormat('CASUAL');
     setCreateError(null);
@@ -116,6 +117,9 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     setPageError(null);
     try {
       const result = await api.createNextFriday();
+      if (Number(result.default_price) !== 100) {
+        await api.updateEvening(result.id, { default_price: 100 });
+      }
       onOpenEvening(result.id);
     } catch (err: any) {
       setPageError(err?.message || 'Не удалось создать вечер на следующую пятницу');
@@ -124,8 +128,23 @@ export const EveningsList: React.FC<EveningsListProps> = ({
     }
   };
 
+  const openTournamentFromCalendar = (id: string) => {
+    tournamentListScrollRef.current = typeof window !== 'undefined' ? window.scrollY : 0;
+    setSubTab('tournaments');
+    setActiveTournamentId(id);
+    moveScroll(0);
+  };
+
   return (
     <div className="space-y-5">
+      {!activeTournamentId && (
+        <OrganizerEventsCalendar
+          evenings={evenings}
+          onOpenEvening={onOpenEvening}
+          onOpenTournament={openTournamentFromCalendar}
+        />
+      )}
+
       <div className="flex w-full items-center gap-1.5 self-start rounded-2xl border border-border-soft bg-surface-1 p-1 text-xs font-bold sm:w-auto">
         <button
           type="button"
@@ -181,7 +200,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
           <div className="flex flex-col justify-between gap-4 rounded-3xl border border-border-soft bg-surface-1 p-5 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-xl font-black uppercase tracking-tight text-text-primary">Игровые вечера клуба</h2>
-              <p className="mt-0.5 text-xs text-text-secondary">Расписание, запись игроков и расчёт каждого вечера</p>
+              <p className="mt-0.5 text-xs text-text-secondary">Расписание, игровые слоты по часу и запись игроков · 100 ₽ за игру</p>
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -256,7 +275,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
                     <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border-soft bg-surface-2 p-2.5 text-center font-mono">
                       <div>
-                        <span className="block text-[9px] font-bold uppercase text-text-muted">Идут</span>
+                        <span className="block text-[9px] font-bold uppercase text-text-muted">Запись</span>
                         <span className="text-sm font-bold text-text-primary">{evening.registered_count || 0}</span>
                       </div>
                       <div>
@@ -296,7 +315,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
       <MobileSheet
         open={showCreateModal}
         title="Новый игровой вечер"
-        subtitle="Сначала создаём черновик. Публикация и Telegram-рассылка включаются отдельно."
+        subtitle="Создай событие в календаре. Для обычного вечера автоматически появятся часовые игровые слоты."
         onClose={closeCreateModal}
         widthClass="sm:max-w-lg"
         footer={(
@@ -341,7 +360,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
               <span className={labelClass}>Формат</span>
               <select value={format} onChange={(event) => setFormat(event.target.value as EveningFormat)} className={inputClass}>
                 <option value="NOVICE">Для новичков</option>
-                <option value="CASUAL">Для отдыха</option>
+                <option value="CASUAL">Клубный</option>
                 <option value="RATING">Рейтинговый</option>
                 <option value="TOURNAMENT">Турнир</option>
               </select>
@@ -353,7 +372,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className={labelClass}>Цена по умолчанию, ₽</span>
+              <span className={labelClass}>Цена за игру, ₽</span>
               <input
                 type="number"
                 min="0"
@@ -361,6 +380,7 @@ export const EveningsList: React.FC<EveningsListProps> = ({
                 onChange={(event) => setDefaultPrice(parseInt(event.target.value, 10) || 0)}
                 className={`${inputClass} font-mono`}
               />
+              <span className="mt-1 block text-[10px] text-text-muted">Сейчас базовая цена клуба — 100 ₽ за одну игру.</span>
             </label>
 
             <label className="block">

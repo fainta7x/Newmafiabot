@@ -5,6 +5,7 @@ import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx"
 import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtocolOverlay.tsx";
 import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDisciplineGlyphBridge.tsx";
 import "./index.css";
+import "./releasePolish.css";
 import "./components/crm/eveningLiveMobilePolish.css";
 import "./components/crm/eveningLiveResponsiveSafe.css";
 import "./components/crm/eveningLiveResponsiveRefine.css";

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
+import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
@@ -187,7 +188,8 @@ export default function App() {
 
   const isJoinRoute = pathname.startsWith('/join');
   const isTournamentResultsRoute = pathname.startsWith('/tournaments/results/');
-  const isPublicRoute = isJoinRoute || isTournamentResultsRoute;
+  const isLiveRoute = pathname === '/live' || pathname.startsWith('/live/');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute;
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = pathname === '/player' || pathname.startsWith('/player/') || (pathname === '/' && Boolean(telegramInitData));
@@ -257,6 +259,10 @@ export default function App() {
     const parts = pathname.split('/').filter(Boolean);
     const token = parts[2] || '';
     return <PublicTournamentResults token={token} />;
+  }
+
+  if (isLiveRoute) {
+    return <BigScreenLive />;
   }
 
   if (isAdminRoute || !isPlayerContext) {

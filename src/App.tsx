@@ -7,6 +7,7 @@ import { PublicTournamentResults } from "./components/public/PublicTournamentRes
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
+import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
 
@@ -32,31 +33,29 @@ function RootMessage({
   text,
   onRetry,
   canOpenAdmin = false,
+  kind = 'error',
 }: {
   title: string;
   text: string;
   onRetry?: () => void;
   canOpenAdmin?: boolean;
+  kind?: 'loading' | 'error' | 'empty';
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-5 text-white">
-      <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5 text-center">
-        <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
-        <h1 className="mt-3 text-xl font-semibold">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-white/50">{text}</p>
-        {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mt-5 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-medium text-white"
-          >
-            Повторить
-          </button>
-        )}
+      <div className="w-full max-w-[390px]">
+        <div className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
+        <AsyncState
+          kind={kind}
+          title={title}
+          description={text}
+          actionLabel="Повторить"
+          onAction={onRetry}
+        />
         {canOpenAdmin && (
           <a
             href="/admin"
-            className="mt-3 block w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white/80"
+            className="mt-3 block w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center text-sm font-medium text-white/80"
           >
             Панель организатора
           </a>
@@ -84,6 +83,7 @@ function PlayerRegistration({
   if (!initData || !telegram) {
     return (
       <RootMessage
+        kind="empty"
         title="Откройте через Telegram"
         text="Регистрация игрока подтверждается Telegram-аккаунтом. Откройте приложение из бота клуба и повторите вход."
         canOpenAdmin={canOpenAdmin}
@@ -196,7 +196,7 @@ export default function App() {
       backButton.hide?.();
       return;
     }
-    const handleBack = () => navigatePath(target);
+    const handleBack = () => navigatePath(target, true);
     backButton.show?.();
     backButton.onClick?.(handleBack);
     return () => backButton.offClick?.(handleBack);
@@ -297,7 +297,7 @@ export default function App() {
   }
 
   if (rootState.status === 'loading') {
-    return <RootMessage title="Загружаем профиль" text="Проверяем вход через Telegram…" />;
+    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем вход через Telegram…" />;
   }
 
   if (rootState.status === 'unlinked') {
@@ -312,7 +312,7 @@ export default function App() {
   }
 
   if (rootState.status === 'error') {
-    return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
+    return <RootMessage kind="error" title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
   if (parsedPlayerRoute.replayGameKey) {

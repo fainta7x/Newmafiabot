@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
-import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
+import { loadEveningSlotPlan, replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotPlanningService.ts';
 
 export const eveningSlotRoutes = Router();
 
@@ -28,6 +28,26 @@ eveningSlotRoutes.get('/:eveningId/slots', requireOrganizerAuth, async (req, res
     return res.json(plan);
   } catch (error: any) {
     return sendError(res, error, 'Не удалось загрузить слоты вечера');
+  }
+});
+
+eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res) => {
+  try {
+    const plannedSlots = Number(req.body?.planned_slots);
+    const pricePerGame = Number(req.body?.price_per_game);
+    if (!Number.isInteger(plannedSlots) || plannedSlots < 1 || plannedSlots > 12) {
+      return res.status(400).json({ error: 'Количество игр должно быть от 1 до 12' });
+    }
+    if (!Number.isFinite(pricePerGame) || pricePerGame < 0) {
+      return res.status(400).json({ error: 'Некорректная цена за игру' });
+    }
+    const plan = await updateEveningSlotSettings((req as any).db, req.params.eveningId, {
+      planned_slots: plannedSlots,
+      price_per_game: pricePerGame,
+    });
+    return res.json(plan);
+  } catch (error: any) {
+    return sendError(res, error, 'Не удалось сохранить настройки игровых слотов');
   }
 });
 

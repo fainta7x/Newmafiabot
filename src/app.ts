@@ -36,6 +36,7 @@ import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
 import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
 import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
 import playerReplayRoutes from './server/routes/playerReplayRoutes.ts';
+import playerEveningJourneyRoutes from './server/routes/playerEveningJourneyRoutes.ts';
 import adminDataRoutes from './server/routes/adminDataRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
@@ -60,7 +61,7 @@ import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.t
 import tournamentsRoutes from './server/routes/tournamentsRoutes.ts';
 import protocolImportsRoutes from './server/routes/protocolImportsRoutes.ts';
 import tournamentProtocolRoutes from './server/routes/tournamentProtocolRoutes.ts';
-import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSettlementRoutes.ts';
+import tournamentTokenSettlementRoutes from './server/routes/tournamentTokenSettlementService.ts';
 import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
@@ -161,6 +162,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerExperienceRoutes);
   app.use('/api/player', playerInsightsRoutes);
   app.use('/api/player', playerReplayRoutes);
+  app.use('/api/player', playerEveningJourneyRoutes);
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);

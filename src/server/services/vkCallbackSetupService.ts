@@ -4,8 +4,8 @@ import {
   getVkCallbackConfig,
   getVkCallbackConfirmation,
   getVkDestinations,
-  vkApi,
 } from './vkPublishingService.ts';
+import { vkCommunityApi } from './vkCommunityApiService.ts';
 
 type RuntimeCallbackRow = {
   group_id: string;
@@ -95,7 +95,7 @@ export async function ensureVkCallbackRegistration(db: DatabaseWrapper, callback
   const normalizedUrl = String(callbackUrl || '').trim();
   if (!/^https:\/\//i.test(normalizedUrl)) throw new Error('Callback URL должен использовать HTTPS');
 
-  const confirmation = await vkApi<{ code?: string }>('groups.getCallbackConfirmationCode', {
+  const confirmation = await vkCommunityApi<{ code?: string }>('groups.getCallbackConfirmationCode', {
     group_id: Number(groupId),
   });
   const confirmationCode = String(confirmation?.code || '').trim();
@@ -116,14 +116,14 @@ export async function ensureVkCallbackRegistration(db: DatabaseWrapper, callback
   });
 
   try {
-    const servers = await vkApi<{ count?: number; items?: CallbackServer[] }>('groups.getCallbackServers', {
+    const servers = await vkCommunityApi<{ count?: number; items?: CallbackServer[] }>('groups.getCallbackServers', {
       group_id: Number(groupId),
     });
     const existing = (servers?.items || []).find((item) => String(item?.url || '').replace(/\/$/, '') === normalizedUrl.replace(/\/$/, ''));
     let serverId = Number(existing?.id || existing?.server_id || existingRuntime?.server_id || 0);
 
     if (serverId > 0) {
-      await vkApi<number | boolean>('groups.editCallbackServer', {
+      await vkCommunityApi<number | boolean>('groups.editCallbackServer', {
         group_id: Number(groupId),
         server_id: serverId,
         url: normalizedUrl,
@@ -131,7 +131,7 @@ export async function ensureVkCallbackRegistration(db: DatabaseWrapper, callback
         secret_key: secret,
       });
     } else {
-      const added = await vkApi<{ server_id?: number }>('groups.addCallbackServer', {
+      const added = await vkCommunityApi<{ server_id?: number }>('groups.addCallbackServer', {
         group_id: Number(groupId),
         url: normalizedUrl,
         title: '2LA Noire',
@@ -150,7 +150,7 @@ export async function ensureVkCallbackRegistration(db: DatabaseWrapper, callback
       status: 'configuring',
     });
 
-    await vkApi<number | boolean>('groups.setCallbackSettings', {
+    await vkCommunityApi<number | boolean>('groups.setCallbackSettings', {
       group_id: Number(groupId),
       server_id: serverId,
       api_version: '5.199',

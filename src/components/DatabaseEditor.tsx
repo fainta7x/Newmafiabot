@@ -5,7 +5,7 @@ import {
   RefreshCw, CreditCard, CalendarRange, ShoppingBag,
   History, User, UserCheck, Coins, TrendingUp
 } from "lucide-react";
-import { Player, Booking, Game, ShopPurchase, GameEvening } from "../types.js";
+import { Player, Booking, Game, ShopPurchase, GameEvening, type EveningFormat } from "../types.js";
 
 import { EveningsTab } from "./database/EveningsTab.js";
 import { BookingsTab } from "./database/BookingsTab.js";
@@ -51,7 +51,7 @@ export default function DatabaseEditor() {
   const [eveStatus, setEveStatus] = useState<"Запланирован" | "Идет сейчас" | "Завершен">("Запланирован");
   const [eveLocation, setEveLocation] = useState("Зал #1");
   const [eveNotes, setEveNotes] = useState("");
-  const [eveFormat, setEveFormat] = useState<"NOVICE" | "STANDARD" | "TOURNAMENT">("STANDARD");
+  const [eveFormat, setEveFormat] = useState<EveningFormat>("STANDARD");
 
   // Debt adjustment Modal state
   const [editingDebtPlayer, setEditingDebtPlayer] = useState<Player | null>(null);

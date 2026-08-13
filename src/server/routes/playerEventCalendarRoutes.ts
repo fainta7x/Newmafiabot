@@ -5,7 +5,7 @@ import { ensureSlotsForEvening, loadEveningSlotPlan, replacePlayerSlotSelection,
 
 const router = Router();
 const requirePlayer = (req:any,res:any) => { const id=getPlayerSessionId(req); if(!id){res.status(401).json({error:'Player authentication required.'});return null;} return id; };
-const monthBounds = (value:unknown) => { const m=String(value||'').match(/^(\d{4})-(\d{2})$/), now=new Date(), year=m?Number(m[1]):now.getUTCFullYear(), month=m?Number(m[2])-1:now.getUTCMonth(), start=new Date(Date.UTC(year,month,1)), end=new Date(Date.UTC(year,month+1,1)); return {start:start.toISOString(),end:end.toISOString(),key:`${year}-${String(month+1).padStart(2,'0')}`}; };
+const monthBounds = (value:unknown) => { const m=String(value||'').match(/^(\d{4})-(\d{2})$/), now=new Date(), year=m?Number(m[1]):now.getUTCFullYear(), month=m?Number(m[2])-1:now.getUTCMonth(), start=new Date(Date.UTC(year,month,1)), end=new Date(Date.UTC(year,month+1,1)); return {start:start.toISOString(),end:end.toISOString(),startDay:start.toISOString().slice(0,10),endDay:end.toISOString().slice(0,10),key:`${year}-${String(month+1).padStart(2,'0')}`}; };
 
 router.get('/calendar', async (req,res) => {
   const playerId=requirePlayer(req,res); if(!playerId)return;
@@ -21,7 +21,7 @@ router.get('/calendar', async (req,res) => {
       const plan=await loadEveningSlotPlan(db,String(row.id),playerId);
       events.push({...plan.event,slots:plan.slots.map((slot:any)=>({id:slot.id,slot_number:slot.slot_number,starts_at:slot.starts_at,ends_at:slot.ends_at,price:slot.price,registered_count:slot.registered_count,selected:slot.selected}))});
     }
-    const tournaments=await db.all("SELECT id, title, date AS starts_at, venue, stage, status, game_count FROM tournaments WHERE date >= ? AND date < ? AND status NOT IN ('completed','cancelled') ORDER BY date",[bounds.start,bounds.end]);
+    const tournaments=await db.all("SELECT id, title, date AS starts_at, venue, stage, status, game_count FROM tournaments WHERE substr(date,1,10) >= ? AND substr(date,1,10) < ? AND status NOT IN ('completed','cancelled') ORDER BY date",[bounds.startDay,bounds.endDay]);
     for(const item of tournaments){const x=await db.get('SELECT COUNT(*) AS count FROM tournament_participants WHERE tournament_id = ?',[item.id]);events.push({...item,event_type:'tournament',format:'TOURNAMENT',participant_count:Number(x?.count||0)});}
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
     return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events});

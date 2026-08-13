@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { requestJudgeGameMusicStart, requestJudgeGameMusicStop } from '../JudgeGameMusicController.tsx';
 
 export type PhysicalRole = 'citizen' | 'sheriff' | 'mafia' | 'don';
@@ -49,7 +49,9 @@ export default function PhysicalRoleDeal({
     return firstMissing >= 0 ? firstMissing : Math.max(0, sortedSeats.length - 1);
   });
 
-  useEffect(() => () => requestJudgeGameMusicStop(), []);
+  useEffect(() => () => {
+    requestJudgeGameMusicStop();
+  }, []);
 
   const counts = useMemo(() => ROLES.reduce<Record<PhysicalRole, number>>((acc, role) => {
     acc[role] = Object.values(assignments).filter((value) => value === role).length;

@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
-import type { PlayerMeResponse } from "./components/player/PlayerCabinet.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
+import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
+import type { PlayerMeResponse } from "./types/player.ts";
 
 type TelegramIdentity = {
   id: number;
@@ -187,13 +188,33 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const isJoinRoute = pathname.startsWith('/join');
-  const isTournamentResultsRoute = pathname.startsWith('/tournaments/results/');
-  const isLiveRoute = pathname === '/live' || pathname.startsWith('/live/');
+  useEffect(() => {
+    const backButton = (window as any).Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+    const target = appBackTarget(pathname);
+    if (!target) {
+      backButton.hide?.();
+      return;
+    }
+    const handleBack = () => navigatePath(target);
+    backButton.show?.();
+    backButton.onClick?.(handleBack);
+    return () => backButton.offClick?.(handleBack);
+  }, [navigatePath, pathname]);
+
+  const isJoinRoute = isRoutePrefix(pathname, '/join');
+  const isTournamentResultsRoute = isRoutePrefix(pathname, '/tournaments/results');
+  const isLiveRoute = isRoutePrefix(pathname, '/live');
   const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute;
-  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
-  const isPlayerContext = pathname === '/player' || pathname.startsWith('/player/') || (pathname === '/' && Boolean(telegramInitData));
+  const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
+  const parsedPlayerRoute = useMemo(() => parsePlayerRoute(pathname), [pathname]);
+
+  useEffect(() => {
+    if (!isRoutePrefix(pathname, '/player')) return;
+    if (parsedPlayerRoute.canonicalPath !== pathname) navigatePath(parsedPlayerRoute.canonicalPath, true);
+  }, [navigatePath, parsedPlayerRoute.canonicalPath, pathname]);
 
   const bootstrapPlayer = useCallback(async () => {
     if (isPublicRoute || isAdminRoute || !isPlayerContext) return;
@@ -294,67 +315,20 @@ export default function App() {
     return <RootMessage title="Не удалось войти" text="Не получилось подтвердить сессию или загрузить профиль. Попробуйте ещё раз." onRetry={() => void bootstrapPlayer()} />;
   }
 
-  if (pathname.startsWith('/player/replay/')) {
-    const gameKey = decodeURIComponent(pathname.split('/').filter(Boolean).slice(2).join('/'));
+  if (parsedPlayerRoute.replayGameKey) {
     return (
       <>
-        <PlayerReplayScreen gameKey={gameKey} onBack={() => navigatePath('/player/games')} />
+        <PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath('/player/games')} />
         <PlayerLiveCenter />
       </>
     );
   }
 
-  const initialSection: PlayerCabinetSection = pathname.startsWith('/player/conduct')
-    || pathname.startsWith('/player/judging')
-    || pathname.startsWith('/player/host')
-    || pathname.startsWith('/player/table')
-    ? 'conduct'
-    : pathname.startsWith('/player/elo')
-      ? 'elo'
-      : pathname.startsWith('/player/recaps')
-        ? 'recaps'
-        : pathname.startsWith('/player/career')
-          ? 'career'
-          : pathname.startsWith('/player/seasons')
-            ? 'clubworld'
-            : pathname.startsWith('/player/games')
-              ? 'games'
-              : pathname.startsWith('/player/rating')
-                ? 'rating'
-                : pathname.startsWith('/player/stats')
-                  ? 'stats'
-                  : pathname.startsWith('/player/club')
-                    ? 'club'
-                    : pathname.startsWith('/player/payments')
-                      ? 'payments'
-                      : pathname.startsWith('/player/profile')
-                        ? 'profile'
-                        : pathname.startsWith('/player/more')
-                          ? 'more'
-                          : 'home';
-
-  const playerPathParts = pathname.split('/').filter(Boolean);
-  const initialTarget = initialSection === 'recaps' && playerPathParts[2]
-    ? decodeURIComponent(playerPathParts[2])
-    : null;
+  const initialSection = parsedPlayerRoute.section as PlayerCabinetSection;
+  const initialTarget = parsedPlayerRoute.target;
 
   const syncPlayerPath = (section: PlayerCabinetSection, target?: string | null) => {
-    const paths: Record<PlayerCabinetSection, string> = {
-      home: '/player',
-      games: '/player/games',
-      conduct: '/player/conduct',
-      rating: '/player/rating',
-      stats: '/player/stats',
-      club: '/player/club',
-      payments: '/player/payments',
-      profile: '/player/profile',
-      more: '/player/more',
-      elo: '/player/elo',
-      recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
-      career: '/player/career',
-      clubworld: '/player/seasons',
-    };
-    navigatePath(paths[section]);
+    navigatePath(playerPathForSection(section as PlayerRouteSection, target));
   };
 
   return (

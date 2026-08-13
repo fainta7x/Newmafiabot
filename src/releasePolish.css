@@ -1,0 +1,43 @@
+/* Release-level layout guards. Keep Live Game geometry in its dedicated stylesheets. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.player-cabinet-shell,
+.player-cabinet-shell main,
+.player-cabinet-shell section,
+.player-cabinet-shell article,
+.player-cabinet-shell header,
+.player-cabinet-shell nav {
+  min-width: 0;
+}
+
+.player-cabinet-shell {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+@supports not (overflow: clip) {
+  .player-cabinet-shell {
+    overflow-x: hidden;
+  }
+}
+
+@media (min-width: 390px) and (max-width: 430px) {
+  .player-cabinet-shell img,
+  .player-cabinet-shell svg,
+  .player-cabinet-shell canvas {
+    max-width: 100%;
+  }
+
+  .player-cabinet-shell button,
+  .player-cabinet-shell a,
+  .player-cabinet-shell input,
+  .player-cabinet-shell select,
+  .player-cabinet-shell textarea {
+    min-width: 0;
+  }
+}

@@ -42,6 +42,18 @@ const withVkSchema = async (req: any) => {
 const callbackText = (res: any, status: number, text: string) => res.status(status).type('text/plain').send(text);
 const callbackUrlFor = (req: any) => `${req.protocol}://${req.get('host')}/api/integrations/vk/callback`;
 
+const tryRepairVkCallback = async (db: DatabaseWrapper, req: any) => {
+  const integration = getVkIntegrationStatus();
+  const current = await getVkCallbackRuntimeStatus(db);
+  if (current.configured || !integration.group_token_configured) return current;
+  try {
+    await ensureVkCallbackRegistration(db, callbackUrlFor(req));
+  } catch (error) {
+    console.error('[VK CALLBACK REPAIR]', error);
+  }
+  return getVkCallbackRuntimeStatus(db);
+};
+
 const enrichEveningState = async (db: DatabaseWrapper, state: any) => {
   const [oauth, callback] = await Promise.all([
     getVkOAuthStatus(db),
@@ -138,8 +150,6 @@ router.get('/vk/oauth/callback', async (req, res) => {
     });
     returnTo = result.return_to || returnTo;
 
-    // Callback registration is best-effort here: publishing + manual reconcile already
-    // work after OAuth, while any VK-side Callback issue remains visible in the CRM.
     try {
       await ensureVkCallbackRegistration(db, callbackUrlFor(req));
     } catch (callbackError) {
@@ -175,6 +185,7 @@ router.delete('/vk/oauth', requireOrganizerAuth, async (req, res) => {
 router.get('/status', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
+    await tryRepairVkCallback(db, req);
     const vk = getVkIntegrationStatus();
     const [oauth, callback] = await Promise.all([getVkOAuthStatus(db), getVkCallbackRuntimeStatus(db)]);
     const callbackUrl = callbackUrlFor(req);
@@ -201,6 +212,7 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
 router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
+    await tryRepairVkCallback(db, req);
     const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
     res.json(await enrichEveningState(db, state));
   } catch (error: any) {
@@ -244,7 +256,7 @@ router.delete('/vk/identities/:vkUserId', requireOrganizerAuth, async (req, res)
     const db = await withVkSchema(req);
     res.json(await unlinkVkIdentity(db, String(req.params.vkUserId || '')));
   } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Не удалось удалить связь VK' });
+    res.status(500).json({ error: error?.message || 'Не удалось удалить связь VK-профиля' });
   }
 });
 

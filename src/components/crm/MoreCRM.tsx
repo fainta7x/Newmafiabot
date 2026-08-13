@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChevronRight,
   ClipboardList,
+  Coins,
   Database,
   Dice5,
   Gamepad2,
@@ -15,6 +16,7 @@ import {
   UserCog,
 } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
+import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
 import { PlayerRolesAdminCRM } from './PlayerRolesAdminCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
@@ -29,7 +31,7 @@ interface MoreCRMProps {
   onLogout: () => void | Promise<void>;
 }
 
-type Subscreen = 'data' | 'betting' | 'telegram' | 'player_roles' | 'ratings' | 'system' | null;
+type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'player_roles' | 'ratings' | 'system' | null;
 
 type MenuItem = {
   id: string;
@@ -48,6 +50,7 @@ type MenuGroup = {
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки',
   betting: 'Управление ставками',
+  commerce: 'Оплата и поддержка',
   telegram: 'Telegram',
   player_roles: 'Статусы и роли игроков',
   ratings: 'Рейтинговые периоды',
@@ -83,6 +86,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
 
         {subscreen === 'data' ? <DataSettingsCRM /> : null}
         {subscreen === 'betting' ? <BettingAdminCRM /> : null}
+        {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
         {subscreen === 'player_roles' ? <PlayerRolesAdminCRM /> : null}
         {subscreen === 'telegram' ? <TelegramCRM /> : null}
         {subscreen === 'ratings' ? <RatingPeriodsCRM /> : null}
@@ -98,6 +102,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
       items: [
         { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
         { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки, рассылки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+        { id: 'commerce', label: 'Оплата и поддержка', detail: 'СБП, пакеты жетонов, поддержка, сборы и VK', icon: Coins, onClick: () => setSubscreen('commerce') },
         { id: 'telegram', label: 'Telegram', detail: 'Каналы, шаблоны и публикации клуба', icon: Send, onClick: () => setSubscreen('telegram') },
         { id: 'ratings', label: 'Рейтинговые периоды', detail: 'Сезоны, границы периодов и расчёт рейтинга', icon: Trophy, onClick: () => setSubscreen('ratings') },
       ],

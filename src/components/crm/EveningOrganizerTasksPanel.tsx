@@ -16,13 +16,13 @@ type Task = {
   evening_id?: string | null;
 };
 
-type CommandSnapshot = {
-  snapshot: null | {
-    mode: 'active' | 'upcoming';
-    evening: { id: string; title: string; status: string };
-    attention: { tasks: Task[] };
-  };
+type TaskSnapshot = {
+  mode: 'active' | 'upcoming' | 'completed';
+  evening: { id: string; title: string; status: string };
+  attention: { tasks: Task[] };
 };
+
+type CommandSnapshot = { snapshot: TaskSnapshot | null };
 
 const stageLabel: Record<Stage, string> = {
   preparation: 'До вечера',
@@ -36,8 +36,14 @@ const taskStage = (task: Task): Stage => {
   return match && ['preparation', 'during', 'after'].includes(match[1]) ? match[1] as Stage : 'during';
 };
 
-export default function EveningOrganizerTasksPanel({ onChanged }: { onChanged?: () => void | Promise<void> }) {
-  const [snapshot, setSnapshot] = useState<CommandSnapshot['snapshot']>(null);
+export default function EveningOrganizerTasksPanel({
+  eveningId,
+  onChanged,
+}: {
+  eveningId?: string;
+  onChanged?: () => void | Promise<void>;
+}) {
+  const [snapshot, setSnapshot] = useState<TaskSnapshot | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,11 +57,34 @@ export default function EveningOrganizerTasksPanel({ onChanged }: { onChanged?: 
     if (!silent) setLoading(true);
     setError(null);
     try {
+      const templatesRequest = fetch('/api/tasks/evening-templates', { credentials: 'same-origin' });
+      if (eveningId) {
+        const [evening, tasks, templatesResponse] = await Promise.all([
+          api.getEvening(eveningId),
+          api.getTasks({ evening_id: eveningId, active: true }),
+          templatesRequest,
+        ]);
+        const templateBody = await templatesResponse.json().catch(() => ({}));
+        if (!templatesResponse.ok) throw new Error(templateBody?.error || 'Не удалось загрузить шаблоны');
+        const mode: TaskSnapshot['mode'] = evening.status === 'active'
+          ? 'active'
+          : evening.status === 'completed' || Boolean(evening.settled_at)
+            ? 'completed'
+            : 'upcoming';
+        setSnapshot({
+          mode,
+          evening: { id: String(evening.id), title: String(evening.title || 'Игровой вечер'), status: String(evening.status) },
+          attention: { tasks: tasks as Task[] },
+        });
+        setTemplates(Array.isArray(templateBody?.templates) ? templateBody.templates : []);
+        return;
+      }
+
       const [commandResponse, templatesResponse] = await Promise.all([
         fetch('/api/crm/command-center', { credentials: 'same-origin' }),
-        fetch('/api/tasks/evening-templates', { credentials: 'same-origin' }),
+        templatesRequest,
       ]);
-      const command = await commandResponse.json().catch(() => ({}));
+      const command = await commandResponse.json().catch(() => ({})) as CommandSnapshot & { error?: string };
       const templateBody = await templatesResponse.json().catch(() => ({}));
       if (!commandResponse.ok) throw new Error(command?.error || 'Не удалось загрузить задачи вечера');
       if (!templatesResponse.ok) throw new Error(templateBody?.error || 'Не удалось загрузить шаблоны');
@@ -66,13 +95,15 @@ export default function EveningOrganizerTasksPanel({ onChanged }: { onChanged?: 
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [eveningId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const tasks = snapshot?.attention.tasks || [];
-  const activeStage: Stage = snapshot?.mode === 'active' ? 'during' : 'preparation';
-  const usefulTemplates = useMemo(() => templates.filter((item) => item.stage === activeStage || (activeStage === 'during' && item.stage === 'after')).slice(0, 6), [templates, activeStage]);
+  const activeStage: Stage = snapshot?.mode === 'active' ? 'during' : snapshot?.mode === 'completed' ? 'after' : 'preparation';
+  const usefulTemplates = useMemo(() => templates.filter((item) => (
+    item.stage === activeStage || (activeStage === 'during' && item.stage === 'after')
+  )).slice(0, 6), [templates, activeStage]);
 
   const refreshAll = async () => {
     await load(true);
@@ -136,22 +167,28 @@ export default function EveningOrganizerTasksPanel({ onChanged }: { onChanged?: 
     } finally { setBusy(null); }
   };
 
-  if (loading || !snapshot || !['active', 'upcoming'].includes(snapshot.mode)) return null;
+  if (loading || !snapshot) return null;
+
+  const heading = snapshot.mode === 'active'
+    ? 'Не забыть по ходу вечера'
+    : snapshot.mode === 'completed'
+      ? 'Закрыть хвосты после вечера'
+      : 'Подготовить заранее';
 
   return <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
     <div className="flex items-start justify-between gap-3">
-      <div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-accent">Задачи вечера</div><h3 className="mt-0.5 text-[14px] font-black text-text-primary">{snapshot.mode === 'active' ? 'Не забыть по ходу вечера' : 'Подготовить заранее'}</h3><p className="mt-1 text-[8px] leading-4 text-text-muted">Шаблонные и ручные задачи остаются привязаны к этому вечеру, пока ты их не закроешь.</p></div>
+      <div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-accent">Задачи вечера</div><h3 className="mt-0.5 text-[14px] font-black text-text-primary">{heading}</h3><p className="mt-1 text-[8px] leading-4 text-text-muted">Шаблонные и ручные задачи остаются привязаны к этому вечеру, пока ты их не закроешь.</p></div>
       <button type="button" onClick={() => { setManualStage(activeStage); setManualOpen(true); }} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[10px] bg-accent px-2.5 text-[9px] font-black text-white"><Plus className="h-3.5 w-3.5" /> Своя</button>
     </div>
 
     {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[9px] text-danger">{error}</div> : null}
 
-    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+    {usefulTemplates.length ? <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
       {usefulTemplates.map((template) => {
         const exists = tasks.some((task) => String(task.automation_key || '').endsWith(`:${template.id}`));
         return <button key={template.id} type="button" disabled={Boolean(busy) || exists} onClick={() => void addTemplate(template.id)} className="min-h-10 min-w-[142px] rounded-[11px] border border-border-soft bg-surface-2 px-3 text-left disabled:opacity-45"><div className="flex items-center gap-1 text-[8px] font-black text-accent"><Sparkles className="h-3 w-3" />{stageLabel[template.stage]}</div><div className="mt-0.5 truncate text-[9px] font-bold text-text-primary">{exists ? '✓ ' : ''}{template.title}</div></button>;
       })}
-    </div>
+    </div> : null}
 
     {tasks.length ? <div className="mt-3 space-y-1.5">{tasks.map((task) => <div key={task.id} className="flex items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2.5"><span className="min-w-0 flex-1"><span className="text-[7px] font-black uppercase tracking-wide text-text-muted">{stageLabel[taskStage(task)]}</span><strong className="mt-0.5 block truncate text-[9px] text-text-primary">{task.title}</strong>{task.description ? <span className="mt-0.5 block truncate text-[7px] text-text-muted">{task.description}</span> : null}</span><button type="button" disabled={Boolean(busy)} onClick={() => void snooze(task)} title="Отложить на 30 минут" className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-surface-1 text-text-muted disabled:opacity-40"><Clock3 className="h-3.5 w-3.5" /></button><button type="button" disabled={Boolean(busy)} onClick={() => void complete(task)} title="Выполнено" className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-success-soft text-success disabled:opacity-40"><Check className="h-3.5 w-3.5" /></button></div>)}</div> : <div className="mt-3 rounded-[12px] border border-dashed border-border-soft p-4 text-center"><RotateCcw className="mx-auto h-4 w-4 text-text-muted" /><div className="mt-1 text-[9px] font-bold text-text-primary">Пока нет задач на этот вечер</div><div className="mt-0.5 text-[8px] text-text-muted">Добавь шаблон выше или создай свою.</div></div>}
 

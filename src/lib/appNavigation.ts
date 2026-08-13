@@ -1,5 +1,6 @@
 export type PlayerRouteSection =
   | 'home'
+  | 'events'
   | 'games'
   | 'conduct'
   | 'rating'
@@ -33,6 +34,7 @@ const partsOf = (pathname: string) => pathname.split('/').filter(Boolean);
 export const playerPathForSection = (section: PlayerRouteSection, target?: string | null): string => {
   const paths: Record<PlayerRouteSection, string> = {
     home: '/player',
+    events: '/player/events',
     games: '/player/games',
     conduct: '/player/conduct',
     rating: '/player/rating',
@@ -76,6 +78,7 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   }
 
   const sectionBySegment: Record<string, PlayerRouteSection> = {
+    events: 'events',
     games: 'games',
     rating: 'rating',
     stats: 'stats',

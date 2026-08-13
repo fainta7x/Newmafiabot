@@ -18,12 +18,21 @@ import {
   getVkDestinations,
   getVkIntegrationStatus,
 } from '../services/vkPublishingService.ts';
+import {
+  appendVkOAuthResult,
+  completeVkOAuth,
+  createVkOAuthStart,
+  disconnectVkOAuth,
+  getVkOAuthStatus,
+  hydrateVkOAuthAccessToken,
+} from '../services/vkOAuthService.ts';
 
 const router = Router();
 
 const withVkSchema = async (req: any) => {
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
+  await hydrateVkOAuthAccessToken(db);
   return db;
 };
 
@@ -36,8 +45,8 @@ router.post('/vk/callback', async (req, res) => {
     if (!callback.secret) return callbackText(res, 503, 'callback secret not configured');
     if (String(req.body?.secret || '') !== callback.secret) return callbackText(res, 403, 'forbidden');
 
-    const allowedGroups = new Set(getVkDestinations().map((item) => item.groupId).filter(Boolean).map(String));
-    const groupId = String(req.body?.group_id || '').trim();
+    const allowedGroups = new Set(getVkDestinations().map((item) => item.groupId).filter(Boolean).map((value) => String(value).replace(/^-/, '')));
+    const groupId = String(req.body?.group_id || '').trim().replace(/^-/, '');
     if (!groupId || (allowedGroups.size && !allowedGroups.has(groupId))) return callbackText(res, 403, 'wrong group');
 
     const type = String(req.body?.type || '').trim();
@@ -75,13 +84,61 @@ router.post('/vk/callback', async (req, res) => {
   }
 });
 
+router.post('/vk/oauth/start', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = await withVkSchema(req);
+    const callbackUrl = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
+    const result = await createVkOAuthStart(db, {
+      redirectUri: callbackUrl,
+      returnTo: req.body?.return_to,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось начать подключение VK' });
+  }
+});
+
+router.get('/vk/oauth/callback', async (req, res) => {
+  const db = req.db as DatabaseWrapper;
+  try {
+    await ensureVkIntegrationSchema(db);
+    const result = await completeVkOAuth(db, {
+      code: req.query?.code,
+      deviceId: req.query?.device_id,
+      state: req.query?.state,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.redirect(302, appendVkOAuthResult(result.return_to, 'vk_connected', '1'));
+  } catch (error: any) {
+    console.error('[VK OAUTH CALLBACK]', error);
+    const state = String(req.query?.state || '').trim();
+    let returnTo = '/';
+    if (state) {
+      const pending = await db.get<{ return_to: string }>('SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1', [state]).catch(() => null);
+      if (pending?.return_to) returnTo = pending.return_to;
+    }
+    return res.redirect(302, appendVkOAuthResult(returnTo, 'vk_error', error?.message || 'VK OAuth failed'));
+  }
+});
+
+router.delete('/vk/oauth', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = await withVkSchema(req);
+    res.json(await disconnectVkOAuth(db));
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось отключить VK' });
+  }
+});
+
 router.get('/status', requireOrganizerAuth, async (req, res) => {
   try {
-    await withVkSchema(req);
+    const db = await withVkSchema(req);
     const vk = getVkIntegrationStatus();
+    const oauth = await getVkOAuthStatus(db);
     const callbackUrl = `${req.protocol}://${req.get('host')}/api/integrations/vk/callback`;
     res.json({
-      vk: { ...vk, callback_url: callbackUrl },
+      vk: { ...vk, oauth, callback_url: callbackUrl },
       payments: {
         provider: 'paused',
         configured: false,
@@ -96,7 +153,9 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
 router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
-    res.json(await getVkEveningIntegrationState(db, String(req.params.eveningId || '')));
+    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
+    const oauth = await getVkOAuthStatus(db);
+    res.json({ ...state, integration: { ...state.integration, oauth } });
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить VK-интеграцию вечера' });
   }
@@ -106,7 +165,9 @@ router.post('/vk/evenings/:eveningId/sync', requireOrganizerAuth, async (req, re
   try {
     const db = await withVkSchema(req);
     const result = await syncVkEveningPublications(db, String(req.params.eveningId || ''));
-    res.json({ success: true, ...result, state: await getVkEveningIntegrationState(db, String(req.params.eveningId || '')) });
+    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
+    const oauth = await getVkOAuthStatus(db);
+    res.json({ success: true, ...result, state: { ...state, integration: { ...state.integration, oauth } } });
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось синхронизировать VK' });
   }
@@ -116,7 +177,9 @@ router.post('/vk/evenings/:eveningId/reconcile', requireOrganizerAuth, async (re
   try {
     const db = await withVkSchema(req);
     const result = await reconcileVkEveningVotes(db, String(req.params.eveningId || ''));
-    res.json({ success: true, ...result, state: await getVkEveningIntegrationState(db, String(req.params.eveningId || '')) });
+    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
+    const oauth = await getVkOAuthStatus(db);
+    res.json({ success: true, ...result, state: { ...state, integration: { ...state.integration, oauth } } });
   } catch (error: any) {
     res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось забрать ответы VK' });
   }

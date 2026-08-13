@@ -18,6 +18,8 @@ type PlayerAggregate = {
   results: Array<{ dateMs: number; won: boolean }>;
 };
 
+type Season = ReturnType<typeof seasonForDate>;
+
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);
   if (!playerId) {
@@ -30,7 +32,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
 const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponent(playerId)}/avatar`;
 const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 
-const seasonForDate = (value: string | number | Date) => {
+function seasonForDate(value: string | number | Date) {
   const date = new Date(value);
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
@@ -39,9 +41,10 @@ const seasonForDate = (value: string | number | Date) => {
   if (month <= 4) return { key: `spring-${year}`, label: `Весна ${year}`, start: Date.UTC(year, 2, 1), end: Date.UTC(year, 5, 1) };
   if (month <= 7) return { key: `summer-${year}`, label: `Лето ${year}`, start: Date.UTC(year, 5, 1), end: Date.UTC(year, 8, 1) };
   return { key: `autumn-${year}`, label: `Осень ${year}`, start: Date.UTC(year, 8, 1), end: Date.UTC(year, 11, 1) };
-};
+}
 
-const previousSeason = (season: ReturnType<typeof seasonForDate>) => seasonForDate(new Date(season.start - 1));
+const previousSeason = (season: Season) => seasonForDate(new Date(season.start - 1));
+const inRange = (game: CompletedGameSnapshot, season: Season) => game.dateMs >= season.start && game.dateMs < season.end;
 
 const aggregatePlayers = (games: CompletedGameSnapshot[]) => {
   const map = new Map<string, PlayerAggregate>();
@@ -97,6 +100,19 @@ const currentStreak = (results: Array<{ dateMs: number; won: boolean }>) => {
   return streak;
 };
 
+const rankPlayers = (stats: Map<string, PlayerAggregate>, limit = 15) => [...stats.values()]
+  .sort((a, b) => b.wins - a.wins || rate(b.wins, b.games) - rate(a.wins, a.games) || b.games - a.games || a.nickname.localeCompare(b.nickname, 'ru'))
+  .slice(0, limit)
+  .map((item, index) => ({
+    place: index + 1,
+    player_id: item.player_id,
+    nickname: item.nickname,
+    avatar_url: avatarUrl(item.player_id),
+    games: item.games,
+    wins: item.wins,
+    win_rate: rate(item.wins, item.games),
+  }));
+
 const recordPayload = (stat: PlayerAggregate | null, value: number, label: string) => stat ? {
   label,
   value,
@@ -104,6 +120,21 @@ const recordPayload = (stat: PlayerAggregate | null, value: number, label: strin
   nickname: stat.nickname,
   avatar_url: avatarUrl(stat.player_id),
 } : null;
+
+const seasonPayload = (season: Season, games: CompletedGameSnapshot[], viewerId: string) => {
+  const stats = aggregatePlayers(games);
+  const ranking = rankPlayers(stats, 15);
+  const viewer = stats.get(viewerId);
+  const champion = ranking[0] || null;
+  return {
+    ...season,
+    games: games.length,
+    players: stats.size,
+    ranking,
+    viewer: viewer ? { games: viewer.games, wins: viewer.wins, win_rate: rate(viewer.wins, viewer.games), place: ranking.find((item) => item.player_id === viewerId)?.place || null } : null,
+    champion,
+  };
+};
 
 router.get('/club-world', async (req, res) => {
   const viewerId = requirePlayerId(req, res);
@@ -115,24 +146,11 @@ router.get('/club-world', async (req, res) => {
     const now = new Date();
     const currentSeason = seasonForDate(now);
     const prevSeason = previousSeason(currentSeason);
-    const inRange = (game: CompletedGameSnapshot, season: ReturnType<typeof seasonForDate>) => game.dateMs >= season.start && game.dateMs < season.end;
     const currentGames = snapshots.filter((game) => inRange(game, currentSeason));
     const previousGames = snapshots.filter((game) => inRange(game, prevSeason));
     const currentStats = aggregatePlayers(currentGames);
     const allStats = aggregatePlayers(snapshots);
-
-    const seasonRanking = [...currentStats.values()]
-      .sort((a, b) => b.wins - a.wins || rate(b.wins, b.games) - rate(a.wins, a.games) || b.games - a.games || a.nickname.localeCompare(b.nickname, 'ru'))
-      .slice(0, 15)
-      .map((item, index) => ({
-        place: index + 1,
-        player_id: item.player_id,
-        nickname: item.nickname,
-        avatar_url: avatarUrl(item.player_id),
-        games: item.games,
-        wins: item.wins,
-        win_rate: rate(item.wins, item.games),
-      }));
+    const seasonRanking = rankPlayers(currentStats, 15);
 
     const roleChampions = ROLES.map((role) => {
       const candidates = [...currentStats.values()]
@@ -170,6 +188,27 @@ router.get('/club-world', async (req, res) => {
       recordPayload(sheriff, sheriff ? rate(sheriff.role_wins.sheriff, sheriff.role_games.sheriff) : 0, 'Лучший Шериф · мин. 5 игр'),
       recordPayload(don, don ? rate(don.role_wins.don, don.role_games.don) : 0, 'Лучший Дон · мин. 3 игры'),
     ].filter(Boolean);
+
+    const current = [...currentStats.values()];
+    const currentMostWins = current.slice().sort((a, b) => b.wins - a.wins || b.games - a.games)[0] || null;
+    const currentBestRate = current.filter((item) => item.games >= 5).sort((a, b) => rate(b.wins, b.games) - rate(a.wins, a.games) || b.wins - a.wins)[0] || null;
+    const currentBestStreak = current.slice().sort((a, b) => longestStreak(b.results) - longestStreak(a.results) || b.games - a.games)[0] || null;
+    const seasonRecords = [
+      recordPayload(currentMostWins, currentMostWins?.wins || 0, 'Побед в сезоне'),
+      recordPayload(currentBestRate, currentBestRate ? rate(currentBestRate.wins, currentBestRate.games) : 0, 'Винрейт сезона · мин. 5 игр'),
+      recordPayload(currentBestStreak, currentBestStreak ? longestStreak(currentBestStreak.results) : 0, 'Серия сезона'),
+    ].filter(Boolean);
+
+    const seasonMap = new Map<string, Season>();
+    seasonMap.set(currentSeason.key, currentSeason);
+    for (const game of snapshots) {
+      const season = seasonForDate(game.dateMs);
+      seasonMap.set(season.key, season);
+    }
+    const seasonHistory = [...seasonMap.values()]
+      .sort((a, b) => b.start - a.start)
+      .slice(0, 8)
+      .map((season) => seasonPayload(season, snapshots.filter((game) => inRange(game, season)), String(viewerId)));
 
     const feed: Array<any> = [];
     const clubGamesByEvent = new Map<string, CompletedGameSnapshot[]>();
@@ -227,6 +266,19 @@ router.get('/club-world', async (req, res) => {
       }
     }
 
+    for (const season of seasonHistory.filter((item) => item.key !== currentSeason.key && item.champion)) {
+      feed.push({
+        key: `season-champion:${season.key}:${season.champion.player_id}`,
+        type: 'season_champion',
+        date: new Date(season.end - 1).toISOString(),
+        icon: '👑',
+        title: `${season.champion.nickname} · чемпион сезона`,
+        text: `${season.label}: ${season.champion.wins}/${season.champion.games} побед · ${season.champion.win_rate}%`,
+        player_id: season.champion.player_id,
+        avatar_url: season.champion.avatar_url,
+      });
+    }
+
     const previousStatMap = aggregatePlayers(previousGames);
     const viewerSeason = currentStats.get(String(viewerId));
     const viewerPrevious = previousStatMap.get(String(viewerId));
@@ -242,8 +294,10 @@ router.get('/club-world', async (req, res) => {
         viewer: viewerSeason ? { games: viewerSeason.games, wins: viewerSeason.wins, win_rate: rate(viewerSeason.wins, viewerSeason.games) } : null,
         previous_viewer: viewerPrevious ? { games: viewerPrevious.games, wins: viewerPrevious.wins, win_rate: rate(viewerPrevious.wins, viewerPrevious.games) } : null,
       },
+      season_history: seasonHistory,
+      season_records: seasonRecords,
       hall_of_fame: hallOfFame,
-      feed: feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 30),
+      feed: feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 40),
       meta: {
         season: 'Сезоны считаются по календарю: зима, весна, лето, осень. Это сезонная статистика, официальный Elo остаётся отдельным.',
         hall_of_fame: 'Рекорды строятся только по завершённым играм из канонических протоколов.',

@@ -73,6 +73,17 @@ export async function ensureVkIntegrationSchema(db: DatabaseWrapper): Promise<vo
       expires_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS vk_callback_runtime (
+      group_id TEXT PRIMARY KEY,
+      server_id INTEGER,
+      callback_url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      confirmation_code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'configuring',
+      last_error TEXT,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_external_identity_player
       ON player_external_identities(platform, player_id);
     CREATE INDEX IF NOT EXISTS idx_vk_publications_poll

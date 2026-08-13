@@ -47,6 +47,23 @@ const serializePayment = (row: any) => {
   };
 };
 
+const serializeIntent = (row: any) => ({
+  id: String(row.id),
+  purpose: String(row.purpose),
+  participant_id: row.participant_id ? String(row.participant_id) : null,
+  token_package_id: row.token_package_id ? String(row.token_package_id) : null,
+  campaign_id: row.campaign_id ? String(row.campaign_id) : null,
+  amount_rub: Math.max(0, Number(row.amount_rub || 0)),
+  token_amount: row.token_amount == null ? null : Math.max(0, Number(row.token_amount || 0)),
+  provider: String(row.provider || 'unconfigured'),
+  status: String(row.status || 'draft'),
+  description: String(row.description || ''),
+  confirmation_url: row.confirmation_url || null,
+  created_at: row.created_at || null,
+  updated_at: row.updated_at || null,
+  paid_at: row.paid_at || null,
+});
+
 router.get('/payments', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
@@ -56,16 +73,41 @@ router.get('/payments', async (req, res) => {
     const player = await db.get<any>('SELECT id FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
-    const rows = await db.all<any>(`
-      SELECT ep.id AS participant_id, ep.evening_id, ep.registration_status, ep.payment_status,
-             ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
-             e.title, e.starts_at, e.venue, e.status AS evening_status
-        FROM evening_participants ep
-        JOIN game_evenings e ON e.id = ep.evening_id
-       WHERE ep.player_id = ? AND e.status <> 'cancelled'
-       ORDER BY COALESCE(e.starts_at, ep.created_at) DESC, ep.created_at DESC
-       LIMIT 200
-    `, [playerId]);
+    const [rows, tokenPackages, campaigns, intents] = await Promise.all([
+      db.all<any>(`
+        SELECT ep.id AS participant_id, ep.evening_id, ep.registration_status, ep.payment_status,
+               ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
+               e.title, e.starts_at, e.venue, e.status AS evening_status
+          FROM evening_participants ep
+          JOIN game_evenings e ON e.id = ep.evening_id
+         WHERE ep.player_id = ? AND e.status <> 'cancelled'
+         ORDER BY COALESCE(e.starts_at, ep.created_at) DESC, ep.created_at DESC
+         LIMIT 200
+      `, [playerId]),
+      db.all<any>(`
+        SELECT id, title, token_amount, price_rub, sort_order
+          FROM token_packages
+         WHERE active = 1
+         ORDER BY sort_order ASC, price_rub ASC, id ASC
+      `),
+      db.all<any>(`
+        SELECT c.id, c.title, c.description, c.target_amount_rub, c.starts_at, c.ends_at,
+               COALESCE(SUM(CASE WHEN pi.status = 'paid' THEN pi.amount_rub ELSE 0 END), 0) AS collected_amount_rub
+          FROM fundraising_campaigns c
+          LEFT JOIN payment_intents pi ON pi.campaign_id = c.id
+         WHERE c.status = 'active'
+         GROUP BY c.id
+         ORDER BY COALESCE(c.starts_at, c.created_at) DESC, c.created_at DESC
+      `),
+      db.all<any>(`
+        SELECT id, purpose, participant_id, token_package_id, campaign_id, amount_rub, token_amount,
+               provider, status, description, confirmation_url, created_at, updated_at, paid_at
+          FROM payment_intents
+         WHERE player_id = ?
+         ORDER BY created_at DESC, id DESC
+         LIMIT 50
+      `, [playerId]),
+    ]);
 
     const items = rows
       .map(serializePayment)
@@ -93,6 +135,53 @@ router.get('/payments', async (req, res) => {
       history,
       free_evening_credits: Number(freeEvening?.count || 0),
       online_payment_available: false,
+      online_payment: {
+        available: false,
+        provider: null,
+        setup_required: true,
+        purposes: [
+          {
+            id: 'evening',
+            title: 'Участие в вечере',
+            description: 'Оплата конкретного игрового вечера по фактической сумме к оплате.',
+            configured: current.some((item) => item.outstanding > 0),
+          },
+          {
+            id: 'token_topup',
+            title: 'Пополнить жетоны',
+            description: 'Покупка фиксированного пакета внутренней валюты без обратного вывода в деньги.',
+            configured: tokenPackages.length > 0,
+          },
+          {
+            id: 'support',
+            title: 'Поддержать клуб',
+            description: 'Добровольная поддержка 2LA Noire без влияния на спортивный результат.',
+            configured: true,
+          },
+          {
+            id: 'fundraiser',
+            title: 'Сбор на цель',
+            description: 'Взнос в конкретный активный сбор клуба с видимым прогрессом.',
+            configured: campaigns.length > 0,
+          },
+        ],
+        token_packages: tokenPackages.map((item: any) => ({
+          id: String(item.id),
+          title: String(item.title),
+          token_amount: Math.max(0, Number(item.token_amount || 0)),
+          price_rub: Math.max(0, Number(item.price_rub || 0)),
+        })),
+        campaigns: campaigns.map((item: any) => ({
+          id: String(item.id),
+          title: String(item.title),
+          description: item.description || null,
+          target_amount_rub: item.target_amount_rub == null ? null : Math.max(0, Number(item.target_amount_rub || 0)),
+          collected_amount_rub: Math.max(0, Number(item.collected_amount_rub || 0)),
+          starts_at: item.starts_at || null,
+          ends_at: item.ends_at || null,
+        })),
+        recent_intents: intents.map(serializeIntent),
+      },
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить оплату' });

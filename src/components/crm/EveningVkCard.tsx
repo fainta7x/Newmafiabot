@@ -31,8 +31,16 @@ type VkState = {
   integration: {
     configured: boolean;
     token_configured: boolean;
+    group_token_configured?: boolean;
     callback_secret_configured: boolean;
     callback_confirmation_configured: boolean;
+    oauth?: {
+      app_id: string;
+      managed_connected: boolean;
+      user_id: string | null;
+      scope: string | null;
+      expires_at: string | null;
+    };
   };
   destinations: VkDestination[];
   votes: { total: number; applied: number; unmatched: number; conflict: number; superseded: number; ineligible: number };
@@ -90,10 +98,39 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
     }
   };
 
-  useEffect(() => { void load(); }, [eveningId]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const connected = url.searchParams.get('vk_connected');
+    const oauthError = url.searchParams.get('vk_error');
+    if (connected === '1') setMessage('VK подключён. Теперь можно публиковать анонсы.');
+    if (oauthError) setError(`VK: ${oauthError}`);
+    if (connected || oauthError) {
+      url.searchParams.delete('vk_connected');
+      url.searchParams.delete('vk_error');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    void load();
+  }, [eveningId]);
 
   const canPublish = !readonly && ['published', 'active'].includes(status);
   const supportedDestinations = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
+
+  const connectVk = async () => {
+    if (busy) return;
+    setBusy('connect'); setError(null); setMessage(null);
+    try {
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const body = await request('/api/integrations/vk/oauth/start', {
+        method: 'POST',
+        body: JSON.stringify({ return_to: returnTo }),
+      });
+      if (!body?.authorize_url) throw new Error('Сервер не вернул ссылку VK ID');
+      window.location.assign(String(body.authorize_url));
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось подключить VK');
+      setBusy(null);
+    }
+  };
 
   const sync = async () => {
     if (busy) return;
@@ -155,8 +192,15 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
         <button type="button" onClick={() => void load()} disabled={Boolean(busy)} className="rounded-full bg-surface-1 p-2 text-text-muted disabled:opacity-40" aria-label="Обновить VK"><RefreshCw className={`h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} /></button>
       </div>
 
-      {!state.integration.configured ? <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">VK ещё не подключён: нужен VK_ACCESS_TOKEN. Паблик и канал 2LA Noire уже привязаны.</div> : null}
-      {state.integration.configured && (!state.integration.callback_secret_configured || !state.integration.callback_confirmation_configured) ? <div className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-[10px] leading-4 text-text-secondary">Публикация готова. Для мгновенного переноса голосов осталось подключить Callback API; без него ответы можно забирать кнопкой ниже.</div> : null}
+      {!state.integration.configured ? (
+        <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
+          <div>Паблик и канал 2LA Noire уже привязаны. Осталось один раз разрешить приложению публиковать и читать ответы VK.</div>
+          {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void connectVk()} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#2688eb] px-3 text-[10px] font-bold text-white disabled:opacity-40"><Link2 className="h-3.5 w-3.5" />{busy === 'connect' ? 'Открываем VK…' : 'Подключить VK'}</button> : null}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">VK подключён{state.integration.oauth?.managed_connected ? ' через VK ID' : ''}. Анонсы и опросы готовы к публикации.</div>
+      )}
+      {state.integration.configured && (!state.integration.callback_secret_configured || !state.integration.callback_confirmation_configured) ? <div className="mt-2 rounded-xl bg-accent-soft px-3 py-2 text-[10px] leading-4 text-text-secondary">Публикация уже работает. Для мгновенного переноса голосов позже подключим Callback API; пока ответы можно забирать кнопкой ниже.</div> : null}
 
       <div className="mt-3 space-y-1.5">
         {state.destinations.map((destination) => {

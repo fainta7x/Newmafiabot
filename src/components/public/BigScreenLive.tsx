@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type LivePayload =
   | { mode: 'live'; generated_at: string; evening: any; safety?: string }

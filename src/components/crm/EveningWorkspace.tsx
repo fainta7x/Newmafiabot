@@ -5,6 +5,7 @@ import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
 import EveningJourneyBar from './EveningJourneyBar.tsx';
+import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 
 export type EveningSection = 'overview' | 'participants' | 'tables' | 'games';
 
@@ -67,6 +68,8 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
           })}
         </div>
       </div>
+
+      {section === 'overview' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
 
       {section === 'overview' ? (
         <EveningOverviewView

@@ -41,9 +41,12 @@ export const getEveningResponse = (participant: any): EveningResponseStatus =>
     participant?.arrival_status,
   );
 
-export const getEveningResponseLabel = (participantOrStatus: any): string => {
+export const getEveningResponseLabel = (
+  participantOrStatus: any,
+  legacyArrivalStatus?: unknown,
+): string => {
   const status = typeof participantOrStatus === 'string'
-    ? normalizeEveningResponse(participantOrStatus)
+    ? normalizeEveningResponse(participantOrStatus, legacyArrivalStatus)
     : getEveningResponse(participantOrStatus);
   return EVENING_RESPONSE_LABELS[status];
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { PlayerMeResponse } from './PlayerCabinet.tsx';
+import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerCabinetV2, { type PlayerTab } from './PlayerCabinetV2.tsx';
 import JudgeGameLauncher from './JudgeGameLauncher.tsx';
 import PlayerJudging from './PlayerJudging.tsx';
@@ -226,6 +226,10 @@ export default function PlayerCabinetShell({
 }: Props) {
   const [section, setSection] = useState<PlayerCabinetSection>(initialSection);
   const [experienceTarget, setExperienceTarget] = useState<string | null>(initialTarget);
+  const initialLegacyTab = initialSection === 'home' || initialSection === 'games' || initialSection === 'rating' || secondarySections.has(initialSection)
+    ? initialSection as PlayerTab
+    : null;
+  const [legacyMounted, setLegacyMounted] = useState(Boolean(initialLegacyTab));
 
   useEffect(() => {
     setSection(initialSection);
@@ -250,6 +254,10 @@ export default function PlayerCabinetShell({
     ? section as PlayerTab
     : null;
 
+  useEffect(() => {
+    if (legacyTab) setLegacyMounted(true);
+  }, [legacyTab]);
+
   const moreActive = section === 'more' || secondarySections.has(section) || experienceSections.has(section);
 
   return (
@@ -272,17 +280,18 @@ export default function PlayerCabinetShell({
         <PlayerCareerProfile playerId={data.player.id} onBack={() => openSection('more')} />
       ) : section === 'clubworld' ? (
         <ClubWorldPage onBack={() => openSection('more')} />
-      ) : legacyTab ? (
-        <div className="player-cabinet-legacy">
+      ) : null}
+
+      {legacyMounted && (
+        <div className={`player-cabinet-legacy ${legacyTab ? '' : 'hidden'}`} aria-hidden={legacyTab ? undefined : true}>
           <PlayerCabinetV2
-            key={legacyTab}
             data={data}
             canOpenAdmin={canOpenAdmin}
-            initialTab={legacyTab}
+            initialTab={legacyTab || 'home'}
             onTabChange={(tab) => openSection(tab)}
           />
         </div>
-      ) : null}
+      )}
 
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
 

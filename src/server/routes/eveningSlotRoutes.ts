@@ -4,7 +4,6 @@ import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 
 export const eveningSlotRoutes = Router();
-export const playerEveningSlotRoutes = Router();
 
 const sendError = (res: any, error: any, fallback: string) =>
   res.status(Number(error?.statusCode || error?.status || 500)).json({ error: error?.message || fallback });
@@ -32,7 +31,7 @@ eveningSlotRoutes.get('/:eveningId/slots', requireOrganizerAuth, async (req, res
   }
 });
 
-playerEveningSlotRoutes.get('/:eveningId/slots', async (req, res) => {
+eveningSlotRoutes.get('/:eveningId/slots/me', async (req, res) => {
   try {
     const player = await requirePlayer(req, res);
     if (!player) return;
@@ -46,7 +45,7 @@ playerEveningSlotRoutes.get('/:eveningId/slots', async (req, res) => {
   }
 });
 
-playerEveningSlotRoutes.put('/:eveningId/slots', async (req, res) => {
+eveningSlotRoutes.put('/:eveningId/slots/me', async (req, res) => {
   try {
     const player = await requirePlayer(req, res);
     if (!player) return;

@@ -3,7 +3,8 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkJoinSchema } from '../../db/ensureVkJoinSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { getVkJoinState } from './vkJoinIdentityService.ts';
-import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
+import { resolveVkJoinSession } from './vkJoinAuthService.ts';
+import { loadEveningSlotPlan, replacePlayerSlotSelection } from './eveningSlotPlanningService.ts';
 
 const router = Router();
 
@@ -16,9 +17,24 @@ router.get('/evenings/:id/join-state', async (req, res) => {
 router.get('/evenings/:id/slots', async (req, res) => {
   try {
     const db = (req as any).db as DatabaseWrapper;
-    return res.json(await loadEveningSlotPlan(db, req.params.id, getPlayerSessionId(req)));
+    const vkSession = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
+    const playerId = vkSession?.player_id || getPlayerSessionId(req);
+    return res.json(await loadEveningSlotPlan(db, req.params.id, playerId));
   } catch (error: any) {
     return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить игровые слоты' });
+  }
+});
+
+router.post('/evenings/:id/slots', async (req, res) => {
+  try {
+    const db = (req as any).db as DatabaseWrapper;
+    const vkSession = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
+    const playerId = vkSession?.player_id || getPlayerSessionId(req);
+    if (!playerId) return res.status(401).json({ error: 'Сначала подтвердите профиль через VK ID или Telegram' });
+    const plan = await replacePlayerSlotSelection(db, req.params.id, String(playerId), req.body?.slot_ids);
+    return res.json({ success: true, ...plan });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось сохранить выбор игр' });
   }
 });
 

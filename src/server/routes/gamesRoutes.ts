@@ -154,6 +154,9 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       }
 
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
+      if (judge.judge_player_id && seats.some((seat: any) => String(seat.player_id) === String(judge.judge_player_id))) {
+        throw new Error('Судья этой игры не может одновременно быть игроком');
+      }
       const now = new Date().toISOString();
       const next = await tx.get<any>('SELECT COALESCE(MAX(global_game_number), 0) + 1 AS next_number FROM games');
       const protocol = buildInitialClubProtocol(seats);
@@ -234,6 +237,9 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
           judge_name: req.body?.judge_name ?? null,
         })
       : { judge_player_id: existing.judge_player_id || null, judge_name: existing.judge_name || null };
+    if (judge.judge_player_id && canonical.playerResults.some((item: any) => String(item.player_id || '') === String(judge.judge_player_id))) {
+      return res.status(400).json({ error: 'Судья этой игры не может одновременно быть игроком' });
+    }
 
     const now = new Date().toISOString();
     const completedAt = status === 'completed'

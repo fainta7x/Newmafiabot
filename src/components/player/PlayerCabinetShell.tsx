@@ -3,6 +3,7 @@ import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } 
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerMoreHub from './PlayerMoreHub.tsx';
+import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 
 export type PlayerCabinetSection = LegacySection | 'events';
 
@@ -32,12 +33,20 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     onSectionChange?.(next, target);
   };
 
+  const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => {
+    if (destination === 'events') return open('events');
+    return open(destination as PlayerCabinetSection, target || null);
+  };
+
   const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' ? 'games' : section as LegacySection;
   const moreActive = !primary.has(section);
 
   return (
     <div className="player-events-shell bg-[#090a0d] text-white">
-      <style>{`.player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}`}</style>
+      <style>{`
+        .player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}
+        .player-events-shell .legacy-cabinet-wrap button[aria-label="Уведомления"]{display:none!important}
+      `}</style>
       {section === 'home' ? (
         <PlayerHomeDashboard
           data={props.data}
@@ -62,6 +71,8 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
           />
         </div>
       )}
+
+      <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
 
       <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">

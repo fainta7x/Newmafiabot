@@ -5,8 +5,10 @@ import {
   ClubLiveSessionRecorder,
   LEGACY_DEATH_PROTOCOL_KEY,
   LEGACY_LIVE_SESSION_KEY,
+  LEGACY_PROTOCOL_NOTES_KEY,
   clubLiveDeathProtocolKey,
   clubLiveEvidenceKey,
+  clubLiveProtocolNotesKey,
   clubLiveSessionKey,
   finalizeLiveVotingRounds,
   mergeLiveVotingRounds,
@@ -102,6 +104,28 @@ describe('club live session evidence', () => {
     reopened.mount();
     expect(JSON.parse(localStorage.getItem(LEGACY_LIVE_SESSION_KEY) || '{}')).toEqual(snapshot);
     reopened.unmount();
+  });
+
+  it('keeps judge protocol notes with the same game across re-entry', () => {
+    localStorage.setItem(clubLiveSessionKey(81), JSON.stringify({ phase: 'night', activePlayers: [] }));
+    localStorage.setItem(clubLiveProtocolNotesKey(81), 'Первая заметка');
+
+    const firstOpen = new ClubLiveSessionRecorder(81);
+    firstOpen.mount();
+    expect(localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY)).toBe('Первая заметка');
+
+    localStorage.setItem(LEGACY_PROTOCOL_NOTES_KEY, 'Исправленная заметка');
+    window.dispatchEvent(new Event('pagehide'));
+    expect(localStorage.getItem(clubLiveProtocolNotesKey(81))).toBe('Исправленная заметка');
+
+    firstOpen.unmount();
+    expect(localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY)).toBeNull();
+
+    const reopened = new ClubLiveSessionRecorder(81);
+    reopened.mount();
+    expect(localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY)).toBe('Исправленная заметка');
+    reopened.finish();
+    expect(localStorage.getItem(clubLiveProtocolNotesKey(81))).toBeNull();
   });
 
   it('finishing one game clears only its recovery data and leaves another game draft intact', () => {

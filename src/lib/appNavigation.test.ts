@@ -6,6 +6,7 @@ describe('player route parsing', () => {
     expect(parsePlayerRoute('/player')).toMatchObject({ section: 'home', canonicalPath: '/player', target: null, replayGameKey: null });
     expect(parsePlayerRoute('/player/games')).toMatchObject({ section: 'games', canonicalPath: '/player/games' });
     expect(parsePlayerRoute('/player/seasons')).toMatchObject({ section: 'clubworld', canonicalPath: '/player/seasons' });
+    expect(parsePlayerRoute('/player/rating/periods')).toMatchObject({ section: 'ratingperiods', canonicalPath: '/player/rating/periods' });
   });
 
   it('normalizes old judging aliases to the conduct route', () => {
@@ -33,8 +34,9 @@ describe('player route parsing', () => {
 });
 
 describe('path builders and back targets', () => {
-  it('builds encoded recap links', () => {
+  it('builds encoded recap and rating-period links', () => {
     expect(playerPathForSection('recaps', 'evening:42')).toBe('/player/recaps/evening%3A42');
+    expect(playerPathForSection('ratingperiods')).toBe('/player/rating/periods');
   });
 
   it('gives Telegram a deterministic parent screen', () => {
@@ -42,7 +44,9 @@ describe('path builders and back targets', () => {
     expect(appBackTarget('/player/games')).toBe('/player');
     expect(appBackTarget('/player/replay/club%3A1')).toBe('/player/games');
     expect(appBackTarget('/player/recaps/e1')).toBe('/player/recaps');
-    expect(appBackTarget('/player/elo')).toBe('/player/more');
+    expect(appBackTarget('/player/elo')).toBe('/player/rating');
+    expect(appBackTarget('/player/rating/periods')).toBe('/player/rating');
+    expect(appBackTarget('/player/seasons')).toBe('/player/rating');
     expect(appBackTarget('/admin')).toBeNull();
     expect(appBackTarget('/admin/evenings/e1/games')).toBe('/admin/evenings/e1');
     expect(appBackTarget('/admin/evenings/e1')).toBe('/admin/evenings');

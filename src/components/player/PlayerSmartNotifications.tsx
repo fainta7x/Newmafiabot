@@ -149,7 +149,7 @@ export default function PlayerSmartNotifications({
   };
 
   const openJourney = () => {
-    if (journey.phase === 'upcoming') onNavigate?.('events');
+    if (journey.phase === 'upcoming') onNavigate?.('events', journey.evening.id);
     else if (journey.phase === 'live') onNavigate?.('games');
     else if (journey.phase === 'recap') onNavigate?.('recaps', journey.recap.id);
     setOpen(false);

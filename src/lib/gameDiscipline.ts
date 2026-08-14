@@ -13,6 +13,8 @@ export interface PlayerDiscipline {
   majorTechFouls: number;
   isRemoved: boolean;
   removedReason: '4th_foul' | '2nd_tech' | 'direct' | null;
+  /** The second tech type is retained so a manual restore can reverse the exact triggering tech. */
+  secondTechFoulType?: 'minor' | 'major' | null;
   gamePenalty: number;
   pendingAction: PendingActionType | null;
   ppkCaused: boolean;
@@ -49,6 +51,7 @@ export const createInitialPlayerDiscipline = (id: string, team: 'red' | 'black')
   majorTechFouls: 0,
   isRemoved: false,
   removedReason: null,
+  secondTechFoulType: null,
   gamePenalty: 0,
   pendingAction: null,
   ppkCaused: false,
@@ -170,23 +173,27 @@ export const confirmAction = (state: GameDiscipline, playerId: string): GameDisc
     updatedPlayer.regularFouls = 4;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '4th_foul';
+    updatedPlayer.secondTechFoulType = null;
     updatedPlayer.has30SecPenalty = false;
     registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'minor_tech_causing_removal') {
     updatedPlayer.minorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
+    updatedPlayer.secondTechFoulType = 'minor';
     updatedPlayer.has30SecPenalty = false;
     registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'major_tech_causing_removal') {
     updatedPlayer.majorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
+    updatedPlayer.secondTechFoulType = 'major';
     updatedPlayer.has30SecPenalty = false;
     registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'direct_removal') {
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = 'direct';
+    updatedPlayer.secondTechFoulType = null;
     updatedPlayer.has30SecPenalty = false;
     registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'ppk') {
@@ -233,6 +240,17 @@ export const restoreRemovedPlayer = (state: GameDiscipline, playerId: string): G
     remainingSources = [];
   }
 
+  let regularFouls = player.regularFouls;
+  let minorTechFouls = player.minorTechFouls;
+  let majorTechFouls = player.majorTechFouls;
+  if (player.removedReason === '4th_foul') regularFouls = Math.min(3, regularFouls);
+  if (player.removedReason === '2nd_tech') {
+    const techType = player.secondTechFoulType
+      || (majorTechFouls > 0 ? 'major' : 'minor');
+    if (techType === 'major') majorTechFouls = Math.max(0, majorTechFouls - 1);
+    else minorTechFouls = Math.max(0, minorTechFouls - 1);
+  }
+
   return {
     ...state,
     isNextVotingCancelled: remainingSources.length > 0,
@@ -241,9 +259,14 @@ export const restoreRemovedPlayer = (state: GameDiscipline, playerId: string): G
       ...state.players,
       [playerId]: {
         ...player,
+        regularFouls,
+        minorTechFouls,
+        majorTechFouls,
         isRemoved: false,
         removedReason: null,
+        secondTechFoulType: null,
         pendingAction: null,
+        has30SecPenalty: false,
       },
     },
   };

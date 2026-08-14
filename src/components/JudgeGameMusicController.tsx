@@ -17,10 +17,11 @@ export const requestJudgeNightMusicStart = () => {
   const selection = readJudgeGameMusicSelection();
   if (selection?.configured === true && !selection.nightTrackId) {
     window.dispatchEvent(new CustomEvent(STOP_EVENT));
-    return;
+    return false;
   }
   const trackId = selection?.configured === true ? selection.nightTrackId || undefined : undefined;
   window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'night' } }));
+  return true;
 };
 
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
@@ -59,14 +60,6 @@ const zeroNightWantsMusic = (live: LiveAudioState | null) => {
   return live.zeroNightSubPhase === 'agreement'
     || live.zeroNightSubPhase === 'sheriff'
     || live.zeroNightSubPhase === 'seating';
-};
-
-const regularNightManualWindow = (live: LiveAudioState | null) => {
-  if (live?.phase !== 'night') return false;
-  return live.nightSubPhase === 'intro'
-    || live.nightSubPhase === 'shooting'
-    || live.nightSubPhase === 'don'
-    || live.nightSubPhase === 'sheriff';
 };
 
 export default function JudgeGameMusicController() {
@@ -111,15 +104,9 @@ export default function JudgeGameMusicController() {
       const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
       const selection = readJudgeGameMusicSelection();
 
-      // Regular nights now start only from the explicit queue action. Once that
-      // night reaches best move / morning (or the app returns to day), stop the
-      // manually started night track automatically.
-      if (manualNightRef.current && !regularNightManualWindow(live)) {
-        manualRef.current = false;
-        manualNightRef.current = false;
-        manualTrackRef.current = undefined;
-      }
-
+      // Regular-night playback is fully manual: after the explicit start action
+      // it keeps playing across all night timers/subphases until the judge presses
+      // the explicit stop action. Phase/timer changes no longer stop it.
       const phaseWantsNightMusic = zeroNightWantsMusic(live);
       const configured = selection?.configured === true;
       const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;

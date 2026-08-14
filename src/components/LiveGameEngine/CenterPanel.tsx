@@ -2,7 +2,7 @@ import React from "react";
 import { Pause, Play, RotateCcw, Mic, LogOut, ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
-import { isVoteDecidedFromAssignments } from "../../lib/liveVoting.js";
+import { canToggleVoteAssignment, isVoteDecidedFromAssignments } from "../../lib/liveVoting.js";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -232,6 +232,45 @@ export default function CenterPanel({
     };
   }, [isTableDecision, tableVoterSlots, activePlayers]);
 
+  /*
+   * Sequential voting guard. Once the division is mathematically decided the
+   * table cannot be edited. A player who already voted for an earlier nominee
+   * is also not clickable on a later nominee until that earlier vote is undone.
+   */
+  React.useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.evening-live-engine-shell');
+    const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
+    if (!grid) return;
+    const seatNodes = Array.from(grid.children).slice(0, 10) as HTMLElement[];
+
+    const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
+    const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
+    const decided = Boolean(
+      phase === 'day_voting'
+      && votingStage === 'collecting'
+      && currentRound
+      && isVoteDecidedFromAssignments(currentRound.nominated_seats, votesByPlayer, eligibleVoterSeats),
+    );
+
+    seatNodes.forEach((node, index) => {
+      const voterSlot = index + 1;
+      const blockedByEarlierVote = nominee != null && !canToggleVoteAssignment(voterSlot, nominee, votesByPlayer);
+      const shouldBlock = phase === 'day_voting' && votingStage === 'collecting' && (decided || blockedByEarlierVote);
+      if (shouldBlock) {
+        node.dataset.sequentialVoteLocked = decided ? 'decided' : 'already-voted';
+        node.style.pointerEvents = 'none';
+      } else {
+        delete node.dataset.sequentialVoteLocked;
+        node.style.removeProperty('pointer-events');
+      }
+    });
+
+    return () => seatNodes.forEach((node) => {
+      delete node.dataset.sequentialVoteLocked;
+      node.style.removeProperty('pointer-events');
+    });
+  }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer, activePlayers]);
+
   const renderTimer = () => (
     <div className="space-y-1.5 w-full max-w-[300px] mx-auto">
       <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block">
@@ -278,6 +317,19 @@ export default function CenterPanel({
       const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
       const remaining = Math.max(0, eligible - explicitAssigned);
       const isLast = currentVotingNomineeIndex === candidates.length - 1;
+
+      if (decided) {
+        return (
+          <div className="space-y-2 w-full max-w-[300px] mx-auto">
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-3 py-2 text-[10px] font-black text-emerald-300 uppercase">
+              ✓ Голосование математически решено
+            </div>
+            <div className="text-[9px] leading-4 text-slate-400">Оставшиеся голоса уже не могут изменить лидера. Изменение голосов заблокировано.</div>
+            <button type="button" onClick={handleResolveVoting} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Зафиксировать итог</button>
+          </div>
+        );
+      }
+
       return (
         <div className="space-y-2 w-full max-w-[300px] mx-auto">
           <div className="text-[9px] uppercase font-black text-slate-400">
@@ -290,20 +342,16 @@ export default function CenterPanel({
             <span className="text-slate-400">Текущий итог</span>
             <strong className="text-rose-400 font-mono">{votes[nominee] || 0}</strong>
           </div>
-          {decided && (
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-2 py-1 text-[9px] font-black text-emerald-400 uppercase">
-              ✓ Голосование решено
+          {isLast ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-2 py-1.5 text-[9px] leading-4 text-amber-300">
+              Последнему кандидату автоматически уходят все оставшиеся голоса{remaining > 0 ? `: ${remaining}` : ''}.
+            </div>
+          ) : (
+            <div className="flex justify-center gap-1.5">
+              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-xs">−1</button>
+              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-xs">+1</button>
             </div>
           )}
-          {isLast && remaining > 0 && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-[9px] text-amber-300">
-              Последнему кандидату автоматически: {remaining}
-            </div>
-          )}
-          <div className="flex justify-center gap-1.5">
-            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-xs">−1</button>
-            <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-xs">+1</button>
-          </div>
           <div className="flex justify-between gap-1.5">
             <button type="button" disabled={currentVotingNomineeIndex === 0} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] disabled:opacity-30">← Назад</button>
             {isLast ? (
@@ -367,7 +415,7 @@ export default function CenterPanel({
       if (result.outcome === 'auto_no_elimination') {
         return (
           <div className="space-y-2 max-w-[300px] mx-auto">
-            <div className="text-[10px] text-emerald-300">Спорных игроков больше половины стола. Никто не покидает стол.</div>
+            <div className="text-[10px] text-emerald-300">Два одинаковых деления подряд, а спорных игроков больше половины живых. Никто не покидает стол.</div>
             <button type="button" onClick={() => handleConfirmAutoNoElimination?.()} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Подтвердить и перейти в ночь</button>
           </div>
         );
@@ -380,7 +428,7 @@ export default function CenterPanel({
         return (
           <div className="space-y-2 w-full max-w-[320px] mx-auto">
             <div className="text-[10px] text-amber-300 font-black">Поднять спорных: {result.winners.map((s) => `#${s}`).join(', ')}</div>
-            <div className="text-[9px] text-slate-400">Тапайте по карточкам игроков, которые голосуют за подъём всех спорных.</div>
+            <div className="text-[9px] text-slate-400">Одинаковое деление повторилось дважды. Тапайте по живым игрокам, которые голосуют за подъём всех спорных.</div>
             <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[10px]">
               <span className="text-slate-400">За подъём</span>
               <strong className={entered >= majority ? 'text-emerald-400' : 'text-amber-400'}>{entered}/{eligible} · нужно {majority}</strong>
@@ -399,12 +447,18 @@ export default function CenterPanel({
 
   const renderIdleBody = () => {
     if (phase === 'zero_night') {
+      const stageCopy = !zeroNightSubPhase
+        ? 'Первый шаг — договорка мафии.'
+        : zeroNightSubPhase === 'agreement'
+          ? 'Договорка идёт. Следом — вызов Шерифа.'
+          : zeroNightSubPhase === 'sheriff'
+            ? 'Вызов Шерифа. Следом — свободная посадка.'
+            : 'Свободная посадка. После неё город просыпается.';
       return (
         <div className="space-y-2 max-w-[300px] mx-auto">
-          <div className="text-xs font-black text-white uppercase">Подготовка игры</div>
-          <button type="button" onClick={() => handleStartZeroNightTimer('agreement')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">1. Договорка · 75с</button>
-          <button type="button" onClick={() => handleStartZeroNightTimer('sheriff')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">2. Вызов шерифа · 10с</button>
-          <button type="button" onClick={() => handleStartZeroNightTimer('seating')} className="w-full py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">3. Посадка · 40с</button>
+          <div className="text-xs font-black text-white uppercase">Нулевая ночь</div>
+          <div className="rounded-xl border border-violet-400/20 bg-violet-400/[0.06] px-3 py-2 text-[10px] leading-4 text-violet-100/80">{stageCopy}</div>
+          <div className="text-[9px] leading-4 text-slate-500">Переход выполняется только кнопкой шага снизу — этапы нельзя перескочить.</div>
           {zeroNightSubPhase === 'agreement' && <div className="text-[9px] text-slate-400">Дон #{donPlayer?.slot_num || '—'} · Мафия {mafiaPlayers.map((p) => `#${p.slot_num}`).join(', ') || '—'}</div>}
         </div>
       );

@@ -28,6 +28,24 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
     }
   }, [props.phase, props.roundNumber]);
 
+  /* During daytime show only the nominated seats themselves. The order in which
+   * they were nominated is protocol data, not useful judge-facing copy here. */
+  React.useLayoutEffect(() => {
+    if (props.phase !== 'day_speeches') return;
+    const grid = findLiveGrid();
+    const center = grid?.children?.[10] as HTMLElement | undefined;
+    if (!center) return;
+
+    const nominationLabel = Array.from(center.querySelectorAll<HTMLElement>('div')).find((node) => (
+      node.children.length === 0 && node.textContent?.trim().startsWith('Выставлены:')
+    ));
+    if (!nominationLabel) return;
+
+    nominationLabel.textContent = `Выставлены: ${props.nominations.length
+      ? props.nominations.map((slot) => `#${slot}`).join(' · ')
+      : '—'}`;
+  }, [props.phase, props.nominations]);
+
   /*
    * The mobile center card is height-limited and scrollable. After the voting UI
    * became richer, flex centering could keep an old scroll offset and visually

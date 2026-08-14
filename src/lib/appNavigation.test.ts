@@ -7,12 +7,15 @@ describe('player route parsing', () => {
     expect(parsePlayerRoute('/player/games')).toMatchObject({ section: 'games', canonicalPath: '/player/games' });
     expect(parsePlayerRoute('/player/seasons')).toMatchObject({ section: 'clubworld', canonicalPath: '/player/seasons' });
     expect(parsePlayerRoute('/player/rating/periods')).toMatchObject({ section: 'ratingperiods', canonicalPath: '/player/rating/periods' });
+    expect(parsePlayerRoute('/player/wallet')).toMatchObject({ section: 'wallet', canonicalPath: '/player/wallet' });
   });
 
-  it('normalizes old judging aliases to the conduct route', () => {
+  it('normalizes removed and legacy player routes', () => {
     for (const alias of ['judging', 'host', 'table']) {
       expect(parsePlayerRoute(`/player/${alias}`)).toMatchObject({ section: 'conduct', canonicalPath: '/player/conduct' });
     }
+    expect(parsePlayerRoute('/player/more')).toMatchObject({ section: 'club', canonicalPath: '/player/club' });
+    expect(parsePlayerRoute('/player/payments')).toMatchObject({ section: 'wallet', canonicalPath: '/player/wallet' });
   });
 
   it('preserves recap and replay targets through refresh-safe URLs', () => {
@@ -34,9 +37,12 @@ describe('player route parsing', () => {
 });
 
 describe('path builders and back targets', () => {
-  it('builds encoded recap and rating-period links', () => {
+  it('builds canonical player links', () => {
     expect(playerPathForSection('recaps', 'evening:42')).toBe('/player/recaps/evening%3A42');
     expect(playerPathForSection('ratingperiods')).toBe('/player/rating/periods');
+    expect(playerPathForSection('wallet')).toBe('/player/wallet');
+    expect(playerPathForSection('payments')).toBe('/player/wallet');
+    expect(playerPathForSection('more')).toBe('/player/club');
   });
 
   it('gives Telegram a deterministic parent screen', () => {
@@ -47,6 +53,8 @@ describe('path builders and back targets', () => {
     expect(appBackTarget('/player/elo')).toBe('/player/rating');
     expect(appBackTarget('/player/rating/periods')).toBe('/player/rating');
     expect(appBackTarget('/player/seasons')).toBe('/player/rating');
+    expect(appBackTarget('/player/wallet')).toBe('/player');
+    expect(appBackTarget('/player/profile')).toBe('/player');
     expect(appBackTarget('/admin')).toBeNull();
     expect(appBackTarget('/admin/evenings/e1/games')).toBe('/admin/evenings/e1');
     expect(appBackTarget('/admin/evenings/e1')).toBe('/admin/evenings');

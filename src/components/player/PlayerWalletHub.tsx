@@ -27,7 +27,7 @@ export default function PlayerWalletHub({
               <p className="mt-1 text-sm text-white/45">Оплата вечеров, магазин и игровые жетоны</p>
             </div>
             <div className="shrink-0 rounded-2xl bg-white/[0.055] px-3 py-2 text-right">
-              <div className="text-sm font-semibold text-white/80">{Math.trunc(Number(tokenBalance || data.player.tokens || 0)).toLocaleString('ru-RU')} 🪙</div>
+              <div className="text-sm font-semibold text-white/80">{Math.trunc(Number(tokenBalance)).toLocaleString('ru-RU')} 🪙</div>
               <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-white/25">баланс</div>
             </div>
           </div>

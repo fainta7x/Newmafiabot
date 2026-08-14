@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentProps } from 'react';
 import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } from './PlayerCabinetShellLegacy.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
+import PlayerMoreHub from './PlayerMoreHub.tsx';
 
 export type PlayerCabinetSection = LegacySection | 'events';
 
@@ -31,7 +32,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     onSectionChange?.(next, target);
   };
 
-  const legacySection: LegacySection = section === 'events' || section === 'home' ? 'games' : section as LegacySection;
+  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' ? 'games' : section as LegacySection;
   const moreActive = !primary.has(section);
 
   return (
@@ -46,6 +47,12 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         />
       ) : section === 'events' ? (
         <PlayerEventsCalendar />
+      ) : section === 'more' ? (
+        <PlayerMoreHub
+          data={props.data}
+          canOpenAdmin={Boolean(props.canOpenAdmin)}
+          onOpen={(next) => open(next)}
+        />
       ) : (
         <div className="legacy-cabinet-wrap">
           <LegacyPlayerCabinetShell

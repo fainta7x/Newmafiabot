@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
+import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
 
 interface EveningParticipantsViewProps {
   eveningId: string;
@@ -118,6 +119,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
+      <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={() => setRefreshKey((value) => value + 1)} />
       <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
     </div>
   );

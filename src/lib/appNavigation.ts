@@ -36,7 +36,7 @@ const partsOf = (pathname: string) => pathname.split('/').filter(Boolean);
 export const playerPathForSection = (section: PlayerRouteSection, target?: string | null): string => {
   const paths: Record<PlayerRouteSection, string> = {
     home: '/player',
-    events: '/player/events',
+    events: target ? `/player/events/${encodeURIComponent(target)}` : '/player/events',
     games: '/player/games',
     conduct: '/player/conduct',
     rating: '/player/rating',
@@ -74,6 +74,11 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
   const aliases = new Set(['conduct', 'judging', 'host', 'table']);
   if (aliases.has(parts[1] || '')) {
     return { section: 'conduct', target: null, replayGameKey: null, canonicalPath: '/player/conduct' };
+  }
+
+  if (parts[1] === 'events') {
+    const target = parts[2] ? safeDecode(parts[2]) : null;
+    return { section: 'events', target, replayGameKey: null, canonicalPath: playerPathForSection('events', target) };
   }
 
   if (parts[1] === 'recaps') {
@@ -116,6 +121,7 @@ export const appBackTarget = (pathname: string): string | null => {
   if (parts[0] === 'player') {
     if (parts.length === 1) return null;
     if (parts[1] === 'replay') return '/player/games';
+    if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'stats' || parts[1] === 'career' || parts[1] === 'recaps') return '/player/games';
     if ((parts[1] === 'rating' && parts[2] === 'periods') || parts[1] === 'elo' || parts[1] === 'seasons') return '/player/rating';

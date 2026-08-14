@@ -10,6 +10,7 @@ import { initializePreviewRuntimeFromCanonical, initializeProductionRuntimeFromC
 import { applyConfirmedTelegramPlayerLinksMigration } from './confirmedTelegramPlayerLinksMigration.ts';
 import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayerIdentitiesMigration.ts';
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
+import { applyMillourtDuplicateMergeMigration } from './mergeMillourtDuplicateMigration.ts';
 import { createTursoHttpDatabase } from './tursoHttpDatabase.ts';
 
 export interface DatabaseWrapper {
@@ -137,6 +138,13 @@ export async function getDb(): Promise<DatabaseWrapper> {
       ? await createTursoProductionConnection(tursoUrl, tursoToken)
       : createDatabaseConnection();
     await seedDemoData(defaultDbInstance);
+    try {
+      await applyMillourtDuplicateMergeMigration(defaultDbInstance);
+    } catch (error) {
+      // This is a one-off data hygiene repair. Never make the whole application unavailable
+      // if an unexpected historical reference prevents the merge; leave a clear server log instead.
+      console.error('[DATA] Millourt duplicate cleanup failed:', error);
+    }
   }
   return defaultDbInstance;
 }

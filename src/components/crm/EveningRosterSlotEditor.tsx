@@ -187,8 +187,8 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
     <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
       <button type="button" onClick={() => setExpanded((value) => !value)} className="flex min-h-[44px] w-full items-center gap-3 text-left">
         <span className="min-w-0 flex-1">
-          <strong className="block text-[13px] text-text-primary">Запись на игры</strong>
-          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Добавь игрока, поправь конкретные игры или сними его со всех игр.</span>
+          <strong className="block text-[13px] text-text-primary">Добавить игрока / гостя</strong>
+          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Для тех, кого нет в списке выше: добавь человека и сразу укажи его игры.</span>
         </span>
         {expanded ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
       </button>

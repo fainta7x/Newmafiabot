@@ -25,7 +25,6 @@ type Plan = {
   selection?: { slot_ids: string[]; games: number; total: number };
 };
 type EveningData = GameEvening & { participants?: EveningParticipant[] };
-
 type Mode = 'player' | 'guest';
 
 const moscowTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', {
@@ -34,7 +33,7 @@ const moscowTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU'
   timeZone: 'Europe/Moscow',
 });
 
-export default function EveningRosterSlotEditor({ eveningId }: { eveningId: string }) {
+export default function EveningRosterSlotEditor({ eveningId, onChanged }: { eveningId: string; onChanged?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -133,10 +132,11 @@ export default function EveningRosterSlotEditor({ eveningId }: { eveningId: stri
     setMessage('');
     try {
       let targetPlayerId = playerId;
+      const guestName = guestNickname.trim();
       if (mode === 'guest') {
-        if (!guestNickname.trim()) throw new Error('Укажи никнейм гостя');
+        if (!guestName) throw new Error('Укажи никнейм гостя');
         const participant = await api.addParticipant(eveningId, {
-          nickname: guestNickname.trim(),
+          nickname: guestName,
           phone: guestPhone.trim() || undefined,
           table_id: null,
           registration_status: 'unanswered',
@@ -153,9 +153,10 @@ export default function EveningRosterSlotEditor({ eveningId }: { eveningId: stri
       setGuestPhone('');
       syncSelectionForPlayer(targetPlayerId, updatedPlan);
       const nickname = mode === 'guest'
-        ? guestNickname.trim()
+        ? guestName
         : players.find((player) => player.id === targetPlayerId)?.nickname || 'Игрок';
       setMessage(`${nickname}: игры сохранены · к оплате ${total} ₽.`);
+      onChanged?.();
     } catch (err: any) {
       setError(err?.message || 'Не удалось сохранить запись');
     } finally {
@@ -167,11 +168,7 @@ export default function EveningRosterSlotEditor({ eveningId }: { eveningId: stri
 
   return (
     <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="flex min-h-[44px] w-full items-center gap-3 text-left"
-      >
+      <button type="button" onClick={() => setExpanded((value) => !value)} className="flex min-h-[44px] w-full items-center gap-3 text-left">
         <span className="min-w-0 flex-1">
           <strong className="block text-[13px] text-text-primary">Ручная запись по играм</strong>
           <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Добавь игрока или быстро поправь конкретные игры без перехода в его кабинет.</span>

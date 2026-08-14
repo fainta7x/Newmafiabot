@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 
-type Destination = 'stats' | 'elo' | 'career' | 'recaps' | 'club' | 'clubworld' | 'profile' | 'payments' | 'conduct';
-type GroupId = 'game' | 'club' | 'account';
+type Destination = 'elo' | 'club' | 'clubworld' | 'profile' | 'payments' | 'conduct';
+type GroupId = 'rating' | 'club' | 'account';
 
 type Group = {
   id: GroupId;
@@ -14,15 +14,12 @@ type Group = {
 
 const GROUPS: Group[] = [
   {
-    id: 'game',
-    icon: '◫',
-    title: 'Игра и прогресс',
-    description: 'Статистика, развитие и итоги',
+    id: 'rating',
+    icon: '★',
+    title: 'Рейтинг и прогресс',
+    description: 'Динамика твоего Elo',
     items: [
-      { id: 'stats', title: 'Статистика', description: 'Победы, роли, ПУ, ЛХ и турнирные награды' },
       { id: 'elo', title: 'Elo-карьера', description: 'Как менялся рейтинг и почему' },
-      { id: 'career', title: 'Игровая карьера', description: 'Роли, серии и форма игрока' },
-      { id: 'recaps', title: 'Итоги вечеров', description: 'Счёт вечера и твои результаты' },
     ],
   },
   {
@@ -65,7 +62,7 @@ export default function PlayerMoreHub({
         <header className="px-1 pb-1 pt-2">
           <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
           <h1 className="mt-1 text-2xl font-semibold">Ещё</h1>
-          <p className="mt-1 text-sm text-white/45">Всё остальное — по понятным разделам</p>
+          <p className="mt-1 text-sm text-white/45">Клуб, аккаунт и служебные функции</p>
         </header>
 
         <button

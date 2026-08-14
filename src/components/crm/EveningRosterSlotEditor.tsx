@@ -63,7 +63,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
       setEvening(eveningData);
       setPlayers([...playerRows].sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru')));
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить ручную запись');
+      setError(err?.message || 'Не удалось загрузить запись на игры');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -126,7 +126,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
   };
 
   const save = async () => {
-    if (saving || !slotIds.length) return;
+    if (saving) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -135,6 +135,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
       const guestName = guestNickname.trim();
       if (mode === 'guest') {
         if (!guestName) throw new Error('Укажи никнейм гостя');
+        if (!slotIds.length) throw new Error('Выбери хотя бы одну игру для гостя');
         const participant = await api.addParticipant(eveningId, {
           nickname: guestName,
           phone: guestPhone.trim() || undefined,
@@ -146,6 +147,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
       }
       if (!targetPlayerId) throw new Error('Выбери игрока');
 
+      const wasParticipant = participantIds.has(targetPlayerId);
       const updatedPlan = await saveSlots(targetPlayerId);
       await load(true);
       setMode('player');
@@ -155,7 +157,13 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
       const nickname = mode === 'guest'
         ? guestName
         : players.find((player) => player.id === targetPlayerId)?.nickname || 'Игрок';
-      setMessage(`${nickname}: игры сохранены · к оплате ${total} ₽.`);
+      if (!slotIds.length) {
+        setMessage(wasParticipant
+          ? `${nickname}: снят со всех игр.`
+          : `${nickname}: отмечен как не участвующий в этом вечере.`);
+      } else {
+        setMessage(`${nickname}: игры сохранены · к оплате ${total} ₽.`);
+      }
       onChanged?.();
     } catch (err: any) {
       setError(err?.message || 'Не удалось сохранить запись');
@@ -165,13 +173,22 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
   };
 
   const readonly = plan?.event?.status === 'completed';
+  const playerAlreadyInEvening = mode === 'player' && Boolean(playerId) && participantIds.has(playerId);
+  const saveDisabled = readonly
+    || saving
+    || (mode === 'player' ? !playerId : !guestNickname.trim() || !slotIds.length);
+  const saveLabel = saving
+    ? 'Сохраняю…'
+    : mode === 'player' && !slotIds.length
+      ? playerAlreadyInEvening ? 'Снять со всех игр' : 'Отметить: не будет'
+      : playerAlreadyInEvening ? 'Сохранить изменения игр' : 'Записать на выбранные игры';
 
   return (
     <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
       <button type="button" onClick={() => setExpanded((value) => !value)} className="flex min-h-[44px] w-full items-center gap-3 text-left">
         <span className="min-w-0 flex-1">
-          <strong className="block text-[13px] text-text-primary">Ручная запись по играм</strong>
-          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Добавь игрока или быстро поправь конкретные игры без перехода в его кабинет.</span>
+          <strong className="block text-[13px] text-text-primary">Запись на игры</strong>
+          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Добавь игрока, поправь конкретные игры или сними его со всех игр.</span>
         </span>
         {expanded ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
       </button>
@@ -204,7 +221,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
             )}
 
             <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-text-muted"><span className="font-bold uppercase tracking-[.1em]">На какие игры придёт</span><span>{slotIds.length} игр · {total} ₽</span></div>
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-text-muted"><span className="font-bold uppercase tracking-[.1em]">Выбранные игры</span><span>{slotIds.length} игр · {total} ₽</span></div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {plan.slots.map((slot) => {
                   const selected = slotIds.includes(slot.id);
@@ -217,7 +234,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
               {maxPrice > 0 ? <p className="mt-2 text-[9px] leading-4 text-text-muted">Для обычного клубного вечера действует максимум {maxPrice} ₽, даже если выбрано больше четырёх игр.</p> : null}
             </div>
 
-            <button type="button" disabled={readonly || saving || !slotIds.length || (mode === 'player' ? !playerId : !guestNickname.trim())} onClick={() => void save()} className="min-h-[46px] w-full rounded-[11px] bg-accent text-[12px] font-bold text-white disabled:opacity-40">{saving ? 'Сохраняю…' : participantIds.has(playerId) ? 'Сохранить изменения игр' : 'Записать на выбранные игры'}</button>
+            <button type="button" disabled={saveDisabled} onClick={() => void save()} className="min-h-[46px] w-full rounded-[11px] bg-accent text-[12px] font-bold text-white disabled:opacity-40">{saveLabel}</button>
           </> : null}
         </div>
       ) : null}

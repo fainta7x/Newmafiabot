@@ -8,8 +8,19 @@ const gameLevelLabel = (level: string) => {
   return 'Игрок клуба';
 };
 
-export default function PlayerProfileHub({ data }: { data: PlayerMeResponse }) {
+export default function PlayerProfileHub({
+  data,
+  onPlayerChange,
+}: {
+  data: PlayerMeResponse;
+  onPlayerChange?: (player: PlayerMeResponse['player']) => void;
+}) {
   const [player, setPlayer] = useState(data.player);
+
+  const updatePlayer = (next: PlayerMeResponse['player']) => {
+    setPlayer(next);
+    onPlayerChange?.(next);
+  };
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -38,7 +49,7 @@ export default function PlayerProfileHub({ data }: { data: PlayerMeResponse }) {
           </div>
         </section>
 
-        <PlayerProfileAccount player={player} onPlayerChange={setPlayer} />
+        <PlayerProfileAccount player={player} onPlayerChange={updatePlayer} />
       </div>
     </main>
   );

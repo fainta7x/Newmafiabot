@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
@@ -6,6 +6,7 @@ import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
+import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -79,7 +80,7 @@ const buildLegacyPlayers = (game: ClubGameRecord): LegacyPlayer[] => {
   return seated;
 };
 
-const mapEngineResultToProtocol = (
+export const mapEngineResultToProtocol = (
   game: ClubGameRecord,
   gameData: any,
 ): { protocol: TournamentGameProtocolData; player_results: PlayerResultData[] } => {
@@ -93,6 +94,8 @@ const mapEngineResultToProtocol = (
 
   const firstKilled = markers.firstKilledSlot ? bySeat.get(Number(markers.firstKilledSlot)) : null;
   const zeroRoundVoted = markers.zeroRoundVotedSlot ? bySeat.get(Number(markers.zeroRoundVotedSlot)) : null;
+  const ppkSlot = Number((slots as any[]).find((slot) => Boolean(slot?.ppk))?.slot_num || 0);
+  const ppkPlayer = ppkSlot ? bySeat.get(ppkSlot) : null;
 
   const bestMoves: NonNullable<TournamentGameProtocolData['best_moves']> = [];
   const confirmedSource = markers.bestMoveSource as 'first_killed' | 'zero_round_voted' | null | undefined;
@@ -113,13 +116,16 @@ const mapEngineResultToProtocol = (
       || slots.find((candidate) => candidate.slot_num === previous.seat_number)
     ) as any;
     if (!slot) return previous;
+    const minorTechnical = Number(slot.minor_tech_fouls || 0);
+    const majorTechnical = Number(slot.major_tech_fouls || 0);
     return {
       ...previous,
       role: roleToProtocol(slot.role),
       exit_type: slot.exit_reason || (slot.alive ? 'alive' : previous.exit_type),
       regular_fouls: Number(slot.fouls || 0),
-      minor_tech_fouls: Number(slot.minor_tech_fouls || 0),
-      major_tech_fouls: Number(slot.major_tech_fouls || 0),
+      minor_technical_fouls: minorTechnical,
+      major_technical_fouls: majorTechnical,
+      technical_fouls: minorTechnical + majorTechnical,
       removal_reason: slot.removal_reason || (slot.kick && Number(slot.fouls || 0) >= 4 ? '4th_foul' : previous.removal_reason),
       ppk: Boolean(slot.ppk),
       notes: slot.status_reason && !slot.alive ? slot.status_reason : previous.notes,
@@ -132,12 +138,15 @@ const mapEngineResultToProtocol = (
     status: 'completed',
     winner_team: winnerTeam,
     end_reason: (gameData.end_reason || 'normal') as any,
+    ppk_culprit_participant_id: ppkPlayer?.participant_id || previousProtocol.ppk_culprit_participant_id || null,
     first_killed_participant_id: firstKilled?.participant_id || null,
     zero_round_voted_participant_id: zeroRoundVoted?.participant_id || null,
-    best_moves: bestMoves,
-    best_move_participant_id: bestMoves[0]?.participant_id || null,
-    best_move_source: bestMoves[0]?.source || null,
-    best_move_seats: bestMoves[0]?.seat_numbers || [],
+    best_moves: bestMoves.length ? bestMoves : (previousProtocol.best_moves || []),
+    best_move_participant_id: bestMoves[0]?.participant_id || previousProtocol.best_move_participant_id || null,
+    best_move_source: bestMoves[0]?.source || previousProtocol.best_move_source || null,
+    best_move_seats: bestMoves[0]?.seat_numbers || previousProtocol.best_move_seats || [],
+    votes: Array.isArray(gameData.votes) ? gameData.votes : (previousProtocol.votes || []),
+    shots: Array.isArray(gameData.shots) ? gameData.shots : (previousProtocol.shots || []),
     judge_notes: [previousProtocol.judge_notes, gameData.protocol_text].filter(Boolean).join('\n') || null,
   };
 
@@ -179,12 +188,10 @@ const MobileLiveGameStyles = () => (
         gap: 3px !important;
       }
 
-      /* Hide desktop judge toolbar only. */
       .evening-live-engine-shell > div > div.space-y-4 > div:first-child {
         display: none !important;
       }
 
-      /* Approved layout: 9 10 1 2 / 8 [HUD] 3 / 7 6 5 4. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -222,7 +229,6 @@ const MobileLiveGameStyles = () => (
         overflow: hidden !important;
       }
 
-      /* Quick desktop card controls/body are replaced by tap-menu + identity overlay on mobile. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"],
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
         display: none !important;
@@ -234,7 +240,6 @@ const MobileLiveGameStyles = () => (
         padding: 4px !important;
       }
 
-      /* Nickname already lives with the avatar: hide only the duplicated bottom nickname/note block. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] > div:first-child > div[class*="flex-col"] {
         display: none !important;
       }
@@ -243,7 +248,6 @@ const MobileLiveGameStyles = () => (
         display: none !important;
       }
 
-      /* Global role privacy switch in the modal header. */
       .evening-live-roles-hidden .evening-live-engine-shell [title="Красный"],
       .evening-live-roles-hidden .evening-live-engine-shell [title="Дон"],
       .evening-live-roles-hidden .evening-live-engine-shell [title="Мафия"],
@@ -251,7 +255,6 @@ const MobileLiveGameStyles = () => (
         opacity: 0 !important;
       }
 
-      /* Center HUD: compact fixed zones, no internal scroll. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
         width: 100% !important;
         height: 100% !important;
@@ -295,7 +298,6 @@ const MobileLiveGameStyles = () => (
         padding: 0 2px !important;
       }
 
-      /* Timer: number is secondary, control buttons become the main touch targets. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(span[class*="tracking-widest"]) {
         height: 100% !important;
         display: flex !important;
@@ -363,7 +365,6 @@ const MobileLiveGameStyles = () => (
         margin: 0 !important;
       }
 
-      /* Zero-night / compact stage buttons must also stay inside the middle zone. */
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 button:not([class*="h-9"]) {
         min-height: 28px !important;
         padding-top: 3px !important;
@@ -396,7 +397,6 @@ const MobileLiveGameStyles = () => (
         scrollbar-width: none !important;
       }
 
-      /* Action sheet: icon-first 4x2 pad. */
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 8px !important;
@@ -423,7 +423,6 @@ const MobileLiveGameStyles = () => (
         font-weight: 900 !important;
       }
 
-      /* Existing DOM order: foul+, foul-, minor tech, major tech, nomination, remove, PPK, note. */
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(5) { order: 1; }
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(1) { order: 2; }
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(2) { order: 3; }
@@ -442,7 +441,6 @@ const MobileLiveGameStyles = () => (
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7)::before { content: "🏳️"; }
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8)::before { content: "🗒️"; }
 
-      /* Make discipline totals unmistakable inside the opened player sheet. */
       .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] div[class*="text-[10px]"][class*="text-slate-400"][class*="mt-0.5"] {
         display: inline-flex !important;
         margin-top: 5px !important;
@@ -456,7 +454,6 @@ const MobileLiveGameStyles = () => (
         font-weight: 800 !important;
       }
 
-      /* CRM identity overlay: avatar + one nickname + live discipline counters. */
       .evening-live-identity-layer {
         position: absolute;
         z-index: 16;
@@ -559,6 +556,12 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
     [game],
   );
+  const liveRecorder = useMemo(() => new ClubLiveSessionRecorder(game.id), [game.id]);
+
+  useLayoutEffect(() => {
+    liveRecorder.mount();
+    return () => liveRecorder.unmount();
+  }, [liveRecorder]);
 
   useEffect(() => {
     const originalConfirm = window.confirm;
@@ -587,6 +590,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     let lastSignature = '';
     const syncFromLiveSession = () => {
       try {
+        liveRecorder.sync();
         const raw = localStorage.getItem('mafia_live_session');
         if (!raw) return;
         const parsed = JSON.parse(raw);
@@ -612,7 +616,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     syncFromLiveSession();
     const intervalId = window.setInterval(syncFromLiveSession, 300);
     return () => window.clearInterval(intervalId);
-  }, [livePhase]);
+  }, [livePhase, liveRecorder]);
 
   if (!game.club_protocol) return null;
 
@@ -662,8 +666,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           onGameFinished={async (gameData) => {
             setSaving(true);
             try {
-              const next = mapEngineResultToProtocol(game, gameData);
+              const evidence = liveRecorder.getEvidence();
+              const next = mapEngineResultToProtocol(game, { ...gameData, votes: evidence.votes, shots: evidence.shots });
               const updated = await clubGamesApi.saveProtocol(game.id, next);
+              liveRecorder.finish();
               clearStoredDeathProtocols();
               onUpdated(updated);
               onClose();
@@ -680,8 +686,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             {livePlayers.map((player) => {
               const current = liveDiscipline[player.seat_number];
               const fouls = current?.fouls ?? Number((player as any).regular_fouls || 0);
-              const minorTech = current?.minorTech ?? Number((player as any).minor_tech_fouls || 0);
-              const majorTech = current?.majorTech ?? Number((player as any).major_tech_fouls || 0);
+              const minorTech = current?.minorTech ?? Number((player as any).minor_technical_fouls || 0);
+              const majorTech = current?.majorTech ?? Number((player as any).major_technical_fouls || 0);
               return (
                 <div key={player.seat_number} className="evening-live-identity" style={seatPlacement[player.seat_number]}>
                   <PlayerAvatar

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import BaseCenterPanel from './CenterPanel.tsx';
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from '../JudgeGameMusicController.tsx';
 
@@ -19,7 +20,10 @@ const findLiveGrid = () => {
 export default function CenterPanelNightMusic(props: CenterPanelProps) {
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
+  const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
+  const bestMoveDeadlineRef = React.useRef<number | null>(null);
   const isRegularNightIntro = props.phase === 'night' && props.nightSubPhase === 'intro';
+  const isFirstKilledBestMove = props.phase === 'night' && props.nightSubPhase === 'best_move';
 
   React.useEffect(() => {
     if (props.phase !== 'night') {
@@ -27,6 +31,41 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
       setMusicStoppedRound(null);
     }
   }, [props.phase, props.roundNumber]);
+
+  /* The first killed player gets exactly 20 seconds for best move. The core
+   * protocol modal used to stop the shared night timer entirely, so keep a small
+   * absolute-deadline timer above that modal. It also catches up after Telegram
+   * is minimized instead of pausing with the WebView. */
+  React.useEffect(() => {
+    if (!isFirstKilledBestMove) {
+      bestMoveDeadlineRef.current = null;
+      setBestMoveTimeLeft(null);
+      return;
+    }
+
+    const deadline = Date.now() + 20_000;
+    bestMoveDeadlineRef.current = deadline;
+    setBestMoveTimeLeft(20);
+
+    const sync = () => {
+      const currentDeadline = bestMoveDeadlineRef.current;
+      if (currentDeadline === null) return;
+      setBestMoveTimeLeft(Math.max(0, Math.ceil((currentDeadline - Date.now()) / 1000)));
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+
+    const interval = window.setInterval(sync, 250);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', sync);
+      bestMoveDeadlineRef.current = null;
+    };
+  }, [isFirstKilledBestMove, props.roundNumber]);
 
   /* During daytime show only the nominated seats themselves. The order in which
    * they were nominated is protocol data, not useful judge-facing copy here. */
@@ -173,11 +212,8 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
   ]);
 
   /*
-   * The base voting guard locks the table once the division becomes mathematically
-   * decided. That accidentally made the votes which caused the decision impossible
-   * to correct. Keep uncast seats protected, but always let an explicitly cast vote
-   * for the candidate currently being counted be tapped again. LiveGameEngine's
-   * existing toggle then removes that exact vote and the normal voting flow reopens.
+   * A player who already voted for the candidate currently being counted must
+   * always stay tappable so the judge can remove an accidental vote.
    */
   React.useEffect(() => {
     if (props.phase !== 'day_voting' || props.votingStage !== 'collecting') return;
@@ -252,5 +288,16 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
     return props.getNextStepInfo();
   }, [isRegularNightIntro, musicStartedRound, musicStoppedRound, props]);
 
-  return <BaseCenterPanel {...props} getNextStepInfo={getNextStepInfo} />;
+  return (
+    <>
+      <BaseCenterPanel {...props} getNextStepInfo={getNextStepInfo} />
+      {bestMoveTimeLeft !== null && typeof document !== 'undefined' && createPortal(
+        <div className="fixed left-1/2 top-3 z-[145] -translate-x-1/2 rounded-2xl border border-amber-400/50 bg-slate-950/95 px-5 py-2 text-center shadow-2xl backdrop-blur-xl">
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300">Лучший ход · 20 секунд</div>
+          <div className={`font-mono text-3xl font-black ${bestMoveTimeLeft <= 5 ? 'text-rose-400' : 'text-white'}`}>{bestMoveTimeLeft}с</div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
 }

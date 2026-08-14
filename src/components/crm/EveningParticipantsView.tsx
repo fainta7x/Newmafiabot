@@ -173,7 +173,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
-      <EveningGameRegistrationDashboard eveningId={props.eveningId} refreshKey={refreshKey} onChanged={refresh} />
+      <EveningGameRegistrationDashboard eveningId={props.eveningId} refreshKey={refreshKey} />
       <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={refresh} />
       <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
     </div>

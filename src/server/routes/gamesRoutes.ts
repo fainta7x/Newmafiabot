@@ -124,6 +124,12 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     const db = (req as any).db || (await getDb());
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
+    if (evening.settled_at || evening.status === 'completed') {
+      return res.status(409).json({ error: 'Завершённый вечер доступен только для чтения' });
+    }
+    if (!['published', 'active'].includes(String(evening.status || ''))) {
+      return res.status(409).json({ error: 'Перед созданием игры опубликуйте вечер' });
+    }
 
     const tableId = req.body?.evening_table_id ? String(req.body.evening_table_id) : null;
     if (tableId && !await db.get('SELECT id FROM evening_tables WHERE id = ? AND evening_id = ?', [tableId, eveningId])) {
@@ -138,39 +144,44 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       required_level: requestedJudgeId ? requiredJudgeLevelForEveningFormat(evening.format) : undefined,
     });
 
-    if (delegatedJudgeId) {
-      await markJudgeSelectedPlayersPresent(db, eveningId, req.body?.seats || []);
-      if (evening.status === 'published') {
-        await db.run('UPDATE game_evenings SET status = ?, updated_at = ? WHERE id = ? AND status = ?', [
-          'active', new Date().toISOString(), eveningId, 'published',
-        ]);
+    const createdId = await db.transaction(async (tx: any) => {
+      if (delegatedJudgeId) {
+        await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       }
-    }
 
-    const seats = await validateEveningGameSeats(db, eveningId, req.body?.seats || []);
-    const now = new Date().toISOString();
-    const next = await db.get<any>('SELECT COALESCE(MAX(global_game_number), 0) + 1 AS next_number FROM games');
-    const protocol = buildInitialClubProtocol(seats);
-    const insert = await db.run(
-      `INSERT INTO games (
-        evening_id, evening_table_id, global_game_number, game_date, winner_team, winner_label,
-        judge_name, judge_player_id, protocol_text, slots_json, created_at
-      ) VALUES (?, ?, ?, ?, 'draft', 'Черновик', ?, ?, ?, ?, ?)`,
-      [
-        eveningId, tableId, Number(next?.next_number || 1), evening.starts_at || now,
-        judge.judge_name, judge.judge_player_id, JSON.stringify(protocol),
-        JSON.stringify(clubSlotsFromResults(protocol.player_results)), now,
-      ],
-    );
-    const id = Number(insert.lastID);
-    protocol.protocol.game_id = String(id);
-    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(protocol), id]);
+      const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
+      const now = new Date().toISOString();
+      const next = await tx.get<any>('SELECT COALESCE(MAX(global_game_number), 0) + 1 AS next_number FROM games');
+      const protocol = buildInitialClubProtocol(seats);
+      const insert = await tx.run(
+        `INSERT INTO games (
+          evening_id, evening_table_id, global_game_number, game_date, winner_team, winner_label,
+          judge_name, judge_player_id, protocol_text, slots_json, created_at
+        ) VALUES (?, ?, ?, ?, 'draft', 'Черновик', ?, ?, ?, ?, ?)`,
+        [
+          eveningId, tableId, Number(next?.next_number || 1), evening.starts_at || now,
+          judge.judge_name, judge.judge_player_id, JSON.stringify(protocol),
+          JSON.stringify(clubSlotsFromResults(protocol.player_results)), now,
+        ],
+      );
+      const id = Number(insert.lastID);
+      protocol.protocol.game_id = String(id);
+      await tx.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(protocol), id]);
+      if (evening.status === 'published') {
+        await tx.run(
+          'UPDATE game_evenings SET status = ?, updated_at = ? WHERE id = ? AND status = ?',
+          ['active', now, eveningId, 'published'],
+        );
+      }
+      return id;
+    });
+
     const row = await db.get(
       `SELECT g.*, et.name AS table_name
          FROM games g
     LEFT JOIN evening_tables et ON et.id = g.evening_table_id
         WHERE g.id = ?`,
-      [id],
+      [createdId],
     );
     return res.status(201).json(normalizeGame(row));
   } catch (err: any) {

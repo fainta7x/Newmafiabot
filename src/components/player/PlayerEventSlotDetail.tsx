@@ -6,6 +6,7 @@ type EventItem = {
   title: string;
   starts_at: string;
   venue?: string | null;
+  format?: string;
   event_type: 'evening' | 'tournament';
   participant_count?: number;
 };
@@ -20,7 +21,7 @@ type Slot = {
 };
 
 type Plan = {
-  event: EventItem & { assembled: boolean; assembled_slots: number };
+  event: EventItem & { assembled: boolean; assembled_slots: number; max_evening_price?: number | null };
   slots: Slot[];
   selection: { slot_ids: string[]; games: number; total: number };
 };
@@ -71,10 +72,14 @@ export default function PlayerEventSlotDetail({
     void load();
   }, [event.id]);
 
-  const total = useMemo(
-    () => plan ? plan.slots.filter((slot) => draft.includes(slot.id)).reduce((sum, slot) => sum + Number(slot.price || 0), 0) : 0,
-    [draft, plan],
-  );
+  const total = useMemo(() => {
+    if (!plan) return 0;
+    const rawTotal = plan.slots
+      .filter((slot) => draft.includes(slot.id))
+      .reduce((sum, slot) => sum + Number(slot.price || 0), 0);
+    const cap = Number(plan.event.max_evening_price || 0);
+    return cap > 0 ? Math.min(rawTotal, cap) : rawTotal;
+  }, [draft, plan]);
   const changed = Boolean(plan && (draft.length !== plan.selection.slot_ids.length || draft.some((id) => !plan.selection.slot_ids.includes(id))));
 
   const toggleSlot = (slotId: string) => {
@@ -123,6 +128,7 @@ export default function PlayerEventSlotDetail({
   }
 
   const price = plan?.slots[0]?.price ?? 100;
+  const maxEveningPrice = Number(plan?.event.max_evening_price || 0);
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -145,7 +151,9 @@ export default function PlayerEventSlotDetail({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">{plan.event.assembled ? 'Стол собран' : 'Стол собирается'}</div>
-                  <div className="mt-1 text-[10px] text-white/30">{price} ₽ за игру · нужно 4 собранные игры</div>
+                  <div className="mt-1 text-[10px] text-white/30">
+                    {price} ₽ за игру{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
+                  </div>
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[8px] text-white/25">игр</div></div>
               </div>
@@ -184,6 +192,9 @@ export default function PlayerEventSlotDetail({
                 <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{draft.length} игр</div></div>
                 <div className="text-right"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
               </div>
+              {maxEveningPrice > 0 && draft.length > 4 && (
+                <div className="mt-2 text-right text-[10px] text-emerald-200/60">Лимит клубного вечера применён: не больше {maxEveningPrice} ₽</div>
+              )}
               {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[10px] font-semibold text-emerald-200/70">План сохранён</div>}
               <button disabled={busy || !changed} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
                 {busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}

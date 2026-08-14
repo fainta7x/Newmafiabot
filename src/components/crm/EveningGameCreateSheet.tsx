@@ -89,6 +89,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   }, [eligible, query]);
   const selectedParticipantIds = seats.filter(Boolean);
   const selectedCount = selectedParticipantIds.length;
+  const eveningCanStart = ['published', 'active'].includes(String(evening.status || '')) && !evening.settled_at;
+  const missingPresent = Math.max(0, 10 - eligible.length);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -134,7 +136,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   };
 
   const create = async () => {
-    if (creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
+    if (!eveningCanStart || creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
     setCreating(true);
     setError(null);
     try {
@@ -164,8 +166,10 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
         </div>
 
         {error ? <div className="flex items-start gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
+        {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Для игры не хватает {missingPresent} {missingPresent === 1 ? 'пришедшего игрока' : 'пришедших игроков'}. Закрой это окно и в «Составе» отметь фактическую явку кнопкой «Пришёл».</span></div> : null}
 
-        <label className="text-[10px] font-black uppercase text-text-muted">Стол<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
+        <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
 
         <div className="rounded-[16px] border border-border-soft bg-surface-2 p-3">
           <JudgeAssignmentFields
@@ -207,7 +211,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Игроков не найдено</div>}
         </div>
-        <button type="button" disabled={selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
+        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : eligible.length < 10 ? `Не хватает пришедших: ${missingPresent}` : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
       </div>
     </div>
   );

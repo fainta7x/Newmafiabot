@@ -84,7 +84,10 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
     const outstanding = paymentExpected.reduce((sum, item) => sum + Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0)), 0);
     const unpaidPeople = paymentExpected.filter((item) => item.payment_status !== 'paid' && item.payment_status !== 'waived' && Number(item.amount_due || 0) > Number(item.amount_paid || 0)).length;
     const games = evening?.games || [];
-    const completedGames = games.filter((game) => game.status === 'completed' || game.protocol_status === 'completed' || Boolean(game.winner_team)).length;
+    const completedGames = games.filter((game) => {
+      const winner = String(game.winner_team || '').trim().toLowerCase();
+      return game.status === 'completed' || game.protocol_status === 'completed' || Boolean(winner && winner !== 'draft');
+    }).length;
     return { participants, expected, pendingExpected, attended, noShow, thinking, participantUnanswered, unansweredCount, audienceCount, due, paid, outstanding, unpaidPeople, games, completedGames };
   }, [evening]);
 

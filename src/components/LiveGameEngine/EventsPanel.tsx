@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClipboardList, Copy, Check } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
 import LiveGameStateSheet from "../crm/LiveGameStateSheet.js";
+import { LEGACY_PROTOCOL_NOTES_KEY } from "../../lib/liveClubSession.js";
 
 interface EventsPanelProps {
   phase?: Phase;
@@ -26,6 +27,28 @@ export default function EventsPanel({
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<"all" | "day" | "night">("all");
   const [stateOpen, setStateOpen] = useState(false);
+  const restoredNotesRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY);
+      restoredNotesRef.current = saved;
+      if (saved !== null && saved !== protocolNotes) setProtocolNotes(saved);
+    } catch {
+      restoredNotesRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const restored = restoredNotesRef.current;
+      if (restored !== undefined) {
+        if (restored !== null && protocolNotes !== restored) return;
+        restoredNotesRef.current = null;
+      }
+      localStorage.setItem(LEGACY_PROTOCOL_NOTES_KEY, protocolNotes);
+    } catch {}
+  }, [protocolNotes]);
 
   if (phase === "setup") return null;
 

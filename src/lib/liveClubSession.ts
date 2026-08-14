@@ -138,6 +138,10 @@ export class ClubLiveSessionRecorder {
   private previousSnapshot: LiveSessionSnapshot | null = null;
   private intervalId: number | null = null;
   private mounted = false;
+  private readonly flushOnPageHide = () => this.sync();
+  private readonly flushWhenHidden = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') this.sync();
+  };
 
   constructor(gameId: number) {
     this.gameId = gameId;
@@ -157,6 +161,8 @@ export class ClubLiveSessionRecorder {
     if (scopedDeathProtocol) localStorage.setItem(LEGACY_DEATH_PROTOCOL_KEY, scopedDeathProtocol);
     else localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     this.sync();
+    window.addEventListener('pagehide', this.flushOnPageHide);
+    document.addEventListener('visibilitychange', this.flushWhenHidden);
     this.intervalId = window.setInterval(() => this.sync(), 75);
   }
 
@@ -183,11 +189,18 @@ export class ClubLiveSessionRecorder {
     };
   }
 
+  private stopLifecycleSync() {
+    if (typeof window === 'undefined') return;
+    if (this.intervalId !== null) window.clearInterval(this.intervalId);
+    this.intervalId = null;
+    window.removeEventListener('pagehide', this.flushOnPageHide);
+    document.removeEventListener('visibilitychange', this.flushWhenHidden);
+  }
+
   unmount() {
     if (typeof window === 'undefined') return;
     this.sync();
-    if (this.intervalId !== null) window.clearInterval(this.intervalId);
-    this.intervalId = null;
+    this.stopLifecycleSync();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     this.mounted = false;
@@ -196,8 +209,7 @@ export class ClubLiveSessionRecorder {
   finish() {
     if (typeof window === 'undefined') return;
     this.sync();
-    if (this.intervalId !== null) window.clearInterval(this.intervalId);
-    this.intervalId = null;
+    this.stopLifecycleSync();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     localStorage.removeItem(this.sessionKey);

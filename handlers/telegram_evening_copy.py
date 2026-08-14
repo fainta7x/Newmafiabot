@@ -1,5 +1,6 @@
 from datetime import datetime
 from html import escape
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _FORMAT_LABELS = {
     "NOVICE": "Игра для новичков",
@@ -15,21 +16,34 @@ _MONTHS_RU = (
 )
 _CLUB_GAME_PRICE = 100
 _CLUB_EVENING_MAX_PRICE = 400
+_DEFAULT_TIMEZONE = "Europe/Moscow"
 
 
-def format_start(value: object) -> str:
+def _local_datetime(value: object, timezone_name: object = _DEFAULT_TIMEZONE) -> datetime:
+    raw = str(value or "")
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed
+    try:
+        timezone = ZoneInfo(str(timezone_name or _DEFAULT_TIMEZONE))
+    except ZoneInfoNotFoundError:
+        timezone = ZoneInfo(_DEFAULT_TIMEZONE)
+    return parsed.astimezone(timezone)
+
+
+def format_start(value: object, timezone_name: object = _DEFAULT_TIMEZONE) -> str:
     raw = str(value or "")
     try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        parsed = _local_datetime(value, timezone_name)
         return f"{parsed.day} {_MONTHS_RU[parsed.month - 1]} · {parsed:%H:%M}"
     except (TypeError, ValueError):
         return raw or "Дата уточняется"
 
 
-def _format_time(value: object) -> str:
+def _format_time(value: object, timezone_name: object = _DEFAULT_TIMEZONE) -> str:
     raw = str(value or "")
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%H:%M")
+        return _local_datetime(value, timezone_name).strftime("%H:%M")
     except (TypeError, ValueError):
         return raw or "—"
 
@@ -73,12 +87,13 @@ def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     title = escape(str(evening.get("title") or _FORMAT_LABELS.get(canonical_format, "Игровой вечер")))
     venue = escape(str(evening.get("venue") or "Суп с Котом"))
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     price = _price_text(evening, slots)
     notes = str(evening.get("notes") or "").strip()
 
     lines = [
         f"🎭 <b>{title}</b>",
-        f"📅 {format_start(evening.get('starts_at'))}",
+        f"📅 {format_start(evening.get('starts_at'), timezone_name)}",
         f"📍 {venue}",
     ]
     if price:
@@ -88,7 +103,7 @@ def event_base_text(evening: dict, slots: list[dict] | None = None) -> str:
     return "\n".join(lines)
 
 
-def _slot_load_lines(slots: list[dict]) -> list[str]:
+def _slot_load_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
     if not slots:
         return ["🎲 <b>По играм</b>", "Игры вечера пока не настроены."]
     lines = ["🎲 <b>По играм</b>"]
@@ -96,11 +111,11 @@ def _slot_load_lines(slots: list[dict]) -> list[str]:
         count = int(slot.get("registered_count") or len(slot.get("participants") or []))
         target = int(slot.get("target_players") or 11)
         ready = " ✅" if count >= target else ""
-        lines.append(f"{_format_time(slot.get('starts_at'))} · игра {int(slot.get('slot_number') or 0)} — <b>{count}</b> игроков{ready}")
+        lines.append(f"{_format_time(slot.get('starts_at'), timezone_name)} · игра {int(slot.get('slot_number') or 0)} — <b>{count}</b> игроков{ready}")
     return lines
 
 
-def _arrival_lines(slots: list[dict]) -> list[str]:
+def _arrival_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
     players: dict[str, dict] = {}
     for slot in slots:
         slot_number = int(slot.get("slot_number") or 0)
@@ -132,7 +147,7 @@ def _arrival_lines(slots: list[dict]) -> list[str]:
     for item in ordered[:max_players]:
         nickname = escape(str(item.get("nickname") or "Игрок"))
         games = _format_game_numbers(item.get("games") or [])
-        lines.append(f"{_format_time(item.get('first_starts_at'))} — {nickname} · игры {games}")
+        lines.append(f"{_format_time(item.get('first_starts_at'), timezone_name)} — {nickname} · игры {games}")
     if len(ordered) > max_players:
         lines.append(f"…и ещё {len(ordered) - max_players} игроков")
     return lines
@@ -157,11 +172,12 @@ def thematic_event_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))
     slot_rows = slots or []
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
     sections = [
         f"{label} · <b>2LA Noire</b>",
         event_base_text(evening, slot_rows),
-        "\n".join(_slot_load_lines(slot_rows)),
-        "\n".join(_arrival_lines(slot_rows)),
+        "\n".join(_slot_load_lines(slot_rows, timezone_name)),
+        "\n".join(_arrival_lines(slot_rows, timezone_name)),
         "Чтобы записаться или изменить свой план, выбери игры кнопкой ниже.",
     ]
     return "\n\n".join(section for section in sections if section)

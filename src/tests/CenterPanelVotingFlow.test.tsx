@@ -66,7 +66,7 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.getByText(/этапы нельзя перескочить/i)).toBeTruthy();
   });
 
-  it('locks controls and offers only finalization when a vote is mathematically decided', () => {
+  it('continues the full voting order even when one candidate already has an unbeatable lead', () => {
     const currentRound: VotingRound = {
       round_number: 1,
       is_revote: false,
@@ -92,11 +92,11 @@ describe('CenterPanel live flow guardrails', () => {
       votingStage="collecting"
     />);
 
-    expect(screen.getByText(/голосование математически решено/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Зафиксировать итог/i })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Следующий/i })).toBeNull();
+    expect(screen.queryByText(/голосование математически решено/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Зафиксировать итог/i })).toBeNull();
+    expect(screen.getByRole('button', { name: '+1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '−1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });
 
   it('does not expose manual plus/minus controls for the automatic last candidate', () => {

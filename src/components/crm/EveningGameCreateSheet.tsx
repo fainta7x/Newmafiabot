@@ -82,12 +82,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     return counts;
   }, [completedGames]);
 
+  const linkedJudgePlayerId = judgeMode === 'linked' ? String(judgePlayerId || '') : '';
   const eligible = useMemo(() => sortEveningRotationCandidates(
     participants
-      .filter(isEveningGameEligible)
+      .filter((participant) => isEveningGameEligible(participant) && (!linkedJudgePlayerId || String(participant.player_id) !== linkedJudgePlayerId))
       .map((participant) => ({ ...participant, play_count: playCounts.get(participant.id) || 0 })),
     previousRotationGame,
-  ), [participants, playCounts, previousRotationGame]);
+  ), [participants, playCounts, previousRotationGame, linkedJudgePlayerId]);
   const byId = useMemo(() => new Map(participants.map((participant) => [participant.id, participant])), [participants]);
   const eligibleIds = useMemo(() => new Set(eligible.map((participant) => participant.id)), [eligible]);
   const lastCompletedLineup = useMemo(() => {
@@ -129,7 +130,23 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     }
   };
 
-  const toggle = (participantId: string) => setSeats((previous) => toggleParticipantInSeats(previous, participantId));
+  const changeJudgePlayer = (playerId: string) => {
+    setJudgePlayerId(playerId);
+    if (!playerId) return;
+    setSeats((previous) => previous.map((participantId) => {
+      const participant = participantId ? byId.get(participantId) : null;
+      return participant && String(participant.player_id) === String(playerId) ? '' : participantId;
+    }));
+  };
+
+  const toggle = (participantId: string) => {
+    const participant = byId.get(participantId);
+    if (linkedJudgePlayerId && participant && String(participant.player_id) === linkedJudgePlayerId) {
+      setError('Судья этой игры не может одновременно быть игроком.');
+      return;
+    }
+    setSeats((previous) => toggleParticipantInSeats(previous, participantId));
+  };
   const clearSeat = (index: number) => setSeats((previous) => previous.map((value, seatIndex) => seatIndex === index ? '' : value));
   const shuffleSelected = () => {
     const selected = seats.filter(Boolean);
@@ -167,6 +184,10 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
   const create = async () => {
     if (!eveningCanStart || creating || selectedCount !== 10 || (judgeMode === 'linked' && !judgePlayerId)) return;
+    if (linkedJudgePlayerId && seats.some((participantId) => String(byId.get(participantId)?.player_id || '') === linkedJudgePlayerId)) {
+      setError('Судья этой игры не может одновременно быть игроком.');
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -209,7 +230,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             judgeName={judgeName}
             disabled={creating}
             onModeChange={(mode) => { setJudgeMode(mode); if (mode === 'external') setJudgePlayerId(''); }}
-            onJudgePlayerIdChange={setJudgePlayerId}
+            onJudgePlayerIdChange={changeJudgePlayer}
             onJudgeNameChange={setJudgeName}
           />
         </div>

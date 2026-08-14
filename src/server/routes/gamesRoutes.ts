@@ -6,6 +6,10 @@ import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeA
 import { getEveningAttendanceFact } from '../../lib/eveningResponse.ts';
 import { requiredJudgeLevelForEveningFormat } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
+import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
+import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
+import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
+import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 
 const router = Router();
 
@@ -186,6 +190,113 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     return res.status(201).json(normalizeGame(row));
   } catch (err: any) {
     return res.status(400).json({ error: err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось создать игру') });
+  }
+});
+
+// Canonical club-game save lives before the legacy base router so completion/correction
+// cannot drift identities, discipline fields, Elo inputs or token settlement state.
+router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+
+    const db = (req as any).db || (await getDb());
+    const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
+    if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
+    if (existing.archived_at) return res.status(409).json({ error: 'Игра находится в архиве. Сначала восстановите её.' });
+
+    const incomingProtocol = req.body?.protocol;
+    const rawResults = req.body?.player_results;
+    if (!incomingProtocol || !Array.isArray(rawResults) || rawResults.length !== 10) {
+      return res.status(400).json({ error: 'Нужны protocol и 10 player_results' });
+    }
+
+    const previous = safeJsonParse<any>(existing.protocol_text, null);
+    if (!previous || previous.kind !== 'club_evening_protocol' || previous.version !== 1) {
+      return res.status(400).json({ error: 'У игры отсутствует структурированный клубный протокол' });
+    }
+
+    const previousStatus: 'draft' | 'completed' = previous.protocol?.status === 'completed' ? 'completed' : 'draft';
+    const status: 'draft' | 'completed' = incomingProtocol.status === 'completed' ? 'completed' : 'draft';
+    const canonical = canonicalizeClubGameSave(previous, incomingProtocol, rawResults, status);
+    const winner = canonical.protocol.winner_team === 'red'
+      ? 'Красные'
+      : canonical.protocol.winner_team === 'black'
+        ? 'Чёрные'
+        : null;
+
+    const hasJudgePatch = Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_player_id')
+      || Object.prototype.hasOwnProperty.call(req.body || {}, 'judge_name');
+    const judge = hasJudgePatch
+      ? await resolveJudgeAssignment(db, {
+          judge_player_id: req.body?.judge_player_id ?? null,
+          judge_name: req.body?.judge_name ?? null,
+        })
+      : { judge_player_id: existing.judge_player_id || null, judge_name: existing.judge_name || null };
+
+    const now = new Date().toISOString();
+    const completedAt = status === 'completed'
+      ? (previousStatus === 'completed' ? previous.protocol?.completed_at || now : now)
+      : null;
+    const nextProtocol = {
+      version: 1,
+      kind: 'club_evening_protocol',
+      protocol: {
+        ...canonical.protocol,
+        game_id: String(gameId),
+        status,
+        updated_at: now,
+        completed_at: completedAt,
+      },
+      player_results: canonical.playerResults,
+    };
+    const settlementContext = status === 'completed'
+      ? (previousStatus === 'completed' ? 'correction' : 'completion')
+      : (previousStatus === 'completed' ? 'reopen' : 'correction');
+
+    await db.transaction(async (tx: any) => {
+      await tx.run(
+        `UPDATE games
+            SET winner_team = ?, winner_label = ?, judge_name = ?, judge_player_id = ?, protocol_text = ?, slots_json = ?
+          WHERE id = ?`,
+        [
+          winner || 'draft',
+          winner ? `Победа ${winner}` : 'Черновик',
+          judge.judge_name,
+          judge.judge_player_id,
+          JSON.stringify(nextProtocol),
+          JSON.stringify(clubSlotsFromResults(canonical.playerResults)),
+          gameId,
+        ],
+      );
+      await reconcileClubGameTokenSettlement(tx, gameId, {
+        activateIfUntracked: previousStatus !== 'completed' && status === 'completed',
+        context: settlementContext,
+      });
+    });
+
+    if (previousStatus === 'completed' || status === 'completed') {
+      await rebuildCanonicalEloRatings(db);
+    }
+
+    if (status === 'completed') {
+      const achievementIds = canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean);
+      if (judge.judge_player_id) achievementIds.push(String(judge.judge_player_id));
+      await evaluateAchievementsForPlayers(db, achievementIds);
+    }
+
+    const row = await db.get(
+      `SELECT g.*, et.name AS table_name
+         FROM games g
+    LEFT JOIN evening_tables et ON et.id = g.evening_table_id
+        WHERE g.id = ?`,
+      [gameId],
+    );
+    return res.json(normalizeGame(row));
+  } catch (err: any) {
+    const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');
+    return res.status(400).json({ error: message });
   }
 });
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { botServiceAuth } from '../botServiceAuth.ts';
+import { CLUB_EVENING_MAX_PRICE, loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -45,6 +46,8 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
+    const slotPlan = await loadEveningSlotPlan(db, req.params.eveningId);
+    const canonicalFormat = normalizeEveningFormat(evening.format);
     const participants = await db.all(
       `SELECT ep.player_id, ep.response_status, ep.registration_status,
               ep.attendance_status, ep.arrival_status, p.nickname
@@ -63,7 +66,13 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
     );
 
     res.json({
-      evening: { ...evening, canonical_format: normalizeEveningFormat(evening.format) },
+      evening: {
+        ...evening,
+        canonical_format: canonicalFormat,
+        price_per_game: Number(slotPlan.event.price_per_game || slotPlan.slots[0]?.price || 0),
+        max_price: canonicalFormat === 'CASUAL' ? CLUB_EVENING_MAX_PRICE : null,
+      },
+      slots: slotPlan.slots,
       participants,
       destinations,
       desired_destination_ids: desiredDestinationIds(evening.format, evening.status, evening.settled_at),

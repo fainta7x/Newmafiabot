@@ -1,48 +1,6 @@
-import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 
-type Destination = 'elo' | 'club' | 'clubworld' | 'profile' | 'payments' | 'conduct';
-type GroupId = 'rating' | 'club' | 'account';
-
-type Group = {
-  id: GroupId;
-  icon: string;
-  title: string;
-  description: string;
-  items: Array<{ id: Destination; title: string; description: string }>;
-};
-
-const GROUPS: Group[] = [
-  {
-    id: 'rating',
-    icon: '★',
-    title: 'Рейтинг и прогресс',
-    description: 'Динамика твоего Elo',
-    items: [
-      { id: 'elo', title: 'Elo-карьера', description: 'Как менялся рейтинг и почему' },
-    ],
-  },
-  {
-    id: 'club',
-    icon: '◆',
-    title: 'Клуб',
-    description: 'Люди, сезоны и история 2LA Noire',
-    items: [
-      { id: 'club', title: 'Жизнь клуба', description: 'Форма, серии и клубные связи' },
-      { id: 'clubworld', title: 'Сезоны и рекорды', description: 'Архив, лидеры и Зал славы' },
-    ],
-  },
-  {
-    id: 'account',
-    icon: '●',
-    title: 'Аккаунт и сервисы',
-    description: 'Профиль, игроки и расчёты',
-    items: [
-      { id: 'profile', title: 'Профиль и игроки', description: 'Аватар, аккаунт и профили игроков клуба' },
-      { id: 'payments', title: 'Оплата', description: 'Баланс и история платежей' },
-    ],
-  },
-];
+type Destination = 'club' | 'profile' | 'payments' | 'conduct';
 
 export default function PlayerMoreHub({
   data,
@@ -53,7 +11,6 @@ export default function PlayerMoreHub({
   canOpenAdmin: boolean;
   onOpen: (destination: Destination) => void;
 }) {
-  const [expanded, setExpanded] = useState<GroupId | null>(null);
   const player = data.player;
 
   return (
@@ -77,51 +34,22 @@ export default function PlayerMoreHub({
           )}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-lg font-semibold">{player.nickname}</span>
-            <span className="mt-1 block text-xs text-white/35">{player.elo} ELO · открыть профиль</span>
+            <span className="mt-1 block text-xs text-white/35">{player.elo} ELO · профиль и настройки</span>
           </span>
           <span className="text-xl text-white/25">›</span>
         </button>
 
-        <section className="space-y-2">
-          {GROUPS.map((group) => {
-            const open = expanded === group.id;
-            return (
-              <div key={group.id} className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.04]">
-                <button
-                  type="button"
-                  onClick={() => setExpanded(open ? null : group.id)}
-                  aria-expanded={open}
-                  className="flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left"
-                >
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">{group.icon}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{group.title}</span>
-                    <span className="mt-1 block text-xs text-white/35">{group.description}</span>
-                  </span>
-                  <span className={`text-lg text-white/25 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
-                </button>
-
-                {open && (
-                  <div className="border-t border-white/[0.06] px-2 pb-2 pt-2">
-                    {group.items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => onOpen(item.id)}
-                        className="flex min-h-[58px] w-full items-center gap-3 rounded-2xl px-3 py-2 text-left active:bg-white/[0.06]"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-white/85">{item.title}</span>
-                          <span className="mt-0.5 block text-[10px] leading-4 text-white/30">{item.description}</span>
-                        </span>
-                        <span className="text-lg text-white/20">›</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <section className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onOpen('club')} className="min-h-[126px] rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-left active:bg-white/[0.07]">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">◆</div>
+            <div className="mt-3 text-sm font-semibold">Клуб</div>
+            <div className="mt-1 text-xs leading-4 text-white/35">Люди, связи и жизнь 2LA Noire</div>
+          </button>
+          <button type="button" onClick={() => onOpen('payments')} className="min-h-[126px] rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-left active:bg-white/[0.07]">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">₽</div>
+            <div className="mt-3 text-sm font-semibold">Оплата</div>
+            <div className="mt-1 text-xs leading-4 text-white/35">Баланс и история платежей</div>
+          </button>
         </section>
 
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-2">

@@ -76,9 +76,11 @@ function JourneyChart({ seed, events }: { seed: number; events: EloEvent[] }) {
 export default function PlayerEloJourney({
   onBack,
   onOpenGame,
+  embedded = false,
 }: {
   onBack?: () => void;
   onOpenGame?: (gameId: string) => void;
+  embedded?: boolean;
 }) {
   const [data, setData] = useState<EloJourneyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,19 +104,19 @@ export default function PlayerEloJourney({
 
   const newest = useMemo(() => data ? data.events.slice().reverse() : [], [data]);
 
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] text-white"><div className="text-center"><div className="text-3xl">📈</div><div className="mt-2 text-xs text-white/30">Строим Elo-карьеру…</div></div></main>;
-  if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-4 text-white"><div className="w-full max-w-[430px] rounded-3xl border border-rose-200/10 bg-rose-200/[0.04] p-5 text-center"><div className="text-sm font-semibold">{error || 'Elo-карьера недоступна'}</div>{onBack && <button type="button" onClick={onBack} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button>}</div></main>;
+  if (loading) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] text-white`}><div className="text-center"><div className="text-3xl">📈</div><div className="mt-2 text-xs text-white/30">Строим Elo-карьеру…</div></div></main>;
+  if (error || !data) return <main className={`grid ${embedded ? 'min-h-[46vh]' : 'min-h-screen'} place-items-center bg-[#090a0d] px-4 text-white`}><div className="w-full max-w-[430px] rounded-3xl border border-rose-200/10 bg-rose-200/[0.04] p-5 text-center"><div className="text-sm font-semibold">{error || 'Elo-карьера недоступна'}</div>{onBack && <button type="button" onClick={onBack} className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Назад</button>}</div></main>;
 
   const preview = data.preview[team];
   const events = showAll ? newest : newest.slice(0, 8);
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+    <main className={`min-h-screen bg-[#090a0d] px-3 pb-28 ${embedded ? 'pt-2' : 'pt-3'} text-white`}>
       <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <div className="flex items-start gap-3 px-1 pt-1">
+        {!embedded && <div className="flex items-start gap-3 px-1 pt-1">
           {onBack && <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/55">←</button>}
           <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">Elo-карьера</div><h1 className="mt-1 text-2xl font-semibold">Почему рейтинг меняется</h1><p className="mt-1 text-xs leading-5 text-white/40">Каждая партия раскладывается на командный результат, силу состава и личные игровые баллы.</p></div>
-        </div>
+        </div>}
 
         <section className="rounded-[28px] border border-amber-200/10 bg-gradient-to-br from-amber-200/[0.07] to-white/[0.025] p-4">
           <div className="flex items-end justify-between gap-3"><div><div className="text-[9px] uppercase tracking-[0.14em] text-white/30">Текущий Elo</div><div className="mt-1 text-4xl font-black">{Math.round(data.summary.current)}</div></div><div className={`text-right text-lg font-black ${data.summary.net > 0 ? 'text-emerald-300' : data.summary.net < 0 ? 'text-rose-300' : 'text-white/50'}`}>{signed(data.summary.net)}<div className="mt-0.5 text-[9px] font-medium text-white/25">от старта {Math.round(data.player.seed)}</div></div></div>

@@ -30,6 +30,8 @@ const cloneRound = (round: VotingRound): VotingRound => ({
   ...round,
   nominated_seats: [...(round.nominated_seats || [])],
   vote_counts: { ...(round.vote_counts || {}) },
+  parent_nominated_seats: round.parent_nominated_seats ? [...round.parent_nominated_seats] : undefined,
+  parent_vote_counts: round.parent_vote_counts ? { ...round.parent_vote_counts } : undefined,
   eliminated_seats: [...(round.eliminated_seats || [])],
 });
 

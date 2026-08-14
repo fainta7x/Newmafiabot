@@ -25,6 +25,7 @@ import {
   requestDirectRemoval,
   requestPpk,
   resetNextVotingCancelled,
+  restoreRemovedPlayer,
 } from "../lib/gameDiscipline.js";
 import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
@@ -613,13 +614,26 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
     saveSnapshot();
     next = confirmAction(next, id);
-    setDiscipline(next);
-    syncDisciplinePlayer(next, pending.slot);
+    const removalApplied = pending.action !== 'ppk' && Boolean(next.players[id]?.isRemoved);
+    const currentVotingIsCancelled = removalApplied && phase === 'day_voting';
+    const committedDiscipline = currentVotingIsCancelled ? resetNextVotingCancelled(next) : next;
+    setDiscipline(committedDiscipline);
+    syncDisciplinePlayer(committedDiscipline, pending.slot);
     setPendingDisciplineConfirmation(null);
 
     if (pending.action === 'ppk') {
       const winner = next.ppkWinnerTeam === 'red' ? 'Красные' : 'Чёрные';
       handleEndGameWithWinner(winner, 'ppk', pending.slot);
+      return;
+    }
+
+    if (currentVotingIsCancelled) {
+      setNightLogs((previous) => [...previous, {
+        round: roundNumber,
+        log: `Д${roundNumber}: текущее голосование отменено из-за удаления игрока #${pending.slot}.`,
+      }]);
+      showToast(`Голосование отменено: игрок #${pending.slot} удалён`, 'warning');
+      startNightPhase();
     }
   };
 
@@ -639,19 +653,24 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const restorePlayer = (slot: number) => {
     saveSnapshot();
     const id = String(slot);
-    const d = discipline.players[id];
-    if (d) {
-      const next: GameDiscipline = {
-        ...discipline,
-        players: {
-          ...discipline.players,
-          [id]: { ...d, isRemoved: false, removedReason: null, pendingAction: null },
-        },
-      };
-      setDiscipline(next);
-    }
+    const next = restoreRemovedPlayer(discipline, id);
+    const restored = next.players[id];
+    if (next !== discipline) setDiscipline(next);
     setActivePlayers((previous) => previous.map((p) => p.slot_num === slot
-      ? { ...p, alive: true, kick: false, removal_reason: null, eliminated_phase: '', exit_reason: 'alive', is_pu: false, best_move_guesses: [] }
+      ? {
+          ...p,
+          alive: true,
+          kick: false,
+          removal_reason: null,
+          eliminated_phase: '',
+          exit_reason: 'alive',
+          is_pu: false,
+          best_move_guesses: [],
+          fouls: restored?.regularFouls ?? p.fouls,
+          minor_tech_fouls: restored?.minorTechFouls ?? p.minor_tech_fouls,
+          major_tech_fouls: restored?.majorTechFouls ?? p.major_tech_fouls,
+          has_foul_penalty: restored?.has30SecPenalty ?? false,
+        }
       : p));
     setProtocolMarkers((previous) => clearBestMove(previous, slot));
     if (activeBestMoveSlot === slot) {

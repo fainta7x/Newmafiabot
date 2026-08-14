@@ -75,7 +75,10 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
       <style>{`
         .player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}
         .player-events-shell .legacy-cabinet-wrap button[aria-label="Уведомления"]{display:none!important}
-        button[class*="bottom-[154px]"][class*="z-40"]{display:none!important}
+        .player-events-shell button[class*="bottom-[154px]"][class*="z-40"]{display:none!important}
+        .player-events-shell main{padding-top:.75rem!important}
+        .player-events-shell .legacy-cabinet-wrap div[class*="tracking-[0.2em]"][class*="text-white/35"]{display:none!important}
+        .player-events-shell .legacy-cabinet-wrap div[class*="px-1"][class*="pb-1"][class*="pt-2"]{padding-top:.25rem!important}
       `}</style>
 
       <PlayerQuickAccessBar

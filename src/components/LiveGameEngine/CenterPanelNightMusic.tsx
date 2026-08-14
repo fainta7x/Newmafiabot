@@ -1,6 +1,6 @@
 import React from 'react';
 import BaseCenterPanel from './CenterPanel.tsx';
-import { requestJudgeNightMusicStart } from '../JudgeGameMusicController.tsx';
+import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from '../JudgeGameMusicController.tsx';
 
 type CenterPanelProps = React.ComponentProps<typeof BaseCenterPanel>;
 
@@ -10,18 +10,23 @@ const findLiveGrid = () => {
 };
 
 /**
- * Keeps the core live-game flow untouched while inserting one explicit action
- * before the first night action of every regular night.
+ * Keeps the core live-game flow untouched while inserting explicit music actions
+ * around every regular night.
  *
- * Flow: day/voting -> night intro -> "Музыка ночи" -> "Стрельба мафии".
+ * Flow: day/voting -> night intro -> "Музыка ночи" -> night actions ->
+ * "Выключить музыку" -> best move / night result.
  */
 export default function CenterPanelNightMusic(props: CenterPanelProps) {
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
+  const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const isRegularNightIntro = props.phase === 'night' && props.nightSubPhase === 'intro';
 
   React.useEffect(() => {
-    if (!isRegularNightIntro) setMusicStartedRound(null);
-  }, [isRegularNightIntro, props.roundNumber]);
+    if (props.phase !== 'night') {
+      setMusicStartedRound(null);
+      setMusicStoppedRound(null);
+    }
+  }, [props.phase, props.roundNumber]);
 
   /*
    * The mobile center card is height-limited and scrollable. After the voting UI
@@ -113,13 +118,30 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
       return {
         label: '♫ Включить музыку ночи',
         onClick: () => {
-          requestJudgeNightMusicStart();
+          const started = requestJudgeNightMusicStart();
           setMusicStartedRound(props.roundNumber);
+          if (!started) setMusicStoppedRound(props.roundNumber);
         },
       };
     }
+
+    const shouldOfferManualStop = props.phase === 'night'
+      && props.nightSubPhase === 'sheriff'
+      && musicStartedRound === props.roundNumber
+      && musicStoppedRound !== props.roundNumber;
+
+    if (shouldOfferManualStop) {
+      return {
+        label: '♫ Выключить музыку',
+        onClick: () => {
+          requestJudgeGameMusicStop();
+          setMusicStoppedRound(props.roundNumber);
+        },
+      };
+    }
+
     return props.getNextStepInfo();
-  }, [isRegularNightIntro, musicStartedRound, props]);
+  }, [isRegularNightIntro, musicStartedRound, musicStoppedRound, props]);
 
   return <BaseCenterPanel {...props} getNextStepInfo={getNextStepInfo} />;
 }

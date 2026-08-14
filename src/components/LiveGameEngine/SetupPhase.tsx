@@ -1,6 +1,7 @@
 import type { Player } from '../../types.js';
 import ClubGameSetupPhase from './ClubGameSetupPhase.tsx';
 import LegacySetupPhase from './LegacySetupPhase.tsx';
+import SpeechRecordingPilot from './SpeechRecordingPilot.tsx';
 import type { ActivePlayerState } from './types.js';
 
 interface SetupPhaseProps {
@@ -19,20 +20,24 @@ interface SetupPhaseProps {
 
 export default function SetupPhase(props: SetupPhaseProps) {
   const isClubEveningEngine = props.players.some((player) => player.notes === '__club_evening_engine_judge__');
+  const setup = isClubEveningEngine ? (
+    <ClubGameSetupPhase
+      players={props.players}
+      activePlayers={props.activePlayers}
+      handleAutoFillSetupPlayers={props.handleAutoFillSetupPlayers}
+      handleSelectSetupRole={props.handleSelectSetupRole}
+      onCancel={props.onCancel}
+      validateSetupAndStart={props.validateSetupAndStart}
+      onRoleDealActiveChange={props.onRoleDealActiveChange}
+    />
+  ) : (
+    <LegacySetupPhase {...props} />
+  );
 
-  if (isClubEveningEngine) {
-    return (
-      <ClubGameSetupPhase
-        players={props.players}
-        activePlayers={props.activePlayers}
-        handleAutoFillSetupPlayers={props.handleAutoFillSetupPlayers}
-        handleSelectSetupRole={props.handleSelectSetupRole}
-        onCancel={props.onCancel}
-        validateSetupAndStart={props.validateSetupAndStart}
-        onRoleDealActiveChange={props.onRoleDealActiveChange}
-      />
-    );
-  }
-
-  return <LegacySetupPhase {...props} />;
+  return (
+    <div className="space-y-3">
+      <SpeechRecordingPilot />
+      {setup}
+    </div>
+  );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
+import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
 
@@ -32,6 +33,8 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     return () => { cancelled = true; };
   }, [props.eveningId, refreshKey]);
 
+  const refresh = () => setRefreshKey((value) => value + 1);
+
   const publishEvening = async () => {
     if (publishing) return;
     setPublishing(true);
@@ -39,7 +42,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     try {
       const updated = await api.updateEvening(props.eveningId, { status: 'published' });
       setStatus(String(updated.status || 'published'));
-      setRefreshKey((value) => value + 1);
+      refresh();
     } catch (error: any) {
       setPublishError(error?.message || 'Не удалось опубликовать вечер');
     } finally {
@@ -71,7 +74,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
       } else {
         setAnnounceMessage(`Анонс опубликован. В ЛС доставлено: ${sent}.`);
       }
-      setRefreshKey((value) => value + 1);
+      refresh();
     } catch (error: any) {
       setAnnounceError(error?.message || 'Не удалось отправить анонс');
     } finally {
@@ -101,7 +104,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
-      <EveningInviteAudienceManager onChanged={() => setRefreshKey((value) => value + 1)} />
+      <EveningInviteAudienceManager onChanged={refresh} />
 
       {status === 'published' || status === 'active' ? (
         <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
@@ -124,7 +127,8 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
-      <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={() => setRefreshKey((value) => value + 1)} />
+      <EveningGameRegistrationDashboard eveningId={props.eveningId} refreshKey={refreshKey} onChanged={refresh} />
+      <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={refresh} />
       <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
     </div>
   );

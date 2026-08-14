@@ -15,18 +15,18 @@ export default function PlayerQuickAccessBar({
 }) {
   return (
     <div className="fixed inset-x-0 top-0 z-[53] h-14 border-b border-white/[0.07] bg-[#0b0c10]/92 backdrop-blur-xl">
-      <div className="mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-3 px-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/30">2LA Noire</div>
-          <div className="mt-0.5 truncate text-[10px] text-white/20">кабинет игрока</div>
+      <div className="mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-3 px-3 pr-[58px]">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-semibold tracking-[0.12em] text-white/72">2LA Noire</div>
+          <div className="mt-0.5 truncate text-[10px] text-white/28">{player.nickname}</div>
         </div>
 
-        <div className="mr-12 flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={onOpenWallet}
             aria-label="Открыть кошелёк"
-            className={`flex h-10 items-center gap-1.5 rounded-2xl border px-3 text-xs font-semibold transition ${active === 'wallet' ? 'border-amber-200/20 bg-amber-200/[0.10] text-amber-50' : 'border-white/10 bg-white/[0.045] text-white/65'}`}
+            className={`flex h-10 items-center gap-1.5 rounded-2xl border px-2.5 text-xs font-semibold transition ${active === 'wallet' ? 'border-amber-200/20 bg-amber-200/[0.10] text-amber-50' : 'border-white/10 bg-white/[0.045] text-white/65'}`}
           >
             <span aria-hidden>🪙</span>
             <span className="tabular-nums">{Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')}</span>

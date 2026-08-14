@@ -4,9 +4,10 @@ import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerMoreHub from './PlayerMoreHub.tsx';
+import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 
-export type PlayerCabinetSection = LegacySection | 'events';
+export type PlayerCabinetSection = LegacySection | 'events' | 'ratingperiods';
 
 type LegacyProps = ComponentProps<typeof LegacyPlayerCabinetShell>;
 type Props = Omit<LegacyProps, 'initialSection' | 'onSectionChange'> & {
@@ -25,6 +26,7 @@ const NAV: Array<{ id: NavId; icon: string; label: string }> = [
 
 const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'rating']);
 const gameSections = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);
+const ratingSections = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'clubworld']);
 
 export default function PlayerCabinetShell({ initialSection = 'home', onSectionChange, ...props }: Props) {
   const [section, setSection] = useState<PlayerCabinetSection>(initialSection);
@@ -40,8 +42,8 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     return open(destination as PlayerCabinetSection, target || null);
   };
 
-  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' || gameSections.has(section) ? 'games' : section as LegacySection;
-  const moreActive = !primary.has(section) && !gameSections.has(section);
+  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' || gameSections.has(section) || ratingSections.has(section) ? 'games' : section as LegacySection;
+  const moreActive = !primary.has(section) && !gameSections.has(section) && !ratingSections.has(section);
 
   return (
     <div className="player-events-shell bg-[#090a0d] text-white">
@@ -67,6 +69,12 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
           target={props.initialTarget || null}
           onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)}
         />
+      ) : ratingSections.has(section) ? (
+        <PlayerRatingHub
+          data={props.data}
+          section={section as PlayerRatingSection}
+          onOpen={(next) => open(next as PlayerCabinetSection)}
+        />
       ) : section === 'more' ? (
         <PlayerMoreHub
           data={props.data}
@@ -90,9 +98,11 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
           {NAV.map((item) => {
             const active = item.id === 'games'
               ? gameSections.has(section)
-              : item.id === 'more'
-                ? moreActive
-                : section === item.id;
+              : item.id === 'rating'
+                ? ratingSections.has(section)
+                : item.id === 'more'
+                  ? moreActive
+                  : section === item.id;
             return (
               <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
                 <span className="text-base leading-none">{item.icon}</span>

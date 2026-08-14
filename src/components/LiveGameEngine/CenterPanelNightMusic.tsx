@@ -4,6 +4,11 @@ import { requestJudgeNightMusicStart } from '../JudgeGameMusicController.tsx';
 
 type CenterPanelProps = React.ComponentProps<typeof BaseCenterPanel>;
 
+const findLiveGrid = () => {
+  const root = document.querySelector<HTMLElement>('.evening-live-engine-shell, .tournament-live-shell');
+  return root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]') || null;
+};
+
 /**
  * Keeps the core live-game flow untouched while inserting one explicit action
  * before the first night action of every regular night.
@@ -17,6 +22,91 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
   React.useEffect(() => {
     if (!isRegularNightIntro) setMusicStartedRound(null);
   }, [isRegularNightIntro, props.roundNumber]);
+
+  /*
+   * The mobile center card is height-limited and scrollable. After the voting UI
+   * became richer, flex centering could keep an old scroll offset and visually
+   * move the whole voting block up/down between candidates. During voting keep
+   * the body anchored to the top and reset only that inner scroll area when the
+   * voting step changes. Header/footer stay fixed in place.
+   */
+  React.useLayoutEffect(() => {
+    if (props.phase !== 'day_voting') return;
+    const grid = findLiveGrid();
+    const center = grid?.children?.[10] as HTMLElement | undefined;
+    const body = center?.children?.[1] as HTMLElement | undefined;
+    if (!center || !body) return;
+
+    const previous = {
+      centerMinWidth: center.style.minWidth,
+      centerOverflow: center.style.overflow,
+      alignItems: body.style.alignItems,
+      justifyContent: body.style.justifyContent,
+      minHeight: body.style.minHeight,
+      overflowX: body.style.overflowX,
+    };
+
+    center.style.minWidth = '0';
+    center.style.overflow = 'hidden';
+    body.style.alignItems = 'flex-start';
+    body.style.justifyContent = 'flex-start';
+    body.style.minHeight = '0';
+    body.style.overflowX = 'hidden';
+    body.scrollTop = 0;
+
+    return () => {
+      center.style.minWidth = previous.centerMinWidth;
+      center.style.overflow = previous.centerOverflow;
+      body.style.alignItems = previous.alignItems;
+      body.style.justifyContent = previous.justifyContent;
+      body.style.minHeight = previous.minHeight;
+      body.style.overflowX = previous.overflowX;
+    };
+  }, [props.phase, props.votingStage, props.currentVotingNomineeIndex, props.activeVotingRoundIndex]);
+
+  /*
+   * Keep the requested "who -> where" information on player cards, but make it
+   * compact enough for a two-column phone table. The long wording introduced in
+   * the previous hotfix could enlarge card internals and make the center layout
+   * feel unstable. Asterisk means the automatic remainder for the last nominee.
+   */
+  React.useLayoutEffect(() => {
+    if (props.phase !== 'day_voting' || props.votingStage !== 'collecting') return;
+    const round = props.votingRounds?.[props.activeVotingRoundIndex || 0];
+    if (!round?.nominated_seats?.length) return;
+    const grid = findLiveGrid();
+    if (!grid) return;
+
+    const candidates = round.nominated_seats;
+    const nominee = candidates[props.currentVotingNomineeIndex];
+    const lastNominee = candidates[candidates.length - 1];
+    const seats = Array.from(grid.children).slice(0, 10) as HTMLElement[];
+
+    seats.forEach((node, index) => {
+      const voterSlot = index + 1;
+      const heading = Array.from(node.querySelectorAll('span')).find((span) => span.textContent?.trim() === 'Голосование');
+      const status = heading?.parentElement?.querySelectorAll('span')?.[1] as HTMLSpanElement | undefined;
+      if (!status) return;
+
+      const explicitTarget = props.votesByPlayer?.[voterSlot];
+      const automatic = explicitTarget === undefined && nominee === lastNominee;
+      const target = explicitTarget ?? (automatic ? lastNominee : null);
+      status.textContent = target ? `#${voterSlot}→#${target}${automatic ? '*' : ''}` : `#${voterSlot}→—`;
+      status.style.whiteSpace = 'nowrap';
+      status.style.letterSpacing = '0';
+      status.style.fontSize = '9px';
+      status.title = target
+        ? `Игрок #${voterSlot} голосует за #${target}${automatic ? ' (автоматический остаток)' : ''}`
+        : `Игрок #${voterSlot} ещё не проголосовал`;
+    });
+  }, [
+    props.phase,
+    props.votingStage,
+    props.votingRounds,
+    props.activeVotingRoundIndex,
+    props.currentVotingNomineeIndex,
+    props.votesByPlayer,
+  ]);
 
   const getNextStepInfo = React.useCallback(() => {
     if (isRegularNightIntro && musicStartedRound !== props.roundNumber) {

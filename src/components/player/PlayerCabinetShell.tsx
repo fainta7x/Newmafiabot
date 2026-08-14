@@ -10,17 +10,16 @@ type Props = Omit<LegacyProps, 'initialSection' | 'onSectionChange'> & {
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
-type NavId = 'home' | 'events' | 'games' | 'conduct' | 'rating' | 'more';
+type NavId = 'home' | 'events' | 'games' | 'rating' | 'more';
 const NAV: Array<{ id: NavId; icon: string; label: string }> = [
   { id: 'home', icon: '⌂', label: 'Главная' },
   { id: 'events', icon: '▣', label: 'События' },
   { id: 'games', icon: '◫', label: 'Игры' },
-  { id: 'conduct', icon: '▶', label: 'Создать' },
   { id: 'rating', icon: '★', label: 'Рейтинг' },
   { id: 'more', icon: '•••', label: 'Ещё' },
 ];
 
-const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'conduct', 'rating']);
+const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'rating']);
 
 export default function PlayerCabinetShell({ initialSection = 'home', onSectionChange, ...props }: Props) {
   const [section, setSection] = useState<PlayerCabinetSection>(initialSection);
@@ -41,14 +40,6 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         <PlayerEventsCalendar />
       ) : (
         <div className="legacy-cabinet-wrap">
-          {section === 'home' && (
-            <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
-              <button type="button" onClick={() => open('events')} className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left">
-                <div className="text-sm font-semibold text-white">Запись по конкретным играм</div>
-                <div className="mt-1 text-xs text-white/45">Выбери игровые слоты и сразу увидишь итоговую стоимость →</div>
-              </button>
-            </div>
-          )}
           <LegacyPlayerCabinetShell
             {...props}
             initialSection={legacySection}
@@ -58,12 +49,11 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-[430px] grid-cols-6 gap-0.5">
+        <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
           {NAV.map((item) => {
             const active = item.id === 'more' ? moreActive : section === item.id;
-            const conduct = item.id === 'conduct';
             return (
-              <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${conduct ? active ? 'bg-amber-200 text-black' : 'bg-amber-200/[0.09] text-amber-100' : active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
+              <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
                 <span className="text-base leading-none">{item.icon}</span>
                 <span className="mt-1 max-w-full truncate">{item.label}</span>
               </button>

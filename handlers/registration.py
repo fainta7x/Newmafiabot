@@ -4,9 +4,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+import bot_menu
 import config
 import database
-import keyboards
 from bot_profile_link_api import get_canonical_profile, link_legacy_profile, register_canonical_profile
 from bot_telegram_api import get_telegram_destinations
 from handlers.booking import build_stats_text, get_next_friday
@@ -28,11 +28,7 @@ async def _is_judge(user_id: int) -> bool:
 async def _main_menu(user_id: int):
     is_admin = user_id in config.ADMIN_IDS
     is_judge = await _is_judge(user_id)
-    if is_admin:
-        return keyboards.main_menu_admin()
-    if is_judge:
-        return keyboards.main_menu_judge()
-    return keyboards.main_menu()
+    return bot_menu.main_menu_for_user(is_admin=is_admin, is_judge=is_judge)
 
 
 async def _destination(destination_id: str) -> dict:
@@ -123,6 +119,7 @@ async def _send_normal_start(
     args = args_override if args_override is not None else ((command.args or "").strip() if command else "")
     kb = await _main_menu(message.from_user.id)
 
+    # Keep old deep links alive while the Telegram shell migrates to the Mini App.
     if args == "players":
         date_str = get_next_friday()
         await message.answer(await build_stats_text(date_str), reply_markup=kb)
@@ -138,10 +135,58 @@ async def _send_normal_start(
         await _handle_club_access(message, kb)
         return
 
-    date = get_next_friday()
     await message.answer(
-        f"🎭 Привет! Ближайшая игра {date} в 20:00",
+        bot_menu.start_text(message.from_user.first_name if message.from_user else None),
+        parse_mode="HTML",
         reply_markup=kb,
+    )
+
+
+@router.message(Command("app"), F.chat.type == "private")
+async def open_player_app(message: Message):
+    inline_kb = bot_menu.app_inline_keyboard()
+    if inline_kb:
+        await message.answer(
+            "🎭 <b>2LA Noire</b>\n\nОткрывай клуб — запись, игры, рейтинг, кошелёк и профиль теперь собраны в одном приложении.",
+            parse_mode="HTML",
+            reply_markup=inline_kb,
+        )
+        return
+
+    await message.answer(
+        "⚠️ Адрес приложения пока не настроен в боте. Сообщи организатору.",
+        reply_markup=await _main_menu(message.from_user.id),
+    )
+
+
+@router.message(F.text == bot_menu.APP_BUTTON_TEXT, F.chat.type == "private")
+async def open_player_app_fallback(message: Message):
+    """Used only when a WebApp URL is not configured and Telegram sends plain button text."""
+    await open_player_app(message)
+
+
+@router.message(F.text == bot_menu.CLUB_ACCESS_BUTTON_TEXT, F.chat.type == "private")
+async def club_access_from_menu(message: Message):
+    await _handle_club_access(message, await _main_menu(message.from_user.id))
+
+
+@router.message(F.text == bot_menu.REGULATIONS_BUTTON_TEXT, F.chat.type == "private")
+async def regulations_from_compact_menu(message: Message):
+    # Reuse the authoritative legacy text without restoring the old oversized keyboard.
+    from handlers.start_profile import REGULATIONS_TEXT
+    await message.answer(
+        REGULATIONS_TEXT,
+        parse_mode=None,
+        reply_markup=await _main_menu(message.from_user.id),
+    )
+
+
+@router.message(F.text == "🏠 В главное меню", F.chat.type == "private")
+async def back_to_compact_main_menu(message: Message):
+    await message.answer(
+        bot_menu.start_text(message.from_user.first_name if message.from_user else None),
+        parse_mode="HTML",
+        reply_markup=await _main_menu(message.from_user.id),
     )
 
 
@@ -187,10 +232,10 @@ async def start_with_registration(message: Message, command: CommandObject, stat
     await state.set_state(RegistrationForm.waiting_for_nickname)
     await state.update_data(pending_start_arg=args)
     await message.answer(
-        "🎭 Добро пожаловать в 2LA noire!\n\n"
-        "Чтобы зарегистрироваться, пришлите одним сообщением свой игровой ник. "
-        "Он будет отображаться в записях, играх, рейтингах и турнирах.\n\n"
-        "Если вы уже играли в клубе и ваш профиль точно есть в нашей базе, не создавайте новый — напишите организатору для привязки существующего профиля."
+        "🎭 Добро пожаловать в 2LA Noire!\n\n"
+        "Чтобы зарегистрироваться, пришли одним сообщением свой игровой ник. "
+        "Он будет отображаться в приложении, записях, играх, рейтингах и турнирах.\n\n"
+        "Если ты уже играл в клубе и профиль точно есть в базе, не создавай второй — напиши организатору для привязки существующего профиля."
     )
 
 
@@ -206,7 +251,7 @@ async def finish_registration(message: Message, state: FSMContext):
 
     nickname = str(message.text or "").strip().replace("\n", " ")
     if not nickname:
-        await message.answer("Пришлите игровой ник текстом.")
+        await message.answer("Пришли игровой ник текстом.")
         return
     if len(nickname) > 60:
         await message.answer("Ник слишком длинный. Максимум 60 символов.")
@@ -231,7 +276,7 @@ async def finish_registration(message: Message, state: FSMContext):
             pass
         await state.clear()
         await message.answer(
-            f"✅ Готово! Профиль «{registered_nickname}» создан и привязан к вашему Telegram."
+            f"✅ Готово! Профиль «{registered_nickname}» создан и привязан к твоему Telegram."
         )
         await _send_normal_start(message, args_override=pending_start_arg)
         return
@@ -241,12 +286,12 @@ async def finish_registration(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(
             "Игрок с таким ником уже есть в клубе. Новый профиль я не создаю, чтобы не сделать дубль. "
-            "Если это ваш старый профиль — напишите организатору, он привяжет его к вашему Telegram."
+            "Если это твой старый профиль — напиши организатору, он привяжет его к Telegram."
         )
         return
     if error in {"nickname_required", "nickname_too_long", "nickname_invalid", "invalid"}:
         data = result.get("data") or {}
-        await message.answer(str(data.get("error") or "Такой ник не подходит. Введите другой игровой ник."))
+        await message.answer(str(data.get("error") or "Такой ник не подходит. Введи другой игровой ник."))
         return
 
-    await message.answer("Не удалось завершить регистрацию. Попробуйте отправить ник ещё раз через минуту.")
+    await message.answer("Не удалось завершить регистрацию. Попробуй отправить ник ещё раз через минуту.")

@@ -57,4 +57,4 @@ jobs:
           python-version: '3.11'
 
       - name: Compile bot sources
-        run: python -m compileall -q main.py handlers bot_announcement_api.py bot_api.py bot_profile_link_api.py bot_telegram_api.py
+        run: python -m compileall -q main.py config.py commands.py bot_menu.py keyboards.py handlers bot_announcement_api.py bot_api.py bot_profile_link_api.py bot_telegram_api.py

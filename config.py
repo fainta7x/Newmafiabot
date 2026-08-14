@@ -24,3 +24,9 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
 # Bot API Configuration
 BOT_API_BASE_URL = os.getenv('BOT_API_BASE_URL', 'http://127.0.0.1:3000')
 BOT_API_SECRET = os.getenv('BOT_API_SECRET', '')
+
+# Player Mini App origin. On production bot services BOT_API_BASE_URL already points
+# to the web application, so it is a safe fallback when it uses HTTPS.
+PLAYER_APP_URL = os.getenv('PLAYER_APP_URL', '').strip().rstrip('/')
+if not PLAYER_APP_URL and BOT_API_BASE_URL.lower().startswith('https://'):
+    PLAYER_APP_URL = BOT_API_BASE_URL.rstrip('/')

@@ -1,18 +1,11 @@
-# main.py или handlers/commands.py
-
 from aiogram.types import BotCommand
 
+
 async def setup_bot_commands(bot):
-    """
-    Устанавливает команды для кнопки меню бота.
-    """
+    """Keep Telegram's command menu focused on the unified player product."""
     commands = [
-        BotCommand(command="start", description="🚀 Запустить бота / Главное меню"),
-        BotCommand(command="admin", description="🛠 Админ-панель (только для админов)"),
-        # Вы можете добавить сюда и другие команды, например:
-        # BotCommand(command="help", description="❓ Помощь"),
-        # BotCommand(command="stats", description="📊 Статистика"),
+        BotCommand(command="start", description="Главное меню 2LA Noire"),
+        BotCommand(command="app", description="Открыть приложение клуба"),
     ]
-    # Устанавливаем команды для всех пользователей
     await bot.set_my_commands(commands)
-    print(f"✅ Установлено команд: {len(commands)}") 
+    print(f"✅ Установлено команд: {len(commands)}")

@@ -139,7 +139,16 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       if (row.participant) {
         await api.updateParticipant(row.participant.id, { response_status: status } as any);
       } else {
-        await api.bulkAddParticipants(eveningId, [row.playerId], null, status, 0);
+        // A legacy organizer insert with status "going" intentionally means "whole evening"
+        // and auto-selects every open game. Create an unanswered participant first, then
+        // patch the known attendance decision so "Будет" can stay separate from slot choice.
+        const created = await api.addParticipant(eveningId, {
+          player_id: row.playerId,
+          table_id: null,
+          registration_status: 'unanswered' as any,
+          amount_due: 0,
+        });
+        await api.updateParticipant(created.id, { response_status: status } as any);
       }
       await load(true);
       onChanged?.();

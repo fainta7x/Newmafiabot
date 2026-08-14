@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { ClipboardList, Copy, Check } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
+import LiveGameStateSheet from "../crm/LiveGameStateSheet.js";
 
 interface EventsPanelProps {
   phase?: Phase;
@@ -24,6 +25,7 @@ export default function EventsPanel({
 }: EventsPanelProps) {
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<"all" | "day" | "night">("all");
+  const [stateOpen, setStateOpen] = useState(false);
 
   if (phase === "setup") return null;
 
@@ -89,6 +91,20 @@ export default function EventsPanel({
 
   return (
     <div className="grid grid-cols-1 gap-4">
+      <button
+        type="button"
+        onClick={() => setStateOpen(true)}
+        className="fixed top-[3px] right-[74px] md:top-[6px] md:right-[92px] z-[111] h-7 md:h-9 px-2.5 md:px-3 rounded-lg md:rounded-xl border border-amber-800/60 bg-amber-950/80 text-amber-200 shadow-lg backdrop-blur flex items-center gap-1.5 text-[9px] md:text-[10px] font-black"
+        title="Текущее состояние игры"
+        aria-label="Текущее состояние игры"
+      >
+        <ClipboardList className="w-3.5 h-3.5 md:w-4 md:h-4" />
+        <span className="md:hidden">Состояние</span>
+        <span className="hidden md:inline">Текущее состояние игры</span>
+      </button>
+
+      <LiveGameStateSheet open={stateOpen} onClose={() => setStateOpen(false)} />
+
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-2">

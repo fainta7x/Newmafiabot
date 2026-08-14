@@ -15,6 +15,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
+    // Integration-heavy suites open SQLite databases and boot the Express app.
+    // GitHub-hosted runners can occasionally need more than Vitest's 5s default,
+    // so keep the timeout bounded but high enough to avoid load-related flakes.
+    testTimeout: 15_000,
     // This 67 KB suite still asserts retired APIs and hard-coded July/August 2026
     // "future" dates. Current CRM behavior is covered by focused tests, including
     // currentCrmSmoke, evening canonical state/roster, protocol and settlement suites.

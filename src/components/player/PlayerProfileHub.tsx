@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
-import PlayerProfileAccount from './PlayerProfileAccount.tsx';
+import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
 const gameLevelLabel = (level: string) => {
   if (level === 'novice') return 'Новичок';
@@ -27,7 +27,7 @@ export default function PlayerProfileHub({
       <div className="mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Профиль</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Аккаунт, данные и оформление</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Аккаунт, судейство и игровые настройки</p>
         </header>
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
@@ -48,7 +48,7 @@ export default function PlayerProfileHub({
           </div>
         </section>
 
-        <PlayerProfileAccount player={player} onPlayerChange={updatePlayer} />
+        <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
       </div>
     </main>
   );

@@ -61,7 +61,7 @@ const game = (): ClubGameRecord => ({
 describe('club live result -> persisted protocol', () => {
   beforeEach(() => localStorage.clear());
 
-  it('keeps canonical tech fouls, votes, shots and PPK culprit', () => {
+  it('keeps canonical tech fouls, discipline penalty, votes, shots and PPK culprit', () => {
     const source = game();
     const result = mapEngineResultToProtocol(source, {
       winning_team: 'Чёрные',
@@ -99,14 +99,47 @@ describe('club live result -> persisted protocol', () => {
 
     expect(result.protocol.status).toBe('completed');
     expect(result.protocol.winner_team).toBe('black');
+    expect(result.protocol.end_reason).toBe('ppk');
     expect(result.protocol.ppk_culprit_participant_id).toBe('part-3');
     expect(result.protocol.votes).toHaveLength(1);
     expect(result.protocol.shots).toEqual([{ night_number: 1, target_seat: 4, result: 'killed' }]);
 
     const player3 = result.player_results.find((player) => player.seat_number === 3)!;
+    expect(player3.exit_type).toBe('removed');
     expect(player3.minor_technical_fouls).toBe(1);
     expect(player3.major_technical_fouls).toBe(1);
     expect(player3.technical_fouls).toBe(2);
     expect(player3.removal_reason).toBe('2nd_tech');
+    expect(player3.disciplinary_penalty_points).toBe(2.9);
+  });
+
+  it('persists fourth-foul removal and its canonical one-point discipline penalty', () => {
+    const source = game();
+    const result = mapEngineResultToProtocol(source, {
+      winning_team: 'Красные',
+      end_reason: 'normal',
+      protocol_text: 'Удаление игрока 4 по четвёртому фолу',
+      protocol_markers: {},
+      slots: source.club_protocol!.player_results.map((player) => ({
+        slot_num: player.seat_number,
+        user_id: player.player_id,
+        nickname: player.display_name,
+        role: player.seat_number >= 8 ? 'Мафия' : 'Мирный',
+        alive: player.seat_number !== 4,
+        exit_reason: player.seat_number === 4 ? 'removed' : 'alive',
+        fouls: player.seat_number === 4 ? 4 : 0,
+        minor_tech_fouls: 0,
+        major_tech_fouls: 0,
+        removal_reason: player.seat_number === 4 ? '4th_foul' : null,
+        ppk: false,
+        status_reason: player.seat_number === 4 ? 'Удалён: 4-й фол' : 'Жив',
+      })),
+    });
+
+    const player4 = result.player_results.find((player) => player.seat_number === 4)!;
+    expect(player4.exit_type).toBe('removed');
+    expect(player4.regular_fouls).toBe(4);
+    expect(player4.removal_reason).toBe('4th_foul');
+    expect(player4.disciplinary_penalty_points).toBe(1);
   });
 });

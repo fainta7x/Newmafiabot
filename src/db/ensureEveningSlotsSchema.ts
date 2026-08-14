@@ -146,6 +146,67 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
     END
   `);
 
+  // Compatibility for the old organizer button "Добавить на вечер". The new
+  // canonical flow selects exact games, but a legacy manual "Иду" still means
+  // the whole evening. Exact slot editing can then narrow that selection.
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_manual_participant_whole_evening_slots
+    AFTER INSERT ON evening_participants
+    WHEN NEW.response_status IN ('going', 'late')
+      AND EXISTS (
+        SELECT 1 FROM evening_game_slots
+         WHERE evening_id = NEW.evening_id AND status = 'open'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM evening_slot_registrations WHERE participant_id = NEW.id
+      )
+    BEGIN
+      INSERT OR IGNORE INTO evening_slot_registrations
+        (id, slot_id, participant_id, created_at, updated_at)
+      SELECT lower(hex(randomblob(16))), s.id, NEW.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        FROM evening_game_slots s
+       WHERE s.evening_id = NEW.evening_id AND s.status = 'open';
+
+      UPDATE evening_participants
+         SET amount_due = CASE
+               WHEN (SELECT format FROM game_evenings WHERE id = NEW.evening_id) IN ('CASUAL', 'STANDARD')
+                 THEN MIN(400, (
+                   SELECT COALESCE(SUM(s.price_rub), 0)
+                     FROM evening_slot_registrations r
+                     JOIN evening_game_slots s ON s.id = r.slot_id
+                    WHERE r.participant_id = NEW.id
+                 ))
+               ELSE (
+                 SELECT COALESCE(SUM(s.price_rub), 0)
+                   FROM evening_slot_registrations r
+                   JOIN evening_game_slots s ON s.id = r.slot_id
+                  WHERE r.participant_id = NEW.id
+               )
+             END,
+             payment_status = CASE
+               WHEN COALESCE(amount_paid, 0) >= CASE
+                 WHEN (SELECT format FROM game_evenings WHERE id = NEW.evening_id) IN ('CASUAL', 'STANDARD')
+                   THEN MIN(400, (
+                     SELECT COALESCE(SUM(s.price_rub), 0)
+                       FROM evening_slot_registrations r
+                       JOIN evening_game_slots s ON s.id = r.slot_id
+                      WHERE r.participant_id = NEW.id
+                   ))
+                 ELSE (
+                   SELECT COALESCE(SUM(s.price_rub), 0)
+                     FROM evening_slot_registrations r
+                     JOIN evening_game_slots s ON s.id = r.slot_id
+                    WHERE r.participant_id = NEW.id
+                 )
+               END THEN 'paid'
+               WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
+               ELSE 'unpaid'
+             END,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = NEW.id;
+    END
+  `);
+
   // Reconcile existing slot registrations once per live DB connection. This used
   // to run on every slot read, turning a simple workspace open into a remote write.
   await db.run(`

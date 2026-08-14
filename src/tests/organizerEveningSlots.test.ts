@@ -73,5 +73,25 @@ describe('organizer evening slot selection', () => {
     );
     expect(Number(participant?.amount_due)).toBe(300);
     expect(participant?.attendance_status).toBe('attended');
+
+    const removed = await replaceOrganizerPlayerSlotSelection(
+      db,
+      'ev-organizer-slots',
+      'player-organizer-slots',
+      [],
+    );
+    expect(removed.selection.games).toBe(0);
+    expect(removed.selection.total).toBe(0);
+    expect(removed.selection.slot_ids).toEqual([]);
+
+    participant = await db.get<any>(
+      `SELECT response_status, amount_due, payment_status, attendance_status
+         FROM evening_participants
+        WHERE evening_id='ev-organizer-slots' AND player_id='player-organizer-slots'`,
+    );
+    expect(participant?.response_status).toBe('declined');
+    expect(Number(participant?.amount_due)).toBe(0);
+    expect(participant?.payment_status).toBe('waived');
+    expect(participant?.attendance_status).toBe('attended');
   });
 });

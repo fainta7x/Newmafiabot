@@ -15,6 +15,10 @@ export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchE
 
 export const requestJudgeNightMusicStart = () => {
   const selection = readJudgeGameMusicSelection();
+  if (selection?.configured === true && !selection.nightTrackId) {
+    window.dispatchEvent(new CustomEvent(STOP_EVENT));
+    return;
+  }
   const trackId = selection?.configured === true ? selection.nightTrackId || undefined : undefined;
   window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'night' } }));
 };

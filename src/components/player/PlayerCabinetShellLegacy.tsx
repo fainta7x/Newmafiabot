@@ -147,6 +147,19 @@ function MorePage({
           ))}
         </section>
 
+        <button
+          type="button"
+          onClick={() => onOpen('conduct')}
+          className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-left transition active:bg-white/[0.08]"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/[0.08] text-base text-amber-100">▶</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-white">Ведение игр</span>
+            <span className="mt-0.5 block text-xs text-white/35">Судейский режим и назначенные игры</span>
+          </span>
+          <span className="text-lg text-white/20">›</span>
+        </button>
+
         {canOpenAdmin && (
           <a
             href="/admin"

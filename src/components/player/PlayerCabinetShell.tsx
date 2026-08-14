@@ -1,9 +1,11 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } from './PlayerCabinetShellLegacy.tsx';
+import PlayerClubHub from './PlayerClubHub.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerMoreHub from './PlayerMoreHub.tsx';
+import PlayerProfileHub from './PlayerProfileHub.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 
@@ -42,7 +44,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     return open(destination as PlayerCabinetSection, target || null);
   };
 
-  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' || gameSections.has(section) || ratingSections.has(section) ? 'games' : section as LegacySection;
+  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' || section === 'club' || section === 'profile' || gameSections.has(section) || ratingSections.has(section) ? 'games' : section as LegacySection;
   const moreActive = !primary.has(section) && !gameSections.has(section) && !ratingSections.has(section);
 
   return (
@@ -75,6 +77,10 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
           section={section as PlayerRatingSection}
           onOpen={(next) => open(next as PlayerCabinetSection)}
         />
+      ) : section === 'club' ? (
+        <PlayerClubHub data={props.data} />
+      ) : section === 'profile' ? (
+        <PlayerProfileHub data={props.data} />
       ) : section === 'more' ? (
         <PlayerMoreHub
           data={props.data}

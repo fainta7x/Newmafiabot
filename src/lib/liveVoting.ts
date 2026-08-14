@@ -20,6 +20,9 @@ export function getExplicitVoteCounts(
 /**
  * Detects when a sequential vote is mathematically decided from EXPLICIT votes only.
  * Automatic remainder for the last candidate must not be included here.
+ *
+ * The current leader is locked only when even giving every still-unassigned
+ * ballot to the strongest opponent cannot produce a tie or overtake.
  */
 export function isVoteDecided(
   nominatedSeats: number[],
@@ -40,7 +43,7 @@ export function isVoteDecided(
   const leaders = sorted.filter((count) => count === highest).length;
 
   if (leaders !== 1) return false;
-  return highest > Math.max(secondHighest, remaining);
+  return highest > secondHighest + remaining;
 }
 
 export function isVoteDecidedFromAssignments(
@@ -50,6 +53,19 @@ export function isVoteDecidedFromAssignments(
 ): boolean {
   const counts = getExplicitVoteCounts(nominatedSeats, votesByPlayer, eligibleVoterSeats);
   return isVoteDecided(nominatedSeats, counts, eligibleVoterSeats.length);
+}
+
+/**
+ * A voter may correct their choice while the same candidate is being counted,
+ * but cannot move an already-cast vote directly to a later candidate.
+ */
+export function canToggleVoteAssignment(
+  voterSlot: number,
+  nominee: number,
+  votesByPlayer: Record<number, number>
+): boolean {
+  const existing = votesByPlayer[voterSlot];
+  return existing === undefined || existing === nominee;
 }
 
 export function liveRoundToTournamentDay(roundNumber: number): number {

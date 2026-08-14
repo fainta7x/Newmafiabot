@@ -18,11 +18,9 @@ export function getExplicitVoteCounts(
 }
 
 /**
- * Detects when a sequential vote is mathematically decided from EXPLICIT votes only.
- * Automatic remainder for the last candidate must not be included here.
- *
- * The current leader is locked only when even giving every still-unassigned
- * ballot to the strongest opponent cannot produce a tie or overtake.
+ * Pure arithmetic helper. It may be useful for analytics, but it must never
+ * terminate or lock a live sports-mafia vote: the judge still completes the
+ * full nomination order and the remaining ballots go to the last nominee.
  */
 export function isVoteDecided(
   nominatedSeats: number[],
@@ -46,13 +44,17 @@ export function isVoteDecided(
   return highest > secondHighest + remaining;
 }
 
+/**
+ * Live voting intentionally never reports an early "decided" state.
+ * Even when the leader cannot mathematically be caught, sports-mafia procedure
+ * continues through every nominated player before the final result is fixed.
+ */
 export function isVoteDecidedFromAssignments(
-  nominatedSeats: number[],
-  votesByPlayer: Record<number, number>,
-  eligibleVoterSeats: number[]
+  _nominatedSeats: number[],
+  _votesByPlayer: Record<number, number>,
+  _eligibleVoterSeats: number[]
 ): boolean {
-  const counts = getExplicitVoteCounts(nominatedSeats, votesByPlayer, eligibleVoterSeats);
-  return isVoteDecided(nominatedSeats, counts, eligibleVoterSeats.length);
+  return false;
 }
 
 /**

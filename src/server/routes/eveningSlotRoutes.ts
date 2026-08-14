@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotPlanningService.ts';
+import { replaceOrganizerPlayerSlotSelection } from '../services/organizerEveningSlotSelectionService.ts';
 
 export const eveningSlotRoutes = Router();
 
@@ -60,6 +61,36 @@ eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res
     return res.json(plan);
   } catch (error: any) {
     return sendError(res, error, 'Не удалось сохранить настройки игровых слотов');
+  }
+});
+
+eveningSlotRoutes.get('/:eveningId/slots/player/:playerId', requireOrganizerAuth, async (req, res) => {
+  try {
+    const plan = await loadEveningSlotPlan(
+      (req as any).db,
+      req.params.eveningId,
+      String(req.params.playerId),
+    );
+    return res.json(plan);
+  } catch (error: any) {
+    return sendError(res, error, 'Не удалось загрузить игры игрока');
+  }
+});
+
+eveningSlotRoutes.put('/:eveningId/slots/player/:playerId', requireOrganizerAuth, async (req, res) => {
+  try {
+    if (!Array.isArray(req.body?.slot_ids)) {
+      return res.status(400).json({ error: 'Передайте список slot_ids' });
+    }
+    const plan = await replaceOrganizerPlayerSlotSelection(
+      (req as any).db,
+      req.params.eveningId,
+      String(req.params.playerId),
+      req.body.slot_ids,
+    );
+    return res.json(plan);
+  } catch (error: any) {
+    return sendError(res, error, 'Не удалось сохранить игры игрока');
   }
 });
 

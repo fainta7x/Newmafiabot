@@ -93,7 +93,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         <PlayerHomeDashboard
           data={currentData}
           canOpenAdmin={Boolean(props.canOpenAdmin)}
-          onOpenEvents={() => open('events')}
+          onOpenEvents={(eventId) => open('events', eventId || null)}
           onOpenGames={() => open('games')}
           onOpenRating={() => open('rating')}
           onOpenConduct={() => open('conduct')}

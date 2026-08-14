@@ -10,8 +10,7 @@ import {
 } from '../shared/tournamentVoting';
 
 describe('Tournament Voting Logic Tests', () => {
-  test('1. Scenario: 2/2/2/2/2 -> 3/3/3/1/0 -> 5/5/0 -> 5/5', () => {
-    // Stage 1: Main round, 5 candidates nominated, each gets 2 votes. Total 10 voters.
+  test('1. Scenario: 2/2/2/2/2 -> 3/3/3/1/0 -> 5/5/0 -> 5/5 -> 5/5', () => {
     const round1: VotingRound = {
       round_number: 1,
       day_number: 1,
@@ -25,39 +24,37 @@ describe('Tournament Voting Logic Tests', () => {
     expect(res1.outcome).toBe('needs_revote');
     expect(res1.winners).toEqual([1, 2, 3, 4, 5]);
 
-    // Stage 2: Revote with the 5 winners
     const round2 = createNextRevoteRound(round1, res1.winners);
     expect(round2.nominated_seats).toEqual([1, 2, 3, 4, 5]);
-
-    // Vote distribution: 3/3/3/1/0 (sum = 10)
+    round2.round_number = 2;
     round2.vote_counts = { 1: 3, 2: 3, 3: 3, 4: 1, 5: 0 };
     const res2 = determineVotingResult(round2);
-    // Tie is among a smaller set of leaders (3 out of 5), so it's a tie but not repeated tie.
     expect(res2.outcome).toBe('needs_revote');
     expect(res2.winners).toEqual([1, 2, 3]);
 
-    // Stage 3: Next revote with the 3 winners
     const round3 = createNextRevoteRound(round2, res2.winners);
+    round3.round_number = 3;
     expect(round3.nominated_seats).toEqual([1, 2, 3]);
-
-    // Vote distribution: 5/5/0 (sum = 10)
     round3.vote_counts = { 1: 5, 2: 5, 3: 0 };
     const res3 = determineVotingResult(round3);
-    // Tie is among smaller subset (2 out of 3)
     expect(res3.outcome).toBe('needs_revote');
     expect(res3.winners).toEqual([1, 2]);
 
-    // Stage 4: Next revote with 2 winners
     const round4 = createNextRevoteRound(round3, res3.winners);
+    round4.round_number = 4;
     expect(round4.nominated_seats).toEqual([1, 2]);
-
-    // Vote distribution: 5/5
     round4.vote_counts = { 1: 5, 2: 5 };
     const res4 = determineVotingResult(round4);
-    // Repeated tie among the exact same composition of 2 candidates.
-    // 2 is <= half of 10. So requires table decision.
-    expect(res4.outcome).toBe('requires_table_decision');
+    // Parent division was 5/5/0 among three candidates, so this is the first 5/5 among exactly two.
+    expect(res4.outcome).toBe('needs_revote');
     expect(res4.winners).toEqual([1, 2]);
+
+    const round5 = createNextRevoteRound(round4, res4.winners);
+    round5.round_number = 5;
+    round5.vote_counts = { 1: 5, 2: 5 };
+    const res5 = determineVotingResult(round5);
+    expect(res5.outcome).toBe('requires_table_decision');
+    expect(res5.winners).toEqual([1, 2]);
   });
 
   test('2. Repeated tie among 2 candidates requires table decision', () => {
@@ -74,7 +71,6 @@ describe('Tournament Voting Logic Tests', () => {
   });
 
   test('3. Seven out of seven twice leads to automatic no-elimination night', () => {
-    // Round 1 (Main): 7 candidates, each gets 1 vote, total 7 voters.
     const round1: VotingRound = {
       round_number: 1,
       day_number: 1,
@@ -87,11 +83,9 @@ describe('Tournament Voting Logic Tests', () => {
     expect(res1.outcome).toBe('needs_revote');
     expect(res1.winners).toEqual([1, 2, 3, 4, 5, 6, 7]);
 
-    // Round 2 (Revote): Same 7 candidates, same 1/1/1/1/1/1/1 votes.
     const round2 = createNextRevoteRound(round1, res1.winners);
     round2.vote_counts = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 };
     const res2 = determineVotingResult(round2);
-    // 7 candidates is > 3.5 (half of 7). Thus auto_no_elimination.
     expect(res2.outcome).toBe('auto_no_elimination');
   });
 
@@ -105,7 +99,6 @@ describe('Tournament Voting Logic Tests', () => {
       eligible_voters: 8
     };
     const res = determineVotingResult(round);
-    // 4 <= 4 (half of 8) -> requires_table_decision
     expect(res.outcome).toBe('requires_table_decision');
   });
 
@@ -120,7 +113,7 @@ describe('Tournament Voting Logic Tests', () => {
     const nominated_seats = [1, 2, 3];
     const initialCounts = { 1: 4, 2: 3, 3: 0 };
     const calculated = calculateVoteRemainder(nominated_seats, 10, initialCounts);
-    expect(calculated[3]).toBe(3); // 10 - 4 - 3 = 3
+    expect(calculated[3]).toBe(3);
   });
 
   test('7. Order of leaders is preserved in child round', () => {
@@ -133,16 +126,17 @@ describe('Tournament Voting Logic Tests', () => {
       eligible_voters: 10
     };
     const parentRes = determineVotingResult(parentRound);
-    expect(parentRes.winners).toEqual([5, 2]); // 5 has 4 votes, 2 has 4 votes, in order they appear
+    expect(parentRes.winners).toEqual([5, 2]);
 
     const childRound = createNextRevoteRound(parentRound, parentRes.winners);
     expect(childRound.nominated_seats).toEqual([5, 2]);
-
+    expect(childRound.parent_nominated_seats).toEqual([5, 2, 8]);
+    expect(childRound.parent_vote_counts).toEqual({ 5: 4, 2: 4, 8: 2 });
     expect(validateChildLeadersOrder(parentRound, childRound)).toBe(true);
 
     const invalidChildRound = {
       ...childRound,
-      nominated_seats: [2, 5] // out of order
+      nominated_seats: [2, 5]
     };
     expect(validateChildLeadersOrder(parentRound, invalidChildRound)).toBe(false);
   });
@@ -153,15 +147,36 @@ describe('Tournament Voting Logic Tests', () => {
     const r3: VotingRound = { round_number: 3, is_revote: true, parent_round_number: 2, nominated_seats: [1, 2], vote_counts: { 1: 10, 2: 0 }, eligible_voters: 10, outcome: 'single_eliminated' };
 
     const initialList = [r1, r2, r3];
-
-    // If we delete r2, r3 must also be deleted
     const filteredList = initialList.filter(r => r.round_number !== 2);
     const synced = cleanAndSyncVotes(filteredList);
 
-    // r1 remains but its outcome should revert to 'pending' because its child r2 was deleted
     expect(synced.length).toBe(1);
     expect(synced[0].round_number).toBe(1);
     expect(synced[0].outcome).toBe('pending');
+  });
+
+  test('9. Changed 4/4/2 -> 5/5 requires one more identical 5/5', () => {
+    const parent: VotingRound = {
+      round_number: 1,
+      day_number: 2,
+      is_revote: true,
+      nominated_seats: [1, 2, 3],
+      vote_counts: { 1: 4, 2: 4, 3: 2 },
+      eligible_voters: 10,
+    };
+    const parentResult = determineVotingResult(parent);
+    expect(parentResult.outcome).toBe('needs_revote');
+    expect(parentResult.winners).toEqual([1, 2]);
+
+    const firstFiveFive = createNextRevoteRound(parent, parentResult.winners);
+    firstFiveFive.round_number = 2;
+    firstFiveFive.vote_counts = { 1: 5, 2: 5 };
+    expect(determineVotingResult(firstFiveFive).outcome).toBe('needs_revote');
+
+    const secondFiveFive = createNextRevoteRound(firstFiveFive, [1, 2]);
+    secondFiveFive.round_number = 3;
+    secondFiveFive.vote_counts = { 1: 5, 2: 5 };
+    expect(determineVotingResult(secondFiveFive).outcome).toBe('requires_table_decision');
   });
 
   describe('validateVotingHierarchy tests', () => {
@@ -193,7 +208,7 @@ describe('Tournament Voting Logic Tests', () => {
           nominated_seats: [4, 5],
           vote_counts: { 4: 5, 5: 5 },
           eligible_voters: 10,
-          outcome: 'tie_revote' // Second tie_revote but no child round exists for it!
+          outcome: 'tie_revote'
         }
       ];
 
@@ -248,7 +263,7 @@ describe('Tournament Voting Logic Tests', () => {
           nominated_seats: [1, 2, 3, 4],
           vote_counts: { 1: 2, 2: 2, 3: 2, 4: 2 },
           eligible_voters: 8,
-          outcome: 'no_elimination' // e.g. automatic night
+          outcome: 'no_elimination'
         }
       ];
 

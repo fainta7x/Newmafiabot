@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
 
 export const SLOT_PRICE = 100;
+export const CLUB_EVENING_MAX_PRICE = 400;
 export const TABLE_MIN_PLAYERS = 11;
 export const TABLE_MIN_READY_SLOTS = 4;
+
+export const calculateEveningSelectionTotal = (format: unknown, prices: number[]): number => {
+  const rawTotal = prices.reduce((sum, price) => sum + Math.max(0, Number(price || 0)), 0);
+  return normalizeEveningFormat(format) === 'CASUAL'
+    ? Math.min(rawTotal, CLUB_EVENING_MAX_PRICE)
+    : rawTotal;
+};
 
 const plusMinutes = (value: string, minutes: number) => new Date(new Date(value).getTime() + minutes * 60000).toISOString();
 const plannedCount = (evening: any) => {
@@ -22,6 +31,23 @@ const normalizeStartsAt = (value: unknown, fallback: string) => {
     throw Object.assign(new Error('Некорректное время первой игры'), { statusCode: 400 });
   }
   return raw;
+};
+
+const clampExistingClubEveningCharges = async (db: DatabaseWrapper, evening: any) => {
+  if (normalizeEveningFormat(evening?.format) !== 'CASUAL') return;
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE evening_participants
+        SET amount_due = ?,
+            payment_status = CASE
+              WHEN COALESCE(amount_paid, 0) >= ? THEN 'paid'
+              ELSE 'unpaid'
+            END,
+            updated_at = ?
+      WHERE evening_id = ?
+        AND COALESCE(amount_due, 0) > ?`,
+    [CLUB_EVENING_MAX_PRICE, CLUB_EVENING_MAX_PRICE, now, evening.id, CLUB_EVENING_MAX_PRICE],
+  );
 };
 
 export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: string) {
@@ -77,6 +103,10 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
       });
     }
   }
+
+  // A regular club evening is 100 ₽ per game, but never more than 400 ₽ total.
+  // Clamp already-created overcharges too, without touching waived/free entries.
+  await clampExistingClubEveningCharges(db, evening);
 
   return { evening, settings, slots };
 }
@@ -219,6 +249,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       status: evening.status,
       event_type: 'evening',
       price_per_game: Number(settings.price_per_game || SLOT_PRICE),
+      max_evening_price: normalizeEveningFormat(evening.format) === 'CASUAL' ? CLUB_EVENING_MAX_PRICE : null,
       slot_duration_minutes: Number(settings.slot_duration_minutes || 60),
       slot_count: slots.length,
       assembled_slots: ready,
@@ -230,7 +261,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     selection: {
       slot_ids: selected.map((slot) => slot.id),
       games: selected.length,
-      total: selected.reduce((sum, slot) => sum + slot.price, 0),
+      total: calculateEveningSelectionTotal(evening.format, selected.map((slot) => slot.price)),
     },
   };
 }
@@ -242,7 +273,10 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
   const byId = new Map(available.map(s => [String(s.id), s]));
   const ids = Array.isArray(raw) ? Array.from(new Set(raw.map(v => String(v || '').trim()).filter(Boolean))) : [];
   if (ids.some(id => !byId.has(id))) throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
-  const total = ids.reduce((sum, id) => sum + Number(byId.get(id)?.price_rub || 0), 0);
+  const total = calculateEveningSelectionTotal(
+    evening.format,
+    ids.map((id) => Number(byId.get(id)?.price_rub || 0)),
+  );
   const now = new Date().toISOString();
   await db.transaction(async (tx: any) => {
     let participant = await tx.get<any>('SELECT id, attendance_status, amount_paid FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);

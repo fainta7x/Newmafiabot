@@ -19,20 +19,31 @@ export const eveningResponseStatusSchema = z.enum(['going', 'late', 'thinking', 
 export const eveningAttendanceFactSchema = z.enum(['pending', 'attended_on_time', 'attended_late', 'no_show']);
 const legacyRegistrationStatusSchema = z.enum(['going', 'late', 'thinking', 'declined', 'unanswered', 'invited', 'registered', 'confirmed', 'waitlist', 'cancelled']);
 
+const canonicalResponseFromLegacy = (value: unknown): z.infer<typeof eveningResponseStatusSchema> | undefined => {
+  const parsed = eveningResponseStatusSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+};
+
 export const bulkAddParticipantsSchema = z.object({
   player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
   table_id: z.string().nullable().optional(),
   response_status: eveningResponseStatusSchema.optional(),
   registration_status: legacyRegistrationStatusSchema.optional(),
   amount_due: z.number().int().min(0).optional(),
-});
+}).transform((data) => ({
+  ...data,
+  response_status: data.response_status ?? canonicalResponseFromLegacy(data.registration_status),
+}));
 
 export const addSingleParticipantSchema = z.object({
   player_id: z.string().min(1).optional(), nickname: z.string().optional(), phone: z.string().optional(),
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),
   registration_status: legacyRegistrationStatusSchema.optional(), amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).default(0), notes: z.string().nullable().optional(),
-});
+}).transform((data) => ({
+  ...data,
+  response_status: data.response_status ?? canonicalResponseFromLegacy(data.registration_status),
+}));
 
 export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),

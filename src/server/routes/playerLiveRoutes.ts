@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
+import playerSpeechRecordingRoutes from './playerSpeechRecordingRoutes.ts';
 
 const router = Router();
+
+router.use('/speech-recordings', playerSpeechRecordingRoutes);
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);

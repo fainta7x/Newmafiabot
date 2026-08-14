@@ -4,6 +4,7 @@ export type PlayerRouteSection =
   | 'games'
   | 'conduct'
   | 'rating'
+  | 'ratingperiods'
   | 'stats'
   | 'club'
   | 'payments'
@@ -38,6 +39,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     games: '/player/games',
     conduct: '/player/conduct',
     rating: '/player/rating',
+    ratingperiods: '/player/rating/periods',
     stats: '/player/stats',
     club: '/player/club',
     payments: '/player/payments',
@@ -77,6 +79,10 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
     return { section: 'recaps', target, replayGameKey: null, canonicalPath: playerPathForSection('recaps', target) };
   }
 
+  if (parts[1] === 'rating' && parts[2] === 'periods') {
+    return { section: 'ratingperiods', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingperiods') };
+  }
+
   const sectionBySegment: Record<string, PlayerRouteSection> = {
     events: 'events',
     games: 'games',
@@ -103,8 +109,8 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'replay') return '/player/games';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'stats' || parts[1] === 'career' || parts[1] === 'recaps') return '/player/games';
+    if ((parts[1] === 'rating' && parts[2] === 'periods') || parts[1] === 'elo' || parts[1] === 'seasons') return '/player/rating';
     if (parts[1] === 'conduct' || parts[1] === 'judging' || parts[1] === 'host' || parts[1] === 'table') return '/player';
-    if (parts[1] === 'elo' || parts[1] === 'seasons') return '/player/more';
     return '/player';
   }
 

@@ -119,6 +119,24 @@ async def _send_normal_start(
     args = args_override if args_override is not None else ((command.args or "").strip() if command else "")
     kb = await _main_menu(message.from_user.id)
 
+    if args.startswith("event_"):
+        evening_id = args.removeprefix("event_").strip()
+        event_kb = bot_menu.event_inline_keyboard(evening_id) if evening_id else None
+        if event_kb:
+            await message.answer(
+                "🎯 <b>Запись на игровой вечер</b>\n\n"
+                "Открой вечер и отметь конкретные игры, на которые придёшь. "
+                "Сумма к оплате посчитается автоматически.",
+                parse_mode="HTML",
+                reply_markup=event_kb,
+            )
+        else:
+            await message.answer(
+                "⚠️ Не удалось открыть этот вечер в приложении. Открой 2LA Noire из главного меню.",
+                reply_markup=kb,
+            )
+        return
+
     # Keep old deep links alive while the Telegram shell migrates to the Mini App.
     if args == "players":
         date_str = get_next_friday()

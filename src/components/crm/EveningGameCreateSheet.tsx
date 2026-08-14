@@ -35,6 +35,21 @@ const priorityLabel = (reason: ReturnType<typeof getRotationPriority>['reason'])
   return 'Кандидат на пропуск';
 };
 
+const sameOrder = <T,>(left: T[], right: T[]) => left.length === right.length && left.every((item, index) => item === right[index]);
+
+const shuffledCopy = <T,>(items: T[], forceDifferent = false): T[] => {
+  if (items.length < 2) return items.slice();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const shuffled = items.slice();
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    if (!forceDifferent || !sameOrder(items, shuffled)) return shuffled;
+  }
+  return [...items.slice(1), items[0]];
+};
+
 export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ evening, tables, participants, games, onClose, onCreated }) => {
   const [selectedTableId, setSelectedTableId] = useState(tables[0]?.id || '');
   const [judgeMode, setJudgeMode] = useState<JudgeIdentityMode>('external');
@@ -119,15 +134,30 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const shuffleSelected = () => {
     const selected = seats.filter(Boolean);
     if (selected.length < 2) return;
-    const shuffled = selected.slice();
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
+    const shuffled = shuffledCopy(selected, true);
     setSeats([...shuffled, ...Array(10 - shuffled.length).fill('')]);
   };
   const autoSelect = () => {
-    const selected = eligible.slice(0, 10).map((participant) => participant.id);
+    const randomized = eligible.slice();
+    let start = 0;
+    while (start < randomized.length) {
+      const first = randomized[start];
+      const firstPriority = getRotationPriority(first.id, previousRotationGame);
+      const firstPlayCount = Number(first.play_count || 0);
+      let end = start + 1;
+      while (end < randomized.length) {
+        const next = randomized[end];
+        const nextPriority = getRotationPriority(next.id, previousRotationGame);
+        const samePriority = nextPriority.tier === firstPriority.tier
+          && (firstPriority.reason !== 'loser' || nextPriority.survival === firstPriority.survival)
+          && Number(next.play_count || 0) === firstPlayCount;
+        if (!samePriority) break;
+        end += 1;
+      }
+      randomized.splice(start, end - start, ...shuffledCopy(randomized.slice(start, end)));
+      start = end;
+    }
+    const selected = randomized.slice(0, 10).map((participant) => participant.id);
     setSeats([...selected, ...Array(Math.max(0, 10 - selected.length)).fill('')].slice(0, 10));
   };
   const reuseLastLineup = () => {
@@ -159,7 +189,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-x-hidden rounded-t-[24px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:pb-4">
+      <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[24px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:pb-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и 10 фактически пришедших игроков.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-text-muted hover:text-text-primary"><X className="h-4 w-4" /></button>
@@ -196,14 +226,14 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
             <button type="button" onClick={autoSelect} disabled={eligible.length < 10} className="min-h-10 rounded-[11px] bg-accent px-2 text-[10px] font-black text-white disabled:opacity-30">Подобрать 10</button>
             <button type="button" onClick={reuseLastLineup} disabled={lastCompletedLineup.length !== 10} className="min-h-10 rounded-[11px] border border-border-soft bg-surface-1 px-2 text-[10px] font-black text-text-secondary disabled:opacity-30">Прошлая десятка</button>
           </div>
-          <p className="text-[9px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. У проигравших выше тот, кто раньше покинул игру; дольше остававшиеся первыми идут на пропуск.</p>
+          <p className="text-[9px] leading-4 text-text-muted">Приоритет: пропустившие прошлую игру → первый убитый / нулевой круг → победившая команда → проигравшая. При равном приоритете выбор теперь перемешивается, чтобы состав не повторялся из-за алфавитного порядка.</p>
         </div>
 
         <TableScoutingCard participantIds={selectedParticipantIds} />
 
         <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Пришедшие · приоритет ротации</span><span>{visible.length} игроков</span></div>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
-        <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
+        <div className="grid shrink-0 grid-cols-2 content-start gap-2 pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
             const priority = getRotationPriority(participant.id, previousRotationGame);
@@ -211,7 +241,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           })}
           {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Игроков не найдено</div>}
         </div>
-        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : eligible.length < 10 ? `Не хватает пришедших: ${missingPresent}` : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
+        <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : eligible.length < 10 ? `Не хватает пришедших: ${missingPresent}` : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
       </div>
     </div>
   );

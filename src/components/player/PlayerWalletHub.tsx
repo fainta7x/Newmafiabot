@@ -46,10 +46,9 @@ export default function PlayerWalletHub({
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <header className="px-1 pb-1 pt-2">
-          <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
-          <h1 className="mt-1 text-2xl font-semibold">Кошелёк</h1>
-          <p className="mt-1 text-sm text-white/45">Деньги и игровые жетоны — в одном месте</p>
+        <header className="px-1 pb-1 pt-1">
+          <h1 className="text-2xl font-semibold">Кошелёк</h1>
+          <p className="mt-1 text-xs leading-5 text-white/40">Оплаты, магазин, ставки и история операций</p>
         </header>
 
         <section className="grid grid-cols-2 gap-2">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { openSpeechRecordingReview } from './SpeechRecordingReview.ts';
 
-type RecorderStatus = 'off' | 'ready' | 'recording' | 'paused';
+type RecorderStatus = 'off' | 'ready' | 'opening' | 'recording' | 'paused';
 
 type LiveSnapshot = {
   phase?: string;
@@ -46,12 +46,14 @@ const DB_NAME = 'mafia_speech_recordings_v1';
 const STORE_NAME = 'clips';
 
 const runtime = {
+  armed: false,
   status: 'off' as RecorderStatus,
   stream: null as MediaStream | null,
+  openingStream: null as Promise<MediaStream> | null,
+  startingRecorder: false,
   autoRecorder: null as MediaRecorder | null,
   chunks: [] as Blob[],
   currentMeta: null as SpeechMeta | null,
-  pendingSnapshot: null as LiveSnapshot | null,
   pollTimer: null as number | null,
   sessionId: null as string | null,
   clipCount: 0,
@@ -155,7 +157,7 @@ const persistSpeechClip = async (clip: StoredSpeechClip) => {
 
 function updateIndicator() {
   if (typeof document === 'undefined') return;
-  if (runtime.status === 'off' || runtime.setupMounted) {
+  if (!runtime.armed || runtime.status === 'off' || runtime.setupMounted) {
     runtime.indicator?.remove();
     runtime.indicator = null;
     return;
@@ -196,32 +198,78 @@ function updateIndicator() {
   } else if (runtime.status === 'paused' && meta) {
     runtime.indicator.textContent = `Ⅱ Пауза записи · #${meta.slot} ${meta.nickname}`;
     runtime.indicator.style.color = '#fcd34d';
+  } else if (runtime.status === 'opening') {
+    runtime.indicator.textContent = '🎙 Подключаем микрофон…';
+    runtime.indicator.style.color = '#bae6fd';
   } else {
     runtime.indicator.textContent = `🎙 Речи · ${runtime.clipCount} · открыть`;
     runtime.indicator.style.color = '#86efac';
   }
 }
 
-const stopTracks = () => {
+const releaseStream = () => {
   runtime.stream?.getTracks().forEach((track) => track.stop());
   runtime.stream = null;
+};
+
+const requestMicrophoneStream = async () => {
+  if (runtime.stream?.getAudioTracks().some((track) => track.readyState === 'live')) return runtime.stream;
+  if (runtime.openingStream) return runtime.openingStream;
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported-media');
+  if (typeof MediaRecorder === 'undefined') throw new Error('unsupported-recorder');
+
+  const request = navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  }).then((stream) => {
+    runtime.openingStream = null;
+    if (!runtime.armed) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error('recorder-disabled');
+    }
+    runtime.stream = stream;
+    return stream;
+  }).catch((error) => {
+    runtime.openingStream = null;
+    throw error;
+  });
+
+  runtime.openingStream = request;
+  return request;
 };
 
 const finalizeAutoRecording = () => {
   const recorder = runtime.autoRecorder;
   if (!recorder || recorder.state === 'inactive') return;
-  try {
-    recorder.stop();
-  } catch {}
+  try { recorder.stop(); } catch {}
 };
 
-const startAutoRecording = (snapshot: LiveSnapshot) => {
-  const stream = runtime.stream;
-  if (!stream || runtime.autoRecorder) return;
-  const meta = makeSpeechMeta(snapshot);
-  if (!meta) return;
-
+const startAutoRecording = async (snapshot: LiveSnapshot) => {
+  if (!runtime.armed || runtime.autoRecorder || runtime.startingRecorder) return;
+  runtime.startingRecorder = true;
+  setRuntimeStatus('opening');
   try {
+    const stream = await requestMicrophoneStream();
+    if (!runtime.armed || runtime.autoRecorder) return;
+
+    const latest = readLiveSnapshot() || snapshot;
+    const slot = Number(latest.activeSpeakerSlot || 0);
+    if (!slot || !latest.isTimerRunning) {
+      releaseStream();
+      setRuntimeStatus(runtime.armed ? 'ready' : 'off');
+      return;
+    }
+
+    const meta = makeSpeechMeta(latest);
+    if (!meta) {
+      releaseStream();
+      setRuntimeStatus(runtime.armed ? 'ready' : 'off');
+      return;
+    }
+
     const mimeType = pickMimeType();
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     runtime.autoRecorder = recorder;
@@ -263,25 +311,29 @@ const startAutoRecording = (snapshot: LiveSnapshot) => {
         }
       }
 
-      setRuntimeStatus(runtime.stream ? 'ready' : 'off');
-      const pending = runtime.pendingSnapshot;
-      runtime.pendingSnapshot = null;
-      if (pending?.activeSpeakerSlot && pending.isTimerRunning && runtime.stream) startAutoRecording(pending);
+      // Critical for Android / Telegram WebView: do not keep an active microphone
+      // between speeches. Keeping getUserMedia alive switches the phone into a
+      // communication audio route and can pull game music away from Bluetooth A2DP.
+      releaseStream();
+      setRuntimeStatus(runtime.armed ? 'ready' : 'off');
+      window.setTimeout(() => reconcileAutoRecording(readLiveSnapshot()), 0);
     };
 
     recorder.start(250);
     setRuntimeStatus('recording');
   } catch (error) {
-    runtime.autoRecorder = null;
-    runtime.currentMeta = null;
-    runtime.chunks = [];
-    console.warn('[speech-recording] Failed to start automatic recording', error);
-    setRuntimeStatus(runtime.stream ? 'ready' : 'off');
+    releaseStream();
+    if ((error as any)?.message !== 'recorder-disabled') {
+      console.warn('[speech-recording] Failed to start automatic recording', error);
+    }
+    setRuntimeStatus(runtime.armed ? 'ready' : 'off');
+  } finally {
+    runtime.startingRecorder = false;
   }
 };
 
 const reconcileAutoRecording = (snapshot: LiveSnapshot | null) => {
-  if (!runtime.stream || !snapshot) return;
+  if (!runtime.armed || !snapshot) return;
   const slot = Number(snapshot.activeSpeakerSlot || 0);
   const shouldRun = slot > 0 && Boolean(snapshot.isTimerRunning);
   const meta = runtime.currentMeta;
@@ -289,11 +341,10 @@ const reconcileAutoRecording = (snapshot: LiveSnapshot | null) => {
 
   if (shouldRun) {
     if (!runtime.autoRecorder) {
-      startAutoRecording(snapshot);
+      void startAutoRecording(snapshot);
       return;
     }
     if (meta && nextMeta && meta.key !== nextMeta.key) {
-      runtime.pendingSnapshot = snapshot;
       finalizeAutoRecording();
       return;
     }
@@ -322,8 +373,25 @@ const reconcileAutoRecording = (snapshot: LiveSnapshot | null) => {
   }
 };
 
+const shutdownRuntime = () => {
+  runtime.armed = false;
+  if (runtime.autoRecorder && runtime.autoRecorder.state !== 'inactive') {
+    try { runtime.autoRecorder.stop(); } catch {}
+  }
+  runtime.autoRecorder = null;
+  runtime.currentMeta = null;
+  runtime.chunks = [];
+  runtime.startingRecorder = false;
+  if (runtime.pollTimer !== null) window.clearInterval(runtime.pollTimer);
+  runtime.pollTimer = null;
+  releaseStream();
+  runtime.sessionId = null;
+  runtime.rootMissingSince = null;
+  setRuntimeStatus('off');
+};
+
 const pollLiveState = () => {
-  if (!runtime.stream) return;
+  if (!runtime.armed) return;
   const snapshot = readLiveSnapshot();
   reconcileAutoRecording(snapshot);
 
@@ -332,16 +400,14 @@ const pollLiveState = () => {
     return;
   }
 
-  const liveRootExists = Boolean(document.querySelector('.evening-live-engine-shell'));
+  const liveRootExists = Boolean(document.querySelector('.evening-live-engine-shell, .tournament-live-shell'));
   if (liveRootExists) {
     runtime.rootMissingSince = null;
     return;
   }
 
-  if (snapshot?.phase && snapshot.phase !== 'setup') {
-    if (runtime.rootMissingSince === null) runtime.rootMissingSince = Date.now();
-    if (Date.now() - runtime.rootMissingSince > 2500) shutdownRuntime();
-  }
+  if (runtime.rootMissingSince === null) runtime.rootMissingSince = Date.now();
+  if (Date.now() - runtime.rootMissingSince > 2500) shutdownRuntime();
 };
 
 const startPolling = () => {
@@ -350,43 +416,30 @@ const startPolling = () => {
 };
 
 const enableRuntime = async () => {
-  if (runtime.stream) {
+  if (runtime.armed) {
     setRuntimeStatus(runtime.autoRecorder ? 'recording' : 'ready');
     return;
   }
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported-media');
   if (typeof MediaRecorder === 'undefined') throw new Error('unsupported-recorder');
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
-  runtime.stream = stream;
+  runtime.armed = true;
   runtime.sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   runtime.clipCount = 0;
   runtime.rootMissingSince = null;
+  try {
+    // Ask permission once while the user is still in setup. The same permission can
+    // then be reused automatically when each speech starts.
+    await requestMicrophoneStream();
+  } catch (error) {
+    runtime.armed = false;
+    runtime.sessionId = null;
+    releaseStream();
+    throw error;
+  }
   startPolling();
   setRuntimeStatus('ready');
 };
-
-function shutdownRuntime() {
-  runtime.pendingSnapshot = null;
-  if (runtime.autoRecorder && runtime.autoRecorder.state !== 'inactive') {
-    try { runtime.autoRecorder.stop(); } catch {}
-  }
-  runtime.autoRecorder = null;
-  runtime.currentMeta = null;
-  runtime.chunks = [];
-  if (runtime.pollTimer !== null) window.clearInterval(runtime.pollTimer);
-  runtime.pollTimer = null;
-  stopTracks();
-  runtime.sessionId = null;
-  runtime.rootMissingSince = null;
-  setRuntimeStatus('off');
-}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => shutdownRuntime());
@@ -427,15 +480,15 @@ export default function SpeechRecordingPilot() {
     }
   };
 
-  const startTestRecording = () => {
-    const stream = runtime.stream;
-    if (!stream || status !== 'ready' || testRecording) return;
+  const startTestRecording = async () => {
+    if (!runtime.armed || status !== 'ready' || testRecording) return;
     setError(null);
     replaceClipUrl(null);
     setClipDuration(0);
     testChunksRef.current = [];
 
     try {
+      const stream = await requestMicrophoneStream();
       const mimeType = pickMimeType();
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       testRecorderRef.current = recorder;
@@ -457,7 +510,7 @@ export default function SpeechRecordingPilot() {
       setTestRecording(true);
     } catch {
       testRecorderRef.current = null;
-      setError('Не удалось начать тестовую запись. Попробуйте выключить и снова включить микрофон.');
+      setError('Не удалось начать тестовую запись. Попробуйте выключить и снова включить запись речей.');
       setTestRecording(false);
     }
   };
@@ -485,11 +538,20 @@ export default function SpeechRecordingPilot() {
       if (testRecorderRef.current && testRecorderRef.current.state !== 'inactive') {
         try { testRecorderRef.current.stop(); } catch {}
       }
+
+      // When setup turns into the live table, immediately release the permission
+      // probe stream. This restores the normal Android media route (Bluetooth/A2DP).
       window.setTimeout(() => {
-        if (runtime.setupMounted || !runtime.stream) return;
-        const snapshot = readLiveSnapshot();
-        if (!snapshot || snapshot.phase === 'setup') shutdownRuntime();
-      }, 1800);
+        if (runtime.setupMounted || !runtime.armed) return;
+        const liveRootExists = Boolean(document.querySelector('.evening-live-engine-shell, .tournament-live-shell'));
+        if (liveRootExists) {
+          if (!runtime.autoRecorder) releaseStream();
+          setRuntimeStatus(runtime.autoRecorder ? runtime.status : 'ready');
+        } else {
+          shutdownRuntime();
+        }
+      }, 250);
+
       if (clipUrlRef.current) URL.revokeObjectURL(clipUrlRef.current);
     };
   }, []);
@@ -498,12 +560,12 @@ export default function SpeechRecordingPilot() {
     <section className="rounded-2xl border border-sky-500/20 bg-sky-950/20 p-3 text-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-300/70">Запись речей · этап 3</div>
-          <div className="mt-1 text-sm font-black">Автозапись + локальный Replay</div>
-          <p className="mt-1 text-[11px] leading-4 text-slate-400">Включите запись один раз. Во время игры речи сохраняются автоматически. Нажмите на индикатор записи в правом верхнем углу, чтобы открыть список уже сохранённых речей и прослушать любую.</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-300/70">Запись речей · этап 4</div>
+          <div className="mt-1 text-sm font-black">Автозапись без захвата Bluetooth</div>
+          <p className="mt-1 text-[11px] leading-4 text-slate-400">Разрешение на микрофон даётся один раз. Во время игры микрофон открывается только на саму речь и полностью освобождается между речами, чтобы ночная музыка снова шла через обычный Bluetooth-аудиовыход.</p>
         </div>
-        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${testRecording || status === 'recording' ? 'bg-rose-500/15 text-rose-300' : status === 'paused' ? 'bg-amber-500/15 text-amber-300' : status === 'ready' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-          {testRecording ? '● тест' : status === 'recording' ? '● запись' : status === 'paused' ? 'пауза' : status === 'ready' ? 'автозапись готова' : 'выключено'}
+        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${testRecording || status === 'recording' ? 'bg-rose-500/15 text-rose-300' : status === 'paused' ? 'bg-amber-500/15 text-amber-300' : status === 'ready' ? 'bg-emerald-500/15 text-emerald-300' : status === 'opening' ? 'bg-sky-500/15 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
+          {testRecording ? '● тест' : status === 'recording' ? '● запись' : status === 'paused' ? 'пауза' : status === 'opening' ? 'микрофон…' : status === 'ready' ? 'автозапись готова' : 'выключено'}
         </span>
       </div>
 
@@ -513,7 +575,7 @@ export default function SpeechRecordingPilot() {
         ) : testRecording ? (
           <button type="button" onClick={stopTestRecording} className="min-h-11 rounded-xl bg-rose-600 px-4 text-xs font-black text-white">Остановить тест</button>
         ) : (
-          <button type="button" onClick={startTestRecording} disabled={status !== 'ready'} className="min-h-11 rounded-xl bg-white px-4 text-xs font-black text-slate-950 disabled:opacity-40">Записать тест</button>
+          <button type="button" onClick={() => void startTestRecording()} disabled={status !== 'ready'} className="min-h-11 rounded-xl bg-white px-4 text-xs font-black text-slate-950 disabled:opacity-40">Записать тест</button>
         )}
         {status !== 'off' && (
           <button type="button" onClick={disableMicrophone} className="min-h-11 rounded-xl border border-slate-700 bg-slate-950 px-4 text-xs font-bold text-slate-300">Выключить</button>
@@ -525,7 +587,7 @@ export default function SpeechRecordingPilot() {
 
       {status !== 'off' && (
         <div className="mt-3 rounded-xl border border-emerald-500/15 bg-emerald-950/20 px-3 py-2 text-[10px] leading-4 text-emerald-100/70">
-          После перехода к игре этот блок исчезнет, но микрофон останется активен. Индикатор в правом верхнем углу теперь можно нажать: он открывает локальный список сохранённых речей этой игры.
+          После старта игры запись остаётся вооружена, но микрофон не удерживается постоянно. Он автоматически включится с таймером речи и освободится сразу после её окончания.
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import type { PlayerResultData } from './api';
+import { calculateDisciplinaryPenalty } from './gameDiscipline';
 
 export type DeathProtocolSelection = {
   red: number[];
@@ -61,11 +62,21 @@ export const clearStoredDeathProtocols = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 };
 
+const withCanonicalDisciplinePenalty = (result: PlayerResultData): PlayerResultData => {
+  const disciplinaryPenalty = calculateDisciplinaryPenalty(
+    Number(result.minor_technical_fouls || 0),
+    Number(result.major_technical_fouls || 0),
+    result.exit_type === 'removed',
+    Boolean((result as any).ppk),
+  );
+  return { ...result, disciplinary_penalty_points: disciplinaryPenalty };
+};
+
 export const applyStoredDeathProtocolsToResults = (results: PlayerResultData[]): PlayerResultData[] => {
   const stored = readStoredDeathProtocols();
-  if (!Object.keys(stored).length) return results;
 
-  return results.map((result) => {
+  return results.map((source) => {
+    const result = withCanonicalDisciplinePenalty(source);
     const selection = stored[result.seat_number];
     if (!selection || result.exit_type !== 'killed') return result;
 

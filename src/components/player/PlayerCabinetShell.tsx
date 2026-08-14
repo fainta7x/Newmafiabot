@@ -48,6 +48,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
       <style>{`
         .player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}
         .player-events-shell .legacy-cabinet-wrap button[aria-label="Уведомления"]{display:none!important}
+        button[class*="bottom-[154px]"][class*="z-40"]{display:none!important}
       `}</style>
       {section === 'home' ? (
         <PlayerHomeDashboard

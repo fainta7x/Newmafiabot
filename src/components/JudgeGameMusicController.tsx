@@ -6,9 +6,19 @@ import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
 
+type MusicStartKind = 'manual' | 'night';
+type MusicStartDetail = { trackId?: string; kind?: MusicStartKind };
+
 export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
-  new CustomEvent(START_EVENT, { detail: { trackId } }),
+  new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
 );
+
+export const requestJudgeNightMusicStart = () => {
+  const selection = readJudgeGameMusicSelection();
+  const trackId = selection?.configured === true ? selection.nightTrackId || undefined : undefined;
+  window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'night' } }));
+};
+
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
 
 type LiveAudioState = {
@@ -47,16 +57,18 @@ const zeroNightWantsMusic = (live: LiveAudioState | null) => {
     || live.zeroNightSubPhase === 'seating';
 };
 
-const regularNightWantsMusic = (live: LiveAudioState | null) => {
+const regularNightManualWindow = (live: LiveAudioState | null) => {
   if (live?.phase !== 'night') return false;
-  if (live.nightSubPhase === 'best_move' || live.nightSubPhase === 'morning') return false;
-  if (live.nightSubPhase === 'sheriff' && live.sheriffCheckSlot !== null) return false;
-  return true;
+  return live.nightSubPhase === 'intro'
+    || live.nightSubPhase === 'shooting'
+    || live.nightSubPhase === 'don'
+    || live.nightSubPhase === 'sheriff';
 };
 
 export default function JudgeGameMusicController() {
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
+  const manualNightRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);
   const nightWantedRef = useRef(false);
   const wantedRef = useRef(false);
@@ -68,8 +80,9 @@ export default function JudgeGameMusicController() {
 
   useEffect(() => {
     const startDeal = (event: Event) => {
-      const detail = (event as CustomEvent<{ trackId?: string }>).detail;
+      const detail = (event as CustomEvent<MusicStartDetail>).detail;
       manualRef.current = true;
+      manualNightRef.current = detail?.kind === 'night';
       manualTrackRef.current = detail?.trackId;
       wantedRef.current = true;
       wantedTrackRef.current = detail?.trackId;
@@ -77,6 +90,7 @@ export default function JudgeGameMusicController() {
     };
     const stopDeal = () => {
       manualRef.current = false;
+      manualNightRef.current = false;
       manualTrackRef.current = undefined;
       if (!nightWantedRef.current) music.stop();
     };
@@ -92,7 +106,17 @@ export default function JudgeGameMusicController() {
     const sync = () => {
       const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
       const selection = readJudgeGameMusicSelection();
-      const phaseWantsNightMusic = zeroNightWantsMusic(live) || regularNightWantsMusic(live);
+
+      // Regular nights now start only from the explicit queue action. Once that
+      // night reaches best move / morning (or the app returns to day), stop the
+      // manually started night track automatically.
+      if (manualNightRef.current && !regularNightManualWindow(live)) {
+        manualRef.current = false;
+        manualNightRef.current = false;
+        manualTrackRef.current = undefined;
+      }
+
+      const phaseWantsNightMusic = zeroNightWantsMusic(live);
       const configured = selection?.configured === true;
       const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;
       const shouldPlayForNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));
@@ -126,7 +150,7 @@ export default function JudgeGameMusicController() {
       className="fixed bottom-24 right-3 z-[190] rounded-2xl border border-violet-300/25 bg-[#17131d]/95 px-4 py-3 text-left shadow-2xl backdrop-blur-xl"
     >
       <div className="text-xs font-black text-violet-100">♫ Включить музыку</div>
-      <div className="mt-0.5 text-[10px] text-violet-100/45">Браузер заблокировал автозапуск · нажмите один раз</div>
+      <div className="mt-0.5 text-[10px] text-violet-100/45">Браузер заблокировал запуск · нажмите один раз</div>
     </button>
   );
 }

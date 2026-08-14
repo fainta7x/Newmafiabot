@@ -19,17 +19,44 @@ const getGridPositionClass = (slot: number) => {
   return positions[slot] || '';
 };
 
+const readPostNightStage = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem('mafia_live_session');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.postNightStage === 'string' ? parsed.postNightStage : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Dead players normally lose the quick foul controls together with the rest of
- * the active-seat actions. A player killed at night is still speaking during the
- * farewell/protocol window, so the judge must still be able to add/remove a foul.
+ * the active-seat actions. A player killed at night is still under discipline
+ * during the farewell speech, so keep only regular-foul +/- controls available
+ * until the judge advances to the death protocol.
  */
 export default function SeatCardFarewell(props: SeatCardProps) {
   const player = props.activePlayers.find((item) => item.slot_num === props.slotNum);
-  const isKilledSpeaker = Boolean(
+  const [postNightStage, setPostNightStage] = React.useState<string | null>(() => readPostNightStage());
+
+  React.useEffect(() => {
+    if (props.phase !== 'night') {
+      setPostNightStage(null);
+      return;
+    }
+    const sync = () => setPostNightStage(readPostNightStage());
+    sync();
+    const interval = window.setInterval(sync, 250);
+    return () => window.clearInterval(interval);
+  }, [props.phase]);
+
+  const isKilledFarewellSpeaker = Boolean(
     player
       && !player.alive
       && props.phase === 'night'
+      && postNightStage === 'farewell'
       && props.activeSpeakerSlot === props.slotNum,
   );
 
@@ -37,7 +64,7 @@ export default function SeatCardFarewell(props: SeatCardProps) {
     <div className={`relative self-center w-full ${getGridPositionClass(props.slotNum)}`}>
       <BaseSeatCard {...props} />
 
-      {isKilledSpeaker && player && (
+      {isKilledFarewellSpeaker && player && (
         <div className="absolute top-1.5 right-1.5 z-40 flex items-center gap-1 rounded-lg border border-amber-500/40 bg-slate-950/95 p-1 shadow-xl">
           {player.fouls > 0 && (
             <button

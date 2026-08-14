@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { openSpeechRecordingReview } from './SpeechRecordingReview.ts';
 
 type RecorderStatus = 'off' | 'ready' | 'recording' | 'paused';
 
@@ -163,6 +164,8 @@ function updateIndicator() {
   if (!runtime.indicator) {
     const indicator = document.createElement('div');
     indicator.dataset.speechRecordingIndicator = 'true';
+    indicator.title = 'Открыть сохранённые речи';
+    indicator.onclick = () => void openSpeechRecordingReview(runtime.sessionId);
     Object.assign(indicator.style, {
       position: 'fixed',
       top: '72px',
@@ -178,7 +181,9 @@ function updateIndicator() {
       fontSize: '11px',
       fontWeight: '700',
       boxShadow: '0 10px 28px rgba(0,0,0,.35)',
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
+      cursor: 'pointer',
+      userSelect: 'none',
     });
     document.body.appendChild(indicator);
     runtime.indicator = indicator;
@@ -192,7 +197,7 @@ function updateIndicator() {
     runtime.indicator.textContent = `Ⅱ Пауза записи · #${meta.slot} ${meta.nickname}`;
     runtime.indicator.style.color = '#fcd34d';
   } else {
-    runtime.indicator.textContent = `🎙 Запись речей готова · сохранено ${runtime.clipCount}`;
+    runtime.indicator.textContent = `🎙 Речи · ${runtime.clipCount} · открыть`;
     runtime.indicator.style.color = '#86efac';
   }
 }
@@ -493,9 +498,9 @@ export default function SpeechRecordingPilot() {
     <section className="rounded-2xl border border-sky-500/20 bg-sky-950/20 p-3 text-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-300/70">Запись речей · этап 2</div>
-          <div className="mt-1 text-sm font-black">Автозапись по таймеру речи</div>
-          <p className="mt-1 text-[11px] leading-4 text-slate-400">Включите микрофон один раз. После старта игры запись будет автоматически идти вместе с таймером говорящего, ставиться на паузу вместе с ним и сохранять каждую речь отдельно на этом устройстве.</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-300/70">Запись речей · этап 3</div>
+          <div className="mt-1 text-sm font-black">Автозапись + локальный Replay</div>
+          <p className="mt-1 text-[11px] leading-4 text-slate-400">Включите запись один раз. Во время игры речи сохраняются автоматически. Нажмите на индикатор записи в правом верхнем углу, чтобы открыть список уже сохранённых речей и прослушать любую.</p>
         </div>
         <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${testRecording || status === 'recording' ? 'bg-rose-500/15 text-rose-300' : status === 'paused' ? 'bg-amber-500/15 text-amber-300' : status === 'ready' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
           {testRecording ? '● тест' : status === 'recording' ? '● запись' : status === 'paused' ? 'пауза' : status === 'ready' ? 'автозапись готова' : 'выключено'}
@@ -513,11 +518,14 @@ export default function SpeechRecordingPilot() {
         {status !== 'off' && (
           <button type="button" onClick={disableMicrophone} className="min-h-11 rounded-xl border border-slate-700 bg-slate-950 px-4 text-xs font-bold text-slate-300">Выключить</button>
         )}
+        {status !== 'off' && runtime.clipCount > 0 && (
+          <button type="button" onClick={() => void openSpeechRecordingReview(runtime.sessionId)} className="min-h-11 rounded-xl border border-emerald-700/50 bg-emerald-950/40 px-4 text-xs font-black text-emerald-200">Речи ({runtime.clipCount})</button>
+        )}
       </div>
 
       {status !== 'off' && (
         <div className="mt-3 rounded-xl border border-emerald-500/15 bg-emerald-950/20 px-3 py-2 text-[10px] leading-4 text-emerald-100/70">
-          После перехода к игре этот блок исчезнет, но микрофон останется активен. В правом верхнем углу появится маленький индикатор: кто сейчас записывается и сколько речей уже сохранено.
+          После перехода к игре этот блок исчезнет, но микрофон останется активен. Индикатор в правом верхнем углу теперь можно нажать: он открывает локальный список сохранённых речей этой игры.
         </div>
       )}
 

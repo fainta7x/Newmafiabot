@@ -69,11 +69,12 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
   }, [props.phase, props.nextSpeaker?.slot_num, props.nextSpeaker?.nickname]);
 
   /*
-   * The mobile center card is height-limited and scrollable. After the voting UI
-   * became richer, flex centering could keep an old scroll offset and visually
-   * move the whole voting block up/down between candidates. During voting keep
-   * the body anchored to the top and reset only that inner scroll area when the
-   * voting step changes. Header/footer stay fixed in place.
+   * Voting has become taller than the old compact center card. On phones the
+   * center used to stay sticky with its own scroll area, so the player grid could
+   * literally move underneath it and some voting controls looked hidden behind
+   * the center. During voting keep the whole card in normal document flow and
+   * let it grow to its real height. There is then only one page scroll: the seats
+   * always start below the voting card and nothing can slide underneath it.
    */
   React.useLayoutEffect(() => {
     if (props.phase !== 'day_voting') return;
@@ -85,27 +86,45 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
     const previous = {
       centerMinWidth: center.style.minWidth,
       centerOverflow: center.style.overflow,
+      centerPosition: center.style.position,
+      centerTop: center.style.top,
+      centerZIndex: center.style.zIndex,
+      centerMaxHeight: center.style.maxHeight,
       alignItems: body.style.alignItems,
       justifyContent: body.style.justifyContent,
       minHeight: body.style.minHeight,
       overflowX: body.style.overflowX,
+      overflowY: body.style.overflowY,
+      flex: body.style.flex,
     };
 
     center.style.minWidth = '0';
-    center.style.overflow = 'hidden';
+    center.style.position = 'relative';
+    center.style.top = 'auto';
+    center.style.zIndex = '20';
+    center.style.maxHeight = 'none';
+    center.style.overflow = 'visible';
     body.style.alignItems = 'flex-start';
     body.style.justifyContent = 'flex-start';
     body.style.minHeight = '0';
     body.style.overflowX = 'hidden';
+    body.style.overflowY = 'visible';
+    body.style.flex = '0 0 auto';
     body.scrollTop = 0;
 
     return () => {
       center.style.minWidth = previous.centerMinWidth;
       center.style.overflow = previous.centerOverflow;
+      center.style.position = previous.centerPosition;
+      center.style.top = previous.centerTop;
+      center.style.zIndex = previous.centerZIndex;
+      center.style.maxHeight = previous.centerMaxHeight;
       body.style.alignItems = previous.alignItems;
       body.style.justifyContent = previous.justifyContent;
       body.style.minHeight = previous.minHeight;
       body.style.overflowX = previous.overflowX;
+      body.style.overflowY = previous.overflowY;
+      body.style.flex = previous.flex;
     };
   }, [props.phase, props.votingStage, props.currentVotingNomineeIndex, props.activeVotingRoundIndex]);
 

@@ -8,6 +8,7 @@ export type PlayerRouteSection =
   | 'stats'
   | 'club'
   | 'payments'
+  | 'wallet'
   | 'profile'
   | 'more'
   | 'elo'
@@ -42,9 +43,10 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     ratingperiods: '/player/rating/periods',
     stats: '/player/stats',
     club: '/player/club',
-    payments: '/player/payments',
+    payments: '/player/wallet',
+    wallet: '/player/wallet',
     profile: '/player/profile',
-    more: '/player/more',
+    more: '/player/club',
     elo: '/player/elo',
     recaps: target ? `/player/recaps/${encodeURIComponent(target)}` : '/player/recaps',
     career: '/player/career',
@@ -83,15 +85,22 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
     return { section: 'ratingperiods', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingperiods') };
   }
 
+  if (parts[1] === 'more') {
+    return { section: 'club', target: null, replayGameKey: null, canonicalPath: playerPathForSection('club') };
+  }
+
+  if (parts[1] === 'payments') {
+    return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };
+  }
+
   const sectionBySegment: Record<string, PlayerRouteSection> = {
     events: 'events',
     games: 'games',
     rating: 'rating',
     stats: 'stats',
     club: 'club',
-    payments: 'payments',
+    wallet: 'wallet',
     profile: 'profile',
-    more: 'more',
     elo: 'elo',
     career: 'career',
     seasons: 'clubworld',

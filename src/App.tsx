@@ -340,7 +340,7 @@ export default function App() {
         initialTarget={initialTarget}
         onSectionChange={syncPlayerPath}
       />
-      <PlayerLiveCenter />
+      {parsedPlayerRoute.section === 'games' ? <PlayerLiveCenter /> : null}
     </>
   );
 }

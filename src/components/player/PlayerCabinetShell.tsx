@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } from './PlayerCabinetShellLegacy.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
+import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 
 export type PlayerCabinetSection = LegacySection | 'events';
 
@@ -30,13 +31,20 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     onSectionChange?.(next, target);
   };
 
-  const legacySection: LegacySection = section === 'events' ? 'home' : section as LegacySection;
+  const legacySection: LegacySection = section === 'events' || section === 'home' ? 'games' : section as LegacySection;
   const moreActive = !primary.has(section);
 
   return (
     <div className="player-events-shell bg-[#090a0d] text-white">
       <style>{`.player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}`}</style>
-      {section === 'events' ? (
+      {section === 'home' ? (
+        <PlayerHomeDashboard
+          data={props.data}
+          onOpenEvents={() => open('events')}
+          onOpenGames={() => open('games')}
+          onOpenRating={() => open('rating')}
+        />
+      ) : section === 'events' ? (
         <PlayerEventsCalendar />
       ) : (
         <div className="legacy-cabinet-wrap">

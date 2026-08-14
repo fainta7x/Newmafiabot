@@ -148,12 +148,11 @@ export const canonicalizeClubGameSave = (
     throw new Error('В протоколе должны быть уникальные места 1–10');
   }
 
-  const winnerTeam = incomingProtocol?.winner_team === 'red' || incomingProtocol?.winner_team === 'black'
+  let winnerTeam = incomingProtocol?.winner_team === 'red' || incomingProtocol?.winner_team === 'black'
     ? incomingProtocol.winner_team
     : null;
 
   if (status === 'completed') {
-    if (!winnerTeam) throw new Error('Для завершения игры укажите победившую команду');
     const roleCounts = new Map<CanonicalRole, number>(ROLE_ORDER.map((role) => [role, 0]));
     for (const result of playerResults) {
       if (!result.role) throw new Error(`Игрок #${result.seat_number}: перед завершением укажите роль`);
@@ -167,7 +166,10 @@ export const canonicalizeClubGameSave = (
       if (!ppkCulpritId) throw new Error('Для завершения по ППК укажите виновника');
       const culprit = playerResults.find((result) => result.participant_id === ppkCulpritId);
       const culpritTeam = teamFromRole(culprit?.role || null);
-      if (!culpritTeam || winnerTeam === culpritTeam) throw new Error('При ППК должна победить противоположная команда');
+      if (!culpritTeam) throw new Error('Для завершения по ППК у виновника должна быть указана роль');
+      winnerTeam = culpritTeam === 'red' ? 'black' : 'red';
+    } else if (!winnerTeam) {
+      throw new Error('Для завершения игры укажите победившую команду');
     }
   }
 

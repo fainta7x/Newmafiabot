@@ -58,7 +58,7 @@ export default function PlayerHomeDashboard({
 }: {
   data: PlayerMeResponse;
   canOpenAdmin: boolean;
-  onOpenEvents: () => void;
+  onOpenEvents: (eventId?: string | null) => void;
   onOpenGames: () => void;
   onOpenRating: () => void;
   onOpenConduct: () => void;
@@ -135,32 +135,6 @@ export default function PlayerHomeDashboard({
           <p className="mt-1 text-xs leading-5 text-white/40">Привет, {data.player.nickname}</p>
         </header>
 
-        <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Твоя игра</div>
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            <div className="rounded-2xl bg-black/20 p-3">
-              <div className="text-xl font-semibold">{data.player.elo}</div>
-              <div className="mt-1 text-[10px] text-white/35">ELO</div>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3">
-              <div className="text-xl font-semibold">{selfRating ? `#${selfRating.place}` : '—'}</div>
-              <div className="mt-1 text-[10px] text-white/35">место</div>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3">
-              <div className="text-xl font-semibold">{stats.completedGames}</div>
-              <div className="mt-1 text-[10px] text-white/35">игр</div>
-            </div>
-            <div className="rounded-2xl bg-black/20 p-3">
-              <div className="text-xl font-semibold">{stats.winRate}%</div>
-              <div className="mt-1 text-[10px] text-white/35">побед</div>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" onClick={onOpenRating} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-xs font-semibold text-white/70">Рейтинг</button>
-            <button type="button" onClick={onOpenGames} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-xs font-semibold text-white/70">Мои игры</button>
-          </div>
-        </section>
-
         <section className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Следующий вечер</div>
           {evenings === null ? (
@@ -177,7 +151,7 @@ export default function PlayerHomeDashboard({
                   {EVENING_FORMAT_LABELS[normalizeEveningFormat(nextEvening.format)]}
                 </span>
               </div>
-              <button type="button" onClick={onOpenEvents} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
+              <button type="button" onClick={() => onOpenEvents(nextEvening.id)} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl bg-white px-4 text-sm font-semibold text-black">
                 <span>Выбрать игры</span>
                 <span>→</span>
               </button>
@@ -187,15 +161,27 @@ export default function PlayerHomeDashboard({
           )}
         </section>
 
+        <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Твоя игра</div>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">{data.player.elo}</div><div className="mt-1 text-[10px] text-white/35">ELO</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">{selfRating ? `#${selfRating.place}` : '—'}</div><div className="mt-1 text-[10px] text-white/35">место</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">{stats.completedGames}</div><div className="mt-1 text-[10px] text-white/35">игр</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">{stats.winRate}%</div><div className="mt-1 text-[10px] text-white/35">побед</div></div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={onOpenRating} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-xs font-semibold text-white/70">Рейтинг</button>
+            <button type="button" onClick={onOpenGames} className="min-h-11 rounded-xl bg-white/[0.07] px-3 text-xs font-semibold text-white/70">Мои игры</button>
+          </div>
+        </section>
+
         {latestGame && (
           <button type="button" onClick={onOpenGames} className="w-full rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Последняя игра</div>
                 <div className="mt-1 truncate text-sm font-semibold">{latestGame.title || 'Игра'}</div>
-                <div className="mt-1 text-xs text-white/35">
-                  {[formatGameDate(latestGame.date), roleLabel(latestGame.role), latestGame.won === true ? 'Победа' : latestGame.won === false ? 'Поражение' : null].filter(Boolean).join(' · ')}
-                </div>
+                <div className="mt-1 text-xs text-white/35">{[formatGameDate(latestGame.date), roleLabel(latestGame.role), latestGame.won === true ? 'Победа' : latestGame.won === false ? 'Поражение' : null].filter(Boolean).join(' · ')}</div>
               </div>
               <span className="text-xl text-white/20">›</span>
             </div>
@@ -209,10 +195,7 @@ export default function PlayerHomeDashboard({
               {canConduct && (
                 <button type="button" onClick={onOpenConduct} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 px-3 text-left active:bg-white/[0.06]">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/[0.07] text-amber-100">▶</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Ведение игр</span>
-                    <span className="mt-0.5 block text-[10px] text-white/35">{activeAssignments ? `${activeAssignments} активных назначений` : judging?.player.judge_level_label || 'Судейский режим'}</span>
-                  </span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Ведение игр</span><span className="mt-0.5 block text-[10px] text-white/35">{activeAssignments ? `${activeAssignments} активных назначений` : judging?.player.judge_level_label || 'Судейский режим'}</span></span>
                   <span className="text-lg text-white/20">›</span>
                 </button>
               )}

@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { VotingRound } from '../shared/tournamentVoting';
 import {
+  ClubLiveSessionRecorder,
+  LEGACY_DEATH_PROTOCOL_KEY,
+  LEGACY_LIVE_SESSION_KEY,
+  clubLiveDeathProtocolKey,
   clubLiveSessionKey,
   finalizeLiveVotingRounds,
   mergeLiveVotingRounds,
@@ -22,10 +27,31 @@ const round = (partial: Partial<VotingRound>): VotingRound => ({
 });
 
 describe('club live session evidence', () => {
+  beforeEach(() => localStorage.clear());
+
   it('isolates autosave keys by club game id', () => {
     expect(clubLiveSessionKey(41)).toBe('mafia_live_session:club:41');
     expect(clubLiveSessionKey(42)).toBe('mafia_live_session:club:42');
     expect(clubLiveSessionKey(41)).not.toBe(clubLiveSessionKey(42));
+  });
+
+  it('keeps live and death-protocol drafts scoped to the same game', () => {
+    localStorage.setItem(clubLiveSessionKey(41), JSON.stringify({ phase: 'day_speeches', activePlayers: [] }));
+    localStorage.setItem(clubLiveDeathProtocolKey(41), JSON.stringify({ 4: { red: [1], black: [], sheriff: [] } }));
+
+    const game41 = new ClubLiveSessionRecorder(41);
+    game41.mount();
+    expect(localStorage.getItem(LEGACY_LIVE_SESSION_KEY)).toContain('day_speeches');
+    expect(localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY)).toContain('"4"');
+    game41.unmount();
+    expect(localStorage.getItem(LEGACY_LIVE_SESSION_KEY)).toBeNull();
+    expect(localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY)).toBeNull();
+
+    const game42 = new ClubLiveSessionRecorder(42);
+    game42.mount();
+    expect(localStorage.getItem(LEGACY_LIVE_SESSION_KEY)).toBeNull();
+    expect(localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY)).toBeNull();
+    game42.unmount();
   });
 
   it('keeps same round numbers from different game days independently', () => {

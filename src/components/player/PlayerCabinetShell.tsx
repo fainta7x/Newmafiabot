@@ -4,6 +4,7 @@ import PlayerClubHub from './PlayerClubHub.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
+import PlayerLiveCenter from './PlayerLiveCenter.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
 import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
@@ -132,6 +133,8 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
           />
         </div>
       )}
+
+      <PlayerLiveCenter />
 
       <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">

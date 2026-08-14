@@ -13,6 +13,8 @@ _MONTHS_RU = (
     "января", "февраля", "марта", "апреля", "мая", "июня",
     "июля", "августа", "сентября", "октября", "ноября", "декабря",
 )
+_CLUB_GAME_PRICE = 100
+_CLUB_EVENING_MAX_PRICE = 400
 
 
 def format_start(value: object) -> str:
@@ -50,19 +52,20 @@ def _format_game_numbers(numbers: list[int]) -> str:
 
 def _price_text(evening: dict, slots: list[dict] | None = None) -> str | None:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
+    is_club = canonical_format in {"CASUAL", "STANDARD"}
     raw = evening.get("price_per_game")
     if raw is None and slots:
         raw = slots[0].get("price") if slots[0].get("price") is not None else slots[0].get("price_rub")
     if raw is None:
-        raw = evening.get("default_price")
+        raw = _CLUB_GAME_PRICE if is_club else evening.get("default_price")
     try:
         amount = int(float(raw or 0))
     except (TypeError, ValueError):
         return None
     if amount <= 0:
         return None
-    if canonical_format in {"CASUAL", "STANDARD"}:
-        return f"{amount} ₽ за игру · максимум 400 ₽ за вечер"
+    if is_club:
+        return f"{amount} ₽ за игру · максимум {_CLUB_EVENING_MAX_PRICE} ₽ за вечер"
     return f"{amount} ₽ за игру"
 
 

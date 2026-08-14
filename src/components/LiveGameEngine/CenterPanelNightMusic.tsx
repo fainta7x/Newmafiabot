@@ -46,6 +46,28 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
       : '—'}`;
   }, [props.phase, props.nominations]);
 
+  /* The next-speech action must identify the player by both seat and nickname. */
+  React.useLayoutEffect(() => {
+    if (props.phase !== 'day_speeches' || !props.nextSpeaker) return;
+    const grid = findLiveGrid();
+    const center = grid?.children?.[10] as HTMLElement | undefined;
+    if (!center) return;
+
+    const slot = props.nextSpeaker.slot_num;
+    const nickname = props.nextSpeaker.nickname?.trim() || `Игрок ${slot}`;
+    const oldLabel = `Речь #${slot}`;
+    const button = Array.from(center.querySelectorAll<HTMLButtonElement>('button')).find(
+      (node) => node.textContent?.trim() === oldLabel,
+    );
+    if (!button) return;
+
+    const textNode = Array.from(button.childNodes).find(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.includes(oldLabel),
+    );
+    if (textNode) textNode.textContent = `Речь #${slot} · ${nickname}`;
+    button.title = `Передать речь игроку #${slot} · ${nickname}`;
+  }, [props.phase, props.nextSpeaker?.slot_num, props.nextSpeaker?.nickname]);
+
   /*
    * The mobile center card is height-limited and scrollable. After the voting UI
    * became richer, flex centering could keep an old scroll offset and visually

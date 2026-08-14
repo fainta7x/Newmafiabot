@@ -10,6 +10,7 @@ export interface ClubGameTokenFormulaInput {
   protocolBonus?: unknown;
   bestMovePoints?: unknown;
   ciPoints?: unknown;
+  /** Canonical score penalty magnitude. Token sanctions are applied below from their source fields. */
   disciplinaryPoints?: unknown;
   regularFouls?: unknown;
   minorTechnicalFouls?: unknown;
@@ -82,12 +83,14 @@ export const calculateClubGamePlayerTokens = (input: ClubGameTokenFormulaInput):
   const winner = normalizeWinner(input.winnerTeam);
   const participation = 100;
   const victory = roleTeam && winner && roleTeam === winner ? 100 : 0;
+  // disciplinary_penalty_points is the canonical game-score penalty magnitude.
+  // Do not add/subtract it here: token sanctions are already represented exactly once
+  // by minor/major tech, removal and PPK fields below.
   const additionalPointsTenths = [
     input.judgeBonus,
     input.protocolBonus,
     input.bestMovePoints,
     input.ciPoints,
-    input.disciplinaryPoints,
   ].map(decimalPointsToTenths).reduce((sum, value) => sum + value, 0);
   const additionalPointsTokens = additionalPointsTenths * 10;
   const fouls = count(input.regularFouls);

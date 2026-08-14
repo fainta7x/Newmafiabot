@@ -113,6 +113,56 @@ export default function CenterPanelNightMusic(props: CenterPanelProps) {
     props.votesByPlayer,
   ]);
 
+  /*
+   * The base voting guard locks the table once the division becomes mathematically
+   * decided. That accidentally made the votes which caused the decision impossible
+   * to correct. Keep uncast seats protected, but always let an explicitly cast vote
+   * for the candidate currently being counted be tapped again. LiveGameEngine's
+   * existing toggle then removes that exact vote and the normal voting flow reopens.
+   */
+  React.useEffect(() => {
+    if (props.phase !== 'day_voting' || props.votingStage !== 'collecting') return;
+    const round = props.votingRounds?.[props.activeVotingRoundIndex || 0];
+    const nominee = round?.nominated_seats?.[props.currentVotingNomineeIndex];
+    if (!nominee) return;
+
+    let frame = 0;
+    const unlockCastVotes = () => {
+      const grid = findLiveGrid();
+      if (!grid) return;
+      const seats = Array.from(grid.children).slice(0, 10) as HTMLElement[];
+      seats.forEach((node, index) => {
+        const voterSlot = index + 1;
+        if (props.votesByPlayer?.[voterSlot] !== nominee) return;
+        node.style.pointerEvents = 'auto';
+        delete node.dataset.sequentialVoteLocked;
+        node.dataset.voteUndoAvailable = 'true';
+        node.title = `Нажмите ещё раз, чтобы отменить голос игрока #${voterSlot} за #${nominee}`;
+      });
+    };
+
+    unlockCastVotes();
+    frame = window.requestAnimationFrame(unlockCastVotes);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      const grid = findLiveGrid();
+      const seats = grid ? Array.from(grid.children).slice(0, 10) as HTMLElement[] : [];
+      seats.forEach((node) => {
+        if (node.dataset.voteUndoAvailable === 'true') {
+          delete node.dataset.voteUndoAvailable;
+          node.removeAttribute('title');
+        }
+      });
+    };
+  }, [
+    props.phase,
+    props.votingStage,
+    props.votingRounds,
+    props.activeVotingRoundIndex,
+    props.currentVotingNomineeIndex,
+    props.votesByPlayer,
+  ]);
+
   const getNextStepInfo = React.useCallback(() => {
     if (isRegularNightIntro && musicStartedRound !== props.roundNumber) {
       return {

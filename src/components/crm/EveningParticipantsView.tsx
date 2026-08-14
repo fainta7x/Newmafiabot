@@ -20,6 +20,9 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   const [announcing, setAnnouncing] = useState(false);
   const [announceMessage, setAnnounceMessage] = useState<string | null>(null);
   const [announceError, setAnnounceError] = useState<string | null>(null);
+  const [reminding, setReminding] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
+  const [reminderError, setReminderError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -82,6 +85,37 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     }
   };
 
+  const remindUnanswered = async () => {
+    if (reminding) return;
+    setReminding(true);
+    setReminderError(null);
+    setReminderMessage(null);
+    try {
+      const response = await fetch(`/api/evenings/${encodeURIComponent(props.eveningId)}/remind-unanswered`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось отправить напоминание');
+
+      const eligible = Number(payload?.eligible || 0);
+      const sent = Number(payload?.sent || 0);
+      const failed = Number(payload?.failed || 0) + Number(payload?.delivery_state_failures || 0);
+      if (eligible === 0) {
+        setReminderMessage('Напоминать некому: среди получивших анонс нет игроков без ответа.');
+      } else if (failed > 0) {
+        setReminderMessage(`Напоминание отправлено: ${sent}, не доставлено: ${failed}.`);
+      } else {
+        setReminderMessage(`Напоминание отправлено ${sent} игрокам без ответа.`);
+      }
+      refresh();
+    } catch (error: any) {
+      setReminderError(error?.message || 'Не удалось отправить напоминание');
+    } finally {
+      setReminding(false);
+    }
+  };
+
   return (
     <div className="min-w-0 overflow-x-hidden space-y-4">
       {status === 'draft' ? (
@@ -111,19 +145,31 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <strong className="block text-[13px] text-text-primary">Telegram-анонс</strong>
-              <span className="mt-0.5 block text-[11px] text-text-secondary">Группа + личные приглашения только тем, кто сейчас включён в рассылку и подходит по уровню.</span>
+              <span className="mt-0.5 block text-[11px] text-text-secondary">Личные приглашения получают только игроки из рассылки, подходящие по уровню. Напоминание уйдёт только тем, кто уже получил анонс и всё ещё без ответа.</span>
             </div>
-            <button
-              type="button"
-              disabled={announcing}
-              onClick={() => void announceEvening()}
-              className="min-h-[44px] shrink-0 rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50"
-            >
-              {announcing ? 'Отправляем…' : '📣 Отправить анонс'}
-            </button>
+            <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={announcing || reminding}
+                onClick={() => void announceEvening()}
+                className="min-h-[44px] rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50"
+              >
+                {announcing ? 'Отправляем…' : '📣 Отправить анонс'}
+              </button>
+              <button
+                type="button"
+                disabled={announcing || reminding}
+                onClick={() => void remindUnanswered()}
+                className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-4 text-[12px] font-bold text-text-primary disabled:opacity-50"
+              >
+                {reminding ? 'Напоминаем…' : '🔔 Напомнить без ответа'}
+              </button>
+            </div>
           </div>
           {announceMessage ? <p className="mt-2 text-[11px] text-success">{announceMessage}</p> : null}
           {announceError ? <p className="mt-2 text-[11px] text-danger">{announceError}</p> : null}
+          {reminderMessage ? <p className="mt-2 text-[11px] text-success">{reminderMessage}</p> : null}
+          {reminderError ? <p className="mt-2 text-[11px] text-danger">{reminderError}</p> : null}
         </section>
       ) : null}
 

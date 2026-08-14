@@ -125,6 +125,8 @@ export default function CenterPanel({
   handleConfirmTableDecision,
 }: CenterPanelProps) {
   const [tableVoterSlots, setTableVoterSlots] = React.useState<number[]>([]);
+  const timerDeadlineRef = React.useRef<number | null>(null);
+  const timerIdentityRef = React.useRef('');
   const activeSpeaker = activePlayers.find((p) => p.slot_num === activeSpeakerSlot);
   const donPlayer = activePlayers.find((p) => p.role === "Дон");
   const mafiaPlayers = activePlayers.filter((p) => p.role === "Мафия");
@@ -146,8 +148,52 @@ export default function CenterPanel({
     }
   }, [votingStage, activeVotingRoundIndex, setTableLeaveVotesInput]);
 
+  /*
+   * Android / Telegram WebView throttles setInterval while the app is minimized.
+   * Keep an absolute deadline so a running speech timer catches up immediately
+   * when the app becomes visible again instead of silently pausing in background.
+   */
+  React.useEffect(() => {
+    const identity = [phase, votingStage, activeSpeakerSlot ?? '', customTimerLabel ?? '', effectiveTimerMax].join('|');
+    if (!isTimerRunning) {
+      timerDeadlineRef.current = null;
+      timerIdentityRef.current = identity;
+      return;
+    }
+
+    if (timerDeadlineRef.current === null || timerIdentityRef.current !== identity) {
+      timerDeadlineRef.current = Date.now() + Math.max(0, timeLeft) * 1000;
+      timerIdentityRef.current = identity;
+    }
+
+    const syncFromDeadline = () => {
+      const deadline = timerDeadlineRef.current;
+      if (!isTimerRunning || deadline === null) return;
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) setIsTimerRunning(false);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncFromDeadline();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', syncFromDeadline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', syncFromDeadline);
+    };
+  }, [isTimerRunning, phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax]);
+
+  const adjustTimer = (amount: number) => {
+    if (isTimerRunning && timerDeadlineRef.current !== null) timerDeadlineRef.current += amount * 1000;
+    handleAdjustTime(amount);
+  };
+
   const handleStartTimer = (slot: number, duration: number) => {
     const safeDuration = phase === 'day_voting' && votingStage === 'revote_speeches' ? 30 : duration;
+    timerDeadlineRef.current = Date.now() + safeDuration * 1000;
+    timerIdentityRef.current = [phase, votingStage, slot, customTimerLabel ?? '', safeDuration].join('|');
     setActiveSpeakerSlot(slot);
     setTimeLeft(safeDuration);
     setIsTimerRunning(true);
@@ -271,12 +317,48 @@ export default function CenterPanel({
     });
   }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer, activePlayers]);
 
+  /* Replace the old hand-only status with an explicit voter -> candidate label. */
+  React.useEffect(() => {
+    if (phase !== 'day_voting' || votingStage !== 'collecting' || !currentRound) return;
+    const root = document.querySelector<HTMLElement>('.evening-live-engine-shell, .tournament-live-shell');
+    const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
+    if (!grid) return;
+    const candidates = currentRound.nominated_seats;
+    const currentNominee = candidates[currentVotingNomineeIndex];
+    const lastNominee = candidates[candidates.length - 1];
+    const seatNodes = Array.from(grid.children).slice(0, 10) as HTMLElement[];
+
+    seatNodes.forEach((node, index) => {
+      const voterSlot = index + 1;
+      const explicitTarget = votesByPlayer[voterSlot];
+      const autoTarget = explicitTarget === undefined && currentNominee === lastNominee ? lastNominee : undefined;
+      const target = explicitTarget ?? autoTarget;
+      const statusSpans = Array.from(node.querySelectorAll('span')).filter((span) => {
+        const text = span.textContent?.trim() || '';
+        return text.includes('✋') || text.startsWith('Против #') || text === 'Не голосовал';
+      });
+      const status = statusSpans[statusSpans.length - 1];
+      if (!status) return;
+      status.textContent = target ? `#${voterSlot} → #${target}${autoTarget ? ' · авто' : ''}` : `#${voterSlot} → —`;
+    });
+  }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer]);
+
+  const renderDayNominations = () => {
+    if (phase !== 'day_speeches') return null;
+    return (
+      <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-950/20 px-2 py-1 text-[9px] font-black text-fuchsia-200">
+        Выставлены: {nominations.length ? nominations.map((slot, index) => `${index + 1}. #${slot}`).join(' · ') : '—'}
+      </div>
+    );
+  };
+
   const renderTimer = () => (
     <div className="space-y-1.5 w-full max-w-[300px] mx-auto">
       <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block">
         {customTimerLabel || (activeSpeakerSlot ? `Сейчас говорит #${activeSpeakerSlot}` : 'Таймер')}
       </span>
       {activeSpeaker && <div className="text-xs font-black text-white truncate">{activeSpeaker.nickname || `Игрок ${activeSpeaker.slot_num}`}</div>}
+      {renderDayNominations()}
       <div className={`text-2xl sm:text-3xl font-mono font-black py-0.5 rounded-xl border ${timeLeft <= 10 ? 'text-rose-400 border-rose-500/60 bg-rose-950/60' : 'text-emerald-400 border-slate-800 bg-slate-950'}`}>
         {timeLeft}с
       </div>
@@ -284,7 +366,7 @@ export default function CenterPanel({
         <div className="h-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, Math.max(0, effectiveTimerMax ? (timeLeft / effectiveTimerMax) * 100 : 0))}%` }} />
       </div>
       <div className="flex gap-1.5">
-        <button type="button" onClick={() => handleAdjustTime(-10)} className="w-10 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold">-10</button>
+        <button type="button" onClick={() => adjustTimer(-10)} className="w-10 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold">-10</button>
         {isTimerRunning ? (
           <button type="button" onClick={() => setIsTimerRunning(false)} className="flex-1 h-9 rounded-xl bg-amber-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1"><Pause className="w-4 h-4" />Пауза</button>
         ) : (
@@ -317,6 +399,11 @@ export default function CenterPanel({
       const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
       const remaining = Math.max(0, eligible - explicitAssigned);
       const isLast = currentVotingNomineeIndex === candidates.length - 1;
+      const assignments = eligibleVoterSeats.slice().sort((a, b) => a - b).map((slot) => ({
+        slot,
+        target: votesByPlayer[slot] ?? (isLast ? nominee : null),
+        automatic: votesByPlayer[slot] === undefined && isLast,
+      }));
 
       if (decided) {
         return (
@@ -325,6 +412,9 @@ export default function CenterPanel({
               ✓ Голосование математически решено
             </div>
             <div className="text-[9px] leading-4 text-slate-400">Оставшиеся голоса уже не могут изменить лидера. Изменение голосов заблокировано.</div>
+            <div className="grid grid-cols-5 gap-1">
+              {assignments.map(({ slot, target }) => <div key={slot} className="rounded-md border border-slate-800 bg-slate-950/70 px-1 py-1 text-[8px] font-black text-slate-300">#{slot}→{target ? `#${target}` : '—'}</div>)}
+            </div>
             <button type="button" onClick={handleResolveVoting} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Зафиксировать итог</button>
           </div>
         );
@@ -338,6 +428,14 @@ export default function CenterPanel({
           <div className="text-xs font-black text-white">
             Кто против <span className="text-rose-400 font-mono">#{nominee}</span>?
           </div>
+          <div className="grid grid-cols-5 gap-1">
+            {assignments.map(({ slot, target, automatic }) => (
+              <div key={slot} className={`rounded-md border px-1 py-1 text-[8px] font-black ${target ? 'border-rose-500/30 bg-rose-950/20 text-rose-200' : 'border-slate-800 bg-slate-950/60 text-slate-500'}`}>
+                #{slot}→{target ? `#${target}${automatic ? '*' : ''}` : '—'}
+              </div>
+            ))}
+          </div>
+          {isLast && <div className="text-[8px] text-slate-500">* оставшийся голос автоматически уходит последнему выставленному</div>}
           <div className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 flex justify-between text-[10px]">
             <span className="text-slate-400">Текущий итог</span>
             <strong className="text-rose-400 font-mono">{votes[nominee] || 0}</strong>
@@ -466,11 +564,17 @@ export default function CenterPanel({
 
     if (phase === 'day_speeches') {
       return nextSpeaker ? (
-        <div className="space-y-2">
+        <div className="space-y-2 w-full max-w-[300px] mx-auto">
           <div className="text-xs font-black text-white uppercase">Круг обсуждения</div>
+          {renderDayNominations()}
           <button type="button" onClick={handleStartNextSpeaker} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase flex items-center gap-1.5 mx-auto"><Mic className="w-4 h-4" />Речь #{nextSpeaker.slot_num}</button>
         </div>
-      ) : <div className="text-xs font-black text-emerald-400">Все выступили ✓</div>;
+      ) : (
+        <div className="space-y-2 w-full max-w-[300px] mx-auto">
+          {renderDayNominations()}
+          <div className="text-xs font-black text-emerald-400">Все выступили ✓</div>
+        </div>
+      );
     }
 
     if (phase === 'day_voting') return renderVoting();

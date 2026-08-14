@@ -2,9 +2,11 @@ import { determineVotingResult, type VotingRound } from '../shared/tournamentVot
 import type { ShotEntry } from './api';
 
 export const LEGACY_LIVE_SESSION_KEY = 'mafia_live_session';
+export const LEGACY_DEATH_PROTOCOL_KEY = 'mafia_live_death_protocols';
 
 export const clubLiveSessionKey = (gameId: number | string) => `${LEGACY_LIVE_SESSION_KEY}:club:${String(gameId)}`;
 export const clubLiveEvidenceKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:protocol`;
+export const clubLiveDeathProtocolKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:death-protocols`;
 
 export type LiveProtocolEvidence = {
   votes: VotingRound[];
@@ -129,6 +131,7 @@ export class ClubLiveSessionRecorder {
   readonly gameId: number;
   readonly sessionKey: string;
   readonly evidenceKey: string;
+  readonly deathProtocolKey: string;
   private evidence: LiveProtocolEvidence = { votes: [], shots: [] };
   private previousSnapshot: LiveSessionSnapshot | null = null;
   private intervalId: number | null = null;
@@ -138,6 +141,7 @@ export class ClubLiveSessionRecorder {
     this.gameId = gameId;
     this.sessionKey = clubLiveSessionKey(gameId);
     this.evidenceKey = clubLiveEvidenceKey(gameId);
+    this.deathProtocolKey = clubLiveDeathProtocolKey(gameId);
   }
 
   mount() {
@@ -147,12 +151,18 @@ export class ClubLiveSessionRecorder {
     const scoped = localStorage.getItem(this.sessionKey);
     if (scoped) localStorage.setItem(LEGACY_LIVE_SESSION_KEY, scoped);
     else localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
+    const scopedDeathProtocol = localStorage.getItem(this.deathProtocolKey);
+    if (scopedDeathProtocol) localStorage.setItem(LEGACY_DEATH_PROTOCOL_KEY, scopedDeathProtocol);
+    else localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     this.sync();
     this.intervalId = window.setInterval(() => this.sync(), 75);
   }
 
   sync() {
     if (typeof window === 'undefined') return;
+    const rawDeathProtocol = localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY);
+    if (rawDeathProtocol) localStorage.setItem(this.deathProtocolKey, rawDeathProtocol);
+
     const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
     if (!raw) return;
     const snapshot = parseJson<LiveSessionSnapshot | null>(raw, null);
@@ -177,6 +187,7 @@ export class ClubLiveSessionRecorder {
     if (this.intervalId !== null) window.clearInterval(this.intervalId);
     this.intervalId = null;
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
+    localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     this.mounted = false;
   }
 
@@ -186,8 +197,10 @@ export class ClubLiveSessionRecorder {
     if (this.intervalId !== null) window.clearInterval(this.intervalId);
     this.intervalId = null;
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
+    localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem(this.evidenceKey);
+    localStorage.removeItem(this.deathProtocolKey);
     this.mounted = false;
   }
 }

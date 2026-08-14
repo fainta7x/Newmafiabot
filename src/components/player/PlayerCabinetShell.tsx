@@ -27,7 +27,6 @@ const NAV: Array<{ id: NavId; icon: string; label: string }> = [
   { id: 'club', icon: '◆', label: 'Клуб' },
 ];
 
-const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'rating', 'club']);
 const gameSections = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);
 const ratingSections = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'clubworld']);
 
@@ -60,6 +59,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
   };
 
   const currentData = { ...props.data, player };
+  const legacyProps = { ...props, data: currentData };
   const legacySection: LegacySection = section === 'events'
     || section === 'home'
     || section === 'wallet'
@@ -122,8 +122,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
       ) : (
         <div className="legacy-cabinet-wrap">
           <LegacyPlayerCabinetShell
-            {...props}
-            data={currentData}
+            {...legacyProps}
             initialSection={legacySection}
             onSectionChange={(next, target) => open(next, target || null)}
           />

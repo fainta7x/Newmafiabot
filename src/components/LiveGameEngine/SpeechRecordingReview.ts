@@ -59,6 +59,13 @@ const makeElement = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: 
   return node;
 };
 
+const makeTextLine = (text: string, styles: Partial<CSSStyleDeclaration>) => {
+  const node = makeElement('div');
+  node.textContent = text;
+  Object.assign(node.style, styles);
+  return node;
+};
+
 export async function openSpeechRecordingReview(sessionId?: string | null) {
   if (typeof document === 'undefined' || typeof indexedDB === 'undefined') return;
   document.querySelector('[data-speech-recording-review="true"]')?.remove();
@@ -94,7 +101,11 @@ export async function openSpeechRecordingReview(sessionId?: string | null) {
   const header = makeElement('div');
   Object.assign(header.style, { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' });
   const heading = makeElement('div');
-  heading.innerHTML = '<div style="font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#7dd3fc">Запись речей · этап 3</div><div style="font-size:18px;font-weight:900;margin-top:3px">Речи этой игры</div><div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.4">Записи пока хранятся только на этом устройстве.</div>';
+  heading.append(
+    makeTextLine('Запись речей · этап 3', { fontSize: '10px', fontWeight: '900', letterSpacing: '.14em', textTransform: 'uppercase', color: '#7dd3fc' }),
+    makeTextLine('Речи этой игры', { fontSize: '18px', fontWeight: '900', marginTop: '3px' }),
+    makeTextLine('Записи пока хранятся только на этом устройстве.', { fontSize: '11px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }),
+  );
   const closeButton = makeElement('button');
   closeButton.type = 'button';
   closeButton.textContent = '×';
@@ -148,7 +159,10 @@ export async function openSpeechRecordingReview(sessionId?: string | null) {
       const row = makeElement('div');
       Object.assign(row.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' });
       const title = makeElement('div');
-      title.innerHTML = `<div style="font-size:12px;font-weight:900;color:#f8fafc">${index + 1}. #${clip.slot} · ${clip.nickname || `Игрок ${clip.slot}`}</div><div style="font-size:10px;color:#94a3b8;margin-top:3px">${clip.speech_type || `День ${clip.round || 1}`} · круг ${clip.round || 1}</div>`;
+      title.append(
+        makeTextLine(`${index + 1}. #${clip.slot} · ${clip.nickname || `Игрок ${clip.slot}`}`, { fontSize: '12px', fontWeight: '900', color: '#f8fafc' }),
+        makeTextLine(`${clip.speech_type || `День ${clip.round || 1}`} · круг ${clip.round || 1}`, { fontSize: '10px', color: '#94a3b8', marginTop: '3px' }),
+      );
       const duration = makeElement('div');
       duration.textContent = formatDuration(Number(clip.duration_seconds || 0));
       Object.assign(duration.style, { flex: '0 0 auto', fontSize: '11px', fontWeight: '900', color: '#cbd5e1' });

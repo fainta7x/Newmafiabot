@@ -28,6 +28,10 @@ export default function PlayerGamesHub({
   return (
     <div className="bg-[#090a0d] text-white">
       <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
+        <header className="px-1 pb-3 pt-1">
+          <h1 className="text-2xl font-semibold">Игры</h1>
+          <p className="mt-1 text-xs leading-5 text-white/40">История партий, показатели, карьера и итоги вечеров</p>
+        </header>
         <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1">
           {TABS.map((tab) => {
             const active = section === tab.id;
@@ -47,11 +51,15 @@ export default function PlayerGamesHub({
       </div>
 
       {section === 'career' ? (
-        <PlayerCareerProfile playerId={data.player.id} onBack={() => onOpen('games')} />
+        <PlayerCareerProfile playerId={data.player.id} embedded />
       ) : section === 'recaps' ? (
-        <PlayerEveningSummaries onBack={() => onOpen('games')} initialEveningId={target} />
+        <PlayerEveningSummaries initialEveningId={target} embedded />
       ) : (
-        <div className="legacy-cabinet-wrap">
+        <div className="legacy-cabinet-wrap player-games-legacy">
+          <style>{`
+            .player-games-legacy main > div > div[class*="px-1"][class*="pb-1"][class*="pt-2"]{display:none!important}
+            .player-games-legacy main{padding-top:.5rem!important}
+          `}</style>
           <LegacyPlayerCabinetShell
             data={data}
             canOpenAdmin={canOpenAdmin}

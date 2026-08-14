@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { VotingRound } from '../shared/tournamentVoting';
+import { createNextRevoteRound, type VotingRound } from '../shared/tournamentVoting';
 import {
   ClubLiveSessionRecorder,
   LEGACY_DEATH_PROTOCOL_KEY,
@@ -21,6 +21,8 @@ const round = (partial: Partial<VotingRound>): VotingRound => ({
   day_number: partial.day_number ?? 0,
   eligible_voters: partial.eligible_voters ?? 10,
   parent_round_number: partial.parent_round_number ?? null,
+  parent_nominated_seats: partial.parent_nominated_seats,
+  parent_vote_counts: partial.parent_vote_counts,
   outcome: partial.outcome ?? 'pending',
   eliminated_seats: partial.eliminated_seats ?? [],
   table_leave_votes: partial.table_leave_votes ?? null,
@@ -61,6 +63,23 @@ describe('club live session evidence', () => {
     );
     expect(merged).toHaveLength(2);
     expect(merged.map((item) => [item.day_number, item.round_number])).toEqual([[0, 1], [1, 1]]);
+  });
+
+  it('keeps immediate parent division on saved revote evidence', () => {
+    const parent = round({
+      day_number: 2,
+      round_number: 3,
+      nominated_seats: [1, 2, 3],
+      vote_counts: { 1: 5, 2: 5, 3: 0 },
+      outcome: 'tie_revote',
+    });
+    const child = createNextRevoteRound(parent, [1, 2]);
+    child.round_number = 4;
+    child.vote_counts = { 1: 5, 2: 5 };
+
+    const merged = mergeLiveVotingRounds([], [parent, child]);
+    expect(merged[1].parent_nominated_seats).toEqual([1, 2, 3]);
+    expect(merged[1].parent_vote_counts).toEqual({ 1: 5, 2: 5, 3: 0 });
   });
 
   it('finalizes repeated seven-way tie as no elimination', () => {

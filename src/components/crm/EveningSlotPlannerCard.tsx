@@ -3,7 +3,7 @@ import React,{useEffect,useState} from 'react';
 type Person={id:string;nickname:string};
 type Slot={id:string;slot_number:number;starts_at:string;ends_at:string;price:number;registered_count:number;participants:Person[]};
 type Plan={event:{starts_at:string;slot_count:number;slot_duration_minutes:number;price_per_game:number;assembled:boolean;assembled_slots:number;required_slots:number;required_players_per_slot:number};slots:Slot[]};
-const tm=(v:string)=>new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+const tm=(v:string)=>new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'});
 const localMoscow=(v:string)=>new Date(new Date(v).getTime()+3*60*60*1000).toISOString().slice(0,16);
 const moscowIso=(v:string)=>`${v}:00+03:00`;
 
@@ -21,7 +21,7 @@ export default function EveningSlotPlannerCard({eveningId,onRefresh}:{eveningId:
    <label className="text-[10px] font-bold uppercase text-text-muted">Цена / игра<input type="number" min="0" value={price} onChange={e=>setPrice(Math.max(0,Number(e.target.value||0)))} className="mt-1 min-h-11 w-full rounded-xl border border-border-soft bg-surface-2 px-3 text-sm text-text-primary"/></label>
    <button disabled={busy||!start} onClick={()=>void save()} className="min-h-11 self-end rounded-xl bg-accent px-4 text-xs font-bold text-white disabled:opacity-50">{busy?'Сохраняю…':'Сохранить'}</button>
   </div>
-  <p className="mt-2 text-[10px] leading-4 text-text-muted">Расписание всех игр пересчитается автоматически. Слот с существующей записью нельзя случайно удалить.</p>
+  <p className="mt-2 text-[10px] leading-4 text-text-muted">Время показывается по Москве. Расписание всех игр пересчитается автоматически. Слот с существующей записью нельзя случайно удалить.</p>
   {error&&<div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-text-secondary">{error}</div>}
   {plan&&<div className="mt-4 grid gap-2 lg:grid-cols-2">{plan.slots.map(s=>{const ready=s.registered_count>=plan.event.required_players_per_slot;return <div key={s.id} className={`rounded-2xl border p-3 ${ready?'border-success/30 bg-success-soft/30':'border-border-soft bg-surface-2'}`}><div className="flex justify-between gap-2"><div><b className="text-sm text-text-primary">Игра {s.slot_number} · {tm(s.starts_at)}–{tm(s.ends_at)}</b><div className={`mt-1 text-[11px] ${ready?'text-success':'text-text-secondary'}`}>{s.registered_count}/{plan.event.required_players_per_slot} игроков{ready?' · собрано':''}</div></div><span className="text-[10px] text-text-muted">{s.price} ₽</span></div>{s.participants.length?<div className="mt-2 flex flex-wrap gap-1">{s.participants.map(p=><span key={p.id} className="rounded-full bg-surface-1 px-2 py-1 text-[10px] text-text-secondary">{p.nickname}</span>)}</div>:<div className="mt-2 text-[10px] text-text-muted">Пока пусто</div>}</div>})}</div>}
  </section>;

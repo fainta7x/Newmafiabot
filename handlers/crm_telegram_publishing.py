@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from html import escape
 
 from aiogram import Bot
@@ -14,44 +13,7 @@ from bot_telegram_api import (
     save_evening_telegram_publication,
     save_public_router_message_id,
 )
-from crm_evening_keyboard import crm_evening_response_kb
-
-
-_RESPONSE_LABELS = {
-    "going": "✅ Идут",
-    "late": "⏳ Придут позже",
-    "thinking": "🤔 Пока думают",
-    "declined": "❌ Не идут",
-}
-
-_FORMAT_LABELS = {
-    "NOVICE": "Игра для новичков",
-    "CASUAL": "Клубный игровой вечер",
-    "RATING": "Рейтинговый вечер",
-    "TOURNAMENT": "Турнир",
-}
-
-_MONTHS_RU = (
-    "января", "февраля", "марта", "апреля", "мая", "июня",
-    "июля", "августа", "сентября", "октября", "ноября", "декабря",
-)
-
-
-def _format_start(value: object) -> str:
-    raw = str(value or "")
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        return f"{parsed.day} {_MONTHS_RU[parsed.month - 1]} · {parsed:%H:%M}"
-    except (TypeError, ValueError):
-        return raw or "Дата уточняется"
-
-
-def _price(value: object) -> str | None:
-    try:
-        amount = int(float(value or 0))
-    except (TypeError, ValueError):
-        return None
-    return f"{amount} ₽" if amount > 0 else None
+from handlers.telegram_evening_copy import closed_event_text, format_start, thematic_event_text
 
 
 async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
@@ -65,75 +27,10 @@ async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
         return None
 
 
-def _grouped_participants(participants: list[dict]) -> dict[str, list[str]]:
-    grouped = {key: [] for key in _RESPONSE_LABELS}
-    for participant in participants:
-        status = str(participant.get("response_status") or "")
-        if status in grouped:
-            grouped[status].append(str(participant.get("nickname") or "Игрок"))
-    return grouped
-
-
-def _stats_text(participants: list[dict]) -> str:
-    grouped = _grouped_participants(participants)
-    active_total = len(grouped["going"]) + len(grouped["late"]) + len(grouped["thinking"])
-    lines = [f"\n👥 Идут / думают: <b>{active_total}</b>"]
-
-    next_number = 1
-    for status in ("going", "late", "thinking"):
-        names = grouped[status]
-        if not names:
-            continue
-        if next_number > 1:
-            lines.append("")
-        lines.append(_RESPONSE_LABELS[status])
-        for name in names:
-            lines.append(f"{next_number}. {escape(name)}")
-            next_number += 1
-
-    declined = grouped["declined"]
-    if declined:
-        lines.append("")
-        lines.append(_RESPONSE_LABELS["declined"])
-        for index, name in enumerate(declined, start=1):
-            lines.append(f"{index}. {escape(name)}")
-
-    return "\n".join(lines)
-
-
-def _event_base_text(evening: dict) -> str:
-    canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL")
-    title = escape(str(evening.get("title") or _FORMAT_LABELS.get(canonical_format, "Игровой вечер")))
-    venue = escape(str(evening.get("venue") or "Суп с Котом"))
-    price = _price(evening.get("default_price"))
-    notes = str(evening.get("notes") or "").strip()
-
-    lines = [
-        f"🎭 <b>{title}</b>",
-        f"📅 {_format_start(evening.get('starts_at'))}",
-        f"📍 {venue}",
-    ]
-    if price:
-        lines.append(f"💳 {price}")
-    if notes:
-        lines.extend(["", escape(notes[:700])])
-    return "\n".join(lines)
-
-
-def _thematic_event_text(evening: dict, participants: list[dict]) -> str:
-    canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL")
-    label = _FORMAT_LABELS.get(canonical_format, "Игровой вечер")
-    return f"{escape(label)} · 2LA noire\n\n{_event_base_text(evening)}\n{_stats_text(participants)}\n\nКак планируешь?"
-
-
-def _closed_text(evening: dict, cancelled: bool = False, obsolete: bool = False) -> str:
-    if obsolete:
-        heading = "ℹ️ Этот анонс больше не актуален"
-    elif cancelled:
-        heading = "❌ Событие отменено"
-    else:
-        heading = "🔒 Запись закрыта"
-    return f"{heading}\n\n{_event_base_text(evening)}"
+def _event_link_keyboard(url: str | None, text: str = "🎯 Выбрать игры") -> InlineKeyboardMarkup | None:
+    if not url:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
 
 
 async def _edit_message(
@@ -253,7 +150,6 @@ async def sync_evening_telegram(
 
     plan = plan_result.get("data") or {}
     evening = plan.get("evening") or {}
-    participants = plan.get("participants") or []
     destinations = {str(item.get("id")): item for item in (plan.get("destinations") or [])}
     publications = {str(item.get("destination_id")): item for item in (plan.get("publications") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
@@ -272,7 +168,7 @@ async def sync_evening_telegram(
         if destination_id in desired:
             continue
         status = str(evening.get("status") or "")
-        text = _closed_text(
+        text = closed_event_text(
             evening,
             cancelled=status == "cancelled",
             obsolete=status in {"published", "active"},
@@ -286,11 +182,13 @@ async def sync_evening_telegram(
         )
         results.append({"destination_id": destination_id, "action": "closed", "success": ok})
 
+    event_url = await _bot_url(bot, f"event_{evening_id}")
+    event_keyboard = _event_link_keyboard(event_url)
+
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
         publication = publications.get(destination_id)
-        text = _thematic_event_text(evening, participants)
-        keyboard = crm_evening_response_kb(evening_id)
+        text = thematic_event_text(evening)
 
         if publication:
             ok = await _edit_message(
@@ -298,7 +196,7 @@ async def sync_evening_telegram(
                 publication.get("chat_id"),
                 int(publication.get("message_id")),
                 text,
-                keyboard,
+                event_keyboard,
             )
             results.append({"destination_id": destination_id, "action": "edited", "success": ok})
             continue
@@ -310,7 +208,7 @@ async def sync_evening_telegram(
         chat_id = str(destination.get("chat_id")).strip()
         topic_id = destination.get("topic_id")
         try:
-            message = await _send_message(bot, chat_id, int(topic_id) if topic_id else None, text, keyboard)
+            message = await _send_message(bot, chat_id, int(topic_id) if topic_id else None, text, event_keyboard)
             saved = await save_evening_telegram_publication(
                 evening_id,
                 destination_id,
@@ -341,7 +239,7 @@ async def sync_evening_telegram(
 def _router_event_block(title: str, empty_text: str, evening: dict | None) -> list[str]:
     if not evening:
         return [title, empty_text]
-    lines = [title, f"Ближайшая игра: <b>{_format_start(evening.get('starts_at'))}</b>"]
+    lines = [title, f"Ближайшая игра: <b>{format_start(evening.get('starts_at'))}</b>"]
     if evening.get("venue"):
         lines.append(f"📍 {escape(str(evening.get('venue')))}")
     return lines
@@ -361,16 +259,17 @@ async def sync_public_router(bot: Bot) -> dict:
     novice_evening = payload.get("novice_evening")
     club_evening = payload.get("club_evening")
 
-    # Clean up the old event-specific public posts left by the previous publishing model.
     cleanup_results = await _cleanup_current_public_event_posts(bot, [novice_evening, club_evening])
 
     bot_url = await _bot_url(bot)
     club_access_url = await _bot_url(bot, "club_access")
+    novice_event_url = await _bot_url(bot, f"event_{novice_evening.get('id')}") if novice_evening else None
+    club_event_url = await _bot_url(bot, f"event_{club_evening.get('id')}") if club_evening else None
 
     lines = [
         "🎭 <b>Спортивная мафия в Туле | 2LA Noire</b>",
         "",
-        "Хотите поиграть? Выберите подходящий вариант:",
+        "Хочешь поиграть? Выбери подходящий формат:",
         "",
         *_router_event_block(
             "🌱 <b>Я новичок или играл совсем немного</b>",
@@ -383,18 +282,25 @@ async def sync_public_router(bot: Bot) -> dict:
             "Ближайший клубный вечер пока не назначен.",
             club_evening,
         ),
+        "",
+        "Для записи открой нужный вечер и отметь конкретные игры, на которые придёшь.",
         "Доступ в основной клуб — после подтверждения организатора.",
     ]
     text = "\n".join(lines)
 
     keyboard_rows: list[list[InlineKeyboardButton]] = []
+    if novice_event_url:
+        keyboard_rows.append([InlineKeyboardButton(text="🌱 Выбрать игры новичкам", url=novice_event_url)])
+    if club_event_url:
+        keyboard_rows.append([InlineKeyboardButton(text="🎭 Выбрать игры клуба", url=club_event_url)])
+
     novice_url = str(novice_destination.get("invite_url") or "").strip()
     if novice_url:
         keyboard_rows.append([InlineKeyboardButton(text="🌱 Школа мафии", url=novice_url)])
     if club_access_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🎭 Проверить доступ в основной клуб", url=club_access_url)])
-    if bot_url:
-        keyboard_rows.append([InlineKeyboardButton(text="🤖 Записаться на игру", url=bot_url)])
+        keyboard_rows.append([InlineKeyboardButton(text="🎟 Проверить доступ в основной клуб", url=club_access_url)])
+    if not novice_event_url and not club_event_url and bot_url:
+        keyboard_rows.append([InlineKeyboardButton(text="🤖 Открыть бота", url=bot_url)])
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows) if keyboard_rows else None
 
     cleanup_failed = [item for item in cleanup_results if not item.get("success")]
@@ -445,7 +351,7 @@ async def test_telegram_destination(bot: Bot, destination_id: str) -> dict:
             bot,
             chat_id,
             int(topic_id) if topic_id else None,
-            f"✅ <b>2LA noire</b>\nTelegram-направление «{escape(str(destination.get('name') or destination_id))}» настроено.",
+            f"✅ <b>2LA Noire</b>\nTelegram-направление «{escape(str(destination.get('name') or destination_id))}» настроено.",
             None,
         )
         return {"success": True, "message_id": message.message_id, "destination_id": destination_id}

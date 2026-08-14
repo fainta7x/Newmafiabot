@@ -168,8 +168,30 @@ const applyInsideTransaction = async (db: DatabaseWrapper, input: TokenMutationI
 
 export const mutateTokenBalance = async (db: DatabaseWrapper, input: TokenMutationInput): Promise<TokenLedgerEntry> => {
   assertMutation(input);
-  if (db.sqlite.inTransaction) return applyInsideTransaction(db, input);
-  return serialized(db, () => db.transaction((tx) => applyInsideTransaction(tx, input)));
+
+  // Local better-sqlite3 exposes transaction state directly. The production
+  // Turso HTTP wrapper intentionally has no native sqlite object, so optional
+  // chaining is required here instead of reading sqlite.inTransaction blindly.
+  if ((db.sqlite as any)?.inTransaction) return applyInsideTransaction(db, input);
+
+  return serialized(db, async () => {
+    try {
+      return await db.transaction((tx) => applyInsideTransaction(tx, input));
+    } catch (error) {
+      // Club-game completion already runs token settlement inside one outer
+      // transaction. A Turso transaction wrapper rejects a nested transaction
+      // before executing the callback; in that exact case, continue on the
+      // current transaction wrapper instead of opening another transaction.
+      if (
+        !(db.sqlite as any)
+        && error instanceof Error
+        && error.message === 'Nested Turso transactions are not supported'
+      ) {
+        return applyInsideTransaction(db, input);
+      }
+      throw error;
+    }
+  });
 };
 
 export const reconcileTokenOpeningBalances = async (db: DatabaseWrapper): Promise<number> => {

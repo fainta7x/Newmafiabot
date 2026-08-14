@@ -4,12 +4,13 @@ import PlayerClubHub from './PlayerClubHub.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
-import PlayerMoreHub from './PlayerMoreHub.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
+import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
+import PlayerWalletHub from './PlayerWalletHub.tsx';
 
-export type PlayerCabinetSection = LegacySection | 'events' | 'ratingperiods';
+export type PlayerCabinetSection = LegacySection | 'events' | 'ratingperiods' | 'wallet';
 
 type LegacyProps = ComponentProps<typeof LegacyPlayerCabinetShell>;
 type Props = Omit<LegacyProps, 'initialSection' | 'onSectionChange'> & {
@@ -17,24 +18,38 @@ type Props = Omit<LegacyProps, 'initialSection' | 'onSectionChange'> & {
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
-type NavId = 'home' | 'events' | 'games' | 'rating' | 'more';
+type NavId = 'home' | 'events' | 'games' | 'rating' | 'club';
 const NAV: Array<{ id: NavId; icon: string; label: string }> = [
   { id: 'home', icon: '⌂', label: 'Главная' },
   { id: 'events', icon: '▣', label: 'События' },
   { id: 'games', icon: '◫', label: 'Игры' },
   { id: 'rating', icon: '★', label: 'Рейтинг' },
-  { id: 'more', icon: '•••', label: 'Ещё' },
+  { id: 'club', icon: '◆', label: 'Клуб' },
 ];
 
-const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'rating']);
+const primary = new Set<PlayerCabinetSection>(['home', 'events', 'games', 'rating', 'club']);
 const gameSections = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);
 const ratingSections = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'clubworld']);
 
-export default function PlayerCabinetShell({ initialSection = 'home', onSectionChange, ...props }: Props) {
-  const [section, setSection] = useState<PlayerCabinetSection>(initialSection);
-  useEffect(() => setSection(initialSection), [initialSection]);
+const normalizeSection = (section: PlayerCabinetSection): PlayerCabinetSection => {
+  if (section === 'more') return 'club';
+  if (section === 'payments') return 'wallet';
+  return section;
+};
 
-  const open = (next: PlayerCabinetSection, target: string | null = null) => {
+export default function PlayerCabinetShell({ initialSection = 'home', onSectionChange, ...props }: Props) {
+  const [section, setSection] = useState<PlayerCabinetSection>(() => normalizeSection(initialSection));
+  const [player, setPlayer] = useState(props.data.player);
+  const [tokenBalance, setTokenBalance] = useState(Number(props.data.player.tokens || 0));
+
+  useEffect(() => setSection(normalizeSection(initialSection)), [initialSection]);
+  useEffect(() => {
+    setPlayer(props.data.player);
+    setTokenBalance(Number(props.data.player.tokens || 0));
+  }, [props.data.player]);
+
+  const open = (requested: PlayerCabinetSection, target: string | null = null) => {
+    const next = normalizeSection(requested);
     setSection(next);
     onSectionChange?.(next, target);
   };
@@ -44,28 +59,49 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     return open(destination as PlayerCabinetSection, target || null);
   };
 
-  const legacySection: LegacySection = section === 'events' || section === 'home' || section === 'more' || section === 'club' || section === 'profile' || gameSections.has(section) || ratingSections.has(section) ? 'games' : section as LegacySection;
-  const moreActive = !primary.has(section) && !gameSections.has(section) && !ratingSections.has(section);
+  const currentData = { ...props.data, player };
+  const legacySection: LegacySection = section === 'events'
+    || section === 'home'
+    || section === 'wallet'
+    || section === 'club'
+    || section === 'profile'
+    || gameSections.has(section)
+    || ratingSections.has(section)
+    ? 'games'
+    : section as LegacySection;
 
   return (
-    <div className="player-events-shell bg-[#090a0d] text-white">
+    <div className="player-events-shell min-h-screen bg-[#090a0d] text-white">
       <style>{`
         .player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}
         .player-events-shell .legacy-cabinet-wrap button[aria-label="Уведомления"]{display:none!important}
         button[class*="bottom-[154px]"][class*="z-40"]{display:none!important}
       `}</style>
+
+      <PlayerQuickAccessBar
+        player={player}
+        tokenBalance={tokenBalance}
+        active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null}
+        onOpenWallet={() => open('wallet')}
+        onOpenProfile={() => open('profile')}
+      />
+      <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
+      <div className="h-14" aria-hidden="true" />
+
       {section === 'home' ? (
         <PlayerHomeDashboard
-          data={props.data}
+          data={currentData}
+          canOpenAdmin={Boolean(props.canOpenAdmin)}
           onOpenEvents={() => open('events')}
           onOpenGames={() => open('games')}
           onOpenRating={() => open('rating')}
+          onOpenConduct={() => open('conduct')}
         />
       ) : section === 'events' ? (
         <PlayerEventsCalendar />
       ) : gameSections.has(section) ? (
         <PlayerGamesHub
-          data={props.data}
+          data={currentData}
           canOpenAdmin={Boolean(props.canOpenAdmin)}
           section={section as PlayerGamesSection}
           target={props.initialTarget || null}
@@ -73,31 +109,26 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         />
       ) : ratingSections.has(section) ? (
         <PlayerRatingHub
-          data={props.data}
+          data={currentData}
           section={section as PlayerRatingSection}
           onOpen={(next) => open(next as PlayerCabinetSection)}
         />
       ) : section === 'club' ? (
-        <PlayerClubHub data={props.data} />
+        <PlayerClubHub data={currentData} />
+      ) : section === 'wallet' ? (
+        <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
-        <PlayerProfileHub data={props.data} />
-      ) : section === 'more' ? (
-        <PlayerMoreHub
-          data={props.data}
-          canOpenAdmin={Boolean(props.canOpenAdmin)}
-          onOpen={(next) => open(next)}
-        />
+        <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
       ) : (
         <div className="legacy-cabinet-wrap">
           <LegacyPlayerCabinetShell
             {...props}
+            data={currentData}
             initialSection={legacySection}
             onSectionChange={(next, target) => open(next, target || null)}
           />
         </div>
       )}
-
-      <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
 
       <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
@@ -106,9 +137,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
               ? gameSections.has(section)
               : item.id === 'rating'
                 ? ratingSections.has(section)
-                : item.id === 'more'
-                  ? moreActive
-                  : section === item.id;
+                : section === item.id;
             return (
               <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
                 <span className="text-base leading-none">{item.icon}</span>

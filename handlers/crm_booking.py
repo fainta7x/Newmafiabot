@@ -3,8 +3,10 @@ from datetime import datetime
 from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, Message
 
+import bot_menu
 from bot_api import get_evening_participants, get_open_evenings, submit_evening_response
-from crm_evening_keyboard import crm_evening_response_kb, crm_evening_select_kb
+from crm_evening_keyboard import crm_evening_select_kb
+from handlers.telegram_evening_copy import private_event_text
 
 router = Router()
 
@@ -32,15 +34,7 @@ def _format_start(value: object) -> str:
 
 
 def _evening_prompt(evening: dict) -> str:
-    title = str(evening.get("title") or "Игровой вечер")
-    venue = str(evening.get("venue") or "Суп с Котом")
-    return (
-        "🕵️ <b>2LA noire</b>\n\n"
-        f"<b>{title}</b>\n"
-        f"📍 {venue}\n"
-        f"🕗 {_format_start(evening.get('starts_at'))}\n\n"
-        "Как планируешь?"
-    )
+    return private_event_text(evening)
 
 
 def _numbered_stats_block(title: str, players: list[str], start: int = 1) -> tuple[str | None, int]:
@@ -53,7 +47,7 @@ def _numbered_stats_block(title: str, players: list[str], start: int = 1) -> tup
 
 
 async def build_crm_evening_stats_text(evening_id: str) -> str | None:
-    """Build the public participant list from canonical CRM state only."""
+    """Build the legacy participant list from canonical CRM state only."""
     result = await get_evening_participants(evening_id)
     if not result.get("success"):
         return None
@@ -102,24 +96,26 @@ async def _load_open_evenings() -> list[dict] | None:
 
 @router.message(F.text == "🕵️ Записаться на игру", F.chat.type == "private")
 async def crm_book(message: Message):
+    """Compatibility entry point for old persistent Telegram keyboards."""
     evenings = await _load_open_evenings()
     if evenings is None:
-        await message.answer("Не удалось загрузить вечера из CRM. Попробуйте чуть позже.")
+        await message.answer("Не удалось загрузить вечера из CRM. Попробуй чуть позже.")
         return
     if not evenings:
         await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")
         return
     if len(evenings) == 1:
         evening = evenings[0]
+        evening_id = str(evening.get("id") or "")
         await message.answer(
             _evening_prompt(evening),
             parse_mode="HTML",
-            reply_markup=crm_evening_response_kb(str(evening["id"])),
+            reply_markup=bot_menu.event_inline_keyboard(evening_id),
         )
         return
 
     await message.answer(
-        "Сейчас открыто несколько вечеров. Выберите, на какой хотите ответить:",
+        "Сейчас открыто несколько вечеров. Выбери нужный:",
         reply_markup=crm_evening_select_kb(evenings),
     )
 
@@ -140,13 +136,14 @@ async def select_crm_evening(callback: CallbackQuery):
     await callback.message.edit_text(
         _evening_prompt(evening),
         parse_mode="HTML",
-        reply_markup=crm_evening_response_kb(evening_id),
+        reply_markup=bot_menu.event_inline_keyboard(evening_id),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("book_"))
 async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
+    """Keep buttons in already-published legacy messages functional."""
     response_status = _LEGACY_BOOK_TO_RESPONSE.get(str(callback.data or ""))
     if not response_status:
         return
@@ -161,13 +158,13 @@ async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
     if len(evenings) > 1:
         if callback.message and callback.message.chat.type == "private":
             await callback.message.answer(
-                "Открыто несколько вечеров. Сначала выберите нужный:",
+                "Открыто несколько вечеров. Сначала выбери нужный:",
                 reply_markup=crm_evening_select_kb(evenings),
             )
             await callback.answer()
         else:
             await callback.answer(
-                "Открыто несколько вечеров. Выберите нужный через бота в личных сообщениях.",
+                "Открыто несколько вечеров. Выбери нужный через бота в личных сообщениях.",
                 show_alert=True,
             )
         return
@@ -189,19 +186,20 @@ async def bridge_legacy_booking(callback: CallbackQuery, bot: Bot):
 
     error = result.get("error")
     if error == "not_found":
-        text = "Ваш Telegram пока не привязан к профилю игрока"
+        text = "Твой Telegram пока не привязан к профилю игрока"
     elif error == "closed":
         text = "Этот вечер уже закрыт"
     else:
-        text = "Не удалось сохранить ответ. Попробуйте позже"
+        text = "Не удалось сохранить ответ. Попробуй позже"
     await callback.answer(text, show_alert=True)
 
 
 @router.message(F.text == "🧾 Список игроков", F.chat.type == "private")
 async def crm_players_list(message: Message):
+    """Compatibility entry point for old keyboards; new player navigation lives in the app."""
     evenings = await _load_open_evenings()
     if evenings is None:
-        await message.answer("Не удалось загрузить список из CRM. Попробуйте чуть позже.")
+        await message.answer("Не удалось загрузить список из CRM. Попробуй чуть позже.")
         return
     if not evenings:
         await message.answer("Сейчас нет опубликованных вечеров с открытой записью.")

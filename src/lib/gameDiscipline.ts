@@ -22,6 +22,11 @@ export interface PlayerDiscipline {
 export interface GameDiscipline {
   players: Record<string, PlayerDiscipline>;
   isNextVotingCancelled: boolean;
+  /**
+   * Players whose confirmed removal still has an unconsumed cancellation of the
+   * nearest voting. Optional for backwards compatibility with saved sessions.
+   */
+  pendingVotingCancellationPlayerIds?: string[];
   isPpk: boolean;
   ppkWinnerTeam: 'red' | 'black' | null;
   ppkCulpritId: string | null;
@@ -58,6 +63,7 @@ export const createInitialGameDiscipline = (playersData: { id: string, team: 're
   return {
     players,
     isNextVotingCancelled: false,
+    pendingVotingCancellationPlayerIds: [],
     isPpk: false,
     ppkWinnerTeam: null,
     ppkCulpritId: null,
@@ -143,36 +149,46 @@ export const requestPpk = (state: GameDiscipline, playerId: string): GameDiscipl
   return { ...state, players: { ...state.players, [playerId]: { ...player, pendingAction: 'ppk' } } };
 };
 
+const registerVotingCancellation = (state: GameDiscipline, playerId: string) => {
+  const pending = state.pendingVotingCancellationPlayerIds || [];
+  state.pendingVotingCancellationPlayerIds = pending.includes(playerId) ? pending : [...pending, playerId];
+  state.isNextVotingCancelled = true;
+};
+
 export const confirmAction = (state: GameDiscipline, playerId: string): GameDiscipline => {
   const player = state.players[playerId];
   if (!player || !player.pendingAction) return state;
 
   const updatedPlayer = { ...player, pendingAction: null as PendingActionType | null };
-  const newState = { ...state, players: { ...state.players, [playerId]: updatedPlayer } };
+  const newState = {
+    ...state,
+    pendingVotingCancellationPlayerIds: [...(state.pendingVotingCancellationPlayerIds || [])],
+    players: { ...state.players, [playerId]: updatedPlayer },
+  };
 
   if (player.pendingAction === 'removal_4th_foul') {
     updatedPlayer.regularFouls = 4;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '4th_foul';
     updatedPlayer.has30SecPenalty = false;
-    newState.isNextVotingCancelled = true;
+    registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'minor_tech_causing_removal') {
     updatedPlayer.minorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
     updatedPlayer.has30SecPenalty = false;
-    newState.isNextVotingCancelled = true;
+    registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'major_tech_causing_removal') {
     updatedPlayer.majorTechFouls += 1;
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = '2nd_tech';
     updatedPlayer.has30SecPenalty = false;
-    newState.isNextVotingCancelled = true;
+    registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'direct_removal') {
     updatedPlayer.isRemoved = true;
     updatedPlayer.removedReason = 'direct';
     updatedPlayer.has30SecPenalty = false;
-    newState.isNextVotingCancelled = true;
+    registerVotingCancellation(newState, playerId);
   } else if (player.pendingAction === 'ppk') {
     updatedPlayer.ppkCaused = true;
     newState.isPpk = true;
@@ -200,6 +216,39 @@ export const cancelAction = (state: GameDiscipline, playerId: string): GameDisci
   };
 };
 
+export const restoreRemovedPlayer = (state: GameDiscipline, playerId: string): GameDiscipline => {
+  const player = state.players[playerId];
+  if (!player || !player.isRemoved) return state;
+
+  const trackedSources = state.pendingVotingCancellationPlayerIds;
+  let remainingSources: string[];
+  if (Array.isArray(trackedSources)) {
+    remainingSources = trackedSources.filter((id) => id !== playerId);
+  } else if (state.isNextVotingCancelled) {
+    // Compatibility with an old saved session that predates tracked sources.
+    remainingSources = Object.values(state.players)
+      .filter((candidate) => candidate.id !== playerId && candidate.isRemoved)
+      .map((candidate) => candidate.id);
+  } else {
+    remainingSources = [];
+  }
+
+  return {
+    ...state,
+    isNextVotingCancelled: remainingSources.length > 0,
+    pendingVotingCancellationPlayerIds: remainingSources,
+    players: {
+      ...state.players,
+      [playerId]: {
+        ...player,
+        isRemoved: false,
+        removedReason: null,
+        pendingAction: null,
+      },
+    },
+  };
+};
+
 export const setGamePenalty = (state: GameDiscipline, playerId: string, penalty: number): GameDiscipline => {
   const player = state.players[playerId];
   if (!player) return state;
@@ -209,8 +258,8 @@ export const setGamePenalty = (state: GameDiscipline, playerId: string, penalty:
 };
 
 export const resetNextVotingCancelled = (state: GameDiscipline): GameDiscipline => {
-  if (!state.isNextVotingCancelled) return state;
-  return { ...state, isNextVotingCancelled: false };
+  if (!state.isNextVotingCancelled && !(state.pendingVotingCancellationPlayerIds?.length)) return state;
+  return { ...state, isNextVotingCancelled: false, pendingVotingCancellationPlayerIds: [] };
 };
 
 export function calculateDisciplinaryPenalty(

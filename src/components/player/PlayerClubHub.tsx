@@ -18,9 +18,9 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <header className="px-1 pb-1 pt-2">
+        <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Клуб</h1>
-          <p className="mt-1 text-sm text-white/45">Люди, жизнь клуба и связи за столом</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Люди, жизнь клуба и связи за столом</p>
         </header>
 
         <nav className="grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1" aria-label="Разделы клуба">

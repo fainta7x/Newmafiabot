@@ -19,6 +19,7 @@ interface EveningDeathProtocolOverlayProps {
   onBack: () => void;
   error?: string | null;
   finishGame?: boolean;
+  submitting?: boolean;
 }
 
 const seatNumbers = Array.from({ length: 10 }, (_, index) => index + 1);
@@ -34,8 +35,10 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   onBack,
   error,
   finishGame = false,
+  submitting = false,
 }) => {
   const toggleTeam = (mark: 'red' | 'black', seat: number) => {
+    if (submitting) return;
     const other = mark === 'red' ? 'black' : 'red';
     const isSelected = value[mark].includes(seat);
     onChange({
@@ -46,6 +49,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
   };
 
   const toggleSheriff = (seat: number) => {
+    if (submitting) return;
     onChange({ ...value, sheriff: value.sheriff[0] === seat ? [] : [seat] });
   };
 
@@ -69,9 +73,10 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
             <button
               key={`${mark}-${seat}`}
               type="button"
+              disabled={submitting}
               onClick={() => onToggle(seat)}
               aria-pressed={selected}
-              className={`min-w-0 aspect-square rounded-lg sm:rounded-xl border font-mono font-black text-[11px] sm:text-sm transition active:scale-95 ${
+              className={`min-w-0 aspect-square rounded-lg sm:rounded-xl border font-mono font-black text-[11px] sm:text-sm transition active:scale-95 disabled:opacity-60 ${
                 selected ? activeClass : 'bg-slate-950/80 border-slate-700 text-slate-400 hover:border-slate-500'
               }`}
             >
@@ -104,14 +109,14 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
         {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-[10px] font-bold text-rose-200">{error}</div>}
 
         <div className="grid grid-cols-12 gap-2 pt-1">
-          <button type="button" onClick={onBack} className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black">
+          <button type="button" disabled={submitting} onClick={onBack} className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
             ← Прощальная
           </button>
-          <button type="button" onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black">
+          <button type="button" disabled={submitting} onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
             Сбросить
           </button>
-          <button type="button" onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase">
-            {finishGame ? 'Сохранить → протокол' : 'Сохранить → день'}
+          <button type="button" disabled={submitting} onClick={onConfirm} className="col-span-5 min-h-11 rounded-xl bg-emerald-600 border border-emerald-500 text-white text-[10px] sm:text-xs font-black uppercase disabled:opacity-60">
+            {submitting ? 'Сохраняем…' : finishGame ? 'Сохранить → протокол' : 'Сохранить → день'}
           </button>
         </div>
       </div>
@@ -127,6 +132,14 @@ type LiveSessionView = {
   winner: LiveWinnerTeam | null;
 };
 
+const emptyLiveSession = (): LiveSessionView => ({
+  postNightStage: 'none',
+  shotPlayerSlot: null,
+  timeLeft: 0,
+  killedName: '',
+  winner: null,
+});
+
 const findEngineButton = (label: string): HTMLButtonElement | null => {
   const root = document.querySelector('.evening-live-engine-shell');
   if (!root) return null;
@@ -136,10 +149,11 @@ const findEngineButton = (label: string): HTMLButtonElement | null => {
 };
 
 export const EveningDeathProtocolBridge: React.FC = () => {
-  const [session, setSession] = React.useState<LiveSessionView>({ postNightStage: 'none', shotPlayerSlot: null, timeLeft: 0, killedName: '', winner: null });
+  const [session, setSession] = React.useState<LiveSessionView>(() => emptyLiveSession());
   const [editingSlot, setEditingSlot] = React.useState<number | null>(null);
   const [value, setValue] = React.useState<DeathProtocolSelection>(emptyDeathProtocolSelection());
   const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     if (!localStorage.getItem('mafia_live_session')) clearStoredDeathProtocols();
@@ -148,7 +162,14 @@ export const EveningDeathProtocolBridge: React.FC = () => {
     const sync = () => {
       try {
         const raw = localStorage.getItem('mafia_live_session');
-        if (!raw) return;
+        if (!raw) {
+          lastSignature = '';
+          setSession((current) => current.postNightStage === 'none' ? current : emptyLiveSession());
+          setEditingSlot(null);
+          setError(null);
+          setSubmitting(false);
+          return;
+        }
         const parsed = JSON.parse(raw);
         const shot = Number(parsed?.shotPlayerSlot);
         const shotPlayerSlot = Number.isInteger(shot) && shot >= 1 && shot <= 10 ? shot : null;
@@ -187,6 +208,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
     if (slot === null) {
       if (editingSlot !== null) setEditingSlot(null);
       setError(null);
+      setSubmitting(false);
       return;
     }
     if (editingSlot === slot) return;
@@ -194,6 +216,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
     setEditingSlot(slot);
     setValue(saved);
     setError(null);
+    setSubmitting(false);
   }, [session.postNightStage, session.shotPlayerSlot, editingSlot]);
 
   if (session.postNightStage !== 'death_protocol' || session.shotPlayerSlot === null || editingSlot === null) return null;
@@ -201,21 +224,54 @@ export const EveningDeathProtocolBridge: React.FC = () => {
   const killedSlot = session.shotPlayerSlot;
 
   const handleConfirm = () => {
+    if (submitting) return;
     storeDeathProtocol(killedSlot, normalizeDeathProtocolSelection(value));
-    const nextButton = session.winner
-      ? (findEngineButton('Завершить игру') || findEngineButton('Применить авто-победу'))
-      : findEngineButton('К дневным речам');
-    if (!nextButton) {
-      setError(session.winner
-        ? 'Протокол сохранён, но не найдена команда завершения игры.'
-        : 'Протокол сохранён, но не найдена кнопка перехода к дневным речам.');
-      return;
-    }
+    setSubmitting(true);
     setError(null);
-    nextButton.click();
+
+    const tryAdvance = (attempt: number) => {
+      const nextButton = session.winner
+        ? (findEngineButton('Завершить игру') || findEngineButton('Применить авто-победу'))
+        : findEngineButton('К дневным речам');
+
+      if (nextButton) {
+        // Hide the global bridge before the engine removes its local session.
+        // Otherwise a second tap can hit a stale overlay while the async protocol
+        // save is already in progress and falsely report that the command vanished.
+        setSession(emptyLiveSession());
+        setEditingSlot(null);
+        nextButton.click();
+        return;
+      }
+
+      // The engine removes mafia_live_session synchronously when final completion
+      // begins. If it already disappeared, completion is in progress and this is
+      // not an error; just dismiss the stale bridge.
+      if (!localStorage.getItem('mafia_live_session')) {
+        setSession(emptyLiveSession());
+        setEditingSlot(null);
+        setSubmitting(false);
+        return;
+      }
+
+      // React may need a frame to expose the next-step button after the protocol
+      // stage transition. Retry briefly instead of failing on a harmless render race.
+      if (attempt < 10) {
+        window.setTimeout(() => tryAdvance(attempt + 1), 60);
+        return;
+      }
+
+      setSubmitting(false);
+      setError(session.winner
+        ? 'Протокол сохранён, но не удалось запустить завершение игры. Нажмите ещё раз.'
+        : 'Протокол сохранён, но не удалось перейти к дневным речам. Нажмите ещё раз.');
+    };
+
+    tryAdvance(0);
   };
 
   const handleBack = () => {
+    if (submitting) return;
     const backButton = findEngineButton('Прощальная');
     if (!backButton) {
       setError('Не найдена кнопка возврата к прощальной речи.');
@@ -236,6 +292,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       onBack={handleBack}
       error={error}
       finishGame={session.winner !== null}
+      submitting={submitting}
     />
   );
 };

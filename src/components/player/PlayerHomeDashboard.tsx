@@ -130,10 +130,9 @@ export default function PlayerHomeDashboard({
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <header className="px-1 pb-1 pt-2">
-          <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
-          <h1 className="mt-1 text-2xl font-semibold">Главная</h1>
-          <p className="mt-1 text-sm text-white/45">Привет, {data.player.nickname}</p>
+        <header className="px-1 pb-1 pt-1">
+          <h1 className="text-2xl font-semibold">Главная</h1>
+          <p className="mt-1 text-xs leading-5 text-white/40">Привет, {data.player.nickname}</p>
         </header>
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">

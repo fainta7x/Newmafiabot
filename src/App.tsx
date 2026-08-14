@@ -5,7 +5,6 @@ import BigScreenLive from "./components/public/BigScreenLive.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
-import PlayerLiveCenter from "./components/player/PlayerLiveCenter.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
@@ -316,12 +315,7 @@ export default function App() {
   }
 
   if (parsedPlayerRoute.replayGameKey) {
-    return (
-      <>
-        <PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath('/player/games')} />
-        <PlayerLiveCenter />
-      </>
-    );
+    return <PlayerReplayScreen gameKey={parsedPlayerRoute.replayGameKey} onBack={() => navigatePath('/player/games')} />;
   }
 
   const initialSection = parsedPlayerRoute.section as PlayerCabinetSection;
@@ -332,15 +326,12 @@ export default function App() {
   };
 
   return (
-    <>
-      <PlayerCabinetShell
-        data={rootState.data}
-        canOpenAdmin={rootState.canOpenAdmin}
-        initialSection={initialSection}
-        initialTarget={initialTarget}
-        onSectionChange={syncPlayerPath}
-      />
-      {parsedPlayerRoute.section === 'games' ? <PlayerLiveCenter /> : null}
-    </>
+    <PlayerCabinetShell
+      data={rootState.data}
+      canOpenAdmin={rootState.canOpenAdmin}
+      initialSection={initialSection}
+      initialTarget={initialTarget}
+      onSectionChange={syncPlayerPath}
+    />
   );
 }

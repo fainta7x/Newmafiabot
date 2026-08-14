@@ -15,6 +15,12 @@ type RatingPlayer = {
   player_id: string;
 };
 
+type JudgingSummary = {
+  player: { judge_level: 'none' | 'trainee' | 'host' | 'judge'; judge_level_label: string };
+  club_games: Array<{ status: string }>;
+  tournament_games: Array<{ status: string }>;
+};
+
 const formatEveningDate = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -44,17 +50,22 @@ const roleLabel = (role: string | null | undefined) => {
 
 export default function PlayerHomeDashboard({
   data,
+  canOpenAdmin,
   onOpenEvents,
   onOpenGames,
   onOpenRating,
+  onOpenConduct,
 }: {
   data: PlayerMeResponse;
+  canOpenAdmin: boolean;
   onOpenEvents: () => void;
   onOpenGames: () => void;
   onOpenRating: () => void;
+  onOpenConduct: () => void;
 }) {
   const [evenings, setEvenings] = useState<PlayerEvening[] | null>(null);
   const [rating, setRating] = useState<RatingPlayer[] | null>(null);
+  const [judging, setJudging] = useState<JudgingSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +97,21 @@ export default function PlayerHomeDashboard({
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/player/judging', { credentials: 'include' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+        setJudging(body as JudgingSummary);
+      } catch {
+        if (!cancelled) setJudging(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const nextEvening = useMemo(() => {
     const now = Date.now() - 60 * 60 * 1000;
     return (evenings || [])
@@ -96,6 +122,10 @@ export default function PlayerHomeDashboard({
   const selfRating = rating?.find((item) => item.player_id === data.player.id) || null;
   const stats = data.games.stats;
   const latestGame = data.games.all[0] as any | undefined;
+  const activeAssignments = judging
+    ? [...judging.club_games, ...judging.tournament_games].filter((game) => game.status !== 'completed').length
+    : 0;
+  const canConduct = Boolean(judging && (judging.player.judge_level !== 'none' || activeAssignments > 0));
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -171,6 +201,31 @@ export default function PlayerHomeDashboard({
               <span className="text-xl text-white/20">›</span>
             </div>
           </button>
+        )}
+
+        {(canConduct || canOpenAdmin) && (
+          <section className="rounded-[24px] border border-amber-200/10 bg-amber-200/[0.025] p-3">
+            <div className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100/40">Рабочие инструменты</div>
+            <div className="mt-2 space-y-1.5">
+              {canConduct && (
+                <button type="button" onClick={onOpenConduct} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 px-3 text-left active:bg-white/[0.06]">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200/[0.07] text-amber-100">▶</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">Ведение игр</span>
+                    <span className="mt-0.5 block text-[10px] text-white/35">{activeAssignments ? `${activeAssignments} активных назначений` : judging?.player.judge_level_label || 'Судейский режим'}</span>
+                  </span>
+                  <span className="text-lg text-white/20">›</span>
+                </button>
+              )}
+              {canOpenAdmin && (
+                <a href="/admin" className="flex min-h-14 items-center gap-3 rounded-2xl bg-black/20 px-3 text-left active:bg-white/[0.06]">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] text-white/55">⚙</span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Управление клубом</span><span className="mt-0.5 block text-[10px] text-white/35">Вечера, игроки и организационные задачи</span></span>
+                  <span className="text-lg text-white/20">›</span>
+                </a>
+              )}
+            </div>
+          </section>
         )}
       </div>
     </main>

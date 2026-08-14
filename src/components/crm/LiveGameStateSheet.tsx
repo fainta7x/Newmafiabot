@@ -4,7 +4,7 @@ import { buildLiveGameStateView, readLiveGameSnapshot } from '../../lib/liveGame
 
 interface LiveGameStateSheetProps {
   open: boolean;
-  gameNumber: number;
+  gameNumber?: number;
   hideRoles?: boolean;
   onClose: () => void;
 }
@@ -38,7 +38,7 @@ export default function LiveGameStateSheet({ open, gameNumber, hideRoles = false
       >
         <div className="shrink-0 border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400">Игра #{gameNumber}</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400">{gameNumber ? `Игра #${gameNumber}` : 'Live game'}</div>
             <h2 className="text-base md:text-lg font-black text-white truncate">Текущее состояние игры</h2>
           </div>
           <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import datetime
 
 from aiogram import Bot
 
+import bot_menu
 from bot_announcement_api import (
     get_evening_announcement_recipients,
     get_evening_reminder_recipients,
@@ -11,9 +12,8 @@ from bot_announcement_api import (
     save_evening_announcement_state,
     save_evening_reminder_attempt,
 )
-from crm_evening_keyboard import crm_evening_response_kb
-from handlers.crm_booking import _evening_prompt
 from handlers.crm_telegram_publishing import sync_evening_telegram
+from handlers.telegram_evening_copy import private_event_text
 
 
 async def _retry_backend_write(operation, attempts: int = 3) -> dict:
@@ -32,7 +32,7 @@ async def _retry_backend_write(operation, attempts: int = 3) -> dict:
 
 
 async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
-    """Synchronize public/thematic Telegram posts and send filtered private invitations."""
+    """Synchronize thematic Telegram posts and send app-first private invitations."""
     group_result = await sync_evening_telegram(bot, evening_id)
     if not group_result.get("success"):
         return group_result
@@ -48,6 +48,8 @@ async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
     payload = recipients_result.get("data") or {}
     evening = payload.get("evening") or {}
     recipients = payload.get("recipients") or []
+    event_keyboard = bot_menu.event_inline_keyboard(evening_id)
+    invitation_text = private_event_text(evening)
 
     sent = 0
     failed = 0
@@ -64,9 +66,9 @@ async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
         try:
             message = await bot.send_message(
                 int(telegram_user_id),
-                _evening_prompt(evening),
+                invitation_text,
                 parse_mode="HTML",
-                reply_markup=crm_evening_response_kb(evening_id),
+                reply_markup=event_keyboard,
             )
         except Exception as exc:
             failed += 1
@@ -119,7 +121,7 @@ async def send_crm_evening_announcement(bot: Bot, evening_id: str) -> dict:
 
 
 async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
-    """Remind unanswered players by updating their original invitation whenever possible."""
+    """Remind players by converting the original invitation to the app-first flow."""
     recipients_result = await get_evening_reminder_recipients(evening_id)
     if not recipients_result.get("success"):
         return {
@@ -130,20 +132,13 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
     payload = recipients_result.get("data") or {}
     evening = payload.get("evening") or {}
     recipients = payload.get("recipients") or []
+    event_keyboard = bot_menu.event_inline_keyboard(evening_id)
+    reminder_text = private_event_text(evening, reminder=True)
+
     sent = 0
     failed = 0
     state_failures = 0
     failed_players = []
-
-    reminder_text = (
-        "🔔 <b>Напоминание об игровом вечере</b>\n\n"
-        "Ты ещё не ответил на приглашение. Получится прийти?\n\n"
-        + _evening_prompt(evening)
-    )
-    compact_fallback_text = (
-        f"🔔 <b>Напоминание: {str(evening.get('title') or 'игровой вечер')}</b>\n\n"
-        "Ты ещё не ответил на приглашение. Получится прийти?"
-    )
 
     for recipient in recipients:
         player_id = str(recipient.get("id") or "").strip()
@@ -162,11 +157,10 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
                     message_id=original_message_id,
                     text=reminder_text,
                     parse_mode="HTML",
-                    reply_markup=crm_evening_response_kb(evening_id),
+                    reply_markup=event_keyboard,
                 )
                 reminder_message_id = original_message_id
             except Exception as exc:
-                # A retry of the same campaign may hit an unchanged message. That is already a successful reminder.
                 if "message is not modified" in str(exc).lower():
                     reminder_message_id = original_message_id
                 else:
@@ -176,9 +170,9 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
             try:
                 message = await bot.send_message(
                     int(telegram_user_id),
-                    compact_fallback_text,
+                    reminder_text,
                     parse_mode="HTML",
-                    reply_markup=crm_evening_response_kb(evening_id),
+                    reply_markup=event_keyboard,
                 )
                 reminder_message_id = message.message_id
             except Exception as exc:

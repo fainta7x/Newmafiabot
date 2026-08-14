@@ -1,0 +1,147 @@
+import { useState } from 'react';
+import type { PlayerMeResponse } from '../../types/player.ts';
+
+type Destination = 'stats' | 'elo' | 'career' | 'recaps' | 'club' | 'clubworld' | 'profile' | 'payments' | 'conduct';
+type GroupId = 'game' | 'club' | 'account';
+
+type Group = {
+  id: GroupId;
+  icon: string;
+  title: string;
+  description: string;
+  items: Array<{ id: Destination; title: string; description: string }>;
+};
+
+const GROUPS: Group[] = [
+  {
+    id: 'game',
+    icon: '◫',
+    title: 'Игра и прогресс',
+    description: 'Статистика, развитие и итоги',
+    items: [
+      { id: 'stats', title: 'Статистика', description: 'Победы, роли, ПУ, ЛХ и турнирные награды' },
+      { id: 'elo', title: 'Elo-карьера', description: 'Как менялся рейтинг и почему' },
+      { id: 'career', title: 'Игровая карьера', description: 'Роли, серии и форма игрока' },
+      { id: 'recaps', title: 'Итоги вечеров', description: 'Счёт вечера и твои результаты' },
+    ],
+  },
+  {
+    id: 'club',
+    icon: '◆',
+    title: 'Клуб',
+    description: 'Люди, сезоны и история 2LA Noire',
+    items: [
+      { id: 'club', title: 'Жизнь клуба', description: 'Форма, серии и клубные связи' },
+      { id: 'clubworld', title: 'Сезоны и рекорды', description: 'Архив, лидеры и Зал славы' },
+    ],
+  },
+  {
+    id: 'account',
+    icon: '●',
+    title: 'Аккаунт и сервисы',
+    description: 'Профиль, игроки и расчёты',
+    items: [
+      { id: 'profile', title: 'Профиль и игроки', description: 'Аватар, аккаунт и профили игроков клуба' },
+      { id: 'payments', title: 'Оплата', description: 'Баланс и история платежей' },
+    ],
+  },
+];
+
+export default function PlayerMoreHub({
+  data,
+  canOpenAdmin,
+  onOpen,
+}: {
+  data: PlayerMeResponse;
+  canOpenAdmin: boolean;
+  onOpen: (destination: Destination) => void;
+}) {
+  const [expanded, setExpanded] = useState<GroupId | null>(null);
+  const player = data.player;
+
+  return (
+    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+      <div className="mx-auto w-full max-w-[430px] space-y-3">
+        <header className="px-1 pb-1 pt-2">
+          <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
+          <h1 className="mt-1 text-2xl font-semibold">Ещё</h1>
+          <p className="mt-1 text-sm text-white/45">Всё остальное — по понятным разделам</p>
+        </header>
+
+        <button
+          type="button"
+          onClick={() => onOpen('profile')}
+          className="flex w-full items-center gap-3 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 text-left"
+        >
+          {player.avatar_url ? (
+            <img src={player.avatar_url} alt={player.nickname} className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" />
+          ) : (
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-lg font-semibold">{player.nickname}</span>
+            <span className="mt-1 block text-xs text-white/35">{player.elo} ELO · открыть профиль</span>
+          </span>
+          <span className="text-xl text-white/25">›</span>
+        </button>
+
+        <section className="space-y-2">
+          {GROUPS.map((group) => {
+            const open = expanded === group.id;
+            return (
+              <div key={group.id} className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.04]">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(open ? null : group.id)}
+                  aria-expanded={open}
+                  className="flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left"
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">{group.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{group.title}</span>
+                    <span className="mt-1 block text-xs text-white/35">{group.description}</span>
+                  </span>
+                  <span className={`text-lg text-white/25 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
+                </button>
+
+                {open && (
+                  <div className="border-t border-white/[0.06] px-2 pb-2 pt-2">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onOpen(item.id)}
+                        className="flex min-h-[58px] w-full items-center gap-3 rounded-2xl px-3 py-2 text-left active:bg-white/[0.06]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-white/85">{item.title}</span>
+                          <span className="mt-0.5 block text-[10px] leading-4 text-white/30">{item.description}</span>
+                        </span>
+                        <span className="text-lg text-white/20">›</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+
+        <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-2">
+          <button type="button" onClick={() => onOpen('conduct')} className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left active:bg-white/[0.06]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/[0.08] text-amber-100">▶</span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Ведение игр</span><span className="mt-0.5 block text-xs text-white/30">Судейский режим и назначенные игры</span></span>
+            <span className="text-lg text-white/20">›</span>
+          </button>
+          {canOpenAdmin && (
+            <a href="/admin" className="mt-1 flex min-h-14 items-center gap-3 rounded-2xl px-3 text-left active:bg-white/[0.06]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/[0.06] text-white/55">⚙</span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Панель организатора</span><span className="mt-0.5 block text-xs text-white/30">Управление клубом и вечерами</span></span>
+              <span className="text-lg text-white/20">›</span>
+            </a>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}

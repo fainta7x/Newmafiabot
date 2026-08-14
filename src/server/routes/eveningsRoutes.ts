@@ -21,6 +21,20 @@ const withCanonicalFormat = <T extends { format?: unknown }>(evening: T): T & { 
   format: normalizeEveningFormat(evening.format),
 });
 
+const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+};
+
+const isUnfinishedEveningGame = (game: any): boolean => {
+  const payload = safeJsonParse<any>(game?.protocol_text, null);
+  if (payload?.kind === 'club_evening_protocol' && payload?.version === 1) {
+    return payload.protocol?.status !== 'completed';
+  }
+  const winner = String(game?.winner_team || '').trim().toLowerCase();
+  return !winner || winner === 'draft';
+};
+
 const ensureEditable = async (db: DatabaseWrapper, id: string) => {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
   if (!evening) { const error: any = new Error('Игровой вечер не найден'); error.status = 404; throw error; }
@@ -138,7 +152,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async(req,res)=>{
 router.post('/:id/settle', requireOrganizerAuth, async(req,res)=>{
   try{const db=(req as any).db||(await getDb());const evening=await db.get<any>('SELECT * FROM game_evenings WHERE id=?',[req.params.id]);if(!evening)return res.status(404).json({error:'Игровой вечер не найден'});if(evening.status==='completed'||evening.settled_at)return res.json({success:true,alreadySettled:true,evening});
     const pending=await db.all<any>(`${participantSelect} WHERE ep.evening_id=? AND ep.response_status IN ('going','late') AND ep.attendance_status='pending'`,[req.params.id]);if(pending.length)return res.status(409).json({error:'Не отмечена фактическая явка ожидаемых игроков',pendingParticipants:pending.map(p=>({id:p.id,nickname:p.nickname,player_id:p.player_id})),message:'Перед закрытием отметьте фактическую явку игроков, которые ответили «Иду» или «Приду позже».'});
-    const unfinishedGames=await db.all<any>('SELECT id,global_game_number FROM games WHERE evening_id=? AND winner_team IS NULL ORDER BY global_game_number ASC',[req.params.id]);if(unfinishedGames.length)return res.status(409).json({error:'Сначала завершите все игры вечера',unfinishedGames:unfinishedGames.map((game:any)=>({id:game.id,game_number:game.global_game_number})),message:`Незавершённых игр: ${unfinishedGames.length}. Откройте вкладку «Игры» и завершите их перед закрытием вечера.`});
+    const eveningGames=await db.all<any>('SELECT id,global_game_number,winner_team,protocol_text FROM games WHERE evening_id=? AND archived_at IS NULL ORDER BY global_game_number ASC',[req.params.id]);const unfinishedGames=eveningGames.filter(isUnfinishedEveningGame);if(unfinishedGames.length)return res.status(409).json({error:'Сначала завершите все игры вечера',unfinishedGames:unfinishedGames.map((game:any)=>({id:game.id,game_number:game.global_game_number})),message:`Незавершённых игр: ${unfinishedGames.length}. Откройте вкладку «Игры» и завершите их перед закрытием вечера.`});
     const participants=await db.all<any>('SELECT * FROM evening_participants WHERE evening_id=?',[req.params.id]);const now=new Date().toISOString();await db.transaction(async(tx)=>{await tx.run(`UPDATE game_evenings SET status='completed',settled_at=?,updated_at=? WHERE id=? AND status!='completed'`,[now,now,req.params.id]);for(const p of participants){if(p.attendance_status!=='attended'||p.payment_status==='waived')continue;const due=Number(p.amount_due||0),paid=Number(p.amount_paid||0),debt=Math.max(0,due-paid);if(paid>0)await tx.run(`INSERT OR IGNORE INTO financial_transactions (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at) VALUES (?,'income',?,'Взнос за вечер',?,?,?,'evening_settle',?,?)`,[crypto.randomUUID(),paid,`Оплата за вечер ${evening.title}`,p.player_id,evening.id,p.id,now]);if(debt>0)await tx.run(`INSERT OR IGNORE INTO financial_transactions (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at) VALUES (?,'debt_created',?,'Неоплата за вечер',?,?,?,'evening_settle',?,?)`,[crypto.randomUUID(),debt,`Долг за вечер ${evening.title}`,p.player_id,evening.id,p.id,now]);}});await runCrmAutomations(db);return res.json({success:true,alreadySettled:false,message:'Игровой вечер успешно закрыт и рассчитан',evening:await db.get('SELECT * FROM game_evenings WHERE id=?',[req.params.id])});
   }catch(err:any){return res.status(err.status||500).json({error:err.message||'Database transaction error'});}
 });

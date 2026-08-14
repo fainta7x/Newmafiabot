@@ -5,9 +5,39 @@ import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 
 const START_EVENT = 'judge-game-music-start';
 const STOP_EVENT = 'judge-game-music-stop';
+const MANUAL_STATE_KEY = 'judge-game-music-manual-state-v1';
 
 type MusicStartKind = 'manual' | 'night';
 type MusicStartDetail = { trackId?: string; kind?: MusicStartKind };
+type StoredManualState = { trackId?: string; kind: MusicStartKind };
+
+const readStoredManualState = (): StoredManualState | null => {
+  try {
+    const raw = sessionStorage.getItem(MANUAL_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.kind !== 'manual' && parsed?.kind !== 'night') return null;
+    return {
+      kind: parsed.kind,
+      trackId: typeof parsed.trackId === 'string' && parsed.trackId ? parsed.trackId : undefined,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const storeManualState = (detail: MusicStartDetail) => {
+  try {
+    sessionStorage.setItem(MANUAL_STATE_KEY, JSON.stringify({
+      kind: detail.kind === 'night' ? 'night' : 'manual',
+      trackId: detail.trackId || undefined,
+    }));
+  } catch {}
+};
+
+const clearManualState = () => {
+  try { sessionStorage.removeItem(MANUAL_STATE_KEY); } catch {}
+};
 
 export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
   new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
@@ -65,7 +95,6 @@ const zeroNightWantsMusic = (live: LiveAudioState | null) => {
 export default function JudgeGameMusicController() {
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
-  const manualNightRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);
   const nightWantedRef = useRef(false);
   const wantedRef = useRef(false);
@@ -73,23 +102,34 @@ export default function JudgeGameMusicController() {
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
+    const stored = readStoredManualState();
+    if (stored) {
+      manualRef.current = true;
+      manualTrackRef.current = stored.trackId;
+      wantedRef.current = true;
+      wantedTrackRef.current = stored.trackId;
+    }
   }, []);
 
   useEffect(() => {
     const startDeal = (event: Event) => {
-      const detail = (event as CustomEvent<MusicStartDetail>).detail;
+      const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       manualRef.current = true;
-      manualNightRef.current = detail?.kind === 'night';
-      manualTrackRef.current = detail?.trackId;
+      manualTrackRef.current = detail.trackId;
       wantedRef.current = true;
-      wantedTrackRef.current = detail?.trackId;
-      void music.start(detail?.trackId);
+      wantedTrackRef.current = detail.trackId;
+      storeManualState(detail);
+      void music.start(detail.trackId);
     };
     const stopDeal = () => {
       manualRef.current = false;
-      manualNightRef.current = false;
       manualTrackRef.current = undefined;
-      if (!nightWantedRef.current) music.stop();
+      wantedRef.current = false;
+      wantedTrackRef.current = undefined;
+      clearManualState();
+      // Explicit stop always wins immediately. No timer or night subphase is
+      // allowed to masquerade as the judge pressing this button.
+      music.stop();
     };
     window.addEventListener(START_EVENT, startDeal);
     window.addEventListener(STOP_EVENT, stopDeal);
@@ -104,16 +144,24 @@ export default function JudgeGameMusicController() {
       const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
       const selection = readJudgeGameMusicSelection();
 
-      // Regular-night playback is fully manual: after the explicit start action
-      // it keeps playing across all night timers/subphases until the judge presses
-      // the explicit stop action. Phase/timer changes no longer stop it.
+      // A manually started regular-night track is sticky. Rehydrate the flag if
+      // Telegram/WebView remounted this controller while the game was still open.
+      // It can only be cleared by the explicit STOP event above.
+      if (!manualRef.current) {
+        const stored = readStoredManualState();
+        if (stored) {
+          manualRef.current = true;
+          manualTrackRef.current = stored.trackId;
+        }
+      }
+
       const phaseWantsNightMusic = zeroNightWantsMusic(live);
       const configured = selection?.configured === true;
       const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;
-      const shouldPlayForNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));
+      const shouldPlayForZeroNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));
 
-      nightWantedRef.current = shouldPlayForNight;
-      const shouldPlay = manualRef.current || shouldPlayForNight;
+      nightWantedRef.current = shouldPlayForZeroNight;
+      const shouldPlay = manualRef.current || shouldPlayForZeroNight;
       const desiredTrack = manualRef.current ? manualTrackRef.current : selectedNightTrack;
       wantedRef.current = shouldPlay;
       wantedTrackRef.current = desiredTrack;

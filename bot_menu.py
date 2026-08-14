@@ -1,4 +1,5 @@
 from html import escape
+from urllib.parse import quote
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
@@ -15,9 +16,16 @@ def player_app_url(path: str = "/player") -> str | None:
     if not base:
         return None
     suffix = "/" + str(path or "/player").lstrip("/")
-    if base.endswith("/player") and suffix == "/player":
-        return base
+
+    # PLAYER_APP_URL may be configured either as the site origin or as /player itself.
+    if base.endswith("/player") and suffix.startswith("/player"):
+        base = base[:-len("/player")]
     return f"{base}{suffix}"
+
+
+def event_app_path(evening_id: str) -> str:
+    safe_id = quote(str(evening_id or "").strip(), safe="")
+    return f"/player/events?event={safe_id}"
 
 
 def main_menu_for_user(*, is_admin: bool, is_judge: bool):
@@ -53,6 +61,10 @@ def app_inline_keyboard(path: str = "/player", text: str = APP_BUTTON_TEXT) -> I
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))]]
     )
+
+
+def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать игры") -> InlineKeyboardMarkup | None:
+    return app_inline_keyboard(event_app_path(evening_id), text)
 
 
 def start_text(first_name: str | None = None) -> str:

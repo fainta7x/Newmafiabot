@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
+import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
 
 interface EveningParticipantsViewProps {
@@ -70,6 +71,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
       } else {
         setAnnounceMessage(`Анонс опубликован. В ЛС доставлено: ${sent}.`);
       }
+      setRefreshKey((value) => value + 1);
     } catch (error: any) {
       setAnnounceError(error?.message || 'Не удалось отправить анонс');
     } finally {
@@ -99,12 +101,14 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
+      <EveningInviteAudienceManager onChanged={() => setRefreshKey((value) => value + 1)} />
+
       {status === 'published' || status === 'active' ? (
         <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <strong className="block text-[13px] text-text-primary">Telegram-анонс</strong>
-              <span className="mt-0.5 block text-[11px] text-text-secondary">Группа + личные приглашения подходящим по уровню игрокам.</span>
+              <span className="mt-0.5 block text-[11px] text-text-secondary">Группа + личные приглашения только тем, кто сейчас включён в рассылку и подходит по уровню.</span>
             </div>
             <button
               type="button"

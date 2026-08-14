@@ -7,6 +7,7 @@ import {
 } from '../shared/tournamentVoting';
 import {
   canRegisterFirstKilled,
+  canToggleVoteAssignment,
   getExplicitVoteCounts,
   getSingularZeroRoundElimination,
   isVoteDecided,
@@ -23,6 +24,8 @@ function round(partial: Partial<VotingRound>): VotingRound {
     day_number: partial.day_number ?? 0,
     eligible_voters: partial.eligible_voters ?? 10,
     parent_round_number: partial.parent_round_number ?? null,
+    parent_nominated_seats: partial.parent_nominated_seats,
+    parent_vote_counts: partial.parent_vote_counts,
     outcome: partial.outcome ?? 'pending',
     eliminated_seats: partial.eliminated_seats ?? [],
     table_leave_votes: partial.table_leave_votes ?? null,
@@ -69,11 +72,18 @@ describe('live voting parity helpers', () => {
     expect(counts[2] + counts[5]).toBe(3);
   });
 
-  it('detects a mathematically decided vote from explicit votes', () => {
+  it('detects a mathematically decided vote only when all remaining ballots cannot tie or overtake', () => {
     expect(isVoteDecided([2, 5], { 2: 6, 5: 0 }, 10)).toBe(true);
     expect(isVoteDecided([2, 5], { 2: 5, 5: 0 }, 10)).toBe(false);
+    expect(isVoteDecided([2, 5], { 2: 4, 5: 3 }, 10)).toBe(false);
     expect(isVoteDecided([2, 5], { 2: 3, 5: 3 }, 10)).toBe(false);
     expect(isVoteDecidedFromAssignments([2,5], {1:2,2:2,3:2,4:2,5:2,6:2}, [1,2,3,4,5,6,7,8,9,10])).toBe(true);
+  });
+
+  it('does not let an already-cast vote jump directly to a later candidate', () => {
+    expect(canToggleVoteAssignment(1, 2, {})).toBe(true);
+    expect(canToggleVoteAssignment(1, 2, { 1: 2 })).toBe(true);
+    expect(canToggleVoteAssignment(1, 5, { 1: 2 })).toBe(false);
   });
 
   it('unique leader resolves to one elimination', () => {
@@ -105,6 +115,20 @@ describe('live voting parity helpers', () => {
     expect(r2.winners).toEqual([1,2]);
     const third = createNextRevoteRound(second, r2.winners);
     expect(third.nominated_seats).toEqual([1,2]);
+  });
+
+  it('requires another 5/5 after a narrowed 5/5/0 before table decision', () => {
+    const first = round({ nominated_seats: [1,2,3], vote_counts: {1:5,2:5,3:0} });
+    const firstResult = determineVotingResult(first);
+    expect(firstResult.winners).toEqual([1,2]);
+    const second = createNextRevoteRound(first, firstResult.winners);
+    second.round_number = 2;
+    second.vote_counts = {1:5,2:5};
+    expect(determineVotingResult(second).outcome).toBe('needs_revote');
+    const third = createNextRevoteRound(second, [1,2]);
+    third.round_number = 3;
+    third.vote_counts = {1:5,2:5};
+    expect(determineVotingResult(third).outcome).toBe('requires_table_decision');
   });
 
   it('allows table decision when tied candidates are exactly half the voters', () => {

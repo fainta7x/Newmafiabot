@@ -63,7 +63,7 @@ def app_inline_keyboard(path: str = "/player", text: str = APP_BUTTON_TEXT) -> I
     )
 
 
-def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать игры") -> InlineKeyboardMarkup | None:
+def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / изменить игры") -> InlineKeyboardMarkup | None:
     return app_inline_keyboard(event_app_path(evening_id), text)
 
 

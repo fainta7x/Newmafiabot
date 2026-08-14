@@ -27,6 +27,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         if (!cancelled) setStatus(String(evening.status || ''));
       })
       .catch(() => {});
+    void fetch(`/api/evenings/${encodeURIComponent(props.eveningId)}/slots`, { credentials: 'include' }).catch(() => {});
     return () => { cancelled = true; };
   }, [props.eveningId, refreshKey]);
 

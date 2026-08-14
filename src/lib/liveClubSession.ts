@@ -3,10 +3,12 @@ import type { ShotEntry } from './api';
 
 export const LEGACY_LIVE_SESSION_KEY = 'mafia_live_session';
 export const LEGACY_DEATH_PROTOCOL_KEY = 'mafia_live_death_protocols';
+export const LEGACY_PROTOCOL_NOTES_KEY = 'mafia_live_protocol_notes';
 
 export const clubLiveSessionKey = (gameId: number | string) => `${LEGACY_LIVE_SESSION_KEY}:club:${String(gameId)}`;
 export const clubLiveEvidenceKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:protocol`;
 export const clubLiveDeathProtocolKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:death-protocols`;
+export const clubLiveProtocolNotesKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:notes`;
 
 export type LiveProtocolEvidence = {
   votes: VotingRound[];
@@ -134,6 +136,7 @@ export class ClubLiveSessionRecorder {
   readonly sessionKey: string;
   readonly evidenceKey: string;
   readonly deathProtocolKey: string;
+  readonly protocolNotesKey: string;
   private evidence: LiveProtocolEvidence = { votes: [], shots: [] };
   private previousSnapshot: LiveSessionSnapshot | null = null;
   private intervalId: number | null = null;
@@ -148,6 +151,7 @@ export class ClubLiveSessionRecorder {
     this.sessionKey = clubLiveSessionKey(gameId);
     this.evidenceKey = clubLiveEvidenceKey(gameId);
     this.deathProtocolKey = clubLiveDeathProtocolKey(gameId);
+    this.protocolNotesKey = clubLiveProtocolNotesKey(gameId);
   }
 
   mount() {
@@ -160,6 +164,9 @@ export class ClubLiveSessionRecorder {
     const scopedDeathProtocol = localStorage.getItem(this.deathProtocolKey);
     if (scopedDeathProtocol) localStorage.setItem(LEGACY_DEATH_PROTOCOL_KEY, scopedDeathProtocol);
     else localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
+    const scopedProtocolNotes = localStorage.getItem(this.protocolNotesKey);
+    if (scopedProtocolNotes !== null) localStorage.setItem(LEGACY_PROTOCOL_NOTES_KEY, scopedProtocolNotes);
+    else localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);
     this.sync();
     window.addEventListener('pagehide', this.flushOnPageHide);
     document.addEventListener('visibilitychange', this.flushWhenHidden);
@@ -170,6 +177,8 @@ export class ClubLiveSessionRecorder {
     if (typeof window === 'undefined') return;
     const rawDeathProtocol = localStorage.getItem(LEGACY_DEATH_PROTOCOL_KEY);
     if (rawDeathProtocol) localStorage.setItem(this.deathProtocolKey, rawDeathProtocol);
+    const rawProtocolNotes = localStorage.getItem(LEGACY_PROTOCOL_NOTES_KEY);
+    if (rawProtocolNotes !== null) localStorage.setItem(this.protocolNotesKey, rawProtocolNotes);
 
     const raw = localStorage.getItem(LEGACY_LIVE_SESSION_KEY);
     if (!raw) return;
@@ -203,6 +212,7 @@ export class ClubLiveSessionRecorder {
     this.stopLifecycleSync();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
+    localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);
     this.mounted = false;
   }
 
@@ -212,9 +222,11 @@ export class ClubLiveSessionRecorder {
     this.stopLifecycleSync();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
+    localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem(this.evidenceKey);
     localStorage.removeItem(this.deathProtocolKey);
+    localStorage.removeItem(this.protocolNotesKey);
     this.mounted = false;
   }
 }

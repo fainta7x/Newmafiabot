@@ -38,14 +38,8 @@ function RatingTable({ playerId }: { playerId: string }) {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <header className="px-1 pt-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100/40">Рейтинг клуба</div>
-          <h1 className="mt-1 text-2xl font-semibold">Кто где сейчас</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Актуальная таблица Elo. Твоя строка всегда выделена.</p>
-        </header>
-
+    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
+      <div className="mx-auto w-full max-w-[430px]">
         <section className="rounded-[26px] border border-white/10 bg-white/[0.04] p-3">
           {error ? (
             <div className="rounded-2xl bg-rose-400/[0.07] px-3 py-4 text-sm text-rose-200/65">{error}</div>
@@ -90,6 +84,10 @@ export default function PlayerRatingHub({
   return (
     <div className="bg-[#090a0d] text-white">
       <div className="mx-auto w-full max-w-[430px] px-3 pt-3">
+        <header className="px-1 pb-3 pt-1">
+          <h1 className="text-2xl font-semibold">Рейтинг</h1>
+          <p className="mt-1 text-xs leading-5 text-white/40">Текущее место, динамика Elo, зачётные периоды и сезоны</p>
+        </header>
         <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-1">
           {TABS.map((tab) => {
             const active = section === tab.id;
@@ -111,19 +109,17 @@ export default function PlayerRatingHub({
       {section === 'rating' ? (
         <RatingTable playerId={data.player.id} />
       ) : section === 'elo' ? (
-        <PlayerEloJourney />
+        <PlayerEloJourney embedded />
       ) : section === 'ratingperiods' ? (
-        <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+        <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
           <div className="mx-auto w-full max-w-[430px] space-y-3">
-            <header className="px-1 pt-1"><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Рейтинговые периоды</div><h1 className="mt-1 text-2xl font-semibold">Текущий зачёт</h1><p className="mt-1 text-xs leading-5 text-white/40">Отдельные рейтинговые дистанции, таблицы и начисленные баллы.</p></header>
             <PlayerRatingPeriods playerId={data.player.id} />
           </div>
         </main>
       ) : (
-        <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+        <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-2 text-white">
           <div className="mx-auto w-full max-w-[430px]">
-            <header className="px-1 pt-1"><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-100/40">Сезоны клуба</div><h1 className="mt-1 text-2xl font-semibold">Сезоны и рекорды</h1><p className="mt-1 text-xs leading-5 text-white/40">Текущий сезон, архив, лидеры и рекорды без лишней клубной ленты.</p></header>
-            <div className="mt-3"><PlayerSeasonsPanel /></div>
+            <PlayerSeasonsPanel />
           </div>
         </main>
       )}

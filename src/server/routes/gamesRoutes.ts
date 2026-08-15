@@ -8,8 +8,7 @@ import { requiredJudgeLevelForEveningFormat } from '../../db/ensureJudgeAuthorit
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
-import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
-import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
+import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
 
 const router = Router();
 
@@ -282,16 +281,10 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
       });
     });
 
-    if (previousStatus === 'completed' || status === 'completed') {
-      await rebuildCanonicalEloRatings(db);
-    }
-
-    if (status === 'completed') {
-      const achievementIds = canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean);
-      if (judge.judge_player_id) achievementIds.push(String(judge.judge_player_id));
-      await evaluateAchievementsForPlayers(db, achievementIds);
-    }
-
+    // From this point the canonical protocol and token settlement are already
+    // committed. Fetch the authoritative game before derived updates so an Elo
+    // or achievement failure can never make the client think the game itself
+    // was not saved.
     const row = await db.get(
       `SELECT g.*, et.name AS table_name
          FROM games g
@@ -299,6 +292,16 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
         WHERE g.id = ?`,
       [gameId],
     );
+    if (!row) throw new Error('Сохранённая игра не найдена после фиксации протокола');
+
+    await runClubGamePostSaveTasks(db, {
+      gameId,
+      previousStatus,
+      status,
+      playerIds: canonical.playerResults.map((item: any) => String(item.player_id || '')).filter(Boolean),
+      judgePlayerId: judge.judge_player_id || null,
+    });
+
     return res.json(normalizeGame(row));
   } catch (err: any) {
     const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');

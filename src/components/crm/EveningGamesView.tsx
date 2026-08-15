@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Archive, ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
-import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { EveningGameProtocolModal } from './EveningGameProtocolModal';
 import { EveningLiveGameModal } from './EveningLiveGameModal';
@@ -25,6 +25,7 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   const [modeChoiceGame, setModeChoiceGame] = useState<ClubGameRecord | null>(null);
   const [pendingGameAction, setPendingGameAction] = useState<{ type: 'archive' | 'delete'; game: ClubGameRecord } | null>(null);
   const [processingGameAction, setProcessingGameAction] = useState(false);
+  const [retryingFinalSaveGameId, setRetryingFinalSaveGameId] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -94,6 +95,21 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
     setActiveLiveGame((current) => current?.id === updated.id ? updated : current);
   };
 
+  const retryPendingFinalSave = async (game: ClubGameRecord) => {
+    if (retryingFinalSaveGameId != null) return;
+    setRetryingFinalSaveGameId(game.id);
+    setError(null);
+    try {
+      const updated = await clubGamesApi.retryPendingProtocolSave(game.id);
+      if (!updated) throw new Error('Локальная копия завершённого протокола не найдена');
+      applyUpdatedGame(updated);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось повторно сохранить завершённую игру. Локальная копия сохранена на устройстве.');
+    } finally {
+      setRetryingFinalSaveGameId(null);
+    }
+  };
+
   const localNumberById = useMemo(() => {
     const chronological = [...games, ...archivedGames].sort((a, b) => a.id - b.id);
     return new Map(chronological.map((game, index) => [game.id, index + 1]));
@@ -130,12 +146,16 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
           const protocol = game.club_protocol?.protocol;
           const results = game.club_protocol?.player_results || [];
           const localNumber = localNumberById.get(game.id) || 1;
+          const pendingFinalSave = Boolean(getPendingClubGameProtocolSave(game.id));
+          const retryingThisGame = retryingFinalSaveGameId === game.id;
           return (
-            <article key={game.id} className="space-y-3 rounded-[18px] border border-border-soft bg-surface-1 p-4">
+            <article key={game.id} className={`space-y-3 rounded-[18px] border bg-surface-1 p-4 ${pendingFinalSave ? 'border-warning/50' : 'border-border-soft'}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-[13px] text-text-primary">Игра {localNumber}</strong><span className="font-mono text-[10px] text-text-muted">#{game.global_game_number}</span><span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${game.status === 'completed' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{game.status === 'completed' ? 'Завершена' : 'Черновик'}</span>{protocol?.winner_team ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] font-bold text-text-secondary">Победа {protocol.winner_team === 'red' ? 'красных' : 'чёрных'}</span> : null}</div><p className="mt-1 text-[11px] text-text-secondary">{game.table_name || 'Без стола'}{game.judge_name ? ` · Ведущий: ${game.judge_name}` : ''}</p></div>
-                <div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => archiveGame(game)} title="Перенести в архив" className="grid h-10 w-10 place-items-center rounded-[11px] border border-border-soft bg-surface-2 text-text-muted"><Archive className="h-4 w-4" /></button>{game.status === 'draft' ? <button type="button" onClick={() => setActiveLiveGame(game)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[11px] font-black text-white"><Play className="h-4 w-4" />Провести</button> : null}<button type="button" onClick={() => setActiveProtocolGame(game)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-black text-text-primary">{game.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-success" /> : <FileText className="h-4 w-4 text-warning" />}{game.status === 'completed' ? 'Протокол' : 'Заполнить протокол'}</button></div>
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-[13px] text-text-primary">Игра {localNumber}</strong><span className="font-mono text-[10px] text-text-muted">#{game.global_game_number}</span><span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${game.status === 'completed' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>{game.status === 'completed' ? 'Завершена' : 'Черновик'}</span>{pendingFinalSave ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[9px] font-black uppercase text-warning">Ждёт подтверждения</span> : null}{protocol?.winner_team ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[9px] font-bold text-text-secondary">Победа {protocol.winner_team === 'red' ? 'красных' : 'чёрных'}</span> : null}</div><p className="mt-1 text-[11px] text-text-secondary">{game.table_name || 'Без стола'}{game.judge_name ? ` · Ведущий: ${game.judge_name}` : ''}</p></div>
+                <div className="flex flex-wrap justify-end gap-2">{pendingFinalSave ? <button type="button" disabled={retryingThisGame} onClick={() => void retryPendingFinalSave(game)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-warning px-3 text-[11px] font-black text-slate-950 disabled:opacity-60"><RotateCcw className={`h-4 w-4 ${retryingThisGame ? 'animate-spin' : ''}`} />{retryingThisGame ? 'Сохраняю…' : 'Повторить сохранение'}</button> : <><button type="button" onClick={() => archiveGame(game)} title="Перенести в архив" className="grid h-10 w-10 place-items-center rounded-[11px] border border-border-soft bg-surface-2 text-text-muted"><Archive className="h-4 w-4" /></button>{game.status === 'draft' ? <button type="button" onClick={() => setActiveLiveGame(game)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] bg-accent px-3 text-[11px] font-black text-white"><Play className="h-4 w-4" />Провести</button> : null}<button type="button" onClick={() => setActiveProtocolGame(game)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[11px] font-black text-text-primary">{game.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-success" /> : <FileText className="h-4 w-4 text-warning" />}{game.status === 'completed' ? 'Протокол' : 'Заполнить протокол'}</button></>}</div>
               </div>
+
+              {pendingFinalSave ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>На этом устройстве сохранён финальный протокол, который ещё не получил подтверждение сервера. Пока он не отправлен, повторное проведение, ручное редактирование и архивирование игры заблокированы.</span></div> : null}
 
               <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">{results.slice().sort((a, b) => a.seat_number - b.seat_number).map((player) => <div key={player.participant_id} className="min-w-0 rounded-[10px] border border-border-soft bg-surface-2 p-1.5 text-center"><div className="font-mono text-[9px] text-text-muted">#{player.seat_number}</div><div className="truncate text-[9px] font-bold text-text-primary">{player.display_name}</div><div className="truncate text-[8px] text-text-muted">{player.role === 'citizen' ? 'Мирный' : player.role === 'sheriff' ? 'Шериф' : player.role === 'mafia' ? 'Мафия' : player.role === 'don' ? 'Дон' : '—'}</div></div>)}</div>
             </article>

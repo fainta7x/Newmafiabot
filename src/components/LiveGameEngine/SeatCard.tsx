@@ -2,6 +2,7 @@ import React from "react";
 import { Crosshair, Mic, User, Skull, Star, Heart, X, Gavel } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
+import { canToggleVoteAssignment } from "../../lib/liveVoting.js";
 
 interface SeatCardProps {
   slotNum: number;
@@ -110,6 +111,7 @@ export default function SeatCard({
   const isSpeaking = activeSpeakerSlot === slotNum;
   const isNominated = nominations.includes(slotNum);
   const hasSpoken = p.has_spoken_this_round;
+  const activeVoteNominee = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : undefined;
 
   // Night specific highlighting
   const isNightShot = phase === "night" && shotPlayerSlot === slotNum;
@@ -178,9 +180,21 @@ export default function SeatCard({
     containerBorder = "border-rose-950 bg-[#160a0f] hover:border-rose-900";
   }
 
+  const handleCardClick = () => {
+    if (phase === "day_voting" && isInteractiveVoting && activeVoteNominee !== undefined) {
+      const assignments = votesByPlayer || {};
+      if (!canToggleVoteAssignment(slotNum, activeVoteNominee, assignments)) {
+        const existing = assignments[slotNum];
+        showToast(`#${slotNum} уже проголосовал за #${existing}. Вернитесь к этой кандидатуре, чтобы снять голос.`, "info");
+        return;
+      }
+    }
+    handleSeatClick(slotNum);
+  };
+
   return (
     <div
-      onClick={() => handleSeatClick(slotNum)}
+      onClick={handleCardClick}
       className={`relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] pt-7 pb-1 px-1 rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-md md:shadow-lg self-center w-full ${getGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {/* If player is ALIVE */}
@@ -294,30 +308,28 @@ export default function SeatCard({
                 (() => {
                   const activeNomineeSlot = nominations[currentVotingNomineeIndex];
                   const lastNominee = nominations[nominations.length - 1];
-                  const hasVotedOther =
-                    votesByPlayer && votesByPlayer[slotNum] !== undefined && votesByPlayer[slotNum] !== activeNomineeSlot;
-                  const isVotingThis = votesByPlayer && (votesByPlayer[slotNum] === activeNomineeSlot ||
-                    (activeNomineeSlot === lastNominee && votesByPlayer[slotNum] === undefined));
+                  const explicitTarget = votesByPlayer?.[slotNum];
+                  const automatic = explicitTarget === undefined && activeNomineeSlot === lastNominee;
+                  const target = explicitTarget ?? (automatic ? lastNominee : undefined);
+                  const hasVotedOther = explicitTarget !== undefined && explicitTarget !== activeNomineeSlot;
 
                   let statusColor = "text-slate-400";
-                  let statusText = "Не голосовал";
                   let statusBg = "bg-slate-950/40";
-
                   if (hasVotedOther) {
-                    const otherNominee = votesByPlayer[slotNum];
                     statusColor = "text-slate-500";
-                    statusText = `Против #${otherNominee}`;
                     statusBg = "bg-slate-950/60";
-                  } else if (isVotingThis) {
-                    statusColor = "text-rose-450 font-black";
-                    statusText = activeNomineeSlot === lastNominee && votesByPlayer[slotNum] === undefined ? "✋ Автомат" : "✋ Голосует";
+                  } else if (target !== undefined) {
+                    statusColor = "text-rose-400 font-black";
                     statusBg = "bg-rose-950/20 border border-rose-500/25";
                   }
+                  const statusText = target !== undefined
+                    ? `#${slotNum}→#${target}${automatic ? "*" : ""}`
+                    : `#${slotNum}→—`;
 
                   return (
-                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`}>
+                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`} title={target !== undefined ? `Игрок #${slotNum} голосует за #${target}${automatic ? " (автоматический остаток)" : ""}` : `Игрок #${slotNum} ещё не проголосовал`}>
                       <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Голосование</span>
-                      <span className={`text-[10px] sm:text-xs font-black block uppercase tracking-wide leading-none ${statusColor}`}>
+                      <span className={`text-[9px] sm:text-xs font-black block tracking-normal leading-none whitespace-nowrap ${statusColor}`}>
                         {statusText}
                       </span>
                     </div>

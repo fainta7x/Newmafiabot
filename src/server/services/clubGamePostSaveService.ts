@@ -41,24 +41,33 @@ export async function runClubGamePostSaveTasks(
   dependencies: ClubGamePostSaveDependencies = defaultDependencies,
 ): Promise<ClubGamePostSaveResult> {
   const warnings: string[] = [];
+  let eloReady = true;
 
   if (input.previousStatus === 'completed' || input.status === 'completed') {
     try {
       await dependencies.rebuildElo(db);
     } catch (error) {
+      eloReady = false;
       warnings.push(`Elo: ${errorMessage(error)}`);
     }
   }
 
   if (input.status === 'completed') {
-    const achievementIds = [...new Set([
-      ...[...input.playerIds].map(String).filter(Boolean),
-      ...(input.judgePlayerId ? [String(input.judgePlayerId)] : []),
-    ])];
-    try {
-      await dependencies.evaluateAchievements(db, achievementIds);
-    } catch (error) {
-      warnings.push(`Достижения: ${errorMessage(error)}`);
+    if (!eloReady) {
+      // Rating achievements depend on the freshly rebuilt Elo. Skipping all
+      // achievement evaluation is safer than permanently awarding against a
+      // stale rating; a later successful rebuild/profile evaluation heals it.
+      warnings.push('Достижения: пропущены до успешного пересчёта Elo');
+    } else {
+      const achievementIds = [...new Set([
+        ...[...input.playerIds].map(String).filter(Boolean),
+        ...(input.judgePlayerId ? [String(input.judgePlayerId)] : []),
+      ])];
+      try {
+        await dependencies.evaluateAchievements(db, achievementIds);
+      } catch (error) {
+        warnings.push(`Достижения: ${errorMessage(error)}`);
+      }
     }
   }
 

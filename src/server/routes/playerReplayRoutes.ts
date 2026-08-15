@@ -39,6 +39,9 @@ const normalizeVoteRows = (value: any) => {
   return [];
 };
 
+const resultBelongsToPlayer = (result: any, playerId: string) =>
+  String(result?.player_id || '') === playerId || String(result?.participant_id || '') === playerId;
+
 router.get('/games/:gameKey/replay', async (req, res) => {
   const viewerId = requirePlayerId(req, res);
   if (!viewerId) return;
@@ -59,7 +62,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
 
     const row = await db.get(`
       SELECT g.id, g.global_game_number, g.protocol_text, g.winner_team, g.created_at,
-             e.title AS evening_title
+             g.judge_player_id, e.title AS evening_title
         FROM games g
    LEFT JOIN game_evenings e ON e.id = g.evening_id
        WHERE CAST(g.id AS TEXT) = ?
@@ -73,6 +76,12 @@ router.get('/games/:gameKey/replay', async (req, res) => {
     }
 
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
+    const viewerParticipated = results.some((player: any) => resultBelongsToPlayer(player, viewerId));
+    const viewerWasJudge = String(row.judge_player_id || '') === viewerId;
+    if (!viewerParticipated && !viewerWasJudge) {
+      return res.status(403).json({ error: 'Replay этой игры доступен только её участникам и ведущему.' });
+    }
+
     const byId = new Map<string, string>();
     const bySeat = new Map<string, string>();
     for (const player of results) {

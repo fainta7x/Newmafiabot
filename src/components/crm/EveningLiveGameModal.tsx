@@ -4,7 +4,7 @@ import LiveGameEngine from '../LiveGameEngine';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
-import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 
@@ -247,7 +247,6 @@ const MobileLiveGameStyles = () => (
       .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button[title*="заметку"] {
         display: none !important;
       }
-
       .evening-live-roles-hidden .evening-live-engine-shell [title="Красный"],
       .evening-live-roles-hidden .evening-live-engine-shell [title="Дон"],
       .evening-live-roles-hidden .evening-live-engine-shell [title="Мафия"],
@@ -548,6 +547,11 @@ const MobileLiveGameStyles = () => (
 
 export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated }) => {
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(() =>
+    getPendingClubGameProtocolSave(game.id)
+      ? 'Предыдущая попытка сохранить завершённую игру не дошла до сервера.'
+      : null,
+  );
   const [livePhase, setLivePhase] = useState('setup');
   const [rolesHidden, setRolesHidden] = useState(false);
   const [liveDiscipline, setLiveDiscipline] = useState<Record<number, LiveVisualDiscipline>>({});
@@ -618,6 +622,28 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     return () => window.clearInterval(intervalId);
   }, [livePhase, liveRecorder]);
 
+  const finishConfirmedSave = (updated: ClubGameRecord) => {
+    liveRecorder.finish();
+    clearStoredDeathProtocols();
+    setSaveError(null);
+    onUpdated(updated);
+    onClose();
+  };
+
+  const retryFinalSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const updated = await clubGamesApi.retryPendingProtocolSave(game.id);
+      if (!updated) throw new Error('Локальная копия завершённого протокола не найдена');
+      finishConfirmedSave(updated);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Не удалось повторно сохранить результат. Локальная копия сохранена на устройстве.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!game.club_protocol) return null;
 
   return (
@@ -657,6 +683,32 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         </div>
       )}
 
+      {!saving && saveError && (
+        <div className="fixed inset-0 z-[130] bg-slate-950/95 px-5 flex items-center justify-center">
+          <div className="w-full max-w-sm rounded-2xl border border-rose-900/80 bg-slate-900 p-5 shadow-2xl">
+            <div className="text-base font-black text-white">Результат ещё не подтверждён сервером</div>
+            <div className="mt-2 text-sm leading-5 text-slate-300">{saveError}</div>
+            <div className="mt-2 text-xs leading-4 text-slate-500">
+              Финальный протокол сохранён локально. Повтор отправляет ту же самую завершённую игру — проводить её заново не нужно.
+            </div>
+            <button
+              type="button"
+              onClick={retryFinalSave}
+              className="mt-4 w-full min-h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black"
+            >
+              Повторить сохранение
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-2 w-full min-h-10 rounded-xl border border-slate-700 bg-slate-950 text-slate-300 text-sm font-bold"
+            >
+              Закрыть — локальная копия останется
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="evening-live-engine-shell py-0.5 md:py-3">
         <LiveGameEngine
           players={legacyPlayers}
@@ -665,16 +717,14 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           onPhaseChange={setLivePhase}
           onGameFinished={async (gameData) => {
             setSaving(true);
+            setSaveError(null);
             try {
               const evidence = liveRecorder.getEvidence();
               const next = mapEngineResultToProtocol(game, { ...gameData, votes: evidence.votes, shots: evidence.shots });
               const updated = await clubGamesApi.saveProtocol(game.id, next);
-              liveRecorder.finish();
-              clearStoredDeathProtocols();
-              onUpdated(updated);
-              onClose();
+              finishConfirmedSave(updated);
             } catch (err: any) {
-              alert(err.message || 'Не удалось сохранить результат проведённой игры');
+              setSaveError(err?.message || 'Не удалось сохранить результат проведённой игры. Локальная копия сохранена на устройстве.');
             } finally {
               setSaving(false);
             }

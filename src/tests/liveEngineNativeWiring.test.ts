@@ -28,8 +28,7 @@ describe('live engine native wiring', () => {
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');
-    expect(seat).toContain('→#');
-    expect(seat).not.toContain('✋ Автомат');
-    expect(seat).not.toContain('✋ Голосует');
+    expect(seat).toContain('`#${slotNum}→#${target}${automatic ? "*" : ""}`');
+    expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
   });
 });

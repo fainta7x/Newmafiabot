@@ -72,12 +72,12 @@ describe('live voting parity helpers', () => {
     expect(counts[2] + counts[5]).toBe(3);
   });
 
-  it('detects a mathematically decided vote only when all remaining ballots cannot tie or overtake', () => {
+  it('detects mathematical lead arithmetically but never short-circuits the live assignment sequence', () => {
     expect(isVoteDecided([2, 5], { 2: 6, 5: 0 }, 10)).toBe(true);
     expect(isVoteDecided([2, 5], { 2: 5, 5: 0 }, 10)).toBe(false);
     expect(isVoteDecided([2, 5], { 2: 4, 5: 3 }, 10)).toBe(false);
     expect(isVoteDecided([2, 5], { 2: 3, 5: 3 }, 10)).toBe(false);
-    expect(isVoteDecidedFromAssignments([2,5], {1:2,2:2,3:2,4:2,5:2,6:2}, [1,2,3,4,5,6,7,8,9,10])).toBe(true);
+    expect(isVoteDecidedFromAssignments([2,5], {1:2,2:2,3:2,4:2,5:2,6:2}, [1,2,3,4,5,6,7,8,9,10])).toBe(false);
   });
 
   it('does not let an already-cast vote jump directly to a later candidate', () => {

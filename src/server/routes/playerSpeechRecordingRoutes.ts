@@ -3,17 +3,25 @@ import { ensureSpeechRecordingSchema } from '../../db/ensureSpeechRecordingSchem
 import speechRecordingRoutes from './speechRecordingRoutes.ts';
 
 const router = Router();
-let schemaReady: Promise<void> | null = null;
+const schemaReadyByDb = new WeakMap<object, Promise<void>>();
 
 router.use(async (req, res, next) => {
   try {
     const db = (req as any).db;
+    if (!db || (typeof db !== 'object' && typeof db !== 'function')) {
+      throw new Error('База данных недоступна.');
+    }
+
+    const dbKey = db as object;
+    let schemaReady = schemaReadyByDb.get(dbKey);
     if (!schemaReady) {
       schemaReady = ensureSpeechRecordingSchema(db).catch((error) => {
-        schemaReady = null;
+        schemaReadyByDb.delete(dbKey);
         throw error;
       });
+      schemaReadyByDb.set(dbKey, schemaReady);
     }
+
     await schemaReady;
     next();
   } catch (error: any) {

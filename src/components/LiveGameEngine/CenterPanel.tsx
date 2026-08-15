@@ -1,8 +1,9 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Pause, Play, RotateCcw, Mic, LogOut, ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
-import { canToggleVoteAssignment, isVoteDecidedFromAssignments } from "../../lib/liveVoting.js";
+import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -125,15 +126,22 @@ export default function CenterPanel({
   handleConfirmTableDecision,
 }: CenterPanelProps) {
   const [tableVoterSlots, setTableVoterSlots] = React.useState<number[]>([]);
+  const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
+  const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
+  const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const timerDeadlineRef = React.useRef<number | null>(null);
   const timerIdentityRef = React.useRef('');
+  const bestMoveDeadlineRef = React.useRef<number | null>(null);
+
   const activeSpeaker = activePlayers.find((p) => p.slot_num === activeSpeakerSlot);
   const donPlayer = activePlayers.find((p) => p.role === "Дон");
   const mafiaPlayers = activePlayers.filter((p) => p.role === "Мафия");
   const prevStep = getPrevStepAction();
-  const nextStep = getNextStepInfo();
   const currentRound = votingRounds[activeVotingRoundIndex];
   const effectiveTimerMax = phase === 'day_voting' && votingStage === 'revote_speeches' ? 30 : timerMax;
+  const isVotingLayout = phase === 'day_voting';
+  const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
+  const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
 
   React.useEffect(() => {
     if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > 30) {
@@ -148,11 +156,15 @@ export default function CenterPanel({
     }
   }, [votingStage, activeVotingRoundIndex, setTableLeaveVotesInput]);
 
-  /*
-   * Android / Telegram WebView throttles setInterval while the app is minimized.
-   * Keep an absolute deadline so a running speech timer catches up immediately
-   * when the app becomes visible again instead of silently pausing in background.
-   */
+  React.useEffect(() => {
+    if (phase !== 'night') {
+      setMusicStartedRound(null);
+      setMusicStoppedRound(null);
+    }
+  }, [phase, roundNumber]);
+
+  /* Android / Telegram WebView throttles setInterval in background. A deadline
+   * keeps speech/revote timers tied to real elapsed time. */
   React.useEffect(() => {
     const identity = [phase, votingStage, activeSpeakerSlot ?? '', customTimerLabel ?? '', effectiveTimerMax].join('|');
     if (!isTimerRunning) {
@@ -183,7 +195,38 @@ export default function CenterPanel({
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', syncFromDeadline);
     };
-  }, [isTimerRunning, phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax]);
+  }, [isTimerRunning, phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax, setIsTimerRunning, setTimeLeft, timeLeft]);
+
+  /* First-killed best move is a real 20-second phase, independent from browser
+   * interval throttling. It is displayed above the best-move protocol overlay. */
+  React.useEffect(() => {
+    if (!isFirstKilledBestMove) {
+      bestMoveDeadlineRef.current = null;
+      setBestMoveTimeLeft(null);
+      return;
+    }
+
+    const deadline = Date.now() + 20_000;
+    bestMoveDeadlineRef.current = deadline;
+    setBestMoveTimeLeft(20);
+    const sync = () => {
+      const currentDeadline = bestMoveDeadlineRef.current;
+      if (currentDeadline === null) return;
+      setBestMoveTimeLeft(Math.max(0, Math.ceil((currentDeadline - Date.now()) / 1000)));
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+    const interval = window.setInterval(sync, 250);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', sync);
+      bestMoveDeadlineRef.current = null;
+    };
+  }, [isFirstKilledBestMove, roundNumber]);
 
   const adjustTimer = (amount: number) => {
     if (isTimerRunning && timerDeadlineRef.current !== null) timerDeadlineRef.current += amount * 1000;
@@ -238,14 +281,14 @@ export default function CenterPanel({
 
   const toggleTableVoter = (slot: number) => {
     setTableVoterSlots((previous) => {
-      const next = previous.includes(slot)
-        ? previous.filter((value) => value !== slot)
-        : [...previous, slot];
+      const next = previous.includes(slot) ? previous.filter((value) => value !== slot) : [...previous, slot];
       setTableLeaveVotesInput?.(next.length);
       return next;
     });
   };
 
+  /* Legacy table-decision seat hookup is intentionally isolated here. Stage 2B
+   * moves this state to LiveGameEngine/SeatCard and deletes this last DOM bridge. */
   React.useEffect(() => {
     const root = document.querySelector<HTMLElement>('.evening-live-engine-shell');
     const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
@@ -258,12 +301,10 @@ export default function CenterPanel({
     });
 
     if (!isTableDecision) return;
-
     const handleTableSeatClick = (event: Event) => {
       let node = event.target instanceof HTMLElement ? event.target : null;
       while (node && node.parentElement !== grid) node = node.parentElement;
       if (!node || node.parentElement !== grid) return;
-
       const childIndex = Array.from(grid.children).indexOf(node);
       if (childIndex < 0 || childIndex > 9) return;
       const slot = childIndex + 1;
@@ -278,46 +319,8 @@ export default function CenterPanel({
     };
   }, [isTableDecision, tableVoterSlots, activePlayers]);
 
-  /*
-   * Sequential voting guard. Once the division is mathematically decided the
-   * table cannot be edited. A player who already voted for an earlier nominee
-   * is also not clickable on a later nominee until that earlier vote is undone.
-   */
-  React.useEffect(() => {
-    const root = document.querySelector<HTMLElement>('.evening-live-engine-shell');
-    const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
-    if (!grid) return;
-    const seatNodes = Array.from(grid.children).slice(0, 10) as HTMLElement[];
-
-    const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
-    const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
-    const decided = Boolean(
-      phase === 'day_voting'
-      && votingStage === 'collecting'
-      && currentRound
-      && isVoteDecidedFromAssignments(currentRound.nominated_seats, votesByPlayer, eligibleVoterSeats),
-    );
-
-    seatNodes.forEach((node, index) => {
-      const voterSlot = index + 1;
-      const blockedByEarlierVote = nominee != null && !canToggleVoteAssignment(voterSlot, nominee, votesByPlayer);
-      const shouldBlock = phase === 'day_voting' && votingStage === 'collecting' && (decided || blockedByEarlierVote);
-      if (shouldBlock) {
-        node.dataset.sequentialVoteLocked = decided ? 'decided' : 'already-voted';
-        node.style.pointerEvents = 'none';
-      } else {
-        delete node.dataset.sequentialVoteLocked;
-        node.style.removeProperty('pointer-events');
-      }
-    });
-
-    return () => seatNodes.forEach((node) => {
-      delete node.dataset.sequentialVoteLocked;
-      node.style.removeProperty('pointer-events');
-    });
-  }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer, activePlayers]);
-
-  /* Replace the old hand-only status with an explicit voter -> candidate label. */
+  /* Until SeatCard is converted in 2B, keep only the presentational voter→target
+   * text bridge. It no longer controls or locks voting behavior. */
   React.useEffect(() => {
     if (phase !== 'day_voting' || votingStage !== 'collecting' || !currentRound) return;
     const root = document.querySelector<HTMLElement>('.evening-live-engine-shell, .tournament-live-shell');
@@ -339,7 +342,9 @@ export default function CenterPanel({
       });
       const status = statusSpans[statusSpans.length - 1];
       if (!status) return;
-      status.textContent = target ? `#${voterSlot} → #${target}${autoTarget ? ' · авто' : ''}` : `#${voterSlot} → —`;
+      status.textContent = target ? `#${voterSlot}→#${target}${autoTarget ? '*' : ''}` : `#${voterSlot}→—`;
+      (status as HTMLElement).style.whiteSpace = 'nowrap';
+      (status as HTMLElement).style.fontSize = '9px';
     });
   }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer]);
 
@@ -347,7 +352,7 @@ export default function CenterPanel({
     if (phase !== 'day_speeches') return null;
     return (
       <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-950/20 px-2 py-1 text-[9px] font-black text-fuchsia-200">
-        Выставлены: {nominations.length ? nominations.map((slot, index) => `${index + 1}. #${slot}`).join(' · ') : '—'}
+        Выставлены: {nominations.length ? nominations.map((slot) => `#${slot}`).join(' · ') : '—'}
       </div>
     );
   };
@@ -383,14 +388,10 @@ export default function CenterPanel({
   );
 
   const renderVoting = () => {
-    if (!currentRound) {
-      return <div className="text-xs text-slate-400">Подготовка голосования…</div>;
-    }
+    if (!currentRound) return <div className="text-xs text-slate-400">Подготовка голосования…</div>;
 
     const result = determineVotingResult(currentRound);
-    const eligiblePlayers = activePlayers.filter((p) => p.alive);
-    const eligibleVoterSeats = eligiblePlayers.map((p) => p.slot_num);
-    const decided = isVoteDecidedFromAssignments(currentRound.nominated_seats, votesByPlayer, eligibleVoterSeats);
+    const eligibleVoterSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
 
     if (votingStage === 'collecting' || votingStage === 'setup') {
       const candidates = currentRound.nominated_seats;
@@ -404,21 +405,6 @@ export default function CenterPanel({
         target: votesByPlayer[slot] ?? (isLast ? nominee : null),
         automatic: votesByPlayer[slot] === undefined && isLast,
       }));
-
-      if (decided) {
-        return (
-          <div className="space-y-2 w-full max-w-[300px] mx-auto">
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-3 py-2 text-[10px] font-black text-emerald-300 uppercase">
-              ✓ Голосование математически решено
-            </div>
-            <div className="text-[9px] leading-4 text-slate-400">Оставшиеся голоса уже не могут изменить лидера. Изменение голосов заблокировано.</div>
-            <div className="grid grid-cols-5 gap-1">
-              {assignments.map(({ slot, target }) => <div key={slot} className="rounded-md border border-slate-800 bg-slate-950/70 px-1 py-1 text-[8px] font-black text-slate-300">#{slot}→{target ? `#${target}` : '—'}</div>)}
-            </div>
-            <button type="button" onClick={handleResolveVoting} className="w-full py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase">Зафиксировать итог</button>
-          </div>
-        );
-      }
 
       return (
         <div className="space-y-2 w-full max-w-[300px] mx-auto">
@@ -567,7 +553,9 @@ export default function CenterPanel({
         <div className="space-y-2 w-full max-w-[300px] mx-auto">
           <div className="text-xs font-black text-white uppercase">Круг обсуждения</div>
           {renderDayNominations()}
-          <button type="button" onClick={handleStartNextSpeaker} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase flex items-center gap-1.5 mx-auto"><Mic className="w-4 h-4" />Речь #{nextSpeaker.slot_num}</button>
+          <button type="button" onClick={handleStartNextSpeaker} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase flex items-center gap-1.5 mx-auto">
+            <Mic className="w-4 h-4" />Речь #{nextSpeaker.slot_num} · {nextSpeaker.nickname || `Игрок ${nextSpeaker.slot_num}`}
+          </button>
         </div>
       ) : (
         <div className="space-y-2 w-full max-w-[300px] mx-auto">
@@ -594,38 +582,85 @@ export default function CenterPanel({
     return null;
   };
 
+  const baseNextStep = getNextStepInfo();
+  const nextStep = (() => {
+    if (isRegularNightIntro && musicStartedRound !== roundNumber) {
+      return {
+        label: '♫ Включить музыку ночи',
+        onClick: () => {
+          const started = requestJudgeNightMusicStart();
+          setMusicStartedRound(roundNumber);
+          if (!started) setMusicStoppedRound(roundNumber);
+        },
+      };
+    }
+
+    if (phase === 'night' && nightSubPhase === 'sheriff' && musicStartedRound === roundNumber && musicStoppedRound !== roundNumber) {
+      return {
+        label: '♫ Выключить музыку',
+        onClick: () => {
+          requestJudgeGameMusicStop();
+          setMusicStoppedRound(roundNumber);
+        },
+      };
+    }
+
+    if (phase === 'day_speeches' && nextSpeaker && activeSpeakerSlot === null && baseNextStep?.label.startsWith('Речь #')) {
+      return { ...baseNextStep, label: `Речь #${nextSpeaker.slot_num} · ${nextSpeaker.nickname || `Игрок ${nextSpeaker.slot_num}`}` };
+    }
+
+    return baseNextStep;
+  })();
+
+  const panelClass = isVotingLayout
+    ? 'relative md:static z-20 md:z-auto min-h-[210px] md:min-h-[300px] max-h-none overflow-visible'
+    : 'sticky top-[72px] md:static z-40 md:z-auto min-h-[210px] md:min-h-[300px] max-h-[360px] md:max-h-none';
+  const bodyClass = isVotingLayout
+    ? 'flex-none flex items-start justify-start py-2 overflow-visible min-h-0'
+    : 'flex-1 flex items-center justify-center py-2 overflow-y-auto overscroll-contain';
+
   return (
-    <div className="col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none sticky top-[72px] md:static z-40 md:z-auto min-h-[210px] md:min-h-[300px] max-h-[360px] md:max-h-none bg-slate-900/98 border-2 border-slate-800 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex flex-col justify-between text-center shadow-2xl">
-      <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 gap-2">
-        <span className="text-[10px] font-black uppercase text-slate-300 truncate">{phaseLabel}</span>
-        <div className="flex items-center gap-2 shrink-0">
-          {canUseVotingBack && (
-            <button type="button" onClick={handleVotingBack} className="text-[9px] text-slate-300 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800">
-              <ArrowLeft className="w-3 h-3" />Назад
-            </button>
-          )}
-          {onCancel && <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="text-[9px] text-slate-400 flex items-center gap-1"><LogOut className="w-3 h-3" />Выйти</button>}
+    <>
+      <div className={`col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none ${panelClass} bg-slate-900/98 border-2 border-slate-800 rounded-2xl sm:rounded-3xl p-2 sm:p-3 flex flex-col justify-between text-center shadow-2xl`}>
+        <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 gap-2">
+          <span className="text-[10px] font-black uppercase text-slate-300 truncate">{phaseLabel}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            {canUseVotingBack && (
+              <button type="button" onClick={handleVotingBack} className="text-[9px] text-slate-300 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800">
+                <ArrowLeft className="w-3 h-3" />Назад
+              </button>
+            )}
+            {onCancel && <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="text-[9px] text-slate-400 flex items-center gap-1"><LogOut className="w-3 h-3" />Выйти</button>}
+          </div>
+        </div>
+
+        <div className={bodyClass}>
+          {phase === 'day_voting' && votingStage === 'revote_speeches'
+            ? renderVoting()
+            : (activeSpeakerSlot !== null || customTimerLabel !== null)
+              ? renderTimer()
+              : renderIdleBody()}
+        </div>
+
+        <div className="border-t border-slate-800 pt-1.5 space-y-1.5">
+          <div className="flex justify-between text-[9px] text-slate-500">
+            <span>Выставлены: {nominations.length ? nominations.map((n) => `#${n}`).join(', ') : '—'}</span>
+            <span>Живых: {activePlayers.filter((p) => p.alive).length}/10</span>
+          </div>
+          <div className="grid grid-cols-12 gap-1.5 min-h-[36px]">
+            {prevStep ? <button type="button" onClick={prevStep.onClick} className="col-span-4 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] font-bold flex items-center justify-center gap-1"><ArrowLeft className="w-3 h-3" />{prevStep.label}</button> : <div className="col-span-4" />}
+            {nextStep ? <button type="button" onClick={nextStep.onClick} className="col-span-8 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase flex items-center justify-center gap-1">{nextStep.label}<ArrowRight className="w-3 h-3" /></button> : <div className="col-span-8 rounded-lg bg-slate-950/40 border border-slate-850 text-slate-600 text-[10px] flex items-center justify-center">Ожидание</div>}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center py-2 overflow-y-auto overscroll-contain">
-        {phase === 'day_voting' && votingStage === 'revote_speeches'
-          ? renderVoting()
-          : (activeSpeakerSlot !== null || customTimerLabel !== null)
-            ? renderTimer()
-            : renderIdleBody()}
-      </div>
-
-      <div className="border-t border-slate-800 pt-1.5 space-y-1.5">
-        <div className="hidden sm:flex justify-between text-[9px] text-slate-500">
-          <span>Выставлены: {nominations.length ? nominations.map((n) => `#${n}`).join(', ') : '—'}</span>
-          <span>Живых: {activePlayers.filter((p) => p.alive).length}/10</span>
-        </div>
-        <div className="grid grid-cols-12 gap-1.5 min-h-[36px]">
-          {prevStep ? <button type="button" onClick={prevStep.onClick} className="col-span-4 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-[9px] font-bold flex items-center justify-center gap-1"><ArrowLeft className="w-3 h-3" />{prevStep.label}</button> : <div className="col-span-4" />}
-          {nextStep ? <button type="button" onClick={nextStep.onClick} className="col-span-8 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase flex items-center justify-center gap-1">{nextStep.label}<ArrowRight className="w-3 h-3" /></button> : <div className="col-span-8 rounded-lg bg-slate-950/40 border border-slate-850 text-slate-600 text-[10px] flex items-center justify-center">Ожидание</div>}
-        </div>
-      </div>
-    </div>
+      {bestMoveTimeLeft !== null && typeof document !== 'undefined' && createPortal(
+        <div className="fixed left-1/2 top-3 z-[145] -translate-x-1/2 rounded-2xl border border-amber-400/50 bg-slate-950/95 px-5 py-2 text-center shadow-2xl backdrop-blur-xl">
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300">Лучший ход · 20 секунд</div>
+          <div className={`font-mono text-3xl font-black ${bestMoveTimeLeft <= 5 ? 'text-rose-400' : 'text-white'}`}>{bestMoveTimeLeft}с</div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

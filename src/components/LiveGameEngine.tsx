@@ -1235,6 +1235,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           setActiveSpeakerSlot={setActiveSpeakerSlot}
           nominations={currentVotingNominees()}
           phase={phase}
+          postNightStage={postNightStage}
           shotPlayerSlot={shotPlayerSlot}
           donCheckSlot={donCheckSlot}
           sheriffCheckSlot={sheriffCheckSlot}

@@ -15,7 +15,21 @@ const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response) => {
+const safeParse = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try { return JSON.parse(value); } catch { return null; }
+};
+
+export const protocolHasPlayer = (payload: any, playerId: string) => {
+  const results = Array.isArray(payload?.player_results) ? payload.player_results : [];
+  return results.some((player: any) =>
+    String(player?.player_id || '') === playerId || String(player?.participant_id || '') === playerId,
+  );
+};
+
+type ClubGameAccess = 'write' | 'read';
+
+const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response, access: ClubGameAccess) => {
   const gameId = Number(req.params.gameId);
   if (!Number.isInteger(gameId) || gameId <= 0) {
     res.status(400).json({ error: 'Некорректный идентификатор игры.' });
@@ -24,7 +38,7 @@ const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response) =
 
   const db = (req as any).db;
   const game = await db.get(
-    `SELECT g.id, g.judge_player_id, g.archived_at, e.id AS evening_id
+    `SELECT g.id, g.judge_player_id, g.archived_at, g.protocol_text, e.id AS evening_id
        FROM games g
        LEFT JOIN game_evenings e ON e.id = g.evening_id
       WHERE g.id = ?
@@ -39,15 +53,35 @@ const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response) =
   const playerId = getPlayerSessionId(req);
   const organizer = req.userRole === 'ORGANIZER';
   const assignedJudge = Boolean(playerId && String(game.judge_player_id || '') === playerId);
-  if (!organizer && !assignedJudge) {
-    res.status(403).json({ error: 'Записывать речи может организатор или назначенный ведущий этой игры.' });
+
+  if (access === 'write') {
+    if (!organizer && !assignedJudge) {
+      res.status(403).json({ error: 'Записывать речи может организатор или назначенный ведущий этой игры.' });
+      return null;
+    }
+    return { id: gameId, playerId };
+  }
+
+  if (organizer || assignedJudge) return { id: gameId, playerId };
+  if (!playerId) {
+    res.status(403).json({ error: 'Записи этой игры доступны только её участникам.' });
+    return null;
+  }
+
+  const payload = safeParse(game.protocol_text);
+  if (!payload || payload.kind !== 'club_evening_protocol' || payload.protocol?.status !== 'completed') {
+    res.status(409).json({ error: 'Записи игроков доступны после завершения игры.' });
+    return null;
+  }
+  if (!protocolHasPlayer(payload, playerId)) {
+    res.status(403).json({ error: 'Записи этой игры доступны только её участникам.' });
     return null;
   }
 
   return { id: gameId, playerId };
 };
 
-const clipDto = (row: any) => ({
+export const clipDto = (row: any) => ({
   id: String(row.id),
   game_id: Number(row.game_id),
   session_id: String(row.session_id || ''),
@@ -59,12 +93,12 @@ const clipDto = (row: any) => ({
   duration_seconds: Number(row.duration_seconds || 0),
   mime_type: String(row.mime_type || 'audio/webm'),
   byte_size: Number(row.byte_size || 0),
-  audio_url: `/api/speech-recordings/club-games/${encodeURIComponent(String(row.game_id))}/clips/${encodeURIComponent(String(row.id))}/audio`,
+  audio_url: `/api/player/speech-recordings/club-games/${encodeURIComponent(String(row.game_id))}/clips/${encodeURIComponent(String(row.id))}/audio`,
 });
 
 router.post('/club-games/:gameId/clips', audioBody, async (req: AuthenticatedRequest, res) => {
   try {
-    const game = await getAuthorizedClubGame(req, res);
+    const game = await getAuthorizedClubGame(req, res, 'write');
     if (!game) return;
 
     const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
@@ -145,7 +179,7 @@ router.post('/club-games/:gameId/clips', audioBody, async (req: AuthenticatedReq
 
 router.get('/club-games/:gameId/clips', async (req: AuthenticatedRequest, res) => {
   try {
-    const game = await getAuthorizedClubGame(req, res);
+    const game = await getAuthorizedClubGame(req, res, 'read');
     if (!game) return;
     const db = (req as any).db;
     const rows = await db.all(
@@ -164,7 +198,7 @@ router.get('/club-games/:gameId/clips', async (req: AuthenticatedRequest, res) =
 
 router.get('/club-games/:gameId/clips/:clipId/audio', async (req: AuthenticatedRequest, res) => {
   try {
-    const game = await getAuthorizedClubGame(req, res);
+    const game = await getAuthorizedClubGame(req, res, 'read');
     if (!game) return;
     const db = (req as any).db;
     const row = await db.get(

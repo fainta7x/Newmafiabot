@@ -18,12 +18,6 @@ const directVkEntry = {
         "./EveningVkCard.vk-direct.tsx",
       );
     }
-    if (id.endsWith('/src/components/LiveGameEngine.tsx')) {
-      return code.replace(
-        './LiveGameEngine/SeatCard.js',
-        './LiveGameEngine/SeatCardFarewell.js',
-      );
-    }
     return null;
   },
 };

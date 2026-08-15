@@ -19,15 +19,10 @@ const directVkEntry = {
       );
     }
     if (id.endsWith('/src/components/LiveGameEngine.tsx')) {
-      return code
-        .replace(
-          './LiveGameEngine/CenterPanel.js',
-          './LiveGameEngine/CenterPanelNightMusic.js',
-        )
-        .replace(
-          './LiveGameEngine/SeatCard.js',
-          './LiveGameEngine/SeatCardFarewell.js',
-        );
+      return code.replace(
+        './LiveGameEngine/SeatCard.js',
+        './LiveGameEngine/SeatCardFarewell.js',
+      );
     }
     return null;
   },

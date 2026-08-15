@@ -252,7 +252,6 @@ export default function CenterPanel({
 
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
   const canUseVotingBack = phase === 'day_voting' && (votingStage === 'round_result' || votingStage === 'revote_speeches');
-  const isTableDecision = phase === 'day_voting' && votingStage === 'round_result' && currentVotingResult?.outcome === 'requires_table_decision';
 
   const handleVotingBack = () => {
     if (!currentRound || !currentVotingResult) return;
@@ -280,73 +279,13 @@ export default function CenterPanel({
   };
 
   const toggleTableVoter = (slot: number) => {
+    if (!activePlayers.some((player) => player.slot_num === slot && player.alive)) return;
     setTableVoterSlots((previous) => {
       const next = previous.includes(slot) ? previous.filter((value) => value !== slot) : [...previous, slot];
       setTableLeaveVotesInput?.(next.length);
       return next;
     });
   };
-
-  /* Legacy table-decision seat hookup is intentionally isolated here. Stage 2B
-   * moves this state to LiveGameEngine/SeatCard and deletes this last DOM bridge. */
-  React.useEffect(() => {
-    const root = document.querySelector<HTMLElement>('.evening-live-engine-shell');
-    const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
-    if (!grid) return;
-
-    const seatNodes = Array.from(grid.children).slice(0, 10) as HTMLElement[];
-    seatNodes.forEach((node, index) => {
-      if (isTableDecision && tableVoterSlots.includes(index + 1)) node.dataset.tableVoteSelected = 'true';
-      else delete node.dataset.tableVoteSelected;
-    });
-
-    if (!isTableDecision) return;
-    const handleTableSeatClick = (event: Event) => {
-      let node = event.target instanceof HTMLElement ? event.target : null;
-      while (node && node.parentElement !== grid) node = node.parentElement;
-      if (!node || node.parentElement !== grid) return;
-      const childIndex = Array.from(grid.children).indexOf(node);
-      if (childIndex < 0 || childIndex > 9) return;
-      const slot = childIndex + 1;
-      if (!activePlayers.some((player) => player.slot_num === slot && player.alive)) return;
-      toggleTableVoter(slot);
-    };
-
-    grid.addEventListener('click', handleTableSeatClick);
-    return () => {
-      grid.removeEventListener('click', handleTableSeatClick);
-      seatNodes.forEach((node) => delete node.dataset.tableVoteSelected);
-    };
-  }, [isTableDecision, tableVoterSlots, activePlayers]);
-
-  /* Until SeatCard is converted in 2B, keep only the presentational voter→target
-   * text bridge. It no longer controls or locks voting behavior. */
-  React.useEffect(() => {
-    if (phase !== 'day_voting' || votingStage !== 'collecting' || !currentRound) return;
-    const root = document.querySelector<HTMLElement>('.evening-live-engine-shell, .tournament-live-shell');
-    const grid = root?.querySelector<HTMLElement>('div[class*="grid-cols-2"][class*="md:grid-cols-5"]');
-    if (!grid) return;
-    const candidates = currentRound.nominated_seats;
-    const currentNominee = candidates[currentVotingNomineeIndex];
-    const lastNominee = candidates[candidates.length - 1];
-    const seatNodes = Array.from(grid.children).slice(0, 10) as HTMLElement[];
-
-    seatNodes.forEach((node, index) => {
-      const voterSlot = index + 1;
-      const explicitTarget = votesByPlayer[voterSlot];
-      const autoTarget = explicitTarget === undefined && currentNominee === lastNominee ? lastNominee : undefined;
-      const target = explicitTarget ?? autoTarget;
-      const statusSpans = Array.from(node.querySelectorAll('span')).filter((span) => {
-        const text = span.textContent?.trim() || '';
-        return text.includes('✋') || text.startsWith('Против #') || text === 'Не голосовал';
-      });
-      const status = statusSpans[statusSpans.length - 1];
-      if (!status) return;
-      status.textContent = target ? `#${voterSlot}→#${target}${autoTarget ? '*' : ''}` : `#${voterSlot}→—`;
-      (status as HTMLElement).style.whiteSpace = 'nowrap';
-      (status as HTMLElement).style.fontSize = '9px';
-    });
-  }, [phase, votingStage, currentRound, currentVotingNomineeIndex, votesByPlayer]);
 
   const renderDayNominations = () => {
     if (phase !== 'day_speeches') return null;
@@ -391,7 +330,8 @@ export default function CenterPanel({
     if (!currentRound) return <div className="text-xs text-slate-400">Подготовка голосования…</div>;
 
     const result = determineVotingResult(currentRound);
-    const eligibleVoterSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
+    const eligiblePlayers = activePlayers.filter((p) => p.alive);
+    const eligibleVoterSeats = eligiblePlayers.map((p) => p.slot_num);
 
     if (votingStage === 'collecting' || votingStage === 'setup') {
       const candidates = currentRound.nominated_seats;
@@ -512,7 +452,24 @@ export default function CenterPanel({
         return (
           <div className="space-y-2 w-full max-w-[320px] mx-auto">
             <div className="text-[10px] text-amber-300 font-black">Поднять спорных: {result.winners.map((s) => `#${s}`).join(', ')}</div>
-            <div className="text-[9px] text-slate-400">Одинаковое деление повторилось дважды. Тапайте по живым игрокам, которые голосуют за подъём всех спорных.</div>
+            <div className="text-[9px] text-slate-400">Выберите живых игроков, которые голосуют за подъём всех спорных.</div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {eligibleVoterSeats.slice().sort((a, b) => a - b).map((slot) => {
+                const selected = tableVoterSlots.includes(slot);
+                const player = activePlayers.find((item) => item.slot_num === slot);
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => toggleTableVoter(slot)}
+                    className={`min-h-9 rounded-lg border px-1 text-[9px] font-black ${selected ? 'border-amber-400 bg-amber-500/20 text-amber-200' : 'border-slate-800 bg-slate-950/70 text-slate-400'}`}
+                    title={player?.nickname ? `#${slot} · ${player.nickname}` : `Игрок #${slot}`}
+                  >
+                    #{slot}{selected ? ' ✓' : ''}
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[10px]">
               <span className="text-slate-400">За подъём</span>
               <strong className={entered >= majority ? 'text-emerald-400' : 'text-amber-400'}>{entered}/{eligible} · нужно {majority}</strong>

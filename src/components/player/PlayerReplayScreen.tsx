@@ -22,9 +22,29 @@ type ReplayData = {
   meta?: { source?: string };
 };
 
+type SpeechClip = {
+  id: string;
+  game_id: number;
+  seat_number: number;
+  speaker_nickname: string;
+  round_number: number;
+  speech_type: string;
+  started_at: string;
+  duration_seconds: number;
+  mime_type: string;
+  byte_size: number;
+  audio_url: string;
+};
+
 const roleLabel = (role: string | null) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : '—';
 const roleIcon = (role: string | null) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : role === 'don' ? '🎩' : '🎭';
 const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'finish' ? '🏁' : '•';
+const durationLabel = (seconds: number) => {
+  const rounded = Math.max(0, Math.round(seconds || 0));
+  const minutes = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  return minutes ? `${minutes}:${String(rest).padStart(2, '0')}` : `${rest}с`;
+};
 
 export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: string; onBack?: () => void }) {
   const [data, setData] = useState<ReplayData | null>(null);
@@ -32,11 +52,17 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [clips, setClips] = useState<SpeechClip[]>([]);
+  const [clipsLoading, setClipsLoading] = useState(false);
+  const [clipsError, setClipsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setData(null);
+    setClips([]);
+    setClipsError(null);
     void fetch(`/api/player/games/${encodeURIComponent(gameKey)}/replay`, { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
@@ -50,6 +76,30 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [gameKey]);
+
+  useEffect(() => {
+    const gameId = data?.replay_available ? data.game?.id : null;
+    if (!gameId) return;
+
+    let cancelled = false;
+    setClipsLoading(true);
+    setClipsError(null);
+    void fetch(`/api/player/speech-recordings/club-games/${encodeURIComponent(gameId)}/clips`, { credentials: 'include' })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить записи речей');
+        if (!cancelled) setClips(Array.isArray(body?.clips) ? body.clips : []);
+      })
+      .catch((err: any) => {
+        if (!cancelled) {
+          setClips([]);
+          setClipsError(err?.message || 'Не удалось загрузить записи речей');
+        }
+      })
+      .finally(() => { if (!cancelled) setClipsLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [data?.replay_available, data?.game?.id]);
 
   useEffect(() => {
     if (!playing || !data?.events.length) return;
@@ -85,6 +135,11 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
         <input type="range" min={0} max={Math.max(0, data.events.length - 1)} value={step} onChange={(event) => { setPlaying(false); setStep(Number(event.target.value)); }} className="mt-4 w-full accent-white" />
         <div className="mt-4 space-y-1.5">{visibleEvents.map((event, index) => <button key={event.id} type="button" onClick={() => { setPlaying(false); setStep(index); }} className={`flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left ${index === step ? 'bg-white/[0.09]' : 'bg-black/10'}`}><div className="mt-0.5 text-sm">{eventIcon(event.type)}</div><div className="min-w-0 flex-1"><div className="text-[10px] font-semibold">{event.title}</div><div className="mt-0.5 text-[9px] leading-3 text-white/28">{event.text}</div></div>{event.round != null && <div className="text-[8px] text-white/18">круг {event.round}</div>}</button>)}</div>
+      </section>
+
+      <section className="mt-3 rounded-[24px] border border-violet-200/10 bg-violet-200/[0.035] p-4">
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[9px] leading-4 text-white/25">Речи этой партии в порядке игры.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[9px] font-semibold text-white/30">{clips.length}</div> : null}</div>
+        {clipsLoading ? <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] text-white/30">Загружаем записи…</div> : clipsError ? <div className="mt-3 rounded-xl bg-rose-300/[0.06] px-3 py-3 text-[10px] leading-4 text-rose-100/45">{clipsError}</div> : clips.length ? <div className="mt-3 space-y-2">{clips.map((clip) => <div key={clip.id} className="rounded-2xl border border-white/[0.06] bg-black/15 p-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[8px] uppercase tracking-[0.08em] text-white/25">Круг {clip.round_number} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div><audio className="mt-2 h-9 w-full" controls preload="metadata" src={clip.audio_url}>Ваш браузер не поддерживает воспроизведение аудио.</audio></div>)}</div> : <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] leading-4 text-white/25">Для этой игры сохранённых речей нет.</div>}
       </section>
 
       <section className="mt-3 rounded-[24px] border border-sky-200/10 bg-sky-200/[0.035] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100/40">🧠 Авторазбор партии</div><div className="mt-3 space-y-2">{data.analysis.map((item, index) => <div key={index} className="rounded-xl bg-black/15 px-3 py-2 text-[10px] leading-4 text-white/40">{item}</div>)}</div><p className="mt-3 text-[8px] leading-3 text-white/18">Авторазбор выделяет только факты сохранённого протокола. Он не оценивает скрытые мотивы и не выдаёт субъективные решения за истину.</p></section>

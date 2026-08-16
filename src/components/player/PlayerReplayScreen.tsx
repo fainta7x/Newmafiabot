@@ -36,6 +36,8 @@ type SpeechClip = {
   audio_url: string;
 };
 
+type SpeechView = 'chronological' | 'rounds';
+
 const roleLabel = (role: string | null) => role === 'citizen' ? 'Мирный' : role === 'sheriff' ? 'Шериф' : role === 'mafia' ? 'Мафия' : role === 'don' ? 'Дон' : '—';
 const roleIcon = (role: string | null) => role === 'citizen' ? '🔴' : role === 'sheriff' ? '⭐' : role === 'mafia' ? '⚫' : role === 'don' ? '🎩' : '🎭';
 const eventIcon = (type: string) => type === 'round' ? '☀️' : type === 'nominations' ? '✋' : type === 'votes' ? '🗳️' : type === 'night' || type === 'first_killed' ? '🌙' : type === 'eliminated' ? '🚪' : type === 'ppk' ? '⚠️' : type === 'best_move' ? '🧠' : type === 'finish' ? '🏁' : '•';
@@ -55,6 +57,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
   const [clips, setClips] = useState<SpeechClip[]>([]);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [clipsError, setClipsError] = useState<string | null>(null);
+  const [speechView, setSpeechView] = useState<SpeechView>('chronological');
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +66,7 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
     setData(null);
     setClips([]);
     setClipsError(null);
+    setSpeechView('chronological');
     void fetch(`/api/player/games/${encodeURIComponent(gameKey)}/replay`, { credentials: 'include' })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
@@ -113,7 +117,27 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
 
   const visibleEvents = useMemo(() => data?.events.slice(0, step + 1) || [], [data, step]);
   const current = data?.events[step] || null;
+  const orderedClips = useMemo(() => [...clips].sort((left, right) => {
+    const leftTime = Date.parse(left.started_at);
+    const rightTime = Date.parse(right.started_at);
+    if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) return leftTime - rightTime;
+    return left.id.localeCompare(right.id);
+  }), [clips]);
+  const clipsByRound = useMemo(() => {
+    const groups = new Map<number, SpeechClip[]>();
+    orderedClips.forEach((clip) => {
+      const round = Math.max(1, Math.trunc(Number(clip.round_number) || 1));
+      const group = groups.get(round) || [];
+      group.push(clip);
+      groups.set(round, group);
+    });
+    return Array.from(groups.entries()).sort(([left], [right]) => left - right);
+  }, [orderedClips]);
   const goBack = onBack || (() => window.history.back());
+  const renderSpeechClip = (clip: SpeechClip) => <div key={clip.id} className="rounded-2xl border border-white/[0.06] bg-black/15 p-3">
+    <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[8px] uppercase tracking-[0.08em] text-white/25">Круг {clip.round_number} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div>
+    <audio className="mt-2 h-9 w-full" controls preload="none" src={clip.audio_url}>Ваш браузер не поддерживает воспроизведение аудио.</audio>
+  </div>;
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="loading" icon="🎬" title="Восстанавливаем партию…" description="Собираем сохранённую хронологию игры." /></div></main>;
   if (error || !data) return <main className="grid min-h-screen place-items-center bg-[#090a0d] px-5 text-white"><div className="w-full max-w-md"><AsyncState kind="error" icon="⚠️" title="Replay недоступен" description={error || 'Не удалось загрузить сохранённую игру.'} actionLabel="Назад" onAction={goBack} /></div></main>;
@@ -138,8 +162,14 @@ export default function PlayerReplayScreen({ gameKey, onBack }: { gameKey: strin
       </section>
 
       <section className="mt-3 rounded-[24px] border border-violet-200/10 bg-violet-200/[0.035] p-4">
-        <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[9px] leading-4 text-white/25">Речи этой партии в порядке игры.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[9px] font-semibold text-white/30">{clips.length}</div> : null}</div>
-        {clipsLoading ? <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] text-white/30">Загружаем записи…</div> : clipsError ? <div className="mt-3 rounded-xl bg-rose-300/[0.06] px-3 py-3 text-[10px] leading-4 text-rose-100/45">{clipsError}</div> : clips.length ? <div className="mt-3 space-y-2">{clips.map((clip) => <div key={clip.id} className="rounded-2xl border border-white/[0.06] bg-black/15 p-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[11px] font-bold">#{clip.seat_number} · {clip.speaker_nickname}</div><div className="mt-0.5 text-[8px] uppercase tracking-[0.08em] text-white/25">Круг {clip.round_number} · {clip.speech_type} · {durationLabel(clip.duration_seconds)}</div></div></div><audio className="mt-2 h-9 w-full" controls preload="metadata" src={clip.audio_url}>Ваш браузер не поддерживает воспроизведение аудио.</audio></div>)}</div> : <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] leading-4 text-white/25">Для этой игры сохранённых речей нет.</div>}
+        <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">🎙️ Записи речей</div><div className="mt-1 text-[9px] leading-4 text-white/25">Слушай всю игру подряд или быстро переходи к нужному кругу.</div></div>{clips.length ? <div className="rounded-lg bg-white/[0.05] px-2 py-1 text-[9px] font-semibold text-white/30">{clips.length}</div> : null}</div>
+        {clipsLoading ? <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] text-white/30">Загружаем записи…</div> : clipsError ? <div className="mt-3 rounded-xl bg-rose-300/[0.06] px-3 py-3 text-[10px] leading-4 text-rose-100/45">{clipsError}</div> : clips.length ? <>
+          <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl bg-black/20 p-1">
+            <button type="button" onClick={() => setSpeechView('chronological')} className={`min-h-9 rounded-xl px-2 text-[9px] font-bold transition ${speechView === 'chronological' ? 'bg-white text-black' : 'text-white/35'}`}>По порядку</button>
+            <button type="button" onClick={() => setSpeechView('rounds')} className={`min-h-9 rounded-xl px-2 text-[9px] font-bold transition ${speechView === 'rounds' ? 'bg-white text-black' : 'text-white/35'}`}>По кругам</button>
+          </div>
+          {speechView === 'chronological' ? <div className="mt-3 space-y-2">{orderedClips.map(renderSpeechClip)}</div> : <div className="mt-3 space-y-4">{clipsByRound.map(([round, roundClips]) => <div key={round}><div className="mb-2 flex items-center gap-2"><div className="text-[9px] font-black uppercase tracking-[0.12em] text-violet-100/40">Круг {round}</div><div className="h-px flex-1 bg-white/[0.06]" /><div className="text-[8px] text-white/20">{roundClips.length} {roundClips.length === 1 ? 'речь' : roundClips.length < 5 ? 'речи' : 'речей'}</div></div><div className="space-y-2">{roundClips.map(renderSpeechClip)}</div></div>)}</div>}
+        </> : <div className="mt-3 rounded-xl bg-black/15 px-3 py-3 text-[10px] leading-4 text-white/25">Для этой игры сохранённых речей нет.</div>}
       </section>
 
       <section className="mt-3 rounded-[24px] border border-sky-200/10 bg-sky-200/[0.035] p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100/40">🧠 Авторазбор партии</div><div className="mt-3 space-y-2">{data.analysis.map((item, index) => <div key={index} className="rounded-xl bg-black/15 px-3 py-2 text-[10px] leading-4 text-white/40">{item}</div>)}</div><p className="mt-3 text-[8px] leading-3 text-white/18">Авторазбор выделяет только факты сохранённого протокола. Он не оценивает скрытые мотивы и не выдаёт субъективные решения за истину.</p></section>

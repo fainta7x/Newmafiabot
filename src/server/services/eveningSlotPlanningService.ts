@@ -91,7 +91,7 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
       [eveningId],
     );
     if (legacy.length && slots.length) {
-      await db.transaction(async (tx: any) => {
+      await db.transaction(async (tx: DatabaseWrapper) => {
         for (const participant of legacy) {
           for (const slot of slots) {
             await tx.run(

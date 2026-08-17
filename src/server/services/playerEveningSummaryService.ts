@@ -98,7 +98,7 @@ const buildAwards = async (
   `, [eveningId]);
   if (!rows.length) return [];
 
-  const missingIds = [...new Set(rows.map((row: any) => String(row.nominee_player_id)))]
+  const missingIds = [...new Set<string>(rows.map((row: any) => String(row.nominee_player_id)))]
     .filter((id) => !nicknames.has(id));
   if (missingIds.length) {
     const placeholders = missingIds.map(() => '?').join(',');

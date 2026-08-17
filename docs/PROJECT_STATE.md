@@ -3,21 +3,21 @@
 > Canonical handoff document for the current state of the project.
 > Read this after `AGENTS.md` before doing repository-wide discovery.
 >
-> **Last verified main:** `34b77daaffdcf40b9f0f2f6d62daaf9a546f10b0`
-> **Verified CI:** GitHub Actions CI run #602 — success on 2026-08-17.
+> **Last verified main:** `bd1ef994b92701cb3169a89a80934d05b5d3bfa8`
+> **Verified CI:** GitHub Actions CI run #615 — success on 2026-08-17.
 > **Status date:** 2026-08-17.
 
 ## Source of truth
 
 1. Latest remote `main` is the source of truth for code.
-2. This file is the source of truth for the high-level functional state and next work.
-3. `docs/BUSINESS_RULES.md` is the source of truth for user-approved Mafia rules and product decisions.
-4. `docs/ARCHITECTURE.md` is the navigation map, not a substitute for reading the files involved in a change.
-5. `docs/RUNBOOK.md` defines the standard verification/deploy/recovery workflow.
-6. `docs/live-club-roadmap.md` is historical planning material. Do **not** use its unchecked boxes to infer current implementation status.
-7. Git history/merged PRs are the source of truth for completed technical changes. Do not reconstruct completion from old chat summaries when Git can answer it.
+2. This file is the source of truth for high-level functional state and next work.
+3. `docs/BUSINESS_RULES.md` is authoritative for user-approved Mafia rules and product decisions.
+4. `docs/ARCHITECTURE.md` and `docs/FEATURE_MAP.md` are navigation maps, not substitutes for reading files involved in a change.
+5. `docs/RUNBOOK.md` defines standard verification/deploy/recovery workflow.
+6. `docs/ERROR_PLAYBOOK.md` is the fast error-triage guide.
+7. Historical roadmaps are planning material only; Git history/merged PRs are authoritative for completed technical changes.
 
-The durable handoff system is active and protected by CI. New sessions should start from `AGENTS.md` + this file + recent commits instead of re-auditing the repository.
+The durable handoff system is active and CI-protected. New sessions should start from `AGENTS.md` + this file + the last 5–10 main commits and targeted navigation commands instead of re-auditing the repository.
 
 ## Current platform
 
@@ -26,77 +26,57 @@ Full-stack application for the 2LA Noire sports Mafia club:
 - React + TypeScript player application and organizer CRM.
 - Express + TypeScript API.
 - SQLite through `better-sqlite3` / repository DB wrapper.
-- Python Telegram bot connected to the web application through REST endpoints.
-- Telegram WebApp integration.
-- VK integration.
+- Python Telegram bot connected through REST endpoints.
+- Telegram WebApp and VK integrations.
+- Vite/Vitest web toolchain.
 - GitHub Actions CI.
 - Render deployment configuration.
+- Node.js `24.18.0` LTS pinned consistently in `.node-version`, CI and Render config.
+
+The current architecture is intentionally evolutionary: do not rewrite to another framework/database merely to follow newer trends. Modernize components in isolated, verified PRs and preserve current product behavior/data safety.
 
 ## Implemented and connected
-
-The following areas are present in the current application and should **not** be re-audited from scratch before ordinary feature work:
 
 ### Player application
 
 - Authentication and player session.
-- Main player cabinet shell.
-- Home dashboard.
+- Main player cabinet shell and dashboard.
 - Events/calendar and registration flow.
-- Game history and statistics.
-- Career/recaps/insights.
-- Rating, Elo and rating periods.
-- Club/player profiles.
-- Player profile settings.
+- Game history/statistics, career/recaps/insights.
+- Rating/Elo/rating periods.
+- Club/player profiles and profile settings.
 - Smart notifications.
-- Wallet/tokens.
-- Shop/economy.
-- Betting.
-- Manual evening payments/accounting.
-- Free-evening credits.
-- Live-only center.
-- Game replay.
+- Wallet/tokens, shop/economy and betting.
+- Manual evening payments/accounting and free-evening credits.
+- Live-only center and game replay.
 - Player speech recordings with server persistence and local fallback.
 - Player conduct/game-management center.
 
-The old `PlayerCabinetShellLegacy.tsx` wrapper has been removed. `PlayerCabinetV2` is still active content used for game history/statistics and is **not** dead legacy code.
+`PlayerCabinetShellLegacy.tsx` has been removed. `PlayerCabinetV2` remains active content for game history/statistics and is not dead legacy code.
 
 ### Organizer application
 
 - Organizer authentication.
-- CRM overview.
-- Evenings list and evening workspace.
-- Participants.
-- Table planning/scouting.
-- Games/protocol workflow.
-- Player CRM.
-- Tasks.
-- Analytics.
-- Commerce/admin data.
-- Announcements.
+- CRM overview, evenings and evening workspace.
+- Participants, table planning/scouting and games/protocol workflow.
+- Player CRM, tasks and analytics.
+- Commerce/admin data and announcements.
 - System status / integration diagnostics.
 
 ### Game and tournament workflow
 
-- Live Game engine.
-- Evening game workflow.
-- Tournament management.
-- Protocol imports and protocol editing.
-- Judge authority.
-- Tournament awards/nominations.
-- Tournament results.
-- Tournament publication/Telegram support.
-- Token settlements.
-- Replay.
-- Speech recording upload/readback.
+- Live Game engine and evening game workflow.
+- Tournament management, protocol imports/editing and judge authority.
+- Awards/nominations/results/publication support.
+- Token settlements, replay and speech recording upload/readback.
 
-`POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring the legacy creation endpoint.
+`POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring it.
 
 ### Integrations
 
-- Telegram integration code is connected.
-- Telegram sync outbox worker starts outside tests.
+- Telegram integration and sync outbox worker are connected.
 - Organizer-only non-destructive Telegram runtime health check exists.
-- VK OAuth/callback/join/direct integration code is connected.
+- VK OAuth/callback/join/direct integration is connected.
 - Organizer-only non-destructive VK runtime health check exists.
 - Public join/public live routes exist.
 
@@ -104,88 +84,98 @@ The old `PlayerCabinetShellLegacy.tsx` wrapper has been removed. `PlayerCabinetV
 
 - Guarded repository checkpoint export/import flow exists.
 - Release data-safety audit exists.
-- Runtime DB must never be overwritten by a repository checkpoint when non-empty.
+- Existing non-empty runtime DB must never be overwritten by repository checkpoint bootstrap.
 - Startup schema ensure/reconciliation logic is active.
 
 ### Project handoff / developer context
 
-- `AGENTS.md` is the mandatory short entry point.
-- `docs/PROJECT_STATE.md` is the live high-level state/queue.
-- `docs/ARCHITECTURE.md` is the subsystem/file map.
-- `docs/BUSINESS_RULES.md` stores approved domain/product rules.
-- `docs/RUNBOOK.md` defines the safe work/verify/deploy process.
-- `npm run project:status` provides a read-only context snapshot; `--json` is machine-readable.
-- `npm run project:verify` runs the standard complete web verification sequence locally.
+- `AGENTS.md` — mandatory entry point.
+- `docs/PROJECT_STATE.md` — live state/queue.
+- `docs/ARCHITECTURE.md` + `docs/FEATURE_MAP.md` — subsystem/feature navigation.
+- `docs/BUSINESS_RULES.md` — approved domain/product rules.
+- `docs/RUNBOOK.md` + `docs/ERROR_PLAYBOOK.md` — safe work and triage.
+- `npm run project:status` — read-only environment/context snapshot.
+- `npm run project:find` — targeted feature lookup.
+- `npm run project:affected` — affected-area guidance.
+- `npm run project:verify` — standard complete web verification.
+
+### Dependency/security maintenance
+
+- CI permanently blocks high/critical vulnerabilities in production dependencies with `npm audit --omit=dev --audit-level=high`.
+- The obsolete diagnostic npm-audit PRs have been closed without merge.
+- Dependabot is configured for weekly npm and GitHub Actions version updates.
+- Automated npm version updates are limited to minor/patch; semver-major migrations stay explicit/manual.
+- Never use `npm audit fix --force` blindly.
 
 ### Quality gates
 
 Current CI blocks merges/pushes on:
 
-- project handoff integrity (`project:status -- --check --json`);
+- production dependency high/critical audit;
+- project handoff/navigation integrity;
 - release data-safety audit;
 - strict TypeScript typecheck;
-- the full Vitest suite with no project-specific exclusions;
+- the active Vitest configuration;
 - production web/server build;
 - Python bot syntax compilation.
+
+Important: `vite.config.ts` still contains explicit historical/deferred test-file and test-name exclusions. Do not describe the suite as having zero project-specific exclusions until those exclusions are actually removed.
 
 ## Intentionally incomplete / paused
 
 ### Online payments
 
-Real accounting, payment history, amount due/paid/outstanding, token packages, fundraising data and payment-intent scaffolding exist, but external online acquiring/SBP is intentionally disabled.
-
-Do not treat `online_payment_available: false` or provider `paused` as a regression. Enabling a real payment provider is a future product task requiring an explicit provider/configuration decision.
+Accounting/payment history, token packages and payment-intent scaffolding exist, but external online acquiring/SBP remains intentionally disabled. A provider/product decision is required before implementation.
 
 ### Runtime deployment verification
 
-Telegram and VK have safe diagnostic endpoints in the application, but repository CI cannot prove live Render secrets, callback state or that the latest `main` has been manually deployed.
+Repository CI cannot prove live Render secrets, callbacks or that the latest `main` is deployed. `render.yaml` has `autoDeployTrigger: off`; green `main` does not imply live deployment.
 
-`render.yaml` currently has `autoDeployTrigger: off`. A green `main` does **not** imply that Render is running that SHA.
+## Known architecture/tooling debt
 
-## Known architecture debt / caution areas
-
-- `playerSelfRoutesLegacy.ts` is still mounted through the current player self router and serves real endpoints. Do not delete it based on its name alone.
-- Several historical Python bot modules remain active. Confirm imports/runtime calls before cleanup.
-- Long historical documentation exists under `docs/`; prefer this file plus the architecture map over old roadmaps for current-state decisions.
-- Production/runtime data safety has priority over code cleanup.
+- `playerSelfRoutesLegacy.ts` is still mounted and serves real endpoints; do not delete by name alone.
+- Historical Python bot modules may still be active; confirm imports/runtime usage before cleanup.
+- `npm run lint` currently duplicates TypeScript typechecking rather than running a real ESLint ruleset.
+- `tailwindcss` is still declared with an old alpha range while `@tailwindcss/vite` is on the stable v4 line; normalize in an isolated dependency PR.
+- TypeScript, React, Express and Vite are behind current major/stable lines and should be migrated incrementally, never as one bulk upgrade.
+- `vite.config.ts` contains historical/deferred test exclusions that should be revisited deliberately.
+- Production/runtime data safety has priority over code cleanup or framework upgrades.
 
 ## Recently completed
 
 From newest to older:
 
-- `34b77da` — durable project handoff system: canonical state, architecture map, business rules, runbook, project context/verify commands and CI integrity gate.
-- `895d416` — keep manually opened event detail open after calendar refresh; regression coverage added.
-- `547bf90` — remove obsolete `PlayerCabinetShellLegacy` wrapper; connect history/statistics directly to active content.
+- `bd1ef99` — conservative weekly Dependabot version updates; major upgrades remain manual.
+- `6f39348` — pin Node.js 24.18.0 LTS across local tooling, CI and Render; full CI compatibility verified.
+- `ba3130d` — permanent high/critical production dependency audit gate.
+- `f1f605b` — fast project navigation/error-triage tooling and CI checks.
+- `34b77da` — durable project handoff system.
+- `895d416` — keep manually opened event detail open after calendar refresh.
+- `547bf90` — remove obsolete `PlayerCabinetShellLegacy` wrapper.
 - `2709b5e` — extract `PlayerConductCenter` and decouple active cabinet from legacy shell.
-- `4a000c2` — add safe VK runtime health check.
-- `23adba9` — add safe Telegram runtime health check.
-- `8ecd470` — clear strict TypeScript debt and make typecheck blocking.
-- `7690bb3` — restore all previously excluded Vitest scenarios.
-- Speech-recording server route/persistence work completed immediately before these changes.
+- `4a000c2` — safe VK runtime health check.
+- `23adba9` — safe Telegram runtime health check.
+- `8ecd470` — strict TypeScript debt cleared and typecheck made blocking.
 
 ## Current work / next queue
 
-When no newer explicit user request supersedes this list, continue from the first unresolved item:
+The user explicitly requested a modernization pass while preserving the existing application architecture. When no newer explicit request supersedes this list, continue from the first unresolved item:
 
-1. Re-run a dependency security audit from current `main`; only act on vulnerabilities that exist in the current lockfile. Never use `npm audit fix --force` blindly.
-2. Add a permanent high/critical dependency security gate if current dependencies permit it without false positives.
-3. Deploy the current verified `main` to Render manually when deployment access is available.
-4. Run the safe Telegram runtime health check on the deployed build, then a minimal targeted round-trip test without mass messaging.
-5. Run the safe VK runtime health check on the deployed build, then a minimal targeted round-trip test without public spam.
-6. Continue legacy cleanup only where current imports/runtime usage prove code is unused.
-7. Real online payment/SBP integration only after explicit product/provider decision.
+1. Replace the fake `lint` alias with a real ESLint flat-config gate; introduce useful rules without hiding genuine violations or weakening TypeScript/tests.
+2. Normalize Tailwind to the stable v4 dependency line and perform dependency housekeeping; remove packages only when imports/runtime prove they are unused.
+3. Upgrade TypeScript in a staged PR (prefer current 5.x compatibility first, then TypeScript 6 readiness/migration rather than mixing compiler changes with framework changes).
+4. Upgrade React 18.3 to React 19 in an isolated PR with type updates and full UI/integration tests.
+5. Upgrade Express 4 to Express 5 in an isolated PR; inspect route/path matching and API behavior before merge.
+6. Upgrade Vite 5 to Vite 8/Rolldown in an isolated PR; keep the separate server bundling path explicit until intentionally migrated.
+7. Revisit and either restore, replace or explicitly retire the historical/deferred Vitest exclusions.
+8. Deploy the current verified `main` to Render manually when deployment access is available.
+9. Run safe Telegram runtime health check and then a minimal targeted round-trip without mass messaging.
+10. Run safe VK runtime health check and then a minimal targeted round-trip without public spam.
+11. Continue legacy cleanup only where current imports/runtime prove code is unused.
+12. Real online payment/SBP integration only after explicit provider decision.
 
-Maintaining the handoff documents is an ongoing rule, not a blocking queue item: update them together with significant changes rather than scheduling a separate documentation phase each time.
+Maintaining handoff documents is an ongoing rule, not a separate blocking phase.
 
 ## Handoff rule
 
-At the end of a significant merged task, update this file in the same PR when any of these changed:
-
-- current functional status;
-- next queue;
-- an important architecture decision;
-- a retired/replaced subsystem;
-- deployment/runtime assumptions;
-- a known dangerous area.
-
-Do not update the `Last verified main` field to a branch commit. Update it only after the merged `main` SHA has passed the standard CI. If the file lags by one documentation-only merge, use Git history plus `npm run project:status` to reconcile it rather than re-auditing the whole repository.
+Update this file with significant changes to functional status, next queue, architecture decisions, deployment assumptions or dangerous areas. `Last verified main` must reference a merged main SHA that passed standard CI. A following docs-only merge may temporarily make this field lag by one commit; use Git history plus `npm run project:status` to reconcile rather than re-auditing the repository.

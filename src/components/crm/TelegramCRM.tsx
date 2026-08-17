@@ -106,6 +106,29 @@ export const TelegramCRM: React.FC = () => {
     } finally { setBusy(null); }
   };
 
+  const checkHealth = async () => {
+    if (busy) return;
+    setBusy('health'); setMessage(null); setError(null);
+    try {
+      const result = await request('/api/telegram-settings/actions/health', { method: 'POST' });
+      if (result?.ok) {
+        const username = result?.telegram?.username ? `@${result.telegram.username}` : 'бот';
+        const pending = Number(result?.telegram?.pending_update_count || 0);
+        setMessage(`Telegram работает: ${username}, webhook корректный, bot-service доступен${pending ? ` · в очереди ${pending}` : ''}.`);
+      } else {
+        const reasons: string[] = [];
+        if (!result?.telegram?.configured) reasons.push('не задан TELEGRAM_BOT_TOKEN');
+        else if (!result?.telegram?.reachable) reasons.push(result?.telegram?.error ? `Telegram API: ${result.telegram.error}` : 'Telegram API недоступен');
+        if (result?.telegram?.reachable && !result?.telegram?.webhook_matches_bot_service) reasons.push('webhook ведёт не на текущий bot-service');
+        if (!result?.bot_service?.reachable) reasons.push(result?.bot_service?.error ? `bot-service: ${result.bot_service.error}` : 'bot-service недоступен');
+        if (result?.telegram?.last_error_message) reasons.push(`Telegram webhook: ${result.telegram.last_error_message}`);
+        setError(`Проверка Telegram: ${reasons.join('; ') || 'обнаружена проблема конфигурации'}.`);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось проверить Telegram');
+    } finally { setBusy(null); }
+  };
+
   const syncPublic = async () => {
     if (busy) return;
     setBusy('sync-public'); setMessage(null); setError(null);
@@ -144,6 +167,14 @@ export const TelegramCRM: React.FC = () => {
           <div>🏆 RATING → закрытый канал</div>
           <div>🏆 TOURNAMENT → закрытый канал</div>
         </div>
+        <button
+          type="button"
+          disabled={Boolean(busy)}
+          onClick={() => void checkHealth()}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[11px] font-bold text-text-primary disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${busy === 'health' ? 'animate-spin' : ''}`} /> Проверить связь без отправки
+        </button>
       </section>
 
       {message ? <div className="rounded-[14px] bg-success-soft px-4 py-3 text-[12px] text-success">{message}</div> : null}

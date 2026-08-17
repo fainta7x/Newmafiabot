@@ -45,7 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.2",
     "@types/bcryptjs": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
@@ -61,13 +61,11 @@
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.19",
     "esbuild": "^0.21.5",
     "eslint": "^10.8.0",
     "jsdom": "^30.0.1",
-    "postcss": "^8.4.38",
     "supertest": "^7.2.2",
-    "tailwindcss": "^4.0.0-alpha.18",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.15.6",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",

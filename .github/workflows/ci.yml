@@ -39,20 +39,7 @@ jobs:
         run: echo "Strict TypeScript has pre-existing legacy errors. They stay visible in CI, while tests and production build remain blocking until the backlog is cleaned."
 
       - name: Tests
-        shell: bash
-        run: |
-          set +e
-          npm test 2>&1 | tee vitest-output.txt
-          status=${PIPESTATUS[0]}
-          exit "$status"
-
-      - name: Upload test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vitest-output
-          path: vitest-output.txt
-          if-no-files-found: ignore
+        run: npm test
 
       - name: Production build
         run: npm run build

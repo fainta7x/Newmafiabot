@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency audit report
+        run: npm audit --json || true
+
       - name: Release data-safety audit
         run: npm run release:audit
 

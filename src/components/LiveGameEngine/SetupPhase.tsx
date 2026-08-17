@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import type { Player } from '../../types.js';
 import ClubGameSetupPhase from './ClubGameSetupPhase.tsx';
 import LegacySetupPhase from './LegacySetupPhase.tsx';
 import SpeechRecordingPilot from './SpeechRecordingPilot.tsx';
+import { mountSpeechRecordingServerSync } from './SpeechRecordingServerSync.ts';
 import type { ActivePlayerState } from './types.js';
 
 interface SetupPhaseProps {
@@ -20,6 +22,12 @@ interface SetupPhaseProps {
 
 export default function SetupPhase(props: SetupPhaseProps) {
   const isClubEveningEngine = props.players.some((player) => player.notes === '__club_evening_engine_judge__');
+
+  useEffect(() => {
+    if (!isClubEveningEngine) return undefined;
+    return mountSpeechRecordingServerSync();
+  }, [isClubEveningEngine]);
+
   const setup = isClubEveningEngine ? (
     <ClubGameSetupPhase
       players={props.players}

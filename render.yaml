@@ -13,6 +13,8 @@ services:
     autoDeployTrigger: off
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
       - key: NODE_ENV
         value: production
       - key: HOST

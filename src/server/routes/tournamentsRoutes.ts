@@ -66,7 +66,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
   }
 
   try {
-    const result = await db.transaction(async (tx: any) => {
+    const result = await db.transaction(async (tx: DatabaseWrapper) => {
       const tournamentId = crypto.randomUUID();
       const now = new Date().toISOString();
       await tx.run(
@@ -171,7 +171,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
       }
     }
 
-    const updatedParticipants = await db.transaction(async (tx: any) => {
+    const updatedParticipants = await db.transaction(async (tx: DatabaseWrapper) => {
       await tx.run('DELETE FROM tournament_participants WHERE tournament_id = ?', [tournamentId]);
       const records: any[] = [];
       for (let index = 0; index < parts.length; index += 1) {

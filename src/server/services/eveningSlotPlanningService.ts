@@ -72,7 +72,7 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
     const price = Number(settings.price_per_game || SLOT_PRICE);
     const targetPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
 
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx: DatabaseWrapper) => {
       for (let i = 0; i < count; i += 1) {
         await tx.run(
           'INSERT OR IGNORE INTO evening_game_slots (id, evening_id, slot_number, starts_at, ends_at, price_rub, target_players, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

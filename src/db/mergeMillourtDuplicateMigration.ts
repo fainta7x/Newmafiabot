@@ -4,7 +4,6 @@ const MIGRATION_KEY = '0014_merge_millourt_duplicate_v1';
 const TARGET_NICKNAME = 'Millourt';
 const DUPLICATE_NICKNAME = 'Милорд';
 
-const norm = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ru-RU');
 const text = (value: unknown) => String(value ?? '').trim();
 const quoteIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
 

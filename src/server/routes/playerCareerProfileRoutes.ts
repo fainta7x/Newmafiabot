@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getPlayerTitleMeta } from '../../lib/playerTitles.ts';
 import { getPlayerSessionId, type AuthenticatedRequest } from '../auth.ts';
-import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../services/clubGameAnalyticsService.ts';
+import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { api, type Player } from '../../lib/api.ts';
 

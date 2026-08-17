@@ -4,7 +4,6 @@ import { loadCompletedGameSnapshots, type AnalyticsPlayerResult } from '../servi
 
 const router = Router();
 const ROLES = ['citizen', 'sheriff', 'mafia', 'don'] as const;
-type Role = typeof ROLES[number];
 
 type PersonalResult = {
   dateMs: number;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDb } from '../../db/index.ts';
+import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
@@ -147,7 +147,7 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
       required_level: requestedJudgeId ? requiredJudgeLevelForEveningFormat(evening.format) : undefined,
     });
 
-    const createdId = await db.transaction(async (tx: any) => {
+    const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
       if (delegatedJudgeId) {
         await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
       }

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadEveningSlotPlan, replacePlayerSlotSelection, updateEveningSlotSettings } from '../services/eveningSlotPlanningService.ts';
@@ -9,7 +9,7 @@ export const eveningSlotRoutes = Router();
 const sendError = (res: any, error: any, fallback: string) =>
   res.status(Number(error?.statusCode || error?.status || 500)).json({ error: error?.message || fallback });
 
-const requirePlayer = async (req: any, res: any) => {
+const requirePlayer = async (req: Request, res: Response) => {
   const playerId = getPlayerSessionId(req);
   if (!playerId) {
     res.status(401).json({ error: 'Player authentication required.' });

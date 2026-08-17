@@ -256,7 +256,7 @@ router.get('/games/:gameKey', async (req, res) => {
           seat_numbers: protocol.best_move_seats || [],
         }]
         : [];
-      const bestMoves = (modernBestMoves.length ? modernBestMoves : legacyBestMove).map((move: any) => ({
+      const bestMoves: Array<{ participant_id: string; source: string | null; seat_numbers: number[] }> = (modernBestMoves.length ? modernBestMoves : legacyBestMove).map((move: any) => ({
         participant_id: String(move?.participant_id || ''),
         source: move?.source ? String(move.source) : null,
         seat_numbers: normalizedSeats(move?.seat_numbers),

@@ -56,7 +56,7 @@ const validateBestMoves = (protocol: any, participantIds: Set<string>) => {
     if (!['first_killed', 'zero_round_voted'].includes(String(move?.source || ''))) {
       throw new Error('Лучший ход: некорректный источник');
     }
-    const seats = Array.isArray(move?.seat_numbers) ? move.seat_numbers.map(Number) : [];
+    const seats: number[] = Array.isArray(move?.seat_numbers) ? move.seat_numbers.map(Number) : [];
     if (seats.length > 3 || new Set(seats).size !== seats.length || seats.some((seat) => !Number.isInteger(seat) || seat < 1 || seat > 10)) {
       throw new Error('Лучший ход: можно указать до 3 уникальных мест от 1 до 10');
     }
@@ -83,7 +83,7 @@ export const canonicalizeClubGameSave = (
   if (previousResults.length !== 10) throw new Error('У исходной игры повреждён состав: ожидается 10 игроков');
   if (!Array.isArray(incomingResults) || incomingResults.length !== 10) throw new Error('Для игры нужны результаты ровно 10 игроков');
 
-  const previousByParticipant = new Map(previousResults.map((result: any) => [String(result.participant_id || ''), result]));
+  const previousByParticipant = new Map<string, any>(previousResults.map((result: any) => [String(result.participant_id || ''), result]));
   const incomingIds = incomingResults.map((result: any) => String(result?.participant_id || '').trim());
   if (incomingIds.some((id) => !id) || new Set(incomingIds).size !== 10) {
     throw new Error('В протоколе должны быть 10 уникальных участников');

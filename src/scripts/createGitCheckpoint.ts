@@ -29,7 +29,7 @@ function atomicWriteText(targetPath: string, content: string): void {
   }
 }
 
-export async function runGitCheckpointScript(): Promise<boolean> {
+export async function runGitCheckpointScript(_options?: { dbPath?: string; targetB64Path?: string }): Promise<boolean> {
   const rootDir = process.cwd();
   const runtimePath = resolveActiveRuntimeDbPath(rootDir);
   const targetPath = path.join(rootDir, CANONICAL_CHECKPOINT);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Coins, Pencil, Plus, RefreshCw, Send, Target } from 'lucide-react';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 

@@ -33,6 +33,7 @@ function createMockTournament(): Tournament {
       tournament_id: 't-1',
       game_number: gameNumber,
       judge_name: 'Судья 1',
+      judge_player_id: null,
       status: 'planned' as const,
       winner_team: null,
       started_at: null,

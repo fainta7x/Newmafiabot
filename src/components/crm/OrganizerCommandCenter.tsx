@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, Check, CheckCircle2, CircleDollarSign,
-  Clock3, Gamepad2, MessageCircle, RefreshCw, UserCheck, Users,
+  Clock3, Gamepad2, MessageCircle, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import { buildTodayActionQueue, type TodayActionItem } from '../../lib/organizerUx.ts';

@@ -106,7 +106,9 @@ const shouldRetryFinalSave = (error: unknown) => {
 };
 
 const wait = (milliseconds: number) => milliseconds > 0
-  ? new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+  ? new Promise<void>((resolve) => {
+      setTimeout(resolve, milliseconds);
+    })
   : Promise.resolve();
 
 const saveProtocolWithRetry = async (gameId: number, payload: ProtocolSavePayload) => {

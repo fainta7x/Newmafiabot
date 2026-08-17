@@ -48,7 +48,9 @@ describe('useMobileKeyboardViewport hook', () => {
       input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 150);
+    });
 
     expect(document.body.classList.contains('mobile-keyboard-open')).toBe(false);
 

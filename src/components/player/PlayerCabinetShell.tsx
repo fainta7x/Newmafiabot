@@ -1,6 +1,7 @@
-import { useEffect, useState, type ComponentProps } from 'react';
-import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } from './PlayerCabinetShellLegacy.tsx';
+import { useEffect, useState } from 'react';
+import type { PlayerMeResponse } from '../../types/player.ts';
 import PlayerClubHub from './PlayerClubHub.tsx';
+import PlayerConductCenter from './PlayerConductCenter.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
 import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
@@ -11,11 +12,29 @@ import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
 
-export type PlayerCabinetSection = LegacySection | 'events' | 'ratingperiods' | 'wallet';
+export type PlayerCabinetSection =
+  | 'home'
+  | 'events'
+  | 'games'
+  | 'stats'
+  | 'career'
+  | 'recaps'
+  | 'rating'
+  | 'elo'
+  | 'ratingperiods'
+  | 'clubworld'
+  | 'club'
+  | 'wallet'
+  | 'payments'
+  | 'profile'
+  | 'conduct'
+  | 'more';
 
-type LegacyProps = ComponentProps<typeof LegacyPlayerCabinetShell>;
-type Props = Omit<LegacyProps, 'initialSection' | 'onSectionChange'> & {
+type Props = {
+  data: PlayerMeResponse;
+  canOpenAdmin?: boolean;
   initialSection?: PlayerCabinetSection;
+  initialTarget?: string | null;
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
@@ -37,16 +56,22 @@ const normalizeSection = (section: PlayerCabinetSection): PlayerCabinetSection =
   return section;
 };
 
-export default function PlayerCabinetShell({ initialSection = 'home', onSectionChange, ...props }: Props) {
+export default function PlayerCabinetShell({
+  data,
+  canOpenAdmin = false,
+  initialSection = 'home',
+  initialTarget = null,
+  onSectionChange,
+}: Props) {
   const [section, setSection] = useState<PlayerCabinetSection>(() => normalizeSection(initialSection));
-  const [player, setPlayer] = useState(props.data.player);
-  const [tokenBalance, setTokenBalance] = useState(Number(props.data.player.tokens || 0));
+  const [player, setPlayer] = useState(data.player);
+  const [tokenBalance, setTokenBalance] = useState(Number(data.player.tokens || 0));
 
   useEffect(() => setSection(normalizeSection(initialSection)), [initialSection]);
   useEffect(() => {
-    setPlayer(props.data.player);
-    setTokenBalance(Number(props.data.player.tokens || 0));
-  }, [props.data.player]);
+    setPlayer(data.player);
+    setTokenBalance(Number(data.player.tokens || 0));
+  }, [data.player]);
 
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
     const next = normalizeSection(requested);
@@ -58,27 +83,11 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
     return open(destination as PlayerCabinetSection, target || null);
   };
 
-  const currentData = { ...props.data, player };
-  const legacyProps = { ...props, data: currentData };
-  const legacySection: LegacySection = section === 'events'
-    || section === 'home'
-    || section === 'wallet'
-    || section === 'club'
-    || section === 'profile'
-    || gameSections.has(section)
-    || ratingSections.has(section)
-    ? 'games'
-    : section as LegacySection;
+  const currentData = { ...data, player };
 
   return (
     <div className="player-events-shell min-h-screen bg-[#090a0d] text-white">
-      <style>{`
-        .player-events-shell .legacy-cabinet-wrap nav.fixed{display:none!important}
-        .player-events-shell .legacy-cabinet-wrap button[aria-label="Уведомления"]{display:none!important}
-        .player-events-shell main{padding-top:.75rem!important}
-        .player-events-shell .legacy-cabinet-wrap div[class*="tracking-[0.2em]"][class*="text-white/35"]{display:none!important}
-        .player-events-shell .legacy-cabinet-wrap div[class*="px-1"][class*="pb-1"][class*="pt-2"]{padding-top:.25rem!important}
-      `}</style>
+      <style>{`.player-events-shell main{padding-top:.75rem!important}`}</style>
 
       <PlayerQuickAccessBar
         player={player}
@@ -93,7 +102,7 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
       {section === 'home' ? (
         <PlayerHomeDashboard
           data={currentData}
-          canOpenAdmin={Boolean(props.canOpenAdmin)}
+          canOpenAdmin={canOpenAdmin}
           onOpenEvents={(eventId) => open('events', eventId || null)}
           onOpenGames={() => open('games')}
           onOpenRating={() => open('rating')}
@@ -101,15 +110,15 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         />
       ) : section === 'events' ? (
         <PlayerEventsCalendar
-          initialEventId={props.initialTarget || null}
+          initialEventId={initialTarget}
           onEventChange={(eventId) => open('events', eventId)}
         />
       ) : gameSections.has(section) ? (
         <PlayerGamesHub
           data={currentData}
-          canOpenAdmin={Boolean(props.canOpenAdmin)}
+          canOpenAdmin={canOpenAdmin}
           section={section as PlayerGamesSection}
-          target={props.initialTarget || null}
+          target={initialTarget}
           onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)}
         />
       ) : ratingSections.has(section) ? (
@@ -124,14 +133,17 @@ export default function PlayerCabinetShell({ initialSection = 'home', onSectionC
         <PlayerWalletHub data={currentData} tokenBalance={tokenBalance} onBalanceChange={setTokenBalance} />
       ) : section === 'profile' ? (
         <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
+      ) : section === 'conduct' ? (
+        <PlayerConductCenter data={currentData} onBack={() => open('home')} />
       ) : (
-        <div className="legacy-cabinet-wrap">
-          <LegacyPlayerCabinetShell
-            {...legacyProps}
-            initialSection={legacySection}
-            onSectionChange={(next, target) => open(next, target || null)}
-          />
-        </div>
+        <PlayerHomeDashboard
+          data={currentData}
+          canOpenAdmin={canOpenAdmin}
+          onOpenEvents={(eventId) => open('events', eventId || null)}
+          onOpenGames={() => open('games')}
+          onOpenRating={() => open('rating')}
+          onOpenConduct={() => open('conduct')}
+        />
       )}
 
       <PlayerLiveOnlyCenter />

@@ -104,7 +104,7 @@ export async function openSpeechRecordingReview(sessionId?: string | null) {
   heading.append(
     makeTextLine('Запись речей · этап 3', { fontSize: '10px', fontWeight: '900', letterSpacing: '.14em', textTransform: 'uppercase', color: '#7dd3fc' }),
     makeTextLine('Речи этой игры', { fontSize: '18px', fontWeight: '900', marginTop: '3px' }),
-    makeTextLine('Записи пока хранятся только на этом устройстве.', { fontSize: '11px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }),
+    makeTextLine('Локальная копия хранится на этом устройстве; в клубной игре записи дополнительно синхронизируются с Replay.', { fontSize: '11px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.4' }),
   );
   const closeButton = makeElement('button');
   closeButton.type = 'button';

@@ -44,9 +44,16 @@ const verifiedMain = capture(projectState, /\*\*Last verified main:\*\*\s*`([0-9
 const docs = [
   'AGENTS.md',
   'docs/PROJECT_STATE.md',
+  'docs/FEATURE_MAP.md',
+  'docs/ERROR_PLAYBOOK.md',
   'docs/ARCHITECTURE.md',
   'docs/BUSINESS_RULES.md',
   'docs/RUNBOOK.md',
+].map((file) => ({ file, present: existsSync(path.join(root, file)) }));
+
+const navigationTools = [
+  'src/scripts/projectNavigate.ts',
+  'src/scripts/projectAffected.ts',
 ].map((file) => ({ file, present: existsSync(path.join(root, file)) }));
 
 const render = {
@@ -60,6 +67,9 @@ const render = {
 const checkFailures: string[] = [];
 for (const doc of docs) {
   if (!doc.present) checkFailures.push(`Missing handoff document: ${doc.file}`);
+}
+for (const tool of navigationTools) {
+  if (!tool.present) checkFailures.push(`Missing navigation tool: ${tool.file}`);
 }
 if (!verifiedMain) checkFailures.push('docs/PROJECT_STATE.md has no Last verified main marker');
 if (!render.service) checkFailures.push('render.yaml service name was not detected');
@@ -82,6 +92,7 @@ const info = {
     verifiedMain,
     currentCommitMatchesVerifiedMain: Boolean(commit && verifiedMain && commit === verifiedMain),
     docs,
+    navigationTools,
   },
   render,
   check: {
@@ -115,6 +126,8 @@ if (jsonMode) {
   console.log('');
   console.log('Handoff docs:');
   for (const doc of docs) console.log(`  ${doc.present ? 'OK ' : 'MISS'} ${doc.file}`);
+  console.log('Navigation tools:');
+  for (const tool of navigationTools) console.log(`  ${tool.present ? 'OK ' : 'MISS'} ${tool.file}`);
   console.log('');
   console.log('Render config:');
   console.log(`  service: ${info.render.service || 'not found'}`);
@@ -126,7 +139,8 @@ if (jsonMode) {
   console.log(`Handoff integrity: ${info.check.ok ? 'OK' : 'FAILED'}`);
   for (const failure of checkFailures) console.log(`  - ${failure}`);
   console.log('');
-  console.log('Read next: docs/PROJECT_STATE.md -> docs/ARCHITECTURE.md -> only files relevant to the requested task.');
+  console.log('Navigate: known feature -> FEATURE_MAP; symptom -> ERROR_PLAYBOOK; fuzzy term -> npm run project:find.');
+  console.log('After edits: npm run project:affected -- <changed files>.');
   console.log('Note: this command is read-only and does not prove GitHub CI or live Render status.');
 }
 

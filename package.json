@@ -14,6 +14,8 @@
     "test:integration": "vitest run",
     "release:audit": "tsx src/scripts/releaseAudit.ts",
     "project:status": "tsx src/scripts/projectContext.ts",
+    "project:find": "tsx src/scripts/projectNavigate.ts",
+    "project:affected": "tsx src/scripts/projectAffected.ts",
     "project:verify": "npm run release:audit && npm run typecheck && npm test && npm run build",
     "migrate:legacy": "tsx src/db/migrateLegacyData.ts",
     "restore:tournament-bogdana": "tsx scripts/restoreTournamentBogdana.ts",

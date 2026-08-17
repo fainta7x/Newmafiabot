@@ -9,10 +9,13 @@ Before ordinary code work:
 1. Fetch/sync the latest intended remote branch (normally `main`).
 2. Read `docs/PROJECT_STATE.md`.
 3. Review only the last 5–10 commits on `main` unless deeper history is needed.
-4. Use `docs/ARCHITECTURE.md` to locate the relevant subsystem.
-5. Read `docs/BUSINESS_RULES.md` when the change touches Mafia/game/product rules.
-6. Read `docs/RUNBOOK.md` for verification, deployment, DB, integration or recovery work.
-7. When a local working copy is available, run `npm run project:status` for a quick read-only context snapshot.
+4. If the requested feature is known, use `docs/FEATURE_MAP.md` for the first-hop files.
+5. If the task starts from a symptom/error, use `docs/ERROR_PLAYBOOK.md` before widening discovery.
+6. If the term/path is still unclear and a local working copy is available, run `npm run project:find -- "<query>"` and read only the highest-scoring 3–8 files first.
+7. Use `docs/ARCHITECTURE.md` when the task genuinely spans subsystems or the feature map is insufficient.
+8. Read `docs/BUSINESS_RULES.md` when the change touches Mafia/game/product rules.
+9. Read `docs/RUNBOOK.md` for verification, deployment, DB, integration or recovery work.
+10. When a local working copy is available, `npm run project:status` gives a read-only context snapshot.
 
 Do **not** re-audit the entire repository at the start of every task. `docs/PROJECT_STATE.md` is the canonical high-level handoff; widen discovery only when targeted code contradicts it or the requested change genuinely spans subsystems.
 
@@ -24,7 +27,9 @@ Do **not** re-audit the entire repository at the start of every task. `docs/PROJ
 - Latest green CI: build/test truth.
 - `docs/BUSINESS_RULES.md`: user-approved domain/product behavior.
 - `docs/PROJECT_STATE.md`: current high-level feature status and next queue.
-- `docs/ARCHITECTURE.md`: navigation map.
+- `docs/FEATURE_MAP.md`: fast feature-to-file routing.
+- `docs/ERROR_PLAYBOOK.md`: symptom-to-layer routing.
+- `docs/ARCHITECTURE.md`: broader subsystem navigation map.
 - Git history/merged PRs: completed technical transitions.
 - Old chat summaries and old roadmap checkboxes must not override newer Git state.
 
@@ -33,13 +38,23 @@ Before any code or data changes, fetch and fast-forward-sync the current branch 
 ## Working style
 
 - Do one targeted discovery pass, then keep a compact file map instead of rescanning the repository.
+- Prefer the sequence `FEATURE_MAP/ERROR_PLAYBOOK -> project:find if needed -> exact source files`, not repeated repository-wide searches.
 - Prefer one focused branch/PR per purpose.
 - While iterating, use directly relevant focused tests.
+- Once the changed file set is known and a local checkout is available, run `npm run project:affected -- <changed files>` to rank likely tests and surface risk flags. Treat it as a heuristic, not a replacement for full CI.
 - Before merge, rely on the repository's full CI gates; never weaken tests or TypeScript to force green.
 - Do not stack unrelated changes on a red `main`.
 - If a test unexpectedly fails, inspect the exact failure before rerunning; do not rerun repeatedly until green.
 - Never delegate an implementation request back to AI Studio and never substitute prompt-writing for repository changes when repository access is available.
 - Do not infer that a file is unused because its name includes `legacy`, `old`, `V2`, etc. Confirm imports, route mounts and build transforms.
+
+## Fast local commands
+
+- `npm run project:status` — branch/SHA/handoff/Render config snapshot; read-only.
+- `npm run project:find -- "events calendar"` — ranked source/test/doc search over tracked text files.
+- `npm run project:find -- "401 organizer" --json` — machine-readable search results.
+- `npm run project:affected -- src/path/a.ts src/path/b.ts` — changed-file risk flags + likely focused tests.
+- `npm run project:verify` — complete web verification before merge.
 
 ## Documentation maintenance
 
@@ -48,6 +63,8 @@ Durable project state belongs in Git, not only in chat.
 After a significant change, update the relevant handoff document in the same PR when practical:
 
 - `docs/PROJECT_STATE.md` — feature status, current queue, important architecture/deploy cautions.
+- `docs/FEATURE_MAP.md` — only when durable feature ownership/first-hop paths change.
+- `docs/ERROR_PLAYBOOK.md` — only when a recurring diagnostic path changes or a new high-value failure mode is learned.
 - `docs/ARCHITECTURE.md` — subsystem ownership, entry points, route mounts.
 - `docs/BUSINESS_RULES.md` — only when an approved rule/product decision changes.
 - `docs/RUNBOOK.md` — only when the safe work/verify/deploy process changes.

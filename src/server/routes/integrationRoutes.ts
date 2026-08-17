@@ -29,6 +29,7 @@ import {
   getVkCallbackRequestConfig,
   getVkCallbackRuntimeStatus,
 } from '../services/vkCallbackSetupService.ts';
+import { checkVkRuntimeHealth } from '../services/vkRuntimeHealthService.ts';
 
 const router = Router();
 
@@ -85,9 +86,6 @@ router.post('/vk/callback', async (req, res) => {
     const type = String(req.body?.type || '').trim();
     if (type === 'confirmation') {
       if (!callback.confirmation) return callbackText(res, 503, 'callback confirmation not configured');
-      // VK may validate a newly added server before the secret starts appearing in
-      // delivery payloads. If it is present, verify it; if it is absent, the stored
-      // per-group confirmation code is sufficient for this one handshake.
       const receivedSecret = String(req.body?.secret || '');
       if (receivedSecret && callback.secret && receivedSecret !== callback.secret) return callbackText(res, 403, 'forbidden');
       return callbackText(res, 200, callback.confirmation);
@@ -213,6 +211,15 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние интеграций' });
+  }
+});
+
+router.post('/vk/health', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = await withVkSchema(req);
+    res.json(await checkVkRuntimeHealth(db));
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось проверить VK' });
   }
 });
 

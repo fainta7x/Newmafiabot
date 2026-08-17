@@ -10,6 +10,10 @@ build/
 *.tsbuildinfo
 vite.config.ts.timestamp-*.mjs
 
+# Browser test artifacts
+e2e/test-results/
+e2e/playwright-report/
+
 # SQLite databases & runtime storage
 *.db
 *.db-journal

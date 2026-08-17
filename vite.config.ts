@@ -19,6 +19,8 @@ export default defineConfig({
     // GitHub-hosted runners can occasionally need more than Vitest's 5s default,
     // so keep the timeout bounded but high enough to avoid load-related flakes.
     testTimeout: 15_000,
+    // Browser E2E specs have their own Playwright runner and dependency tree.
+    // Keep them out of Vitest so the two test systems stay fully isolated.
     // This 67 KB suite still asserts retired APIs and hard-coded July/August 2026
     // "future" dates. Current CRM behavior is covered by focused tests, including
     // currentCrmSmoke, evening canonical state/roster, protocol and settlement suites.
@@ -26,6 +28,7 @@ export default defineConfig({
     // data/backup stage and currently targets a retired validation API.
     exclude: [
       ...configDefaults.exclude,
+      "e2e/**",
       "src/tests/crm.test.ts",
       "src/tests/tournamentJsonBackup.test.ts",
     ],

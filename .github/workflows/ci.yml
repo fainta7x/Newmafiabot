@@ -50,6 +50,42 @@ jobs:
       - name: Production build
         run: npm run build
 
+  e2e-smoke:
+    name: Playwright smoke
+    needs: web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright test dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Audit Playwright dependencies
+        working-directory: e2e
+        run: npm audit --audit-level=high
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile smoke test
+        working-directory: e2e
+        run: npm test
+
   bot-syntax:
     name: Python bot syntax
     runs-on: ubuntu-latest

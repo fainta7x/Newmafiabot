@@ -49,6 +49,24 @@ const docs = [
   'docs/RUNBOOK.md',
 ].map((file) => ({ file, present: existsSync(path.join(root, file)) }));
 
+const render = {
+  service: capture(renderYaml, /(?:^|\n)\s*name:\s*([^\n#]+)/),
+  branch: capture(renderYaml, /(?:^|\n)\s*branch:\s*([^\n#]+)/),
+  autoDeployTrigger: capture(renderYaml, /(?:^|\n)\s*autoDeployTrigger:\s*([^\n#]+)/),
+  healthCheckPath: capture(renderYaml, /(?:^|\n)\s*healthCheckPath:\s*([^\n#]+)/),
+  databasePath: capture(renderYaml, /DATABASE_PATH[\s\S]*?\n\s*value:\s*([^\n#]+)/),
+};
+
+const checkFailures: string[] = [];
+for (const doc of docs) {
+  if (!doc.present) checkFailures.push(`Missing handoff document: ${doc.file}`);
+}
+if (!verifiedMain) checkFailures.push('docs/PROJECT_STATE.md has no Last verified main marker');
+if (!render.service) checkFailures.push('render.yaml service name was not detected');
+if (!render.branch) checkFailures.push('render.yaml branch was not detected');
+if (!render.autoDeployTrigger) checkFailures.push('render.yaml autoDeployTrigger was not detected');
+if (!render.healthCheckPath) checkFailures.push('render.yaml healthCheckPath was not detected');
+
 const info = {
   project: packageJson.name || 'Newmafiabot',
   version: packageJson.version || null,
@@ -65,46 +83,51 @@ const info = {
     currentCommitMatchesVerifiedMain: Boolean(commit && verifiedMain && commit === verifiedMain),
     docs,
   },
-  render: {
-    service: capture(renderYaml, /(?:^|\n)\s*name:\s*([^\n#]+)/),
-    branch: capture(renderYaml, /(?:^|\n)\s*branch:\s*([^\n#]+)/),
-    autoDeployTrigger: capture(renderYaml, /(?:^|\n)\s*autoDeployTrigger:\s*([^\n#]+)/),
-    healthCheckPath: capture(renderYaml, /(?:^|\n)\s*healthCheckPath:\s*([^\n#]+)/),
-    databasePath: capture(renderYaml, /DATABASE_PATH[\s\S]*?\n\s*value:\s*([^\n#]+)/),
+  render,
+  check: {
+    ok: checkFailures.length === 0,
+    failures: checkFailures,
   },
   note: 'This command is read-only and does not query GitHub Actions or live Render runtime.',
 };
 
-if (process.argv.includes('--json')) {
+const jsonMode = process.argv.includes('--json');
+const checkMode = process.argv.includes('--check');
+
+if (jsonMode) {
   process.stdout.write(`${JSON.stringify(info, null, 2)}\n`);
-  process.exit(0);
+} else {
+  const yesNo = (value: boolean | null): string => value === null ? 'unknown' : value ? 'yes' : 'no';
+  const verifiedState = info.handoff.currentCommitMatchesVerifiedMain
+    ? 'matches current commit'
+    : verifiedMain
+      ? 'different from current commit (normal on a feature/docs branch; reconcile before claiming main verification)'
+      : 'not recorded';
+
+  console.log('2LA Noire project context');
+  console.log('-------------------------');
+  console.log(`Package: ${info.project}${info.version ? ` ${info.version}` : ''}`);
+  console.log(`Node: ${info.node}`);
+  console.log(`Git branch: ${branch || 'unavailable'}`);
+  console.log(`Git commit: ${commit || 'unavailable'}`);
+  console.log(`Working tree clean: ${yesNo(info.git.clean)}${dirtyEntries.length ? ` (${dirtyEntries.length} changed entries)` : ''}`);
+  console.log(`PROJECT_STATE verified main: ${verifiedMain || 'not recorded'} — ${verifiedState}`);
+  console.log('');
+  console.log('Handoff docs:');
+  for (const doc of docs) console.log(`  ${doc.present ? 'OK ' : 'MISS'} ${doc.file}`);
+  console.log('');
+  console.log('Render config:');
+  console.log(`  service: ${info.render.service || 'not found'}`);
+  console.log(`  branch: ${info.render.branch || 'not found'}`);
+  console.log(`  auto deploy: ${info.render.autoDeployTrigger || 'not found'}`);
+  console.log(`  health: ${info.render.healthCheckPath || 'not found'}`);
+  console.log(`  database: ${info.render.databasePath || 'not found'}`);
+  console.log('');
+  console.log(`Handoff integrity: ${info.check.ok ? 'OK' : 'FAILED'}`);
+  for (const failure of checkFailures) console.log(`  - ${failure}`);
+  console.log('');
+  console.log('Read next: docs/PROJECT_STATE.md -> docs/ARCHITECTURE.md -> only files relevant to the requested task.');
+  console.log('Note: this command is read-only and does not prove GitHub CI or live Render status.');
 }
 
-const yesNo = (value: boolean | null): string => value === null ? 'unknown' : value ? 'yes' : 'no';
-const verifiedState = info.handoff.currentCommitMatchesVerifiedMain
-  ? 'matches current commit'
-  : verifiedMain
-    ? 'different from current commit (normal on a feature/docs branch; reconcile before claiming main verification)'
-    : 'not recorded';
-
-console.log('2LA Noire project context');
-console.log('-------------------------');
-console.log(`Package: ${info.project}${info.version ? ` ${info.version}` : ''}`);
-console.log(`Node: ${info.node}`);
-console.log(`Git branch: ${branch || 'unavailable'}`);
-console.log(`Git commit: ${commit || 'unavailable'}`);
-console.log(`Working tree clean: ${yesNo(info.git.clean)}${dirtyEntries.length ? ` (${dirtyEntries.length} changed entries)` : ''}`);
-console.log(`PROJECT_STATE verified main: ${verifiedMain || 'not recorded'} — ${verifiedState}`);
-console.log('');
-console.log('Handoff docs:');
-for (const doc of docs) console.log(`  ${doc.present ? 'OK ' : 'MISS'} ${doc.file}`);
-console.log('');
-console.log('Render config:');
-console.log(`  service: ${info.render.service || 'not found'}`);
-console.log(`  branch: ${info.render.branch || 'not found'}`);
-console.log(`  auto deploy: ${info.render.autoDeployTrigger || 'not found'}`);
-console.log(`  health: ${info.render.healthCheckPath || 'not found'}`);
-console.log(`  database: ${info.render.databasePath || 'not found'}`);
-console.log('');
-console.log('Read next: docs/PROJECT_STATE.md -> docs/ARCHITECTURE.md -> only files relevant to the requested task.');
-console.log('Note: this command is read-only and does not prove GitHub CI or live Render status.');
+if (checkMode && !info.check.ok) process.exitCode = 1;

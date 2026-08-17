@@ -40,10 +40,25 @@ jobs:
               def replace(match):
                   nonlocal_total[0] += 1
                   indent = match.group(1)
-                  names = [part.strip() for part in match.group(2).split(',') if part.strip()]
-                  if not names or not all(identifier.fullmatch(name) for name in names):
-                      raise SystemExit(f'Unsupported req.params destructuring in {filename}: {match.group(0)}')
-                  return '\n'.join(f'{indent}const {name} = String(req.params.{name});' for name in names)
+                  parts = [part.strip() for part in match.group(2).split(',') if part.strip()]
+                  bindings = []
+                  for part in parts:
+                      pieces = [piece.strip() for piece in part.split(':')]
+                      if len(pieces) == 1:
+                          source = target = pieces[0]
+                      elif len(pieces) == 2:
+                          source, target = pieces
+                      else:
+                          raise SystemExit(f'Unsupported req.params destructuring in {filename}: {match.group(0)}')
+                      if not identifier.fullmatch(source) or not identifier.fullmatch(target):
+                          raise SystemExit(f'Unsupported req.params destructuring in {filename}: {match.group(0)}')
+                      bindings.append((source, target))
+                  if not bindings:
+                      raise SystemExit(f'Empty req.params destructuring in {filename}: {match.group(0)}')
+                  return '\n'.join(
+                      f'{indent}const {target} = String(req.params.{source});'
+                      for source, target in bindings
+                  )
 
               nonlocal_total = [0]
               updated = pattern.sub(replace, text)

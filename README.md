@@ -8,12 +8,44 @@ CRM-система и игровой пульт проведения парти�
 
 ---
 
+## 🧭 Продолжение разработки / AI handoff
+
+Чтобы новый чат, разработчик или агент не проводил повторный аудит всего проекта, начинайте с:
+
+1. [`AGENTS.md`](AGENTS.md) — обязательные правила работы и защиты данных.
+2. [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) — что реально готово, что намеренно выключено и что делать дальше.
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — карта UI/API/интеграций и ключевых файлов.
+4. [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) — утверждённые правила спортивной мафии и продуктовые решения.
+5. [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — проверка, CI, деплой, runtime smoke-test и безопасная работа с БД.
+
+Быстрый read-only снимок локального контекста:
+
+```bash
+npm run project:status
+```
+
+Машиночитаемый вариант:
+
+```bash
+npm run project:status -- --json
+```
+
+Полная стандартная web-проверка перед merge:
+
+```bash
+npm run project:verify
+```
+
+Старый `docs/live-club-roadmap.md` хранится как исторический план и не является источником истины по текущей готовности.
+
+---
+
 ## 🛠 Технологический стек
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Motion (Framer).
 - **Backend**: Node.js, Express, REST API, Zod Validation, JWT Cookie Authentication.
-- **Database**: SQLite3 + Drizzle ORM (поддержка перехода на PostgreSQL).
-- **Telegram Bot**: Python Telegram Bot (сохраняемый клиент общей системы, планируемый к интеграции по REST API). Подробный план интеграции зафиксирован в [Аудите интеграции Telegram-бота и Webapp](docs/telegram-webapp-integration.md).
+- **Database**: SQLite через текущий DB wrapper / `better-sqlite3`, с Drizzle ORM в части модели данных.
+- **Telegram Bot**: Python Telegram Bot, связанный с web-приложением через REST/API-интеграцию. Подробная историческая документация: [Telegram bot / Webapp integration](docs/telegram-webapp-integration.md).
 
 ---
 
@@ -31,39 +63,43 @@ npm install
 ```
 
 ### 3. Запуск миграций и импорта старой базы
-Для автоматического создания SQLite базы `mafia_club.db` и импорта исходных данных из `mafia_db.json`:
-```bash
-npx tsx src/db/migrateLegacyData.ts
-```
+Для миграционных/legacy-сценариев используйте только актуальные guarded workflow/скрипты и сначала прочитайте `AGENTS.md` + `docs/RUNBOOK.md`. Не импортируйте старую базу поверх непустой runtime-БД.
 
 ### 4. Проверка типов и тестов
 ```bash
 npm run typecheck
-npm run lint
 npm test
+```
+
+Полная web-проверка:
+```bash
+npm run project:verify
 ```
 
 ### 5. Запуск сервера разработки
 ```bash
 npm run dev
 ```
-Приложение будет доступно на `http://localhost:3000`.
+Приложение будет доступно на локальном адресе Vite/Express, указанном при запуске.
 
 ---
 
 ## 🔐 Аутентификация Организатора
 
-Режим **Игрок** (`PLAYER`) доступен всем участникам в режиме "Только чтение" для просмотра результатов партий, личного кабинета и протоколов.
-Режим **Ведущий / Организатор** (`ORGANIZER`) защищен паролем (по умолчанию задается в `.env` как `ORGANIZER_PASSWORD=admin`). Все изменяющие API проверяют авторизационный токен организатора.
+Режим **Игрок** (`PLAYER`) доступен участникам для личного кабинета, событий, результатов и связанных игровых функций.
+Режим **Ведущий / Организатор** (`ORGANIZER`) защищён серверной авторизацией; изменяющие organizer API требуют соответствующую сессию/права.
 
 ---
 
 ## 📂 Структура проекта
 
-- `src/db/` — Схема базы данных SQLite (Drizzle), миграции, репозитории.
-- `src/server/` — Модульный Express сервер (маршруты, контроллеры, Zod-валидация, auth).
-- `src/components/` — React UI компоненты (CRM Организатора, Пульт Ведущего, Игровой Движок LiveGameEngine).
-- `tests/` — Интеграционные тесты (Vitest + Supertest).
+- `src/db/` — SQLite/DB wrapper, schema ensure, миграции и data/recovery logic.
+- `src/server/` — Express routes, services, auth и integrations.
+- `src/components/` — React UI: CRM, player cabinet, Live Game и связанные интерфейсы.
+- `src/tests/` — основная Vitest regression/integration coverage.
+- `docs/` — архитектура, правила, runbook и интеграционная документация.
+
+Для актуальной карты модулей используйте [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), а не этот краткий список.
 
 ---
 
@@ -71,4 +107,4 @@ npm run dev
 
 `mafia_crm.checkpoint.sqlite.gz.b64` is the canonical repository snapshot for a clean Preview bootstrap. Its version and purpose are declared in `mafia_crm.checkpoint.meta.json`; current tournament avatar assets are repository-managed in `public/player-avatars/` and mapped to stable player IDs in `src/lib/playerAvatarManifest.ts`.
 
-Normal startup imports the canonical snapshot **only when `mafia_crm.runtime.sqlite` is absent or zero-length**. A non-empty runtime database is never replaced on restart or migration. Namespaced `/tmp` recovery checkpoints are accepted only when their embedded repository snapshot version matches the current canonical snapshot, so an obsolete Preview checkpoint cannot roll the project back after an unrelated code fix. Explicit reset/import remains separate from normal startup.
+Normal startup imports the canonical snapshot **only when the configured runtime database is absent or zero-length**. A non-empty runtime database is never replaced on restart or migration. Explicit reset/import remains separate from normal startup and must follow the guarded workflow in `AGENTS.md` and `docs/RUNBOOK.md`.

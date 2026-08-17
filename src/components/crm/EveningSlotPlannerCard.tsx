@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import {useEffect,useState} from 'react';
 
 type Person={id:string;nickname:string};
 type Slot={id:string;slot_number:number;starts_at:string;ends_at:string;price:number;registered_count:number;participants:Person[]};

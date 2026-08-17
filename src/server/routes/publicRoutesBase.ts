@@ -10,7 +10,7 @@ const router = Router();
 // GET /api/public/evenings/:id - Public details of evening & tables (no participant list!)
 router.get('/evenings/:id', async (req: Request, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get(
       `SELECT id, title, starts_at, ends_at, venue, format, status, capacity, default_price, notes
        FROM game_evenings WHERE id = ?`,
@@ -82,7 +82,7 @@ router.get('/join/:id', (req, res) => res.redirect(`/api/public/evenings/${req.p
 
 router.post('/evenings/:id/join', async (req: Request, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const eveningId = req.params.id;
     const { name, nickname, telegram_username, phone, table_id, source } = req.body;
 
@@ -234,7 +234,7 @@ router.post('/evenings/:id/join', async (req: Request, res: Response) => {
 // GET /api/public/tournaments/results/:token - Public tournament results (no authorization required)
 router.get('/tournaments/results/:token', async (req: Request, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const { token } = req.params;
 
     const tournament = await db.get(

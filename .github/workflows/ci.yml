@@ -29,14 +29,8 @@ jobs:
       - name: Release data-safety audit
         run: npm run release:audit
 
-      - name: Full TypeScript debt report
-        id: typecheck
-        continue-on-error: true
+      - name: TypeScript typecheck
         run: npm run typecheck
-
-      - name: Explain non-blocking typecheck
-        if: steps.typecheck.outcome == 'failure'
-        run: echo "Strict TypeScript has pre-existing legacy errors. They stay visible in CI, while tests and production build remain blocking until the backlog is cleaned."
 
       - name: Tests
         run: npm test

@@ -47,7 +47,7 @@ const validateTelegramRequest = (initData: unknown) => {
 router.post('/telegram', async (req, res) => {
   try {
     const telegram = validateTelegramRequest(req.body?.initData);
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens
        FROM players
@@ -75,7 +75,7 @@ router.post('/telegram', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const telegram = validateTelegramRequest(req.body?.initData);
-    const db = (req as any).db;
+    const db = req.db;
     const result = await registerNewPlayer(db, {
       telegramUserId: telegram.id,
       telegramUsername: telegram.username,
@@ -143,7 +143,7 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   let player = null;
 
   if (playerId) {
-    const db = (req as any).db;
+    const db = req.db;
     const linkedPlayer = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens
        FROM players

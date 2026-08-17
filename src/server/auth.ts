@@ -106,7 +106,7 @@ const requestPath = (req: Request) => String(req.originalUrl || req.url || '').s
 async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<boolean> {
   const playerId = getPlayerSessionId(req);
   if (!playerId) return false;
-  const db = (req as any).db;
+  const db = req.db;
   if (!db) return false;
   const path = requestPath(req);
 

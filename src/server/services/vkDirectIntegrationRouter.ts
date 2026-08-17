@@ -52,7 +52,7 @@ router.get('/vk/api-oauth/callback', async (_req, res) => {
 
 router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkIntegrationSchema(db);
     await hydrateVkOAuthAccessToken(db);
     return res.json(await enrichedState(db, String(req.params.eveningId || '')));
@@ -63,7 +63,7 @@ router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => 
 
 router.get('/vk/evenings/:eveningId/draft', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkIntegrationSchema(db);
     return res.json(await getDirectVkEveningAnnouncementDraft(
       db,
@@ -77,7 +77,7 @@ router.get('/vk/evenings/:eveningId/draft', requireOrganizerAuth, async (req, re
 
 router.post('/vk/evenings/:eveningId/sync', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkIntegrationSchema(db);
     await hydrateVkOAuthAccessToken(db);
     const publisher = getVkIntegrationStatus();

@@ -12,14 +12,14 @@ const router = Router();
 const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
 
 router.get('/evenings/:id/join-state', async (req, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   await ensureVkJoinSchema(db);
   return res.json(await getVkJoinState(db, req.params.id, req.cookies?.vk_join_session, getPlayerSessionId(req)));
 });
 
 router.get('/evenings/:id/slots', async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const vkSession = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
     const playerId = vkSession?.player_id || getPlayerSessionId(req);
     return res.json(await loadEveningSlotPlan(db, req.params.id, playerId));
@@ -30,7 +30,7 @@ router.get('/evenings/:id/slots', async (req, res) => {
 
 router.post('/evenings/:id/slots', async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const vkSession = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
     const playerId = vkSession?.player_id || getPlayerSessionId(req);
     if (!playerId) return res.status(401).json({ error: 'Сначала подтвердите профиль через VK ID или Telegram' });

@@ -36,7 +36,7 @@ const participantView = (row: any, playCount = 0) => ({
 
 router.get('/command-center', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const nowIso = new Date().toISOString();
     const wrapupSince = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
@@ -179,7 +179,7 @@ router.post('/table-scouting', async (req, res) => {
   if (!participantIds.length) return res.status(400).json({ error: 'Не выбраны игроки для разведки стола' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const placeholders = participantIds.map(() => '?').join(',');
     const participants = await db.all(`
       SELECT ep.id AS participant_id, ep.player_id, p.nickname, p.elo

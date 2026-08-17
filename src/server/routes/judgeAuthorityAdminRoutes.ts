@@ -12,7 +12,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
   if (!playerId) return next();
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get('SELECT id, nickname, judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(400).json({ error: 'Игрок-судья не найден в CRM' });
     if (normalizeJudgeLevel(player.judge_level) !== 'judge') {

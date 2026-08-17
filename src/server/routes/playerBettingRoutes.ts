@@ -38,7 +38,7 @@ router.get('/bets', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     return res.json(await getPlayerBettingDashboard(db, playerId));
   } catch (error: any) {
     return sendError(res, error);
@@ -55,7 +55,7 @@ router.post('/bets/place', async (req, res) => {
     const requestId = String(req.body?.request_id || '').trim();
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректная игра' });
 
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const result = await placePoolBet(db, { gameId, playerId, team, amount, requestId });
     return res.status(result.idempotent ? 200 : 201).json({ success: true, ...result });
   } catch (error: any) {

@@ -122,7 +122,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
   try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }
   try { await reconcileAllPlayerAchievements(db); } catch (error) { console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error); }
-  app.use((req, _res, next) => { (req as any).db = db; next(); });
+  app.use((req, _res, next) => { req.db = db; next(); });
 
   app.use(parseUserSession);
 

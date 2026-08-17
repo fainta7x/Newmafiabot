@@ -37,7 +37,7 @@ const loadTask = (db: any, id: string) => db.get(`
 router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
     const { today, overdue, active, player_id, evening_id, status } = req.query;
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     let query = `
       SELECT t.*, p.nickname as player_nickname, e.title as evening_title
@@ -87,7 +87,7 @@ router.post('/evening-template', requireOrganizerAuth, async (req, res) => {
     const templateId = String(req.body?.template_id || '').trim();
     const template = EVENING_TASK_TEMPLATES.find((item) => item.id === templateId);
     if (!eveningId || !template) return res.status(400).json({ error: 'Некорректный шаблон задачи вечера' });
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT id,title,starts_at,ends_at,status FROM game_evenings WHERE id=? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     const automationKey = `evening-template:${template.stage}:${eveningId}:${template.id}`;
@@ -113,7 +113,7 @@ router.post('/evening-manual', requireOrganizerAuth, async (req, res) => {
     const description = String(req.body?.description || '').trim().slice(0, 1000) || null;
     const stage = String(req.body?.stage || 'during') as EveningTaskStage;
     if (!eveningId || !title || !['preparation', 'during', 'after'].includes(stage)) return res.status(400).json({ error: 'Заполни название и этап задачи' });
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT id,title,starts_at,ends_at,status FROM game_evenings WHERE id=? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     const id = crypto.randomUUID();
@@ -134,7 +134,7 @@ router.post('/evening-manual', requireOrganizerAuth, async (req, res) => {
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createTaskSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const dueAt = data.due_at && data.due_at.trim() !== '' ? new Date(data.due_at).toISOString() : null;
@@ -151,7 +151,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
 
 router.post('/:id/complete', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const now = new Date().toISOString();
     await db.run('UPDATE organizer_tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?', ['done', now, now, req.params.id]);
     const updated = await loadTask(db, req.params.id);
@@ -165,7 +165,7 @@ router.post('/:id/complete', requireOrganizerAuth, async (req, res) => {
 router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateTaskSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const task = await db.get('SELECT * FROM organizer_tasks WHERE id = ?', [req.params.id]);
     if (!task) return res.status(404).json({ error: 'Задача не найдена' });
     const fields: string[] = [];
@@ -186,7 +186,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     await db.run('DELETE FROM organizer_tasks WHERE id = ?', [req.params.id]);
     res.json({ success: true, message: 'Задача удалена' });
   } catch (err: any) {

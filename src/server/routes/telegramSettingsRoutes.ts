@@ -38,7 +38,7 @@ const routingForFormat = (format: unknown): string[] => {
 
 router.get('/', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const rows = await db.all(
       `SELECT id, name, description, chat_id, topic_id, invite_url, active,
               router_message_id, created_at, updated_at
@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
 
 router.get('/evenings/:eveningId', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get('SELECT id, format, status, settled_at FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     const desiredIds = ['published', 'active'].includes(String(evening.status)) && !evening.settled_at
@@ -104,7 +104,7 @@ router.get('/evenings/:eveningId', async (req, res) => {
 
 router.patch('/:destinationId', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const destinationId = String(req.params.destinationId || '');
     if (!isTelegramDestinationId(destinationId)) return res.status(404).json({ error: 'Неизвестное Telegram-направление' });
 

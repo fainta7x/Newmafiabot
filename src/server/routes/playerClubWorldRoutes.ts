@@ -147,7 +147,7 @@ router.get('/club-world', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const snapshots = await loadCompletedGameSnapshots(db);
     const now = new Date();
     const nowMs = now.getTime();

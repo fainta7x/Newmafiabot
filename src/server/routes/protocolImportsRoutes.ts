@@ -53,7 +53,7 @@ router.post('/:id/protocol-imports', requireOrganizerAuth, (req: AuthenticatedRe
       return res.status(400).json({ error: 'Файл фотографии не выбран' });
     }
 
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const tournamentId = req.params.id;
 
     try {
@@ -128,7 +128,7 @@ router.post('/:id/protocol-imports', requireOrganizerAuth, (req: AuthenticatedRe
 
 // 2. GET /api/tournaments/:id/protocol-imports - List imports for tournament
 router.get('/:id/protocol-imports', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
 
   try {
@@ -151,7 +151,7 @@ router.get('/:id/protocol-imports', requireOrganizerAuth, async (req: Authentica
 
 // 3. GET /api/tournaments/:id/protocol-imports/:importId - Single import details
 router.get('/:id/protocol-imports/:importId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, importId } = req.params;
 
   try {
@@ -176,7 +176,7 @@ router.get('/:id/protocol-imports/:importId', requireOrganizerAuth, async (req: 
 
 // 4. GET /api/tournaments/:id/protocol-imports/:importId/image - Authenticated image viewer
 router.get('/:id/protocol-imports/:importId/image', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, importId } = req.params;
 
   try {
@@ -253,7 +253,7 @@ function validateDraftData(draftData: DetectedGame): string[] {
 
 // 5. POST /api/tournaments/:id/protocol-imports/:importId/apply - Apply draft(s) to tournament game(s)
 router.post('/:id/protocol-imports/:importId/apply', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, importId } = req.params;
   const { game_mappings } = req.body;
 
@@ -349,7 +349,7 @@ router.post('/:id/protocol-imports/:importId/apply', requireOrganizerAuth, async
 
 // 6. GET /api/tournaments/:id/games/:gameId/protocol-draft - Get draft & stored details
 router.get('/:id/games/:gameId/protocol-draft', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
 
   try {

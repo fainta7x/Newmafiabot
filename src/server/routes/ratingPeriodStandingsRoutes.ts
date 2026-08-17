@@ -7,7 +7,7 @@ router.use(requireOrganizerAuth);
 
 router.get('/:periodId/standings', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const result = await calculateRatingPeriodStandings(db, req.params.periodId);
     res.json(result);
   } catch (err: any) {

@@ -191,7 +191,7 @@ router.get('/games/elo', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const timeline = await loadPlayerEloHistory(db);
     const games = timeline.flatMap((event) => {
       const row = event.players.find((player) => player.playerId === playerId);
@@ -216,7 +216,7 @@ router.get('/games/:gameKey', async (req, res) => {
   if (!parsed) return res.status(400).json({ error: 'Некорректный идентификатор игры' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const timeline = await loadPlayerEloHistory(db);
     const eloEvent = timelineEvent(timeline, parsed.source, parsed.sourceId);
 
@@ -256,7 +256,7 @@ router.get('/games/:gameKey', async (req, res) => {
           seat_numbers: protocol.best_move_seats || [],
         }]
         : [];
-      const bestMoves = (modernBestMoves.length ? modernBestMoves : legacyBestMove).map((move: any) => ({
+      const bestMoves: Array<{ participant_id: string; source: string | null; seat_numbers: number[] }> = (modernBestMoves.length ? modernBestMoves : legacyBestMove).map((move: any) => ({
         participant_id: String(move?.participant_id || ''),
         source: move?.source ? String(move.source) : null,
         seat_numbers: normalizedSeats(move?.seat_numbers),

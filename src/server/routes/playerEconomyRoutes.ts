@@ -44,7 +44,7 @@ router.get('/economy', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await reconcileAllBettingPools(db);
     const [wallet, items, purchases] = await Promise.all([
       getTokenLedgerPage(db, playerId, 50, 0),
@@ -89,7 +89,7 @@ router.post('/shop/purchase', async (req, res) => {
   if (!requestId || requestId.length > 160) return res.status(400).json({ error: 'Некорректный идентификатор покупки' });
 
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const alreadyPurchased = await loadPurchase(db, playerId, requestId);
     if (alreadyPurchased) {
       const player = await db.get<any>('SELECT tokens FROM players WHERE id = ?', [playerId]);

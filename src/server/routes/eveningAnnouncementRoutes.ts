@@ -59,7 +59,7 @@ async function loadActionableEvening(db: any, eveningId: string) {
 
 router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) => {
   try {
-    const overview = await loadAnnouncementOverview((req as any).db, req.params.id);
+    const overview = await loadAnnouncementOverview(req.db, req.params.id);
     if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
     return res.json(overview);
   } catch (error: any) {
@@ -69,7 +69,7 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
 
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     await enqueueTelegramEveningSync(db, req.params.id);
@@ -86,7 +86,7 @@ router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
 
 router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const availability = await loadActionableEvening(db, req.params.id);
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
@@ -114,7 +114,7 @@ router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
 
 router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const availability = await loadActionableEvening(db, req.params.id);
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
@@ -132,7 +132,7 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
 
 router.post('/:id/remind-unanswered', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const availability = await loadActionableEvening(db, req.params.id);
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 

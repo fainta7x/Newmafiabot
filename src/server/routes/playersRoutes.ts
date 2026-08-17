@@ -77,7 +77,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
       search,
     } = req.query;
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     // Query base player data with aggregated evening stats
     const players = await db.all(`
@@ -180,7 +180,7 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
 // GET /api/players/:id - Detailed Player Card with complete history & tasks (Auth required)
 router.get('/:id', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const player = await db.get(`
       SELECT p.*,
         (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at
@@ -287,7 +287,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
 // GET /api/players/:id/activities - Get player activities (Auth required)
 router.get('/:id/activities', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const activities = await db.all(
       'SELECT * FROM player_activities WHERE player_id = ? ORDER BY occurred_at DESC',
       [req.params.id]
@@ -301,7 +301,7 @@ router.get('/:id/activities', requireOrganizerAuth, async (req, res) => {
 // POST /api/players/:id/activities - Record new activity (Auth required)
 router.post('/:id/activities', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const { type, outcome, description, evening_id, task_id, occurred_at } = req.body;
 
     if (!type) {
@@ -337,7 +337,7 @@ router.post('/:id/activities', requireOrganizerAuth, async (req, res) => {
 // POST /api/players/:id/invite - Invite player to evening with optional task (Auth required)
 router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const { evening_id, table_id, create_followup_task, task_due_days } = req.body;
 
     if (!evening_id) {
@@ -491,7 +491,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createPlayerSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     // Check unique nickname
     const existingNick = await db.get('SELECT id FROM players WHERE nickname = ?', [data.nickname]);
@@ -536,7 +536,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
 // POST /api/players/:id/communication-log - Record communication outcome (Auth required)
 router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
@@ -619,7 +619,7 @@ router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => 
 // POST /api/players/:id/historical-awards - Add an award from a tournament absent from the current DB
 router.post('/:id/historical-awards', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const player = await db.get('SELECT id FROM players WHERE id = ?', [req.params.id]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -647,7 +647,7 @@ router.post('/:id/historical-awards', requireOrganizerAuth, async (req, res) => 
 // PATCH /api/players/:id/historical-awards/:awardId - Edit a historical award
 router.patch('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get(
       'SELECT id FROM player_historical_awards WHERE id = ? AND player_id = ?',
       [req.params.awardId, req.params.id]
@@ -677,7 +677,7 @@ router.patch('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req
 // DELETE /api/players/:id/historical-awards/:awardId - Remove a historical award
 router.delete('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const result = await db.run(
       'DELETE FROM player_historical_awards WHERE id = ? AND player_id = ?',
       [req.params.awardId, req.params.id]
@@ -695,7 +695,7 @@ router.delete('/:id/historical-awards/:awardId', requireOrganizerAuth, async (re
 router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updatePlayerSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
     if (!player) {
@@ -752,7 +752,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 // DELETE /api/players/:id - Soft archive player (Auth required)
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), req.params.id]);
     res.json({ success: true, message: 'Игрок переведен в архив/заблокирован' });
   } catch (err: any) {
@@ -763,7 +763,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
 // GET /api/players/:id/avatar - Retrieve player avatar
 router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [req.params.id]) as any;
     if (avatar) {
       return res.json({
@@ -800,7 +800,7 @@ router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
 // PUT /api/players/:id/avatar - Upload/Update player avatar
 router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     
     // First verify if the player actually exists
     const playerExists = await db.get('SELECT 1 FROM players WHERE id = ?', [req.params.id]);
@@ -883,7 +883,7 @@ router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
 // DELETE /api/players/:id/avatar - Delete player avatar
 router.delete('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     
     // Idempotent deletion also suppresses the repository default for this player.
     await db.run('DELETE FROM player_avatars WHERE player_id = ?', [req.params.id]);

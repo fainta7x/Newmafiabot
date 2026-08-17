@@ -149,7 +149,7 @@ const loadAvailableEvenings = async (db: any, judgeLevel: JudgeLevel) => {
 router.get('/judging', async (req, res) => {
   const playerId = requirePlayer(req, res);
   if (!playerId) return;
-  const db = (req as any).db;
+  const db = req.db;
   try {
     const player = await db.get('SELECT id, nickname, judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });

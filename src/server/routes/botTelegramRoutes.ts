@@ -29,7 +29,7 @@ const desiredDestinationIds = (formatRaw: unknown, statusRaw: unknown, settledAt
 
 router.get('/telegram/settings', async (req, res) => {
   try {
-    res.json({ destinations: await listDestinations((req as any).db) });
+    res.json({ destinations: await listDestinations(req.db) });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось загрузить Telegram-направления' });
   }
@@ -37,7 +37,7 @@ router.get('/telegram/settings', async (req, res) => {
 
 router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get(
       `SELECT id, title, starts_at, ends_at, timezone, venue, format, status,
               capacity, default_price, notes, settled_at, updated_at
@@ -85,7 +85,7 @@ router.get('/evenings/:eveningId/telegram-plan', async (req, res) => {
 
 router.put('/evenings/:eveningId/telegram-publications/:destinationId', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const destinationId = String(req.params.destinationId || '');
     if (!isTelegramDestinationId(destinationId)) return res.status(404).json({ error: 'Неизвестное Telegram-направление' });
 
@@ -124,7 +124,7 @@ router.put('/evenings/:eveningId/telegram-publications/:destinationId', async (r
 
 router.get('/tournaments/:tournamentId/telegram-plan', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const tournament = await db.get(
       `SELECT id, title, date, venue, stage, status, chief_judge_name, notes, game_count, updated_at
          FROM tournaments WHERE id = ?`,
@@ -160,7 +160,7 @@ router.get('/tournaments/:tournamentId/telegram-plan', async (req, res) => {
 
 router.put('/tournaments/:tournamentId/telegram-publications/:destinationId', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const destinationId = String(req.params.destinationId || '');
     if (!isTelegramDestinationId(destinationId)) return res.status(404).json({ error: 'Неизвестное Telegram-направление' });
     const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.tournamentId]);
@@ -191,7 +191,7 @@ router.put('/tournaments/:tournamentId/telegram-publications/:destinationId', as
 
 router.get('/telegram/public-router', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const destinations = await listDestinations(db);
     const publicDestination = destinations.find((item: any) => item.id === 'public') || null;
     const noviceDestination = destinations.find((item: any) => item.id === 'novice') || null;
@@ -226,7 +226,7 @@ router.get('/telegram/public-router', async (req, res) => {
 
 router.patch('/telegram/public-router-state', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const raw = req.body?.router_message_id;
     const messageId = raw === null || raw === '' || raw === undefined ? null : Number(raw);
     if (messageId !== null && (!Number.isInteger(messageId) || messageId <= 0)) {

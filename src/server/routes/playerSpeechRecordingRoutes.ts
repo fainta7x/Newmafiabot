@@ -7,7 +7,7 @@ const schemaReadyByDb = new WeakMap<object, Promise<void>>();
 
 router.use(async (req, res, next) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     if (!db || (typeof db !== 'object' && typeof db !== 'function')) {
       throw new Error('База данных недоступна.');
     }

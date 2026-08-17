@@ -36,7 +36,7 @@ router.get('/live', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get(
       `SELECT id, title, starts_at, venue, format, status
          FROM game_evenings

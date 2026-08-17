@@ -46,7 +46,7 @@ const writeBettingAudit = async (db: DatabaseWrapper, input: {
 
 router.get('/betting/admin/overview', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await reconcileAllBettingPools(db);
     const pools = await db.all<any>(`
       SELECT bp.*
@@ -99,7 +99,7 @@ router.get('/betting/admin/overview', requireOrganizerAuth, async (req, res) => 
 
 router.post('/betting/reconcile', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const changed = await reconcileAllBettingPools(db);
     res.json({ success: true, changed });
   } catch (error: any) {
@@ -111,7 +111,7 @@ router.post('/:gameId/betting/close', requireOrganizerAuth, async (req, res) => 
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
     if (!before) return res.status(404).json({ error: 'Ставки на игру не найдены' });
     if (before.status !== 'open') return res.status(409).json({ error: 'Вручную закрыть можно только открытую линию' });
@@ -129,7 +129,7 @@ router.post('/:gameId/betting/refund', requireOrganizerAuth, async (req, res) =>
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
     if (!before) return res.status(404).json({ error: 'Ставки на игру не найдены' });
     const pool = await refundBetPool(db, gameId);
@@ -147,7 +147,7 @@ router.post('/:gameId/betting/settle', requireOrganizerAuth, async (req, res) =>
     const winner = String(req.body?.winner || '');
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
     if (winner !== 'red' && winner !== 'black') return res.status(400).json({ error: 'Выберите победителя: красные или чёрные' });
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const before = await db.get<any>('SELECT * FROM betting_pools WHERE game_id = ? LIMIT 1', [gameId]);
     if (!before) return res.status(404).json({ error: 'Ставки на игру не найдены' });
     if (before.status === 'open') return res.status(409).json({ error: 'Сначала закройте приём ставок' });
@@ -166,7 +166,7 @@ router.post('/:gameId/betting/open', requireOrganizerAuth, async (req, res) => {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
     const roles = Array.isArray(req.body?.roles) ? req.body.roles : [];
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const pool = await openBetPoolForGame(db, gameId, roles);
     let notification: any = { skipped: true };
     if (!pool.notified_at) {

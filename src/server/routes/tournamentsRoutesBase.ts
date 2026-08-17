@@ -30,7 +30,7 @@ router.post('/checkpoint', requireOrganizerAuth, async (req: AuthenticatedReques
     return res.status(403).json({ error: 'Endpoint is not available in production' });
   }
 
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const result = await createPreviewCheckpoint(db);
 
   if (result.success) {
@@ -187,7 +187,7 @@ export async function computeCompleteReadiness(db: DatabaseWrapper, tournamentId
 
 // 1. GET /api/tournaments - Get list of tournaments
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournamentsList = await db.all<any>(`
       SELECT t.*,
@@ -205,7 +205,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
 // 2. GET /api/tournaments/:id - Get tournament details
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
 
   try {
@@ -259,7 +259,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 // 3. POST /api/tournaments - Create a tournament (Atomic Transaction)
 router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { title, date, venue, stage, chief_judge_name, notes, participants } = req.body;
 
   if (!title || !date) {
@@ -355,7 +355,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
 
 // 4. PATCH /api/tournaments/:id - Edit draft metadata (status is NOT modified)
 router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   const { title, date, venue, stage, chief_judge_name, notes } = req.body;
 
@@ -395,7 +395,7 @@ router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res
 
 // 5. PUT /api/tournaments/:id/participants - Save/Update 10 participants (Atomic Transaction)
 router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   const { participants } = req.body;
 
@@ -463,7 +463,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
 
 // 6. POST /api/tournaments/:id/generate-seating - Regenerate seating chart
 router.post('/:id/generate-seating', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
 
   try {
@@ -504,7 +504,7 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
 
 // 5b. PATCH /api/tournaments/:id/participants/:participantId/correct-player - Correct CRM profile for tournament participant
 router.patch('/:id/participants/:participantId/correct-player', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, participantId } = req.params;
   const { player_id } = req.body;
 
@@ -564,7 +564,7 @@ router.patch('/:id/participants/:participantId/correct-player', requireOrganizer
 
 // 7. POST /api/tournaments/:id/games/:gameId/swap-seats - Swap two seats in a game
 router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
   const { seat_number_1, seat_number_2, participant_id_1, participant_id_2 } = req.body;
 
@@ -736,7 +736,7 @@ async function checkGameEditingPermission(
 
 // 8. PATCH /api/tournaments/:id/games/:gameId/roles - Assign roles to seats
 router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
   const { roles, seats } = req.body;
 
@@ -851,7 +851,7 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
 
 // 9. PATCH /api/tournaments/:id/games/:gameId/judge - Assign judge to game
 router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
   const { judge_name } = req.body;
 
@@ -882,7 +882,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
 
 // 10. POST /api/tournaments/:id/start - Launch tournament (with safe validations)
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
 
   try {
@@ -924,7 +924,7 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
 
 // 11. POST /api/tournaments/:id/games/:gameId/start - Launch specific game
 router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
 
   try {
@@ -1630,7 +1630,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
 
 // GET /api/tournaments/:tournamentId/standings
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { tournamentId } = req.params;
 
   try {
@@ -1646,7 +1646,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 
 // POST /api/tournaments/:id/complete
 router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId } = req.params;
 
   try {
@@ -1689,7 +1689,7 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
 
 // POST /api/tournaments/:id/reopen-for-correction - Reopen completed tournament for correction
 router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId } = req.params;
 
   try {
@@ -1755,7 +1755,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
 
 // GET /api/tournaments/:tournamentId/nominations
 router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { tournamentId } = req.params;
 
   try {
@@ -1771,7 +1771,7 @@ router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: Authe
 
 // GET /api/tournaments/:id/final-resolutions - Load final resolutions
 router.get('/:id/final-resolutions', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId } = req.params;
 
   try {
@@ -1802,7 +1802,7 @@ router.get('/:id/final-resolutions', requireOrganizerAuth, async (req: Authentic
 
 // PUT /api/tournaments/:id/final-resolutions/standings/:tieGroupId - Set standing tie resolution
 router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, tieGroupId } = req.params;
   const { ordered_participant_ids, resolution_method, comment } = req.body;
 
@@ -1900,7 +1900,7 @@ router.put('/:id/final-resolutions/nominations/:category', requireOrganizerAuth,
 
 // GET /api/tournaments/:id/final-readiness - Get final readiness check results
 router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId } = req.params;
 
   try {
@@ -1967,7 +1967,7 @@ router.get('/:id/final-readiness', requireOrganizerAuth, async (req: Authenticat
 
 // POST /api/tournaments/:id/publish - Publish tournament results
 router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId } = req.params;
 
   try {
@@ -2258,7 +2258,7 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
 
 // GET /api/tournaments/:tournamentId/backup
 router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { tournamentId } = req.params;
 
   try {
@@ -2356,7 +2356,7 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
 
 // POST /api/tournaments/:tournamentId/backup/validate
 router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { tournamentId } = req.params;
   const backupData = req.body;
 
@@ -2420,7 +2420,7 @@ router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: 
 
 // POST /api/tournaments/:tournamentId/backup/restore
 router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { tournamentId } = req.params;
   const backupData = req.body;
 

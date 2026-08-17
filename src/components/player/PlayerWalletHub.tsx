@@ -17,7 +17,6 @@ const rubles = (value: number | null) => value == null
   : `${Math.max(0, Math.trunc(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
 
 export default function PlayerWalletHub({
-  data,
   tokenBalance,
   onBalanceChange,
 }: {

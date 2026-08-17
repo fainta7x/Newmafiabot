@@ -31,7 +31,7 @@ const getMusicOwner = async (req: Request, res: Response) => {
     res.status(401).json({ error: 'Player authentication required.' });
     return null;
   }
-  const db = (req as any).db;
+  const db = req.db;
   const player = await db.get('SELECT id, nickname, judge_level FROM players WHERE id = ? LIMIT 1', [playerId]);
   if (!player) {
     res.status(404).json({ error: 'Игрок не найден' });
@@ -59,7 +59,7 @@ router.get('/judge-music', async (req, res) => {
   try {
     const owner = await getMusicOwner(req, res);
     if (!owner) return;
-    const db = (req as any).db;
+    const db = req.db;
     const tracks = await db.all(
       `SELECT id, title, mime_type, byte_size, sort_order, created_at
          FROM judge_music_tracks
@@ -77,7 +77,7 @@ router.post('/judge-music/tracks', audioBody, async (req, res) => {
   try {
     const owner = await getMusicOwner(req, res);
     if (!owner) return;
-    const db = (req as any).db;
+    const db = req.db;
     const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
     if (!body.length) return res.status(400).json({ error: 'Аудиофайл пуст.' });
     if (body.length > MAX_TRACK_BYTES) return res.status(413).json({ error: 'Один трек должен быть не больше 15 МБ.' });
@@ -117,7 +117,7 @@ router.put('/judge-music/order', async (req, res) => {
     const owner = await getMusicOwner(req, res);
     if (!owner) return;
     const ids = Array.isArray(req.body?.track_ids) ? req.body.track_ids.map(String) : [];
-    const db = (req as any).db;
+    const db = req.db;
     const existing = await db.all('SELECT id FROM judge_music_tracks WHERE owner_player_id = ? ORDER BY sort_order ASC, created_at ASC', [owner.id]);
     const existingIds = existing.map((row: any) => String(row.id));
     if (ids.length !== existingIds.length || new Set(ids).size !== ids.length || ids.some((id: string) => !existingIds.includes(id))) {
@@ -139,7 +139,7 @@ router.delete('/judge-music/tracks/:trackId', async (req, res) => {
   try {
     const owner = await getMusicOwner(req, res);
     if (!owner) return;
-    const db = (req as any).db;
+    const db = req.db;
     const result = await db.run('DELETE FROM judge_music_tracks WHERE id = ? AND owner_player_id = ?', [String(req.params.trackId), owner.id]);
     if (!result.changes) return res.status(404).json({ error: 'Трек не найден.' });
     const remaining = await db.all('SELECT id FROM judge_music_tracks WHERE owner_player_id = ? ORDER BY sort_order ASC, created_at ASC', [owner.id]);
@@ -159,7 +159,7 @@ router.get('/judge-music/tracks/:trackId/audio', async (req, res) => {
   try {
     const owner = await getMusicOwner(req, res);
     if (!owner) return;
-    const db = (req as any).db;
+    const db = req.db;
     const row = await db.get(
       'SELECT mime_type, audio_data, byte_size FROM judge_music_tracks WHERE id = ? AND owner_player_id = ? LIMIT 1',
       [String(req.params.trackId), owner.id],

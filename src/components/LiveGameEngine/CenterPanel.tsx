@@ -90,7 +90,6 @@ export default function CenterPanel({
   setIsTimerRunning,
   timerMax,
   handleAdjustTime,
-  handleStartZeroNightTimer,
   donCheckSlot,
   donCheckResult,
   sheriffCheckSlot,

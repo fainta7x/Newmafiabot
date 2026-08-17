@@ -37,7 +37,7 @@ router.get('/rating-periods', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const rows = await db.all<any>(`
       SELECT id, title, type, starts_at, ends_at, status, notes
         FROM rating_periods
@@ -62,7 +62,7 @@ router.get('/rating-periods/:periodId', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const period = await db.get<any>(
       `SELECT id, title, type, starts_at, ends_at, status, notes
          FROM rating_periods

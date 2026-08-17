@@ -25,7 +25,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   if (!requireClubUser(req, res)) return;
 
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const rows = await db.all<any>(`
       SELECT
         p.id,

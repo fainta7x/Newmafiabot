@@ -101,7 +101,7 @@ const coerceColumnValue = (value: unknown, type: string) => {
 
 router.get('/summary', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [definitions, definitionRows, shopItems, players, changes] = await Promise.all([
       loadAchievementDefinitions(db, true),
       db.all('SELECT id, active, updated_at FROM achievement_definitions ORDER BY sort_order, id'),
@@ -123,7 +123,7 @@ router.get('/summary', async (req, res) => {
 
 router.patch('/achievements/:id', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const id = String(req.params.id);
     const before = await db.get('SELECT * FROM achievement_definitions WHERE id = ?', [id]);
     if (!before) return res.status(404).json({ error: 'Достижение не найдено' });
@@ -164,7 +164,7 @@ router.patch('/achievements/:id', async (req, res) => {
 
 router.patch('/shop-items/:id', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const id = String(req.params.id);
     const before = await db.get('SELECT * FROM shop_items WHERE id = ?', [id]);
     if (!before) return res.status(404).json({ error: 'Товар не найден' });
@@ -194,7 +194,7 @@ router.patch('/shop-items/:id', async (req, res) => {
 
 router.post('/shop-items', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const id = String(req.body?.id || `custom_${randomUUID().slice(0, 8)}`).trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
     const name = String(req.body?.name || '').trim().slice(0, 140);
     const description = String(req.body?.description || '').trim().slice(0, 600);
@@ -220,7 +220,7 @@ router.post('/shop-items', async (req, res) => {
 
 router.post('/players/:playerId/tokens', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const playerId = String(req.params.playerId);
     const delta = Math.trunc(Number(req.body?.delta));
     const reason = String(req.body?.reason || '').trim().slice(0, 300);
@@ -251,7 +251,7 @@ router.post('/players/:playerId/tokens', async (req, res) => {
 
 router.post('/players/:playerId/achievements/:achievementId', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const playerId = String(req.params.playerId);
     const achievementId = String(req.params.achievementId);
     const state = String(req.body?.state || 'auto');
@@ -303,7 +303,7 @@ router.post('/players/:playerId/achievements/:achievementId', async (req, res) =
 
 router.get('/changes', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const limit = Math.max(1, Math.min(200, Math.trunc(Number(req.query.limit || 100))));
     const changes = await db.all('SELECT * FROM admin_change_log ORDER BY created_at DESC, id DESC LIMIT ?', [limit]);
     return res.json({ changes });
@@ -314,7 +314,7 @@ router.get('/changes', async (req, res) => {
 
 router.get('/database/tables', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const tables = [];
     for (const table of Object.keys(EXPERT_TABLES)) {
       const info = await tableInfo(db, table);
@@ -328,7 +328,7 @@ router.get('/database/tables', async (req, res) => {
 
 router.get('/database/:table', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const table = String(req.params.table);
     const info = await tableInfo(db, table);
     if (!info) return res.status(404).json({ error: 'Таблица недоступна в экспертном редакторе' });
@@ -350,7 +350,7 @@ router.get('/database/:table', async (req, res) => {
 
 router.patch('/database/:table/:pk', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const table = String(req.params.table);
     const info = await tableInfo(db, table);
     if (!info || !info.pkColumns.length) return res.status(404).json({ error: 'Таблица недоступна для редактирования' });

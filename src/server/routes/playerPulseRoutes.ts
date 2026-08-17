@@ -59,7 +59,7 @@ router.get('/pulse', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [players, snapshots] = await Promise.all([
       db.all(`
         SELECT id, nickname, elo
@@ -165,7 +165,7 @@ router.get('/relationships', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const snapshots = await loadCompletedGameSnapshots(db);
     const opponents = new Map<string, PersonStat>();
     const teammates = new Map<string, PersonStat>();

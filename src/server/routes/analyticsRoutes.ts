@@ -10,7 +10,7 @@ const pct = (part: number, total: number) => total > 0 ? Math.round((part / tota
 router.get('/', requireOrganizerAuth, async (req, res) => {
   try {
     const { period, start_date, end_date } = req.query;
-    const db: DatabaseWrapper = (req as any).db || (await getDb());
+    const db: DatabaseWrapper = req.db || (await getDb());
     const nowMs = Date.now();
     let rangeStart: Date | null = null;
     let rangeEnd: Date = new Date();

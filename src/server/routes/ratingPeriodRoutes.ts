@@ -42,7 +42,7 @@ const autoIncludesEvening = (period: any, evening: any): boolean => {
 
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const rows = await db.all<any>(`
       SELECT rp.*,
         (SELECT COUNT(*) FROM rating_period_evening_overrides reo WHERE reo.period_id = rp.id) AS evening_overrides_count,
@@ -58,7 +58,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const title = String(req.body?.title || '').trim();
     const type = parseType(req.body?.type);
     const startsAt = parseDate(req.body?.starts_at);
@@ -88,7 +88,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 
 router.patch('/:periodId', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const current = await db.get<any>('SELECT * FROM rating_periods WHERE id = ?', [req.params.periodId]);
     if (!current) return res.status(404).json({ error: 'Рейтинговый период не найден' });
 
@@ -115,7 +115,7 @@ router.patch('/:periodId', async (req: AuthenticatedRequest, res: Response) => {
 
 router.delete('/:periodId', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const current = await db.get<any>('SELECT id FROM rating_periods WHERE id = ?', [req.params.periodId]);
     if (!current) return res.status(404).json({ error: 'Рейтинговый период не найден' });
     await db.run('DELETE FROM rating_periods WHERE id = ?', [req.params.periodId]);
@@ -127,7 +127,7 @@ router.delete('/:periodId', async (req: AuthenticatedRequest, res: Response) => 
 
 router.get('/:periodId/evenings', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const period = await db.get<any>('SELECT * FROM rating_periods WHERE id = ?', [req.params.periodId]);
     if (!period) return res.status(404).json({ error: 'Рейтинговый период не найден' });
     const evenings = await db.all<any>(`
@@ -163,7 +163,7 @@ router.get('/:periodId/evenings', async (req: AuthenticatedRequest, res: Respons
 
 router.put('/:periodId/evenings/:eveningId', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     if (!await db.get('SELECT id FROM rating_periods WHERE id = ?', [req.params.periodId])) return res.status(404).json({ error: 'Рейтинговый период не найден' });
     if (!await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.eveningId])) return res.status(404).json({ error: 'Игровой вечер не найден' });
     if (req.body?.included === null || req.body?.included === undefined) {
@@ -186,7 +186,7 @@ router.put('/:periodId/evenings/:eveningId', async (req: AuthenticatedRequest, r
 
 router.get('/:periodId/games', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const period = await db.get<any>('SELECT * FROM rating_periods WHERE id = ?', [req.params.periodId]);
     if (!period) return res.status(404).json({ error: 'Рейтинговый период не найден' });
     const games = await db.all<any>(`
@@ -227,7 +227,7 @@ router.get('/:periodId/games', async (req: AuthenticatedRequest, res: Response) 
 
 router.put('/:periodId/games/:gameId', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
     if (!await db.get('SELECT id FROM rating_periods WHERE id = ?', [req.params.periodId])) return res.status(404).json({ error: 'Рейтинговый период не найден' });

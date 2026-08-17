@@ -37,7 +37,7 @@ const playerOfEvening = (games: any[]) => {
 
 router.get('/live', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const snapshots = await loadCompletedGameSnapshots(db);
     const active = await db.get(`
       SELECT id, title, starts_at, venue, format, status

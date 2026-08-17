@@ -84,7 +84,7 @@ router.get('/stories', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [snapshots, eveningRows, attendanceRows] = await Promise.all([
       loadCompletedGameSnapshots(db),
       db.all(`

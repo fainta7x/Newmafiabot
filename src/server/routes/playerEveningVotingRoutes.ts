@@ -115,7 +115,7 @@ router.get('/stories/:eveningId/voting', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     await ensureSchema(db);
     const context = await loadVotingContext(db, req.params.eveningId, viewerId);
     if (context.error === 'not_completed') return res.status(409).json({ error: 'Голосование доступно только после завершения вечера' });
@@ -164,7 +164,7 @@ router.post('/stories/:eveningId/vote', async (req, res) => {
   if (!CATEGORIES.has(category) || !nomineePlayerId) return res.status(400).json({ error: 'Некорректная категория или кандидат' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     await ensureSchema(db);
     const context = await loadVotingContext(db, req.params.eveningId, viewerId);
     if (context.error === 'not_completed') return res.status(409).json({ error: 'Вечер ещё не завершён' });

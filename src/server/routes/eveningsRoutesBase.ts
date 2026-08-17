@@ -16,7 +16,7 @@ const router = Router();
 // POST /api/evenings/create-next-friday - Quick action to create next Friday evening with 2 tables
 router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const now = new Date();
 
     let dayOffset = (5 - now.getDay() + 7) % 7;
@@ -61,7 +61,7 @@ router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
 // POST /api/evenings/duplicate-last - Duplicate previous evening and its tables
 router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const lastEvening = await db.get('SELECT * FROM game_evenings ORDER BY starts_at DESC LIMIT 1');
     if (!lastEvening) {
       return res.status(404).json({ error: 'Предыдущий вечер не найден' });
@@ -112,7 +112,7 @@ router.post('/duplicate-last', requireOrganizerAuth, async (req, res) => {
 // GET /api/evenings - List game evenings (Public gets published/active, Organizer gets all)
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const isOrganizer = req.userRole === 'ORGANIZER';
 
     if (!isOrganizer) {
@@ -162,7 +162,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 // GET /api/evenings/:id - Get single evening
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const isOrganizer = req.userRole === 'ORGANIZER';
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
@@ -219,7 +219,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createEveningSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -254,7 +254,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
 router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateEveningSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
@@ -288,7 +288,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 // DELETE /api/evenings/:id - Delete evening (Auth required, completed evenings cannot be deleted)
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
@@ -311,7 +311,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
 // GET /api/evenings/:id/participants - List participants (Auth required)
 router.get('/:id/participants', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const participants = await db.all(`
       SELECT ep.*, p.nickname, p.phone, p.telegram_username, p.lifecycle_status, p.elo
       FROM evening_participants ep
@@ -329,7 +329,7 @@ router.get('/:id/participants', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => {
   try {
     const { player_ids, table_id, registration_status, amount_due } = bulkAddParticipantsSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
@@ -424,7 +424,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
       return res.status(400).json({ error: 'Список обновлений участников пуст или некорректен' });
     }
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
@@ -495,7 +495,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
 router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
   try {
     const data = addSingleParticipantSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
@@ -592,7 +592,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
 // POST /api/evenings/:id/settle - Safe & Idempotent Evening Settlement (Auth required)
 router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     // 1. Fetch evening with lock check
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
@@ -717,7 +717,7 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Укажите сумму, тип корректировки (income/refund/expense/debt_paid) и причину' });
     }
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
@@ -755,7 +755,7 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
 // GET /api/evenings/:id/tables - Get tables of an evening
 router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [req.params.id]);
     res.json(tables);
   } catch (err: any) {
@@ -766,7 +766,7 @@ router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
 // POST /api/evenings/:id/tables - Create a table for an evening
 router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
@@ -806,7 +806,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
 // PUT /api/evenings/tables/:tableId - Update a table
 router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
     if (!table) {
       return res.status(404).json({ error: 'Стол не найден' });
@@ -845,7 +845,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
 // DELETE /api/evenings/tables/:tableId - Delete a table
 router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
     if (!table) {
       return res.status(404).json({ error: 'Стол не найден' });
@@ -870,7 +870,7 @@ router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
 // PATCH /api/evenings/participants/:participantId/move-table - Move participant to another table
 router.patch('/participants/:participantId/move-table', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const { table_id, registration_status } = req.body;
 
     await assignParticipantToTable(db, req.params.participantId, table_id, registration_status);

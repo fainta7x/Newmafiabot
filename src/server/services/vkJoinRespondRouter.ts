@@ -11,7 +11,7 @@ const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
 
 router.post('/evenings/:id/vk-respond', async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkJoinSchema(db);
     const session = await resolveVkJoinSession(db, req.cookies?.vk_join_session);
     if (!session?.player_id) return res.status(401).json({ error: 'Сначала войдите через VK ID' });

@@ -130,6 +130,7 @@ describe('Tournament Results Export Utility Tests', () => {
         tournament_id: 't-1',
         game_number: 1,
         judge_name: 'Чагин',
+        judge_player_id: null,
         status: 'completed',
         winner_team: 'red',
         started_at: '2026-08-01T18:00:00Z',

@@ -21,7 +21,7 @@ router.get('/health', (_req, res) => {
 
 router.get('/players/by-telegram/:telegramUserId/profile', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await getPlayerByTelegramId(db, String(req.params.telegramUserId));
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ success: true, player });
@@ -32,7 +32,7 @@ router.get('/players/by-telegram/:telegramUserId/profile', async (req, res) => {
 
 router.post('/players/register', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const result = await registerNewPlayer(db, {
       telegramUserId: String(req.body?.telegram_user_id ?? '').trim(),
       telegramUsername: String(req.body?.telegram_username ?? '').trim(),
@@ -55,7 +55,7 @@ router.post('/players/register', async (req, res) => {
 
 router.post('/players/link-telegram', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
     const telegramUsernameRaw = String(req.body?.telegram_username ?? '').trim().replace(/^@/, '');
     const nickname = String(req.body?.nickname ?? '').trim();
@@ -110,7 +110,7 @@ router.post('/players/link-telegram', async (req, res) => {
 
 router.get('/evenings/open', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evenings = await db.all(
       `SELECT
          e.id, e.title, e.starts_at, e.ends_at, e.timezone, e.venue,
@@ -133,7 +133,7 @@ router.get('/evenings/open', async (req, res) => {
 
 router.get('/evenings/:eveningId/participants', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get(
       `SELECT id, title, starts_at, venue, format, status, settled_at
        FROM game_evenings WHERE id = ?`,
@@ -163,7 +163,7 @@ router.get('/evenings/:eveningId/participants', async (req, res) => {
 
 router.post('/evenings/:eveningId/respond', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const telegramUserId = String(req.body?.telegram_user_id ?? '').trim();
     const responseStatus = String(req.body?.response_status ?? '').trim();
 
@@ -242,7 +242,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
 
 router.get('/players/:playerId/achievements', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get('SELECT id, nickname, telegram_user_id FROM players WHERE id = ?', [req.params.playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     const achievements = await loadPlayerAchievementProfile(db, String(player.id));
@@ -254,7 +254,7 @@ router.get('/players/:playerId/achievements', async (req, res) => {
 
 router.get('/players/by-telegram/:telegramUserId/achievements', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       'SELECT id, nickname, telegram_user_id FROM players WHERE telegram_user_id = ?',
       [String(req.params.telegramUserId)]
@@ -269,7 +269,7 @@ router.get('/players/by-telegram/:telegramUserId/achievements', async (req, res)
 
 router.get('/players/by-telegram/:telegramUserId/tokens', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       'SELECT id, nickname, telegram_user_id, tokens FROM players WHERE telegram_user_id = ?',
       [String(req.params.telegramUserId)],

@@ -1,6 +1,7 @@
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import type { DatabaseWrapper } from '../../db/index.ts';
 
-type Db = any;
+type Db = DatabaseWrapper;
 
 const RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'declined']);
 

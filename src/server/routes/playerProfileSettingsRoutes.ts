@@ -22,7 +22,7 @@ router.get('/profile-settings', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       `SELECT id, nickname, full_name, phone, telegram_username, game_level, club_role, elo, tokens
          FROM players WHERE id = ? LIMIT 1`,
@@ -39,7 +39,7 @@ router.patch('/me', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const nickname = String(req.body?.nickname ?? '').trim().slice(0, 60);
     if (!nickname) return res.status(400).json({ error: 'Ник не может быть пустым' });
 
@@ -75,7 +75,7 @@ router.put('/me/avatar', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get('SELECT id FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -115,7 +115,7 @@ router.delete('/me/avatar', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const now = new Date().toISOString();
     await db.transaction(async (tx: any) => {
       await tx.run('DELETE FROM player_avatars WHERE player_id = ?', [playerId]);

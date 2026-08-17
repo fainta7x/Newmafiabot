@@ -18,6 +18,7 @@ const participant = (id: string, patch: Partial<EveningParticipant> = {}): Eveni
   created_at: '',
   updated_at: '',
   ...patch,
+  response_status: patch.response_status ?? 'unanswered',
 });
 
 describe('evening roster without hard table binding', () => {

@@ -56,7 +56,7 @@ const loadFinalReadiness = async (db: DatabaseWrapper, tournamentId: string) => 
 };
 
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     res.json(await getFlexibleTournamentStandings(db, req.params.tournamentId));
   } catch (err: any) {
@@ -65,7 +65,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 });
 
 router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     if (!await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.id])) {
       return res.status(404).json({ error: 'Турнир не найден' });
@@ -82,7 +82,7 @@ router.get('/:id/final-readiness', requireOrganizerAuth, async (req: Authenticat
 });
 
 router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   try {
     const tournament = await db.get<any>('SELECT id, status FROM tournaments WHERE id = ?', [tournamentId]);
@@ -139,7 +139,7 @@ router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth,
 });
 
 router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });

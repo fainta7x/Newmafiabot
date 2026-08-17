@@ -12,6 +12,13 @@ describe('player cabinet legacy decoupling', () => {
     expect(shell).toContain("section === 'conduct'");
   });
 
+  it('keeps the games hub independent from PlayerCabinetShellLegacy', () => {
+    const games = read('src/components/player/PlayerGamesHub.tsx');
+    expect(games).not.toContain('PlayerCabinetShellLegacy');
+    expect(games).toContain("import PlayerCabinetV2 from './PlayerCabinetV2.tsx'");
+    expect(games).toContain("next === 'games' || next === 'stats'");
+  });
+
   it('keeps conduct mode wired to the existing judge launcher and assigned-game view', () => {
     const conduct = read('src/components/player/PlayerConductCenter.tsx');
     expect(conduct).toContain('JudgeGameLauncher');

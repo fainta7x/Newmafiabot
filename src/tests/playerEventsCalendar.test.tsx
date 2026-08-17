@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { act, afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../components/player/PlayerEventSlotDetail.tsx', () => ({
   default: ({ event, onSaved }: { event: { title: string }; onSaved: () => void }) => (

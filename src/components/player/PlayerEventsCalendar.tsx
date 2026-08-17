@@ -153,7 +153,6 @@ export default function PlayerEventsCalendar({
   useEffect(() => {
     let cancelled = false;
     if (!requestedEventId) {
-      setSelected(null);
       return () => { cancelled = true; };
     }
 

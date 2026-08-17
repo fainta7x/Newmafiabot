@@ -1,6 +1,58 @@
 # Repository workflow
 
+This file is the mandatory starting point for AI-assisted work in this repository.
+
+## Fast session startup
+
+Before ordinary code work:
+
+1. Fetch/sync the latest intended remote branch (normally `main`).
+2. Read `docs/PROJECT_STATE.md`.
+3. Review only the last 5–10 commits on `main` unless deeper history is needed.
+4. Use `docs/ARCHITECTURE.md` to locate the relevant subsystem.
+5. Read `docs/BUSINESS_RULES.md` when the change touches Mafia/game/product rules.
+6. Read `docs/RUNBOOK.md` for verification, deployment, DB, integration or recovery work.
+7. When a local working copy is available, run `npm run project:status` for a quick read-only context snapshot.
+
+Do **not** re-audit the entire repository at the start of every task. `docs/PROJECT_STATE.md` is the canonical high-level handoff; widen discovery only when targeted code contradicts it or the requested change genuinely spans subsystems.
+
+`docs/live-club-roadmap.md` is historical planning material, not the source of truth for current completion.
+
+## Source-of-truth precedence
+
+- Latest remote code/mounts: implementation truth.
+- Latest green CI: build/test truth.
+- `docs/BUSINESS_RULES.md`: user-approved domain/product behavior.
+- `docs/PROJECT_STATE.md`: current high-level feature status and next queue.
+- `docs/ARCHITECTURE.md`: navigation map.
+- Git history/merged PRs: completed technical transitions.
+- Old chat summaries and old roadmap checkboxes must not override newer Git state.
+
 Before any code or data changes, fetch and fast-forward-sync the current branch with its upstream remote. Treat the latest remote commit as the source of truth and preserve all user changes made through Google AI Studio; never replace them with older chat, local, database snapshot, or asset versions.
+
+## Working style
+
+- Do one targeted discovery pass, then keep a compact file map instead of rescanning the repository.
+- Prefer one focused branch/PR per purpose.
+- While iterating, use directly relevant focused tests.
+- Before merge, rely on the repository's full CI gates; never weaken tests or TypeScript to force green.
+- Do not stack unrelated changes on a red `main`.
+- If a test unexpectedly fails, inspect the exact failure before rerunning; do not rerun repeatedly until green.
+- Never delegate an implementation request back to AI Studio and never substitute prompt-writing for repository changes when repository access is available.
+- Do not infer that a file is unused because its name includes `legacy`, `old`, `V2`, etc. Confirm imports, route mounts and build transforms.
+
+## Documentation maintenance
+
+Durable project state belongs in Git, not only in chat.
+
+After a significant change, update the relevant handoff document in the same PR when practical:
+
+- `docs/PROJECT_STATE.md` — feature status, current queue, important architecture/deploy cautions.
+- `docs/ARCHITECTURE.md` — subsystem ownership, entry points, route mounts.
+- `docs/BUSINESS_RULES.md` — only when an approved rule/product decision changes.
+- `docs/RUNBOOK.md` — only when the safe work/verify/deploy process changes.
+
+Do not update `PROJECT_STATE`'s “Last verified main” to an unmerged branch SHA. A verified-main marker means that exact `main` commit passed standard CI.
 
 ## Canonical SQLite data
 
@@ -13,7 +65,7 @@ Before any code or data changes, fetch and fast-forward-sync the current branch 
 
 ### Development / AI Studio checkpoint cycle
 
-This Git checkpoint flow is for development and Google AI Studio only. A future production runtime database lives on the server and uses separate server backups; production data must not be synchronized through Git checkpoints.
+This Git checkpoint flow is for development and Google AI Studio only. A production runtime database lives on the server and uses separate server backups; production data must not be synchronized through Git checkpoints.
 
 Use the guarded commands:
 
@@ -22,11 +74,12 @@ Use the guarded commands:
 
 Short AI Studio cycle: `fetch/fast-forward -> preserve non-empty runtime -> work -> export verified runtime -> commit checkpoint + metadata + related avatar changes`.
 
-## Iteration workflow
+## Final verification
 
-- Treat the current Git branch and working tree as authoritative; preserve user changes and runtime data.
-- Do one initial upstream sync/fetch and one targeted discovery pass, then keep a compact file map instead of rescanning the repository.
-- Make the complete implementation in one focused pass; use only directly relevant focused tests while working.
-- Run one final `typecheck`, one final production `build`, and one final Preview/visual-QA pass unless a specific failure requires a single retry.
-- Do not repeatedly restart Preview, refetch Git, rerun full suites, or regenerate the same PNG without a concrete failure to investigate.
-- Never delegate an implementation request back to AI Studio and never substitute prompt-writing for repository changes.
+The default complete web verification is available as:
+
+- `npm run project:verify`
+
+It runs release data-safety audit, strict TypeScript, the full Vitest suite and production build.
+
+GitHub CI remains authoritative and also checks Python bot syntax. See `docs/RUNBOOK.md` for the exact release/runtime sequence.

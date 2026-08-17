@@ -143,7 +143,7 @@ export async function updateEveningSlotSettings(
 
   const now = new Date().toISOString();
   const targetPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
-  await db.transaction(async (tx: any) => {
+  await db.transaction(async (tx: DatabaseWrapper) => {
     for (const slot of removed) await tx.run('DELETE FROM evening_game_slots WHERE id = ?', [slot.id]);
 
     const keptSlots = currentSlots.filter((slot) => Number(slot.slot_number) <= nextCount);
@@ -278,7 +278,7 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
     ids.map((id) => Number(byId.get(id)?.price_rub || 0)),
   );
   const now = new Date().toISOString();
-  await db.transaction(async (tx: any) => {
+  await db.transaction(async (tx: DatabaseWrapper) => {
     let participant = await tx.get<any>('SELECT id, attendance_status, amount_paid FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
     if (participant && String(participant.attendance_status || 'pending') !== 'pending') throw Object.assign(new Error('Явка уже отмечена. Изменить запись может только организатор.'), { statusCode: 409 });
     if (!participant) {

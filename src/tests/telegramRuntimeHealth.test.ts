@@ -29,7 +29,7 @@ describe('Telegram runtime health probe', () => {
 
   it('reports a missing Telegram token without sending anything', async () => {
     delete process.env.TELEGRAM_BOT_TOKEN;
-    const fetcher = vi.fn(async () => fakeResponse(200, 'OK', true));
+    const fetcher = vi.fn(async (_input: string | URL | Request) => fakeResponse(200, 'OK', true));
 
     const result = await checkTelegramRuntimeHealth(fetcher);
 

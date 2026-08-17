@@ -92,4 +92,17 @@ export default defineConfig([
       "@typescript-eslint/triple-slash-reference": "error"
     },
   },
+  {
+    // These routes deliberately reject/strip ASCII control characters from
+    // user-controlled text. The regex control ranges are the intended behavior.
+    files: [
+      "src/server/routes/playerJudgeMusicRoutes.ts",
+      "src/server/routes/speechRecordingRoutes.ts",
+      "src/server/services/playerRegistrationService.ts",
+      "src/server/services/vkJoinRegistrationService.ts",
+    ],
+    rules: {
+      "no-control-regex": "off",
+    },
+  },
 ]);

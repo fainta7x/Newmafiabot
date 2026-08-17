@@ -3,8 +3,8 @@
 > Canonical handoff document for the current state of the project.
 > Read this after `AGENTS.md` before doing repository-wide discovery.
 >
-> **Last verified main:** `895d41697535e1465e77a6269072906fd83b2db6`
-> **Verified CI:** GitHub Actions CI run #597 — success on 2026-08-17.
+> **Last verified main:** `34b77daaffdcf40b9f0f2f6d62daaf9a546f10b0`
+> **Verified CI:** GitHub Actions CI run #602 — success on 2026-08-17.
 > **Status date:** 2026-08-17.
 
 ## Source of truth
@@ -16,6 +16,8 @@
 5. `docs/RUNBOOK.md` defines the standard verification/deploy/recovery workflow.
 6. `docs/live-club-roadmap.md` is historical planning material. Do **not** use its unchecked boxes to infer current implementation status.
 7. Git history/merged PRs are the source of truth for completed technical changes. Do not reconstruct completion from old chat summaries when Git can answer it.
+
+The durable handoff system is active and protected by CI. New sessions should start from `AGENTS.md` + this file + recent commits instead of re-auditing the repository.
 
 ## Current platform
 
@@ -105,10 +107,21 @@ The old `PlayerCabinetShellLegacy.tsx` wrapper has been removed. `PlayerCabinetV
 - Runtime DB must never be overwritten by a repository checkpoint when non-empty.
 - Startup schema ensure/reconciliation logic is active.
 
+### Project handoff / developer context
+
+- `AGENTS.md` is the mandatory short entry point.
+- `docs/PROJECT_STATE.md` is the live high-level state/queue.
+- `docs/ARCHITECTURE.md` is the subsystem/file map.
+- `docs/BUSINESS_RULES.md` stores approved domain/product rules.
+- `docs/RUNBOOK.md` defines the safe work/verify/deploy process.
+- `npm run project:status` provides a read-only context snapshot; `--json` is machine-readable.
+- `npm run project:verify` runs the standard complete web verification sequence locally.
+
 ### Quality gates
 
 Current CI blocks merges/pushes on:
 
+- project handoff integrity (`project:status -- --check --json`);
 - release data-safety audit;
 - strict TypeScript typecheck;
 - the full Vitest suite with no project-specific exclusions;
@@ -140,6 +153,7 @@ Telegram and VK have safe diagnostic endpoints in the application, but repositor
 
 From newest to older:
 
+- `34b77da` — durable project handoff system: canonical state, architecture map, business rules, runbook, project context/verify commands and CI integrity gate.
 - `895d416` — keep manually opened event detail open after calendar refresh; regression coverage added.
 - `547bf90` — remove obsolete `PlayerCabinetShellLegacy` wrapper; connect history/statistics directly to active content.
 - `2709b5e` — extract `PlayerConductCenter` and decouple active cabinet from legacy shell.
@@ -153,14 +167,15 @@ From newest to older:
 
 When no newer explicit user request supersedes this list, continue from the first unresolved item:
 
-1. Maintain this project-handoff/documentation system and keep it synchronized with significant changes.
-2. Re-run a dependency security audit from current `main`; only act on vulnerabilities that exist in the current lockfile. Never use `npm audit fix --force` blindly.
-3. Add a permanent high/critical dependency security gate if current dependencies permit it without false positives.
-4. Deploy the current verified `main` to Render manually when deployment access is available.
-5. Run the safe Telegram runtime health check on the deployed build, then a minimal targeted round-trip test without mass messaging.
-6. Run the safe VK runtime health check on the deployed build, then a minimal targeted round-trip test without public spam.
-7. Continue legacy cleanup only where current imports/runtime usage prove code is unused.
-8. Real online payment/SBP integration only after explicit product/provider decision.
+1. Re-run a dependency security audit from current `main`; only act on vulnerabilities that exist in the current lockfile. Never use `npm audit fix --force` blindly.
+2. Add a permanent high/critical dependency security gate if current dependencies permit it without false positives.
+3. Deploy the current verified `main` to Render manually when deployment access is available.
+4. Run the safe Telegram runtime health check on the deployed build, then a minimal targeted round-trip test without mass messaging.
+5. Run the safe VK runtime health check on the deployed build, then a minimal targeted round-trip test without public spam.
+6. Continue legacy cleanup only where current imports/runtime usage prove code is unused.
+7. Real online payment/SBP integration only after explicit product/provider decision.
+
+Maintaining the handoff documents is an ongoing rule, not a blocking queue item: update them together with significant changes rather than scheduling a separate documentation phase each time.
 
 ## Handoff rule
 

@@ -4,10 +4,10 @@ import { getVkOAuthStatus } from './vkOAuthService.ts';
 import { getVkIntegrationStatus } from './vkPublishingService.ts';
 import { vkCommunityApi } from './vkCommunityApiService.ts';
 
-type VkApiCaller = <T>(
+type VkApiCaller = (
   method: string,
   params: Record<string, string | number | boolean | null | undefined>,
-) => Promise<T>;
+) => Promise<unknown>;
 
 type VkGroup = {
   id?: number;
@@ -56,9 +56,11 @@ const extractGroup = (payload: any): VkGroup | null => {
   return null;
 };
 
+const defaultApiCaller: VkApiCaller = (method, params) => vkCommunityApi<unknown>(method, params);
+
 export async function checkVkRuntimeHealth(
   db: DatabaseWrapper,
-  apiCaller: VkApiCaller = vkCommunityApi,
+  apiCaller: VkApiCaller = defaultApiCaller,
 ): Promise<VkRuntimeHealth> {
   const integration = getVkIntegrationStatus();
   const [oauth, callback] = await Promise.all([
@@ -85,7 +87,7 @@ export async function checkVkRuntimeHealth(
     error = 'VK access token is not configured';
   } else {
     try {
-      const response = await apiCaller<any>('groups.getById', {
+      const response = await apiCaller('groups.getById', {
         group_id: Number(groupId),
         fields: 'name,screen_name',
       });

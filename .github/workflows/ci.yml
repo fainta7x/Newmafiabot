@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency tree diagnostic
+        run: npm ls sqlite3 node-gyp tar || true
+
+      - name: Dependency audit diagnostic
+        run: npm audit --json || true
+
       - name: Release data-safety audit
         run: npm run release:audit
 

@@ -1,5 +1,5 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
-import LegacyPlayerCabinetShell, { type PlayerCabinetSection as LegacySection } from './PlayerCabinetShellLegacy.tsx';
+import PlayerCabinetV2 from './PlayerCabinetV2.tsx';
 import PlayerCareerProfile from './PlayerCareerProfile.tsx';
 import PlayerEveningSummaries from './PlayerEveningSummaries.tsx';
 
@@ -23,7 +23,7 @@ export default function PlayerGamesHub({
   canOpenAdmin: boolean;
   section: PlayerGamesSection;
   target?: string | null;
-  onOpen: (section: LegacySection, target?: string | null) => void;
+  onOpen: (section: PlayerGamesSection, target?: string | null) => void;
 }) {
   return (
     <div className="bg-[#090a0d] text-white">
@@ -39,7 +39,7 @@ export default function PlayerGamesHub({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => onOpen(tab.id as LegacySection)}
+                onClick={() => onOpen(tab.id)}
                 aria-current={active ? 'page' : undefined}
                 className={`min-h-10 rounded-xl px-1 text-[11px] font-semibold transition ${active ? 'bg-white text-black' : 'text-white/42 active:bg-white/[0.05]'}`}
               >
@@ -55,17 +55,19 @@ export default function PlayerGamesHub({
       ) : section === 'recaps' ? (
         <PlayerEveningSummaries initialEveningId={target} embedded />
       ) : (
-        <div className="legacy-cabinet-wrap player-games-legacy">
+        <div className="player-games-v2">
           <style>{`
-            .player-games-legacy main > div > div[class*="px-1"][class*="pb-1"][class*="pt-2"]{display:none!important}
-            .player-games-legacy main{padding-top:.5rem!important}
+            .player-games-v2 nav.fixed{display:none!important}
+            .player-games-v2 main > div > div[class*="px-1"][class*="pb-1"][class*="pt-2"]{display:none!important}
+            .player-games-v2 main{padding-top:.5rem!important}
           `}</style>
-          <LegacyPlayerCabinetShell
+          <PlayerCabinetV2
             data={data}
             canOpenAdmin={canOpenAdmin}
-            initialSection={section}
-            initialTarget={target}
-            onSectionChange={(next, nextTarget) => onOpen(next, nextTarget || null)}
+            initialTab={section}
+            onTabChange={(next) => {
+              if (next === 'games' || next === 'stats') onOpen(next);
+            }}
           />
         </div>
       )}

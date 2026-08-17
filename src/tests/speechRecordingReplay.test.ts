@@ -1,4 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import {
+  buildSpeechClipUploadUrl,
+  resolveActiveClubGameId,
+} from '../components/LiveGameEngine/SpeechRecordingServerSync.ts';
 import { clipDto, protocolHasPlayer } from '../server/routes/speechRecordingRoutes.ts';
 
 describe('speech recording replay helpers', () => {
@@ -30,5 +35,64 @@ describe('speech recording replay helpers', () => {
     });
 
     expect(clip.audio_url).toBe('/api/player/speech-recordings/club-games/42/clips/clip%2Fwith%20spaces/audio');
+  });
+
+  it('resolves only the club game snapshot that matches the active legacy session', () => {
+    const entries = new Map<string, string>([
+      ['mafia_live_session', '{"phase":"day_speeches","roundNumber":2}'],
+      ['mafia_live_session:club:17', '{"phase":"setup","roundNumber":1}'],
+      ['mafia_live_session:club:42', '{"phase":"day_speeches","roundNumber":2}'],
+      ['mafia_live_session:club:42:protocol', '{"votes":[]}'],
+    ]);
+    const keys = [...entries.keys()];
+    const storage = {
+      length: keys.length,
+      key: (index: number) => keys[index] ?? null,
+      getItem: (key: string) => entries.get(key) ?? null,
+    };
+
+    expect(resolveActiveClubGameId(storage)).toBe(42);
+  });
+
+  it('does not bind a recording when no club-scoped live snapshot matches', () => {
+    const entries = new Map<string, string>([
+      ['mafia_live_session', '{"phase":"day_speeches"}'],
+      ['mafia_live_session:club:17', '{"phase":"setup"}'],
+    ]);
+    const keys = [...entries.keys()];
+    const storage = {
+      length: keys.length,
+      key: (index: number) => keys[index] ?? null,
+      getItem: (key: string) => entries.get(key) ?? null,
+    };
+
+    expect(resolveActiveClubGameId(storage)).toBeNull();
+  });
+
+  it('builds the raw-audio upload endpoint with all recording metadata', () => {
+    const uploadUrl = buildSpeechClipUploadUrl(42, {
+      id: 'clip/1',
+      session_id: 'session 1',
+      slot: 3,
+      round: 2,
+      duration_seconds: 58.4,
+      nickname: 'Игрок №3',
+      speech_type: 'День 2',
+      started_at: '2026-08-17T12:00:00.000Z',
+    });
+    const parsed = new URL(uploadUrl, 'https://example.test');
+
+    expect(parsed.pathname).toBe('/api/player/speech-recordings/club-games/42/clips');
+    expect(parsed.searchParams.get('clip_id')).toBe('clip/1');
+    expect(parsed.searchParams.get('session_id')).toBe('session 1');
+    expect(parsed.searchParams.get('seat_number')).toBe('3');
+    expect(parsed.searchParams.get('round_number')).toBe('2');
+    expect(parsed.searchParams.get('speaker_nickname')).toBe('Игрок №3');
+  });
+
+  it('mounts the speech recording router at the path used by Replay', () => {
+    const source = readFileSync(new URL('../app.ts', import.meta.url), 'utf8');
+    expect(source).toContain("import playerSpeechRecordingRoutes from './server/routes/playerSpeechRecordingRoutes.ts';");
+    expect(source).toContain("app.use('/api/player/speech-recordings', playerSpeechRecordingRoutes);");
   });
 });

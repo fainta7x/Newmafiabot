@@ -3,8 +3,8 @@
 > Canonical handoff document for the current state of the project.
 > Read this after `AGENTS.md` before doing repository-wide discovery.
 >
-> **Last verified main:** `bd1ef994b92701cb3169a89a80934d05b5d3bfa8`
-> **Verified CI:** GitHub Actions CI run #615 — success on 2026-08-17.
+> **Last verified main:** `4deb6df08601e166fe16440c05007b1cba89bdfd`
+> **Verified CI:** GitHub Actions CI run #625 — success on 2026-08-17.
 > **Status date:** 2026-08-17.
 
 ## Source of truth
@@ -97,7 +97,7 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - `npm run project:status` — read-only environment/context snapshot.
 - `npm run project:find` — targeted feature lookup.
 - `npm run project:affected` — affected-area guidance.
-- `npm run project:verify` — standard complete web verification.
+- `npm run project:verify` — standard complete web verification including data-safety audit, typecheck, ESLint, tests and production build.
 
 ### Dependency/security maintenance
 
@@ -106,6 +106,7 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - Dependabot is configured for weekly npm and GitHub Actions version updates.
 - Automated npm version updates are limited to minor/patch; semver-major migrations stay explicit/manual.
 - Never use `npm audit fix --force` blindly.
+- GitHub workflow actions are on current Node-24 runtime majors: `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`.
 
 ### Quality gates
 
@@ -115,9 +116,12 @@ Current CI blocks merges/pushes on:
 - project handoff/navigation integrity;
 - release data-safety audit;
 - strict TypeScript typecheck;
+- real ESLint 10 flat-config correctness checks;
 - the active Vitest configuration;
 - production web/server build;
 - Python bot syntax compilation.
+
+The ESLint baseline intentionally focuses on high-signal correctness rules instead of formatting/style churn. Four server sanitizer files have an exact-file `no-control-regex` override because their ASCII control-character ranges are intentional validation behavior; do not broaden that exception globally.
 
 Important: `vite.config.ts` still contains explicit historical/deferred test-file and test-name exclusions. Do not describe the suite as having zero project-specific exclusions until those exclusions are actually removed.
 
@@ -135,8 +139,7 @@ Repository CI cannot prove live Render secrets, callbacks or that the latest `ma
 
 - `playerSelfRoutesLegacy.ts` is still mounted and serves real endpoints; do not delete by name alone.
 - Historical Python bot modules may still be active; confirm imports/runtime usage before cleanup.
-- `npm run lint` currently duplicates TypeScript typechecking rather than running a real ESLint ruleset.
-- `tailwindcss` is still declared with an old alpha range while `@tailwindcss/vite` is on the stable v4 line; normalize in an isolated dependency PR.
+- `tailwindcss` is still declared with an old alpha range while the lockfile currently resolves stable Tailwind 4.3.x and `@tailwindcss/vite` is on the stable v4 line; normalize the manifest/lockfile together in an isolated dependency PR.
 - TypeScript, React, Express and Vite are behind current major/stable lines and should be migrated incrementally, never as one bulk upgrade.
 - `vite.config.ts` contains historical/deferred test exclusions that should be revisited deliberately.
 - Production/runtime data safety has priority over code cleanup or framework upgrades.
@@ -145,6 +148,8 @@ Repository CI cannot prove live Render secrets, callbacks or that the latest `ma
 
 From newest to older:
 
+- `4deb6df` — move CI actions to current Node-24 runtime majors (`checkout@v7`, `setup-node@v7`, `setup-python@v7`).
+- `affc485` — real ESLint 10 flat-config correctness gate; fixed the initial high-signal lint findings and added lint to CI/project verification.
 - `bd1ef99` — conservative weekly Dependabot version updates; major upgrades remain manual.
 - `6f39348` — pin Node.js 24.18.0 LTS across local tooling, CI and Render; full CI compatibility verified.
 - `ba3130d` — permanent high/critical production dependency audit gate.
@@ -161,18 +166,17 @@ From newest to older:
 
 The user explicitly requested a modernization pass while preserving the existing application architecture. When no newer explicit request supersedes this list, continue from the first unresolved item:
 
-1. Replace the fake `lint` alias with a real ESLint flat-config gate; introduce useful rules without hiding genuine violations or weakening TypeScript/tests.
-2. Normalize Tailwind to the stable v4 dependency line and perform dependency housekeeping; remove packages only when imports/runtime prove they are unused.
-3. Upgrade TypeScript in a staged PR (prefer current 5.x compatibility first, then TypeScript 6 readiness/migration rather than mixing compiler changes with framework changes).
-4. Upgrade React 18.3 to React 19 in an isolated PR with type updates and full UI/integration tests.
-5. Upgrade Express 4 to Express 5 in an isolated PR; inspect route/path matching and API behavior before merge.
-6. Upgrade Vite 5 to Vite 8/Rolldown in an isolated PR; keep the separate server bundling path explicit until intentionally migrated.
-7. Revisit and either restore, replace or explicitly retire the historical/deferred Vitest exclusions.
-8. Deploy the current verified `main` to Render manually when deployment access is available.
-9. Run safe Telegram runtime health check and then a minimal targeted round-trip without mass messaging.
-10. Run safe VK runtime health check and then a minimal targeted round-trip without public spam.
-11. Continue legacy cleanup only where current imports/runtime prove code is unused.
-12. Real online payment/SBP integration only after explicit provider decision.
+1. Normalize Tailwind to the stable v4 dependency line and perform dependency housekeeping; update manifest and lockfile together, and remove packages only when imports/runtime prove they are unused.
+2. Upgrade TypeScript in a staged PR (prefer current 5.x compatibility first, then TypeScript 6 readiness/migration rather than mixing compiler changes with framework changes).
+3. Upgrade React 18.3 to React 19 in an isolated PR with type updates and full UI/integration tests.
+4. Upgrade Express 4 to Express 5 in an isolated PR; inspect route/path matching and API behavior before merge.
+5. Upgrade Vite 5 to Vite 8/Rolldown in an isolated PR; keep the separate server bundling path explicit until intentionally migrated.
+6. Revisit and either restore, replace or explicitly retire the historical/deferred Vitest exclusions.
+7. Deploy the current verified `main` to Render manually when deployment access is available.
+8. Run safe Telegram runtime health check and then a minimal targeted round-trip without mass messaging.
+9. Run safe VK runtime health check and then a minimal targeted round-trip without public spam.
+10. Continue legacy cleanup only where current imports/runtime prove code is unused.
+11. Real online payment/SBP integration only after explicit provider decision.
 
 Maintaining handoff documents is an ongoing rule, not a separate blocking phase.
 

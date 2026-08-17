@@ -3,8 +3,8 @@
 > Canonical handoff document for the current state of the project.
 > Read this after `AGENTS.md` before doing repository-wide discovery.
 >
-> **Last verified main:** `4deb6df08601e166fe16440c05007b1cba89bdfd`
-> **Verified CI:** GitHub Actions CI run #625 — success on 2026-08-17.
+> **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
+> **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
 > **Status date:** 2026-08-17.
 
 ## Source of truth
@@ -29,7 +29,8 @@ Full-stack application for the 2LA Noire sports Mafia club:
 - Python Telegram bot connected through REST endpoints.
 - Telegram WebApp and VK integrations.
 - Vite/Vitest web toolchain.
-- GitHub Actions CI.
+- Isolated Playwright browser smoke tests.
+- GitHub Actions CI with CodeQL and Gitleaks security workflows.
 - Render deployment configuration.
 - Node.js `24.18.0` LTS pinned consistently in `.node-version`, CI and Render config.
 
@@ -107,10 +108,12 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - Automated npm version updates are limited to minor/patch; semver-major migrations stay explicit/manual.
 - Never use `npm audit fix --force` blindly.
 - GitHub workflow actions are on current Node-24 runtime majors: `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`.
+- CodeQL scans JavaScript/TypeScript and Python on pull requests, pushes to `main` and a weekly schedule.
+- Gitleaks scans full Git history for leaked credentials/tokens on pull requests, pushes to `main` and a weekly schedule. It is configured read-only with PR comments and finding-artifact uploads disabled.
 
 ### Quality gates
 
-Current CI blocks merges/pushes on:
+Current CI/security workflows block merges/pushes on:
 
 - production dependency high/critical audit;
 - project handoff/navigation integrity;
@@ -119,7 +122,12 @@ Current CI blocks merges/pushes on:
 - real ESLint 10 flat-config correctness checks;
 - the active Vitest configuration;
 - production web/server build;
-- Python bot syntax compilation.
+- Python bot syntax compilation;
+- Playwright mobile browser smoke after the standard web checks;
+- CodeQL JavaScript/TypeScript and Python analysis;
+- Gitleaks full-history secret scanning.
+
+The Playwright smoke is intentionally non-destructive: it uses a disposable SQLite DB, verifies `/api/health`, the organizer entry screen, mobile horizontal overflow and browser page errors, and does not create production evenings/players/registrations.
 
 The ESLint baseline intentionally focuses on high-signal correctness rules instead of formatting/style churn. Four server sanitizer files have an exact-file `no-control-regex` override because their ASCII control-character ranges are intentional validation behavior; do not broaden that exception globally.
 
@@ -148,6 +156,9 @@ Repository CI cannot prove live Render secrets, callbacks or that the latest `ma
 
 From newest to older:
 
+- `5d76015` — add read-only Gitleaks full-history secret scanning on PRs, `main` and weekly schedule.
+- `3b3ffca` — add CodeQL analysis for JavaScript/TypeScript and Python on PRs, `main` and weekly schedule.
+- `0d78901` — add isolated Playwright mobile smoke gate with disposable SQLite DB and Chromium CI run.
 - `4deb6df` — move CI actions to current Node-24 runtime majors (`checkout@v7`, `setup-node@v7`, `setup-python@v7`).
 - `affc485` — real ESLint 10 flat-config correctness gate; fixed the initial high-signal lint findings and added lint to CI/project verification.
 - `bd1ef99` — conservative weekly Dependabot version updates; major upgrades remain manual.

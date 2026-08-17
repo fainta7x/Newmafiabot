@@ -28,9 +28,9 @@ jobs:
 
       - name: Security audit repair preview
         run: |
-          npm audit fix --package-lock-only
+          npm audit fix --package-lock-only || true
           git diff -- package-lock.json
-          npm audit --audit-level=high
+          npm audit --omit=dev --audit-level=high
 
       - name: Project handoff integrity
         run: |

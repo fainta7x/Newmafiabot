@@ -92,7 +92,7 @@ router.get('/elo-journey', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [player, timeline, snapshots, ratingRows] = await Promise.all([
       db.get(`SELECT id, nickname, elo, COALESCE(elo_seed, ?) AS elo_seed FROM players WHERE id = ? LIMIT 1`, [DEFAULT_ELO, playerId]),
       loadPlayerEloHistory(db),
@@ -175,7 +175,7 @@ router.get('/evening-summaries', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const summaries = await loadPlayerEveningSummaries(db, playerId, 10);
     return res.json({ summaries });
   } catch (error: any) {
@@ -187,7 +187,7 @@ router.get('/evening-summaries/:eveningId', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const summaries = await loadPlayerEveningSummaries(db, playerId, 30);
     const summary = summaries.find((item) => item.id === String(req.params.eveningId));
     if (!summary) return res.status(404).json({ error: 'Итог вечера не найден или недоступен' });

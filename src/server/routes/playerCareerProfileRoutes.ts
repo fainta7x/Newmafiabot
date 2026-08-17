@@ -45,7 +45,7 @@ router.get('/career/:playerId', async (req: AuthenticatedRequest, res) => {
   if (!playerId) return res.status(400).json({ error: 'Игрок не указан' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [player, snapshots] = await Promise.all([
       db.get(`SELECT id, nickname, elo, game_level, created_at FROM players WHERE id = ? LIMIT 1`, [playerId]),
       loadCompletedGameSnapshots(db),

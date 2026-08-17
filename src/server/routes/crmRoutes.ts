@@ -15,7 +15,7 @@ function getMoscowDateStr(value: string | null | undefined): string | null {
 
 router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const db: DatabaseWrapper = (req as any).db || (await getDb());
+    const db: DatabaseWrapper = req.db || (await getDb());
     const nowIso = new Date().toISOString();
     const nextEvening = await db.get<any>(`SELECT e.* FROM game_evenings e WHERE e.status NOT IN ('cancelled','completed') AND e.starts_at >= ? ORDER BY e.starts_at ASC LIMIT 1`, [nowIso]);
     let tables: any[] = []; let participants: any[] = [];

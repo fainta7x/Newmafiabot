@@ -17,7 +17,7 @@ router.use((req: AuthenticatedRequest, res: Response, next) => {
   res.json = ((body: any) => {
     if (intercepted || res.statusCode >= 400) return originalJson(body);
     intercepted = true;
-    const db = (req as any).db;
+    const db = req.db;
     void (async () => {
       try {
         await reconcileTournamentGameTokenSettlement(db, gameId, {

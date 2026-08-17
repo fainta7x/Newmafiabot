@@ -191,7 +191,7 @@ router.get('/games/elo', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const timeline = await loadPlayerEloHistory(db);
     const games = timeline.flatMap((event) => {
       const row = event.players.find((player) => player.playerId === playerId);
@@ -216,7 +216,7 @@ router.get('/games/:gameKey', async (req, res) => {
   if (!parsed) return res.status(400).json({ error: 'Некорректный идентификатор игры' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const timeline = await loadPlayerEloHistory(db);
     const eloEvent = timelineEvent(timeline, parsed.source, parsed.sourceId);
 

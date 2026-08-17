@@ -44,7 +44,7 @@ const confirmationPage = (input: { token: string; nickname?: string; title?: str
 };
 
 router.get('/vk/oauth/callback', async (req, res, next) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   const state = String(req.query?.state || '').trim();
@@ -90,7 +90,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
 });
 
 router.get('/vk/link/confirm/:token', async (req, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   const token = String(req.params.token || '');
@@ -110,7 +110,7 @@ router.get('/vk/link/confirm/:token', async (req, res) => {
 });
 
 router.post('/vk/link/confirm/:token', async (req, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   try {

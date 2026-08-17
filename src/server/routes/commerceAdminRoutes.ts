@@ -18,7 +18,7 @@ const nullablePositiveInteger = (value: unknown): number | null | undefined => {
 
 router.get('/overview', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const [packages, campaigns, intents, totals] = await Promise.all([
       db.all<any>(`
         SELECT id, title, token_amount, price_rub, active, sort_order, created_at, updated_at
@@ -83,7 +83,7 @@ router.get('/overview', requireOrganizerAuth, async (req, res) => {
 
 router.post('/token-packages', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const id = String(req.body?.id || '').trim() || `tokens_${crypto.randomUUID()}`;
     const title = String(req.body?.title || '').trim();
     const tokenAmount = positiveInteger(req.body?.token_amount);
@@ -120,7 +120,7 @@ router.post('/token-packages', requireOrganizerAuth, async (req, res) => {
 
 router.post('/campaigns', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const id = String(req.body?.id || '').trim() || `campaign_${crypto.randomUUID()}`;
     const title = String(req.body?.title || '').trim();
     const description = String(req.body?.description || '').trim() || null;

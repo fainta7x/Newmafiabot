@@ -10,7 +10,7 @@ const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
 
 router.post('/evenings/:id/vk/start', async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkIntegrationSchema(db);
     await ensureVkJoinSchema(db);
     const nickname = String(req.body?.nickname || '').trim().replace(/\s+/g, ' ');
@@ -28,7 +28,7 @@ router.post('/evenings/:id/vk/start', async (req, res) => {
 
 router.post('/evenings/:id/vk/claim', async (req, res) => {
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     await ensureVkIntegrationSchema(db);
     await ensureVkJoinSchema(db);
     const session = await resolveVkJoinSession(db, req.cookies?.vk_join_session);

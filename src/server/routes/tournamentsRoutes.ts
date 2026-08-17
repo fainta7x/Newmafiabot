@@ -48,7 +48,7 @@ const loadTournamentGames = async (db: DatabaseWrapper, tournamentId: string) =>
 // Flexible tournament creation shadows the legacy fixed-10-games route.
 // A mafia table still has exactly 10 participants; only the tournament distance is variable.
 router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { title, date, venue, stage, chief_judge_name, notes, participants } = req.body || {};
   const gameCount = parseRequestedGameCount(req.body?.game_count);
   if (!title || !date) return res.status(400).json({ error: 'Название и дата обязательны' });
@@ -121,7 +121,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
 
 // Dynamic detail/readiness shadows the legacy fixed-distance readiness response.
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -151,7 +151,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -203,7 +203,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
 });
 
 router.post('/:id/generate-seating', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -225,7 +225,7 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
 });
 
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -245,7 +245,7 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
 });
 
 router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -300,7 +300,7 @@ const checkJudgeEditingPermission = async (db: DatabaseWrapper, tournament: any,
 };
 
 router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const { id: tournamentId, gameId } = req.params;
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -344,7 +344,7 @@ router.use((req: AuthenticatedRequest, res: Response, next) => {
   res.json = ((body: any) => {
     if (intercepted || res.statusCode >= 400) return originalJson(body);
     intercepted = true;
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     void (async () => {
       try {
         await rebuildCanonicalEloRatings(db);

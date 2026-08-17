@@ -376,7 +376,7 @@ router.get('/progression', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const progression = await buildProgression(db, playerId);
     if (!progression) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json(progression);
@@ -391,7 +391,7 @@ router.patch('/progression/title', async (req, res) => {
   const titleId = req.body?.title_id == null ? null : String(req.body.title_id).trim();
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const progression = await buildProgression(db, playerId);
     if (!progression) return res.status(404).json({ error: 'Игрок не найден' });
     if (titleId && !progression.titles.some((title) => title.id === titleId && title.unlocked)) {

@@ -49,7 +49,7 @@ router.use((req: any, res: any, next) => {
 
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.id]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
 

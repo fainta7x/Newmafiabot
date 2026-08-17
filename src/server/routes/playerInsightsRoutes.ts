@@ -84,7 +84,7 @@ router.get('/insights', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [player, snapshots] = await Promise.all([
       db.get(`SELECT id, nickname, elo FROM players WHERE id = ? LIMIT 1`, [playerId]),
       loadCompletedGameSnapshots(db),

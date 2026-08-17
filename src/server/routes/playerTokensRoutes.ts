@@ -26,7 +26,7 @@ const sendTokenError = (res: any, error: any) => {
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createPlayerSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existingNick = await db.get('SELECT id FROM players WHERE nickname = ?', [data.nickname]);
     if (existingNick) return res.status(400).json({ error: 'Игрок с таким никнеймом уже существует' });
 
@@ -81,7 +81,7 @@ router.patch('/:id', requireOrganizerAuth, (req, res, next) => {
 
 router.get('/:id/tokens', requireOrganizerAuth, async (req, res) => {
   try {
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const limit = Number(req.query.limit || 20);
     const offset = Number(req.query.offset || 0);
     res.json(await getTokenLedgerPage(db, req.params.id, limit, offset));
@@ -99,7 +99,7 @@ router.post('/:id/tokens/adjustments', requireOrganizerAuth, async (req, res) =>
     if (!reason) return res.status(400).json({ error: 'Причина корректировки обязательна' });
     if (!idempotencyKey) return res.status(400).json({ error: 'idempotency_key обязателен' });
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const entry = await mutateTokenBalance(db, {
       playerId: req.params.id,
       delta,

@@ -6,7 +6,7 @@ import { rebuildCanonicalEloRatings } from '../services/eloRatingService.ts';
 const router = Router();
 
 router.patch('/:id/elo-seed', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
-  const db = (req as any).db;
+  const db = req.db;
   let previous: any = null;
   let changed = false;
   try {

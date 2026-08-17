@@ -15,7 +15,7 @@ const router = Router();
 router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateParticipantSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const current = await db.get<any>('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!current) return res.status(404).json({ error: 'Участник не найден' });
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [current.evening_id]);

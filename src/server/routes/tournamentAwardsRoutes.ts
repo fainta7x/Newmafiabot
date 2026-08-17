@@ -41,7 +41,7 @@ const upsertOverride = async (
 };
 
 router.get('/:id/awards', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   try {
     res.json(await loadTournamentAwardSnapshot(db, req.params.id));
   } catch (err: any) {
@@ -50,7 +50,7 @@ router.get('/:id/awards', requireOrganizerAuth, async (req: AuthenticatedRequest
 });
 
 router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   const awardKey = req.params.awardKey;
 
@@ -137,7 +137,7 @@ router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: Authentica
 });
 
 router.delete('/:id/awards/:awardKey', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
-  const db = (req as any).db as DatabaseWrapper;
+  const db = req.db as DatabaseWrapper;
   const tournamentId = req.params.id;
   const awardKey = req.params.awardKey;
 

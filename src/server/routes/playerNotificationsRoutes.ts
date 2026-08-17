@@ -232,7 +232,7 @@ router.get('/notifications', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
-    const db = (req as any).db;
+    const db = req.db;
     await ensureSchema(db);
     const [items, reads] = await Promise.all([
       buildNotifications(db, playerId),
@@ -257,7 +257,7 @@ router.post('/notifications/read', async (req, res) => {
   if (!keys.length) return res.json({ success: true, read: 0 });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     await ensureSchema(db);
     const now = new Date().toISOString();
     for (const key of keys) {

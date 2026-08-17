@@ -25,7 +25,7 @@ const requirePlayer = async (req: any, res: any) => {
 
 eveningSlotRoutes.get('/:eveningId/slots', requireOrganizerAuth, async (req, res) => {
   try {
-    const plan = await loadEveningSlotPlan((req as any).db, req.params.eveningId);
+    const plan = await loadEveningSlotPlan(req.db, req.params.eveningId);
     return res.json(plan);
   } catch (error: any) {
     return sendError(res, error, 'Не удалось загрузить слоты вечера');
@@ -52,7 +52,7 @@ eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res
       return res.status(400).json({ error: 'Некорректное время первой игры' });
     }
 
-    const plan = await updateEveningSlotSettings((req as any).db, req.params.eveningId, {
+    const plan = await updateEveningSlotSettings(req.db, req.params.eveningId, {
       planned_slots: plannedSlots,
       price_per_game: pricePerGame,
       slot_duration_minutes: slotDurationMinutes,
@@ -67,7 +67,7 @@ eveningSlotRoutes.put('/:eveningId/slots', requireOrganizerAuth, async (req, res
 eveningSlotRoutes.get('/:eveningId/slots/player/:playerId', requireOrganizerAuth, async (req, res) => {
   try {
     const plan = await loadEveningSlotPlan(
-      (req as any).db,
+      req.db,
       req.params.eveningId,
       String(req.params.playerId),
     );
@@ -83,7 +83,7 @@ eveningSlotRoutes.put('/:eveningId/slots/player/:playerId', requireOrganizerAuth
       return res.status(400).json({ error: 'Передайте список slot_ids' });
     }
     const plan = await replaceOrganizerPlayerSlotSelection(
-      (req as any).db,
+      req.db,
       req.params.eveningId,
       String(req.params.playerId),
       req.body.slot_ids,
@@ -98,7 +98,7 @@ eveningSlotRoutes.get('/:eveningId/slots/me', async (req, res) => {
   try {
     const player = await requirePlayer(req, res);
     if (!player) return;
-    const plan = await loadEveningSlotPlan((req as any).db, req.params.eveningId, String(player.id));
+    const plan = await loadEveningSlotPlan(req.db, req.params.eveningId, String(player.id));
     if (!playerLevelAllowsEveningFormat(player.game_level, plan.event.format)) {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
     }
@@ -115,12 +115,12 @@ eveningSlotRoutes.put('/:eveningId/slots/me', async (req, res) => {
     if (!Array.isArray(req.body?.slot_ids)) {
       return res.status(400).json({ error: 'Передайте список slot_ids' });
     }
-    const current = await loadEveningSlotPlan((req as any).db, req.params.eveningId, String(player.id));
+    const current = await loadEveningSlotPlan(req.db, req.params.eveningId, String(player.id));
     if (!playerLevelAllowsEveningFormat(player.game_level, current.event.format)) {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
     }
     const plan = await replacePlayerSlotSelection(
-      (req as any).db,
+      req.db,
       req.params.eveningId,
       String(player.id),
       req.body.slot_ids,

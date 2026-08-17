@@ -147,7 +147,7 @@ const clubSlotsFromResults = (playerResults: any[]) => (playerResults || [])
 router.get('/', async (req, res) => {
   try {
     const { evening_id, archived } = req.query;
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
 
     let query = `SELECT g.*, et.name AS table_name
                    FROM games g
@@ -175,7 +175,7 @@ router.get('/', async (req, res) => {
 router.post('/evening/:eveningId', requireOrganizerAuth, async (req, res) => {
   try {
     const eveningId = String(req.params.eveningId);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
@@ -231,7 +231,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req, res) =
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
@@ -333,7 +333,7 @@ router.post('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Архив доступен только для игр обычного вечера' });
@@ -363,7 +363,7 @@ router.post('/:gameId/archive/restore', requireOrganizerAuth, async (req, res) =
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
@@ -391,7 +391,7 @@ router.delete('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
@@ -412,7 +412,7 @@ router.delete('/:gameId/archive', requireOrganizerAuth, async (req, res) => {
 router.delete('/:gameId/evening-draft', requireOrganizerAuth, async (req, res) => {
   try {
     const gameId = Number(req.params.gameId);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     const protocol = safeJsonParse<any>(existing.protocol_text, null);
@@ -434,7 +434,7 @@ router.delete('/:gameId/evening-draft', requireOrganizerAuth, async (req, res) =
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createGameSchema.parse(req.body);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const now = new Date().toISOString();
 
     let createdGame: any = null;

@@ -9,7 +9,7 @@ const monthBounds = (value:unknown) => { const m=String(value||'').match(/^(\d{4
 
 router.get('/calendar', async (req,res) => {
   const playerId=requirePlayer(req,res); if(!playerId)return;
-  const db=(req as any).db;
+  const db=req.db;
   try{
     const player=await db.get('SELECT id, game_level FROM players WHERE id = ? LIMIT 1',[playerId]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
@@ -29,12 +29,12 @@ router.get('/calendar', async (req,res) => {
 });
 
 router.get('/evenings/:eveningId/slots', async (req,res)=>{
-  const playerId=requirePlayer(req,res);if(!playerId)return;const db=(req as any).db;
+  const playerId=requirePlayer(req,res);if(!playerId)return;const db=req.db;
   try{const player=await db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1',[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});return res.json(await loadEveningSlotPlan(db,String(req.params.eveningId),playerId));}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить игровые слоты'});}
 });
 
 router.post('/evenings/:eveningId/slots', async (req,res)=>{
-  const playerId=requirePlayer(req,res);if(!playerId)return;const db=(req as any).db;
+  const playerId=requirePlayer(req,res);if(!playerId)return;const db=req.db;
   try{const player=await db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1',[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});const plan=await replacePlayerSlotSelection(db,String(req.params.eveningId),playerId,req.body?.slot_ids);return res.json({success:true,...plan});}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось сохранить запись на игры'});}
 });
 

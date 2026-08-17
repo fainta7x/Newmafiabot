@@ -50,7 +50,7 @@ router.get('/games/:gameKey/replay', async (req, res) => {
   if (!source || !rawId) return res.status(400).json({ error: 'Некорректный идентификатор игры' });
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     if (source !== 'club') {
       return res.json({
         game_key: gameKey,

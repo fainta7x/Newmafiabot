@@ -124,7 +124,7 @@ const clubSlotsFromResults = (results: any[]) => results
 router.post('/evening/:eveningId', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const eveningId = String(req.params.eveningId);
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
     if (evening.settled_at || evening.status === 'completed') {
@@ -202,7 +202,7 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
     const gameId = Number(req.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
 
-    const db = (req as any).db || (await getDb());
+    const db = req.db || (await getDb());
     const existing = await db.get<any>('SELECT * FROM games WHERE id = ?', [gameId]);
     if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
     if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });

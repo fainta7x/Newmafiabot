@@ -26,7 +26,7 @@ async function ensureAnnouncementStateTable(db: any): Promise<void> {
 
 router.get('/evenings/:eveningId/announcement-state', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
@@ -47,7 +47,7 @@ router.get('/evenings/:eveningId/announcement-state', async (req, res) => {
 
 router.patch('/evenings/:eveningId/announcement-state', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
@@ -125,7 +125,7 @@ const requireOpenEvening = async (db: any, eveningId: string): Promise<OpenEveni
 
 router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const open = await requireOpenEvening(db, req.params.eveningId);
     if (open.error === 'not_found') return res.status(404).json({ error: 'Вечер не найден' });
     if (open.error === 'closed') return res.status(409).json({ error: 'Рассылка доступна только для опубликованного или активного вечера' });
@@ -140,7 +140,7 @@ router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
 
 router.post('/evenings/:eveningId/announcement-delivery', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const playerId = String(req.body?.player_id || '').trim();
     const telegramUserId = String(req.body?.telegram_user_id || '').trim();
     const telegramMessageId = Number(req.body?.telegram_message_id || 0);
@@ -169,7 +169,7 @@ router.post('/evenings/:eveningId/announcement-delivery', async (req, res) => {
 
 router.post('/evenings/:eveningId/announcement-delivery-failure', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const playerId = String(req.body?.player_id || '').trim();
     const telegramUserId = String(req.body?.telegram_user_id || '').trim();
     const errorText = String(req.body?.error || '').trim();
@@ -190,7 +190,7 @@ router.post('/evenings/:eveningId/announcement-delivery-failure', async (req, re
 
 router.get('/evenings/:eveningId/reminder-recipients', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const open = await requireOpenEvening(db, req.params.eveningId);
     if (open.error === 'not_found') return res.status(404).json({ error: 'Вечер не найден' });
     if (open.error === 'closed') return res.status(409).json({ error: 'Напоминания доступны только для опубликованного или активного вечера' });
@@ -205,7 +205,7 @@ router.get('/evenings/:eveningId/reminder-recipients', async (req, res) => {
 
 router.post('/evenings/:eveningId/reminder-attempt', async (req, res) => {
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const playerId = String(req.body?.player_id || '').trim();
     const telegramUserId = String(req.body?.telegram_user_id || '').trim();
     const success = Boolean(req.body?.success);

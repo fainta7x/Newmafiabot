@@ -36,7 +36,7 @@ const getAuthorizedClubGame = async (req: AuthenticatedRequest, res: Response, a
     return null;
   }
 
-  const db = (req as any).db;
+  const db = req.db;
   const game = await db.get(
     `SELECT g.id, g.judge_player_id, g.archived_at, g.protocol_text, e.id AS evening_id
        FROM games g
@@ -124,7 +124,7 @@ router.post('/club-games/:gameId/clips', audioBody, async (req: AuthenticatedReq
     if (seatNumber < 1 || seatNumber > 10) return res.status(400).json({ error: 'Некорректный номер места.' });
     if (!Number.isFinite(startedAtDate.getTime())) return res.status(400).json({ error: 'Некорректное время начала речи.' });
 
-    const db = (req as any).db;
+    const db = req.db;
     const existing = await db.get(
       `SELECT id, game_id, session_id, seat_number, speaker_nickname, round_number, speech_type,
               started_at, duration_seconds, mime_type, byte_size
@@ -181,7 +181,7 @@ router.get('/club-games/:gameId/clips', async (req: AuthenticatedRequest, res) =
   try {
     const game = await getAuthorizedClubGame(req, res, 'read');
     if (!game) return;
-    const db = (req as any).db;
+    const db = req.db;
     const rows = await db.all(
       `SELECT id, game_id, session_id, seat_number, speaker_nickname, round_number, speech_type,
               started_at, duration_seconds, mime_type, byte_size
@@ -200,7 +200,7 @@ router.get('/club-games/:gameId/clips/:clipId/audio', async (req: AuthenticatedR
   try {
     const game = await getAuthorizedClubGame(req, res, 'read');
     if (!game) return;
-    const db = (req as any).db;
+    const db = req.db;
     const row = await db.get(
       'SELECT mime_type, audio_data FROM game_speech_recordings WHERE id = ? AND game_id = ? LIMIT 1',
       [String(req.params.clipId), game.id],

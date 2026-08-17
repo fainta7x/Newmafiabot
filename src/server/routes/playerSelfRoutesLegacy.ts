@@ -48,7 +48,7 @@ router.get('/me', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens, game_level,
               EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = players.id) AS has_db_avatar,
@@ -107,7 +107,7 @@ router.get('/players', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const rows = await db.all(`
       SELECT p.id, p.nickname, p.elo, p.game_level,
              EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
@@ -136,7 +136,7 @@ router.get('/players/:playerId/avatar', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const targetId = String(req.params.playerId);
     const avatar = await db.get(
       'SELECT mime_type, image_data FROM player_avatars WHERE player_id = ? LIMIT 1',
@@ -170,7 +170,7 @@ router.get('/players/:playerId', async (req, res) => {
   if (!viewerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const targetId = String(req.params.playerId);
     const player = await db.get(
       `SELECT p.id, p.nickname, p.elo, p.game_level,
@@ -205,7 +205,7 @@ router.get('/games/all', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const [clubRows, tournamentRows] = await Promise.all([
       db.all(`
         SELECT g.id, g.global_game_number, g.game_date, g.winner_team, g.judge_name, g.protocol_text,
@@ -274,7 +274,7 @@ router.get('/evenings', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const player = await db.get(
       'SELECT id, game_level FROM players WHERE id = ? LIMIT 1',
       [playerId],
@@ -323,7 +323,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db;
+    const db = req.db;
     const responseStatus = String(req.body?.response_status || '').trim();
     if (!EVENING_RESPONSE_STATUSES.has(responseStatus)) {
       return res.status(400).json({ error: 'Недопустимый response_status' });

@@ -69,7 +69,7 @@ router.get('/payments', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const player = await db.get<any>('SELECT id FROM players WHERE id = ? LIMIT 1', [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -193,7 +193,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
   if (!playerId) return;
 
   try {
-    const db = (req as any).db as DatabaseWrapper;
+    const db = req.db as DatabaseWrapper;
     const participantId = String(req.params.participantId || '').trim();
     if (!participantId) return res.status(400).json({ error: 'Не выбран вечер' });
 

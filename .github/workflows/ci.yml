@@ -27,7 +27,10 @@ jobs:
         run: npm ci
 
       - name: Project handoff integrity
-        run: npm run project:status -- --check --json
+        run: |
+          npm run project:status -- --check --json
+          npm run project:find -- player --limit=1 --check --json
+          npm run project:affected -- src/server/services/tokenLedgerService.ts --check --json
 
       - name: Release data-safety audit
         run: npm run release:audit

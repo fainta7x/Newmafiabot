@@ -5,33 +5,11 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: write
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  last-type-fix:
-    if: github.head_ref == 'ci/enforce-typecheck-20260817' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          ref: ci/enforce-typecheck-20260817
-          fetch-depth: 0
-      - name: Apply last strict fix
-        run: node scripts/typecheckLastFix.mjs
-      - name: Commit fix
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src
-          git commit -m "fix(types): type evening slot transactions"
-          git push origin HEAD:ci/enforce-typecheck-20260817
-
   web:
     name: Web checks and build
     runs-on: ubuntu-latest

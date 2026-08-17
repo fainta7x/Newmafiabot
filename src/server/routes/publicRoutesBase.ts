@@ -14,7 +14,7 @@ router.get('/evenings/:id', async (req: Request, res: Response) => {
     const evening = await db.get(
       `SELECT id, title, starts_at, ends_at, venue, format, status, capacity, default_price, notes
        FROM game_evenings WHERE id = ?`,
-      [req.params.id]
+      [String(req.params.id)]
     );
 
     if (!evening) {
@@ -32,14 +32,14 @@ router.get('/evenings/:id', async (req: Request, res: Response) => {
        FROM evening_tables t
        WHERE t.evening_id = ?
        ORDER BY t.sort_order ASC, t.created_at ASC`,
-      [req.params.id]
+      [String(req.params.id)]
     );
 
     if (tables.length === 0) {
       // Return synthetic default table
       const registeredCountRow = await db.get(
         `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
-        [req.params.id]
+        [String(req.params.id)]
       );
       const registered = registeredCountRow?.cnt || 0;
       tables = [
@@ -78,12 +78,12 @@ router.get('/evenings/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/public/evenings/:id/join - Public player signup
-router.get('/join/:id', (req, res) => res.redirect(`/api/public/evenings/${req.params.id}`));
+router.get('/join/:id', (req, res) => res.redirect(`/api/public/evenings/${String(req.params.id)}`));
 
 router.post('/evenings/:id/join', async (req: Request, res: Response) => {
   try {
     const db = req.db || (await getDb());
-    const eveningId = req.params.id;
+    const eveningId = String(req.params.id);
     const { name, nickname, telegram_username, phone, table_id, source } = req.body;
 
     const rawName = (nickname || name || '').trim();
@@ -275,7 +275,7 @@ router.get('/tournaments/results/:token', async (req: Request, res: Response) =>
 // GET /api/public/player-avatar-data/:filename - Public player avatar data URL
 router.get('/player-avatar-data/:filename', (req: Request, res: Response) => {
   try {
-    const filename = path.basename(req.params.filename);
+    const filename = path.basename(String(req.params.filename));
     const avatarsDir =
       process.env.NODE_ENV === 'production'
         ? path.join(process.cwd(), 'dist', 'player-avatars')

@@ -153,8 +153,8 @@ router.post('/:id/complete', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
     const now = new Date().toISOString();
-    await db.run('UPDATE organizer_tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?', ['done', now, now, req.params.id]);
-    const updated = await loadTask(db, req.params.id);
+    await db.run('UPDATE organizer_tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?', ['done', now, now, String(req.params.id)]);
+    const updated = await loadTask(db, String(req.params.id));
     if (!updated) return res.status(404).json({ error: 'Задача не найдена' });
     res.json(updated);
   } catch (err: any) {
@@ -166,7 +166,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateTaskSchema.parse(req.body);
     const db = req.db || (await getDb());
-    const task = await db.get('SELECT * FROM organizer_tasks WHERE id = ?', [req.params.id]);
+    const task = await db.get('SELECT * FROM organizer_tasks WHERE id = ?', [String(req.params.id)]);
     if (!task) return res.status(404).json({ error: 'Задача не найдена' });
     const fields: string[] = [];
     const values: any[] = [];
@@ -176,9 +176,9 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     if (data.due_at !== undefined) dueAt = data.due_at && data.due_at.trim() !== '' ? new Date(data.due_at).toISOString() : null;
     const updateData: any = { ...data, due_at: dueAt, completed_at: completedAt, updated_at: now };
     Object.entries(updateData).forEach(([key, val]) => { if (val !== undefined) { fields.push(`${key} = ?`); values.push(val); } });
-    values.push(req.params.id);
+    values.push(String(req.params.id));
     await db.run(`UPDATE organizer_tasks SET ${fields.join(', ')} WHERE id = ?`, values);
-    res.json(await loadTask(db, req.params.id));
+    res.json(await loadTask(db, String(req.params.id)));
   } catch (err: any) {
     res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
   }
@@ -187,7 +187,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    await db.run('DELETE FROM organizer_tasks WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM organizer_tasks WHERE id = ?', [String(req.params.id)]);
     res.json({ success: true, message: 'Задача удалена' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

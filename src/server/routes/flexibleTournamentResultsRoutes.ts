@@ -58,7 +58,7 @@ const loadFinalReadiness = async (db: DatabaseWrapper, tournamentId: string) => 
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    res.json(await getFlexibleTournamentStandings(db, req.params.tournamentId));
+    res.json(await getFlexibleTournamentStandings(db, String(req.params.tournamentId)));
   } catch (err: any) {
     res.status(err?.message === 'Турнир не найден' ? 404 : 500).json({ error: err?.message || 'Ошибка вычисления турнирной таблицы' });
   }
@@ -67,10 +67,10 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    if (!await db.get('SELECT id FROM tournaments WHERE id = ?', [req.params.id])) {
+    if (!await db.get('SELECT id FROM tournaments WHERE id = ?', [String(req.params.id)])) {
       return res.status(404).json({ error: 'Турнир не найден' });
     }
-    const readiness = await loadFinalReadiness(db, req.params.id);
+    const readiness = await loadFinalReadiness(db, String(req.params.id));
     res.json({
       ready: readiness.ready,
       unresolved_standings_ties: readiness.unresolved_standings_ties,
@@ -83,7 +83,7 @@ router.get('/:id/final-readiness', requireOrganizerAuth, async (req: Authenticat
 
 router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT id, status FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -99,7 +99,7 @@ router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth,
     }
 
     const standings = await getFlexibleTournamentStandings(db, tournamentId);
-    const group = standings.tie_groups.find((item: any) => item.tie_group_id === req.params.tieGroupId);
+    const group = standings.tie_groups.find((item: any) => item.tie_group_id === String(req.params.tieGroupId));
     if (!group) return res.status(400).json({ error: 'Группа равенства не найдена или неактивна' });
     if ([...orderedIds].sort().join(',') !== [...group.participant_ids].sort().join(',')) {
       return res.status(400).json({ error: 'Состав решения не совпадает с текущей группой равенства' });
@@ -141,19 +141,19 @@ router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth,
 router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
     if (tournament.status !== 'completed') {
       return res.status(400).json({ error: 'Публикация результатов возможна только для завершённых турниров' });
     }
-    const readiness = await loadFinalReadiness(db, req.params.id);
+    const readiness = await loadFinalReadiness(db, String(req.params.id));
     if (!readiness.ready) return res.status(400).json({ error: 'Нельзя опубликовать результаты: не все равенства разрешены' });
 
     const publicToken = tournament.public_token || crypto.randomUUID();
     const now = new Date().toISOString();
     await db.run(
       'UPDATE tournaments SET public_token = ?, results_published_at = ?, updated_at = ? WHERE id = ?',
-      [publicToken, now, now, req.params.id],
+      [publicToken, now, now, String(req.params.id)],
     );
     res.json({ success: true, public_token: publicToken });
   } catch (err: any) {

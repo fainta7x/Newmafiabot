@@ -189,8 +189,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/bot', botAnnouncementRoutes);
   app.use('/api/bot', botTelegramRoutes);
 
-  app.use('/api/*', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
-  app.use('/api/*', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use('/api/{*splat}', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
+  app.use('/api/{*splat}', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('[API] Unhandled error:', err);
     if (res.headersSent) return;
     res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
@@ -200,7 +200,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const distPath = path.resolve(process.cwd(), 'dist');
   if (isProduction) {
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    app.get('/{*splat}', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   } else {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);

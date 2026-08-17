@@ -13,7 +13,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const data = updateParticipantSchema.parse(req.body);
     const db = req.db || (await getDb());
 
-    let part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
+    let part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
     if (!part) {
       return res.status(404).json({ error: 'Запись участника не найдена' });
     }
@@ -24,8 +24,8 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     }
 
     if (data.table_id !== undefined) {
-      await assignParticipantToTable(db, req.params.id, data.table_id, data.registration_status);
-      part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
+      await assignParticipantToTable(db, String(req.params.id), data.table_id, data.registration_status);
+      part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
     }
 
     const fields: string[] = [];
@@ -71,7 +71,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     });
 
     if (fields.length > 0) {
-      values.push(req.params.id);
+      values.push(String(req.params.id));
       await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
@@ -83,7 +83,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
       FROM evening_participants ep
       JOIN players p ON ep.player_id = p.id
       WHERE ep.id = ?
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     res.json(updated);
   } catch (err: any) {
@@ -96,7 +96,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
+    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
     if (!part) {
       return res.status(404).json({ error: 'Запись участника не найдена' });
     }
@@ -106,7 +106,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
     }
 
-    await db.run('DELETE FROM evening_participants WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM evening_participants WHERE id = ?', [String(req.params.id)]);
 
     // Run CRM automations
     await runCrmAutomations(db);

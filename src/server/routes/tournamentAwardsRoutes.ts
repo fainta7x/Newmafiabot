@@ -43,7 +43,7 @@ const upsertOverride = async (
 router.get('/:id/awards', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   const db = req.db as DatabaseWrapper;
   try {
-    res.json(await loadTournamentAwardSnapshot(db, req.params.id));
+    res.json(await loadTournamentAwardSnapshot(db, String(req.params.id)));
   } catch (err: any) {
     res.status(err.message === 'Турнир не найден' ? 404 : 500).json({ error: err.message || 'Ошибка загрузки наград' });
   }
@@ -51,8 +51,8 @@ router.get('/:id/awards', requireOrganizerAuth, async (req: AuthenticatedRequest
 
 router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
-  const awardKey = req.params.awardKey;
+  const tournamentId = String(req.params.id);
+  const awardKey = String(req.params.awardKey);
 
   if (!isTournamentAwardKey(awardKey)) {
     return res.status(400).json({ error: 'Неизвестный тип награды' });
@@ -138,8 +138,8 @@ router.put('/:id/awards/:awardKey', requireOrganizerAuth, async (req: Authentica
 
 router.delete('/:id/awards/:awardKey', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
-  const awardKey = req.params.awardKey;
+  const tournamentId = String(req.params.id);
+  const awardKey = String(req.params.awardKey);
 
   if (!isTournamentAwardKey(awardKey)) {
     return res.status(400).json({ error: 'Неизвестный тип награды' });

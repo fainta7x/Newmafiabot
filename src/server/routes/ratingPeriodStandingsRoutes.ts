@@ -8,7 +8,7 @@ router.use(requireOrganizerAuth);
 router.get('/:periodId/standings', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = req.db;
-    const result = await calculateRatingPeriodStandings(db, req.params.periodId);
+    const result = await calculateRatingPeriodStandings(db, String(req.params.periodId));
     res.json(result);
   } catch (err: any) {
     if (err?.message === 'Рейтинговый период не найден') {

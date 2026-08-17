@@ -206,7 +206,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 // 2. GET /api/tournaments/:id - Get tournament details
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
 
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -356,7 +356,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
 // 4. PATCH /api/tournaments/:id - Edit draft metadata (status is NOT modified)
 router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
   const { title, date, venue, stage, chief_judge_name, notes } = req.body;
 
   try {
@@ -396,7 +396,7 @@ router.patch('/:id', requireOrganizerAuth, async (req: AuthenticatedRequest, res
 // 5. PUT /api/tournaments/:id/participants - Save/Update 10 participants (Atomic Transaction)
 router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
   const { participants } = req.body;
 
   try {
@@ -464,7 +464,7 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
 // 6. POST /api/tournaments/:id/generate-seating - Regenerate seating chart
 router.post('/:id/generate-seating', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
 
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -505,7 +505,8 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
 // 5b. PATCH /api/tournaments/:id/participants/:participantId/correct-player - Correct CRM profile for tournament participant
 router.patch('/:id/participants/:participantId/correct-player', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, participantId } = req.params;
+  const tournamentId = String(req.params.id);
+  const participantId = String(req.params.participantId);
   const { player_id } = req.body;
 
   try {
@@ -565,7 +566,8 @@ router.patch('/:id/participants/:participantId/correct-player', requireOrganizer
 // 7. POST /api/tournaments/:id/games/:gameId/swap-seats - Swap two seats in a game
 router.post('/:id/games/:gameId/swap-seats', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, gameId } = req.params;
+  const tournamentId = String(req.params.id);
+  const gameId = String(req.params.gameId);
   const { seat_number_1, seat_number_2, participant_id_1, participant_id_2 } = req.body;
 
   try {
@@ -737,7 +739,8 @@ async function checkGameEditingPermission(
 // 8. PATCH /api/tournaments/:id/games/:gameId/roles - Assign roles to seats
 router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, gameId } = req.params;
+  const tournamentId = String(req.params.id);
+  const gameId = String(req.params.gameId);
   const { roles, seats } = req.body;
 
   try {
@@ -852,7 +855,8 @@ router.patch('/:id/games/:gameId/roles', requireOrganizerAuth, async (req: Authe
 // 9. PATCH /api/tournaments/:id/games/:gameId/judge - Assign judge to game
 router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, gameId } = req.params;
+  const tournamentId = String(req.params.id);
+  const gameId = String(req.params.gameId);
   const { judge_name } = req.body;
 
   try {
@@ -883,7 +887,7 @@ router.patch('/:id/games/:gameId/judge', requireOrganizerAuth, async (req: Authe
 // 10. POST /api/tournaments/:id/start - Launch tournament (with safe validations)
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
 
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
@@ -925,8 +929,8 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
 // 11. POST /api/tournaments/:id/games/:gameId/start - Launch specific game
 router.post('/:id/games/:gameId/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, gameId } = req.params;
-
+  const tournamentId = String(req.params.id);
+  const gameId = String(req.params.gameId);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -1631,8 +1635,7 @@ export async function internalGetNominations(db: DatabaseWrapper, tournamentId: 
 // GET /api/tournaments/:tournamentId/standings
 router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId } = req.params;
-
+  const tournamentId = String(req.params.tournamentId);
   try {
     const standingsData = await internalGetStandings(db, tournamentId);
     res.json(standingsData);
@@ -1647,8 +1650,7 @@ router.get('/:tournamentId/standings', requireOrganizerAuth, async (req: Authent
 // POST /api/tournaments/:id/complete
 router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId } = req.params;
-
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -1690,8 +1692,7 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
 // POST /api/tournaments/:id/reopen-for-correction - Reopen completed tournament for correction
 router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId } = req.params;
-
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -1756,8 +1757,7 @@ router.post('/:id/reopen-for-correction', requireOrganizerAuth, async (req: Auth
 // GET /api/tournaments/:tournamentId/nominations
 router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId } = req.params;
-
+  const tournamentId = String(req.params.tournamentId);
   try {
     const nominationsData = await internalGetNominations(db, tournamentId);
     res.json(nominationsData);
@@ -1772,8 +1772,7 @@ router.get('/:tournamentId/nominations', requireOrganizerAuth, async (req: Authe
 // GET /api/tournaments/:id/final-resolutions - Load final resolutions
 router.get('/:id/final-resolutions', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId } = req.params;
-
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -1803,7 +1802,8 @@ router.get('/:id/final-resolutions', requireOrganizerAuth, async (req: Authentic
 // PUT /api/tournaments/:id/final-resolutions/standings/:tieGroupId - Set standing tie resolution
 router.put('/:id/final-resolutions/standings/:tieGroupId', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId, tieGroupId } = req.params;
+  const tournamentId = String(req.params.id);
+  const tieGroupId = String(req.params.tieGroupId);
   const { ordered_participant_ids, resolution_method, comment } = req.body;
 
   try {
@@ -1901,8 +1901,7 @@ router.put('/:id/final-resolutions/nominations/:category', requireOrganizerAuth,
 // GET /api/tournaments/:id/final-readiness - Get final readiness check results
 router.get('/:id/final-readiness', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId } = req.params;
-
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -1968,8 +1967,7 @@ router.get('/:id/final-readiness', requireOrganizerAuth, async (req: Authenticat
 // POST /api/tournaments/:id/publish - Publish tournament results
 router.post('/:id/publish', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { id: tournamentId } = req.params;
-
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -2259,8 +2257,7 @@ export function validateTournamentBackupData(backupData: any, tournamentId: stri
 // GET /api/tournaments/:tournamentId/backup
 router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId } = req.params;
-
+  const tournamentId = String(req.params.tournamentId);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {
@@ -2357,7 +2354,7 @@ router.get('/:tournamentId/backup', requireOrganizerAuth, async (req: Authentica
 // POST /api/tournaments/:tournamentId/backup/validate
 router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId } = req.params;
+  const tournamentId = String(req.params.tournamentId);
   const backupData = req.body;
 
   try {
@@ -2421,7 +2418,7 @@ router.post('/:tournamentId/backup/validate', requireOrganizerAuth, async (req: 
 // POST /api/tournaments/:tournamentId/backup/restore
 router.post('/:tournamentId/backup/restore', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId } = req.params;
+  const tournamentId = String(req.params.tournamentId);
   const backupData = req.body;
 
   try {

@@ -711,8 +711,8 @@ function validateVotes(
 // 1. GET /api/tournaments/:tournamentId/games/:gameId/protocol
 router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId, gameId } = req.params;
-
+  const tournamentId = String(req.params.tournamentId);
+  const gameId = String(req.params.gameId);
   try {
     const game = await db.get<any>('SELECT * FROM tournament_games WHERE id = ? AND tournament_id = ?', [gameId, tournamentId]);
     if (!game) {
@@ -845,7 +845,8 @@ router.get('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 // 2. PUT /api/tournaments/:tournamentId/games/:gameId/protocol
 router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId, gameId } = req.params;
+  const tournamentId = String(req.params.tournamentId);
+  const gameId = String(req.params.gameId);
   const { protocol, player_results } = req.body;
 
   try {
@@ -1109,7 +1110,8 @@ router.put('/:tournamentId/games/:gameId/protocol', requireOrganizerAuth, async 
 // 3. POST /api/tournaments/:tournamentId/games/:gameId/protocol/complete
 router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId, gameId } = req.params;
+  const tournamentId = String(req.params.tournamentId);
+  const gameId = String(req.params.gameId);
   const { protocol, player_results } = req.body;
 
   try {
@@ -1425,8 +1427,8 @@ router.post('/:tournamentId/games/:gameId/protocol/complete', requireOrganizerAu
 // 4. POST /api/tournaments/:tournamentId/games/:gameId/protocol/revert-to-draft
 router.post('/:tournamentId/games/:gameId/protocol/revert-to-draft', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const { tournamentId, gameId } = req.params;
-
+  const tournamentId = String(req.params.tournamentId);
+  const gameId = String(req.params.gameId);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) {

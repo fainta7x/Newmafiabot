@@ -165,7 +165,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const db = req.db || (await getDb());
     const isOrganizer = req.userRole === 'ORGANIZER';
 
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -174,7 +174,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       // Public sanitized view
       const registeredCountRow = await db.get(
         `SELECT COUNT(*) as cnt FROM evening_participants WHERE evening_id = ? AND registration_status NOT IN ('cancelled', 'waitlist')`,
-        [req.params.id]
+        [String(req.params.id)]
       );
       const registered_count = registeredCountRow?.cnt || 0;
 
@@ -196,7 +196,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     // Opening CRM never creates a game table as a side effect.
     const tables = await db.all(
       'SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC',
-      [req.params.id],
+      [String(req.params.id)],
     );
 
     const participants = await db.all(`
@@ -205,9 +205,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       JOIN players p ON ep.player_id = p.id
       WHERE ep.evening_id = ?
       ORDER BY ep.created_at ASC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
-    const games = await db.all('SELECT * FROM games WHERE evening_id = ? ORDER BY global_game_number ASC', [req.params.id]);
+    const games = await db.all('SELECT * FROM games WHERE evening_id = ? ORDER BY global_game_number ASC', [String(req.params.id)]);
 
     res.json({ ...evening, tables, participants, games });
   } catch (err: any) {
@@ -255,7 +255,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateEveningSchema.parse(req.body);
     const db = req.db || (await getDb());
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -273,12 +273,12 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     if (fields.length > 0) {
       fields.push('updated_at = ?');
       values.push(new Date().toISOString());
-      values.push(req.params.id);
+      values.push(String(req.params.id));
 
       await db.run(`UPDATE game_evenings SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
-    const updated = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const updated = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
@@ -289,7 +289,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -301,7 +301,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
       });
     }
 
-    await db.run('DELETE FROM game_evenings WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     res.json({ success: true, message: 'Игровой вечер успешно удален' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -318,7 +318,7 @@ router.get('/:id/participants', requireOrganizerAuth, async (req, res) => {
       JOIN players p ON ep.player_id = p.id
       WHERE ep.evening_id = ?
       ORDER BY ep.created_at ASC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
     res.json(participants);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -331,7 +331,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
     const { player_ids, table_id, registration_status, amount_due } = bulkAddParticipantsSchema.parse(req.body);
     const db = req.db || (await getDb());
 
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -342,7 +342,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
 
     let table: any = null;
     if (table_id) {
-      table = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [table_id, req.params.id]);
+      table = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [table_id, String(req.params.id)]);
       if (!table) return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
     }
 
@@ -356,7 +356,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
       for (const playerId of player_ids) {
         const existing = await db.get(
           'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
-          [req.params.id, playerId]
+          [String(req.params.id), playerId]
         );
 
         if (existing) {
@@ -371,7 +371,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               partId,
-              req.params.id,
+              String(req.params.id),
               playerId,
               table_id || null,
               regStatus,
@@ -402,7 +402,7 @@ router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res) => 
       FROM evening_participants ep
       JOIN players p ON ep.player_id = p.id
       WHERE ep.evening_id = ?
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     res.json({
       success: true,
@@ -425,7 +425,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
     }
 
     const db = req.db || (await getDb());
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -443,7 +443,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
 
         // Route table_id and registration_status updates through assignParticipantToTable service
         if ('table_id' in item || 'registration_status' in item) {
-          await assignParticipantToTable(db, item.id, item.table_id, item.registration_status, req.params.id);
+          await assignParticipantToTable(db, item.id, item.table_id, item.registration_status, String(req.params.id));
         }
 
         const fields: string[] = [];
@@ -464,7 +464,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
           values.push(now);
           values.push(item.id);
 
-          await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ? AND evening_id = ?`, [...values, req.params.id]);
+          await db.run(`UPDATE evening_participants SET ${fields.join(', ')} WHERE id = ? AND evening_id = ?`, [...values, String(req.params.id)]);
         }
       }
       await db.exec('COMMIT');
@@ -482,7 +482,7 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res) =>
       FROM evening_participants ep
       JOIN players p ON ep.player_id = p.id
       WHERE ep.evening_id = ?
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     res.json({ success: true, participants: updatedParticipants });
   } catch (err: any) {
@@ -497,7 +497,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
     const data = addSingleParticipantSchema.parse(req.body);
     const db = req.db || (await getDb());
 
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -530,7 +530,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
 
     const existingPart = await db.get(
       'SELECT id FROM evening_participants WHERE evening_id = ? AND player_id = ?',
-      [req.params.id, playerId]
+      [String(req.params.id), playerId]
     );
 
     if (existingPart) {
@@ -539,7 +539,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
 
     let targetTable: any = null;
     if (data.table_id) {
-      targetTable = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [data.table_id, req.params.id]);
+      targetTable = await db.get('SELECT * FROM evening_tables WHERE id = ? AND evening_id = ?', [data.table_id, String(req.params.id)]);
       if (!targetTable) return res.status(404).json({ error: 'Игровой стол не найден на этом вечере' });
     }
 
@@ -556,7 +556,7 @@ router.post('/:id/participants', requireOrganizerAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         partId,
-        req.params.id,
+        String(req.params.id),
         playerId,
         data.table_id || null,
         finalRegStatus,
@@ -595,7 +595,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
 
     // 1. Fetch evening with lock check
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -615,7 +615,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
        JOIN players p ON ep.player_id = p.id
        WHERE ep.evening_id = ? AND ep.attendance_status = 'pending'
          AND ep.registration_status IN ('going', 'late', 'registered', 'confirmed')`,
-      [req.params.id]
+      [String(req.params.id)]
     );
 
     if (pendingParticipants.length > 0) {
@@ -630,7 +630,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
       });
     }
 
-    const participants = await db.all('SELECT * FROM evening_participants WHERE evening_id = ?', [req.params.id]);
+    const participants = await db.all('SELECT * FROM evening_participants WHERE evening_id = ?', [String(req.params.id)]);
     const now = new Date().toISOString();
 
     await db.exec('BEGIN TRANSACTION');
@@ -638,7 +638,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
       // 3. Atomic status update
       await db.run(
         `UPDATE game_evenings SET status = 'completed', settled_at = ?, updated_at = ? WHERE id = ? AND status != 'completed'`,
-        [now, now, req.params.id]
+        [now, now, String(req.params.id)]
       );
 
       for (const p of participants) {
@@ -697,7 +697,7 @@ router.post('/:id/settle', requireOrganizerAuth, async (req, res) => {
     // Run CRM automations after closing the evening
     await runCrmAutomations(db);
 
-    const settledEvening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const settledEvening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     res.json({
       success: true,
       alreadySettled: false,
@@ -718,7 +718,7 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
     }
 
     const db = req.db || (await getDb());
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -756,7 +756,7 @@ router.post('/:id/adjustments', requireOrganizerAuth, async (req, res) => {
 router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [req.params.id]);
+    const tables = await db.all('SELECT * FROM evening_tables WHERE evening_id = ? ORDER BY sort_order ASC, created_at ASC', [String(req.params.id)]);
     res.json(tables);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -767,7 +767,7 @@ router.get('/:id/tables', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT * FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) {
       return res.status(404).json({ error: 'Игровой вечер не найден' });
     }
@@ -783,7 +783,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tableId,
-        req.params.id,
+        String(req.params.id),
         req.body.name || 'Новый стол',
         req.body.format || 'STANDARD',
         req.body.capacity || 10,
@@ -807,7 +807,7 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
 router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [String(req.params.tableId)]);
     if (!table) {
       return res.status(404).json({ error: 'Стол не найден' });
     }
@@ -831,11 +831,11 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
         req.body.notes !== undefined ? req.body.notes : table.notes,
         req.body.sort_order !== undefined ? req.body.sort_order : table.sort_order,
         now,
-        req.params.tableId,
+        String(req.params.tableId),
       ]
     );
 
-    const updated = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    const updated = await db.get('SELECT * FROM evening_tables WHERE id = ?', [String(req.params.tableId)]);
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -846,7 +846,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
 router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    const table = await db.get('SELECT * FROM evening_tables WHERE id = ?', [String(req.params.tableId)]);
     if (!table) {
       return res.status(404).json({ error: 'Стол не найден' });
     }
@@ -857,10 +857,10 @@ router.delete('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     }
 
     // Set all players currently assigned to this table to "Стол не назначен" (table_id = NULL)
-    await db.run('UPDATE evening_participants SET table_id = NULL WHERE table_id = ?', [req.params.tableId]);
+    await db.run('UPDATE evening_participants SET table_id = NULL WHERE table_id = ?', [String(req.params.tableId)]);
 
     // Delete table
-    await db.run('DELETE FROM evening_tables WHERE id = ?', [req.params.tableId]);
+    await db.run('DELETE FROM evening_tables WHERE id = ?', [String(req.params.tableId)]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -873,7 +873,7 @@ router.patch('/participants/:participantId/move-table', requireOrganizerAuth, as
     const db = req.db || (await getDb());
     const { table_id, registration_status } = req.body;
 
-    await assignParticipantToTable(db, req.params.participantId, table_id, registration_status);
+    await assignParticipantToTable(db, String(req.params.participantId), table_id, registration_status);
     await runCrmAutomations(db);
 
     const updated = await db.get(`
@@ -881,7 +881,7 @@ router.patch('/participants/:participantId/move-table', requireOrganizerAuth, as
       FROM evening_participants ep
       JOIN players p ON ep.player_id = p.id
       WHERE ep.id = ?
-    `, [req.params.participantId]);
+    `, [String(req.params.participantId)]);
 
     res.json(updated);
   } catch (err: any) {

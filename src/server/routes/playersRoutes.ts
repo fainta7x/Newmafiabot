@@ -185,7 +185,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       SELECT p.*,
         (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id) as avatar_updated_at
       FROM players p WHERE p.id = ?
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -197,28 +197,28 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       JOIN game_evenings e ON ep.evening_id = e.id
       WHERE ep.player_id = ?
       ORDER BY e.starts_at DESC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     // Tasks associated with player
     const tasks = await db.all(`
       SELECT * FROM organizer_tasks
       WHERE player_id = ?
       ORDER BY status ASC, due_at ASC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     // Financial Transactions
     const transactions = await db.all(`
       SELECT * FROM financial_transactions
       WHERE player_id = ?
       ORDER BY created_at DESC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     // Player Activities
     const activities = await db.all(`
       SELECT * FROM player_activities
       WHERE player_id = ?
       ORDER BY occurred_at DESC
-    `, [req.params.id]);
+    `, [String(req.params.id)]);
 
     const futureBookings = eveningHistory.filter(
       (h: any) => h.evening_status !== 'completed' && h.evening_status !== 'cancelled'
@@ -249,8 +249,8 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     const engagement_stage = calculateEngagementStage(attendanceCount, lastVisit);
 
     const nextTask = tasks.find((t: any) => t.status === 'todo' || t.status === 'in_progress') || null;
-    const gameProfile = await loadPlayerGameProfile(db, req.params.id);
-    const achievements = await loadPlayerAchievementProfile(db, req.params.id);
+    const gameProfile = await loadPlayerGameProfile(db, String(req.params.id));
+    const achievements = await loadPlayerAchievementProfile(db, String(req.params.id));
 
     res.json({
       ...player,
@@ -290,7 +290,7 @@ router.get('/:id/activities', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     const activities = await db.all(
       'SELECT * FROM player_activities WHERE player_id = ? ORDER BY occurred_at DESC',
-      [req.params.id]
+      [String(req.params.id)]
     );
     res.json(activities);
   } catch (err: any) {
@@ -316,7 +316,7 @@ router.post('/:id/activities', requireOrganizerAuth, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         activityId,
-        req.params.id,
+        String(req.params.id),
         evening_id || null,
         task_id || null,
         type,
@@ -344,7 +344,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       return res.status(400).json({ error: 'Не указан evening_id' });
     }
 
-    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [String(req.params.id)]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -392,7 +392,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
     // Check if participant already exists
     let participant = await db.get(
       'SELECT * FROM evening_participants WHERE evening_id = ? AND player_id = ?',
-      [evening_id, req.params.id]
+      [evening_id, String(req.params.id)]
     );
 
     const tgUsername = player.telegram_username ? player.telegram_username.replace('@', '') : null;
@@ -413,14 +413,14 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
     await db.run(
       `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
-      [partId, evening_id, req.params.id, selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
+      [partId, evening_id, String(req.params.id), selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
     );
     participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);
 
     // Create player_activity (type=invite, outcome=sent, evening_id) if not exists
     const existingActivity = await db.get(
       `SELECT * FROM player_activities WHERE player_id = ? AND evening_id = ? AND type = 'invite'`,
-      [req.params.id, evening_id]
+      [String(req.params.id), evening_id]
     );
 
     if (!existingActivity) {
@@ -431,7 +431,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
       await db.run(
         `INSERT INTO player_activities (id, player_id, evening_id, type, outcome, description, occurred_at, created_at)
          VALUES (?, ?, ?, 'invite', 'sent', ?, ?, ?)`,
-        [actId, req.params.id, evening_id, description, nowIso, nowIso]
+        [actId, String(req.params.id), evening_id, description, nowIso, nowIso]
       );
     }
 
@@ -537,7 +537,7 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [String(req.params.id)]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -573,7 +573,7 @@ router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => 
     await db.run(
       `INSERT INTO player_activities (id, player_id, evening_id, task_id, type, outcome, description, occurred_at, created_at)
        VALUES (?, ?, null, null, 'contact', ?, ?, ?, ?)`,
-      [actId, req.params.id, outcome, desc, nowIso, nowIso]
+      [actId, String(req.params.id), outcome, desc, nowIso, nowIso]
     );
 
     const activity = await db.get('SELECT * FROM player_activities WHERE id = ?', [actId]);
@@ -620,7 +620,7 @@ router.post('/:id/communication-log', requireOrganizerAuth, async (req, res) => 
 router.post('/:id/historical-awards', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const player = await db.get('SELECT id FROM players WHERE id = ?', [req.params.id]);
+    const player = await db.get('SELECT id FROM players WHERE id = ?', [String(req.params.id)]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
 
     const parsed = parseHistoricalAwardPayload(req.body);
@@ -633,7 +633,7 @@ router.post('/:id/historical-awards', requireOrganizerAuth, async (req, res) => 
       `INSERT INTO player_historical_awards
         (id, player_id, award_key, title, tournament_title, tournament_date, comment, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, req.params.id, value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, now]
+      [id, String(req.params.id), value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, now]
     );
 
     const award = await db.get('SELECT * FROM player_historical_awards WHERE id = ?', [id]);
@@ -650,7 +650,7 @@ router.patch('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req
     const db = req.db || (await getDb());
     const existing = await db.get(
       'SELECT id FROM player_historical_awards WHERE id = ? AND player_id = ?',
-      [req.params.awardId, req.params.id]
+      [String(req.params.awardId), String(req.params.id)]
     );
     if (!existing) return res.status(404).json({ error: 'Историческая награда не найдена' });
 
@@ -663,10 +663,10 @@ router.patch('/:id/historical-awards/:awardId', requireOrganizerAuth, async (req
       `UPDATE player_historical_awards
           SET award_key = ?, title = ?, tournament_title = ?, tournament_date = ?, comment = ?, updated_at = ?
         WHERE id = ? AND player_id = ?`,
-      [value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, req.params.awardId, req.params.id]
+      [value.awardKey, value.title, value.tournamentTitle, value.tournamentDate, value.comment, now, String(req.params.awardId), String(req.params.id)]
     );
 
-    const award = await db.get('SELECT * FROM player_historical_awards WHERE id = ?', [req.params.awardId]);
+    const award = await db.get('SELECT * FROM player_historical_awards WHERE id = ?', [String(req.params.awardId)]);
     const checkpoint_warning = await checkpointAfterPlayerMutation(db);
     res.json({ award, checkpoint_warning });
   } catch (err: any) {
@@ -680,7 +680,7 @@ router.delete('/:id/historical-awards/:awardId', requireOrganizerAuth, async (re
     const db = req.db || (await getDb());
     const result = await db.run(
       'DELETE FROM player_historical_awards WHERE id = ? AND player_id = ?',
-      [req.params.awardId, req.params.id]
+      [String(req.params.awardId), String(req.params.id)]
     );
     if (!result.changes) return res.status(404).json({ error: 'Историческая награда не найдена' });
 
@@ -697,7 +697,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     const data = updatePlayerSchema.parse(req.body);
     const db = req.db || (await getDb());
 
-    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [String(req.params.id)]);
     if (!player) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -737,12 +737,12 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     if (fields.length > 0) {
       fields.push('updated_at = ?');
       values.push(new Date().toISOString());
-      values.push(req.params.id);
+      values.push(String(req.params.id));
 
       await db.run(`UPDATE players SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
-    const updated = await db.get('SELECT * FROM players WHERE id = ?', [req.params.id]);
+    const updated = await db.get('SELECT * FROM players WHERE id = ?', [String(req.params.id)]);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
@@ -753,7 +753,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), req.params.id]);
+    await db.run('UPDATE players SET contact_status = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?', ['blocked', 'blocked', new Date().toISOString(), String(req.params.id)]);
     res.json({ success: true, message: 'Игрок переведен в архив/заблокирован' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
@@ -764,7 +764,7 @@ router.delete('/:id', requireOrganizerAuth, async (req, res) => {
 router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [req.params.id]) as any;
+    const avatar = await db.get('SELECT * FROM player_avatars WHERE player_id = ?', [String(req.params.id)]) as any;
     if (avatar) {
       return res.json({
         data_url: `data:${avatar.mime_type};base64,${avatar.image_data.toString('base64')}`,
@@ -776,9 +776,9 @@ router.get('/:id/avatar', requireOrganizerAuth, async (req, res) => {
       });
     }
 
-    const suppressed = await db.get('SELECT 1 FROM player_avatar_repository_suppression WHERE player_id = ?', [req.params.id]);
-    const asset = suppressed ? null : getRepositoryPlayerAvatarAsset(req.params.id);
-    const assetPath = asset ? resolveRepositoryPlayerAvatarPath(req.params.id) : null;
+    const suppressed = await db.get('SELECT 1 FROM player_avatar_repository_suppression WHERE player_id = ?', [String(req.params.id)]);
+    const asset = suppressed ? null : getRepositoryPlayerAvatarAsset(String(req.params.id));
+    const assetPath = asset ? resolveRepositoryPlayerAvatarPath(String(req.params.id)) : null;
     if (!asset || !assetPath) {
       return res.status(404).json({ error: 'Аватар не найден' });
     }
@@ -803,7 +803,7 @@ router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     
     // First verify if the player actually exists
-    const playerExists = await db.get('SELECT 1 FROM players WHERE id = ?', [req.params.id]);
+    const playerExists = await db.get('SELECT 1 FROM players WHERE id = ?', [String(req.params.id)]);
     if (!playerExists) {
       return res.status(404).json({ error: 'Игрок не найден' });
     }
@@ -864,9 +864,9 @@ router.put('/:id/avatar', requireOrganizerAuth, async (req, res) => {
     await db.run(
       `INSERT OR REPLACE INTO player_avatars (player_id, mime_type, image_data, byte_size, width, height, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [req.params.id, 'image/jpeg', buffer, buffer.length, w, h, nowIso]
+      [String(req.params.id), 'image/jpeg', buffer, buffer.length, w, h, nowIso]
     );
-    await db.run('DELETE FROM player_avatar_repository_suppression WHERE player_id = ?', [req.params.id]);
+    await db.run('DELETE FROM player_avatar_repository_suppression WHERE player_id = ?', [String(req.params.id)]);
 
     // Call checkpoint only for runtime DB
     const dbName = path.basename(db.dbPath);
@@ -886,10 +886,10 @@ router.delete('/:id/avatar', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     
     // Idempotent deletion also suppresses the repository default for this player.
-    await db.run('DELETE FROM player_avatars WHERE player_id = ?', [req.params.id]);
+    await db.run('DELETE FROM player_avatars WHERE player_id = ?', [String(req.params.id)]);
     await db.run(
       'INSERT OR IGNORE INTO player_avatar_repository_suppression (player_id, created_at) VALUES (?, ?)',
-      [req.params.id, new Date().toISOString()],
+      [String(req.params.id), new Date().toISOString()],
     );
 
     // Call checkpoint only for runtime DB

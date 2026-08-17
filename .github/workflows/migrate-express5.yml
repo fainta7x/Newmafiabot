@@ -1,0 +1,58 @@
+name: Prepare Express 5 migration
+
+on:
+  push:
+    branches:
+      - deps/express-5-2-1-20260817
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+        with:
+          ref: deps/express-5-2-1-20260817
+          fetch-depth: 0
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Apply Express 5 manifest and route syntax changes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          package_path = Path('package.json')
+          package = json.loads(package_path.read_text())
+          package['dependencies']['express'] = '^5.2.1'
+          package['devDependencies']['@types/express'] = '^5.0.6'
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+
+          app_path = Path('src/app.ts')
+          app = app_path.read_text()
+          assert app.count("app.use('/api/*',") == 2, 'Expected exactly two API wildcard routes'
+          assert app.count("app.get('*',") == 1, 'Expected exactly one SPA wildcard route'
+          app = app.replace("app.use('/api/*',", "app.use('/api/{*splat}',")
+          app = app.replace("app.get('*',", "app.get('/{*splat}',")
+          app_path.write_text(app)
+          PY
+
+      - name: Refresh package lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commit migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/app.ts
+          git commit -m "deps: upgrade Express to 5.2.1"
+          git push origin HEAD:${GITHUB_REF_NAME}

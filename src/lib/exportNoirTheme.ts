@@ -40,7 +40,7 @@ const escapeNoirText = (value: string): string => value
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
-  .replace(/\"/g, '&quot;')
+  .replace(/"/g, '&quot;')
   .replace(/'/g, '&apos;');
 
 export function renderNoirExportBackground(width: number, height: number): string {

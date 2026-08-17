@@ -73,7 +73,7 @@ router.patch('/:id', requireOrganizerAuth, (req, res, next) => {
   if (Object.prototype.hasOwnProperty.call(req.body || {}, 'tokens')) {
     return res.status(400).json({
       error: 'Прямая замена баланса жетонов отключена',
-      adjustment_endpoint: `/api/players/${req.params.id}/tokens/adjustments`,
+      adjustment_endpoint: `/api/players/${String(req.params.id)}/tokens/adjustments`,
     });
   }
   next();
@@ -84,7 +84,7 @@ router.get('/:id/tokens', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     const limit = Number(req.query.limit || 20);
     const offset = Number(req.query.offset || 0);
-    res.json(await getTokenLedgerPage(db, req.params.id, limit, offset));
+    res.json(await getTokenLedgerPage(db, String(req.params.id), limit, offset));
   } catch (error: any) {
     return sendTokenError(res, error);
   }
@@ -101,12 +101,12 @@ router.post('/:id/tokens/adjustments', requireOrganizerAuth, async (req, res) =>
 
     const db = req.db || (await getDb());
     const entry = await mutateTokenBalance(db, {
-      playerId: req.params.id,
+      playerId: String(req.params.id),
       delta,
       reasonType: 'manual_adjustment',
       description: reason,
       sourceType: 'organizer',
-      sourceId: req.params.id,
+      sourceId: String(req.params.id),
       idempotencyKey,
       debitPolicy: 'prevent_negative',
       actorType: 'organizer',

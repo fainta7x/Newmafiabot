@@ -123,7 +123,7 @@ router.post('/', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Re
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
     const participants = await db.all<any>(`
       SELECT tp.*, p.nickname AS player_nickname, p.telegram_username, p.phone,
@@ -132,11 +132,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
         LEFT JOIN players p ON p.id = tp.player_id
        WHERE tp.tournament_id = ?
        ORDER BY tp.participant_number ASC
-    `, [req.params.id]);
-    const games = await loadTournamentGames(db, req.params.id);
+    `, [String(req.params.id)]);
+    const games = await loadTournamentGames(db, String(req.params.id));
     const gameCount = normalizeTournamentGameCount(tournament.game_count);
     const startReadiness = computeFlexibleStartReadiness(participants, games, gameCount);
-    const completeReadiness = await computeFlexibleCompleteReadiness(db, req.params.id, gameCount);
+    const completeReadiness = await computeFlexibleCompleteReadiness(db, String(req.params.id), gameCount);
     return res.json({
       ...tournament,
       game_count: gameCount,
@@ -152,7 +152,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournamentId = req.params.id;
+  const tournamentId = String(req.params.id);
   try {
     const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
@@ -205,19 +205,19 @@ router.put('/:id/participants', requireOrganizerAuth, async (req: AuthenticatedR
 router.post('/:id/generate-seating', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
     if (tournament.status !== 'draft') return res.status(400).json({ error: 'Рассадка заблокирована после запуска турнира' });
-    const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [req.params.id]);
+    const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ? ORDER BY participant_number ASC', [String(req.params.id)]);
     if (participants.length !== 10) return res.status(400).json({ error: 'Для генерации рассадки требуется ровно 10 участников' });
     await regenerateTournamentGames(
       db,
-      req.params.id,
+      String(req.params.id),
       tournament.chief_judge_name || null,
       participants,
       normalizeTournamentGameCount(tournament.game_count),
     );
-    const games = await loadTournamentGames(db, req.params.id);
+    const games = await loadTournamentGames(db, String(req.params.id));
     return res.json({ success: true, game_count: normalizeTournamentGameCount(tournament.game_count), games });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка генерации рассадки' });
@@ -227,18 +227,18 @@ router.post('/:id/generate-seating', requireOrganizerAuth, async (req: Authentic
 router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
     if (tournament.status !== 'draft') return res.status(400).json({ error: 'Турнир не может быть запущен из текущего статуса' });
-    const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [req.params.id]);
-    const games = await loadTournamentGames(db, req.params.id);
+    const participants = await db.all<any>('SELECT * FROM tournament_participants WHERE tournament_id = ?', [String(req.params.id)]);
+    const games = await loadTournamentGames(db, String(req.params.id));
     const readiness = computeFlexibleStartReadiness(participants, games, normalizeTournamentGameCount(tournament.game_count));
     if (!readiness.ready) {
       return res.status(400).json({ error: `Турнир не готов к запуску: ${readiness.errors.join('; ')}`, start_readiness: readiness });
     }
     const now = new Date().toISOString();
-    await db.run("UPDATE tournaments SET status = 'active', updated_at = ? WHERE id = ?", [now, req.params.id]);
-    return res.json({ success: true, tournament: await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]) });
+    await db.run("UPDATE tournaments SET status = 'active', updated_at = ? WHERE id = ?", [now, String(req.params.id)]);
+    return res.json({ success: true, tournament: await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]) });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка запуска турнира' });
   }
@@ -247,7 +247,7 @@ router.post('/:id/start', requireOrganizerAuth, async (req: AuthenticatedRequest
 router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   try {
-    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id = ?', [String(req.params.id)]);
     if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
     if (tournament.status === 'completed') return res.status(400).json({ error: 'Турнир уже завершён' });
     if (tournament.status !== 'active' && tournament.status !== 'correction') {
@@ -255,16 +255,16 @@ router.post('/:id/complete', requireOrganizerAuth, async (req: AuthenticatedRequ
     }
     const readiness = await computeFlexibleCompleteReadiness(
       db,
-      req.params.id,
+      String(req.params.id),
       normalizeTournamentGameCount(tournament.game_count),
     );
     if (!readiness.isReady) {
       return res.status(400).json({ error: 'Турнир не готов к завершению', reasons: readiness.errors, complete_readiness: readiness });
     }
     const now = new Date().toISOString();
-    await db.run("UPDATE tournaments SET status = 'completed', updated_at = ? WHERE id = ?", [now, req.params.id]);
+    await db.run("UPDATE tournaments SET status = 'completed', updated_at = ? WHERE id = ?", [now, String(req.params.id)]);
     await rebuildCanonicalEloRatings(db);
-    return res.json({ success: true, tournament_id: req.params.id, status: 'completed' });
+    return res.json({ success: true, tournament_id: String(req.params.id), status: 'completed' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Ошибка завершения турнира' });
   }

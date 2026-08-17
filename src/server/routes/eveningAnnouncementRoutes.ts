@@ -59,7 +59,7 @@ async function loadActionableEvening(db: any, eveningId: string) {
 
 router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) => {
   try {
-    const overview = await loadAnnouncementOverview(req.db, req.params.id);
+    const overview = await loadAnnouncementOverview(req.db, String(req.params.id));
     if (!overview) return res.status(404).json({ error: 'Игровой вечер не найден' });
     return res.json(overview);
   } catch (error: any) {
@@ -70,13 +70,13 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
 router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db;
-    const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [req.params.id]);
+    const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    await enqueueTelegramEveningSync(db, req.params.id);
+    await enqueueTelegramEveningSync(db, String(req.params.id));
     const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
     const queued = Boolean(await db.get(
       'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
-      [`evening:${req.params.id}`],
+      [`evening:${String(req.params.id)}`],
     ));
     return res.json({ success: true, queued, drain });
   } catch (error: any) {
@@ -87,14 +87,14 @@ router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db;
-    const availability = await loadActionableEvening(db, req.params.id);
+    const availability = await loadActionableEvening(db, String(req.params.id));
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
-    const before = await loadAnnouncementOverview(db, req.params.id);
-    await enqueueTelegramAnnouncement(db, req.params.id);
+    const before = await loadAnnouncementOverview(db, String(req.params.id));
+    await enqueueTelegramAnnouncement(db, String(req.params.id));
     const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
-    const queued = Boolean(await getTelegramDispatchJob(db, 'announcement', req.params.id));
-    const after = await loadAnnouncementOverview(db, req.params.id);
+    const queued = Boolean(await getTelegramDispatchJob(db, 'announcement', String(req.params.id)));
+    const after = await loadAnnouncementOverview(db, String(req.params.id));
     const sentBefore = Number(before?.summary?.sent || 0);
     const sentAfter = Number(after?.summary?.sent || 0);
 
@@ -115,14 +115,14 @@ router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db;
-    const availability = await loadActionableEvening(db, req.params.id);
+    const availability = await loadActionableEvening(db, String(req.params.id));
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
-    await enqueueTelegramEveningSync(db, req.params.id);
+    await enqueueTelegramEveningSync(db, String(req.params.id));
     const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
     const queued = Boolean(await db.get(
       'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
-      [`evening:${req.params.id}`],
+      [`evening:${String(req.params.id)}`],
     ));
     return res.json({ success: true, queued, drain });
   } catch (error: any) {
@@ -133,24 +133,24 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/remind-unanswered', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db;
-    const availability = await loadActionableEvening(db, req.params.id);
+    const availability = await loadActionableEvening(db, String(req.params.id));
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
-    const existing = await getTelegramDispatchJob(db, 'reminder', req.params.id);
+    const existing = await getTelegramDispatchJob(db, 'reminder', String(req.params.id));
     const campaignGeneration = existing
-      ? await getReminderCampaignGeneration(db, req.params.id)
-      : await beginReminderCampaign(db, req.params.id);
+      ? await getReminderCampaignGeneration(db, String(req.params.id))
+      : await beginReminderCampaign(db, String(req.params.id));
 
-    await enqueueTelegramReminder(db, req.params.id);
+    await enqueueTelegramReminder(db, String(req.params.id));
     const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
-    const queued = Boolean(await getTelegramDispatchJob(db, 'reminder', req.params.id));
-    const remaining = await loadReminderRecipients(db, req.params.id);
+    const queued = Boolean(await getTelegramDispatchJob(db, 'reminder', String(req.params.id)));
+    const remaining = await loadReminderRecipients(db, String(req.params.id));
     const sentInCampaign = campaignGeneration > 0
       ? await db.get<any>(
           `SELECT COUNT(*) AS count
              FROM evening_announcement_dm_tracking
             WHERE evening_id = ? AND last_reminder_campaign = ?`,
-          [req.params.id, campaignGeneration],
+          [String(req.params.id), campaignGeneration],
         )
       : null;
 

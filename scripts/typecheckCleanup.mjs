@@ -6,7 +6,7 @@ const changes = [
   ['src/components/crm/EveningGameRegistrationDashboard.tsx', "import React, { useEffect, useMemo, useState } from 'react';", "import { useEffect, useMemo, useState } from 'react';"],
   ['src/components/crm/EveningInviteAudienceManager.tsx', "import React, { useEffect, useMemo, useState } from 'react';", "import { useEffect, useMemo, useState } from 'react';"],
   ['src/components/crm/EveningRosterSlotEditor.tsx', "import React, { useEffect, useMemo, useState } from 'react';", "import { useEffect, useMemo, useState } from 'react';"],
-  ['src/components/crm/EveningSlotPlannerCard.tsx', "import React, { useEffect, useMemo, useState } from 'react';", "import { useEffect, useMemo, useState } from 'react';"],
+  ['src/components/crm/EveningSlotPlannerCard.tsx', "import React,{useEffect,useState} from 'react';", "import {useEffect,useState} from 'react';"],
   ['src/components/crm/OrganizerCommandCenter.tsx', '  Clock3, Gamepad2, MessageCircle, RefreshCw, UserCheck, Users,\n', '  Clock3, Gamepad2, MessageCircle, RefreshCw, UserCheck,\n'],
   ['src/components/player/PlayerWalletHub.tsx', 'export default function PlayerWalletHub({\n  data,\n  tokenBalance,', 'export default function PlayerWalletHub({\n  tokenBalance,'],
   ['src/db/mergeMillourtDuplicateMigration.ts', "const norm = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ru-RU');\n", ''],

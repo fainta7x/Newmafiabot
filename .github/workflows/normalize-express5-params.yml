@@ -1,0 +1,69 @@
+name: Normalize Express 5 scalar route params
+
+on:
+  push:
+    branches:
+      - deps/express-5-2-1-20260817
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+        with:
+          ref: deps/express-5-2-1-20260817
+          fetch-depth: 0
+
+      - name: Normalize scalar named params in TypeScript-reported files
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          files = [
+              'src/server/routes/eveningAnnouncementRoutes.ts',
+              'src/server/routes/eveningSlotRoutes.ts',
+              'src/server/routes/eveningsRoutes.ts',
+              'src/server/routes/eveningsRoutesBase.ts',
+              'src/server/routes/flexibleTournamentResultsRoutes.ts',
+              'src/server/routes/participantRoutesBase.ts',
+              'src/server/routes/playerTokensRoutes.ts',
+              'src/server/routes/playersRoutes.ts',
+              'src/server/routes/publicRoutesBase.ts',
+              'src/server/routes/ratingPeriodStandingsRoutes.ts',
+              'src/server/routes/tasksRoutes.ts',
+              'src/server/routes/tournamentAwardsRoutes.ts',
+              'src/server/routes/tournamentProtocolRoutes.ts',
+              'src/server/routes/tournamentTelegramRoutes.ts',
+              'src/server/routes/tournamentsRoutes.ts',
+              'src/server/routes/tournamentsRoutesBase.ts',
+          ]
+          pattern = re.compile(r'(?<!String\()req\.params\.([A-Za-z_][A-Za-z0-9_]*)')
+          total = 0
+          for filename in files:
+              path = Path(filename)
+              text = path.read_text()
+              if 'Array.isArray(req.params.' in text:
+                  raise SystemExit(f'Review array-aware param handling manually before codemod: {filename}')
+              updated, count = pattern.subn(r'String(req.params.\1)', text)
+              if count:
+                  path.write_text(updated)
+                  total += count
+                  print(f'{filename}: normalized {count} route param use(s)')
+          if total < 60:
+              raise SystemExit(f'Expected at least 60 scalar route-param normalizations, got {total}')
+          print(f'Total normalized route-param uses: {total}')
+          PY
+
+      - name: Commit normalization
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/server/routes
+          git commit -m "types: normalize Express 5 scalar route params"
+          git push origin HEAD:${GITHUB_REF_NAME}

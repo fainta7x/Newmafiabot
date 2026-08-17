@@ -7,6 +7,7 @@ import {
   requestBotEveningTelegramSync,
   requestBotPublicRouterSync,
 } from '../services/botTelegramSyncService.ts';
+import { checkTelegramRuntimeHealth } from '../services/telegramRuntimeHealthService.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
@@ -163,6 +164,15 @@ router.post('/:destinationId/test', async (req, res) => {
   if (!isTelegramDestinationId(destinationId)) return res.status(404).json({ error: 'Неизвестное Telegram-направление' });
   const result = await requestBotDestinationTest(destinationId);
   res.status(result.success ? 200 : result.status || 502).json(result.success ? result.data : { error: result.error, bot: result.data || null });
+});
+
+router.post('/actions/health', async (_req, res) => {
+  try {
+    const result = await checkTelegramRuntimeHealth();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось выполнить проверку Telegram' });
+  }
 });
 
 router.post('/actions/sync-public', async (_req, res) => {

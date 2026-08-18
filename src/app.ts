@@ -118,6 +118,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkJoinSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+  const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) startTelegramSyncOutboxWorker(db);
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
@@ -202,7 +203,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   if (isProduction) {
     app.use(express.static(distPath));
     app.get('/{*splat}', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
-  } else if (!isTest) {
+  } else if (!isTest || isBrowserE2E) {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   }

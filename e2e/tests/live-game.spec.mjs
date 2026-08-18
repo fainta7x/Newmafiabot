@@ -31,10 +31,9 @@ const expectHorizontallyInsideViewport = async (page, locator, label) => {
 };
 
 const attachViewport = async (page, testInfo, name) => {
-  await testInfo.attach(name, {
-    body: await page.screenshot({ fullPage: false }),
-    contentType: 'image/png',
-  });
+  const path = testInfo.outputPath(name);
+  await page.screenshot({ path, fullPage: false });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
 };
 
 const tableGrid = (page) => page
@@ -118,6 +117,7 @@ const fillBestMove = async (page, seats) => {
 };
 
 test.describe('Live Game browser stabilization', () => {
+  test.describe.configure({ retries: 0 });
   test.setTimeout(90_000);
 
   test('conducts a zero-round vote and a complete first-night cycle on mobile', async ({ page }, testInfo) => {
@@ -163,21 +163,25 @@ test.describe('Live Game browser stabilization', () => {
     await clickOptional(page.getByRole('button', { name: /Включить музыку ночи/ }));
     await page.getByRole('button', { name: 'Стрельба мафии', exact: true }).click();
     await seatCard(page, 1).click();
-    await expect(page.getByText('Выстрел: #1')).toBeVisible();
+    await expect(page.getByTestId('live-game-night-status')).toHaveText('Выстрел: #1');
+    await expect(seatCard(page, 1).getByText('Жертва', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Проверка Дона', exact: true }).click();
     await seatCard(page, 4).click();
-    await expect(page.getByText(/Дон проверил #4: Шериф/)).toBeVisible();
+    await expect(page.getByTestId('live-game-night-status')).toHaveText(/Дон проверил #4: Шериф/);
+    await expect(seatCard(page, 4).getByText('Дон', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
     await seatCard(page, 6).click();
-    await expect(page.getByText(/Шериф проверил #6: Мафия/)).toBeVisible();
+    await expect(page.getByTestId('live-game-night-status')).toHaveText(/Шериф проверил #6: Мафия/);
+    await expect(seatCard(page, 6).getByText('Шериф', { exact: true })).toBeVisible();
+    await attachViewport(page, testInfo, '04-night-checks.png');
     await clickOptional(page.getByRole('button', { name: /Выключить музыку/ }));
 
     await page.getByRole('button', { name: 'ЛХ первого убитого', exact: true }).click();
     await fillBestMove(page, [2, 6, 8]);
     await expectNoHorizontalOverflow(page, 'night best move');
-    await attachViewport(page, testInfo, '04-night.png');
+    await attachViewport(page, testInfo, '05-night-best-move.png');
 
     await page.getByRole('button', { name: 'Зафиксировать ночь', exact: true }).click();
     await expect(page.getByText('Прощальная речь #1')).toBeVisible();
@@ -185,12 +189,13 @@ test.describe('Live Game browser stabilization', () => {
 
     const deathProtocol = page.getByText('Протокол убитого', { exact: true }).locator('xpath=ancestor::div[contains(@class,"max-w-2xl")][1]');
     await expectHorizontallyInsideViewport(page, deathProtocol, 'death protocol');
-    await attachViewport(page, testInfo, '05-death-protocol.png');
+    await attachViewport(page, testInfo, '06-death-protocol.png');
     await page.getByRole('button', { name: 'Сохранить → день', exact: true }).click();
 
     await expect(page.getByText('☀️ День 2')).toBeVisible();
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page, 'day 2');
+    await attachViewport(page, testInfo, '07-day-2.png');
   });
 
   test('PPK confirmation ends the sandbox game and reaches the save boundary', async ({ page }, testInfo) => {
@@ -198,11 +203,14 @@ test.describe('Live Game browser stabilization', () => {
     await startSpeech(page, 1);
 
     const action = await openPlayerAction(page, 6);
-    await attachViewport(page, testInfo, '06-player-action.png');
-    await action.getByRole('button', { name: 'ППК', exact: true }).click();
+    await attachViewport(page, testInfo, '08-player-action.png');
+    const ppkButton = action.getByRole('button', { name: 'ППК', exact: true });
+    await expect(ppkButton).toBeVisible();
+    await ppkButton.click();
 
     const confirmation = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Зафиксировать ППК' }).first();
     await expectHorizontallyInsideViewport(page, confirmation.locator(':scope > div').first(), 'PPK confirmation');
+    await attachViewport(page, testInfo, '09-ppk-confirmation.png');
     await confirmation.getByRole('button', { name: 'Подтвердить ППК', exact: true }).click();
 
     await expect(page.getByTestId('e2e-live-game-result')).toHaveText('E2E LIVE GAME COMPLETED');

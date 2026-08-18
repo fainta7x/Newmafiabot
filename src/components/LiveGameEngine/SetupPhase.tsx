@@ -4,6 +4,7 @@ import ClubGameSetupPhase from './ClubGameSetupPhase.tsx';
 import GeneralSetupPhase from './GeneralSetupPhase.tsx';
 import SpeechRecordingPilot from './SpeechRecordingPilot.tsx';
 import { mountSpeechRecordingServerSync } from './SpeechRecordingServerSync.ts';
+import { getLiveGameSetupMode } from './setupMode.js';
 import type { ActivePlayerState } from './types.js';
 
 interface SetupPhaseProps {
@@ -21,7 +22,8 @@ interface SetupPhaseProps {
 }
 
 export default function SetupPhase(props: SetupPhaseProps) {
-  const isClubEveningEngine = props.players.some((player) => player.notes === '__club_evening_engine_judge__');
+  const setupMode = getLiveGameSetupMode(props.players);
+  const isClubEveningEngine = setupMode === 'club';
 
   useEffect(() => {
     if (!isClubEveningEngine) return undefined;

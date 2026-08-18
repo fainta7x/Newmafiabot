@@ -238,8 +238,26 @@
 .live-judge-hud__header-actions { display:flex; gap:4px; align-items:center; }
 .live-judge-hud__header-button { min-height:24px; padding:0 6px; border-radius:7px; border:1px solid var(--live-line); background:rgba(255,255,255,.03); color:var(--live-text-2); font-size:8px; font-weight:850; display:inline-flex; align-items:center; gap:3px; }
 .live-judge-hud__header-button svg { width:12px; height:12px; }
-.live-judge-hud__body { min-height:0; padding:7px 8px; display:flex; align-items:center; justify-content:center; overflow-x:hidden; overflow-y:auto; }
-.live-judge-hud__stack { width:100%; min-width:0; display:flex; flex-direction:column; gap:5px; }
+.live-judge-hud__body {
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  min-height:0;
+  box-sizing:border-box;
+  padding:7px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+.live-judge-hud__body > * {
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.live-judge-hud__stack { width:100%; max-width:100%; min-width:0; box-sizing:border-box; display:flex; flex-direction:column; gap:5px; }
 .live-judge-hud__eyebrow { color:var(--live-muted); font-size:7.5px; line-height:1.15; font-weight:900; text-transform:uppercase; letter-spacing:.06em; overflow-wrap:anywhere; }
 .live-judge-hud__title { color:var(--live-text); font-size:13px; line-height:1.08; font-weight:950; letter-spacing:-.02em; overflow-wrap:anywhere; }
 .live-judge-hud__title strong { color:#fb7185; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
@@ -285,17 +303,19 @@
 
 .live-judge-table-voters {
   width:100%;
+  max-width:100%;
   min-width:0;
+  box-sizing:border-box;
   display:grid;
-  grid-template-columns:repeat(5,calc((100% - 12px)/5));
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
   gap:3px;
   overflow:hidden;
 }
 .live-judge-table-voter {
   box-sizing:border-box;
-  min-width:0;
-  max-width:100%;
-  width:100%;
+  min-width:0!important;
+  max-width:100%!important;
+  width:100%!important;
   height:27px;
   padding:0;
   border-radius:7px;
@@ -303,6 +323,7 @@
   background:rgba(255,255,255,.025);
   color:var(--live-text-2);
   font:950 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow:hidden;
 }
 .live-judge-table-voter--selected { color:#fde68a; border-color:rgba(232,185,94,.50); background:rgba(232,185,94,.12); }
 .live-judge-table-decision-count { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; align-items:center; padding:5px 6px; border-radius:8px; border:1px solid var(--live-line); background:rgba(255,255,255,.025); }

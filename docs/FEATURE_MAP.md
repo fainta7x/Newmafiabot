@@ -19,7 +19,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - API: `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
 ## Rating / Elo
-- UI: `src/components/player/PlayerRatingHub.tsx`.
+- UI routing: `src/components/player/PlayerRatingHub.tsx`; current table fetch/render: `src/components/player/PlayerRatingTable.tsx`.
 - API: `ratingRoutes.ts`, `ratingPeriodRoutes.ts`, `ratingPeriodStandingsRoutes.ts`, `eloSeedAdminRoutes.ts` under `src/server/routes/`.
 - Formula work: `npm run project:find -- "elo expected rating"` before changing UI output.
 

@@ -7,19 +7,7 @@ import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDi
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./releasePolish.css";
-import "./components/crm/eveningLiveMobilePolish.css";
-import "./components/crm/eveningLiveResponsiveSafe.css";
-import "./components/crm/eveningLiveResponsiveRefine.css";
-import "./components/crm/eveningLiveTableDecisionFix.css";
-import "./components/crm/eveningLivePlayerStatePolish.css";
-import "./components/crm/liveGameVisualV2.css";
-import "./components/crm/liveGameRoleGlyphsV2.css";
-import "./components/crm/liveGameControlsPolishV3.css";
-import "./components/crm/liveGameDisciplineGlyphsV4.css";
-import "./components/crm/liveGameActionGroupsV5.css";
-import "./components/crm/liveGameMobileGeometryV6.css";
-import "./components/crm/liveGameJudgeConsoleV7.css";
-import "./components/crm/liveGameJudgeWorkflow.css";
+import "./components/crm/liveGameJudge.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

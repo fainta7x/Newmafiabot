@@ -139,4 +139,19 @@
     height: 34px !important;
     min-height: 34px !important;
   }
+
+  /* Mobile toasts used to cover the notes/event workspace at the bottom of the
+     screen. Keep them transient and visible, but park them directly under the app
+     header instead of on top of the judge's working area. Desktop keeps the original
+     bottom-right placement from the component. */
+  html body .evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
+    top: 2.55rem !important;
+    bottom: auto !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
+    text-align: center !important;
+    pointer-events: none !important;
+  }
 }

@@ -18,6 +18,7 @@ type LiveVisualDiscipline = {
   fouls: number;
   minorTech: number;
   majorTech: number;
+  alive: boolean;
 };
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
@@ -166,385 +167,6 @@ const seatPlacement: Record<number, React.CSSProperties> = {
   4: { gridColumn: 4, gridRow: 3 },
 };
 
-const MobileLiveGameStyles = () => (
-  <style>{`
-    @media (max-width: 767px) {
-      .evening-live-engine-shell {
-        position: relative;
-        height: calc(100dvh - 34px);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      .evening-live-engine-shell > div {
-        max-width: none !important;
-        padding: 2px !important;
-        padding-bottom: 16px !important;
-      }
-
-      .evening-live-engine-shell > div > div.space-y-4,
-      .evening-live-engine-shell > div > div.space-y-6 {
-        gap: 3px !important;
-      }
-
-      .evening-live-engine-shell > div > div.space-y-4 > div:first-child {
-        display: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
-        height: clamp(500px, calc(100dvh - 44px), 610px) !important;
-        min-height: 500px !important;
-        max-height: 610px !important;
-        gap: 4px !important;
-        padding: 0 !important;
-        align-items: stretch !important;
-        width: 100% !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 1; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 2; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 3; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 4; grid-row: 1; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 1; grid-row: 2; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) { grid-column: 2 / span 2; grid-row: 2; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 4; grid-row: 2; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 1; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 2; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 3; grid-row: 3; }
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4; grid-row: 3; }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
-        width: 100% !important;
-        min-width: 0 !important;
-        height: 100% !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        padding: 4px 2px 0 !important;
-        border-radius: 11px !important;
-        transform: none !important;
-        overflow: hidden !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"][class*="inset-x-1.5"],
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div.flex-1 {
-        display: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] {
-        min-height: 42px !important;
-        height: 42px !important;
-        padding: 4px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) div[class*="min-h-[36px]"] > div:first-child > div[class*="flex-col"] {
-        display: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) button[title*="заметку"] {
-        display: none !important;
-      }
-      .evening-live-roles-hidden .evening-live-engine-shell [title="Красный"],
-      .evening-live-roles-hidden .evening-live-engine-shell [title="Дон"],
-      .evening-live-roles-hidden .evening-live-engine-shell [title="Мафия"],
-      .evening-live-roles-hidden .evening-live-engine-shell [title="Шериф"] {
-        opacity: 0 !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        position: relative !important;
-        top: auto !important;
-        z-index: 20 !important;
-        padding: 4px !important;
-        border-radius: 11px !important;
-        overflow: hidden !important;
-        display: grid !important;
-        grid-template-rows: 20px minmax(0, 1fr) 42px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
-        min-height: 0 !important;
-        height: 20px !important;
-        padding: 0 2px 1px !important;
-        overflow: hidden !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button:has(svg[class*="lucide-log-out"]) {
-        display: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
-        min-height: 0 !important;
-        height: 100% !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div {
-        width: 100% !important;
-        max-width: none !important;
-        margin: 0 !important;
-        padding: 0 2px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(span[class*="tracking-widest"]) {
-        height: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: stretch !important;
-        justify-content: center !important;
-        gap: 2px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(span[class*="tracking-widest"]) > * {
-        margin: 0 !important;
-        flex-shrink: 0 !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) span[class*="tracking-widest"] {
-        font-size: 8px !important;
-        line-height: 9px !important;
-        min-height: 9px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="text-xs"][class*="font-black"] {
-        font-size: 9px !important;
-        line-height: 10px !important;
-        min-height: 10px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"] {
-        font-size: 23px !important;
-        line-height: 26px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        padding: 0 !important;
-        border-radius: 8px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="h-1.5"] {
-        height: 2px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="flex"][class*="gap-1.5"]:has(button[class*="h-9"]) {
-        display: grid !important;
-        grid-template-columns: 38px minmax(54px, 1fr) 38px 38px !important;
-        gap: 4px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"] {
-        width: auto !important;
-        height: 34px !important;
-        min-height: 34px !important;
-        border-radius: 9px !important;
-        padding: 0 !important;
-        font-size: 0 !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"]:first-child {
-        font-size: 11px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) button[class*="h-9"] svg {
-        width: 17px !important;
-        height: 17px !important;
-        margin: 0 !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 button:not([class*="h-9"]) {
-        min-height: 28px !important;
-        padding-top: 3px !important;
-        padding-bottom: 3px !important;
-        line-height: 11px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
-        min-height: 0 !important;
-        height: 42px !important;
-        padding-top: 3px !important;
-        overflow: hidden !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div[class*="grid-cols-12"] {
-        min-height: 36px !important;
-        height: 36px !important;
-        gap: 4px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child button {
-        min-height: 36px !important;
-        height: 36px !important;
-        padding: 2px 5px !important;
-        font-size: 9px !important;
-        line-height: 11px !important;
-      }
-
-      .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) * {
-        scrollbar-width: none !important;
-      }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-      }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button {
-        min-height: 58px !important;
-        height: 58px !important;
-        padding: 0 !important;
-        border-radius: 14px !important;
-        font-size: 0 !important;
-        line-height: 1 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        position: relative !important;
-        user-select: none !important;
-        touch-action: manipulation !important;
-      }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button::before {
-        font-size: 27px !important;
-        line-height: 1 !important;
-        font-weight: 900 !important;
-      }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(5) { order: 1; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(1) { order: 2; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(2) { order: 3; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(3) { order: 4; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(4) { order: 5; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(6) { order: 6; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7) { order: 7; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8) { order: 8; }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(5)::before { content: "👍"; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(1)::before { content: "✓+"; color: rgb(251, 191, 36); }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(2)::before { content: "✓−"; color: rgb(203, 213, 225); }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(3)::before { content: "!"; color: rgb(250, 204, 21); font-size: 34px !important; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(4)::before { content: "!"; color: rgb(248, 113, 113); font-size: 34px !important; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(6)::before { content: "🚪"; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(7)::before { content: "🏳️"; }
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button:nth-child(8)::before { content: "🗒️"; }
-
-      .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] div[class*="text-[10px]"][class*="text-slate-400"][class*="mt-0.5"] {
-        display: inline-flex !important;
-        margin-top: 5px !important;
-        padding: 4px 7px !important;
-        border-radius: 8px !important;
-        border: 1px solid rgb(51 65 85) !important;
-        background: rgb(2 6 23 / 0.75) !important;
-        color: rgb(226 232 240) !important;
-        font-size: 11px !important;
-        line-height: 13px !important;
-        font-weight: 800 !important;
-      }
-
-      .evening-live-identity-layer {
-        position: absolute;
-        z-index: 16;
-        top: 2px;
-        left: 2px;
-        right: 2px;
-        height: clamp(500px, calc(100dvh - 44px), 610px);
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        grid-template-rows: repeat(3, minmax(0, 1fr));
-        gap: 4px;
-        pointer-events: none;
-      }
-
-      .evening-live-identity {
-        min-width: 0;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        padding: 18px 4px 43px;
-        overflow: hidden;
-      }
-
-      .evening-live-player-avatar {
-        width: clamp(42px, 12vw, 56px) !important;
-        height: clamp(42px, 12vw, 56px) !important;
-        border-width: 2px !important;
-        border-color: rgba(100, 116, 139, 0.75) !important;
-        background: rgba(15, 23, 42, 0.96) !important;
-        color: rgb(226, 232, 240) !important;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
-      }
-
-      .evening-live-identity-name {
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        border-radius: 6px;
-        background: rgba(2, 6, 23, 0.82);
-        border: 1px solid rgba(51, 65, 85, 0.7);
-        padding: 2px 5px;
-        color: rgb(241, 245, 249);
-        font-size: 9px;
-        line-height: 11px;
-        font-weight: 900;
-        text-align: center;
-      }
-
-      .evening-live-discipline {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 2px;
-        max-width: 100%;
-      }
-
-      .evening-live-discipline > span {
-        min-width: 22px;
-        height: 17px;
-        padding: 0 3px;
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(2, 6, 23, 0.9);
-        border: 1px solid rgba(71, 85, 105, 0.9);
-        font-size: 8px;
-        line-height: 1;
-        font-weight: 900;
-      }
-
-      .evening-live-discipline-foul { color: rgb(251, 191, 36); }
-      .evening-live-discipline-minor { color: rgb(250, 204, 21); }
-      .evening-live-discipline-major { color: rgb(248, 113, 113); }
-
-      .evening-live-engine-shell > div > div.space-y-4 > :last-child {
-        margin-top: 8px !important;
-      }
-
-      .evening-live-mobile-title-secondary { display: none !important; }
-    }
-
-    @media (min-width: 768px) {
-      .evening-live-identity-layer { display: none !important; }
-    }
-  `}</style>
-);
-
 export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game, onClose, onUpdated }) => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(() =>
@@ -607,6 +229,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             fouls: Number(player?.fouls || 0),
             minorTech: Number(player?.minor_tech_fouls || 0),
             majorTech: Number(player?.major_tech_fouls || 0),
+            alive: player?.alive !== false,
           };
         }
         const signature = JSON.stringify(next);
@@ -648,8 +271,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
   return (
     <div className={`fixed inset-0 z-[95] bg-slate-950 overflow-hidden ${rolesHidden ? 'evening-live-roles-hidden' : ''}`}>
-      <MobileLiveGameStyles />
-
       <div className="h-[34px] md:h-12 sticky top-0 z-[110] bg-slate-950/95 backdrop-blur border-b border-slate-800 px-2 md:px-3 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <div className="text-[11px] md:text-xs font-black text-white truncate">Игра #{game.global_game_number}</div>
@@ -738,8 +359,15 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               const fouls = current?.fouls ?? Number((player as any).regular_fouls || 0);
               const minorTech = current?.minorTech ?? Number((player as any).minor_technical_fouls || 0);
               const majorTech = current?.majorTech ?? Number((player as any).major_technical_fouls || 0);
+              const alive = current?.alive ?? true;
               return (
-                <div key={player.seat_number} className="evening-live-identity" style={seatPlacement[player.seat_number]}>
+                <div
+                  key={player.seat_number}
+                  className="evening-live-identity"
+                  style={seatPlacement[player.seat_number]}
+                  data-seat={player.seat_number}
+                  data-alive={alive ? 'true' : 'false'}
+                >
                   <PlayerAvatar
                     playerId={player.player_id}
                     nickname={player.display_name}

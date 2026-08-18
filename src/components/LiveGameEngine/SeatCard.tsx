@@ -1,7 +1,7 @@
 import React from "react";
-import { Crosshair, Mic, User, Skull, Star, Heart, X, Gavel } from "lucide-react";
+import { Heart, ListPlus, Skull, Star } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
-import { PistolIcon, MafiaHatIcon } from "./Icons.js";
+import { MafiaHatIcon, PistolIcon } from "./Icons.js";
 import { canToggleVoteAssignment } from "../../lib/liveVoting.js";
 import {
   buildSeatVoteStatusPresentation,
@@ -53,78 +53,62 @@ interface SeatCardProps {
   bothLeaveVotes?: number[];
 }
 
-export default function SeatCard({
-  slotNum,
-  activePlayers,
-  setActivePlayers,
-  activeSpeakerSlot,
-  setActiveSpeakerSlot,
-  nominations,
-  phase,
-  postNightStage = "none",
-  shotPlayerSlot,
-  donCheckSlot,
-  sheriffCheckSlot,
-  bestMoveGuesses,
-  hideBestMoveGlow,
-  nominationsMap,
-  setNominationsMap,
-  showToast,
-  playBeep,
-  votes,
-  handleAllocateVotes,
-  showRolesOnTable,
-  shootoutNominees,
-  isTimerRunning: _isTimerRunning,
-  setIsTimerRunning,
-  timeLeft,
-  handleStartTimer,
-  handleNominateCandidate,
-  handleSeatClick,
-  handleFoulChange,
-  onRequestDirectRemoval,
-  markPlayerSpoken,
-  setBestMovePlayerSlot,
-  setBestMoveGuesses,
-  nightSubPhase,
-  roundNumber,
-  getSeatColor,
-  votesByPlayer,
-  currentVotingNomineeIndex = 0,
-  isInteractiveVoting = false,
-  votingSubPhase = "voting_intro",
-  shootoutSubPhase = "shootout_intro",
-  bothLeaveVotes = [],
-}: SeatCardProps) {
-  const p = activePlayers.find((pl) => pl.slot_num === slotNum);
-  if (!p) return null;
+const getExitLabel = (player: ActivePlayerState): string => {
+  if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'Заголосован';
+  if (player.removal_reason || player.kick) return 'Удалён';
+  return 'Убит';
+};
+
+export default function SeatCard(props: SeatCardProps) {
+  const {
+    slotNum,
+    activePlayers,
+    activeSpeakerSlot,
+    nominations,
+    phase,
+    postNightStage = "none",
+    shotPlayerSlot,
+    donCheckSlot,
+    sheriffCheckSlot,
+    bestMoveGuesses,
+    hideBestMoveGlow,
+    showToast,
+    votes,
+    showRolesOnTable,
+    shootoutNominees,
+    timeLeft,
+    handleNominateCandidate,
+    handleSeatClick,
+    handleFoulChange,
+    nightSubPhase,
+    roundNumber,
+    votesByPlayer,
+    currentVotingNomineeIndex = 0,
+    isInteractiveVoting = false,
+    votingSubPhase = "setup",
+    shootoutSubPhase = "disabled",
+    bothLeaveVotes = [],
+  } = props;
+
+  const player = activePlayers.find((item) => item.slot_num === slotNum);
+  if (!player) return null;
 
   const isSpeaking = activeSpeakerSlot === slotNum;
   const isNominated = nominations.includes(slotNum);
-  const hasSpoken = p.has_spoken_this_round;
   const activeVoteNominee = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : undefined;
-  const showFarewellFouls = !p.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
-
   const isNightShot = phase === "night" && shotPlayerSlot === slotNum;
   const isNightDon = phase === "night" && donCheckSlot === slotNum;
   const isNightSheriff = phase === "night" && sheriffCheckSlot === slotNum;
+  const showFarewellFouls = !player.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
 
-  const firstNightVictim = activePlayers.find(
-    (pl) => pl.best_move_guesses && pl.best_move_guesses.length > 0
+  const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
+  const isChosenInBestMove = !hideBestMoveGlow && (
+    (phase === "night" && nightSubPhase === "best_move" && bestMoveGuesses.includes(slotNum)) ||
+    (firstNightVictim?.best_move_guesses?.includes(slotNum) && (phase === "night" || (phase === "day_speeches" && activeSpeakerSlot === null)))
   );
-  const isChosenInBestMove =
-    !hideBestMoveGlow &&
-    ((phase === "night" && nightSubPhase === "best_move" && bestMoveGuesses.includes(slotNum)) ||
-      (firstNightVictim &&
-        firstNightVictim.best_move_guesses?.includes(slotNum) &&
-        (phase === "night" || (phase === "day_speeches" && activeSpeakerSlot === null))));
-  const bestMoveIndex =
-    phase === "night" && nightSubPhase === "best_move"
-      ? bestMoveGuesses.indexOf(slotNum)
-      : firstNightVictim?.best_move_guesses?.indexOf(slotNum) ?? -1;
 
   const containerBorder = resolveSeatContainerClass({
-    alive: p.alive,
+    alive: player.alive,
     phase,
     slotNum,
     nominations,
@@ -151,564 +135,133 @@ export default function SeatCard({
     handleSeatClick(slotNum);
   };
 
+  const renderVoteState = () => {
+    if (!isInteractiveVoting || activeVoteNominee === undefined) return null;
+    const lastNominee = nominations[nominations.length - 1];
+    const presentation = buildSeatVoteStatusPresentation({
+      slotNum,
+      activeNomineeSlot: activeVoteNominee,
+      lastNomineeSlot: lastNominee,
+      votesByPlayer,
+    });
+    const active = presentation.statusText.includes('Голос') || presentation.statusText.includes('Автомат');
+    const done = presentation.statusText.includes('Против');
+    return (
+      <div title={presentation.title}>
+        <div className="live-seat-state__label">Голос</div>
+        <div className={`live-seat-state__value ${active ? 'live-seat-state__value--active' : done ? 'live-seat-state__value--done' : ''}`}>{presentation.statusText}</div>
+      </div>
+    );
+  };
+
+  const renderDayState = () => {
+    if (isSpeaking) {
+      return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
+    }
+    if (isNominated) return <div><div className="live-seat-state__value live-seat-state__value--active">Выставлен</div></div>;
+    if (player.has_foul_penalty || player.fouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
+    if (player.has_spoken_this_round) return <div><div className="live-seat-state__value live-seat-state__value--done">Речь ✓</div></div>;
+    return null;
+  };
+
+  const renderShootoutState = () => {
+    if (phase !== "shootout") return null;
+    if (shootoutNominees.includes(slotNum)) {
+      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning">#{slotNum}</div></div>;
+    }
+    return null;
+  };
+
   return (
     <div
       onClick={handleCardClick}
-      className={`relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] pt-7 pb-1 px-1 rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-md md:shadow-lg self-center w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
+      data-seat={slotNum}
+      className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && isInteractiveVoting ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
-      {p.alive ? (
-        <>
-          <div className="absolute top-1.5 inset-x-1.5 z-20 flex justify-between items-center pointer-events-auto">
-            {phase === "day_speeches" ? (
+      {player.alive && phase === "day_speeches" && (
+        <div className="live-seat-quickbar">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleNominateCandidate(slotNum);
+            }}
+            className={`live-seat-quick-action live-seat-quick-action--nomination ${isNominated ? 'live-seat-quick-action--nomination-active' : ''}`}
+            title={isNominated ? "Снять выставление" : "Выставить"}
+            aria-label={isNominated ? `Снять выставление #${slotNum}` : `Выставить #${slotNum}`}
+          >
+            <ListPlus /><span>{isNominated ? 'Снять' : 'Выставить'}</span>
+          </button>
+          <div className="live-seat-quickbar__group">
+            {player.fouls > 0 && (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNominateCandidate(slotNum);
-                }}
-                className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-md ${
-                  isNominated
-                    ? "bg-rose-600 text-white border border-rose-400"
-                    : "bg-slate-950/80 hover:bg-slate-900 text-slate-300 border border-slate-700/60"
-                }`}
-                title={isNominated ? "Снять с голосования" : "Выставить на голосование"}
-              >
-                <Crosshair className={`w-3 h-3 ${isNominated ? "text-white" : "text-rose-400"}`} />
-                <span>{isNominated ? "Выставлен" : "Выставить"}</span>
-              </button>
-            ) : phase === "shootout" && shootoutSubPhase === "shootout_both_results" && bothLeaveVotes.includes(slotNum) ? (
-              <div className="bg-rose-950/95 text-rose-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-rose-500/50 shadow-lg animate-pulse">
-                <span>✋ ЗА УДАЛЕНИЕ</span>
-              </div>
-            ) : phase === "shootout" && shootoutNominees.includes(slotNum) ? (
-              <div className="bg-amber-950/95 text-amber-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-amber-500/50 shadow-lg animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span>🛑 В перестрелке</span>
-              </div>
-            ) : isNominated ? (
-              <div className="bg-rose-950/95 text-rose-200 px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wider flex items-center gap-1 uppercase border border-rose-500/35 shadow-lg animate-pulse">
-                <Crosshair className="w-3 h-3 text-rose-500" />
-                <span>Выставлен</span>
-              </div>
-            ) : <div />}
-
-            <div className="flex items-center gap-0.5">
-              {p.fouls > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFoulChange(slotNum, "down");
-                  }}
-                  className="bg-slate-950/90 hover:bg-slate-800 text-slate-300 border border-slate-800 w-4 h-4 rounded text-[9px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all"
-                  title="Снять фол (-1)"
-                >
-                  -
-                </button>
-              )}
-              <div
-                className={`px-1 py-0.5 rounded text-[9px] font-black flex items-center border shadow-md ${
-                  p.fouls >= 3
-                    ? "bg-rose-950 text-rose-300 border-rose-500/80 animate-pulse"
-                    : p.fouls > 0
-                    ? "bg-slate-950 text-amber-400 border-amber-500/50"
-                    : "bg-slate-950/80 text-slate-500 border-slate-800"
-                }`}
-              >
-                <span>{p.fouls}Ф</span>
-              </div>
-              {p.fouls < 4 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFoulChange(slotNum, "up");
-                  }}
-                  className="bg-slate-950/90 hover:bg-rose-950 text-rose-400 hover:text-rose-300 border border-slate-800 hover:border-rose-600/60 px-1 py-0.5 rounded text-[8px] font-black uppercase transition-all cursor-pointer shadow flex items-center gap-0.5 active:scale-95"
-                  title="Добавить фол (+1)"
-                >
-                  <span>+Ф</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRequestDirectRemoval(slotNum);
-                }}
-                className="bg-slate-950/90 hover:bg-rose-900 text-rose-400 hover:text-white border border-slate-800 hover:border-rose-600/60 w-4 h-4 rounded text-[8px] font-black flex items-center justify-center cursor-pointer shadow active:scale-95 transition-all ml-0.5"
-                title="Дисквалификация / Удалить из игры"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {isSpeaking && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-amber-500/10 pointer-events-none rounded-2xl z-0">
-              <Mic className="w-5 h-5 text-amber-400 animate-bounce mb-0.5" />
-              <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Идет речь...</span>
-            </div>
-          )}
-
-          <div className="flex-1 flex flex-col items-center justify-center p-1.5">
-            {phase === "day_voting" ? (
-              isInteractiveVoting ? (
-                (() => {
-                  const activeNomineeSlot = nominations[currentVotingNomineeIndex];
-                  const lastNominee = nominations[nominations.length - 1];
-                  const { statusColor, statusBg, statusText, title } = buildSeatVoteStatusPresentation({
-                    slotNum,
-                    activeNomineeSlot,
-                    lastNomineeSlot: lastNominee,
-                    votesByPlayer,
-                  });
-
-                  return (
-                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`} title={title}>
-                      <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Голосование</span>
-                      <span className={`text-[9px] sm:text-xs font-black block tracking-normal leading-none whitespace-nowrap ${statusColor}`}>
-                        {statusText}
-                      </span>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="text-center space-y-1 bg-slate-950/40 p-2 rounded-xl border border-slate-900 w-full max-w-[95%] mx-auto">
-                  <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Голосование</span>
-                  {isNominated ? (
-                    <div className="text-center">
-                      <span className="text-[8px] text-slate-500 block">Получил:</span>
-                      <span className="text-xs sm:text-sm font-black text-rose-400 font-mono">{votes[slotNum] || 0} гол.</span>
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-slate-500 italic block">Не выставлен</span>
-                  )}
-                </div>
-              )
-            ) : phase === "shootout" ? (
-              (() => {
-                if (shootoutSubPhase === "shootout_revote_active") {
-                  const activeNomineeSlot = shootoutNominees[currentVotingNomineeIndex];
-                  const lastNominee = shootoutNominees[shootoutNominees.length - 1];
-                  const hasVotedOther =
-                    votesByPlayer && votesByPlayer[slotNum] !== undefined && votesByPlayer[slotNum] !== activeNomineeSlot;
-                  const isVotingThis = votesByPlayer && (votesByPlayer[slotNum] === activeNomineeSlot ||
-                    (activeNomineeSlot === lastNominee && votesByPlayer[slotNum] === undefined));
-
-                  let statusColor = "text-slate-400";
-                  let statusText = "Не голосовал";
-                  let statusBg = "bg-slate-950/40";
-
-                  if (hasVotedOther) {
-                    const otherNominee = votesByPlayer[slotNum];
-                    statusColor = "text-slate-500";
-                    statusText = `Против #${otherNominee}`;
-                    statusBg = "bg-slate-950/60";
-                  } else if (isVotingThis) {
-                    statusColor = "text-amber-400 font-black";
-                    statusText = activeNomineeSlot === lastNominee && votesByPlayer[slotNum] === undefined ? "✋ Автомат" : "✋ Голосует";
-                    statusBg = "bg-amber-950/20 border border-amber-500/25";
-                  }
-
-                  return (
-                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`}>
-                      <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Перестрелка</span>
-                      <span className={`text-[10px] sm:text-xs font-black block uppercase tracking-wide leading-none ${statusColor}`}>{statusText}</span>
-                    </div>
-                  );
-                } else if (shootoutSubPhase === "shootout_revote_results" || shootoutSubPhase === "shootout_both_results") {
-                  const votedYes = bothLeaveVotes.includes(slotNum);
-                  const isTiedCandidate = shootoutNominees.includes(slotNum);
-                  if (shootoutSubPhase === "shootout_both_results") {
-                    return (
-                      <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${votedYes ? "bg-rose-900/20 border border-rose-500/25" : "bg-slate-950/40"}`}>
-                        <span className="text-[8px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Удалить обоих?</span>
-                        <span className={`text-[10px] sm:text-xs font-black block uppercase tracking-wide leading-none ${votedYes ? "text-rose-400" : "text-slate-500"}`}>
-                          {votedYes ? "✋ ЗА УДАЛЕНИЕ" : "Пас"}
-                        </span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="text-center space-y-1 bg-slate-950/40 p-2 rounded-xl border border-slate-900 w-full max-w-[95%] mx-auto">
-                      <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Результат</span>
-                      {isTiedCandidate ? (
-                        <div className="text-center">
-                          <span className="text-[8px] text-slate-500 block">Получил:</span>
-                          <span className="text-xs sm:text-sm font-black text-amber-400 font-mono">{votes[slotNum] || 0} гол.</span>
-                        </div>
-                      ) : (
-                        <span className="text-[9px] text-slate-500 italic block">Не в ничьей</span>
-                      )}
-                    </div>
-                  );
-                } else {
-                  const isTiedCandidate = shootoutNominees.includes(slotNum);
-                  if (isTiedCandidate) {
-                    return (
-                      <div className="text-center space-y-1 p-2 rounded-xl bg-amber-950/30 border border-amber-500/40 w-full max-w-[95%] mx-auto">
-                        <span className="text-[9px] text-amber-400 font-bold uppercase block tracking-wider leading-none">🛑 В перестрелке</span>
-                        {isSpeaking ? (
-                          <span className="text-[10px] sm:text-xs font-black text-amber-300 block uppercase animate-pulse">🎙️ Речь ({timeLeft}с)</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartTimer(slotNum, 30);
-                            }}
-                            className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase rounded-lg shadow transition-all cursor-pointer block w-full mt-1"
-                          >
-                            🎙️ Речь 30с
-                          </button>
-                        )}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="text-center space-y-1 bg-slate-950/40 p-2 rounded-xl border border-slate-900 w-full max-w-[95%] mx-auto">
-                      <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Автокатастрофа</span>
-                      <span className="text-[10px] sm:text-xs font-medium text-slate-500 block uppercase tracking-wide leading-none">Не в перестрелке</span>
-                    </div>
-                  );
-                }
-              })()
-            ) : isNightShot && roundNumber === 1 ? (
-              <div className="text-center space-y-1 bg-slate-950/65 p-2 rounded-xl border border-amber-500/35 max-w-[95%] mx-auto shadow-md">
-                <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider block">Выбор ЛХ:</span>
-                {bestMoveGuesses.length > 0 ? (
-                  <div className="flex justify-center gap-1 mt-1">
-                    {bestMoveGuesses.map((gNum) => (
-                      <div key={gNum} className={`w-5 h-5 rounded-lg font-mono font-black text-xs flex items-center justify-center border shadow-inner ${getSeatColor(gNum)}`}>
-                        {gNum}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-[8px] text-slate-500 italic block mt-0.5">Кликните 3 номера на столе</span>
-                )}
-              </div>
-            ) : (
-              !isSpeaking && !isNominated && (
-                <div className="text-center space-y-0.5">
-                  <User className="w-4 h-4 text-slate-500 mx-auto opacity-75" />
-                  <span className="text-[10px] sm:text-xs text-slate-400 font-mono font-bold block">
-                    {p.mute_this_round
-                      ? "🔇 Молчит"
-                      : p.has_foul_penalty || p.fouls === 3
-                      ? "⚠️ 3 фола (30с)"
-                      : hasSpoken
-                      ? "Выступил ✓"
-                      : "Ожидает речи"}
-                  </span>
-                </div>
-              )
+                onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "down"); }}
+                className="live-seat-quick-action live-seat-quick-action--remove-foul"
+                title="Снять обычный фол"
+              >−Ф</button>
             )}
-          </div>
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-[#160a0f] flex flex-col justify-between p-2.5 text-center">
-          {showFarewellFouls && (
-            <div className="absolute right-2 top-2 z-30 flex items-center gap-1 rounded-xl border border-amber-500/40 bg-slate-950/95 p-1 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            {player.fouls < 4 && (
               <button
                 type="button"
-                disabled={p.fouls <= 0}
-                onClick={() => handleFoulChange(slotNum, "down")}
-                className="h-7 w-7 rounded-lg border border-slate-700 bg-slate-900 text-sm font-black text-slate-200 disabled:opacity-30"
-                title="Снять фол"
-              >
-                −
-              </button>
-              <span className={`min-w-9 rounded-lg border px-1.5 py-1 text-[10px] font-black ${p.fouls >= 3 ? 'border-rose-500/70 bg-rose-950 text-rose-300' : 'border-amber-500/40 bg-amber-950/40 text-amber-200'}`}>
-                {p.fouls}Ф
-              </span>
-              <button
-                type="button"
-                disabled={p.fouls >= 4}
-                onClick={() => handleFoulChange(slotNum, "up")}
-                className="h-7 min-w-8 rounded-lg border border-rose-700 bg-rose-950/70 px-1 text-[10px] font-black text-rose-200 disabled:opacity-30"
-                title="Добавить фол"
-              >
-                +Ф
-              </button>
-            </div>
-          )}
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <span className="text-[9px] sm:text-[10px] font-mono font-bold text-rose-400/50 uppercase tracking-widest leading-none mb-1.5">
-              {p.eliminated_phase || "Игра"}
-            </span>
-            <div className="py-1 px-3 bg-rose-950/40 border border-rose-800/40 rounded-xl inline-flex items-center justify-center gap-1.5 shadow-md">
-              <Skull className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-              <span className="text-[10px] sm:text-xs font-black text-rose-200 uppercase tracking-wider">Убит</span>
-            </div>
-
-            {p.best_move_guesses && p.best_move_guesses.length > 0 && (
-              <div className="flex items-center justify-center gap-1 mt-2.5 bg-slate-950/50 px-2 py-1 rounded-xl border border-rose-900/30">
-                <span className="text-[9px] sm:text-xs font-bold text-rose-400/75 mr-1 font-mono">ЛХ:</span>
-                <div className="flex gap-1">
-                  {p.best_move_guesses.map((gNum) => (
-                    <div key={gNum} className={`w-5.5 h-5.5 rounded-lg font-mono font-black text-xs flex items-center justify-center border shadow-inner ${getSeatColor(gNum)}`}>
-                      {gNum}
-                    </div>
-                  ))}
-                </div>
-              </div>
+                onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "up"); }}
+                className="live-seat-quick-action live-seat-quick-action--foul"
+                title="Добавить обычный фол"
+              >+Ф</button>
             )}
           </div>
         </div>
       )}
 
-      {phase === "night" && (
-        <div className="absolute top-2.5 inset-x-2.5 flex flex-col gap-1 z-10">
-          {isNightShot && (
-            <span className="text-[9px] sm:text-[10px] bg-rose-900/95 border border-rose-500/50 text-rose-300 px-2 py-1 rounded-lg font-bold uppercase flex items-center justify-center gap-1.5 animate-pulse shadow-lg">
-              <PistolIcon className="w-3.5 h-3.5 text-rose-500" /><span>Жертва</span>
-            </span>
-          )}
-          {isNightDon && (
-            <span className="text-[9px] sm:text-[10px] bg-purple-950/95 border border-purple-500/50 text-purple-300 px-2 py-1 rounded-lg font-bold uppercase flex items-center justify-center gap-1.5 shadow-lg">
-              <MafiaHatIcon className="w-3.5 h-3.5 text-purple-400" /><span>Дон</span>
-            </span>
-          )}
-          {isNightSheriff && (
-            <span className="text-[9px] sm:text-[10px] bg-emerald-900/95 border border-emerald-500/50 text-emerald-300 px-2 py-1 rounded-lg font-bold uppercase flex items-center justify-center gap-1.5 shadow-lg">
-              <Star className="w-3.5 h-3.5 text-emerald-400 fill-current" /><span>Шериф</span>
-            </span>
-          )}
+      {player.alive && phase === "night" && (isNightShot || isNightDon || isNightSheriff) && (
+        <div className="live-seat-quickbar">
+          {isNightShot && <span className="live-seat-night-marker live-seat-night-marker--shot"><PistolIcon />Отстрел</span>}
+          {isNightDon && <span className="live-seat-night-marker live-seat-night-marker--don"><MafiaHatIcon />Дон</span>}
+          {isNightSheriff && <span className="live-seat-night-marker live-seat-night-marker--sheriff"><Star />Шериф</span>}
         </div>
       )}
 
-      <div className="min-h-[36px] py-1 bg-slate-950/95 border-t border-slate-900 px-1.5 md:px-3 flex items-center justify-between mt-auto z-10 gap-1">
-        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 min-w-0 flex-1">
-          <div className={`relative w-5.5 h-5.5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-lg font-mono font-black text-[10px] md:text-sm flex items-center justify-center border shrink-0 shadow-md ${getSeatColor(slotNum)} ${isChosenInBestMove ? "ring-2 ring-amber-400 shadow-amber-500/50" : ""}`}>
-            {slotNum}
-            {isChosenInBestMove && (
-              <div className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 w-3.5 h-3.5 md:w-4.5 md:h-4.5 rounded-full flex items-center justify-center text-[7px] md:text-[9px] font-black border border-amber-300 shadow-lg animate-pulse" title={`Выбор ЛХ #${bestMoveIndex + 1}`}>
-                🏆
-              </div>
-            )}
+      <div className="live-seat-state">
+        {!player.alive ? (
+          <div>
+            <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
+            <div className="live-seat-state__value">{getExitLabel(player)}</div>
           </div>
-          <div className="flex flex-col min-w-0 flex-1 justify-center">
-            <div className="flex items-center gap-0.5 min-w-0">
-              <span className="text-[11px] sm:text-xs md:text-sm font-black text-slate-100 truncate leading-tight">{p.nickname || `Игрок ${slotNum}`}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const note = window.prompt(`Заметка ведущего для #${slotNum} (${p.nickname}):`, p.note || "");
-                  if (note !== null) {
-                    setActivePlayers((prev) => prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, note: note.trim() } : pl)));
-                  }
-                }}
-                className="text-slate-500 hover:text-amber-400 text-[9px] px-0.5 py-0 rounded hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-                title="Добавить заметку ведущего"
-              >
-                ✎
-              </button>
-            </div>
-            {p.note && (
-              <span className="text-[7.5px] md:text-[9px] text-amber-300/90 font-medium truncate italic bg-amber-950/50 px-1 py-0 rounded border border-amber-500/30 max-w-[80px] sm:max-w-[130px] shadow-sm leading-none mt-0.5">📌 {p.note}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center shrink-0 ml-0.5 gap-1">
-          {showRolesOnTable ? (
-            <div
-              className={`flex items-center justify-center w-5.5 h-5.5 md:w-8 md:h-8 rounded-full border transition-transform hover:scale-110 shadow-md ${
-                p.role === "Дон"
-                  ? "bg-purple-500/10 border-purple-500/40 text-purple-400"
-                  : p.role === "Мафия"
-                  ? "bg-slate-200 border-slate-400 text-slate-950 shadow-inner"
-                  : p.role === "Шериф"
-                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                  : "bg-rose-600/10 border-rose-500/30 text-rose-500"
-              }`}
-              title={p.role === "Мирный" ? "Красный" : p.role}
-            >
-              {p.role === "Мирный" && <Heart className="w-3 h-3 md:w-4 md:h-4 fill-current text-rose-500" />}
-              {p.role === "Дон" && <MafiaHatIcon className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />}
-              {p.role === "Мафия" && <PistolIcon className="w-3 h-3 md:w-4 md:h-4 text-slate-950" />}
-              {p.role === "Шериф" && <Star className="w-3 h-3 md:w-4 md:h-4 fill-current text-emerald-400" />}
-            </div>
-          ) : (
-            <div className="w-5.5 h-5.5 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-slate-900/80 border border-slate-800 text-slate-500 font-mono font-black text-[10px] md:text-xs shadow-inner" title="Скрыто">P</div>
-          )}
-        </div>
+        ) : phase === "day_voting" ? (
+          isInteractiveVoting ? renderVoteState() : null
+        ) : phase === "day_speeches" ? renderDayState() : renderShootoutState()}
       </div>
 
-      {(() => {
-        const disableHover =
-          (phase === "day_voting" && votingSubPhase === "voting_active") ||
-          (phase === "shootout" &&
-            (shootoutSubPhase === "shootout_revote_active" ||
-              shootoutSubPhase === "shootout_revote_results" ||
-              shootoutSubPhase === "shootout_both_results"));
-        return phase !== "night" && phase !== "zero_night" && !disableHover;
-      })() && (
-        <div className="absolute inset-0 bg-slate-950 hidden md:flex flex-col justify-between p-2.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
-            <span className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Управление #{slotNum}</span>
-            <button type="button" onClick={(e) => e.stopPropagation()} className="text-slate-500 hover:text-white"><X className="w-3.5 h-3.5" /></button>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center gap-1.5 my-1">
-            {p.alive ? (
-              <div className="grid grid-cols-2 gap-1.5 text-[9px] sm:text-xs font-black uppercase">
-                {phase === "shootout" ? (
-                  shootoutNominees.includes(slotNum) ? (
-                    activeSpeakerSlot === slotNum ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveSpeakerSlot(null);
-                          setIsTimerRunning(false);
-                        }}
-                        className="col-span-2 bg-rose-600 hover:bg-rose-550 text-white rounded-lg py-2 cursor-pointer text-center animate-pulse flex items-center justify-center gap-1 font-bold text-[10px]"
-                      >
-                        <Mic className="w-3.5 h-3.5 animate-pulse" /> Стоп ⏹️ ({timeLeft}с)
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartTimer(slotNum, p.mute_this_round ? 0 : 30);
-                        }}
-                        className="col-span-2 bg-rose-600 hover:bg-rose-550 text-white rounded-lg py-2 cursor-pointer text-center flex items-center justify-center gap-1.5 font-bold text-[10px]"
-                      >
-                        <Mic className="w-3.5 h-3.5 text-amber-400" /> Речь 30с 🎙️
-                      </button>
-                    )
-                  ) : (
-                    <div className="col-span-2 bg-slate-900/40 text-slate-500 rounded-lg py-2 text-center text-[10px] font-bold border border-slate-850/50">Вне перестрелки</div>
-                  )
-                ) : (
-                  <>
-                    {p.has_spoken_this_round ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActivePlayers((prev) => prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, has_spoken_this_round: false } : pl)));
-                          showToast(`Речь игрока #${slotNum} сброшена`, "info");
-                        }}
-                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/20 rounded-lg py-1.5 cursor-pointer text-center font-black"
-                      >
-                        Сбросить
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartTimer(slotNum, p.mute_this_round ? 0 : 60);
-                        }}
-                        className="bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-700 rounded-lg py-1.5 cursor-pointer text-center flex items-center justify-center gap-1"
-                      >
-                        <Mic className="w-3 h-3 text-amber-400" /> Речь
-                      </button>
-                    )}
-
-                    {activeSpeakerSlot === slotNum ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          markPlayerSpoken(slotNum);
-                        }}
-                        className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg py-1.5 cursor-pointer text-center animate-pulse"
-                      >
-                        Стоп ⏹️
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleNominateCandidate(slotNum);
-                        }}
-                        className={`rounded-lg py-1.5 cursor-pointer text-center border-2 ${nominations.includes(slotNum) ? "bg-rose-600 border-rose-500 text-white" : "bg-slate-900 border-slate-800 text-slate-450 hover:text-slate-300"}`}
-                      >
-                        {nominations.includes(slotNum) ? "Снять 🎯" : "Выставить 🎯"}
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {nominations.includes(slotNum) && (
-                  <div className="col-span-2 flex flex-col gap-1 mt-1 bg-slate-950 p-1.5 rounded-lg border border-slate-850" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider">Выставил:</span>
-                    <select
-                      value={nominationsMap[slotNum] ?? 0}
-                      onChange={(e) => {
-                        const nominator = parseInt(e.target.value);
-                        setNominationsMap((prev) => ({ ...prev, [slotNum]: nominator }));
-                        showToast(`Кандидатура игрока #${slotNum} теперь выставлена игроком #${nominator || "Ведущий"}`, "success");
-                      }}
-                      className="bg-slate-900 border border-slate-800 text-slate-300 rounded px-1.5 py-1 text-[10px] font-mono font-bold focus:outline-none w-full"
-                    >
-                      <option value="0">Ведущий</option>
-                      {activePlayers.filter((pl) => pl.alive).map((pl) => (
-                        <option key={pl.slot_num} value={pl.slot_num}>Игрок #{pl.slot_num} ({pl.nickname})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {phase === "day_voting" && nominations.includes(slotNum) && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const count = votes[slotNum] || 0;
-                      handleAllocateVotes(slotNum, count + 1);
-                      playBeep(659, 0.1);
-                    }}
-                    className="col-span-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 border-2 border-rose-500/30 rounded-lg py-1.5 text-center font-black flex items-center justify-center gap-1.5"
-                  >
-                    <Gavel className="w-3.5 h-3.5" /> Голос +1 ({votes[slotNum] || 0})
-                  </button>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBestMovePlayerSlot(slotNum);
-                  setBestMoveGuesses(p.best_move_guesses || []);
-                }}
-                className="w-full bg-amber-600/15 hover:bg-amber-600/35 text-amber-400 border-2 border-amber-600/25 rounded-lg py-2 cursor-pointer text-center flex items-center justify-center gap-1.5 text-[9px] sm:text-xs font-black uppercase"
-              >
-                📝 Лучший Ход
-              </button>
-            )}
-          </div>
-
-          {p.alive && (
-            <div className="flex items-center justify-between bg-slate-900/60 p-1 rounded-xl border border-slate-800/60 text-[10px] font-bold">
-              <span className="text-slate-400 pl-1">Фолы: {p.fouls}{(p.has_foul_penalty || p.fouls === 3) && " (30с)"}</span>
-              <div className="flex gap-1">
-                <button type="button" onClick={(e) => { e.stopPropagation(); handleFoulChange(slotNum, "down"); }} className="w-5 h-5 bg-slate-850 hover:bg-slate-700 text-white rounded flex items-center justify-center font-mono cursor-pointer">-</button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); handleFoulChange(slotNum, "up"); }} className="w-5 h-5 bg-slate-850 hover:bg-slate-700 text-white rounded flex items-center justify-center font-mono cursor-pointer">+</button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActivePlayers((prev) => prev.map((pl) => (pl.slot_num === slotNum ? { ...pl, mute_this_round: !pl.mute_this_round } : pl)));
-                    showToast(`Игрок #${slotNum} ${p.mute_this_round ? "размучен" : "получил фол молчания"}`, "info");
-                  }}
-                  className={`px-1.5 h-5 rounded text-[8px] font-black uppercase cursor-pointer flex items-center justify-center ${p.mute_this_round ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-slate-800 hover:bg-slate-750 text-slate-300"}`}
-                >
-                  🔇 {p.mute_this_round ? "Разм." : "Молч."}
-                </button>
-              </div>
-            </div>
-          )}
+      {showFarewellFouls && (
+        <div className="absolute right-1.5 top-1.5 z-30 flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+          <button type="button" disabled={player.fouls <= 0} onClick={() => handleFoulChange(slotNum, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
+          <button type="button" disabled={player.fouls >= 4} onClick={() => handleFoulChange(slotNum, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
         </div>
+      )}
+
+      <div className="live-seat-footer">
+        <div className="live-seat-footer__identity">
+          <div className="live-seat-number" data-seat={slotNum}>{slotNum}</div>
+          <span className="live-seat-footer__name">{player.nickname || `Игрок ${slotNum}`}</span>
+        </div>
+        {showRolesOnTable ? (
+          <div className="live-seat-role" title={player.role === "Мирный" ? "Красный" : player.role}>
+            {player.role === "Мирный" && <Heart className="fill-current text-rose-500" />}
+            {player.role === "Дон" && <MafiaHatIcon className="text-violet-300" />}
+            {player.role === "Мафия" && <PistolIcon className="text-slate-200" />}
+            {player.role === "Шериф" && <Star className="fill-current text-emerald-400" />}
+          </div>
+        ) : (
+          <div className="live-seat-role" title="Роль скрыта" />
+        )}
+      </div>
+
+      {phase === "day_voting" && !isInteractiveVoting && votingSubPhase === "resolved" && isNominated && (
+        <span className="sr-only">Игрок #{slotNum} получил {votes[slotNum] || 0} голосов</span>
+      )}
+
+      {isChosenInBestMove && roundNumber >= 1 && (
+        <span className="sr-only">Игрок #{slotNum} выбран в ЛХ</span>
       )}
     </div>
   );

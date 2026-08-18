@@ -61,8 +61,8 @@ describe('CenterPanel live flow guardrails', () => {
 
     expect(screen.getAllByRole('button', { name: /Договорка · 75с/i })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /Вызов шерифа · 10с/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Посадка · 40с/i })).toBeNull();
-    expect(screen.getByText(/этапы нельзя перескочить/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Свободная посадка · 40с/i })).toBeNull();
+    expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
   });
 
   it('continues the full voting order even when one candidate already has an unbeatable lead', () => {
@@ -124,7 +124,7 @@ describe('CenterPanel live flow guardrails', () => {
       votingStage="collecting"
     />);
 
-    expect(screen.getByText(/последнему кандидату автоматически/i)).toBeTruthy();
+    expect(screen.getByText(/оставшиеся голоса автоматически идут в последнюю кандидатуру/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
     expect(screen.getByRole('button', { name: /Подвести итог/i })).toBeTruthy();

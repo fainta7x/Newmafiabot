@@ -31,6 +31,13 @@ import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
+import {
+  BestMoveProtocolOverlay,
+  DisciplineConfirmationOverlay,
+  LiveGameToast,
+  PlayerActionOverlay,
+  RestorableSessionBanner,
+} from "./LiveGameEngine/LiveGameOverlays.js";
 import { ActivePlayerState, LiveGameEngineProps, NightSubPhase, Phase } from "./LiveGameEngine/types.js";
 import {
   LiveSnapshot,
@@ -70,29 +77,6 @@ import {
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
-
-const dangerousActionCopy = (action: PendingActionType) => {
-  if (action === 'removal_4th_foul') return {
-    title: 'Удаление по 4-му фолу',
-    description: 'Игрок будет удалён из игры, а ближайшее голосование будет отменено.',
-    confirmLabel: 'Подтвердить 4-й фол',
-  };
-  if (action === 'minor_tech_causing_removal' || action === 'major_tech_causing_removal') return {
-    title: 'Удаление по второму техфолу',
-    description: 'Технический фол будет зафиксирован, игрок будет удалён, а ближайшее голосование будет отменено.',
-    confirmLabel: 'Подтвердить техфол',
-  };
-  if (action === 'direct_removal') return {
-    title: 'Удаление решением судьи',
-    description: 'Игрок будет удалён из игры, а ближайшее голосование будет отменено.',
-    confirmLabel: 'Подтвердить удаление',
-  };
-  return {
-    title: 'Зафиксировать ППК',
-    description: 'Игра немедленно завершится победой противоположной команды, а ППК попадёт в итоговый протокол.',
-    confirmLabel: 'Подтвердить ППК',
-  };
-};
 
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
@@ -1128,6 +1112,38 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     requestDisciplineConfirmation(slot, 'ppk');
   };
 
+  const handleEditPlayerNote = (player: ActivePlayerState) => {
+    const note = window.prompt(`Заметка ведущего для #${player.slot_num}:`, player.note || '');
+    if (note !== null) setActivePlayers((previous) => previous.map((item) => item.slot_num === player.slot_num ? { ...item, note: note.trim() } : item));
+    setActionPlayerSlot(null);
+  };
+
+  const handleToggleBestMoveSeat = (slot: number) => {
+    setPendingBestMoveSeats((previous) => previous.includes(slot)
+      ? previous.filter((value) => value !== slot)
+      : previous.length < 3 ? [...previous, slot] : previous);
+  };
+
+  const handleConfirmBestMoveProtocol = () => {
+    if (!activeBestMoveSource || activeBestMoveSlot === null) return;
+    saveSnapshot();
+    const source = activeBestMoveSource;
+    const slot = activeBestMoveSlot;
+    const next = setBestMove(protocolMarkers, source, pendingBestMoveSeats);
+    setProtocolMarkers(next);
+    setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, best_move_guesses: [...pendingBestMoveSeats] } : p));
+    setActiveBestMoveSource(null);
+    setActiveBestMoveSlot(null);
+    setPendingBestMoveSeats([]);
+    if (source === 'zero_round_voted' && votingFarewellQueue.length > 0) {
+      beginVotingFarewell(votingFarewellQueue, 0);
+    } else if (phase === 'night' && nightSubPhase === 'best_move' && source === 'first_killed') {
+      setNightSubPhase('morning');
+      setCustomTimerLabel(null);
+      setIsTimerRunning(false);
+    }
+  };
+
   const legacyBestMoveGuesses: number[] = [];
   const deprecatedNoop = () => {};
 
@@ -1250,127 +1266,53 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     !nominations.includes(actionPlayerSlot) &&
     Object.values(nominationsMap).includes(activeSpeakerSlot)
   );
+  const pendingConfirmationPlayer = pendingDisciplineConfirmation === null
+    ? null
+    : activePlayers.find((player) => player.slot_num === pendingDisciplineConfirmation.slot) || null;
+  const bestMovePlayerNickname = activeBestMoveSlot === null
+    ? ''
+    : activePlayers.find((player) => player.slot_num === activeBestMoveSlot)?.nickname || 'Игрок';
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
-      {pendingDisciplineConfirmation && (() => {
-        const copy = dangerousActionCopy(pendingDisciplineConfirmation.action);
-        const player = activePlayers.find((item) => item.slot_num === pendingDisciplineConfirmation.slot);
-        return (
-          <div className="fixed inset-0 z-[126] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-3xl border-2 border-rose-700/70 bg-slate-900 shadow-2xl p-5 space-y-4">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-rose-400">Требуется подтверждение</div>
-                <h3 className="text-lg font-black text-white mt-1">{copy.title}</h3>
-                <p className="text-sm font-bold text-slate-200 mt-2">#{pendingDisciplineConfirmation.slot} · {player?.nickname || 'Игрок'}</p>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">{copy.description}</p>
-              </div>
-              <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 px-3 py-2 text-[11px] text-amber-200">
-                Первое нажатие ничего не меняет. Действие будет применено только после кнопки ниже.
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setPendingDisciplineConfirmation(null)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black">Отмена</button>
-                <button type="button" onClick={confirmPendingDisciplineAction} className="min-h-12 rounded-xl bg-rose-600 border border-rose-500 text-white text-xs font-black uppercase tracking-wide">{copy.confirmLabel}</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {actionPlayer && phase === 'day_speeches' && (
-        <div className="fixed inset-0 z-[112] bg-slate-950/55 flex items-end md:items-center justify-center p-2 md:p-4" onClick={() => setActionPlayerSlot(null)}>
-          <div className="w-full max-w-md rounded-t-3xl md:rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl p-4 space-y-3" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-black text-white truncate">#{actionPlayer.slot_num} · {actionPlayer.nickname}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  Фолы: {actionDiscipline?.regularFouls ?? actionPlayer.fouls} · Мал. тех: {actionDiscipline?.minorTechFouls ?? 0} · Бол. тех: {actionDiscipline?.majorTechFouls ?? 0}
-                </div>
-                {activeSpeakerSlot && <div className="text-[10px] text-amber-300 mt-0.5">Сейчас речь #{activeSpeakerSlot}</div>}
-              </div>
-              <button type="button" onClick={() => setActionPlayerSlot(null)} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black">×</button>
-            </div>
-
-            {actionPlayer.alive ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { addRegularFoulFromMenu(actionPlayer.slot_num); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-amber-950/70 border border-amber-700 text-amber-200 text-xs font-black">+ Обычный фол</button>
-                <button type="button" disabled={(actionDiscipline?.regularFouls ?? 0) <= 0} onClick={() => { removeRegularFoul(actionPlayer.slot_num); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
-                <button type="button" onClick={() => { addTechFoulFromMenu(actionPlayer.slot_num, 'minor'); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-orange-950/60 border border-orange-700 text-orange-200 text-xs font-black">Малый тех</button>
-                <button type="button" onClick={() => { addTechFoulFromMenu(actionPlayer.slot_num, 'major'); setActionPlayerSlot(null); }} className="min-h-12 rounded-xl bg-rose-950/60 border border-rose-700 text-rose-200 text-xs font-black">Большой тех</button>
-                <button
-                  type="button"
-                  disabled={!nominations.includes(actionPlayer.slot_num) && (!activeSpeakerSlot || nominationBlockedBySpeaker)}
-                  onClick={() => { handleNominateCandidate(actionPlayer.slot_num); setActionPlayerSlot(null); }}
-                  className={`min-h-12 rounded-xl border text-xs font-black disabled:opacity-30 ${nominations.includes(actionPlayer.slot_num) ? 'bg-slate-950 border-slate-600 text-slate-300' : 'bg-fuchsia-950/60 border-fuchsia-700 text-fuchsia-200'}`}
-                >
-                  {nominations.includes(actionPlayer.slot_num) ? 'Снять выставление' : `Выставить${activeSpeakerSlot ? ` · речь #${activeSpeakerSlot}` : ''}`}
-                </button>
-                <button type="button" onClick={() => directRemoveFromMenu(actionPlayer.slot_num)} className="min-h-12 rounded-xl bg-red-950/70 border border-red-700 text-red-200 text-xs font-black">Удалить судьёй</button>
-                <button type="button" onClick={() => handlePpkFromMenu(actionPlayer.slot_num)} className="min-h-12 rounded-xl bg-purple-950/70 border border-purple-700 text-purple-200 text-xs font-black">ППК</button>
-                <button type="button" onClick={() => {
-                  const note = window.prompt(`Заметка ведущего для #${actionPlayer.slot_num}:`, actionPlayer.note || '');
-                  if (note !== null) setActivePlayers((previous) => previous.map((p) => p.slot_num === actionPlayer.slot_num ? { ...p, note: note.trim() } : p));
-                  setActionPlayerSlot(null);
-                }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => restorePlayer(actionPlayer.slot_num)} className="w-full min-h-12 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-200 text-xs font-black">Вернуть за стол</button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeBestMoveSource && activeBestMoveSlot !== null && (
-        <div className="fixed inset-0 z-[120] bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
-          <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl">
-            <div className="text-center space-y-1.5">
-              <div className="text-[10px] uppercase font-black text-amber-400">{activeBestMoveSource === 'first_killed' ? 'Первый убитый' : 'Слом нулевого круга'}</div>
-              <h2 className="text-xl font-black text-white">Протокол ЛХ</h2>
-              <p className="text-sm text-slate-300 font-bold">Игрок #{activeBestMoveSlot} · {activePlayers.find((p) => p.slot_num === activeBestMoveSlot)?.nickname || 'Игрок'}</p>
-              <p className="text-xs text-slate-500">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
-            </div>
-            <div className="grid grid-cols-5 gap-2 max-w-md mx-auto">
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((slot) => {
-                const index = pendingBestMoveSeats.indexOf(slot);
-                return <button key={slot} type="button" onClick={() => setPendingBestMoveSeats((previous) => previous.includes(slot) ? previous.filter((value) => value !== slot) : previous.length < 3 ? [...previous, slot] : previous)} className={`h-14 rounded-xl border-2 font-mono font-black relative ${index >= 0 ? 'border-white bg-slate-950 text-white' : 'border-slate-800 text-slate-400'}`}>{slot}{index >= 0 && <span className="absolute top-1 right-1 text-[9px] rounded-full bg-white text-slate-950 w-4 h-4 flex items-center justify-center">{index + 1}</span>}</button>;
-              })}
-            </div>
-            <div className="flex gap-2 justify-center">
-              <button type="button" onClick={() => setPendingBestMoveSeats([])} className="px-5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Сбросить</button>
-              <button type="button" onClick={() => {
-                saveSnapshot();
-                const source = activeBestMoveSource;
-                const slot = activeBestMoveSlot;
-                const next = setBestMove(protocolMarkers, source, pendingBestMoveSeats);
-                setProtocolMarkers(next);
-                setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, best_move_guesses: [...pendingBestMoveSeats] } : p));
-                setActiveBestMoveSource(null);
-                setActiveBestMoveSlot(null);
-                setPendingBestMoveSeats([]);
-                if (source === 'zero_round_voted' && votingFarewellQueue.length > 0) {
-                  beginVotingFarewell(votingFarewellQueue, 0);
-                } else if (phase === 'night' && nightSubPhase === 'best_move' && source === 'first_killed') {
-                  setNightSubPhase('morning');
-                  setCustomTimerLabel(null);
-                  setIsTimerRunning(false);
-                }
-              }} className="px-6 py-2 rounded-xl bg-white text-slate-950 text-xs font-black">Подтвердить протокол</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast && <div className={`fixed bottom-4 right-4 z-[130] px-4 py-2.5 rounded-xl border shadow-2xl text-xs font-bold ${toast.type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-300' : toast.type === 'warning' ? 'bg-amber-950 border-amber-500 text-amber-300' : toast.type === 'success' ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>{toast.message}</div>}
-
-      {phase === 'setup' && restorableSession && (
-        <div className="bg-amber-950/70 border border-amber-500/50 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3 text-xs text-amber-200">
-          <span>Найдена незавершённая игра · {restorableSession.savedAt || 'недавно'}</span>
-          <div className="flex gap-2">
-            <button type="button" onClick={handleRestoreSession} className="px-3 py-2 rounded-xl bg-emerald-600 text-white font-black">Восстановить</button>
-            <button type="button" onClick={handleDiscardSavedSession} className="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold">Сбросить</button>
-          </div>
-        </div>
-      )}
+      <DisciplineConfirmationOverlay
+        pending={pendingDisciplineConfirmation}
+        player={pendingConfirmationPlayer}
+        onCancel={() => setPendingDisciplineConfirmation(null)}
+        onConfirm={confirmPendingDisciplineAction}
+      />
+      <PlayerActionOverlay
+        player={phase === 'day_speeches' ? actionPlayer : null}
+        disciplinePlayer={actionDiscipline}
+        activeSpeakerSlot={activeSpeakerSlot}
+        nominations={nominations}
+        nominationBlockedBySpeaker={nominationBlockedBySpeaker}
+        onClose={() => setActionPlayerSlot(null)}
+        onAddRegularFoul={addRegularFoulFromMenu}
+        onRemoveRegularFoul={removeRegularFoul}
+        onAddTechFoul={addTechFoulFromMenu}
+        onToggleNomination={handleNominateCandidate}
+        onDirectRemove={directRemoveFromMenu}
+        onPpk={handlePpkFromMenu}
+        onEditNote={handleEditPlayerNote}
+        onRestorePlayer={restorePlayer}
+      />
+      <BestMoveProtocolOverlay
+        source={activeBestMoveSource}
+        slot={activeBestMoveSlot}
+        nickname={bestMovePlayerNickname}
+        pendingSeats={pendingBestMoveSeats}
+        onToggleSeat={handleToggleBestMoveSeat}
+        onReset={() => setPendingBestMoveSeats([])}
+        onConfirm={handleConfirmBestMoveProtocol}
+      />
+      <LiveGameToast toast={toast} />
+      <RestorableSessionBanner
+        visible={phase === 'setup' && Boolean(restorableSession)}
+        savedAt={restorableSession?.savedAt}
+        onRestore={handleRestoreSession}
+        onDiscard={handleDiscardSavedSession}
+      />
 
       {phase === 'setup' ? (
         <SetupPhase

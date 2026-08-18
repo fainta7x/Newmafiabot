@@ -1,9 +1,9 @@
 /* Judge workflow layer for Live Game.
-   Phase-adaptive ergonomics only: existing actions/information are rearranged,
-   game rules and persistence remain untouched. */
+   Existing actions/information are rearranged for fast judging on mobile.
+   No game rules, state transitions or persistence are changed here. */
 
 @media (max-width: 767px) {
-  /* ---------- Day speeches: frequent actions stay on the table ---------- */
+  /* ---------- Day: frequent actions directly on every seat ---------- */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(-n+10)
@@ -19,9 +19,8 @@
     z-index: 26 !important;
   }
 
-  /* The first visual row lives underneath the sticky Live Game header in the
-     legacy board geometry. Put its controls in the first guaranteed visible
-     card zone instead of moving the whole board (which did not change clipping). */
+  /* Visual row 9-10-1-2 sits under the sticky modal header in the legacy board.
+     Keep its quick controls in the first guaranteed-visible zone of each card. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
@@ -53,23 +52,6 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
-    > div[class*="top-1.5"]
-    button[title*="голосование"],
-  html body .evening-live-engine-shell
-    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
-    > div[class*="top-1.5"]
-    button[title*="фол"] {
-    width: 24px !important;
-    min-width: 24px !important;
-    height: 24px !important;
-    min-height: 24px !important;
-    border-radius: 7px !important;
-  }
-
-  html body .evening-live-engine-shell
-    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(-n+10)
     > div[class*="top-1.5"]
     button[title*="голосование"] span {
@@ -86,8 +68,8 @@
     margin: 0 !important;
   }
 
-  /* The right rail keeps only +/- regular foul. The persistent discipline strip
-     already carries the count, while tech fouls/PPK/removal stay in the tap sheet. */
+  /* Foul count is persistently visible in the discipline strip, so the top row
+     keeps only +/- controls. Rare/destructive actions remain in the tap sheet. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(-n+10)
@@ -102,8 +84,12 @@
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(-n+10)
     > div[class*="top-1.5"]
-    > div:last-child
-    > div {
+    > div:last-child > div,
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="Удалить"] {
     display: none !important;
   }
 
@@ -129,37 +115,32 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(-n+10)
+    > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
     > div[class*="top-1.5"]
-    button[title*="Удалить"] {
-    display: none !important;
+    :is(button[title*="голосование"], button[title*="фол"]) {
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    border-radius: 7px !important;
   }
 
-  /* While the first-row day controls occupy the safe upper zone, nudge only
-     player identity slightly lower. Discipline/footer stay fixed. */
-  html body .evening-live-engine-shell:has(button[title*="Выставить на голосование"])
-    .evening-live-identity-layer
-    > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
-    .evening-live-player-avatar,
-  html body .evening-live-engine-shell:has(button[title*="Снять с голосования"])
+  /* Free the safe zone occupied by first-row controls without moving the board. */
+  html body .evening-live-engine-shell:has(button[title*="голосование"])
     .evening-live-identity-layer
     > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
     .evening-live-player-avatar {
     transform: translateY(11px) !important;
   }
 
-  html body .evening-live-engine-shell:has(button[title*="Выставить на голосование"])
-    .evening-live-identity-layer
-    > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
-    .evening-live-identity-name,
-  html body .evening-live-engine-shell:has(button[title*="Снять с голосования"])
+  html body .evening-live-engine-shell:has(button[title*="голосование"])
     .evening-live-identity-layer
     > :is(:nth-child(1), :nth-child(2), :nth-child(9), :nth-child(10))
     .evening-live-identity-name {
     transform: translateY(8px) !important;
   }
 
-  /* ---------- Persistent judge-readable discipline ---------- */
+  /* ---------- Persistent discipline ---------- */
   html body .evening-live-engine-shell .evening-live-identity-layer
     .evening-live-identity .evening-live-discipline {
     position: absolute !important;
@@ -194,43 +175,39 @@
   }
 
   /* ---------- Central command console ---------- */
-  /* The footer is the one primary "what do I do next" action. */
+  /* Footer = the single primary next-step action; remove old duplicate CTA. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(11)
-    > div.flex-1
+    > :nth-child(11) > div.flex-1
     button:has(svg[class*="lucide-mic"]) {
     display: none !important;
   }
 
-  /* Nominations already live in the permanent footer summary. Remove the old
-     duplicate nested nomination card from the center body/timer. */
+  /* Nominations already live in the persistent footer summary. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(11)
-    > div.flex-1
+    > :nth-child(11) > div.flex-1
     div[class*="bg-fuchsia-950"] {
     display: none !important;
   }
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(11)
-    > div.flex-1
+    > :nth-child(11) > div.flex-1
     > div[class*="space-y-2"] {
     gap: 5px !important;
   }
 
-  /* ---------- Voting: use the ten seat cards as the vote matrix ---------- */
-  /* Any collecting/table-decision voting screen contains a 5-column grid. The
-     broad selector deliberately exposes the existing per-seat status; a later
-     override restores normal cards for the table-decision grid with buttons. */
+  /* ---------- Vote collection: ten real cards are the matrix ---------- */
+  /* CSS :has() cannot be nested reliably. Collection is detected by the old
+     5-column assignment grid AND absence of the amber table-decision confirm. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
       > :nth-child(11) div[class*="grid-cols-5"]
-    )
-    > :nth-child(-n+10)
-    > div.flex-1 {
+    ):not(:has(
+      > :nth-child(11) button[class*="bg-amber-600"]
+    ))
+    > :nth-child(-n+10) > div.flex-1 {
     display: flex !important;
     position: absolute !important;
     top: 34px !important;
@@ -249,9 +226,10 @@
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
       > :nth-child(11) div[class*="grid-cols-5"]
-    )
-    > :nth-child(-n+10)
-    > div.flex-1 > div {
+    ):not(:has(
+      > :nth-child(11) button[class*="bg-amber-600"]
+    ))
+    > :nth-child(-n+10) > div.flex-1 > div {
     width: 100% !important;
     max-width: none !important;
     min-width: 0 !important;
@@ -265,18 +243,20 @@
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
       > :nth-child(11) div[class*="grid-cols-5"]
-    )
-    > :nth-child(-n+10)
-    > div.flex-1 span:first-child {
+    ):not(:has(
+      > :nth-child(11) button[class*="bg-amber-600"]
+    ))
+    > :nth-child(-n+10) > div.flex-1 span:first-child {
     display: none !important;
   }
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
       > :nth-child(11) div[class*="grid-cols-5"]
-    )
-    > :nth-child(-n+10)
-    > div.flex-1 span:last-child {
+    ):not(:has(
+      > :nth-child(11) button[class*="bg-amber-600"]
+    ))
+    > :nth-child(-n+10) > div.flex-1 span:last-child {
     font-size: 13px !important;
     line-height: 1.1 !important;
     font-weight: 950 !important;
@@ -286,7 +266,10 @@
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
       > :nth-child(11) div[class*="grid-cols-5"]
-    ) .evening-live-player-avatar {
+    ):not(:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) button[class*="bg-amber-600"]
+    )) .evening-live-player-avatar {
     opacity: 0 !important;
     transform: scale(.82) !important;
   }
@@ -294,7 +277,10 @@
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
       > :nth-child(11) div[class*="grid-cols-5"]
-    ) .evening-live-identity {
+    ):not(:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) button[class*="bg-amber-600"]
+    )) .evening-live-identity {
     justify-content: flex-start !important;
     padding: 31px 4px 44px !important;
   }
@@ -302,7 +288,10 @@
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
       > :nth-child(11) div[class*="grid-cols-5"]
-    ) .evening-live-identity-name {
+    ):not(:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) button[class*="bg-amber-600"]
+    )) .evening-live-identity-name {
     position: absolute !important;
     top: 31px !important;
     left: 4px !important;
@@ -313,8 +302,7 @@
     transform: none !important;
   }
 
-  /* The old 10-cell assignment matrix in the center duplicates what is now
-     visible on the real seat cards. Hide only the grid that contains no buttons. */
+  /* Old mini assignment matrix is now duplicate information. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(11)
@@ -322,47 +310,10 @@
     display: none !important;
   }
 
-  /* Repeated-tie table decision has its own interactive #1..#10 button grid.
-     Keep those buttons and restore normal player-card presentation there. */
-  html body .evening-live-engine-shell
-    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
-      > :nth-child(11) div[class*="grid-cols-5"]:has(button)
-    )
-    > :nth-child(-n+10)
-    > div.flex-1 {
-    display: none !important;
-  }
-
-  html body .evening-live-engine-shell:has(
-      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]:has(button)
-    ) .evening-live-player-avatar {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  html body .evening-live-engine-shell:has(
-      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]:has(button)
-    ) .evening-live-identity {
-    justify-content: center !important;
-    padding: 12px 4px 50px !important;
-  }
-
-  html body .evening-live-engine-shell:has(
-      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]:has(button)
-    ) .evening-live-identity-name {
-    position: static !important;
-    max-width: calc(100% - 8px) !important;
-    transform: none !important;
-  }
-
-  /* Center voting = current question + current count + next action. */
+  /* Center voting = question, count and next action only. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(11)
-    > div.flex-1
+    > :nth-child(11) > div.flex-1
     div[class*="space-y-2"] > div[class*="text-xs"][class*="font-black"] {
     font-size: 13px !important;
     line-height: 1.2 !important;
@@ -370,8 +321,7 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-    > :nth-child(11)
-    > div.flex-1
+    > :nth-child(11) > div.flex-1
     div[class*="bg-slate-950"][class*="justify-between"] {
     min-height: 34px !important;
     padding: 6px 9px !important;

@@ -21,6 +21,8 @@ import '../src/components/crm/liveGameControlsPolishV3.css';
 import '../src/components/crm/liveGameDisciplineGlyphsV4.css';
 import '../src/components/crm/liveGameActionGroupsV5.css';
 import '../src/components/crm/liveGameMobileGeometryV6.css';
+import '../src/components/crm/liveGameJudgeConsoleV7.css';
+import '../src/components/crm/liveGameJudgeWorkflow.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 

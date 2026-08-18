@@ -1,0 +1,322 @@
+/* Live Game judge console V7
+   Judge-first visual layer. No game logic or DOM order changes.
+   Goals: stable mobile geometry, readable discipline/nominations at a glance,
+   and a quieter premium central command console. */
+
+:is(.evening-live-engine-shell, .tournament-live-shell) {
+  --judge-surface: #0d0e12;
+  --judge-surface-raised: #13151b;
+  --judge-surface-soft: rgba(255, 255, 255, 0.035);
+  --judge-line: rgba(255, 255, 255, 0.085);
+  --judge-line-strong: rgba(255, 255, 255, 0.14);
+  --judge-text: #f4f1ec;
+  --judge-text-2: rgba(244, 241, 236, 0.68);
+  --judge-muted: rgba(244, 241, 236, 0.40);
+  --judge-accent: var(--accent, #e13458);
+  --judge-green: #55c99b;
+  --judge-amber: #e4b356;
+  --judge-red: #eb6072;
+}
+
+/* ---------- table shell: remove visual drift ---------- */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+  isolation: isolate;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > * {
+  min-width: 0 !important;
+  transform-origin: center !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
+  background: linear-gradient(180deg, #111219 0%, #0b0c10 100%) !important;
+  border-color: var(--judge-line) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 5px 16px rgba(0,0,0,.20) !important;
+}
+
+/* Speaking / nominated states should read as state, not as a glowing game card. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10)[class*="ring-2"] {
+  transform: none !important;
+  box-shadow: inset 0 0 0 1px currentColor, 0 5px 16px rgba(0,0,0,.22) !important;
+}
+
+/* ---------- player identity / discipline ---------- */
+:is(.evening-live-engine-shell, .tournament-live-shell) .evening-live-identity-name {
+  background: rgba(5, 6, 9, .82) !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  color: var(--judge-text) !important;
+  font-weight: 850 !important;
+  letter-spacing: -.01em !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.28) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) .evening-live-discipline > span[data-count] {
+  background: rgba(5, 6, 9, .90) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  box-shadow: none !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) .evening-live-discipline-foul[data-count]:not([data-count="0"]) {
+  color: var(--judge-amber) !important;
+  border-color: rgba(228,179,86,.42) !important;
+  background: rgba(228,179,86,.09) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) .evening-live-discipline-minor[data-count]:not([data-count="0"]) {
+  color: #f0ca55 !important;
+  border-color: rgba(240,202,85,.42) !important;
+  background: rgba(240,202,85,.09) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) .evening-live-discipline-major[data-count]:not([data-count="0"]) {
+  color: var(--judge-red) !important;
+  border-color: rgba(235,96,114,.48) !important;
+  background: rgba(235,96,114,.10) !important;
+}
+
+/* ---------- central judge command console ---------- */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+  background: linear-gradient(180deg, #15171e 0%, #0c0d12 100%) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 10px 28px rgba(0,0,0,.34) !important;
+}
+
+/* Header = current phase. It should read like a console title, not a card caption. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
+  border-color: var(--judge-line) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child > span {
+  color: var(--judge-text) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: .035em !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child button {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--judge-muted) !important;
+  box-shadow: none !important;
+}
+
+/* Main state text */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 div[class*="text-xs"][class*="font-black"] {
+  color: var(--judge-text) !important;
+  font-size: 12px !important;
+  letter-spacing: -.01em !important;
+}
+
+/* Timer: one dominant number; remove nested-card cheapness. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"][class*="border"] {
+  background: transparent !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--judge-green) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.055em;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"][class*="text-rose"] {
+  color: var(--judge-red) !important;
+}
+
+/* Timer progress becomes a quiet instrument line. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="rounded-full"][class*="overflow-hidden"] {
+  background: rgba(255,255,255,.055) !important;
+  border: 0 !important;
+  border-radius: 99px !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="rounded-full"] > div[class*="h-full"] {
+  background: var(--judge-green) !important;
+  box-shadow: none !important;
+}
+
+/* Secondary timer buttons: restrained. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div.flex[class*="gap-1.5"] button {
+  background: rgba(255,255,255,.045) !important;
+  border-color: rgba(255,255,255,.085) !important;
+  color: var(--judge-text-2) !important;
+  box-shadow: none !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div.flex[class*="gap-1.5"] button[class*="bg-amber-600"] {
+  background: rgba(228,179,86,.16) !important;
+  border-color: rgba(228,179,86,.28) !important;
+  color: #f3d28b !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div.flex[class*="gap-1.5"] button[class*="bg-emerald-600"] {
+  background: rgba(85,201,155,.15) !important;
+  border-color: rgba(85,201,155,.28) !important;
+  color: #8ce1bd !important;
+}
+
+/* Current nomination/night status is informational, not another neon card. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) [data-testid="live-game-night-status"],
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="bg-fuchsia-950"] {
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(255,255,255,.08) !important;
+  color: var(--judge-text-2) !important;
+  box-shadow: none !important;
+}
+
+/* Footer is the operational rail. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
+  border-color: var(--judge-line) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div:first-child {
+  color: var(--judge-muted) !important;
+  font-weight: 750 !important;
+}
+
+/* Main next action: largest, stable target for the judge. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child div[class*="grid-cols-12"] > button[class*="col-span-8"] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--judge-accent) 92%, white 8%), var(--judge-accent)) !important;
+  border: 1px solid rgba(var(--accent-rgb,220,50,85),.55) !important;
+  box-shadow: 0 5px 16px rgba(var(--accent-rgb,220,50,85),.18) !important;
+  letter-spacing: .025em !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child div[class*="grid-cols-12"] > button[class*="col-span-4"] {
+  background: rgba(255,255,255,.035) !important;
+  border-color: rgba(255,255,255,.075) !important;
+  color: var(--judge-text-2) !important;
+  box-shadow: none !important;
+}
+
+/* Voting panel: reduce nested boxes and make the active question dominant. */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="grid-cols-5"] > * {
+  background: rgba(255,255,255,.025) !important;
+  border-color: rgba(255,255,255,.07) !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+/* ---------- action sheet: judge ergonomics ---------- */
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="fixed"][class*="z-[112]"] > div {
+  background: #0f1015 !important;
+  border-color: rgba(255,255,255,.12) !important;
+  box-shadow: 0 -20px 55px rgba(0,0,0,.55) !important;
+}
+
+:is(.evening-live-engine-shell, .tournament-live-shell) div[class*="fixed"][class*="z-[112]"] > div > div[class*="grid-cols-2"] > button {
+  box-shadow: none !important;
+  font-weight: 850 !important;
+}
+
+/* ---------- mobile judge priorities ---------- */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell {
+    --live-header-h: 40px;
+  }
+
+  html body .evening-live-engine-shell > div {
+    padding-top: 3px !important;
+  }
+
+  /* Cards must never scale/float during active-state rings. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) {
+    transform: none !important;
+    min-height: 0 !important;
+  }
+
+  /* Make discipline readable in one glance. 0-values stay quiet, active values pop. */
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline {
+    top: 5px !important;
+    left: 4px !important;
+    right: 4px !important;
+    height: 20px !important;
+    gap: 3px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count] {
+    width: 27px !important;
+    min-width: 27px !important;
+    height: 20px !important;
+    border-radius: 6px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity .evening-live-discipline > span[data-count]::after {
+    font-size: 9px !important;
+    font-weight: 900 !important;
+  }
+
+  /* Hide card-level destructive X from the always-on rail. It remains in the action sheet.
+     This keeps the frequent judge actions from competing with a rare destructive action. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(-n+10) > div[class*="top-1.5"] button[title*="Удалить"] {
+    display: none !important;
+  }
+
+  /* Center HUD gets slightly more usable inner space without changing table topology. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+    padding: 6px 7px !important;
+    gap: 4px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child {
+    min-height: 22px !important;
+    max-height: none !important;
+    padding-bottom: 4px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:first-child > span {
+    font-size: 9px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 {
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) div[class*="font-mono"][class*="font-black"][class*="border"] {
+    font-size: clamp(23px, 14cqw, 31px) !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child {
+    padding-top: 5px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child > div:first-child {
+    font-size: 8px !important;
+    line-height: 1.1 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child div[class*="grid-cols-12"] {
+    min-height: 39px !important;
+    gap: 5px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div:last-child div[class*="grid-cols-12"] > button {
+    min-height: 39px !important;
+    border-radius: 9px !important;
+    font-size: 9px !important;
+  }
+
+  /* Player action sheet becomes a real bottom sheet and never drifts off-screen. */
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: min(78dvh, 660px) !important;
+    overflow-y: auto !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Prevent long state labels from pushing controls out of their cells. */
+  html body .evening-live-engine-shell button,
+  html body .evening-live-engine-shell [class*="text-["] {
+    min-width: 0;
+  }
+}

@@ -31,13 +31,10 @@ const mountLiveGameHarness = async (page) => {
     localStorage.clear();
     const applicationRoot = document.getElementById('root');
     if (applicationRoot) applicationRoot.style.display = 'none';
-
-    const existing = document.getElementById('live-game-e2e-root');
-    existing?.remove();
+    document.getElementById('live-game-e2e-root')?.remove();
     const root = document.createElement('div');
     root.id = 'live-game-e2e-root';
     document.body.appendChild(root);
-
     const script = document.createElement('script');
     script.type = 'module';
     script.src = '/src/liveGameE2EEntry.tsx';
@@ -51,6 +48,8 @@ const tableSeat = (page, seat) => page
   .first()
   .locator(':scope > div')
   .nth(seat - 1);
+
+const primarySpeechAction = (page, seat) => page.getByRole('button', { name: `Речь #${seat}` }).last();
 
 const openSeatAction = async (page, seat) => {
   await tableSeat(page, seat).click({ force: true });
@@ -77,9 +76,7 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await expect(page.getByText('Место №1')).toBeVisible();
   await saveVisual(page, '02-role-deal');
 
-  for (let index = 0; index < 6; index += 1) {
-    await page.getByRole('button', { name: /Мирный/ }).click();
-  }
+  for (let index = 0; index < 6; index += 1) await page.getByRole('button', { name: /Мирный/ }).click();
   await page.getByRole('button', { name: /Шериф/ }).click();
   await page.getByRole('button', { name: /Мафия/ }).click();
   await page.getByRole('button', { name: /Мафия/ }).click();
@@ -93,32 +90,30 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await page.getByRole('button', { name: 'Посадка · 40с' }).click();
   await page.getByRole('button', { name: 'Разбудить город' }).click();
 
-  await expect(page.getByRole('button', { name: 'Речь #1' })).toBeVisible();
+  await expect(primarySpeechAction(page, 1)).toBeVisible();
   await assertMobileLayout(page);
   await saveVisual(page, '04-day-one');
 
-  await page.getByRole('button', { name: 'Речь #1' }).click();
+  await primarySpeechAction(page, 1).click();
   await openSeatAction(page, 2);
   await expect(page.getByRole('button', { name: 'Выставить · речь #1' })).toBeVisible();
   await saveVisual(page, '05-player-action-sheet');
   await page.getByRole('button', { name: 'Выставить · речь #1' }).click();
   await page.getByRole('button', { name: 'Завершить речь #1' }).click();
 
-  await page.getByRole('button', { name: 'Речь #2' }).click();
+  await primarySpeechAction(page, 2).click();
   await openSeatAction(page, 3);
   await page.getByRole('button', { name: 'Выставить · речь #2' }).click();
   await page.getByRole('button', { name: 'Завершить речь #2' }).click();
 
   for (let seat = 3; seat <= 10; seat += 1) {
-    await page.getByRole('button', { name: `Речь #${seat}` }).click();
+    await primarySpeechAction(page, seat).click();
     await page.getByRole('button', { name: `Завершить речь #${seat}` }).click();
   }
 
   await page.getByRole('button', { name: 'К голосованию' }).click();
   await expect(page.getByText('Кто против', { exact: false })).toBeVisible();
-  for (let index = 0; index < 6; index += 1) {
-    await page.getByRole('button', { name: '+1', exact: true }).click();
-  }
+  for (let index = 0; index < 6; index += 1) await page.getByRole('button', { name: '+1', exact: true }).click();
   await assertMobileLayout(page);
   await saveVisual(page, '06-voting-first-candidate');
 
@@ -131,9 +126,7 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await expect(page.getByRole('heading', { name: 'Протокол ЛХ' })).toBeVisible();
   await saveVisual(page, '07-zero-round-best-move');
   const bestMoveDialog = page.getByRole('heading', { name: 'Протокол ЛХ' }).locator('..').locator('..');
-  for (const seat of [1, 2, 3]) {
-    await bestMoveDialog.getByRole('button', { name: String(seat), exact: true }).click();
-  }
+  for (const seat of [1, 2, 3]) await bestMoveDialog.getByRole('button', { name: String(seat), exact: true }).click();
   await page.getByRole('button', { name: 'Подтвердить протокол' }).click();
   await page.getByRole('button', { name: 'Завершить прощальные' }).click();
 
@@ -151,13 +144,13 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await page.getByRole('button', { name: 'Протокол убитого · 15с' }).click();
   await page.getByRole('button', { name: 'К дневным речам' }).click();
 
-  await expect(page.getByRole('button', { name: 'Речь #2' })).toBeVisible();
+  await expect(primarySpeechAction(page, 2)).toBeVisible();
   await addRegularFoulFromActionSheet(page, 3);
   await addRegularFoulFromActionSheet(page, 3);
   await addRegularFoulFromActionSheet(page, 3);
-  await page.getByRole('button', { name: 'Речь #2' }).click();
+  await primarySpeechAction(page, 2).click();
   await page.getByRole('button', { name: 'Завершить речь #2' }).click();
-  await page.getByRole('button', { name: 'Речь #3' }).click();
+  await primarySpeechAction(page, 3).click();
   await expect(page.getByText('30с', { exact: true })).toBeVisible();
   await assertMobileLayout(page);
   await saveVisual(page, '09-third-foul-30-seconds');

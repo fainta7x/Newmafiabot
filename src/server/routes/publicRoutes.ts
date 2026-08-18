@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { getDb } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 import { internalGetNominations } from './tournamentsRoutesBase.ts';
-import baseRouter from './publicRoutesBase.ts';
+import avatarRouter from './publicAvatarRoutes.ts';
 
 const router=Router();
 const expected="response_status IN ('going','late')";
@@ -29,5 +29,5 @@ router.post('/evenings/:id/join', async (req:Request,res:Response) => {
 
 router.get('/tournaments/results/:token',async(req:Request,res:Response)=>{try{const db=req.db||(await getDb());const tournament=await db.get<any>(`SELECT id,title,date,venue,stage,chief_judge_name,status,results_published_at FROM tournaments WHERE public_token=?`,[req.params.token]);if(!tournament)return res.status(404).json({error:'Результаты турнира не найдены'});if(tournament.status!=='completed'||!tournament.results_published_at)return res.status(404).json({error:'Результаты турнира ещё не опубликованы'});const [standingsData,nominationsData]=await Promise.all([getFlexibleTournamentStandings(db,tournament.id),internalGetNominations(db,tournament.id)]);return res.json({tournament:{id:tournament.id,title:tournament.title,date:tournament.date,venue:tournament.venue,stage:tournament.stage,chief_judge_name:tournament.chief_judge_name,results_published_at:tournament.results_published_at},standings:standingsData.standings,nominations:nominationsData.nominations});}catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}});
 
-router.use(baseRouter);
+router.use(avatarRouter);
 export default router;

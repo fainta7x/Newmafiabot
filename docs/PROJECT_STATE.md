@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this branch:** `04bb62e23691daac7c2bb4d228380c6d54bf2eec`.
+> **Current main observed before this branch:** `8d55acbe4a17448a8cc14d375eac3daec44688f5`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -83,7 +83,8 @@ Live Game is being modularized without rule changes. Current durable boundaries 
 - `setupRoles.ts` — setup role translation, distribution validity and physical-role assignments;
 - `timerModel.ts` — CenterPanel timer duration/deadline/remaining calculations;
 - `votingPresentationModel.ts` — CenterPanel vote-display assignments/remaining-vote and table-decision presentation arithmetic only;
-- `seatPresentationModel.ts` — SeatCard grid position, border-priority and current-vote presentation only; seat actions/fouls/removal remain in `SeatCard.tsx`.
+- `seatPresentationModel.ts` — SeatCard grid position, border-priority and current-vote presentation only; seat actions/fouls/removal remain in `SeatCard.tsx`;
+- `engineStateModel.ts` — shared engine stage/snapshot type schema plus initial empty-player and initial discipline factories; snapshot capture/restore mutation remains in `LiveGameEngine.tsx` for the next extraction.
 
 Voting outcomes remain owned by `src/shared/tournamentVoting.ts`; do not move or reinterpret outcome rules into presentation helpers during cleanup.
 
@@ -156,6 +157,7 @@ Treat names as evidence to inspect, not proof that a file is dead.
 
 Newest relevant technical work:
 
+- `8d55acb` — extracted SeatCard grid position, border-priority and current-vote presentation to `seatPresentationModel.ts`, preserving seat actions/fouls/removal and current automatic-vote presentation behavior.
 - `04bb62e` — extracted CenterPanel voting-display/remaining-vote/table-decision presentation arithmetic to `votingPresentationModel.ts`, preserving mandatory last-candidate voting and keeping `tournamentVoting.ts` authoritative for outcomes.
 - `0453686` — extracted CenterPanel timer duration/deadline/remaining/identity arithmetic to `timerModel.ts`, preserving 30-second revote speech and 20-second first-killed best-move behavior.
 - `5d41fa1` — made `GeneralSetupPhase` use shared setup marker/role models while preserving role-distribution vs complete-setup semantics.
@@ -189,7 +191,7 @@ Newest relevant technical work:
 
 The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
 
-1. Continue Live Game modularization after the setup/timer/voting/seat-presentation boundaries: split `LiveGameEngine.tsx` state/snapshot/large handlers one coherent boundary per PR. Keep SeatCard interaction/foul/removal behavior separate from pure presentation helpers, preserve `docs/BUSINESS_RULES.md`, and keep `determineVotingResult` authoritative for voting outcomes.
+1. Continue Live Game modularization after the engine state-schema/factory boundary: extract snapshot capture/clone/default-normalization and restore mapping as one coherent tested boundary, preserving localStorage compatibility and current fallback semantics; only then split large handler families one at a time.
 2. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
 3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused visual/browser verification.
 4. Split other high-complexity modules one at a time, especially `GameProtocolModal.tsx` and tournament route modules, after the current Live Game pass.

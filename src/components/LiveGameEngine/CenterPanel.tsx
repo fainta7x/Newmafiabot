@@ -4,6 +4,13 @@ import { Pause, Play, RotateCcw, Mic, LogOut, ArrowLeft, ArrowRight, Volume2, Vo
 import { ActivePlayerState, Phase, NightSubPhase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
+import {
+  BEST_MOVE_SECONDS,
+  buildTimerIdentity,
+  createTimerDeadline,
+  getRemainingTimerSeconds,
+  resolveTimerDuration,
+} from "./timerModel.js";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -137,7 +144,7 @@ export default function CenterPanel({
   const mafiaPlayers = activePlayers.filter((p) => p.role === "Мафия");
   const prevStep = getPrevStepAction();
   const currentRound = votingRounds[activeVotingRoundIndex];
-  const effectiveTimerMax = phase === 'day_voting' && votingStage === 'revote_speeches' ? 30 : timerMax;
+  const effectiveTimerMax = resolveTimerDuration(phase, votingStage, timerMax);
   const isVotingLayout = phase === 'day_voting';
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
@@ -165,7 +172,7 @@ export default function CenterPanel({
   /* Android / Telegram WebView throttles setInterval in background. A deadline
    * keeps speech/revote timers tied to real elapsed time. */
   React.useEffect(() => {
-    const identity = [phase, votingStage, activeSpeakerSlot ?? '', customTimerLabel ?? '', effectiveTimerMax].join('|');
+    const identity = buildTimerIdentity(phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax);
     if (!isTimerRunning) {
       timerDeadlineRef.current = null;
       timerIdentityRef.current = identity;
@@ -173,14 +180,14 @@ export default function CenterPanel({
     }
 
     if (timerDeadlineRef.current === null || timerIdentityRef.current !== identity) {
-      timerDeadlineRef.current = Date.now() + Math.max(0, timeLeft) * 1000;
+      timerDeadlineRef.current = createTimerDeadline(Date.now(), timeLeft);
       timerIdentityRef.current = identity;
     }
 
     const syncFromDeadline = () => {
       const deadline = timerDeadlineRef.current;
       if (!isTimerRunning || deadline === null) return;
-      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      const remaining = getRemainingTimerSeconds(deadline, Date.now());
       setTimeLeft(remaining);
       if (remaining <= 0) setIsTimerRunning(false);
     };
@@ -205,13 +212,13 @@ export default function CenterPanel({
       return;
     }
 
-    const deadline = Date.now() + 20_000;
+    const deadline = createTimerDeadline(Date.now(), BEST_MOVE_SECONDS);
     bestMoveDeadlineRef.current = deadline;
-    setBestMoveTimeLeft(20);
+    setBestMoveTimeLeft(BEST_MOVE_SECONDS);
     const sync = () => {
       const currentDeadline = bestMoveDeadlineRef.current;
       if (currentDeadline === null) return;
-      setBestMoveTimeLeft(Math.max(0, Math.ceil((currentDeadline - Date.now()) / 1000)));
+      setBestMoveTimeLeft(getRemainingTimerSeconds(currentDeadline, Date.now()));
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') sync();
@@ -233,9 +240,9 @@ export default function CenterPanel({
   };
 
   const handleStartTimer = (slot: number, duration: number) => {
-    const safeDuration = phase === 'day_voting' && votingStage === 'revote_speeches' ? 30 : duration;
-    timerDeadlineRef.current = Date.now() + safeDuration * 1000;
-    timerIdentityRef.current = [phase, votingStage, slot, customTimerLabel ?? '', safeDuration].join('|');
+    const safeDuration = resolveTimerDuration(phase, votingStage, duration);
+    timerDeadlineRef.current = createTimerDeadline(Date.now(), safeDuration);
+    timerIdentityRef.current = buildTimerIdentity(phase, votingStage, slot, customTimerLabel, safeDuration);
     setActiveSpeakerSlot(slot);
     setTimeLeft(safeDuration);
     setIsTimerRunning(true);

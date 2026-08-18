@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 import type { ClubGameRecord } from '../../lib/clubGamesApi.ts';
 import { beginTestGameSandbox, endTestGameSandbox } from '../../lib/testGameSandbox.ts';
@@ -118,8 +118,10 @@ export default function JudgeTestGameModal({
 }) {
   const game = useMemo(() => buildTestGame(judge), [judge.id, judge.nickname]);
   const [ready, setReady] = useState(false);
+  const completedRef = useRef(false);
 
   useLayoutEffect(() => {
+    completedRef.current = false;
     beginTestGameSandbox();
     const restoreFetch = installTestSaveInterceptor(game);
     setReady(true);
@@ -136,8 +138,13 @@ export default function JudgeTestGameModal({
     <>
       <EveningLiveGameModal
         game={game}
-        onClose={() => onClose(false)}
-        onUpdated={() => onClose(true)}
+        onClose={() => {
+          if (!completedRef.current) onClose(false);
+        }}
+        onUpdated={() => {
+          completedRef.current = true;
+          onClose(true);
+        }}
       />
       <div className="pointer-events-none fixed left-1/2 top-1 z-[125] -translate-x-1/2 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200 backdrop-blur-xl">
         Тест · не сохраняется

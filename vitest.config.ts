@@ -8,12 +8,9 @@ export default defineConfig({
     testTimeout: 15_000,
     // Browser E2E specs have their own Playwright runner and dependency tree.
     // Keep them out of Vitest so the two test systems stay fully isolated.
-    // This legacy all-in-one CRM suite still asserts retired APIs and hard-coded
-    // July/August 2026 "future" dates. Current CRM behavior is covered by focused tests.
     exclude: [
       ...configDefaults.exclude,
       "e2e/**",
-      "src/tests/crm.test.ts",
     ],
     // Retired/manual behaviors stay out of the current product run without deleting
     // their historical tests. Completed-game judge correction is now explicitly

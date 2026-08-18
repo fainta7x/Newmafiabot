@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this branch:** `6c5835419eff68311bf5d2c69c10bc167254f5a7`.
+> **Current main observed before this branch:** `94339541faf6c4965e86675e905c17193fe86877`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -81,6 +81,7 @@ Live Game is being modularized without rule changes. Current durable boundaries 
 
 - `setupMode.ts` — setup routing / managed-engine markers;
 - `setupRoles.ts` — setup role translation, distribution validity and physical-role assignments;
+- `setupState.ts` — setup seat/player/role transforms and start-validation only; React setters, snapshot/start side effects, discipline initialization and transition to zero night remain in `LiveGameEngine.tsx`;
 - `timerModel.ts` — CenterPanel timer duration/deadline/remaining calculations;
 - `votingPresentationModel.ts` — CenterPanel vote-display assignments/remaining-vote and table-decision presentation arithmetic only;
 - `seatPresentationModel.ts` — SeatCard grid position, border-priority and current-vote presentation only; seat actions/fouls/removal remain in `SeatCard.tsx`;
@@ -157,6 +158,7 @@ Treat names as evidence to inspect, not proof that a file is dead.
 
 Newest relevant technical work:
 
+- `9433954` — extracted exact Live Game snapshot cloning and legacy restore-default normalization to `engineStateModel.ts`, preserving localStorage shape, React setter ownership, undo/history behavior and zero/false fallback semantics.
 - `6c58354` — extracted Live Game engine state schema and initial empty-player/discipline factories to `engineStateModel.ts`, reusing the canonical `LiveGameEngineProps` and leaving snapshot mutation/handlers unchanged.
 - `8d55acb` — extracted SeatCard grid position, border-priority and current-vote presentation to `seatPresentationModel.ts`, preserving seat actions/fouls/removal and current automatic-vote presentation behavior.
 - `04bb62e` — extracted CenterPanel voting-display/remaining-vote/table-decision presentation arithmetic to `votingPresentationModel.ts`, preserving mandatory last-candidate voting and keeping `tournamentVoting.ts` authoritative for outcomes.
@@ -192,7 +194,7 @@ Newest relevant technical work:
 
 The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
 
-1. Continue Live Game modularization after the snapshot clone/restore-normalization boundary: audit one coherent handler family in `LiveGameEngine.tsx`, prove its dependencies/behavior with focused coverage, then extract that family in its own PR. Do not mix multiple game phases or rule changes into one extraction.
+1. Continue Live Game modularization after the setup-state boundary: audit one additional coherent handler family in `LiveGameEngine.tsx`, prove its dependencies and current behavior with focused coverage, then extract only that family in its own PR. Do not pre-select voting/discipline/night logic without that audit, and do not mix multiple game phases or rule changes into one extraction.
 2. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
 3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused visual/browser verification.
 4. Split other high-complexity modules one at a time, especially `GameProtocolModal.tsx` and tournament route modules, after the current Live Game pass.

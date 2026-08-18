@@ -173,7 +173,7 @@ test.describe('Live Game browser stabilization', () => {
 
     await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
     await seatCard(page, 6).click();
-    await expect(page.getByTestId('live-game-night-status')).toHaveText(/Шериф проверил #6: Мафия/);
+    await expect(page.getByTestId('live-game-night-status')).toHaveText('Шериф проверил #6: ЧЁРНЫЙ!');
     await expect(seatCard(page, 6).getByText('Шериф', { exact: true })).toBeVisible();
     await attachViewport(page, testInfo, '04-night-checks.png');
     await clickOptional(page.getByRole('button', { name: /Выключить музыку/ }));

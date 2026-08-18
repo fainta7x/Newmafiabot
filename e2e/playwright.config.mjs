@@ -25,8 +25,11 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
+      // Browser E2E uses test-safe DB behavior/workers, but explicitly opts
+      // into Vite middleware so /admin renders the real browser UI.
       NODE_ENV: 'test',
       VITEST: '1',
+      PLAYWRIGHT_E2E: '1',
       HOST: '127.0.0.1',
       PORT: '4173',
       DATABASE_PATH: './temp/playwright-e2e.sqlite',

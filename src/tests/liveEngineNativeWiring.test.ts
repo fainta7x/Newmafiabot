@@ -27,8 +27,10 @@ describe('live engine native wiring', () => {
 
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
+    const presentation = read('src/components/LiveGameEngine/seatPresentationModel.ts');
     expect(seat).toContain('canToggleVoteAssignment');
-    expect(seat).toContain('`#${slotNum}→#${target}${automatic ? "*" : ""}`');
+    expect(seat).toContain('buildSeatVoteStatusPresentation');
+    expect(presentation).toContain("`#${slotNum}→#${target}${automatic ? '*' : ''}`");
     expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
   });
 });

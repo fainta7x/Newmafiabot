@@ -55,6 +55,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Main UI: `src/components/LiveGameEngine.tsx` plus `src/components/LiveGameEngine/` and `src/components/game/`.
 - Setup-mode routing: `src/components/LiveGameEngine/setupMode.ts`; focused coverage: `src/tests/liveGameSetupMode.test.ts`.
 - Setup role translation/validity: `src/components/LiveGameEngine/setupRoles.ts`; focused coverage: `src/tests/liveGameSetupRoles.test.ts`.
+- Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - API: `gamesRoutes.ts`, `playerLiveRoutes.ts`, `publicLiveRoutes.ts`.
 - Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - `POST /api/games` is intentionally retired with HTTP 410 in `src/app.ts`.

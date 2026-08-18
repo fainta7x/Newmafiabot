@@ -54,6 +54,13 @@ import {
   markDaySpeakerSpoken,
 } from "./LiveGameEngine/daySpeechModel.js";
 import {
+  canNightTargetGiveFirstKilledBestMove,
+  findNightTarget,
+  getDonCheckResult,
+  getSheriffCheckResult,
+  toggleNightShotTarget,
+} from "./LiveGameEngine/nightTargetModel.js";
+import {
   BestMoveSource,
   LiveProtocolMarkers,
   clearBestMove,
@@ -864,14 +871,13 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setTimeLeft(15);
   };
 
-  const getNightTarget = () => shotPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === shotPlayerSlot) || null;
+  const getNightTarget = () => findNightTarget(activePlayers, shotPlayerSlot);
 
-  const targetCanGiveFirstKilledBestMove = () => {
-    const target = getNightTarget();
-    if (!target) return false;
-    if (protocolMarkers.firstKilledSlot !== null && protocolMarkers.firstKilledSlot !== target.slot_num) return false;
-    return canRegisterFirstKilled(roundNumber, target.role, true);
-  };
+  const targetCanGiveFirstKilledBestMove = () => canNightTargetGiveFirstKilledBestMove(
+    getNightTarget(),
+    protocolMarkers.firstKilledSlot,
+    roundNumber,
+  );
 
   const handleStartFirstKilledBestMove = () => {
     const target = getNightTarget();
@@ -958,7 +964,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     let killedSlot: number | null = null;
 
     if (shotPlayerSlot) {
-      const target = activePlayers.find((p) => p.slot_num === shotPlayerSlot);
+      const target = getNightTarget();
       if (target?.alive) {
         killedSlot = shotPlayerSlot;
         eliminatePlayer(shotPlayerSlot, `Убит ночью (Ночь ${roundNumber})`, 'killed');
@@ -988,9 +994,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (phase === 'night') {
       if (postNightStage !== 'none' || !player.alive) return;
       saveSnapshot();
-      if (nightSubPhase === 'shooting') setShotPlayerSlot((value) => value === slot ? null : slot);
-      else if (nightSubPhase === 'don') { setDonCheckSlot(slot); setDonCheckResult(player.role === 'Шериф'); }
-      else if (nightSubPhase === 'sheriff') { setSheriffCheckSlot(slot); setSheriffCheckResult(player.team === 'Чёрные' ? 'ЧЁРНЫЙ!' : 'Красный'); }
+      if (nightSubPhase === 'shooting') setShotPlayerSlot((value) => toggleNightShotTarget(value, slot));
+      else if (nightSubPhase === 'don') { setDonCheckSlot(slot); setDonCheckResult(getDonCheckResult(player)); }
+      else if (nightSubPhase === 'sheriff') { setSheriffCheckSlot(slot); setSheriffCheckResult(getSheriffCheckResult(player)); }
       return;
     }
     if (phase === 'day_voting' && votingStage === 'collecting') {

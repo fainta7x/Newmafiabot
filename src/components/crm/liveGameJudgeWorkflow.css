@@ -1,0 +1,293 @@
+/* Judge workflow layer for Live Game.
+   This file is intentionally phase-adaptive: it exposes existing controls and
+   information already present in SeatCard/CenterPanel without changing rules. */
+
+@media (max-width: 767px) {
+  /* ---------- Day speeches: frequent actions stay on the table ---------- */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"][class*="inset-x-1.5"]:has(button[title*="голосование"]) {
+    display: flex !important;
+    top: 4px !important;
+    left: 4px !important;
+    right: 4px !important;
+    height: 28px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    pointer-events: auto !important;
+    z-index: 24 !important;
+  }
+
+  /* Nomination = one compact target button. Full wording remains in title/a11y. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="голосование"] {
+    box-sizing: border-box !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,.24) !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="голосование"] span {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="голосование"] svg {
+    width: 15px !important;
+    height: 15px !important;
+    margin: 0 !important;
+  }
+
+  /* The right rail keeps only +/- regular foul. Count is already visible in the
+     persistent discipline strip; destructive removal stays in the action sheet. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    > div:last-child {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    > div:last-child
+    > div {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="фол"] {
+    box-sizing: border-box !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,.24) !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(-n+10)
+    > div[class*="top-1.5"]
+    button[title*="Удалить"] {
+    display: none !important;
+  }
+
+  /* Discipline is persistent information, not a top control. Move it directly
+     above the seat footer where it never collides with quick actions. */
+  html body .evening-live-engine-shell .evening-live-identity-layer
+    .evening-live-identity .evening-live-discipline {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 44px !important;
+    left: 4px !important;
+    right: 4px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: 20px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    transform: none !important;
+    pointer-events: none !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer
+    .evening-live-identity .evening-live-discipline > span[data-count] {
+    width: 27px !important;
+    min-width: 27px !important;
+    height: 19px !important;
+    border-radius: 6px !important;
+    opacity: .92 !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer
+    .evening-live-identity .evening-live-discipline > span[data-count="0"] {
+    opacity: .28 !important;
+  }
+
+  /* The footer is the single primary action rail. Remove the duplicate green
+     "Речь" button from the center body during the regular day round. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(11)
+    > div.flex-1
+    button:has(svg[class*="lucide-mic"]) {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(11)
+    > div.flex-1
+    > div[class*="space-y-2"] {
+    gap: 6px !important;
+  }
+
+  /* ---------- Voting: the table itself becomes the vote matrix ---------- */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+      > :nth-child(11) div[class*="grid-cols-5"]
+    )
+    > :nth-child(-n+10)
+    > div.flex-1 {
+    display: flex !important;
+    position: absolute !important;
+    top: 31px !important;
+    bottom: 44px !important;
+    left: 3px !important;
+    right: 3px !important;
+    z-index: 19 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+      > :nth-child(11) div[class*="grid-cols-5"]
+    )
+    > :nth-child(-n+10)
+    > div.flex-1 > div {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 6px 2px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+      > :nth-child(11) div[class*="grid-cols-5"]
+    )
+    > :nth-child(-n+10)
+    > div.flex-1 span:first-child {
+    display: none !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+      > :nth-child(11) div[class*="grid-cols-5"]
+    )
+    > :nth-child(-n+10)
+    > div.flex-1 span:last-child {
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    font-weight: 950 !important;
+    letter-spacing: -.02em !important;
+  }
+
+  /* During voting the avatar is secondary to vote state. Keep nickname and
+     discipline, but free the card center for the actual assignment. */
+  html body .evening-live-engine-shell:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]
+    ) .evening-live-player-avatar {
+    opacity: 0 !important;
+    transform: scale(.8) !important;
+  }
+
+  html body .evening-live-engine-shell:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]
+    ) .evening-live-identity {
+    justify-content: flex-start !important;
+    padding: 31px 4px 44px !important;
+  }
+
+  html body .evening-live-engine-shell:has(
+      div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]
+    ) .evening-live-identity-name {
+    position: absolute !important;
+    top: 30px !important;
+    left: 4px !important;
+    right: 4px !important;
+    max-width: none !important;
+    font-size: 9px !important;
+    line-height: 11px !important;
+  }
+
+  /* The old miniature 10-seat matrix in the center is now duplicate information. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(11)
+    div[class*="grid-cols-5"] {
+    display: none !important;
+  }
+
+  /* Make the voting question and current count the dominant center information. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(11)
+    > div.flex-1
+    div[class*="space-y-2"] > div[class*="text-xs"][class*="font-black"] {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"]
+    > :nth-child(11)
+    > div.flex-1
+    div[class*="bg-slate-950"][class*="justify-between"] {
+    min-height: 34px !important;
+    padding: 6px 9px !important;
+    border-radius: 9px !important;
+    background: rgba(255,255,255,.035) !important;
+    border-color: rgba(255,255,255,.08) !important;
+    font-size: 10px !important;
+  }
+
+  /* ---------- Player action sheet ---------- */
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div {
+    scrollbar-width: none !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > div::-webkit-scrollbar {
+    display: none !important;
+  }
+}

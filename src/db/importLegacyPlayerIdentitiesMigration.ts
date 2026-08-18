@@ -38,7 +38,7 @@ const norm = (v: unknown) => String(v ?? '').trim().toLocaleLowerCase('ru-RU');
 const text = (v: unknown) => String(v ?? '').trim();
 
 export function applyImportLegacyPlayerIdentitiesMigration(db: DatabaseWrapper): void {
-  if (db.dbPath === ':memory:') return;
+  if (db.dbPath === ':memory:' || process.env.E2E_TEST === 'true') return;
 
   const existing = db.sqlite.prepare('SELECT status FROM migration_history WHERE migration_name=? LIMIT 1').get(MIGRATION_KEY) as {status?: string}|undefined;
   if (existing?.status === 'completed') return;

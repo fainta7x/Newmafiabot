@@ -18,5 +18,7 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Vulnerable dependency path
+        run: npm ls nanoid || true
       - name: Full dependency audit
         run: npm audit --audit-level=high || true

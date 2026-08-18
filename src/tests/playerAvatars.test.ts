@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import express from 'express';
 import request from 'supertest';
-import { createApp } from '../app.ts';
+import publicRoutesBase from '../server/routes/publicRoutesBase.ts';
 import { getPlayerAvatarUrl, normalizeAvatarNickname } from '../lib/playerAvatars.ts';
 
 describe('player avatar mapping and serving', () => {
@@ -47,7 +48,8 @@ describe('player avatar mapping and serving', () => {
   });
 
   it('serves static avatar base64 dataUrl via Express route and returns 404 for missing image', async () => {
-    const app = await createApp();
+    const app = express();
+    app.use('/api/public', publicRoutesBase);
 
     const response = await request(app).get('/api/public/player-avatar-data/vid.jpg');
     expect(response.status).toBe(200);

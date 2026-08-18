@@ -57,6 +57,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Setup role translation/validity: `src/components/LiveGameEngine/setupRoles.ts`; focused coverage: `src/tests/liveGameSetupRoles.test.ts`.
 - Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - Center-panel voting display calculations: `src/components/LiveGameEngine/votingPresentationModel.ts`; focused coverage: `src/tests/liveGameVotingPresentationModel.test.ts`. Voting outcomes remain in `src/shared/tournamentVoting.ts`.
+- Seat grid / border-priority / current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.
 - API: `gamesRoutes.ts`, `playerLiveRoutes.ts`, `publicLiveRoutes.ts`.
 - Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - `POST /api/games` is intentionally retired with HTTP 410 in `src/app.ts`.

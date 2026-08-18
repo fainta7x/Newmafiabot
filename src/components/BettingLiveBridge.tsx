@@ -135,11 +135,6 @@ export default function BettingLiveBridge() {
 
     const tick = async () => {
       if (busy) return;
-      const now = Date.now();
-      if (now - lastReconcileAt > 5000) {
-        lastReconcileAt = now;
-        void fetch('/api/games/betting/reconcile', { method: 'POST', credentials: 'include' }).catch(() => undefined);
-      }
 
       let parsed: any = null;
       try {
@@ -151,6 +146,12 @@ export default function BettingLiveBridge() {
         return;
       }
       if (liveSeenAt === null) liveSeenAt = Date.now();
+
+      const now = Date.now();
+      if (now - lastReconcileAt > 5000) {
+        lastReconcileAt = now;
+        void fetch('/api/games/betting/reconcile', { method: 'POST', credentials: 'include' }).catch(() => undefined);
+      }
 
       const activePlayers: LivePlayer[] = Array.isArray(parsed.activePlayers) ? parsed.activePlayers : [];
       if (activePlayers.length !== 10) return;

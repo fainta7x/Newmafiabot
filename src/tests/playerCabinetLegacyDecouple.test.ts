@@ -15,7 +15,7 @@ describe('player cabinet legacy decoupling', () => {
   it('keeps the games hub independent from PlayerCabinetShellLegacy', () => {
     const games = read('src/components/player/PlayerGamesHub.tsx');
     expect(games).not.toContain('PlayerCabinetShellLegacy');
-    expect(games).toContain("import PlayerCabinetV2 from './PlayerCabinetV2.tsx'");
+    expect(games).toContain("import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx'");
     expect(games).toContain("next === 'games' || next === 'stats'");
   });
 

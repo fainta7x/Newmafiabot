@@ -10,19 +10,7 @@ import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
 import { createEmptyLiveProtocolMarkers } from '../src/lib/gameProtocolCore.ts';
 import '../src/index.css';
 import '../src/releasePolish.css';
-import '../src/components/crm/eveningLiveMobilePolish.css';
-import '../src/components/crm/eveningLiveResponsiveSafe.css';
-import '../src/components/crm/eveningLiveResponsiveRefine.css';
-import '../src/components/crm/eveningLiveTableDecisionFix.css';
-import '../src/components/crm/eveningLivePlayerStatePolish.css';
-import '../src/components/crm/liveGameVisualV2.css';
-import '../src/components/crm/liveGameRoleGlyphsV2.css';
-import '../src/components/crm/liveGameControlsPolishV3.css';
-import '../src/components/crm/liveGameDisciplineGlyphsV4.css';
-import '../src/components/crm/liveGameActionGroupsV5.css';
-import '../src/components/crm/liveGameMobileGeometryV6.css';
-import '../src/components/crm/liveGameJudgeConsoleV7.css';
-import '../src/components/crm/liveGameJudgeWorkflow.css';
+import '../src/components/crm/liveGameJudge.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 

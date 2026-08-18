@@ -227,6 +227,7 @@
   overflow:hidden!important;
   text-align:left!important;
   display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
   grid-template-rows:auto minmax(0,1fr) auto!important;
   min-width:0!important;
   min-height:0!important;

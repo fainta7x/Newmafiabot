@@ -55,7 +55,7 @@ export const resolveSeatContainerClass = ({
   isInteractiveVoting: boolean;
   votesByPlayer?: Record<number, number>;
   isNominated: boolean;
-  isChosenInBestMove: boolean;
+  isChosenInBestMove: boolean | undefined;
   shootoutNominees: number[];
   shootoutSubPhase: string;
   bothLeaveVotes: number[];

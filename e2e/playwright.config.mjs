@@ -25,8 +25,10 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
-      NODE_ENV: 'test',
-      VITEST: '1',
+      // Browser E2E needs the real Vite middleware so /admin renders the React app.
+      // Keep the database isolated, but do not make createApp think this is Vitest.
+      NODE_ENV: 'development',
+      VITEST: '',
       HOST: '127.0.0.1',
       PORT: '4173',
       DATABASE_PATH: './temp/playwright-e2e.sqlite',

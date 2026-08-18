@@ -109,11 +109,11 @@ export function PlayerActionOverlay({
                 <div className="text-sm font-mono font-black text-amber-300">{regularFouls}</div>
               </div>
               <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Малый тех</div>
+                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Малый техфол</div>
                 <div className="text-sm font-mono font-black text-yellow-300">{minorTech}</div>
               </div>
               <div className="rounded-lg border border-rose-500/20 bg-rose-500/[.05] px-2 py-1.5 text-center">
-                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Большой тех</div>
+                <div className="text-[7px] uppercase font-black tracking-wider text-slate-500">Большой техфол</div>
                 <div className="text-sm font-mono font-black text-rose-300">{majorTech}</div>
               </div>
             </div>

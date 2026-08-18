@@ -8,7 +8,6 @@ import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
-import baseRouter from './participantRoutesBase.ts';
 
 const router = Router();
 
@@ -47,5 +46,27 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   }
 });
 
-router.use(baseRouter);
+router.delete('/:id', requireOrganizerAuth, async (req, res) => {
+  try {
+    const db = req.db || (await getDb());
+    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
+    if (!part) {
+      return res.status(404).json({ error: 'Запись участника не найдена' });
+    }
+
+    const evening = await db.get('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
+    if (evening?.status === 'completed' || evening?.settled_at) {
+      return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
+    }
+
+    await db.run('DELETE FROM evening_participants WHERE id = ?', [String(req.params.id)]);
+
+    await runCrmAutomations(db);
+
+    res.json({ success: true, message: 'Участник удален из вечера' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Database error', message: err.message });
+  }
+});
+
 export default router;

@@ -19,7 +19,6 @@
     z-index: 24 !important;
   }
 
-  /* Nomination = one compact target button. Full wording remains in title/a11y. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(-n+10)
@@ -161,10 +160,12 @@
     gap: 6px !important;
   }
 
-  /* ---------- Voting: the table itself becomes the vote matrix ---------- */
+  /* ---------- Voting: the table itself becomes the vote matrix ----------
+     The collecting view's mini matrix has no buttons. The later table-decision
+     grid does have buttons, so it must remain visible and interactive. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     )
     > :nth-child(-n+10)
     > div.flex-1 {
@@ -185,7 +186,7 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     )
     > :nth-child(-n+10)
     > div.flex-1 > div {
@@ -201,7 +202,7 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     )
     > :nth-child(-n+10)
     > div.flex-1 span:first-child {
@@ -210,7 +211,7 @@
 
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     )
     > :nth-child(-n+10)
     > div.flex-1 span:last-child {
@@ -220,11 +221,9 @@
     letter-spacing: -.02em !important;
   }
 
-  /* During voting the avatar is secondary to vote state. Keep nickname and
-     discipline, but free the card center for the actual assignment. */
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     ) .evening-live-player-avatar {
     opacity: 0 !important;
     transform: scale(.8) !important;
@@ -232,7 +231,7 @@
 
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     ) .evening-live-identity {
     justify-content: flex-start !important;
     padding: 31px 4px 44px !important;
@@ -240,7 +239,7 @@
 
   html body .evening-live-engine-shell:has(
       div[class*="grid-cols-2"][class*="md:grid-cols-5"]
-      > :nth-child(11) div[class*="grid-cols-5"]
+      > :nth-child(11) div[class*="grid-cols-5"]:not(:has(button))
     ) .evening-live-identity-name {
     position: absolute !important;
     top: 30px !important;
@@ -251,15 +250,14 @@
     line-height: 11px !important;
   }
 
-  /* The old miniature 10-seat matrix in the center is now duplicate information. */
+  /* Only the collecting assignment matrix is duplicate. Table-decision buttons stay. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(11)
-    div[class*="grid-cols-5"] {
+    div[class*="grid-cols-5"]:not(:has(button)) {
     display: none !important;
   }
 
-  /* Make the voting question and current count the dominant center information. */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]
     > :nth-child(11)

@@ -177,6 +177,11 @@
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.evening-live-engine-shell .evening-live-identity[data-alive="false"] .evening-live-player-avatar,
+.evening-live-engine-shell .evening-live-identity[data-alive="false"] .evening-live-identity-name {
+  opacity:0!important;
+  visibility:hidden!important;
+}
 .evening-live-engine-shell .evening-live-discipline {
   position:absolute;
   bottom:45px;
@@ -245,7 +250,19 @@
 
 .live-judge-timer { width:100%; min-width:0; display:grid; grid-template-columns:minmax(0,1fr) 62px; grid-template-areas:"label time" "name time" "bar bar" "buttons buttons"; column-gap:7px; row-gap:4px; align-items:center; }
 .live-judge-timer__label { grid-area:label; color:var(--live-muted); font-size:7.5px; line-height:1; font-weight:900; text-transform:uppercase; letter-spacing:.06em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-.live-judge-timer__name { grid-area:name; color:var(--live-text); font-size:11px; line-height:1.05; font-weight:950; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.live-judge-timer__name {
+  grid-area:name;
+  min-width:0;
+  max-height:24px;
+  color:var(--live-text);
+  font-size:10px;
+  line-height:1.12;
+  font-weight:950;
+  overflow:hidden;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  text-overflow:clip;
+}
 .live-judge-timer__time { grid-area:time; height:45px; display:flex; align-items:center; justify-content:flex-end; color:var(--live-green); font:950 28px/1 ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.06em; }
 .live-judge-timer__time--danger { color:var(--live-red); }
 .live-judge-timer__bar { grid-area:bar; height:3px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.06); }
@@ -266,8 +283,27 @@
 .live-judge-action--success { flex:1; color:#d1fae5; background:rgba(16,185,129,.14); border-color:rgba(52,211,153,.30); }
 .live-judge-action:disabled { opacity:.28; }
 
-.live-judge-table-voters { width:100%; min-width:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; }
-.live-judge-table-voter { min-width:0; width:100%; height:27px; padding:0; border-radius:7px; border:1px solid var(--live-line); background:rgba(255,255,255,.025); color:var(--live-text-2); font:950 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.live-judge-table-voters {
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:repeat(5,calc((100% - 12px)/5));
+  gap:3px;
+  overflow:hidden;
+}
+.live-judge-table-voter {
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100%;
+  width:100%;
+  height:27px;
+  padding:0;
+  border-radius:7px;
+  border:1px solid var(--live-line);
+  background:rgba(255,255,255,.025);
+  color:var(--live-text-2);
+  font:950 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+}
 .live-judge-table-voter--selected { color:#fde68a; border-color:rgba(232,185,94,.50); background:rgba(232,185,94,.12); }
 .live-judge-table-decision-count { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; align-items:center; padding:5px 6px; border-radius:8px; border:1px solid var(--live-line); background:rgba(255,255,255,.025); }
 .live-judge-table-decision-count span { min-width:0; color:var(--live-text-2); font-size:8px; font-weight:750; }

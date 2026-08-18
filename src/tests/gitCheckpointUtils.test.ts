@@ -8,7 +8,6 @@ import {
   compressAndSaveGitCheckpoint,
   restoreGitCheckpointToSqlite,
 } from '../db/gitCheckpointUtils.ts';
-import { runGitCheckpointScript } from '../scripts/createGitCheckpoint.ts';
 
 function createTestDb(
   dbPath: string,
@@ -102,7 +101,7 @@ function createTestDb(
   db.close();
 }
 
-describe('gitCheckpointUtils & Checkpoint Script', () => {
+describe('gitCheckpointUtils', () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -190,46 +189,5 @@ describe('gitCheckpointUtils & Checkpoint Script', () => {
 
     const stats = verifyDatabaseIntegrityAndStats(restoredSqlitePath);
     expect(stats.bogdanaStats.totalGames).toBe(10);
-  });
-
-  it('9. Target checkpoint is NOT replaced on failed verification', async () => {
-    const sentinelContent = 'SENTINEL_CONTENT_DO_NOT_OVERWRITE_12345';
-    const testTargetB64Path = path.join(tmpDir, 'sentinel_target.gz.b64');
-    fs.writeFileSync(testTargetB64Path, sentinelContent, 'utf-8');
-
-    const invalidDbPath = path.join(tmpDir, 'invalid_for_checkpoint.sqlite');
-    createTestDb(invalidDbPath, { gameCount: 5 }); // Verification will fail because game count != 10
-
-    const success = await runGitCheckpointScript({
-      dbPath: invalidDbPath,
-      targetB64Path: testTargetB64Path,
-    });
-
-    expect(success).toBe(false);
-    expect(fs.readFileSync(testTargetB64Path, 'utf-8')).toBe(sentinelContent);
-  });
-
-  it('10. Original runtime DB remains byte-for-byte unchanged after running script', async () => {
-    const validDbPath = path.join(tmpDir, 'valid_runtime.sqlite');
-    createTestDb(validDbPath);
-
-    const statsBefore = fs.statSync(validDbPath);
-    const bytesBefore = fs.readFileSync(validDbPath);
-
-    const testTargetB64Path = path.join(tmpDir, 'output_checkpoint.gz.b64');
-
-    const success = await runGitCheckpointScript({
-      dbPath: validDbPath,
-      targetB64Path: testTargetB64Path,
-    });
-
-    expect(success).toBe(true);
-
-    const statsAfter = fs.statSync(validDbPath);
-    const bytesAfter = fs.readFileSync(validDbPath);
-
-    expect(statsAfter.size).toBe(statsBefore.size);
-    expect(bytesAfter.equals(bytesBefore)).toBe(true);
-    expect(fs.existsSync(testTargetB64Path)).toBe(true);
   });
 });

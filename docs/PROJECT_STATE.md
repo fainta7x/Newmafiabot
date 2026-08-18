@@ -5,7 +5,10 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Status date:** 2026-08-17.
+> **Current main observed before this cleanup branch:** `d8e6553894937e8dcc484f0f66602903b935c065`.
+> **Status date:** 2026-08-18.
+
+`Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
 
 ## Source of truth
 
@@ -17,24 +20,27 @@
 6. `docs/ERROR_PLAYBOOK.md` is the fast error-triage guide.
 7. Historical roadmaps are planning material only; Git history/merged PRs are authoritative for completed technical changes.
 
-The durable handoff system is active and CI-protected. New sessions should start from `AGENTS.md` + this file + the last 5–10 main commits and targeted navigation commands instead of re-auditing the repository.
+New sessions should start from `AGENTS.md` + this file + the last 5–10 main commits and targeted navigation commands instead of re-auditing the repository.
 
 ## Current platform
 
 Full-stack application for the 2LA Noire sports Mafia club:
 
-- React + TypeScript player application and organizer CRM.
-- Express + TypeScript API.
+- React `19.1.x` + TypeScript `6.0.x` player application and organizer CRM.
+- Express `5.1.x` + TypeScript API.
 - SQLite through `better-sqlite3` / repository DB wrapper.
 - Python Telegram bot connected through REST endpoints.
 - Telegram WebApp and VK integrations.
-- Vite/Vitest web toolchain.
+- Vite `8.2.x` build tooling and Vitest `4.0.x` tests.
+- ESLint `10.0.x`, Tailwind CSS `4.x`, Zod `4.x`.
 - Isolated Playwright browser smoke tests.
 - GitHub Actions CI with CodeQL and Gitleaks security workflows.
-- Render deployment configuration.
-- Node.js `24.18.0` LTS pinned consistently in `.node-version`, CI and Render config.
+- Render deployment configuration with manual deployment trigger.
+- Node.js 24 LTS pinned consistently in local/CI/Render configuration.
 
-The current architecture is intentionally evolutionary: do not rewrite to another framework/database merely to follow newer trends. Modernize components in isolated, verified PRs and preserve current product behavior/data safety.
+The previous React 18 -> 19, Express 4 -> 5, TypeScript 5 -> 6 and Vite 5 -> 8 migration queue is complete. Do not reopen those migrations from old roadmap text.
+
+The architecture is intentionally evolutionary: do not rewrite to another framework/database merely to follow newer trends. Modernize components in isolated, verified PRs and preserve current product behavior/data safety.
 
 ## Implemented and connected
 
@@ -53,7 +59,7 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - Player speech recordings with server persistence and local fallback.
 - Player conduct/game-management center.
 
-`PlayerCabinetShellLegacy.tsx` has been removed. `PlayerCabinetV2` remains active content for game history/statistics and is not dead legacy code.
+`PlayerCabinetV2.tsx` remains active content for game history/statistics and is not dead code merely because of the `V2` suffix.
 
 ### Organizer application
 
@@ -71,7 +77,7 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - Awards/nominations/results/publication support.
 - Token settlements, replay and speech recording upload/readback.
 
-`POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring it.
+`POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring the old endpoint. Tests that require the retired create-game contract are obsolete unless deliberately rewritten against the current workflow.
 
 ### Integrations
 
@@ -87,8 +93,9 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - Release data-safety audit exists.
 - Existing non-empty runtime DB must never be overwritten by repository checkpoint bootstrap.
 - Startup schema ensure/reconciliation logic is active.
+- Production/runtime data safety has priority over cleanup, naming or dependency work.
 
-### Project handoff / developer context
+## Project navigation and verification
 
 - `AGENTS.md` — mandatory entry point.
 - `docs/PROJECT_STATE.md` — live state/queue.
@@ -96,42 +103,23 @@ The current architecture is intentionally evolutionary: do not rewrite to anothe
 - `docs/BUSINESS_RULES.md` — approved domain/product rules.
 - `docs/RUNBOOK.md` + `docs/ERROR_PLAYBOOK.md` — safe work and triage.
 - `npm run project:status` — read-only environment/context snapshot.
-- `npm run project:find` — targeted feature lookup.
-- `npm run project:affected` — affected-area guidance.
-- `npm run project:verify` — standard complete web verification including data-safety audit, typecheck, ESLint, tests and production build.
+- `npm run project:find -- "<query>"` — targeted feature lookup.
+- `npm run project:affected -- <files>` — affected-area guidance.
+- `npm run project:verify` — release audit + typecheck + ESLint + Vitest + production build.
+- `npm run test:browser` — isolated Playwright mobile smoke.
 
-### Dependency/security maintenance
+CI/security gates include production dependency audit, handoff integrity, release data-safety audit, TypeScript, ESLint, active Vitest suite, production build, Python bot syntax, Playwright smoke, CodeQL and Gitleaks.
 
-- CI permanently blocks high/critical vulnerabilities in production dependencies with `npm audit --omit=dev --audit-level=high`.
-- The obsolete diagnostic npm-audit PRs have been closed without merge.
-- Dependabot is configured for weekly npm and GitHub Actions version updates.
-- Automated npm version updates are limited to minor/patch; semver-major migrations stay explicit/manual.
+Playwright is intentionally non-destructive: it uses a disposable SQLite DB and must not mutate production/runtime data.
+
+## Dependency/security maintenance
+
+- CI blocks high/critical vulnerabilities in production dependencies with `npm audit --omit=dev --audit-level=high`.
+- Dependabot handles routine weekly npm/GitHub Actions updates; major behavioral migrations remain explicit.
 - Never use `npm audit fix --force` blindly.
-- GitHub workflow actions are on current Node-24 runtime majors: `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`.
-- CodeQL scans JavaScript/TypeScript and Python on pull requests, pushes to `main` and a weekly schedule.
-- Gitleaks scans full Git history for leaked credentials/tokens on pull requests, pushes to `main` and a weekly schedule. It is configured read-only with PR comments and finding-artifact uploads disabled.
-
-### Quality gates
-
-Current CI/security workflows block merges/pushes on:
-
-- production dependency high/critical audit;
-- project handoff/navigation integrity;
-- release data-safety audit;
-- strict TypeScript typecheck;
-- real ESLint 10 flat-config correctness checks;
-- the active Vitest configuration;
-- production web/server build;
-- Python bot syntax compilation;
-- Playwright mobile browser smoke after the standard web checks;
-- CodeQL JavaScript/TypeScript and Python analysis;
-- Gitleaks full-history secret scanning.
-
-The Playwright smoke is intentionally non-destructive: it uses a disposable SQLite DB, verifies `/api/health`, the organizer entry screen, mobile horizontal overflow and browser page errors, and does not create production evenings/players/registrations.
-
-The ESLint baseline intentionally focuses on high-signal correctness rules instead of formatting/style churn. Four server sanitizer files have an exact-file `no-control-regex` override because their ASCII control-character ranges are intentional validation behavior; do not broaden that exception globally.
-
-Important: `vite.config.ts` still contains explicit historical/deferred test-file and test-name exclusions. Do not describe the suite as having zero project-specific exclusions until those exclusions are actually removed.
+- CodeQL scans JavaScript/TypeScript and Python.
+- Gitleaks scans full Git history read-only for leaked credentials/tokens.
+- A full-tree `npm ci` may report development-tree findings even while the explicit production dependency audit is green; describe those separately and do not claim zero vulnerabilities without checking.
 
 ## Intentionally incomplete / paused
 
@@ -143,54 +131,50 @@ Accounting/payment history, token packages and payment-intent scaffolding exist,
 
 Repository CI cannot prove live Render secrets, callbacks or that the latest `main` is deployed. `render.yaml` has `autoDeployTrigger: off`; green `main` does not imply live deployment.
 
-## Known architecture/tooling debt
+## Known cleanup / architecture debt
 
-- `playerSelfRoutesLegacy.ts` is still mounted and serves real endpoints; do not delete by name alone.
-- Historical Python bot modules may still be active; confirm imports/runtime usage before cleanup.
-- `tailwindcss` is still declared with an old alpha range while the lockfile currently resolves stable Tailwind 4.3.x and `@tailwindcss/vite` is on the stable v4 line; normalize the manifest/lockfile together in an isolated dependency PR.
-- TypeScript, React, Express and Vite are behind current major/stable lines and should be migrated incrementally, never as one bulk upgrade.
-- `vite.config.ts` contains historical/deferred test exclusions that should be revisited deliberately.
-- Production/runtime data safety has priority over code cleanup or framework upgrades.
+Treat names as evidence to inspect, not proof that a file is dead.
+
+- `src/server/routes/playerSelfRoutesLegacy.ts` is still mounted through the current player self-route layer and serves real endpoints.
+- `src/components/crm/EveningsList.tsx` is currently a small active compatibility/export layer around `EveningsList.v2.tsx`.
+- `src/components/player/PlayerCabinetV2.tsx` is active implementation content.
+- `src/components/LiveGameEngine/LegacySetupPhase.tsx` is part of the live component tree.
+- `vite.config.ts` and `vite.config.js` both exist; the JavaScript config has VK-specific behavior. Consolidate only after tracing every caller/build path.
+- `vitest.config.ts` still has project-specific deferred test-name exclusions. Revisit them one scenario at a time; do not simply delete the regex to make the suite look cleaner.
+- Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification.
+- Several files are very large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, tournament export logic and large Python bot handlers. Split one module per PR without behavior changes.
 
 ## Recently completed
 
-From newest to older:
+Newest relevant technical work:
 
-- `5d76015` — add read-only Gitleaks full-history secret scanning on PRs, `main` and weekly schedule.
-- `3b3ffca` — add CodeQL analysis for JavaScript/TypeScript and Python on PRs, `main` and weekly schedule.
-- `0d78901` — add isolated Playwright mobile smoke gate with disposable SQLite DB and Chromium CI run.
-- `4deb6df` — move CI actions to current Node-24 runtime majors (`checkout@v7`, `setup-node@v7`, `setup-python@v7`).
-- `affc485` — real ESLint 10 flat-config correctness gate; fixed the initial high-signal lint findings and added lint to CI/project verification.
-- `bd1ef99` — conservative weekly Dependabot version updates; major upgrades remain manual.
-- `6f39348` — pin Node.js 24.18.0 LTS across local tooling, CI and Render; full CI compatibility verified.
-- `ba3130d` — permanent high/critical production dependency audit gate.
-- `f1f605b` — fast project navigation/error-triage tooling and CI checks.
+- `d8e6553` — repository hygiene: removed generated project dump, obsolete one-off legacy DB scripts and old write-access artifact; future generated project-context dump ignored.
+- `2b98048` — Vite toolchain upgrade to 8.2 plus Vitest/Playwright isolation; CI/build/browser smoke restored.
+- `23ab30e` — faster iteration workflow: focused checks during work, full CI/security only for ready-to-merge changes.
+- `5d76015` — read-only Gitleaks full-history scanning.
+- `3b3ffca` — CodeQL for JavaScript/TypeScript and Python.
+- `0d78901` — isolated Playwright mobile smoke with disposable SQLite DB.
+- `affc485` — ESLint 10 flat-config correctness gate.
+- `6f39348` — Node.js 24 LTS alignment across local tooling, CI and Render.
+- `ba3130d` — blocking high/critical production dependency audit.
+- `f1f605b` — project navigation/error-triage tooling and CI checks.
 - `34b77da` — durable project handoff system.
-- `895d416` — keep manually opened event detail open after calendar refresh.
-- `547bf90` — remove obsolete `PlayerCabinetShellLegacy` wrapper.
-- `2709b5e` — extract `PlayerConductCenter` and decouple active cabinet from legacy shell.
-- `4a000c2` — safe VK runtime health check.
-- `23adba9` — safe Telegram runtime health check.
-- `8ecd470` — strict TypeScript debt cleared and typecheck made blocking.
 
 ## Current work / next queue
 
-The user explicitly requested a modernization pass while preserving the existing application architecture. When no newer explicit request supersedes this list, continue from the first unresolved item:
+The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
 
-1. Normalize Tailwind to the stable v4 dependency line and perform dependency housekeeping; update manifest and lockfile together, and remove packages only when imports/runtime prove they are unused.
-2. Upgrade TypeScript in a staged PR (prefer current 5.x compatibility first, then TypeScript 6 readiness/migration rather than mixing compiler changes with framework changes).
-3. Upgrade React 18.3 to React 19 in an isolated PR with type updates and full UI/integration tests.
-4. Upgrade Express 4 to Express 5 in an isolated PR; inspect route/path matching and API behavior before merge.
-5. Upgrade Vite 5 to Vite 8/Rolldown in an isolated PR; keep the separate server bundling path explicit until intentionally migrated.
-6. Revisit and either restore, replace or explicitly retire the historical/deferred Vitest exclusions.
-7. Deploy the current verified `main` to Render manually when deployment access is available.
-8. Run safe Telegram runtime health check and then a minimal targeted round-trip without mass messaging.
-9. Run safe VK runtime health check and then a minimal targeted round-trip without public spam.
-10. Continue legacy cleanup only where current imports/runtime prove code is unused.
-11. Real online payment/SBP integration only after explicit provider decision.
+1. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
+2. Normalize false historical naming (`V2`/`Legacy` wrappers) where import/runtime tracing proves the implementation is current. Prefer rename/move over duplicate compatibility layers.
+3. Consolidate Vite configuration only after preserving the VK-specific build path and verifying all scripts/CI callers.
+4. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused browser verification.
+5. Split high-complexity modules one at a time. Good first candidates are `GameProtocolModal.tsx`, tournament route modules and `LiveGameEngine.tsx`.
+6. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
+7. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
+8. Real online payment/SBP integration only after explicit provider decision.
 
-Maintaining handoff documents is an ongoing rule, not a separate blocking phase.
+Do not mix production DB/migration changes into cleanup-only PRs.
 
 ## Handoff rule
 
-Update this file with significant changes to functional status, next queue, architecture decisions, deployment assumptions or dangerous areas. `Last verified main` must reference a merged main SHA that passed standard CI. A following docs-only merge may temporarily make this field lag by one commit; use Git history plus `npm run project:status` to reconcile rather than re-auditing the repository.
+Update this file with significant changes to functional status, next queue, architecture decisions, deployment assumptions or dangerous areas. `Last verified main` must reference a merged main SHA that passed standard CI. A following docs-only/cleanup merge may temporarily make this field lag; use Git history plus `npm run project:status` to reconcile rather than re-auditing the repository.

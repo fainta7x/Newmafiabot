@@ -1,5 +1,5 @@
 import React from "react";
-import { Heart, ListPlus, Mic, Skull, Star } from "lucide-react";
+import { Heart, ListPlus, Skull, Star } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
 import { MafiaHatIcon, PistolIcon } from "./Icons.js";
 import { canToggleVoteAssignment } from "../../lib/liveVoting.js";

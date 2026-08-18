@@ -88,4 +88,41 @@
     z-index: 30 !important;
     pointer-events: none !important;
   }
+
+  /* The legacy HUD grid assumed the timer had only a title + number. During night
+     actions we now keep an explicit target/check status beside the timer. Give that
+     status its own cell instead of letting auto-placement clip it under the 34px row. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) {
+    grid-template-columns: minmax(0, 1fr) 58px !important;
+    grid-template-rows: 13px 34px 3px 42px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) > [data-testid="live-game-night-status"] {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    margin: 0 !important;
+    padding: 3px 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
+    text-align: left !important;
+    white-space: normal !important;
+    font-size: 8px !important;
+    line-height: 10px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) > div[class*="font-mono"][class*="font-black"] {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    width: 58px !important;
+    min-width: 58px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
 }

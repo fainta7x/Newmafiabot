@@ -167,7 +167,7 @@ export default function SeatCard(props: SeatCardProps) {
   const renderShootoutState = () => {
     if (phase !== "shootout") return null;
     if (shootoutNominees.includes(slotNum)) {
-      return <div><div className="live-seat-state__label">Автокатастрофа</div><div className="live-seat-state__value live-seat-state__value--warning">#{slotNum}</div></div>;
+      return <div><div className="live-seat-state__label">Переголосование</div><div className="live-seat-state__value live-seat-state__value--warning">#{slotNum}</div></div>;
     }
     return null;
   };

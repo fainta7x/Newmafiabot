@@ -370,7 +370,7 @@ export default function CenterPanel({
           {isLast && <div className="text-[8px] text-slate-500">* оставшийся голос автоматически уходит последнему выставленному</div>}
           <div className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 flex justify-between text-[10px]">
             <span className="text-slate-400">Текущий итог</span>
-            <strong className="text-rose-400 font-mono">{nominee === undefined ? 0 : (votes[nominee] || 0)}</strong>
+            <strong className="text-rose-400 font-mono">{votes[nominee] || 0}</strong>
           </div>
           {isLast ? (
             <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-2 py-1.5 text-[9px] leading-4 text-amber-300">
@@ -378,8 +378,8 @@ export default function CenterPanel({
             </div>
           ) : (
             <div className="flex justify-center gap-1.5">
-              <button type="button" onClick={() => nominee !== undefined && handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-xs">−1</button>
-              <button type="button" onClick={() => nominee !== undefined && handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-xs">+1</button>
+              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 text-xs">−1</button>
+              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 text-xs">+1</button>
             </div>
           )}
           <div className="flex justify-between gap-1.5">

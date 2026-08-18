@@ -43,6 +43,13 @@ import {
   normalizeLiveSnapshotForRestore,
 } from "./LiveGameEngine/engineStateModel.js";
 import {
+  autoFillSetupPlayers,
+  getSetupStartValidationError,
+  selectSetupPlayer,
+  selectSetupRole,
+  shuffleSetupRoles,
+} from "./LiveGameEngine/setupState.js";
+import {
   BestMoveSource,
   LiveProtocolMarkers,
   clearBestMove,
@@ -395,43 +402,24 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleStartNextSpeaker = () => { if (nextSpeaker) handleStartTimer(nextSpeaker.slot_num, 60); };
 
   const handleAutoFillSetupPlayers = () => {
-    setActivePlayers((previous) => previous.map((slot, index) => players[index]
-      ? { ...slot, user_id: players[index].user_id, nickname: players[index].nickname }
-      : slot));
+    setActivePlayers((previous) => autoFillSetupPlayers(previous, players));
   };
 
   const handleAutoFillSetupRoles = () => {
-    const roles: ActivePlayerState['role'][] = ["Мирный","Мирный","Мирный","Мирный","Мирный","Мирный","Шериф","Мафия","Мафия","Дон"];
-    for (let index = roles.length - 1; index > 0; index--) {
-      const target = Math.floor(Math.random() * (index + 1));
-      [roles[index], roles[target]] = [roles[target], roles[index]];
-    }
-    setActivePlayers((previous) => previous.map((p, index) => {
-      const role = roles[index];
-      return { ...p, role, team: role === 'Мафия' || role === 'Дон' ? 'Чёрные' : 'Красные' };
-    }));
+    setActivePlayers((previous) => shuffleSetupRoles(previous));
   };
 
   const handleSelectSetupPlayer = (slot: number, userId: number) => {
-    const source = players.find((p) => p.user_id === userId);
-    setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, user_id: userId, nickname: source?.nickname || '' } : p));
+    setActivePlayers((previous) => selectSetupPlayer(previous, players, slot, userId));
   };
 
   const handleSelectSetupRole = (slot: number, role: ActivePlayerState['role']) => {
-    setActivePlayers((previous) => previous.map((p) => p.slot_num === slot
-      ? { ...p, role, team: role === 'Мафия' || role === 'Дон' ? 'Чёрные' : 'Красные' }
-      : p));
+    setActivePlayers((previous) => selectSetupRole(previous, slot, role));
   };
 
   const validateSetupAndStart = () => {
-    if (!judgeId) return showToast("Выберите ведущего", "error");
-    if (activePlayers.some((p) => !p.user_id)) return showToast("Заполните все 10 мест", "error");
-    const assigned = activePlayers.map((p) => p.user_id);
-    if (new Set(assigned).size !== 10) return showToast("Один игрок не может сидеть на двух местах", "error");
-    const roleCounts = activePlayers.reduce<Record<string, number>>((acc, p) => ({ ...acc, [p.role]: (acc[p.role] || 0) + 1 }), {});
-    if (roleCounts['Мирный'] !== 6 || roleCounts['Шериф'] !== 1 || roleCounts['Мафия'] !== 2 || roleCounts['Дон'] !== 1) {
-      return showToast("Нужны роли ФСМ: 6 мирных, Шериф, 2 мафии и Дон", "error");
-    }
+    const validationError = getSetupStartValidationError(judgeId, activePlayers);
+    if (validationError) return showToast(validationError, "error");
     saveSnapshot();
     setDiscipline(createInitialGameDiscipline(activePlayers.map((p) => ({
       id: String(p.slot_num),

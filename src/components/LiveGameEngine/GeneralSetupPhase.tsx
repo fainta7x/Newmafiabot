@@ -1,7 +1,18 @@
 import React from "react";
 import { Shield, Info, Heart, Star } from "lucide-react";
 import { Player } from "../../types.js";
-import PhysicalRoleDeal, { type PhysicalRole } from "../game/PhysicalRoleDeal.tsx";
+import PhysicalRoleDeal from "../game/PhysicalRoleDeal.tsx";
+import {
+  CLUB_EVENING_ENGINE_JUDGE_NOTE,
+  TOURNAMENT_ENGINE_JUDGE_NOTE,
+  hasClubEveningEngineMarker,
+  hasTournamentEngineMarker,
+} from "./setupMode.js";
+import {
+  buildPhysicalRoleAssignments,
+  physicalRoleToLive,
+  protocolRoleToLiveRole,
+} from "./setupRoles.js";
 import { ActivePlayerState } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
 
@@ -18,29 +29,6 @@ interface SetupPhaseProps {
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;
 }
-
-const protocolRoleToLiveRole = (value: string): "Мирный" | "Шериф" | "Мафия" | "Дон" | null => {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'citizen' || normalized === 'мирный') return 'Мирный';
-  if (normalized === 'sheriff' || normalized === 'шериф') return 'Шериф';
-  if (normalized === 'mafia' || normalized === 'мафия') return 'Мафия';
-  if (normalized === 'don' || normalized === 'дон') return 'Дон';
-  return null;
-};
-
-const liveRoleToPhysical = (role: ActivePlayerState['role']): PhysicalRole => {
-  if (role === 'Шериф') return 'sheriff';
-  if (role === 'Мафия') return 'mafia';
-  if (role === 'Дон') return 'don';
-  return 'citizen';
-};
-
-const physicalRoleToLive = (role: PhysicalRole): ActivePlayerState['role'] => {
-  if (role === 'sheriff') return 'Шериф';
-  if (role === 'mafia') return 'Мафия';
-  if (role === 'don') return 'Дон';
-  return 'Мирный';
-};
 
 export default function SetupPhase({
   players,
@@ -60,8 +48,8 @@ export default function SetupPhase({
   const [passSlot, setPassSlot] = React.useState(1);
   const [isCardRevealed, setIsCardRevealed] = React.useState(false);
   const managedPrefillDone = React.useRef(false);
-  const isClubEveningEngine = players.some((player) => player.notes === '__club_evening_engine_judge__');
-  const isTournamentEngine = players.some((player) => player.notes === '__tournament_engine_judge__');
+  const isClubEveningEngine = hasClubEveningEngineMarker(players);
+  const isTournamentEngine = hasTournamentEngineMarker(players);
   const isManagedEngine = isClubEveningEngine || isTournamentEngine;
 
   React.useEffect(() => {
@@ -81,15 +69,10 @@ export default function SetupPhase({
 
   React.useEffect(() => () => onRoleDealActiveChange?.(false), [onRoleDealActiveChange]);
 
-  const existingRoleAssignments = React.useMemo(() => {
-    const counts = activePlayers.reduce<Record<string, number>>((acc, player) => {
-      acc[player.role] = (acc[player.role] || 0) + 1;
-      return acc;
-    }, {});
-    const alreadyValid = counts['Мирный'] === 6 && counts['Шериф'] === 1 && counts['Мафия'] === 2 && counts['Дон'] === 1;
-    if (!alreadyValid) return {} as Record<number, PhysicalRole>;
-    return Object.fromEntries(activePlayers.map((player) => [player.slot_num, liveRoleToPhysical(player.role)]));
-  }, [activePlayers]);
+  const existingRoleAssignments = React.useMemo(
+    () => buildPhysicalRoleAssignments(activePlayers),
+    [activePlayers],
+  );
 
   const openPhysicalDeal = () => {
     setShowPhysicalDeal(true);
@@ -147,7 +130,7 @@ export default function SetupPhase({
         {activePlayers.map((s) => {
           const uids = activePlayers.filter((p) => p.slot_num !== s.slot_num && p.user_id > 0).map((p) => p.user_id);
           if (judgeId > 0) uids.push(judgeId);
-          const avail = players.filter((p) => !uids.includes(p.user_id) && p.notes !== '__club_evening_engine_judge__' && p.notes !== '__tournament_engine_judge__');
+          const avail = players.filter((p) => !uids.includes(p.user_id) && p.notes !== CLUB_EVENING_ENGINE_JUDGE_NOTE && p.notes !== TOURNAMENT_ENGINE_JUDGE_NOTE);
           const isMir = s.role === "Мирный";
           const isSheriff = s.role === "Шериф";
           const isMafia = s.role === "Мафия";

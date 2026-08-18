@@ -264,10 +264,10 @@ test.describe('Live Game browser stabilization', () => {
     await removedOne.getByRole('button', { name: '×', exact: true }).click();
 
     let techAction = await openPlayerAction(page, 2);
-    await techAction.getByRole('button', { name: 'Малый тех', exact: true }).click();
+    await techAction.getByRole('button', { name: /Малый тех/ }).click();
     techAction = await openPlayerAction(page, 2);
     await expect(techAction.getByText(/Мал\. тех: 1/)).toBeVisible();
-    await techAction.getByRole('button', { name: 'Малый тех', exact: true }).click();
+    await techAction.getByRole('button', { name: /Малый тех/ }).click();
     const techConfirm = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Удаление по второму техфолу' }).first();
     await expect(techConfirm).toBeVisible();
     await techConfirm.getByRole('button', { name: 'Подтвердить техфол', exact: true }).click();

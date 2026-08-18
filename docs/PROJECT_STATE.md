@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this cleanup branch:** `0bccaca1e741d1b1ba32454a8d3d50f5683e2ce6`.
+> **Current main observed before this branch:** `0453686b7319d41ba393b832e598275bd6249b63`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -77,6 +77,15 @@ The architecture is intentionally evolutionary: do not rewrite to another framew
 - Awards/nominations/results/publication support.
 - Token settlements, replay and speech recording upload/readback.
 
+Live Game is being modularized without rule changes. Current durable boundaries are:
+
+- `setupMode.ts` — setup routing / managed-engine markers;
+- `setupRoles.ts` — setup role translation, distribution validity and physical-role assignments;
+- `timerModel.ts` — CenterPanel timer duration/deadline/remaining calculations;
+- `votingPresentationModel.ts` — CenterPanel vote-display assignments/remaining-vote and table-decision presentation arithmetic only.
+
+Voting outcomes remain owned by `src/shared/tournamentVoting.ts`; do not move or reinterpret outcome rules into presentation helpers during cleanup.
+
 `POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring the old endpoint. Tests that require the retired create-game contract are obsolete unless deliberately rewritten against the current workflow.
 
 ### Integrations
@@ -139,13 +148,21 @@ Treat names as evidence to inspect, not proof that a file is dead.
 - `src/components/LiveGameEngine/GeneralSetupPhase.tsx` is the active non-club setup path for tournament/autonomous Live Game flows; do not treat it as dead fallback code.
 - `vitest.config.ts` still has project-specific deferred test-name exclusions. Revisit them one scenario at a time; do not simply delete the regex to make the suite look cleaner.
 - Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification.
-- Several files are very large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, tournament export logic and large Python bot handlers. Split one module per PR without behavior changes.
+- Several files are very large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, `SeatCard.tsx`, tournament export logic and large Python bot handlers. Split one module per PR without behavior changes.
 - Large route Base modules such as `eveningsRoutesBase.ts`, `gamesRoutesBase.ts` and `tournamentsRoutesBase.ts` require route-by-route tracing; do not mechanically collapse them just because smaller Base layers were removable.
 
 ## Recently completed
 
 Newest relevant technical work:
 
+- `0453686` — extracted CenterPanel timer duration/deadline/remaining/identity arithmetic to `timerModel.ts`, preserving 30-second revote speech and 20-second first-killed best-move behavior.
+- `5d41fa1` — made `GeneralSetupPhase` use shared setup marker/role models while preserving role-distribution vs complete-setup semantics.
+- `c0bf2f7` — extracted shared Live Game setup role translation and complete 6/1/2/1 setup validation for club setup.
+- `5f4900b` — extracted Live Game setup-mode routing / managed-engine marker selection.
+- `e63dd04` — extracted organizer auth/shared snapshot/resume-refresh lifecycle to `useOrganizerCrmSession`.
+- `8884b8c` — extracted organizer `/admin/...` routing/path model from `OrganizerCRM`.
+- `9df23e2` — split rating-table fetching/rendering from `PlayerRatingHub` into `PlayerRatingTable`.
+- `5f0bd34` — extracted player-cabinet navigation normalization/grouping to a pure tested model.
 - `0bccaca` — renamed the active non-club Live Game setup from misleading `LegacySetupPhase` naming to `GeneralSetupPhase` and synced the project handoff.
 - `27105bd` — renamed the active player-self API implementation from misleading `Legacy` naming to `playerSelfCoreRoutes.ts` without behavior changes.
 - `120bf66` — isolated the unique public avatar-data route and removed shadowed legacy public route implementations while keeping public free-form signup retired.
@@ -170,10 +187,10 @@ Newest relevant technical work:
 
 The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
 
-1. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
-2. Continue auditing false historical naming only where import/runtime tracing proves the name is misleading. Do not rename active versioned files solely because of a suffix.
-3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused browser verification.
-4. Split high-complexity modules one at a time. Good first candidates are `GameProtocolModal.tsx`, tournament route modules and `LiveGameEngine.tsx`.
+1. Continue Live Game modularization after the setup/timer/voting-presentation boundaries: extract the next proven-clean `SeatCard` presentation/state helpers, then split `LiveGameEngine.tsx` state/snapshot/large handlers one coherent boundary per PR. Preserve `docs/BUSINESS_RULES.md` semantics and keep `determineVotingResult` authoritative for voting outcomes.
+2. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
+3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused visual/browser verification.
+4. Split other high-complexity modules one at a time, especially `GameProtocolModal.tsx` and tournament route modules, after the current Live Game pass.
 5. Audit the remaining large Base route modules route-by-route before any consolidation; preserve unique handlers and current registration/auth/data-safety behavior.
 6. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
 7. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.

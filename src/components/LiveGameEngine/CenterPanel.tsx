@@ -88,11 +88,12 @@ interface CenterPanelProps {
 
 const normalizeJudgeCopy = (value: string): string => value
   .replace(/^Посадка/, 'Свободная посадка')
-  .replace(/^Разбудить город$/, 'Открыть день')
+  .replace(/^Разбудить город$/, 'Открыть нулевой круг')
   .replace(/^Стрельба мафии$/, 'Отстрел')
-  .replace(/^Прощальная речь/, 'Заключительная минута')
-  .replace(/^Прощальная /, 'Заключительная минута ')
-  .replace(/^Завершить прощальные$/, 'Завершить заключительные минуты');
+  .replace(/^Прощальная речь/, 'Последняя речь')
+  .replace(/^Прощальная /, 'Последняя речь ')
+  .replace(/^Завершить прощальные$/, 'Завершить последние речи')
+  .replace(/^К дневным речам$/, 'Открыть день');
 
 export default function CenterPanel(props: CenterPanelProps) {
   const {
@@ -159,6 +160,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const effectiveTimerMax = resolveTimerDuration(phase, votingStage, timerMax);
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
+  const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
 
   React.useEffect(() => {
     if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > 30) {
@@ -260,8 +262,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     : phase === 'night'
       ? `Ночь ${roundNumber}`
       : phase === 'day_voting'
-        ? `Голосование · День ${roundNumber}`
-        : `День ${roundNumber}`;
+        ? `Голосование · ${dayLabel}`
+        : dayLabel;
 
   const nightActionStatus = phase === 'night'
     ? ({
@@ -405,7 +407,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       return (
         <div className="live-judge-hud__stack">
-          <div className="live-judge-hud__eyebrow">Автокатастрофа · 30 сек</div>
+          <div className="live-judge-hud__eyebrow">Речи перед переголосованием · 30 сек</div>
           {renderTimer()}
           <button type="button" onClick={advanceSpeech} className="live-judge-action live-judge-action--primary">
             {isLastSpeaker ? 'К переголосованию' : 'Следующий игрок'}
@@ -428,10 +430,10 @@ export default function CenterPanel(props: CenterPanelProps) {
       if (result.outcome === 'needs_revote') {
         return (
           <div className="live-judge-hud__stack">
-            <div className="live-judge-hud__eyebrow">Автокатастрофа</div>
+            <div className="live-judge-hud__eyebrow">Переголосование</div>
             <div className="live-judge-hud__title">{result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
-            <div className="live-judge-hud__hint">Каждому игроку на автокатастрофе — 30 секунд.</div>
-            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">30 секунд</button>
+            <div className="live-judge-hud__hint">Перед переголосованием каждый из этих игроков получает 30 секунд.</div>
+            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">Речи по 30 секунд</button>
           </div>
         );
       }
@@ -439,9 +441,9 @@ export default function CenterPanel(props: CenterPanelProps) {
       if (result.outcome === 'auto_no_elimination') {
         return (
           <div className="live-judge-hud__stack">
-            <div className="live-judge-hud__eyebrow">Повторная автокатастрофа</div>
+            <div className="live-judge-hud__eyebrow">Повторное равенство</div>
             <div className="live-judge-hud__title">Никто не покидает стол</div>
-            <div className="live-judge-hud__hint">Подъём невозможен: участников автокатастрофы больше половины живых игроков.</div>
+            <div className="live-judge-hud__hint">Решение «поднять / оставить» не проводится: в равенстве больше половины живых игроков.</div>
             <button type="button" onClick={() => handleConfirmAutoNoElimination?.()} className="live-judge-action live-judge-action--success">Подтвердить → ночь</button>
           </div>
         );
@@ -455,9 +457,9 @@ export default function CenterPanel(props: CenterPanelProps) {
         });
         return (
           <div className="live-judge-hud__stack">
-            <div className="live-judge-hud__eyebrow">Повторная автокатастрофа · {result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
+            <div className="live-judge-hud__eyebrow">Поднять / оставить · {result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
             <div className="live-judge-hud__title">Поднять всех?</div>
-            <div className="live-judge-hud__hint">Отметьте игроков, голосующих за то, чтобы все участники автокатастрофы покинули стол.</div>
+            <div className="live-judge-hud__hint">Отметьте игроков, голосующих за «поднять».</div>
             <div className="live-judge-table-voters">
               {eligibleVoterSeats.slice().sort((a, b) => a - b).map((slot) => {
                 const selected = tableVoterSlots.includes(slot);
@@ -477,11 +479,11 @@ export default function CenterPanel(props: CenterPanelProps) {
               })}
             </div>
             <div className="live-judge-table-decision-count">
-              <span>За подъём</span>
+              <span>За «поднять»</span>
               <strong>{entered}/{eligible}<small>нужно {majority}</small></strong>
             </div>
             {entered > 0 && <div className="live-judge-hud__hint">Голосуют: {sortedSelectedVoterSlots.map((slot) => `#${slot}`).join(' · ')}</div>}
-            <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Подтвердить решение стола</button>
+            <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение</button>
           </div>
         );
       }
@@ -505,7 +507,7 @@ export default function CenterPanel(props: CenterPanelProps) {
           ? 'После договорки — вызов Шерифа.'
           : zeroNightSubPhase === 'sheriff'
             ? 'После вызова Шерифа — свободная посадка.'
-            : 'После свободной посадки открывается первый день.';
+            : 'После свободной посадки начинается нулевой круг.';
       return (
         <div className="live-judge-hud__stack">
           <div className="live-judge-hud__eyebrow">Нулевая ночь</div>
@@ -524,13 +526,13 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (phase === 'day_speeches') {
       return nextSpeaker ? (
         <div className="live-judge-hud__stack">
-          <div className="live-judge-hud__eyebrow">Следующая речь</div>
+          <div className="live-judge-hud__eyebrow">{dayLabel} · следующая речь</div>
           <div className="live-judge-hud__title"><strong>#{nextSpeaker.slot_num}</strong> · {nextSpeaker.nickname || `Игрок ${nextSpeaker.slot_num}`}</div>
           {renderNominationChips()}
         </div>
       ) : (
         <div className="live-judge-hud__stack">
-          <div className="live-judge-hud__eyebrow">День {roundNumber}</div>
+          <div className="live-judge-hud__eyebrow">{dayLabel}</div>
           <div className="live-judge-hud__title">Все речи завершены</div>
           {renderNominationChips()}
         </div>
@@ -583,7 +585,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   return (
     <>
-      <div className="live-judge-hud col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none">
+      <div data-testid="live-judge-hud" className="live-judge-hud col-span-2 md:col-start-2 md:col-span-3 md:row-start-2 order-first md:order-none">
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">

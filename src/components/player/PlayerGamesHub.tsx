@@ -1,5 +1,5 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
-import PlayerCabinetV2 from './PlayerCabinetV2.tsx';
+import PlayerHistoryStatsView from './PlayerHistoryStatsView.tsx';
 import PlayerCareerProfile from './PlayerCareerProfile.tsx';
 import PlayerEveningSummaries from './PlayerEveningSummaries.tsx';
 
@@ -61,7 +61,7 @@ export default function PlayerGamesHub({
             .player-games-v2 main > div > div[class*="px-1"][class*="pb-1"][class*="pt-2"]{display:none!important}
             .player-games-v2 main{padding-top:.5rem!important}
           `}</style>
-          <PlayerCabinetV2
+          <PlayerHistoryStatsView
             data={data}
             canOpenAdmin={canOpenAdmin}
             initialTab={section}

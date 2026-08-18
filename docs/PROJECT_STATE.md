@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this cleanup branch:** `27105bde8ee258b8456d08c25961dae93a881a28`.
+> **Current main observed before this cleanup branch:** `0bccaca1e741d1b1ba32454a8d3d50f5683e2ce6`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -59,7 +59,7 @@ The architecture is intentionally evolutionary: do not rewrite to another framew
 - Player speech recordings with server persistence and local fallback.
 - Player conduct/game-management center.
 
-`PlayerCabinetV2.tsx` remains active content for game history/statistics and is not dead code merely because of the `V2` suffix.
+`PlayerHistoryStatsView.tsx` is the active embedded history/statistics view inside `PlayerGamesHub`; it is not a second player cabinet.
 
 ### Organizer application
 
@@ -135,7 +135,7 @@ Repository CI cannot prove live Render secrets, callbacks or that the latest `ma
 
 Treat names as evidence to inspect, not proof that a file is dead.
 
-- `src/components/player/PlayerCabinetV2.tsx` is active implementation content.
+- `src/components/player/PlayerHistoryStatsView.tsx` is active implementation content for the History/Statistics sections.
 - `src/components/LiveGameEngine/GeneralSetupPhase.tsx` is the active non-club setup path for tournament/autonomous Live Game flows; do not treat it as dead fallback code.
 - `vitest.config.ts` still has project-specific deferred test-name exclusions. Revisit them one scenario at a time; do not simply delete the regex to make the suite look cleaner.
 - Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification.
@@ -146,6 +146,7 @@ Treat names as evidence to inspect, not proof that a file is dead.
 
 Newest relevant technical work:
 
+- `0bccaca` — renamed the active non-club Live Game setup from misleading `LegacySetupPhase` naming to `GeneralSetupPhase` and synced the project handoff.
 - `27105bd` — renamed the active player-self API implementation from misleading `Legacy` naming to `playerSelfCoreRoutes.ts` without behavior changes.
 - `120bf66` — isolated the unique public avatar-data route and removed shadowed legacy public route implementations while keeping public free-form signup retired.
 - `737722d` — collapsed `participantRoutesBase.ts`, preserving the active DELETE handler and removing the shadowed duplicate PATCH.
@@ -170,7 +171,7 @@ Newest relevant technical work:
 The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
 
 1. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
-2. Continue auditing false historical naming only where import/runtime tracing proves the name is misleading. Do not rename active `V2` files solely because of the suffix.
+2. Continue auditing false historical naming only where import/runtime tracing proves the name is misleading. Do not rename active versioned files solely because of a suffix.
 3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused browser verification.
 4. Split high-complexity modules one at a time. Good first candidates are `GameProtocolModal.tsx`, tournament route modules and `LiveGameEngine.tsx`.
 5. Audit the remaining large Base route modules route-by-route before any consolidation; preserve unique handlers and current registration/auth/data-safety behavior.

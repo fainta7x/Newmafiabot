@@ -30,6 +30,19 @@ const expectHorizontallyInsideViewport = async (page, locator, label) => {
   expect.soft(box.x + box.width, `${label}: right edge`).toBeLessThanOrEqual(viewport.width + 1);
 };
 
+const expectButtonsInside = async (container, buttons, label) => {
+  const containerBox = await container.boundingBox();
+  expect(containerBox, `${label}: container bounding box`).not.toBeNull();
+  for (let index = 0; index < await buttons.count(); index += 1) {
+    const button = buttons.nth(index);
+    await expect(button, `${label}: button ${index + 1} visible`).toBeVisible();
+    const box = await button.boundingBox();
+    expect(box, `${label}: button ${index + 1} bounding box`).not.toBeNull();
+    expect.soft(box.x, `${label}: button ${index + 1} left`).toBeGreaterThanOrEqual(containerBox.x - 1);
+    expect.soft(box.x + box.width, `${label}: button ${index + 1} right`).toBeLessThanOrEqual(containerBox.x + containerBox.width + 1);
+  }
+};
+
 const attachViewport = async (page, testInfo, name) => {
   const path = testInfo.outputPath(name);
   await page.screenshot({ path, fullPage: false });
@@ -206,6 +219,7 @@ test.describe('Live Game browser stabilization', () => {
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
 
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
+    await expect(page.locator('.evening-live-identity[data-seat="2"][data-alive="false"] .evening-live-player-avatar')).toBeHidden();
     await clickOptional(page.getByRole('button', { name: /Включить музыку ночи/ }));
     await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
     await seatCard(page, 1).click();
@@ -330,14 +344,18 @@ test.describe('Live Game browser stabilization', () => {
     await expect(centerPanel(page).getByText(/Кто против/)).toBeVisible();
 
     await castFiveFiveVote(page);
-    await expect(centerPanel(page).getByText(/Поднять \/ оставить/)).toBeVisible();
-    await expect(centerPanel(page).getByText('Поднять всех?', { exact: true })).toBeVisible();
+    const hud = centerPanel(page);
+    await expect(hud.getByText(/Поднять \/ оставить/)).toBeVisible();
+    await expect(hud.getByText('Поднять всех?', { exact: true })).toBeVisible();
+    const tableVoterButtons = hud.locator('.live-judge-table-voter');
+    await expect(tableVoterButtons).toHaveCount(10);
+    await expectButtonsInside(hud, tableVoterButtons, 'raise-leave voters');
 
     for (const voter of [1, 2, 3, 4, 5, 6]) {
-      await centerPanel(page).getByRole('button', { name: `#${voter}`, exact: true }).click();
+      await hud.getByRole('button', { name: `#${voter}`, exact: true }).click();
     }
-    await expect(centerPanel(page).locator('.live-judge-table-decision-count strong')).toContainText('6/10');
-    await expect(centerPanel(page).getByText('нужно 6', { exact: true })).toBeVisible();
+    await expect(hud.locator('.live-judge-table-decision-count strong')).toContainText('6/10');
+    await expect(hud.getByText('нужно 6', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'raise-leave decision');
     await attachViewport(page, testInfo, '13-table-decision.png');
     await page.getByRole('button', { name: 'Зафиксировать решение', exact: true }).click();

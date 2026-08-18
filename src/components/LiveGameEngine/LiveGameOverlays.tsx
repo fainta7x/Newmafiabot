@@ -193,6 +193,7 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
 
 export function LiveGameToast({ toast }: { toast: { message: string; type: "error" | "warning" | "success" | "info" } | null }) {
   if (!toast) return null;
+  if (toast.type === 'success' && /^#\d+ выставлен \d+-м на речи #\d+$/.test(toast.message)) return null;
   return <div className={`fixed bottom-4 right-4 z-[130] px-4 py-2.5 rounded-xl border shadow-2xl text-xs font-bold ${toast.type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-300' : toast.type === 'warning' ? 'bg-amber-950 border-amber-500 text-amber-300' : toast.type === 'success' ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>{toast.message}</div>;
 }
 

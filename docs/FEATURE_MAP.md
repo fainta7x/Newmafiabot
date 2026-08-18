@@ -53,6 +53,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 
 ## Live Game / voting / fouls / PPK
 - Main UI: `src/components/LiveGameEngine.tsx` plus `src/components/LiveGameEngine/` and `src/components/game/`.
+- Setup-mode routing: `src/components/LiveGameEngine/setupMode.ts`; focused coverage: `src/tests/liveGameSetupMode.test.ts`.
 - API: `gamesRoutes.ts`, `playerLiveRoutes.ts`, `publicLiveRoutes.ts`.
 - Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - `POST /api/games` is intentionally retired with HTTP 410 in `src/app.ts`.

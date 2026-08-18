@@ -16,6 +16,7 @@
     "project:status": "tsx src/scripts/projectContext.ts",
     "project:find": "tsx src/scripts/projectNavigate.ts",
     "project:affected": "tsx src/scripts/projectAffected.ts",
+    "project:verify:fast": "npm run release:audit && npm run typecheck && npm run lint",
     "project:verify": "npm run release:audit && npm run typecheck && npm run lint && npm test && npm run build",
     "migrate:legacy": "tsx src/db/migrateLegacyData.ts",
     "restore:tournament-bogdana": "tsx scripts/restoreTournamentBogdana.ts",

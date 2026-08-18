@@ -257,7 +257,7 @@ export default function SeatCard({
                 (() => {
                   const activeNomineeSlot = nominations[currentVotingNomineeIndex];
                   const lastNominee = nominations[nominations.length - 1];
-                  const { target, automatic, statusColor, statusBg, statusText, title } = buildSeatVoteStatusPresentation({
+                  const { statusColor, statusBg, statusText, title } = buildSeatVoteStatusPresentation({
                     slotNum,
                     activeNomineeSlot,
                     lastNomineeSlot: lastNominee,

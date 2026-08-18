@@ -18,6 +18,7 @@ type LiveVisualDiscipline = {
   fouls: number;
   minorTech: number;
   majorTech: number;
+  alive: boolean;
 };
 
 const roleToProtocol = (role: string | null | undefined): string | null => {
@@ -228,6 +229,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
             fouls: Number(player?.fouls || 0),
             minorTech: Number(player?.minor_tech_fouls || 0),
             majorTech: Number(player?.major_tech_fouls || 0),
+            alive: player?.alive !== false,
           };
         }
         const signature = JSON.stringify(next);
@@ -357,8 +359,15 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
               const fouls = current?.fouls ?? Number((player as any).regular_fouls || 0);
               const minorTech = current?.minorTech ?? Number((player as any).minor_technical_fouls || 0);
               const majorTech = current?.majorTech ?? Number((player as any).major_technical_fouls || 0);
+              const alive = current?.alive ?? true;
               return (
-                <div key={player.seat_number} className="evening-live-identity" style={seatPlacement[player.seat_number]}>
+                <div
+                  key={player.seat_number}
+                  className="evening-live-identity"
+                  style={seatPlacement[player.seat_number]}
+                  data-seat={player.seat_number}
+                  data-alive={alive ? 'true' : 'false'}
+                >
                   <PlayerAvatar
                     playerId={player.player_id}
                     nickname={player.display_name}

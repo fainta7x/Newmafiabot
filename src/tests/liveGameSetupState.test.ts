@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Player } from '../types.js';
 import { createEmptyActivePlayer } from '../components/LiveGameEngine/engineStateModel.js';
+import type { LiveRole } from '../components/LiveGameEngine/setupRoles.js';
 import {
   autoFillSetupPlayers,
   getSetupStartValidationError,
@@ -70,13 +71,14 @@ describe('Live Game setup state', () => {
     expect(getSetupStartValidationError(1, duplicate)).toBe('Один игрок не может сидеть на двух местах');
     expect(getSetupStartValidationError(1, filled)).toBe('Нужны роли ФСМ: 6 мирных, Шериф, 2 мафии и Дон');
 
-    const valid = [
-      ...Array.from({ length: 6 }, (_, index) => selectSetupRole(filled, index + 1, 'Мирный')[index]),
-      selectSetupRole(filled, 7, 'Шериф')[6],
-      selectSetupRole(filled, 8, 'Мафия')[7],
-      selectSetupRole(filled, 9, 'Мафия')[8],
-      selectSetupRole(filled, 10, 'Дон')[9],
+    const roles: LiveRole[] = [
+      'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный', 'Мирный',
+      'Шериф', 'Мафия', 'Мафия', 'Дон',
     ];
+    const valid = roles.reduce(
+      (state, role, index) => selectSetupRole(state, index + 1, role),
+      filled,
+    );
     expect(getSetupStartValidationError(1, valid)).toBeNull();
   });
 });

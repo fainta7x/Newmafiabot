@@ -58,7 +58,7 @@ const prepareGame = async (page, testInfo) => {
   await expect(dealIntro).toBeVisible();
   const dealPanel = dealIntro.locator('xpath=ancestor::section[1]');
   await expectHorizontallyInsideViewport(page, dealPanel, 'role-deal intro');
-  await page.getByRole('button', { name: /начать раздачу/i }).click();
+  await dealPanel.getByRole('button', { name: 'Начать раздачу', exact: true }).click();
 
   for (const role of ROLE_SEQUENCE) {
     await page.getByRole('button', { name: new RegExp(role) }).click();

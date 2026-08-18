@@ -56,6 +56,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Setup-mode routing: `src/components/LiveGameEngine/setupMode.ts`; focused coverage: `src/tests/liveGameSetupMode.test.ts`.
 - Setup role translation/validity: `src/components/LiveGameEngine/setupRoles.ts`; focused coverage: `src/tests/liveGameSetupRoles.test.ts`.
 - Setup seat/player/role transforms and start-validation: `src/components/LiveGameEngine/setupState.ts`; focused coverage: `src/tests/liveGameSetupState.test.ts`. React state setters, snapshot/start side effects, discipline initialization and transition to zero night remain in `LiveGameEngine.tsx`.
+- Day-speech ordering / next-speaker selection / spoken-seat transform: `src/components/LiveGameEngine/daySpeechModel.ts`; focused coverage: `src/tests/liveGameDaySpeechModel.test.ts`. Snapshot, timer start/stop and discipline-driven speech duration remain in `LiveGameEngine.tsx`.
 - Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - Center-panel voting display calculations: `src/components/LiveGameEngine/votingPresentationModel.ts`; focused coverage: `src/tests/liveGameVotingPresentationModel.test.ts`. Voting outcomes remain in `src/shared/tournamentVoting.ts`.
 - Seat grid / border-priority / current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.

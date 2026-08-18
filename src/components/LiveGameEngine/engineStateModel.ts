@@ -4,7 +4,11 @@ import {
   type GameDiscipline,
   type PendingActionType,
 } from '../../lib/gameDiscipline.js';
-import type { BestMoveSource, LiveProtocolMarkers } from '../../lib/gameProtocolCore.js';
+import {
+  createEmptyLiveProtocolMarkers,
+  type BestMoveSource,
+  type LiveProtocolMarkers,
+} from '../../lib/gameProtocolCore.js';
 import type { ActivePlayerState, NightSubPhase, Phase } from './types.js';
 
 export type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
@@ -52,6 +56,8 @@ export type LiveSnapshot = {
   discipline: GameDiscipline;
 };
 
+const jsonClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
 export const createEmptyActivePlayer = (slot: number): ActivePlayerState => ({
   slot_num: slot,
   user_id: 0,
@@ -83,3 +89,51 @@ export const createEmptyActivePlayer = (slot: number): ActivePlayerState => ({
 export const createInitialLiveDiscipline = (): GameDiscipline => createInitialGameDiscipline(
   Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), team: 'red' as const })),
 );
+
+export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => ({
+  ...snapshot,
+  activePlayers: jsonClone(snapshot.activePlayers),
+  nominations: [...snapshot.nominations],
+  nominationsMap: { ...snapshot.nominationsMap },
+  protocolMarkers: jsonClone(snapshot.protocolMarkers),
+  pendingBestMoveSeats: [...snapshot.pendingBestMoveSeats],
+  votingRounds: jsonClone(snapshot.votingRounds),
+  votesByPlayer: { ...snapshot.votesByPlayer },
+  votes: { ...snapshot.votes },
+  nightLogs: jsonClone(snapshot.nightLogs),
+  votingFarewellQueue: [...snapshot.votingFarewellQueue],
+  discipline: jsonClone(snapshot.discipline),
+});
+
+export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSnapshot => ({
+  ...snapshot,
+  nominationsMap: snapshot.nominationsMap || {},
+  postNightStage: snapshot.postNightStage || 'none',
+  protocolMarkers: snapshot.protocolMarkers || createEmptyLiveProtocolMarkers(),
+  activeBestMoveSource: snapshot.activeBestMoveSource || null,
+  activeBestMoveSlot: snapshot.activeBestMoveSlot ?? null,
+  pendingBestMoveSeats: snapshot.pendingBestMoveSeats || [],
+  votingRounds: snapshot.votingRounds || [],
+  activeVotingRoundIndex: snapshot.activeVotingRoundIndex || 0,
+  votesByPlayer: snapshot.votesByPlayer || {},
+  votes: snapshot.votes || {},
+  votingStage: snapshot.votingStage || 'setup',
+  revoteSpeakerIndex: snapshot.revoteSpeakerIndex || 0,
+  tableLeaveVotesInput: snapshot.tableLeaveVotesInput ?? null,
+  currentVotingNomineeIndex: snapshot.currentVotingNomineeIndex || 0,
+  activeSpeakerSlot: snapshot.activeSpeakerSlot ?? null,
+  customTimerLabel: snapshot.customTimerLabel ?? null,
+  timeLeft: snapshot.timeLeft ?? 60,
+  timerMax: snapshot.timerMax ?? 60,
+  isTimerRunning: Boolean(snapshot.isTimerRunning),
+  zeroNightSubPhase: snapshot.zeroNightSubPhase ?? null,
+  shotPlayerSlot: snapshot.shotPlayerSlot ?? null,
+  donCheckSlot: snapshot.donCheckSlot ?? null,
+  donCheckResult: snapshot.donCheckResult ?? null,
+  sheriffCheckSlot: snapshot.sheriffCheckSlot ?? null,
+  sheriffCheckResult: snapshot.sheriffCheckResult ?? null,
+  nightLogs: snapshot.nightLogs || [],
+  votingFarewellQueue: snapshot.votingFarewellQueue || [],
+  votingFarewellIndex: snapshot.votingFarewellIndex || 0,
+  discipline: snapshot.discipline || createInitialLiveDiscipline(),
+});

@@ -260,6 +260,17 @@ export default function CenterPanel({
         ? `🗳️ Голосование · День ${roundNumber}`
         : `☀️ День ${roundNumber}`;
 
+  const nightActionStatus = phase === 'night'
+    ? ({
+        intro: 'Город засыпает',
+        shooting: shotPlayerSlot ? `Выстрел: #${shotPlayerSlot}` : 'Стрельба мафии — выберите цель',
+        don: donCheckSlot ? `Дон проверил #${donCheckSlot}: ${donCheckResult ? 'Шериф' : 'не Шериф'}` : 'Проверка Дона',
+        sheriff: sheriffCheckSlot ? `Шериф проверил #${sheriffCheckSlot}: ${sheriffCheckResult || '—'}` : 'Проверка Шерифа',
+        best_move: 'ЛХ первого убитого',
+        morning: 'Итоги ночи',
+      } as Record<string, string>)[nightSubPhase] || 'Ночь'
+    : null;
+
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
   const canUseVotingBack = phase === 'day_voting' && (votingStage === 'round_result' || votingStage === 'revote_speeches');
 
@@ -313,6 +324,11 @@ export default function CenterPanel({
       </span>
       {activeSpeaker && <div className="text-xs font-black text-white truncate">{activeSpeaker.nickname || `Игрок ${activeSpeaker.slot_num}`}</div>}
       {renderDayNominations()}
+      {nightActionStatus && (
+        <div data-testid="live-game-night-status" className="rounded-lg border border-purple-500/25 bg-purple-950/30 px-2 py-1 text-[10px] font-black text-purple-200">
+          {nightActionStatus}
+        </div>
+      )}
       <div className={`text-2xl sm:text-3xl font-mono font-black py-0.5 rounded-xl border ${timeLeft <= 10 ? 'text-rose-400 border-rose-500/60 bg-rose-950/60' : 'text-emerald-400 border-slate-800 bg-slate-950'}`}>
         {timeLeft}с
       </div>
@@ -533,15 +549,7 @@ export default function CenterPanel({
     if (phase === 'day_voting') return renderVoting();
 
     if (phase === 'night') {
-      const labels: Record<string, string> = {
-        intro: 'Город засыпает',
-        shooting: shotPlayerSlot ? `Выстрел: #${shotPlayerSlot}` : 'Стрельба мафии — выберите цель',
-        don: donCheckSlot ? `Дон проверил #${donCheckSlot}: ${donCheckResult ? 'Шериф' : 'не Шериф'}` : 'Проверка Дона',
-        sheriff: sheriffCheckSlot ? `Шериф проверил #${sheriffCheckSlot}: ${sheriffCheckResult || '—'}` : 'Проверка Шерифа',
-        best_move: 'ЛХ первого убитого',
-        morning: 'Итоги ночи',
-      };
-      return <div className="text-xs font-black text-purple-300">{labels[nightSubPhase] || 'Ночь'}</div>;
+      return <div className="text-xs font-black text-purple-300">{nightActionStatus || 'Ночь'}</div>;
     }
 
     return null;

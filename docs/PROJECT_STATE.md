@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this branch:** `973aeee356d615617ec6bf48d9ed70c9b64642d3`.
+> **Current main observed before this branch:** `58fbb1fb465b2f69723fa62d107a1e7e67794ab8`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -33,7 +33,7 @@ Full-stack application for the 2LA Noire sports Mafia club:
 - Telegram WebApp and VK integrations.
 - Vite `8.2.x` build tooling and Vitest `4.1.x` tests.
 - ESLint `10.8.x`, Tailwind CSS `4.x`, Zod `4.x`.
-- Isolated Playwright browser smoke tests.
+- Isolated Playwright browser smoke plus non-destructive conducted Live Game coverage.
 - GitHub Actions CI with CodeQL and Gitleaks security workflows.
 - Render deployment configuration with manual deployment trigger.
 - Node.js 24 LTS pinned consistently in local/CI/Render configuration.
@@ -90,6 +90,8 @@ The dedicated Live Game cleanup pass is now considered sufficient for normal pro
 - `seatPresentationModel.ts` — SeatCard grid position, border-priority and current-vote presentation only; seat actions/fouls/removal remain in `SeatCard.tsx`;
 - `engineStateModel.ts` — shared engine stage/snapshot schema, initial empty-player/discipline factories, exact snapshot cloning and legacy restore-default normalization. React setters, history/undo orchestration and localStorage persistence remain in `LiveGameEngine.tsx`.
 
+Live Game browser verification now has a real conducted-flow path in `e2e/live-game.html`, `e2e/live-game-harness.tsx` and `e2e/tests/live-game.spec.mjs`. It mounts the existing safe `JudgeTestGameModal -> EveningLiveGameModal -> LiveGameEngine` chain in Vite/Playwright only, uses no production/runtime DB, checks the 390×844 mobile geometry and screenshots, and exercises setup, zero night, undo, day speeches, nominations/voting, mandatory last-candidate remainder, elimination/best move, first-night shot/Don/Sheriff checks, first-killed protocol, return to Day 2, plus a separate PPK completion path. Browser stabilization also keeps the selected night target/check result visible while its timer is running and prevents night markers from sitting under top card controls.
+
 Voting outcomes remain owned by `src/shared/tournamentVoting.ts`; do not move or reinterpret outcome rules into presentation helpers during cleanup.
 
 `POST /api/games` is intentionally retired with HTTP 410. Use evening/tournament protocol workflows instead of restoring the old endpoint. Tests that require the retired create-game contract are obsolete unless deliberately rewritten against the current workflow.
@@ -121,11 +123,11 @@ Voting outcomes remain owned by `src/shared/tournamentVoting.ts`; do not move or
 - `npm run project:find -- "<query>"` — targeted feature lookup.
 - `npm run project:affected -- <files>` — affected-area guidance.
 - `npm run project:verify` — release audit + typecheck + ESLint + Vitest + production build.
-- `npm run test:browser` — isolated Playwright mobile smoke.
+- `npm run test:browser` — isolated Playwright mobile smoke, including the non-destructive Live Game conducted-flow scenarios.
 
 CI/security gates include production dependency audit, handoff integrity, release data-safety audit, TypeScript, ESLint, active Vitest suite, production build, Python bot syntax, Playwright smoke, CodeQL and Gitleaks.
 
-Playwright is intentionally non-destructive: it uses a disposable SQLite DB and must not mutate production/runtime data.
+Playwright is intentionally non-destructive: it uses a disposable SQLite DB and the Live Game test sandbox; it must not mutate production/runtime data.
 
 ## Dependency/security maintenance
 
@@ -161,6 +163,7 @@ Treat names as evidence to inspect, not proof that a file is dead.
 
 Newest relevant technical work:
 
+- `58fbb1f` — extracted the large Live Game auxiliary overlay/modal layer to `LiveGameOverlays.tsx`, preserving game-state/action ownership in `LiveGameEngine.tsx` and ending the dedicated cleanup/refactor pass.
 - `973aeee` — extracted Live Game night target/check calculations to `nightTargetModel.ts`, preserving night transitions, kill resolution, logs, protocol writes and timers in the engine.
 - `da6e95d` — extracted Live Game day-speech rotation/order, next-speaker selection and spoken-seat transform to `daySpeechModel.ts`, preserving snapshot, timer start/stop and discipline-driven speech duration/30-second behavior in the engine.
 - `9b7390c` — extracted club Live Game setup seat/player/role transforms and start validation to `setupState.ts`, preserving snapshot/start side effects, discipline initialization, localStorage cleanup and the transition to zero night.
@@ -198,18 +201,19 @@ Newest relevant technical work:
 
 ## Current work / next queue
 
-The cleanup/refactor pass is no longer the primary goal. After the current Live Game overlay extraction is merged and green, return to **product functionality and live-club workflow**. Refactor further only when it directly enables a requested feature or fixes a concrete maintenance problem.
+The cleanup/refactor pass is no longer the primary goal. Current priority is Live Game functional/browser stabilization; after that is green and merged, return to **product functionality and live-club workflow**. Refactor further only when it directly enables a requested feature or fixes a concrete maintenance problem.
 
-1. Resume product work from the club/app roadmap: prioritize the next user-requested functional improvement in organizer/player flows rather than another cleanup-only PR.
-2. Keep announcement delivery, Telegram/VK integration behavior, player profiles/cabinet and evening workflow as active product areas; diagnose the exact requested flow before changing unrelated code.
-3. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
-4. Finish remaining repository/test hygiene only opportunistically or when it blocks feature work; audit each deferred `vitest.config.ts` exclusion individually.
-5. Consolidate the Live Game CSS patch stack only when visual maintenance is actually needed; preserve current geometry/behavior.
-6. Split `GameProtocolModal.tsx`, tournament routes or other large modules only as part of feature/bug work or when their size directly blocks safe changes.
-7. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
-8. Real online payment/SBP integration only after explicit provider decision.
+1. Keep the conducted Live Game browser path green for engine-facing changes: setup -> zero night -> day speeches -> voting -> night -> first-killed protocol -> Day 2 plus PPK completion, with 390×844 overflow/overlay evidence. After the current stabilization merge, resume product work rather than another cleanup-only PR.
+2. Resume product work from the club/app roadmap: prioritize the next user-requested functional improvement in organizer/player flows.
+3. Keep announcement delivery, Telegram/VK integration behavior, player profiles/cabinet and evening workflow as active product areas; diagnose the exact requested flow before changing unrelated code.
+4. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
+5. Finish remaining repository/test hygiene only opportunistically or when it blocks feature work; audit each deferred `vitest.config.ts` exclusion individually.
+6. Consolidate the Live Game CSS patch stack only when visual maintenance is actually needed; preserve current geometry/behavior and use browser evidence before/after.
+7. Split `GameProtocolModal.tsx`, tournament routes or other large modules only as part of feature/bug work or when their size directly blocks safe changes.
+8. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
+9. Real online payment/SBP integration only after explicit provider decision.
 
-Do not mix production DB/migration changes into cleanup-only PRs.
+Do not mix production DB/migration changes into cleanup-only or browser-stabilization PRs.
 
 ## Handoff rule
 

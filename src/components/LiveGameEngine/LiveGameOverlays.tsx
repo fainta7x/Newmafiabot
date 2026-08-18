@@ -123,7 +123,7 @@ export function PlayerActionOverlay({
               {isNominated ? 'Снять выставление' : `Выставить${activeSpeakerSlot ? ` · речь #${activeSpeakerSlot}` : ''}`}
             </button>
             <button type="button" onClick={() => onDirectRemove(player.slot_num)} className="min-h-12 rounded-xl bg-red-950/70 border border-red-700 text-red-200 text-xs font-black">Удалить судьёй</button>
-            <button type="button" onClick={() => onPpk(player.slot_num)} className="min-h-12 rounded-xl bg-purple-950/70 border border-purple-700 text-purple-200 text-xs font-black">ППК</button>
+            <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-12 rounded-xl bg-purple-950/70 border border-purple-700 text-purple-200 text-xs font-black">ППК</button>
             <button type="button" onClick={() => onEditNote(player)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
           </div>
         ) : (

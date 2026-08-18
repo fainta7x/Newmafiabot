@@ -79,4 +79,79 @@
     flex-basis: 11px !important;
     font-size: 7px !important;
   }
+
+  /* Night target/check markers used to sit under the top foul/action controls
+     (z-10 vs z-20), so the selected target looked like an empty red strip.
+     Move only that marker stack below the controls and above the card content. */
+  html body .evening-live-engine-shell [class~="top-2.5"][class~="inset-x-2.5"][class~="flex-col"][class~="z-10"] {
+    top: 1.9rem !important;
+    z-index: 30 !important;
+    pointer-events: none !important;
+  }
+
+  /* The legacy HUD grid assumed the timer had only a title + number. During night
+     actions we now keep an explicit target/check status beside the timer. Give that
+     status its own cell instead of letting auto-placement clip it under the 34px row. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) {
+    grid-template-columns: minmax(0, 1fr) 58px !important;
+    grid-template-rows: 13px 34px 3px 42px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) > [data-testid="live-game-night-status"] {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    margin: 0 !important;
+    padding: 3px 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
+    text-align: left !important;
+    white-space: normal !important;
+    font-size: 8px !important;
+    line-height: 10px !important;
+  }
+
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> [data-testid="live-game-night-status"]) > div[class*="font-mono"][class*="font-black"] {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    width: 58px !important;
+    min-width: 58px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  /* V5 also has a more-specific fallback that stretches the timer across both columns
+     whenever there is no speaker-name row. Night actions have no speaker by design, so
+     explicitly outrank that fallback when our status cell is present. */
+  html body .evening-live-engine-shell.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) > div.flex-1 > div:has(> span[class*="tracking-widest"]):has(> [data-testid="live-game-night-status"]) > [data-testid="live-game-night-status"] + div[class*="font-mono"][class*="font-black"] {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    justify-self: end !important;
+    width: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  /* Mobile toasts used to cover the notes/event workspace at the bottom of the
+     screen. Keep them transient and visible, but park them directly under the app
+     header instead of on top of the judge's working area. Desktop keeps the original
+     bottom-right placement from the component. */
+  html body .evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
+    top: 2.55rem !important;
+    bottom: auto !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
+    text-align: center !important;
+    pointer-events: none !important;
+  }
 }

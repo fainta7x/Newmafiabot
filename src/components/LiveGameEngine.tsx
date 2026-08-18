@@ -37,8 +37,10 @@ import {
   PendingDisciplineConfirmation,
   PostNightStage,
   VotingStage,
+  cloneLiveSnapshot,
   createEmptyActivePlayer,
   createInitialLiveDiscipline,
+  normalizeLiveSnapshotForRestore,
 } from "./LiveGameEngine/engineStateModel.js";
 import {
   BestMoveSource,
@@ -171,22 +173,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning, isMuted]);
 
-  const takeSnapshot = (): LiveSnapshot => ({
-    activePlayers: JSON.parse(JSON.stringify(activePlayers)),
-    nominations: [...nominations],
-    nominationsMap: { ...nominationsMap },
+  const takeSnapshot = (): LiveSnapshot => cloneLiveSnapshot({
+    activePlayers,
+    nominations,
+    nominationsMap,
     phase,
     roundNumber,
     nightSubPhase,
     postNightStage,
-    protocolMarkers: JSON.parse(JSON.stringify(protocolMarkers)),
+    protocolMarkers,
     activeBestMoveSource,
     activeBestMoveSlot,
-    pendingBestMoveSeats: [...pendingBestMoveSeats],
-    votingRounds: JSON.parse(JSON.stringify(votingRounds)),
+    pendingBestMoveSeats,
+    votingRounds,
     activeVotingRoundIndex,
-    votesByPlayer: { ...votesByPlayer },
-    votes: { ...votes },
+    votesByPlayer,
+    votes,
     votingStage,
     revoteSpeakerIndex,
     tableLeaveVotesInput,
@@ -202,49 +204,50 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     donCheckResult,
     sheriffCheckSlot,
     sheriffCheckResult,
-    nightLogs: JSON.parse(JSON.stringify(nightLogs)),
-    votingFarewellQueue: [...votingFarewellQueue],
+    nightLogs,
+    votingFarewellQueue,
     votingFarewellIndex,
-    discipline: JSON.parse(JSON.stringify(discipline)),
+    discipline,
   });
 
   const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
 
   const restoreSnapshot = (snapshot: LiveSnapshot) => {
-    setActivePlayers(snapshot.activePlayers);
-    setNominations(snapshot.nominations);
-    setNominationsMap(snapshot.nominationsMap || {});
-    setPhase(snapshot.phase);
-    setRoundNumber(snapshot.roundNumber);
-    setNightSubPhase(snapshot.nightSubPhase);
-    setPostNightStage(snapshot.postNightStage || 'none');
-    setProtocolMarkers(snapshot.protocolMarkers || createEmptyLiveProtocolMarkers());
-    setActiveBestMoveSource(snapshot.activeBestMoveSource || null);
-    setActiveBestMoveSlot(snapshot.activeBestMoveSlot ?? null);
-    setPendingBestMoveSeats(snapshot.pendingBestMoveSeats || []);
-    setVotingRounds(snapshot.votingRounds || []);
-    setActiveVotingRoundIndex(snapshot.activeVotingRoundIndex || 0);
-    setVotesByPlayer(snapshot.votesByPlayer || {});
-    setVotes(snapshot.votes || {});
-    setVotingStage(snapshot.votingStage || 'setup');
-    setRevoteSpeakerIndex(snapshot.revoteSpeakerIndex || 0);
-    setTableLeaveVotesInput(snapshot.tableLeaveVotesInput ?? null);
-    setCurrentVotingNomineeIndex(snapshot.currentVotingNomineeIndex || 0);
-    setActiveSpeakerSlot(snapshot.activeSpeakerSlot ?? null);
-    setCustomTimerLabel(snapshot.customTimerLabel ?? null);
-    setTimeLeft(snapshot.timeLeft ?? 60);
-    setTimerMax(snapshot.timerMax ?? 60);
-    setIsTimerRunning(Boolean(snapshot.isTimerRunning));
-    setZeroNightSubPhase(snapshot.zeroNightSubPhase ?? null);
-    setShotPlayerSlot(snapshot.shotPlayerSlot ?? null);
-    setDonCheckSlot(snapshot.donCheckSlot ?? null);
-    setDonCheckResult(snapshot.donCheckResult ?? null);
-    setSheriffCheckSlot(snapshot.sheriffCheckSlot ?? null);
-    setSheriffCheckResult(snapshot.sheriffCheckResult ?? null);
-    setNightLogs(snapshot.nightLogs || []);
-    setVotingFarewellQueue(snapshot.votingFarewellQueue || []);
-    setVotingFarewellIndex(snapshot.votingFarewellIndex || 0);
-    setDiscipline(snapshot.discipline || createInitialLiveDiscipline());
+    const restored = normalizeLiveSnapshotForRestore(snapshot);
+    setActivePlayers(restored.activePlayers);
+    setNominations(restored.nominations);
+    setNominationsMap(restored.nominationsMap);
+    setPhase(restored.phase);
+    setRoundNumber(restored.roundNumber);
+    setNightSubPhase(restored.nightSubPhase);
+    setPostNightStage(restored.postNightStage);
+    setProtocolMarkers(restored.protocolMarkers);
+    setActiveBestMoveSource(restored.activeBestMoveSource);
+    setActiveBestMoveSlot(restored.activeBestMoveSlot);
+    setPendingBestMoveSeats(restored.pendingBestMoveSeats);
+    setVotingRounds(restored.votingRounds);
+    setActiveVotingRoundIndex(restored.activeVotingRoundIndex);
+    setVotesByPlayer(restored.votesByPlayer);
+    setVotes(restored.votes);
+    setVotingStage(restored.votingStage);
+    setRevoteSpeakerIndex(restored.revoteSpeakerIndex);
+    setTableLeaveVotesInput(restored.tableLeaveVotesInput);
+    setCurrentVotingNomineeIndex(restored.currentVotingNomineeIndex);
+    setActiveSpeakerSlot(restored.activeSpeakerSlot);
+    setCustomTimerLabel(restored.customTimerLabel);
+    setTimeLeft(restored.timeLeft);
+    setTimerMax(restored.timerMax);
+    setIsTimerRunning(restored.isTimerRunning);
+    setZeroNightSubPhase(restored.zeroNightSubPhase);
+    setShotPlayerSlot(restored.shotPlayerSlot);
+    setDonCheckSlot(restored.donCheckSlot);
+    setDonCheckResult(restored.donCheckResult);
+    setSheriffCheckSlot(restored.sheriffCheckSlot);
+    setSheriffCheckResult(restored.sheriffCheckResult);
+    setNightLogs(restored.nightLogs);
+    setVotingFarewellQueue(restored.votingFarewellQueue);
+    setVotingFarewellIndex(restored.votingFarewellIndex);
+    setDiscipline(restored.discipline);
   };
 
   const handleUndoAction = () => {

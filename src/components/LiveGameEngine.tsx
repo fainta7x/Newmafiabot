@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, RotateCcw, Shield } from "lucide-react";
-import { Player, GameSlot } from "../types.js";
+import { GameSlot } from "../types.js";
 import {
   VotingRound,
   calculateVoteRemainder,
@@ -31,7 +31,15 @@ import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
-import { ActivePlayerState, NightSubPhase, Phase } from "./LiveGameEngine/types.js";
+import { ActivePlayerState, LiveGameEngineProps, NightSubPhase, Phase } from "./LiveGameEngine/types.js";
+import {
+  LiveSnapshot,
+  PendingDisciplineConfirmation,
+  PostNightStage,
+  VotingStage,
+  createEmptyActivePlayer,
+  createInitialLiveDiscipline,
+} from "./LiveGameEngine/engineStateModel.js";
 import {
   BestMoveSource,
   LiveProtocolMarkers,
@@ -42,27 +50,6 @@ import {
   setBestMove,
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
-
-interface LiveGameEngineProps {
-  players: Player[];
-  initialJudgeId: number;
-  onGameFinished: (gameData: {
-    winning_team: "Красные" | "Чёрные";
-    protocol_text: string;
-    slots: GameSlot[];
-    judge_id: number;
-  }) => void;
-  onCancel: () => void;
-  onPhaseChange?: (phase: string) => void;
-}
-
-type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
-type PostNightStage = 'none' | 'farewell' | 'death_protocol';
-
-type PendingDisciplineConfirmation = {
-  slot: number;
-  action: PendingActionType;
-};
 
 const dangerousActionCopy = (action: PendingActionType) => {
   if (action === 'removal_4th_foul') return {
@@ -87,75 +74,6 @@ const dangerousActionCopy = (action: PendingActionType) => {
   };
 };
 
-type LiveSnapshot = {
-  activePlayers: ActivePlayerState[];
-  nominations: number[];
-  nominationsMap: Record<number, number>;
-  phase: Phase;
-  roundNumber: number;
-  nightSubPhase: NightSubPhase;
-  postNightStage: PostNightStage;
-  protocolMarkers: LiveProtocolMarkers;
-  activeBestMoveSource: BestMoveSource | null;
-  activeBestMoveSlot: number | null;
-  pendingBestMoveSeats: number[];
-  votingRounds: VotingRound[];
-  activeVotingRoundIndex: number;
-  votesByPlayer: Record<number, number>;
-  votes: Record<number, number>;
-  votingStage: VotingStage;
-  revoteSpeakerIndex: number;
-  tableLeaveVotesInput: number | null;
-  currentVotingNomineeIndex: number;
-  activeSpeakerSlot: number | null;
-  customTimerLabel: string | null;
-  timeLeft: number;
-  timerMax: number;
-  isTimerRunning: boolean;
-  zeroNightSubPhase: "agreement" | "sheriff" | "seating" | null;
-  shotPlayerSlot: number | null;
-  donCheckSlot: number | null;
-  donCheckResult: boolean | null;
-  sheriffCheckSlot: number | null;
-  sheriffCheckResult: string | null;
-  nightLogs: { round: number; log: string }[];
-  votingFarewellQueue: number[];
-  votingFarewellIndex: number;
-  discipline: GameDiscipline;
-};
-
-const emptyPlayer = (slot: number): ActivePlayerState => ({
-  slot_num: slot,
-  user_id: 0,
-  nickname: "",
-  role: "Мирный",
-  team: "Красные",
-  fouls: 0,
-  minor_tech_fouls: 0,
-  major_tech_fouls: 0,
-  removal_reason: null,
-  alive: true,
-  nominated_this_round: false,
-  has_spoken_this_round: false,
-  mute_this_round: false,
-  is_pu: false,
-  best_move_guesses: [],
-  kick: false,
-  ppk: false,
-  bonus_points: 0,
-  lh_points: 0,
-  will_protocol_points: 0,
-  will_opinion_points: 0,
-  dc_points: 0,
-  eliminated_phase: "",
-  has_foul_penalty: false,
-  exit_reason: "alive",
-});
-
-const initialDiscipline = () => createInitialGameDiscipline(
-  Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), team: 'red' as const }))
-);
-
 export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
@@ -163,9 +81,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [nightSubPhase, setNightSubPhase] = useState<NightSubPhase>("intro");
   const [postNightStage, setPostNightStage] = useState<PostNightStage>('none');
   const [activePlayers, setActivePlayers] = useState<ActivePlayerState[]>(
-    Array.from({ length: 10 }, (_, index) => emptyPlayer(index + 1))
+    Array.from({ length: 10 }, (_, index) => createEmptyActivePlayer(index + 1))
   );
-  const [discipline, setDiscipline] = useState<GameDiscipline>(initialDiscipline);
+  const [discipline, setDiscipline] = useState<GameDiscipline>(createInitialLiveDiscipline);
   const [actionPlayerSlot, setActionPlayerSlot] = useState<number | null>(null);
   const [pendingDisciplineConfirmation, setPendingDisciplineConfirmation] = useState<PendingDisciplineConfirmation | null>(null);
 
@@ -326,7 +244,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNightLogs(snapshot.nightLogs || []);
     setVotingFarewellQueue(snapshot.votingFarewellQueue || []);
     setVotingFarewellIndex(snapshot.votingFarewellIndex || 0);
-    setDiscipline(snapshot.discipline || initialDiscipline());
+    setDiscipline(snapshot.discipline || createInitialLiveDiscipline());
   };
 
   const handleUndoAction = () => {

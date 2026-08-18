@@ -11,24 +11,16 @@ import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
+import {
+  PLAYER_CABINET_NAV,
+  isPlayerCabinetNavActive,
+  isPlayerGameSection,
+  isPlayerRatingSection,
+  normalizePlayerCabinetSection,
+  type PlayerCabinetSection,
+} from './playerCabinetNavigation.ts';
 
-export type PlayerCabinetSection =
-  | 'home'
-  | 'events'
-  | 'games'
-  | 'stats'
-  | 'career'
-  | 'recaps'
-  | 'rating'
-  | 'elo'
-  | 'ratingperiods'
-  | 'clubworld'
-  | 'club'
-  | 'wallet'
-  | 'payments'
-  | 'profile'
-  | 'conduct'
-  | 'more';
+export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
 
 type Props = {
   data: PlayerMeResponse;
@@ -38,24 +30,6 @@ type Props = {
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
-type NavId = 'home' | 'events' | 'games' | 'rating' | 'club';
-const NAV: Array<{ id: NavId; icon: string; label: string }> = [
-  { id: 'home', icon: '⌂', label: 'Главная' },
-  { id: 'events', icon: '▣', label: 'События' },
-  { id: 'games', icon: '◫', label: 'Игры' },
-  { id: 'rating', icon: '★', label: 'Рейтинг' },
-  { id: 'club', icon: '◆', label: 'Клуб' },
-];
-
-const gameSections = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);
-const ratingSections = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'clubworld']);
-
-const normalizeSection = (section: PlayerCabinetSection): PlayerCabinetSection => {
-  if (section === 'more') return 'club';
-  if (section === 'payments') return 'wallet';
-  return section;
-};
-
 export default function PlayerCabinetShell({
   data,
   canOpenAdmin = false,
@@ -63,18 +37,18 @@ export default function PlayerCabinetShell({
   initialTarget = null,
   onSectionChange,
 }: Props) {
-  const [section, setSection] = useState<PlayerCabinetSection>(() => normalizeSection(initialSection));
+  const [section, setSection] = useState<PlayerCabinetSection>(() => normalizePlayerCabinetSection(initialSection));
   const [player, setPlayer] = useState(data.player);
   const [tokenBalance, setTokenBalance] = useState(Number(data.player.tokens || 0));
 
-  useEffect(() => setSection(normalizeSection(initialSection)), [initialSection]);
+  useEffect(() => setSection(normalizePlayerCabinetSection(initialSection)), [initialSection]);
   useEffect(() => {
     setPlayer(data.player);
     setTokenBalance(Number(data.player.tokens || 0));
   }, [data.player]);
 
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
-    const next = normalizeSection(requested);
+    const next = normalizePlayerCabinetSection(requested);
     setSection(next);
     onSectionChange?.(next, target);
   };
@@ -113,7 +87,7 @@ export default function PlayerCabinetShell({
           initialEventId={initialTarget}
           onEventChange={(eventId) => open('events', eventId)}
         />
-      ) : gameSections.has(section) ? (
+      ) : isPlayerGameSection(section) ? (
         <PlayerGamesHub
           data={currentData}
           canOpenAdmin={canOpenAdmin}
@@ -121,7 +95,7 @@ export default function PlayerCabinetShell({
           target={initialTarget}
           onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)}
         />
-      ) : ratingSections.has(section) ? (
+      ) : isPlayerRatingSection(section) ? (
         <PlayerRatingHub
           data={currentData}
           section={section as PlayerRatingSection}
@@ -150,12 +124,8 @@ export default function PlayerCabinetShell({
 
       <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
-          {NAV.map((item) => {
-            const active = item.id === 'games'
-              ? gameSections.has(section)
-              : item.id === 'rating'
-                ? ratingSections.has(section)
-                : section === item.id;
+          {PLAYER_CABINET_NAV.map((item) => {
+            const active = isPlayerCabinetNavActive(item.id, section);
             return (
               <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
                 <span className="text-base leading-none">{item.icon}</span>

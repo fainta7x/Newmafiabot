@@ -41,6 +41,7 @@ const tableGrid = (page) => page
   .first();
 
 const seatCard = (page, slot) => tableGrid(page).locator(':scope > div').nth(slot - 1);
+const centerPanel = (page) => tableGrid(page).locator(':scope > div').nth(10);
 
 const clickOptional = async (locator) => {
   if (await locator.isVisible().catch(() => false)) await locator.click();
@@ -114,6 +115,28 @@ const fillBestMove = async (page, seats) => {
     await overlay.getByRole('button', { name: String(seat), exact: true }).click();
   }
   await overlay.getByRole('button', { name: 'Подтвердить протокол', exact: true }).click();
+};
+
+const nominateTwoPlayersAndFinishDay = async (page) => {
+  await startSpeech(page, 1);
+  await nominate(page, 2);
+  await finishSpeech(page, 1);
+
+  await startSpeech(page, 2);
+  await nominate(page, 3);
+  await finishSpeech(page, 2);
+
+  for (let slot = 3; slot <= 10; slot += 1) {
+    await startSpeech(page, slot);
+    await finishSpeech(page, slot);
+  }
+  await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+};
+
+const castFiveFiveVote = async (page) => {
+  for (const voter of [1, 2, 3, 4, 5]) await seatCard(page, voter).click();
+  await page.getByRole('button', { name: /Следующий/ }).click();
+  await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
 };
 
 test.describe('Live Game browser stabilization', () => {
@@ -215,5 +238,98 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(page.getByTestId('e2e-live-game-result')).toHaveText('E2E LIVE GAME COMPLETED');
     await expectNoHorizontalOverflow(page, 'completed sandbox');
+  });
+
+  test('applies speech penalties, confirms removals and cancels the next voting', async ({ page }, testInfo) => {
+    await prepareGame(page, testInfo);
+
+    for (let index = 0; index < 3; index += 1) {
+      const action = await openPlayerAction(page, 1);
+      await action.getByRole('button', { name: /Обычный фол/ }).click();
+    }
+
+    await startSpeech(page, 1);
+    await expect(centerPanel(page).getByText('30с', { exact: true })).toBeVisible();
+    await finishSpeech(page, 1);
+
+    const fourthFoulAction = await openPlayerAction(page, 1);
+    await fourthFoulAction.getByRole('button', { name: /Обычный фол/ }).click();
+    const fourthFoulConfirm = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Удаление по 4-му фолу' }).first();
+    await expect(fourthFoulConfirm).toBeVisible();
+    await attachViewport(page, testInfo, '10-fourth-foul-confirmation.png');
+    await fourthFoulConfirm.getByRole('button', { name: 'Подтвердить 4-й фол', exact: true }).click();
+
+    const removedOne = await openPlayerAction(page, 1);
+    await expect(removedOne.getByRole('button', { name: 'Вернуть за стол', exact: true })).toBeVisible();
+    await removedOne.getByRole('button', { name: '×', exact: true }).click();
+
+    let techAction = await openPlayerAction(page, 2);
+    await techAction.getByRole('button', { name: /Малый тех/ }).click();
+    techAction = await openPlayerAction(page, 2);
+    await expect(techAction.getByText(/Мал\. тех: 1/)).toBeVisible();
+    await techAction.getByRole('button', { name: /Малый тех/ }).click();
+    const techConfirm = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Удаление по второму техфолу' }).first();
+    await expect(techConfirm).toBeVisible();
+    await techConfirm.getByRole('button', { name: 'Подтвердить техфол', exact: true }).click();
+
+    const removedTwo = await openPlayerAction(page, 2);
+    await expect(removedTwo.getByRole('button', { name: 'Вернуть за стол', exact: true })).toBeVisible();
+    await removedTwo.getByRole('button', { name: '×', exact: true }).click();
+
+    for (let slot = 3; slot <= 10; slot += 1) {
+      await startSpeech(page, slot);
+      await finishSpeech(page, slot);
+    }
+
+    await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
+    await expect(page.getByText('Ближайшее голосование отменено из-за удаления', { exact: true })).toBeVisible();
+    await expect(page.getByText('🌙 Ночь 1', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'discipline cancellation night');
+    await attachViewport(page, testInfo, '11-discipline-voting-cancelled.png');
+  });
+
+  test('walks a repeated tie through revote speeches and the table decision', async ({ page }, testInfo) => {
+    await prepareGame(page, testInfo);
+    await nominateTwoPlayersAndFinishDay(page);
+    await castFiveFiveVote(page);
+
+    await expect(page.getByText(/Ничья: #2, #3/)).toBeVisible();
+    await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
+    await expect(page.getByText(/Спорная речь · 30 секунд/)).toBeVisible();
+    await attachViewport(page, testInfo, '12-revote-speeches.png');
+
+    await page.getByRole('button', { name: 'Следующий спорный', exact: true }).click();
+    await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
+    await expect(page.getByText(/Кто против/)).toBeVisible();
+
+    await castFiveFiveVote(page);
+    await expect(page.getByText(/Поднять спорных: #2, #3/)).toBeVisible();
+
+    for (const voter of [1, 2, 3, 4, 5, 6]) {
+      await page.getByRole('button', { name: `#${voter}`, exact: true }).click();
+    }
+    await expect(page.getByText(/6\/10 · нужно 6/)).toBeVisible();
+    await attachViewport(page, testInfo, '13-table-decision.png');
+    await page.getByRole('button', { name: 'Подтвердить решение стола', exact: true }).click();
+
+    await expect(page.getByText('Прощальная речь #2', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Прощальная #3', exact: true }).click();
+    await expect(page.getByText('Прощальная речь #3', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Завершить прощальные', exact: true }).click();
+    await expect(page.getByText('🌙 Ночь 1', { exact: true })).toBeVisible();
+  });
+
+  test('restores a saved Day 2 browser session into a usable next action', async ({ page }, testInfo) => {
+    await page.goto('/e2e/live-game.html?mode=recovery');
+    await expect(page.getByText(/Найдена незавершённая игра · 18:00/)).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'recovery banner');
+    await attachViewport(page, testInfo, '14-recovery-banner.png');
+
+    await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+    await expect(page.getByText('☀️ День 2', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
+    await expect(page.getByText('Прерванная игра восстановлена', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'restored Day 2');
+    await attachViewport(page, testInfo, '15-restored-day-2.png');
   });
 });

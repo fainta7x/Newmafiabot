@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this branch:** `da6e95d1dd234184013af2372b06706ac35a797a`.
+> **Current main observed before this branch:** `973aeee356d615617ec6bf48d9ed70c9b64642d3`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -77,13 +77,14 @@ The architecture is intentionally evolutionary: do not rewrite to another framew
 - Awards/nominations/results/publication support.
 - Token settlements, replay and speech recording upload/readback.
 
-Live Game is being modularized without rule changes. Current durable boundaries are:
+The dedicated Live Game cleanup pass is now considered sufficient for normal product work. Further refactor-only splitting should pause unless a concrete feature or bug needs another boundary. Current durable boundaries are:
 
 - `setupMode.ts` — setup routing / managed-engine markers;
 - `setupRoles.ts` — setup role translation, distribution validity and physical-role assignments;
 - `setupState.ts` — setup seat/player/role transforms and start-validation only; React setters, snapshot/start side effects, discipline initialization and transition to zero night remain in `LiveGameEngine.tsx`;
 - `daySpeechModel.ts` — day-speech rotation/order, next-speaker selection and the pure spoken-seat state transform. Snapshot, timer start/stop and discipline-driven speech duration remain in `LiveGameEngine.tsx`;
 - `nightTargetModel.ts` — shot-target lookup/toggle, Don/Sheriff check-result mapping and first-killed-best-move eligibility only. Night transitions, kill resolution, protocol marker writes, logs and timers remain in `LiveGameEngine.tsx`;
+- `LiveGameOverlays.tsx` — judge confirmation overlay, player action sheet, best-move protocol overlay, toast and saved-session banner. Game state and action handlers remain in `LiveGameEngine.tsx`;
 - `timerModel.ts` — CenterPanel timer duration/deadline/remaining calculations;
 - `votingPresentationModel.ts` — CenterPanel vote-display assignments/remaining-vote and table-decision presentation arithmetic only;
 - `seatPresentationModel.ts` — SeatCard grid position, border-priority and current-vote presentation only; seat actions/fouls/removal remain in `SeatCard.tsx`;
@@ -152,14 +153,15 @@ Treat names as evidence to inspect, not proof that a file is dead.
 - `src/components/player/PlayerHistoryStatsView.tsx` is active implementation content for the History/Statistics sections.
 - `src/components/LiveGameEngine/GeneralSetupPhase.tsx` is the active non-club setup path for tournament/autonomous Live Game flows; do not treat it as dead fallback code.
 - `vitest.config.ts` still has project-specific deferred test-name exclusions. Revisit them one scenario at a time; do not simply delete the regex to make the suite look cleaner.
-- Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification.
-- Several files are very large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, `SeatCard.tsx`, tournament export logic and large Python bot handlers. Split one module per PR without behavior changes.
+- Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification, and do not prioritize this over product work unless visual maintenance requires it.
+- Several files are still large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, `SeatCard.tsx`, tournament export logic and large Python bot handlers. Split them when feature/bug work benefits from it rather than continuing refactor-only churn.
 - Large route Base modules such as `eveningsRoutesBase.ts`, `gamesRoutesBase.ts` and `tournamentsRoutesBase.ts` require route-by-route tracing; do not mechanically collapse them just because smaller Base layers were removable.
 
 ## Recently completed
 
 Newest relevant technical work:
 
+- `973aeee` — extracted Live Game night target/check calculations to `nightTargetModel.ts`, preserving night transitions, kill resolution, logs, protocol writes and timers in the engine.
 - `da6e95d` — extracted Live Game day-speech rotation/order, next-speaker selection and spoken-seat transform to `daySpeechModel.ts`, preserving snapshot, timer start/stop and discipline-driven speech duration/30-second behavior in the engine.
 - `9b7390c` — extracted club Live Game setup seat/player/role transforms and start validation to `setupState.ts`, preserving snapshot/start side effects, discipline initialization, localStorage cleanup and the transition to zero night.
 - `9433954` — extracted exact Live Game snapshot cloning and legacy restore-default normalization to `engineStateModel.ts`, preserving localStorage shape, React setter ownership, undo/history behavior and zero/false fallback semantics.
@@ -196,15 +198,15 @@ Newest relevant technical work:
 
 ## Current work / next queue
 
-The current modernization target is **clarity and maintainability without business-rule or data-model churn**. Continue from the first unresolved item unless a newer explicit user request supersedes it:
+The cleanup/refactor pass is no longer the primary goal. After the current Live Game overlay extraction is merged and green, return to **product functionality and live-club workflow**. Refactor further only when it directly enables a requested feature or fixes a concrete maintenance problem.
 
-1. Continue Live Game modularization after the night-target/check calculation boundary: audit one additional coherent handler family in `LiveGameEngine.tsx`, prove its dependencies and current behavior with focused coverage, then extract only that family in its own PR. Keep voting, discipline and night state-transition side effects isolated unless that specific family is audited first.
-2. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
-3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused visual/browser verification.
-4. Split other high-complexity modules one at a time, especially `GameProtocolModal.tsx` and tournament route modules, after the current Live Game pass.
-5. Audit the remaining large Base route modules route-by-route before any consolidation; preserve unique handlers and current registration/auth/data-safety behavior.
-6. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
-7. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
+1. Resume product work from the club/app roadmap: prioritize the next user-requested functional improvement in organizer/player flows rather than another cleanup-only PR.
+2. Keep announcement delivery, Telegram/VK integration behavior, player profiles/cabinet and evening workflow as active product areas; diagnose the exact requested flow before changing unrelated code.
+3. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
+4. Finish remaining repository/test hygiene only opportunistically or when it blocks feature work; audit each deferred `vitest.config.ts` exclusion individually.
+5. Consolidate the Live Game CSS patch stack only when visual maintenance is actually needed; preserve current geometry/behavior.
+6. Split `GameProtocolModal.tsx`, tournament routes or other large modules only as part of feature/bug work or when their size directly blocks safe changes.
+7. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
 8. Real online payment/SBP integration only after explicit provider decision.
 
 Do not mix production DB/migration changes into cleanup-only PRs.

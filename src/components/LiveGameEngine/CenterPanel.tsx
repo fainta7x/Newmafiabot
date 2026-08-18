@@ -11,6 +11,10 @@ import {
   getRemainingTimerSeconds,
   resolveTimerDuration,
 } from "./timerModel.js";
+import {
+  buildCollectingVotingPresentation,
+  buildTableDecisionPresentation,
+} from "./votingPresentationModel.js";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -340,17 +344,13 @@ export default function CenterPanel({
     const eligibleVoterSeats = eligiblePlayers.map((p) => p.slot_num);
 
     if (votingStage === 'collecting' || votingStage === 'setup') {
-      const candidates = currentRound.nominated_seats;
-      const nominee = candidates[currentVotingNomineeIndex];
-      const explicitAssigned = Object.keys(votesByPlayer).filter((raw) => eligibleVoterSeats.includes(Number(raw))).length;
-      const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
-      const remaining = Math.max(0, eligible - explicitAssigned);
-      const isLast = currentVotingNomineeIndex === candidates.length - 1;
-      const assignments = eligibleVoterSeats.slice().sort((a, b) => a - b).map((slot) => ({
-        slot,
-        target: votesByPlayer[slot] ?? (isLast ? nominee : null),
-        automatic: votesByPlayer[slot] === undefined && isLast,
-      }));
+      const { nominee, eligible, remaining, isLast, assignments } = buildCollectingVotingPresentation({
+        eligibleVoterSeats,
+        eligibleVoters: currentRound.eligible_voters,
+        nominatedSeats: currentRound.nominated_seats,
+        currentNomineeIndex: currentVotingNomineeIndex,
+        votesByPlayer,
+      });
 
       return (
         <div className="space-y-2 w-full max-w-[300px] mx-auto">
@@ -453,8 +453,10 @@ export default function CenterPanel({
 
       if (result.outcome === 'requires_table_decision') {
         const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
-        const majority = Math.floor(eligible / 2) + 1;
-        const entered = tableVoterSlots.length;
+        const { majority, entered, hasMajority, sortedSelectedVoterSlots } = buildTableDecisionPresentation({
+          eligible,
+          selectedVoterSlots: tableVoterSlots,
+        });
         return (
           <div className="space-y-2 w-full max-w-[320px] mx-auto">
             <div className="text-[10px] text-amber-300 font-black">Поднять спорных: {result.winners.map((s) => `#${s}`).join(', ')}</div>
@@ -478,10 +480,10 @@ export default function CenterPanel({
             </div>
             <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[10px]">
               <span className="text-slate-400">За подъём</span>
-              <strong className={entered >= majority ? 'text-emerald-400' : 'text-amber-400'}>{entered}/{eligible} · нужно {majority}</strong>
+              <strong className={hasMajority ? 'text-emerald-400' : 'text-amber-400'}>{entered}/{eligible} · нужно {majority}</strong>
             </div>
             <div className="text-[9px] text-slate-500 min-h-[12px]">
-              {entered ? `Голосуют: ${tableVoterSlots.slice().sort((a, b) => a - b).map((slot) => `#${slot}`).join(', ')}` : 'Пока никто не выбран'}
+              {entered ? `Голосуют: ${sortedSelectedVoterSlots.map((slot) => `#${slot}`).join(', ')}` : 'Пока никто не выбран'}
             </div>
             <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className="w-full py-2 rounded-xl bg-amber-600 text-white font-black text-[10px] uppercase">Подтвердить решение стола</button>
           </div>

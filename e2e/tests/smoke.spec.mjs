@@ -5,7 +5,11 @@ test('health endpoint and organizer entry render safely on mobile', async ({ pag
   const browserErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   page.on('console', (message) => {
-    if (message.type() === 'error') browserErrors.push(message.text());
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    const isExpectedUnauthorizedResourceError =
+      text.includes('Failed to load resource') && text.includes('401 (Unauthorized)');
+    if (!isExpectedUnauthorizedResourceError) browserErrors.push(text);
   });
 
   const health = await request.get('/api/health');

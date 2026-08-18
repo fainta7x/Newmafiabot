@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import JudgeGameMusicController from '../src/components/JudgeGameMusicController.tsx';
 import { EveningDeathProtocolBridge } from '../src/components/crm/EveningDeathProtocolOverlay.tsx';
@@ -19,12 +20,22 @@ import '../src/components/crm/liveGameActionGroupsV5.css';
 import '../src/components/crm/liveGameMobileGeometryV6.css';
 
 function Harness() {
+  const [result, setResult] = useState<'running' | 'completed' | 'cancelled'>('running');
+
   return (
     <AppErrorBoundary>
-      <JudgeTestGameModal
-        judge={{ id: 'e2e-judge', nickname: 'E2E Judge' }}
-        onClose={() => undefined}
-      />
+      {result === 'running' ? (
+        <JudgeTestGameModal
+          judge={{ id: 'e2e-judge', nickname: 'E2E Judge' }}
+          onClose={(completed) => setResult(completed ? 'completed' : 'cancelled')}
+        />
+      ) : (
+        <main className="flex min-h-screen items-center justify-center bg-[#090a0d] p-6 text-white">
+          <div data-testid="e2e-live-game-result" className="rounded-3xl border border-white/10 bg-white/[0.05] p-6 text-center text-lg font-black">
+            {result === 'completed' ? 'E2E LIVE GAME COMPLETED' : 'E2E LIVE GAME CANCELLED'}
+          </div>
+        </main>
+      )}
       <JudgeGameMusicController />
       <EveningDeathProtocolBridge />
       <EveningLiveDisciplineGlyphBridge />

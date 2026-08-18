@@ -50,6 +50,10 @@ import {
   shuffleSetupRoles,
 } from "./LiveGameEngine/setupState.js";
 import {
+  getNextDaySpeaker,
+  markDaySpeakerSpoken,
+} from "./LiveGameEngine/daySpeechModel.js";
+import {
   BestMoveSource,
   LiveProtocolMarkers,
   clearBestMove,
@@ -379,22 +383,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(true);
   };
 
-  const getSpeakerQueue = () => {
-    const start = ((roundNumber - 1) % 10) + 1;
-    const ordered: ActivePlayerState[] = [];
-    for (let offset = 0; offset < 10; offset++) {
-      const slot = ((start - 1 + offset) % 10) + 1;
-      const player = activePlayers.find((p) => p.slot_num === slot);
-      if (player) ordered.push(player);
-    }
-    return ordered.filter((p) => p.alive && !p.has_spoken_this_round);
-  };
-
-  const nextSpeaker = getSpeakerQueue()[0] || null;
+  const nextSpeaker = getNextDaySpeaker(activePlayers, roundNumber);
 
   const markPlayerSpoken = (slot: number) => {
     saveSnapshot();
-    setActivePlayers((previous) => previous.map((p) => p.slot_num === slot ? { ...p, has_spoken_this_round: true } : p));
+    setActivePlayers((previous) => markDaySpeakerSpoken(previous, slot));
     setActiveSpeakerSlot(null);
     setIsTimerRunning(false);
   };

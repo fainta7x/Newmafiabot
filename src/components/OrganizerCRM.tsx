@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, Lock, Menu, RefreshCw, Users } from 'lucide-react';
-import { api, type CrmOverview, type GameEvening, type Player } from '../lib/api.ts';
+import { api, type GameEvening } from '../lib/api.ts';
 import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningWorkspace, type EveningSection } from './crm/EveningWorkspace.tsx';
@@ -19,6 +19,7 @@ import {
   type OrganizerPlayerReturnContext,
   type OrganizerRouteState,
 } from './crm/organizerRouting.ts';
+import { useOrganizerCrmSession } from './crm/useOrganizerCrmSession.ts';
 import { initTheme, type ThemeId } from '../lib/theme.ts';
 import { useMobileKeyboardViewport } from '../hooks/useMobileKeyboardViewport.ts';
 import { ORGANIZER_PRIMARY_NAV, type OrganizerPrimaryTab } from '../lib/organizerUx.ts';
@@ -50,21 +51,26 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [playerReturnContext, setPlayerReturnContext] = useState<OrganizerPlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
   const eveningListScrollRef = useRef(0);
-  const resumeRefreshTimerRef = useRef<number | null>(null);
 
-  const [isOrganizer, setIsOrganizer] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [loginError, setLoginError] = useState('');
-
   const [currentTheme, setCurrentTheme] = useState<ThemeId>('noir-cherry');
   const [showThemeModal, setShowThemeModal] = useState(false);
 
-  const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null);
-  const [evenings, setEvenings] = useState<GameEvening[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    isOrganizer,
+    showLoginModal,
+    setShowLoginModal,
+    loginError,
+    crmOverview,
+    evenings,
+    players,
+    loading,
+    loadError,
+    retryLoad,
+    refreshSnapshotAfterEvening,
+    login,
+    logout,
+  } = useOrganizerCrmSession();
 
   const navigateAdmin = (nextPath: string, replace = false) => {
     if (onNavigate) {
@@ -96,110 +102,15 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   useEffect(() => {
     setCurrentTheme(initTheme());
-    void checkAuthAndLoad();
   }, []);
-
-  const loadAllData = async () => {
-    const [overview, eveningList, playerList] = await Promise.all([
-      api.getCrmOverview(),
-      api.getEvenings(),
-      api.getPlayers(),
-    ]);
-    setCrmOverview(overview);
-    setEvenings(eveningList);
-    setPlayers(playerList);
-  };
-
-  const refreshSnapshotAfterEvening = () => {
-    void loadAllData().catch((error: any) => {
-      console.error('Failed to refresh organizer snapshot after evening changes:', error);
-    });
-  };
-
-  useEffect(() => {
-    if (!isOrganizer || typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    const scheduleRefresh = () => {
-      if (document.visibilityState === 'hidden') return;
-      if (resumeRefreshTimerRef.current !== null) window.clearTimeout(resumeRefreshTimerRef.current);
-      resumeRefreshTimerRef.current = window.setTimeout(() => {
-        resumeRefreshTimerRef.current = null;
-        refreshSnapshotAfterEvening();
-      }, 120);
-    };
-
-    document.addEventListener('visibilitychange', scheduleRefresh);
-    window.addEventListener('focus', scheduleRefresh);
-    return () => {
-      document.removeEventListener('visibilitychange', scheduleRefresh);
-      window.removeEventListener('focus', scheduleRefresh);
-      if (resumeRefreshTimerRef.current !== null) {
-        window.clearTimeout(resumeRefreshTimerRef.current);
-        resumeRefreshTimerRef.current = null;
-      }
-    };
-  }, [isOrganizer]);
-
-  const checkAuthAndLoad = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const me = await api.getMe();
-      if (!me.isOrganizer) {
-        setIsOrganizer(false);
-        setShowLoginModal(true);
-        return;
-      }
-      setIsOrganizer(true);
-      setShowLoginModal(false);
-      await loadAllData();
-    } catch (error: any) {
-      if (error?.status === 401 || error?.status === 403) {
-        setIsOrganizer(false);
-        setShowLoginModal(true);
-      } else {
-        setLoadError(error?.message || 'Не удалось загрузить данные CRM');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const retryLoad = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      await loadAllData();
-    } catch (error: any) {
-      setLoadError(error?.message || 'Не удалось загрузить данные CRM');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoginError('');
-    try {
-      await api.login(passwordInput);
-      setIsOrganizer(true);
-      setShowLoginModal(false);
-      setLoading(true);
-      await loadAllData();
-    } catch (error: any) {
-      setLoginError(error?.message || 'Неверный пароль организатора');
-    } finally {
-      setLoading(false);
-    }
+    await login(passwordInput);
   };
 
   const handleLogout = async () => {
-    await api.logout();
-    setIsOrganizer(false);
-    setShowLoginModal(true);
-    setCrmOverview(null);
-    setEvenings([]);
-    setPlayers([]);
+    await logout();
     setActiveEveningId(null);
     setActiveEveningSection('overview');
     setActivePlayerId(null);

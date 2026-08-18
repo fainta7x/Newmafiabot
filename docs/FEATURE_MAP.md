@@ -42,6 +42,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 ## Organizer CRM
 - Shell: `src/components/OrganizerCRM.tsx`.
 - Routing/path model: `src/components/crm/organizerRouting.ts`; focused coverage: `src/tests/organizerRouting.test.ts`.
+- Auth + shared overview/evenings/players snapshot + resume refresh: `src/components/crm/useOrganizerCrmSession.ts`; boundary guard: `src/tests/organizerSessionStructure.test.ts`.
 - UI: `src/components/crm/CRMOverview.tsx`, `EveningsList.tsx`, `EveningWorkspace.tsx`, `PlayersCRM.tsx`, `TasksCRM.tsx`, `AnalyticsCRM.tsx`, `MoreCRM.tsx`.
 - API: `crmRoutes.ts`, `tasksRoutes.ts`, `analyticsRoutes.ts`, `adminDataRoutes.ts`.
 

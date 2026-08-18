@@ -80,9 +80,8 @@ jobs:
         working-directory: e2e
         run: npm audit --audit-level=high
 
-      - name: Install Chromium
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
+      - name: Verify runner Chrome
+        run: google-chrome --version
 
       - name: Run mobile smoke test
         working-directory: e2e

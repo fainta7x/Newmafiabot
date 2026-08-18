@@ -227,25 +227,34 @@ html body .evening-live-engine-shell .evening-live-discipline {
   gap: 3px !important;
 }
 html body .evening-live-engine-shell .evening-live-discipline > span {
-  width: 27px !important;
-  min-width: 27px !important;
+  width: 29px !important;
+  min-width: 29px !important;
   height: 19px !important;
-  padding: 0 3px !important;
+  padding: 0 2px !important;
   border-radius: 6px !important;
   border: 1px solid rgba(255,255,255,.09) !important;
   background: rgba(5,6,9,.90) !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 8px !important;
+  font-size: 0 !important;
   line-height: 1 !important;
   font-weight: 900 !important;
   opacity: .34;
+}
+html body .evening-live-engine-shell .evening-live-discipline > span::before {
+  font-size: 7px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: -.02em;
 }
 html body .evening-live-engine-shell .evening-live-discipline > span[data-count]:not([data-count="0"]) { opacity: 1; }
 html body .evening-live-engine-shell .evening-live-discipline-foul { color: var(--live-amber) !important; }
 html body .evening-live-engine-shell .evening-live-discipline-minor { color: #facc15 !important; }
 html body .evening-live-engine-shell .evening-live-discipline-major { color: var(--live-red) !important; }
+html body .evening-live-engine-shell .evening-live-discipline-foul::before { content: "Ф " attr(data-count); }
+html body .evening-live-engine-shell .evening-live-discipline-minor::before { content: "МТ " attr(data-count); }
+html body .evening-live-engine-shell .evening-live-discipline-major::before { content: "БТ " attr(data-count); }
 
 /* ---------- central judge HUD ---------- */
 html body .evening-live-engine-shell .live-judge-hud {
@@ -386,6 +395,42 @@ html body .evening-live-engine-shell .live-judge-hud {
   html body .evening-live-engine-shell .live-seat-card:nth-child(5)  { grid-column: 3 !important; grid-row: 3 !important; }
   html body .evening-live-engine-shell .live-seat-card:nth-child(4)  { grid-column: 4 !important; grid-row: 3 !important; }
 
+  /* Keep the canonical HUD in charge even while the legacy inline style block still exists. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) > .live-judge-hud {
+    position: relative !important;
+    top: auto !important;
+    z-index: 20 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0,1fr) auto !important;
+  }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) > .live-judge-hud > .live-judge-hud__header {
+    height: auto !important;
+    min-height: 30px !important;
+    padding: 5px 7px !important;
+    overflow: visible !important;
+  }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) > .live-judge-hud > .live-judge-hud__body {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 6px 7px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    display: flex !important;
+  }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) > .live-judge-hud > .live-judge-hud__footer {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 5px 7px 6px !important;
+    overflow: visible !important;
+  }
+
   /* Override the old inline identity geometry with the same canonical board. */
   html body .evening-live-engine-shell .evening-live-identity-layer {
     top: 6px !important;
@@ -421,13 +466,34 @@ html body .evening-live-engine-shell .live-judge-hud {
   .live-judge-hud__summary { font-size: 7.5px; }
   .live-judge-hud__primary, .live-judge-hud__secondary { min-height: 34px; font-size: 8px; }
 
-  /* The action sheet must remain a readable judge tool, not an icon puzzle. */
+  /* The action sheet must remain readable text, never the old emoji/icon puzzle. */
   html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > .live-player-action-sheet {
     width: 100% !important;
     max-height: min(78dvh, 620px) !important;
     overflow-y: auto !important;
     border-radius: 18px 18px 0 0 !important;
     padding: 14px !important;
+  }
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > .live-player-action-sheet > div[class*="grid-cols-2"] {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > .live-player-action-sheet > div[class*="grid-cols-2"] > button {
+    min-height: 48px !important;
+    height: auto !important;
+    padding: 8px !important;
+    border-radius: 12px !important;
+    font-size: 12px !important;
+    line-height: 1.15 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    user-select: none !important;
+    touch-action: manipulation !important;
+  }
+  html body .evening-live-engine-shell div[class*="fixed"][class*="z-[112]"] > .live-player-action-sheet > div[class*="grid-cols-2"] > button::before {
+    content: none !important;
+    display: none !important;
   }
 
   .evening-live-mobile-title-secondary { display: none !important; }

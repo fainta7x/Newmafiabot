@@ -110,7 +110,7 @@ export const EveningDeathProtocolOverlay: React.FC<EveningDeathProtocolOverlayPr
 
         <div className="grid grid-cols-12 gap-2 pt-1">
           <button type="button" disabled={submitting} onClick={onBack} className="col-span-4 min-h-11 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
-            ← Прощальная
+            ← Последняя речь
           </button>
           <button type="button" disabled={submitting} onClick={() => onChange(emptyDeathProtocolSelection())} className="col-span-3 min-h-11 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-black disabled:opacity-50">
             Сбросить
@@ -140,12 +140,14 @@ const emptyLiveSession = (): LiveSessionView => ({
   winner: null,
 });
 
-const findEngineButton = (label: string): HTMLButtonElement | null => {
+const findEngineButton = (labels: string | string[]): HTMLButtonElement | null => {
   const root = document.querySelector('.evening-live-engine-shell');
   if (!root) return null;
-  return Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
-    (button.textContent || '').replace(/\s+/g, ' ').trim().includes(label),
-  ) || null;
+  const accepted = Array.isArray(labels) ? labels : [labels];
+  return Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((button) => {
+    const text = (button.textContent || '').replace(/\s+/g, ' ').trim();
+    return accepted.some((label) => text.includes(label));
+  }) || null;
 };
 
 export const EveningDeathProtocolBridge: React.FC = () => {
@@ -231,22 +233,16 @@ export const EveningDeathProtocolBridge: React.FC = () => {
 
     const tryAdvance = (attempt: number) => {
       const nextButton = session.winner
-        ? (findEngineButton('Завершить игру') || findEngineButton('Применить авто-победу'))
-        : findEngineButton('К дневным речам');
+        ? findEngineButton(['Завершить игру', 'Применить авто-победу'])
+        : findEngineButton(['Открыть день', 'К дневным речам']);
 
       if (nextButton) {
-        // Hide the global bridge before the engine removes its local session.
-        // Otherwise a second tap can hit a stale overlay while the async protocol
-        // save is already in progress and falsely report that the command vanished.
         setSession(emptyLiveSession());
         setEditingSlot(null);
         nextButton.click();
         return;
       }
 
-      // The engine removes mafia_live_session synchronously when final completion
-      // begins. If it already disappeared, completion is in progress and this is
-      // not an error; just dismiss the stale bridge.
       if (!localStorage.getItem('mafia_live_session')) {
         setSession(emptyLiveSession());
         setEditingSlot(null);
@@ -254,8 +250,6 @@ export const EveningDeathProtocolBridge: React.FC = () => {
         return;
       }
 
-      // React may need a frame to expose the next-step button after the protocol
-      // stage transition. Retry briefly instead of failing on a harmless render race.
       if (attempt < 10) {
         window.setTimeout(() => tryAdvance(attempt + 1), 60);
         return;
@@ -264,7 +258,7 @@ export const EveningDeathProtocolBridge: React.FC = () => {
       setSubmitting(false);
       setError(session.winner
         ? 'Протокол сохранён, но не удалось запустить завершение игры. Нажмите ещё раз.'
-        : 'Протокол сохранён, но не удалось перейти к дневным речам. Нажмите ещё раз.');
+        : 'Протокол сохранён, но не удалось перейти в день. Нажмите ещё раз.');
     };
 
     tryAdvance(0);
@@ -272,9 +266,9 @@ export const EveningDeathProtocolBridge: React.FC = () => {
 
   const handleBack = () => {
     if (submitting) return;
-    const backButton = findEngineButton('Прощальная');
+    const backButton = findEngineButton(['Назад', 'Последняя речь', 'Прощальная']);
     if (!backButton) {
-      setError('Не найдена кнопка возврата к прощальной речи.');
+      setError('Не найдена кнопка возврата к последней речи.');
       return;
     }
     setError(null);

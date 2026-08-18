@@ -6,7 +6,7 @@ const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(
 
 describe('live engine native wiring', () => {
   it('does not replace live engine components through Vite source transforms', () => {
-    const vite = read('vite.config.js');
+    const vite = read('vite.config.ts');
     expect(vite).not.toContain('CenterPanelNightMusic');
     expect(vite).not.toContain('SeatCardFarewell');
   });

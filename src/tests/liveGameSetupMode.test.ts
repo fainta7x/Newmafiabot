@@ -4,6 +4,8 @@ import {
   CLUB_EVENING_ENGINE_JUDGE_NOTE,
   TOURNAMENT_ENGINE_JUDGE_NOTE,
   getLiveGameSetupMode,
+  hasClubEveningEngineMarker,
+  hasTournamentEngineMarker,
 } from '../components/LiveGameEngine/setupMode.js';
 
 const playerWithNotes = (notes?: string): Player => ({ notes } as Player);
@@ -23,9 +25,12 @@ describe('getLiveGameSetupMode', () => {
   });
 
   it('preserves the existing club-first precedence if both markers are present', () => {
-    expect(getLiveGameSetupMode([
+    const players = [
       playerWithNotes(TOURNAMENT_ENGINE_JUDGE_NOTE),
       playerWithNotes(CLUB_EVENING_ENGINE_JUDGE_NOTE),
-    ])).toBe('club');
+    ];
+    expect(getLiveGameSetupMode(players)).toBe('club');
+    expect(hasClubEveningEngineMarker(players)).toBe(true);
+    expect(hasTournamentEngineMarker(players)).toBe(true);
   });
 });

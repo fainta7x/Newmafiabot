@@ -9,7 +9,7 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" server.ts vite.config.ts --max-warnings=0",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" server.ts vite.config.ts vitest.config.ts --max-warnings=0",
     "test": "vitest run",
     "test:integration": "vitest run",
     "release:audit": "tsx src/scripts/releaseAudit.ts",

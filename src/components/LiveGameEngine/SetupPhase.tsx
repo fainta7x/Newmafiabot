@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { Player } from '../../types.js';
 import ClubGameSetupPhase from './ClubGameSetupPhase.tsx';
-import LegacySetupPhase from './LegacySetupPhase.tsx';
+import GeneralSetupPhase from './GeneralSetupPhase.tsx';
 import SpeechRecordingPilot from './SpeechRecordingPilot.tsx';
 import { mountSpeechRecordingServerSync } from './SpeechRecordingServerSync.ts';
 import type { ActivePlayerState } from './types.js';
@@ -39,7 +39,7 @@ export default function SetupPhase(props: SetupPhaseProps) {
       onRoleDealActiveChange={props.onRoleDealActiveChange}
     />
   ) : (
-    <LegacySetupPhase {...props} />
+    <GeneralSetupPhase {...props} />
   );
 
   return (

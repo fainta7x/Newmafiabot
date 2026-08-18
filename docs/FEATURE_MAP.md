@@ -58,7 +58,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - Center-panel voting display calculations: `src/components/LiveGameEngine/votingPresentationModel.ts`; focused coverage: `src/tests/liveGameVotingPresentationModel.test.ts`. Voting outcomes remain in `src/shared/tournamentVoting.ts`.
 - Seat grid / border-priority / current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.
-- Engine state schema / initial empty-player and discipline factories: `src/components/LiveGameEngine/engineStateModel.ts`; focused coverage: `src/tests/liveGameEngineStateModel.test.ts`. Snapshot capture/restore is still owned by `LiveGameEngine.tsx` and is the next intended extraction boundary.
+- Engine state schema, initial factories, snapshot cloning and legacy restore defaults: `src/components/LiveGameEngine/engineStateModel.ts`; focused coverage: `src/tests/liveGameEngineStateModel.test.ts`. React setters, undo/history orchestration and localStorage persistence remain in `LiveGameEngine.tsx`.
 - API: `gamesRoutes.ts`, `playerLiveRoutes.ts`, `publicLiveRoutes.ts`.
 - Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - `POST /api/games` is intentionally retired with HTTP 410 in `src/app.ts`.

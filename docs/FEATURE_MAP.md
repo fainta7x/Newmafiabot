@@ -3,8 +3,9 @@
 Fast first-hop map for known features. For fuzzy terms use `npm run project:find -- "<query>"`; after edits use `npm run project:affected -- <files>`.
 
 ## Player shell / navigation
-- UI: `src/components/player/PlayerCabinetShell.tsx`, `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
-- History/stats content: `src/components/player/PlayerCabinetV2.tsx` — active, not dead legacy.
+- UI: `src/components/player/PlayerCabinetShell.tsx`, `playerCabinetNavigation.ts`, `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
+- Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
+- History/stats content: `src/components/player/PlayerHistoryStatsView.tsx` — active embedded view, not a second cabinet.
 - API family: `/api/player/*` mounts in `src/app.ts`, especially `src/server/routes/playerSelfRoutes.ts` and related player route modules.
 
 ## Events / calendar / registration
@@ -14,7 +15,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Selection closes after refresh/save: inspect local selection/deep-link effects before touching DB.
 
 ## Games / stats / career / replay
-- UI: `PlayerGamesHub.tsx`, `PlayerCabinetV2.tsx`, `PlayerCareerProfile.tsx`.
+- UI: `PlayerGamesHub.tsx`, `PlayerHistoryStatsView.tsx`, `PlayerCareerProfile.tsx`.
 - API: `playerGameDetailRoutes.ts`, `playerReplayRoutes.ts`, `playerExperienceRoutes.ts`, `playerInsightsRoutes.ts`.
 
 ## Rating / Elo

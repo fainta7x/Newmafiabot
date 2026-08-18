@@ -29,6 +29,7 @@ export default defineConfig({
       // Keep the database isolated, but do not make createApp think this is Vitest.
       NODE_ENV: 'development',
       VITEST: '',
+      E2E_TEST: 'true',
       HOST: '127.0.0.1',
       PORT: '4173',
       DATABASE_PATH: './temp/playwright-e2e.sqlite',

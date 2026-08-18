@@ -3,6 +3,11 @@ import { Crosshair, Mic, User, Skull, Star, Heart, X, Gavel } from "lucide-react
 import { ActivePlayerState, Phase } from "./types.js";
 import { PistolIcon, MafiaHatIcon } from "./Icons.js";
 import { canToggleVoteAssignment } from "../../lib/liveVoting.js";
+import {
+  buildSeatVoteStatusPresentation,
+  getSeatGridPositionClass,
+  resolveSeatContainerClass,
+} from "./seatPresentationModel.js";
 
 interface SeatCardProps {
   slotNum: number;
@@ -47,22 +52,6 @@ interface SeatCardProps {
   shootoutSubPhase?: string;
   bothLeaveVotes?: number[];
 }
-
-const getGridPositionClass = (slot: number) => {
-  const positions: { [key: number]: string } = {
-    1: "md:col-start-1 md:row-start-3",
-    2: "md:col-start-2 md:row-start-3",
-    3: "md:col-start-3 md:row-start-3",
-    4: "md:col-start-4 md:row-start-3",
-    5: "md:col-start-5 md:row-start-3",
-    6: "md:col-start-5 md:row-start-1",
-    7: "md:col-start-4 md:row-start-1",
-    8: "md:col-start-3 md:row-start-1",
-    9: "md:col-start-2 md:row-start-1",
-    10: "md:col-start-1 md:row-start-1",
-  };
-  return positions[slot] || "";
-};
 
 export default function SeatCard({
   slotNum,
@@ -134,51 +123,21 @@ export default function SeatCard({
       ? bestMoveGuesses.indexOf(slotNum)
       : firstNightVictim?.best_move_guesses?.indexOf(slotNum) ?? -1;
 
-  let containerBorder = "border-slate-800 bg-slate-900/30";
-  if (p.alive) {
-    const activeNomineeSlot = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : null;
-    const isCurrentNominee = phase === "day_voting" && activeNomineeSlot === slotNum;
-
-    if (phase === "shootout" && shootoutSubPhase === "shootout_both_results") {
-      const votedYes = bothLeaveVotes.includes(slotNum);
-      if (votedYes) {
-        containerBorder = "border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)] bg-rose-500/20 ring-2 ring-rose-500/40 scale-[1.02]";
-      } else if (shootoutNominees.includes(slotNum)) {
-        containerBorder = "border-amber-500/80 bg-amber-500/10 ring-1 ring-amber-500/30";
-      } else {
-        containerBorder = "border-slate-800 bg-slate-900/50 hover:border-slate-600";
-      }
-    } else if (phase === "shootout" && shootoutNominees.includes(slotNum)) {
-      containerBorder = "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.45)] bg-amber-500/15 ring-2 ring-amber-400/40 scale-[1.02]";
-    } else if (isCurrentNominee) {
-      containerBorder = "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.5)] scale-[1.02] animate-pulse";
-    } else if (isSpeaking) {
-      containerBorder =
-        "border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.45)] bg-amber-500/15 ring-2 ring-amber-400/40 scale-[1.03]";
-    } else if (phase === "day_voting" && isInteractiveVoting) {
-      const lastNominee = nominations[nominations.length - 1];
-      const hasVotedOther = votesByPlayer && votesByPlayer[slotNum] !== undefined && votesByPlayer[slotNum] !== activeNomineeSlot;
-      const isVotingThis = votesByPlayer && (votesByPlayer[slotNum] === activeNomineeSlot ||
-        (activeNomineeSlot === lastNominee && votesByPlayer[slotNum] === undefined));
-
-      if (isVotingThis) {
-        containerBorder = "border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.35)] bg-rose-500/10 ring-2 ring-rose-500/30";
-      } else if (hasVotedOther) {
-        containerBorder = "border-slate-950 bg-slate-950/20 opacity-60";
-      } else {
-        containerBorder = "border-slate-800 bg-slate-900/50 hover:border-slate-600";
-      }
-    } else if (isNominated) {
-      containerBorder = "border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.35)] bg-rose-500/10 ring-2 ring-rose-500/30";
-    } else if (isChosenInBestMove) {
-      containerBorder =
-        "border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-500/5 ring-2 ring-amber-500/20 hover:border-amber-400 hover:scale-[1.01]";
-    } else {
-      containerBorder = "border-slate-800/80 bg-slate-900/50 hover:border-slate-600 hover:scale-[1.01]";
-    }
-  } else {
-    containerBorder = "border-rose-950 bg-[#160a0f] hover:border-rose-900";
-  }
+  const containerBorder = resolveSeatContainerClass({
+    alive: p.alive,
+    phase,
+    slotNum,
+    nominations,
+    currentVotingNomineeIndex,
+    isSpeaking,
+    isInteractiveVoting,
+    votesByPlayer,
+    isNominated,
+    isChosenInBestMove,
+    shootoutNominees,
+    shootoutSubPhase,
+    bothLeaveVotes,
+  });
 
   const handleCardClick = () => {
     if (phase === "day_voting" && isInteractiveVoting && activeVoteNominee !== undefined) {
@@ -195,7 +154,7 @@ export default function SeatCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] pt-7 pb-1 px-1 rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-md md:shadow-lg self-center w-full ${getGridPositionClass(slotNum)} ${containerBorder}`}
+      className={`relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] pt-7 pb-1 px-1 rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none overflow-hidden group shadow-md md:shadow-lg self-center w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {p.alive ? (
         <>
@@ -298,26 +257,15 @@ export default function SeatCard({
                 (() => {
                   const activeNomineeSlot = nominations[currentVotingNomineeIndex];
                   const lastNominee = nominations[nominations.length - 1];
-                  const explicitTarget = votesByPlayer?.[slotNum];
-                  const automatic = explicitTarget === undefined && activeNomineeSlot === lastNominee;
-                  const target = explicitTarget ?? (automatic ? lastNominee : undefined);
-                  const hasVotedOther = explicitTarget !== undefined && explicitTarget !== activeNomineeSlot;
-
-                  let statusColor = "text-slate-400";
-                  let statusBg = "bg-slate-950/40";
-                  if (hasVotedOther) {
-                    statusColor = "text-slate-500";
-                    statusBg = "bg-slate-950/60";
-                  } else if (target !== undefined) {
-                    statusColor = "text-rose-400 font-black";
-                    statusBg = "bg-rose-950/20 border border-rose-500/25";
-                  }
-                  const statusText = target !== undefined
-                    ? `#${slotNum}→#${target}${automatic ? "*" : ""}`
-                    : `#${slotNum}→—`;
+                  const { statusColor, statusBg, statusText, title } = buildSeatVoteStatusPresentation({
+                    slotNum,
+                    activeNomineeSlot,
+                    lastNomineeSlot: lastNominee,
+                    votesByPlayer,
+                  });
 
                   return (
-                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`} title={target !== undefined ? `Игрок #${slotNum} голосует за #${target}${automatic ? " (автоматический остаток)" : ""}` : `Игрок #${slotNum} ещё не проголосовал`}>
+                    <div className={`text-center space-y-1.5 p-2 rounded-xl w-full max-w-[95%] mx-auto ${statusBg}`} title={title}>
                       <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider leading-none">Голосование</span>
                       <span className={`text-[9px] sm:text-xs font-black block tracking-normal leading-none whitespace-nowrap ${statusColor}`}>
                         {statusText}

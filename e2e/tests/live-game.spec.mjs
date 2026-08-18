@@ -130,6 +130,8 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await page.getByRole('button', { name: 'Подтвердить протокол' }).click();
   await page.getByRole('button', { name: 'Завершить прощальные' }).click();
 
+  await expect(page.getByRole('button', { name: '♫ Включить музыку ночи' })).toBeVisible();
+  await page.getByRole('button', { name: '♫ Включить музыку ночи' }).click();
   await expect(page.getByRole('button', { name: 'Стрельба мафии' })).toBeVisible();
   await page.getByRole('button', { name: 'Стрельба мафии' }).click();
   await tableSeat(page, 8).click({ force: true });
@@ -137,6 +139,8 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
   await tableSeat(page, 7).click({ force: true });
   await page.getByRole('button', { name: 'Проверка Шерифа' }).click();
   await tableSeat(page, 10).click({ force: true });
+  await expect(page.getByRole('button', { name: '♫ Выключить музыку' })).toBeVisible();
+  await page.getByRole('button', { name: '♫ Выключить музыку' }).click();
   await expect(page.getByRole('button', { name: 'Итоги ночи' })).toBeVisible();
   await saveVisual(page, '08-night-checks');
   await page.getByRole('button', { name: 'Итоги ночи' }).click();

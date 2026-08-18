@@ -73,7 +73,7 @@ test('club Live Game can run through the critical mobile flow', async ({ page })
 
   await page.getByRole('button', { name: 'Начать раздачу ролей →' }).click();
   await expect(page.getByRole('heading', { name: 'Подготовьте 10 карт' })).toBeVisible();
-  await page.getByRole('button', { name: /Начать раздачу|Включить музыку и начать раздачу/ }).click();
+  await page.getByRole('button', { name: 'Начать раздачу', exact: true }).click();
   await expect(page.getByText('Место №1')).toBeVisible();
   await saveVisual(page, '02-role-deal');
 

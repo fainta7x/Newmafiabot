@@ -14,9 +14,9 @@ const CONFIRMED_LINKS = [
 ] as const;
 
 export function applyConfirmedTelegramPlayerLinksMigration(db: DatabaseWrapper): void {
-  // These links target the canonical club dataset. Generic test databases must not
-  // be populated or validated against production-specific identities.
-  if (db.dbPath === ':memory:' || process.env.E2E_TEST === 'true') return;
+  // This migration links specific canonical club UUIDs. A clean in-memory test DB
+  // intentionally has none of those rows and must not be treated as corrupted production data.
+  if (db.dbPath === ':memory:') return;
 
   const existingMigration = db.sqlite
     .prepare('SELECT status FROM migration_history WHERE migration_name = ? LIMIT 1')

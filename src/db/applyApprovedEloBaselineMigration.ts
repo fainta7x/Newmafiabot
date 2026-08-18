@@ -16,7 +16,7 @@ const APPROVED_ELO = [
 ] as const;
 
 export function applyApprovedEloBaselineMigration(db: DatabaseWrapper): void {
-  if (db.dbPath === ':memory:' || process.env.E2E_TEST === 'true') return;
+  if (db.dbPath === ':memory:') return;
 
   const existing = db.sqlite
     .prepare('SELECT status FROM migration_history WHERE migration_name = ? LIMIT 1')

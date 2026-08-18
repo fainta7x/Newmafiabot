@@ -30,7 +30,6 @@ export default defineConfig({
       NODE_ENV: 'test',
       VITEST: '1',
       PLAYWRIGHT_E2E: '1',
-      E2E_TEST: 'true',
       HOST: '127.0.0.1',
       PORT: '4173',
       DATABASE_PATH: './temp/playwright-e2e.sqlite',

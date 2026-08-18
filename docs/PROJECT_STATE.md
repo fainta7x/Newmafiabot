@@ -5,7 +5,7 @@
 >
 > **Last verified main:** `5d760155cf5ab20b7ac3c2e961b65201d0bfbfd6`
 > **Verified CI:** GitHub Actions CI run #635 — success on 2026-08-17.
-> **Current main observed before this cleanup branch:** `d8e6553894937e8dcc484f0f66602903b935c065`.
+> **Current main observed before this cleanup branch:** `56f309ec7b472f4147420d9ca5d7d5c6155f52a8`.
 > **Status date:** 2026-08-18.
 
 `Last verified main` is intentionally conservative: only move it to an exact merged `main` SHA after that same SHA has passed the standard CI. A PR-head success is not enough.
@@ -26,13 +26,13 @@ New sessions should start from `AGENTS.md` + this file + the last 5–10 main co
 
 Full-stack application for the 2LA Noire sports Mafia club:
 
-- React `19.1.x` + TypeScript `6.0.x` player application and organizer CRM.
-- Express `5.1.x` + TypeScript API.
+- React `19.2.x` + TypeScript `6.0.x` player application and organizer CRM.
+- Express `5.2.x` + TypeScript API.
 - SQLite through `better-sqlite3` / repository DB wrapper.
 - Python Telegram bot connected through REST endpoints.
 - Telegram WebApp and VK integrations.
-- Vite `8.2.x` build tooling and Vitest `4.0.x` tests.
-- ESLint `10.0.x`, Tailwind CSS `4.x`, Zod `4.x`.
+- Vite `8.2.x` build tooling and Vitest `4.1.x` tests.
+- ESLint `10.8.x`, Tailwind CSS `4.x`, Zod `4.x`.
 - Isolated Playwright browser smoke tests.
 - GitHub Actions CI with CodeQL and Gitleaks security workflows.
 - Render deployment configuration with manual deployment trigger.
@@ -139,7 +139,6 @@ Treat names as evidence to inspect, not proof that a file is dead.
 - `src/components/crm/EveningsList.tsx` is currently a small active compatibility/export layer around `EveningsList.v2.tsx`.
 - `src/components/player/PlayerCabinetV2.tsx` is active implementation content.
 - `src/components/LiveGameEngine/LegacySetupPhase.tsx` is part of the live component tree.
-- `vite.config.ts` and `vite.config.js` both exist; the JavaScript config has VK-specific behavior. Consolidate only after tracing every caller/build path.
 - `vitest.config.ts` still has project-specific deferred test-name exclusions. Revisit them one scenario at a time; do not simply delete the regex to make the suite look cleaner.
 - Live Game styling has accumulated several additive `V2`/`V3`/`V4`/`V5`/`V6`, `Polish`, `Refine` and `Fix` CSS layers. Consolidate only with focused visual/browser verification.
 - Several files are very large and expensive to reason about, especially `GameProtocolModal.tsx`, tournament route modules, `LiveGameEngine.tsx`, tournament export logic and large Python bot handlers. Split one module per PR without behavior changes.
@@ -148,6 +147,7 @@ Treat names as evidence to inspect, not proof that a file is dead.
 
 Newest relevant technical work:
 
+- `56f309e` — removed the retired whole-file CRM test suite and synced the canonical handoff with the current stack/cleanup queue.
 - `d8e6553` — repository hygiene: removed generated project dump, obsolete one-off legacy DB scripts and old write-access artifact; future generated project-context dump ignored.
 - `2b98048` — Vite toolchain upgrade to 8.2 plus Vitest/Playwright isolation; CI/build/browser smoke restored.
 - `23ab30e` — faster iteration workflow: focused checks during work, full CI/security only for ready-to-merge changes.
@@ -166,12 +166,11 @@ The current modernization target is **clarity and maintainability without busine
 
 1. Finish repository/test hygiene: remove only proven-dead excluded tests/artifacts; audit each remaining `vitest.config.ts` test-name exclusion individually.
 2. Normalize false historical naming (`V2`/`Legacy` wrappers) where import/runtime tracing proves the implementation is current. Prefer rename/move over duplicate compatibility layers.
-3. Consolidate Vite configuration only after preserving the VK-specific build path and verifying all scripts/CI callers.
-4. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused browser verification.
-5. Split high-complexity modules one at a time. Good first candidates are `GameProtocolModal.tsx`, tournament route modules and `LiveGameEngine.tsx`.
-6. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
-7. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
-8. Real online payment/SBP integration only after explicit provider decision.
+3. Consolidate the Live Game CSS patch stack without changing geometry/behavior; use focused browser verification.
+4. Split high-complexity modules one at a time. Good first candidates are `GameProtocolModal.tsx`, tournament route modules and `LiveGameEngine.tsx`.
+5. Keep Python bot cleanup separate from web refactors; confirm imports/runtime entry points before deleting historical modules.
+6. Deploy a verified `main` to Render manually when deployment access is available, then run non-destructive runtime health checks before targeted integration round-trips.
+7. Real online payment/SBP integration only after explicit provider decision.
 
 Do not mix production DB/migration changes into cleanup-only PRs.
 

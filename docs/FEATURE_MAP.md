@@ -58,6 +58,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Setup seat/player/role transforms and start-validation: `src/components/LiveGameEngine/setupState.ts`; focused coverage: `src/tests/liveGameSetupState.test.ts`. React state setters, snapshot/start side effects, discipline initialization and transition to zero night remain in `LiveGameEngine.tsx`.
 - Day-speech ordering / next-speaker selection / spoken-seat transform: `src/components/LiveGameEngine/daySpeechModel.ts`; focused coverage: `src/tests/liveGameDaySpeechModel.test.ts`. Snapshot, timer start/stop and discipline-driven speech duration remain in `LiveGameEngine.tsx`.
 - Night target/check calculations: `src/components/LiveGameEngine/nightTargetModel.ts`; focused coverage: `src/tests/liveGameNightTargetModel.test.ts`. Shot target lookup/toggle, Don/Sheriff result mapping and first-killed-best-move eligibility are pure; night transitions, kill resolution, protocol marker writes, logs and timers remain in `LiveGameEngine.tsx`.
+- Judge overlays / action sheets / best-move modal / toast / saved-session banner: `src/components/LiveGameEngine/LiveGameOverlays.tsx`; boundary guard: `src/tests/liveGameOverlaysStructure.test.ts`. State ownership and game-action handlers remain in `LiveGameEngine.tsx`.
 - Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - Center-panel voting display calculations: `src/components/LiveGameEngine/votingPresentationModel.ts`; focused coverage: `src/tests/liveGameVotingPresentationModel.test.ts`. Voting outcomes remain in `src/shared/tournamentVoting.ts`.
 - Seat grid / border-priority / current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.
@@ -108,5 +109,5 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 1. Known feature: start here.
 2. Unknown label/error/table/route: `npm run project:find -- "<exact phrase>"`.
 3. Read only top 3–8 first hops.
-4. After edits: `npm run project:affected -- <changed files>`.
+4. After edits: `npm run project:affected -- <files>`.
 5. Iterate with focused tests; before merge run `npm run project:verify`; GitHub CI is authoritative.

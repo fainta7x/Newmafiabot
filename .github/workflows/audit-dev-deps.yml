@@ -1,9 +1,9 @@
 name: Inspect dev dependency vulnerability
 
 on:
-  push:
+  pull_request:
     branches:
-      - audit/dev-vulnerability-20260818
+      - main
 
 permissions:
   contents: read

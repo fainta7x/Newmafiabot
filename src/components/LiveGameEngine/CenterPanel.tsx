@@ -510,7 +510,6 @@ export default function CenterPanel(props: CenterPanelProps) {
             : 'После свободной посадки начинается нулевой круг.';
       return (
         <div className="live-judge-hud__stack">
-          <div className="live-judge-hud__eyebrow">Нулевая ночь</div>
           <div className="live-judge-hud__title">{title}</div>
           <div className="live-judge-hud__hint">{hint}</div>
           {zeroNightSubPhase === 'agreement' && (

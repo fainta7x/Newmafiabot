@@ -13,6 +13,7 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: 'chromium',
+    channel: process.env.CI ? 'chrome' : undefined,
     viewport: { width: 390, height: 844 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

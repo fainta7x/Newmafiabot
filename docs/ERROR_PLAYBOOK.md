@@ -129,15 +129,41 @@ Start with `src/hooks/useMobileKeyboardViewport.ts` and the affected CRM/player 
 ## TypeScript CI failure
 Use the first compiler error, not the cascade. Fix source typing rather than adding broad `any` or disabling typecheck. Check recent changed imports/request types first.
 
+Run the relevant local/typecheck path before asking full CI to prove the same half-fix repeatedly.
+
 ## Vitest failure
 1. Read exact failing assertion/stack.
 2. Run only that test/file once.
 3. Determine deterministic regression vs flaky timing/state leak.
 4. Fix cause; do not loop reruns until green.
-5. Run affected tests, then full CI.
+5. Run affected tests.
+6. Use `npm run project:verify:fast` if a cheap project-wide pass is useful.
+7. Run full CI only when the repair batch is coherent.
+
+If the PR needs several repair commits, keep/return it to draft while iterating so heavy CI is not restarted for every intermediate commit.
+
+## Playwright smoke failure
+1. Inspect the exact browser/server failure before rerunning Playwright.
+2. Reproduce the smallest route/auth/UI condition locally when possible.
+3. Distinguish an expected browser console response (for example intentional unauthenticated 401) from a real page error.
+4. Fix the cause with a focused test/request first.
+5. Do not reinstall/run the entire browser smoke stack after every tiny source edit; let final CI run it when the repair is coherent.
+
+## Full CI cancelled repeatedly
+Check whether new commits are landing in the same PR branch while CI is running.
+
+If yes:
+
+1. stop parallel writers on that branch;
+2. convert the PR to draft while repairs continue;
+3. reconcile the latest branch head once;
+4. finish focused changes/tests without heavy CI;
+5. mark ready only when the new head is coherent.
+
+A cancelled obsolete run is not evidence that another full rerun should be started immediately.
 
 ## Production build fails after tests pass
-Inspect Vite/esbuild import/export/static asset differences, environment-only references and server bundle boundaries. `npm test` success is not enough; `npm run build` is mandatory.
+Inspect Vite/esbuild import/export/static asset differences, environment-only references and server bundle boundaries. `npm test` success is not enough; `npm run build` is mandatory for final release verification, but it does not need to run after every small edit.
 
 ## Render behaves differently from green main
 Check deployment identity first. `render.yaml` has `autoDeployTrigger: off`, so green main may not be deployed. Confirm deployed SHA/config/secrets before reopening code that passed CI.
@@ -151,4 +177,5 @@ Use the current `package-lock.json` only. Confirm the package is actually presen
 3. Identify layer: UI state, API/auth, service/rule, persistence/schema, integration/runtime, deploy.
 4. Reproduce with the smallest focused test/request.
 5. After edits use `npm run project:affected -- <files>`.
-6. Full `npm run project:verify` + GitHub CI before merge.
+6. Use `npm run project:verify:fast` after a coherent batch if needed.
+7. Full `npm run project:verify` + GitHub CI only when ready for merge.

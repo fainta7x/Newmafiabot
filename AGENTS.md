@@ -40,9 +40,14 @@ Before any code or data changes, fetch and fast-forward-sync the current branch 
 - Do one targeted discovery pass, then keep a compact file map instead of rescanning the repository.
 - Prefer the sequence `FEATURE_MAP/ERROR_PLAYBOOK -> project:find if needed -> exact source files`, not repeated repository-wide searches.
 - Prefer one focused branch/PR per purpose.
-- While iterating, use directly relevant focused tests.
+- Treat a working branch as single-writer by default. Do not let ChatGPT, AI Studio or another agent push competing edits to the same branch at the same time. If the branch head moves unexpectedly, reconcile that change before writing again instead of racing it.
+- Do not open a normal review PR at the start of active iteration. Prefer `fresh main -> working branch -> focused edits/tests -> PR -> one full CI -> merge`. If a PR must exist while work is still in progress, keep it as a draft so heavy CI stays skipped until it is ready for review.
+- While iterating, run only directly relevant focused tests. Do not run the full Vitest suite, production build or Playwright after every small edit.
 - Once the changed file set is known and a local checkout is available, run `npm run project:affected -- <changed files>` to rank likely tests and surface risk flags. Treat it as a heuristic, not a replacement for full CI.
+- Use `npm run project:verify:fast` for the cheap project-wide safety pass (release audit + typecheck + lint) after a meaningful batch of edits; keep behavior-specific testing focused.
 - Before merge, rely on the repository's full CI gates; never weaken tests or TypeScript to force green.
+- If full CI fails, inspect the exact failed job first. Return the PR to draft while making multi-step repairs when practical, run the smallest relevant check, then mark it ready only when the repair is coherent so full CI runs again once.
+- If tooling forces several sequential commits to an already-open PR, avoid triggering full CI for every half-fix. Prefer batching locally; when that is impossible, use GitHub-supported CI-skip commit markers only for intermediate commits and ensure the final substantive commit triggers CI normally.
 - Do not stack unrelated changes on a red `main`.
 - If a test unexpectedly fails, inspect the exact failure before rerunning; do not rerun repeatedly until green.
 - Never delegate an implementation request back to AI Studio and never substitute prompt-writing for repository changes when repository access is available.
@@ -54,6 +59,7 @@ Before any code or data changes, fetch and fast-forward-sync the current branch 
 - `npm run project:find -- "events calendar"` — ranked source/test/doc search over tracked text files.
 - `npm run project:find -- "401 organizer" --json` — machine-readable search results.
 - `npm run project:affected -- src/path/a.ts src/path/b.ts` — changed-file risk flags + likely focused tests.
+- `npm run project:verify:fast` — release audit + typecheck + lint; no full Vitest/build/Playwright.
 - `npm run project:verify` — complete web verification before merge.
 
 ## Documentation maintenance
@@ -93,10 +99,12 @@ Short AI Studio cycle: `fetch/fast-forward -> preserve non-empty runtime -> work
 
 ## Final verification
 
+During iteration, prefer focused tests plus `npm run project:verify:fast` when a cheap project-wide pass is useful.
+
 The default complete web verification is available as:
 
 - `npm run project:verify`
 
-It runs release data-safety audit, strict TypeScript, the full Vitest suite and production build.
+It runs release data-safety audit, strict TypeScript, ESLint, the full Vitest suite and production build.
 
-GitHub CI remains authoritative and also checks Python bot syntax. See `docs/RUNBOOK.md` for the exact release/runtime sequence.
+Run the complete verification only when the change is coherent and ready for review/merge, not after every small edit. GitHub CI remains authoritative and also checks Python bot syntax and Playwright smoke. See `docs/RUNBOOK.md` for the exact release/runtime sequence.

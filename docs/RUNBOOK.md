@@ -44,9 +44,23 @@ Before code/data changes:
 
 For assistant-driven repository work, prefer:
 
-`fresh main -> small named branch -> focused commits -> PR -> full CI -> merge -> verify main`
+`fresh main -> small named branch -> focused edits/tests -> PR -> full CI -> merge -> verify main`
 
 Do not stack unrelated work on a red `main`.
+
+### Single-writer branch rule
+
+A working branch has one active writer by default. ChatGPT, Google AI Studio and another agent must not make competing edits on the same branch at the same time.
+
+Before each new write batch, compare the branch head with the head you last read. If it moved unexpectedly:
+
+1. stop writing;
+2. inspect the new commit(s);
+3. preserve valid newer work;
+4. reconcile the file map/plan;
+5. only then continue.
+
+Do not race another writer by repeatedly overwriting the same files.
 
 ## 3. Discovery pass
 
@@ -115,18 +129,76 @@ Before a destructive restore/migration, explicitly establish:
 - expected current tournament/player markers;
 - that the user actually requested destructive data work.
 
-## 6. Iteration testing
+## 6. Staged verification during implementation
 
-While implementing:
+Verification has three levels. Do not jump to the most expensive level after every edit.
 
-- run focused test(s) for the changed behavior;
-- add a regression test for a reproduced bug when practical;
-- use strict TypeScript errors as real failures, not something to suppress;
-- do not weaken tests just to make CI green.
+### Level A — focused behavior check
+
+After a small code change, run only the directly relevant test/file/request. Examples:
+
+```bash
+npx vitest run src/tests/playerAvatars.test.ts
+npx vitest run src/tests/example.test.ts -t "specific behavior"
+```
+
+Use `npm run project:affected -- <changed files>` to identify likely focused tests when needed.
+
+If a reproduced bug has no regression test, add one when practical.
+
+### Level B — cheap project-wide safety pass
+
+After a coherent batch of edits, or before declaring the implementation locally ready, run:
+
+```bash
+npm run project:verify:fast
+```
+
+It runs release data-safety audit, strict TypeScript and ESLint. It intentionally does **not** run the full Vitest suite, production build or Playwright.
+
+Use strict TypeScript/lint failures as real failures, not something to suppress.
+
+### Level C — release verification
+
+Run complete verification only when the branch is coherent and ready for review/merge:
+
+```bash
+npm run project:verify
+```
+
+Then rely on GitHub CI as the authoritative final gate, including Playwright and Python bot syntax.
 
 Avoid repeatedly running the whole suite after every tiny edit.
 
-## 7. Required final CI
+## 7. PR / CI flow
+
+The default optimization is to avoid starting heavy GitHub CI before active iteration is finished.
+
+Preferred flow:
+
+1. create a focused branch from current green `main`;
+2. keep the PR unopened while doing ordinary iteration when practical;
+3. use Level A focused checks, then Level B as needed;
+4. open the PR only when the change is coherent;
+5. let full CI run once;
+6. merge only when all required gates are green.
+
+If visibility requires opening the PR early, create it as **draft**. Heavy repository CI is configured to skip draft PRs. Mark it ready for review only after focused verification; the ready-for-review transition triggers full CI.
+
+### When full CI fails
+
+1. inspect the exact failed job/log;
+2. identify the smallest failing layer;
+3. convert the PR back to draft while a multi-step repair is in progress when practical;
+4. run/fix only the relevant focused test first;
+5. complete the repair as one coherent batch;
+6. mark the PR ready again so full CI runs once on the new head.
+
+Do not repeatedly rerun a red job until it turns green.
+
+If tooling forces several sequential commits to an already-open PR, prefer batching locally. When that is impossible, GitHub-supported CI-skip commit markers may be used **only for intermediate half-fix commits**; the final substantive commit must trigger CI normally.
+
+## 8. Required final CI
 
 The repository CI is authoritative before merge.
 
@@ -135,12 +207,17 @@ Current web gates:
 1. `npm ci`
 2. `npm run release:audit`
 3. `npm run typecheck`
-4. `npm test`
-5. `npm run build`
+4. `npm run lint`
+5. `npm test`
+6. `npm run build`
 
 Bot gate:
 
 - Python 3.11 `compileall` over the active bot sources.
+
+Browser gate:
+
+- Playwright mobile smoke after web checks pass.
 
 Do not merge while a required gate is red unless the user explicitly chooses an emergency exception and the risk is understood.
 
@@ -156,7 +233,7 @@ If a test fails on `main` after a green PR:
 
 Do not repeatedly rerun a red job until it turns green without investigation.
 
-## 8. Dependency security
+## 9. Dependency security
 
 Use read-only diagnostics first:
 
@@ -174,7 +251,7 @@ Rules:
 
 A permanent CI audit gate is useful only if it represents the current dependency tree and does not introduce known unavoidable false positives.
 
-## 9. Render deployment
+## 10. Render deployment
 
 Repository config:
 
@@ -199,7 +276,7 @@ When deployment access is available:
 
 Do not modify or restore production data merely because a new deploy starts with DB/bootstrap logic; runtime DB safety rules still apply.
 
-## 10. Telegram runtime smoke test
+## 11. Telegram runtime smoke test
 
 Prefer this order:
 
@@ -214,7 +291,7 @@ Avoid a mass club announcement for generic diagnostics.
 
 See `docs/telegram-runtime-health.md`.
 
-## 11. VK runtime smoke test
+## 12. VK runtime smoke test
 
 Prefer this order:
 
@@ -227,7 +304,7 @@ Prefer this order:
 
 See `docs/vk-runtime-health.md`.
 
-## 12. Legacy cleanup
+## 13. Legacy cleanup
 
 Before deleting a legacy-looking file:
 
@@ -239,7 +316,7 @@ Before deleting a legacy-looking file:
 
 If deletion fails typecheck/build, treat that as evidence of live usage and trace the dependency instead of forcing removal.
 
-## 13. Documentation maintenance
+## 14. Documentation maintenance
 
 Update `docs/PROJECT_STATE.md` in the same PR when a significant task changes:
 
@@ -256,7 +333,7 @@ Update `docs/BUSINESS_RULES.md` only when the user-approved rule/product decisio
 
 Update this runbook when the safe operational process itself changes.
 
-## 14. End-of-task handoff
+## 15. End-of-task handoff
 
 A good handoff contains only what the next session needs:
 
@@ -269,7 +346,7 @@ A good handoff contains only what the next session needs:
 
 Record durable state in the repository instead of relying on a long chat recap.
 
-## 15. Recovery when docs and code disagree
+## 16. Recovery when docs and code disagree
 
 Do not blindly trust either side.
 

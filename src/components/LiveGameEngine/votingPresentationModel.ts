@@ -1,6 +1,6 @@
 export interface VotingAssignmentPresentation {
   slot: number;
-  target: number | null | undefined;
+  target: number | null;
   automatic: boolean;
 }
 
@@ -8,7 +8,7 @@ export interface CollectingVotingPresentation {
   eligible: number;
   remaining: number;
   isLast: boolean;
-  nominee: number | undefined;
+  nominee: number;
   assignments: VotingAssignmentPresentation[];
 }
 
@@ -25,7 +25,7 @@ export const buildCollectingVotingPresentation = ({
   currentNomineeIndex: number;
   votesByPlayer: Record<number, number>;
 }): CollectingVotingPresentation => {
-  const nominee = nominatedSeats[currentNomineeIndex];
+  const nominee = nominatedSeats[currentNomineeIndex] as number;
   const explicitAssigned = Object.keys(votesByPlayer)
     .filter((raw) => eligibleVoterSeats.includes(Number(raw)))
     .length;

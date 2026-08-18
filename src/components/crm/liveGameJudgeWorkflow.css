@@ -3,6 +3,19 @@
    information already present in SeatCard/CenterPanel without changing rules. */
 
 @media (max-width: 767px) {
+  /* The legacy mobile board starts slightly underneath the sticky modal header.
+     That was harmless while the top card controls were hidden, but once the judge
+     controls are exposed the first row becomes partly untappable. Move the board
+     and its identity overlay together so all ten seats have identical geometry. */
+  html body .evening-live-engine-shell
+    div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+    margin-top: 17px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity-layer {
+    top: 19px !important;
+  }
+
   /* ---------- Day speeches: frequent actions stay on the table ---------- */
   html body .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]

@@ -19,6 +19,7 @@ import "./components/crm/liveGameDisciplineGlyphsV4.css";
 import "./components/crm/liveGameActionGroupsV5.css";
 import "./components/crm/liveGameMobileGeometryV6.css";
 import "./components/crm/liveGameJudgeConsoleV7.css";
+import "./components/crm/liveGameJudgeWorkflow.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -1,8 +1,9 @@
 import { ChevronRight, Search, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncState from '../ui/AsyncState.tsx';
 import { Badge, type BadgeVariant } from '../ui/Badge.tsx';
-import { Button } from '../ui/Button.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card.tsx';
+import { Input } from '../ui/Input.tsx';
 import {
   Sheet,
   SheetContent,
@@ -160,26 +161,23 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
         </CardHeader>
 
         <CardContent className="px-3 pb-3">
-          <label className="ds-focus-ring flex min-h-[var(--ds-control-md)] items-center gap-2.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-border-strong)] bg-[var(--ds-background)] px-3 transition-colors focus-within:border-primary">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">Найти игрока</span>
-            <input
+          <div className="relative">
+            <label htmlFor="club-search" className="sr-only">Найти игрока</label>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="club-search"
               data-testid="club-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Найти игрока"
-              className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-foreground outline-none placeholder:text-[var(--ds-subtle-foreground)]"
+              className="pl-10"
             />
-          </label>
+          </div>
 
           {error ? (
-            <div className="mt-3 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-danger)]/25 bg-[var(--ds-danger-soft)] px-3 py-4 text-sm text-[var(--ds-danger)]">
-              {error}
-            </div>
+            <AsyncState kind="error" title="Не удалось загрузить игроков" description={error} compact className="mt-3" />
           ) : players === null ? (
-            <div className="mt-3 flex min-h-24 items-center justify-center rounded-[var(--ds-radius-md)] border border-border bg-secondary text-sm text-muted-foreground">
-              Загрузка игроков…
-            </div>
+            <AsyncState kind="loading" title="Загрузка игроков…" compact className="mt-3" />
           ) : filtered.length ? (
             <div className="mt-3 divide-y divide-border overflow-hidden rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)]">
               {filtered.map((item) => (
@@ -215,11 +213,14 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
               ))}
             </div>
           ) : (
-            <div className="mt-3 flex min-h-28 flex-col items-center justify-center rounded-[var(--ds-radius-md)] border border-dashed border-border bg-secondary px-4 text-center">
-              <UserRound className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-              <p className="mt-2 text-sm font-semibold text-foreground">Никого не нашли</p>
-              <p className="mt-1 text-xs text-muted-foreground">Попробуйте изменить запрос.</p>
-            </div>
+            <AsyncState
+              kind="empty"
+              title="Никого не нашли"
+              description="Попробуйте изменить запрос."
+              icon={<UserRound className="h-5 w-5" />}
+              compact
+              className="mt-3"
+            />
           )}
         </CardContent>
       </Card>
@@ -238,27 +239,17 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
                 <SheetTitle>Профиль игрока</SheetTitle>
                 <SheetDescription>Загружаем статистику…</SheetDescription>
               </SheetHeader>
-              <div className="mt-5 space-y-3" aria-hidden="true">
-                <div className="h-20 animate-pulse rounded-[var(--ds-radius-lg)] bg-secondary" />
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
-                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
-                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
-                </div>
-              </div>
+              <AsyncState kind="loading" title="Загрузка профиля…" compact className="mt-5" />
             </>
           ) : selectedError ? (
-            <>
-              <SheetHeader>
-                <SheetTitle>Не удалось открыть профиль</SheetTitle>
-                <SheetDescription>{selectedError}</SheetDescription>
-              </SheetHeader>
-              {selectedPlayerId && (
-                <Button className="mt-5 w-full" onClick={() => void openPlayer(selectedPlayerId)}>
-                  Попробовать ещё раз
-                </Button>
-              )}
-            </>
+            <AsyncState
+              kind="error"
+              title="Не удалось открыть профиль"
+              description={selectedError}
+              actionLabel="Попробовать ещё раз"
+              onAction={selectedPlayerId ? () => void openPlayer(selectedPlayerId) : undefined}
+              className="mt-2"
+            />
           ) : selected ? (
             <>
               <div className="flex items-center gap-4 pr-10">

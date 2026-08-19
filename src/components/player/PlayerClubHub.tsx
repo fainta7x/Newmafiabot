@@ -18,13 +18,10 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
 
   return (
     <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-foreground">
-      <div className="mx-auto w-full max-w-[430px] space-y-4">
-        <header className="px-1 pb-1 pt-2">
-          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">2LA Noire</div>
-          <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.035em]">Клуб</h1>
-          <p className="mt-1.5 max-w-[330px] text-sm leading-5 text-muted-foreground">
-            Игроки клуба, активность и связи за столом.
-          </p>
+      <div className="mx-auto w-full max-w-[430px] space-y-3">
+        <header className="px-1 pb-1 pt-1">
+          <h1 className="text-2xl font-semibold tracking-[-0.025em]">Клуб</h1>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground/65">Люди, жизнь клуба и связи за столом</p>
         </header>
 
         <SegmentedControl

@@ -1,4 +1,15 @@
+import { ChevronRight, Search, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Badge, type BadgeVariant } from '../ui/Badge.tsx';
+import { Button } from '../ui/Button.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card.tsx';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../ui/Sheet.tsx';
 
 type DirectoryPlayer = {
   id: string;
@@ -37,11 +48,40 @@ const gameLevelLabel = (level: string) => {
   return 'Игрок клуба';
 };
 
-function StatCard({ value, label }: { value: string | number; label: string }) {
+const gameLevelVariant = (level: string): BadgeVariant => {
+  if (level === 'novice') return 'warning';
+  if (level === 'tournament') return 'accent';
+  return 'neutral';
+};
+
+function PlayerAvatar({ player, large = false }: { player: DirectoryPlayer; large?: boolean }) {
+  const sizeClass = large ? 'h-[72px] w-[72px] rounded-[20px]' : 'h-12 w-12 rounded-[14px]';
+
+  if (player.avatar_url) {
+    return (
+      <img
+        src={player.avatar_url}
+        alt={player.nickname}
+        className={`${sizeClass} shrink-0 object-cover ring-1 ring-[var(--ds-border-strong)]`}
+      />
+    );
+  }
+
   return (
-    <div className="rounded-2xl bg-black/20 p-3 text-center">
-      <div className="text-lg font-semibold text-white">{value}</div>
-      <div className="mt-1 text-[10px] text-white/35">{label}</div>
+    <div
+      aria-hidden="true"
+      className={`${sizeClass} flex shrink-0 items-center justify-center bg-secondary text-base font-bold text-muted-foreground ring-1 ring-[var(--ds-border-strong)]`}
+    >
+      {player.nickname.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
+function StatTile({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="rounded-[var(--ds-radius-md)] border border-border bg-secondary px-2 py-3 text-center">
+      <div className="text-lg font-bold leading-none tracking-[-0.025em] text-foreground">{value}</div>
+      <div className="mt-1.5 text-[10px] font-medium text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -50,6 +90,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   const [players, setPlayers] = useState<DirectoryPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selected, setSelected] = useState<PublicPlayerProfile | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [selectedError, setSelectedError] = useState<string | null>(null);
@@ -77,6 +118,8 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
 
   const openPlayer = async (playerId: string) => {
     if (selectedLoading) return;
+    setSelectedPlayerId(playerId);
+    setSelected(null);
     setSelectedLoading(true);
     setSelectedError(null);
     try {
@@ -91,86 +134,180 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
     }
   };
 
-  if (selected) {
-    return (
-      <div className="space-y-3">
-        <button type="button" onClick={() => { setSelected(null); setSelectedError(null); }} className="rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← Все игроки</button>
-        <header className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
-          <div className="flex items-center gap-4">
-            {selected.player.avatar_url ? (
-              <img src={selected.player.avatar_url} alt={selected.player.nickname} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" />
-            ) : (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-2xl font-semibold text-white/70">
-                {selected.player.nickname.slice(0, 1).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-2xl font-semibold">{selected.player.nickname}</h2>
-              <p className="mt-2 text-xs text-white/35">{gameLevelLabel(selected.player.game_level)}</p>
-              <div className="mt-2 text-sm text-white/55">ELO {selected.player.elo}</div>
-            </div>
-          </div>
-        </header>
-
-        <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Статистика игрока</div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <StatCard value={selected.stats.completedGames} label="игр" />
-            <StatCard value={selected.stats.wins} label="побед" />
-            <StatCard value={`${selected.stats.winRate}%`} label="винрейт" />
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            <StatCard value={selected.stats.firstKilled} label="ПУ" />
-            <StatCard value={selected.stats.bestMoves} label="ЛХ" />
-            <StatCard value={selected.tournament_awards.nominations} label="номинаций" />
-          </div>
-        </section>
-      </div>
-    );
-  }
+  const closePlayer = () => {
+    setSelectedPlayerId(null);
+    setSelected(null);
+    setSelectedError(null);
+    setSelectedLoading(false);
+  };
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Игроки клуба</div>
-          <p className="mt-1 text-xs text-white/35">Люди 2LA Noire и их игровые профили</p>
-        </div>
-        {players && <div className="text-[10px] text-white/25">{players.length}</div>}
-      </div>
+    <>
+      <Card data-testid="club-directory" className="overflow-hidden">
+        <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-3">
+          <div className="min-w-0">
+            <CardTitle>Игроки клуба</CardTitle>
+            <CardDescription className="mt-1">Профили и игровой уровень участников 2LA Noire.</CardDescription>
+          </div>
+          {players && (
+            <Badge variant="neutral" aria-label={`${players.length} игроков`} className="shrink-0 tabular-nums">
+              {players.length}
+            </Badge>
+          )}
+        </CardHeader>
 
-      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mt-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25" />
+        <CardContent className="px-3 pb-3">
+          <label className="ds-focus-ring flex min-h-[var(--ds-control-md)] items-center gap-2.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-border-strong)] bg-[var(--ds-background)] px-3 transition-colors focus-within:border-primary">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="sr-only">Найти игрока</span>
+            <input
+              data-testid="club-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Найти игрока"
+              className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-foreground outline-none placeholder:text-[var(--ds-subtle-foreground)]"
+            />
+          </label>
 
-      {selectedError && <p className="mt-3 rounded-2xl bg-rose-400/[0.07] px-3 py-3 text-sm text-rose-100/70">{selectedError}</p>}
-      {error ? (
-        <p className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">{error}</p>
-      ) : players === null ? (
-        <p className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Загрузка игроков…</p>
-      ) : filtered.length ? (
-        <div className="mt-3 space-y-2">
-          {filtered.map((item) => (
-            <button key={item.id} type="button" disabled={selectedLoading} onClick={() => void openPlayer(item.id)} className="flex w-full items-center gap-3 rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06] disabled:opacity-50">
-              {item.avatar_url ? (
-                <img src={item.avatar_url} alt={item.nickname} className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
-              ) : (
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
-                  {item.nickname.slice(0, 1).toUpperCase()}
+          {error ? (
+            <div className="mt-3 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-danger)]/25 bg-[var(--ds-danger-soft)] px-3 py-4 text-sm text-[var(--ds-danger)]">
+              {error}
+            </div>
+          ) : players === null ? (
+            <div className="mt-3 flex min-h-24 items-center justify-center rounded-[var(--ds-radius-md)] border border-border bg-secondary text-sm text-muted-foreground">
+              Загрузка игроков…
+            </div>
+          ) : filtered.length ? (
+            <div className="mt-3 divide-y divide-border overflow-hidden rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)]">
+              {filtered.map((item) => (
+                <button
+                  key={item.id}
+                  data-testid={`club-player-${item.id}`}
+                  type="button"
+                  disabled={selectedLoading}
+                  onClick={() => void openPlayer(item.id)}
+                  className="ds-focus-ring group flex min-h-[76px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-ui-accent active:bg-ui-accent disabled:pointer-events-none disabled:opacity-45"
+                >
+                  <PlayerAvatar player={item} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-bold text-foreground">{item.nickname}</span>
+                      {item.id === selfId && <Badge variant="accent" className="shrink-0">Вы</Badge>}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Badge variant={gameLevelVariant(item.game_level)}>{gameLevelLabel(item.game_level)}</Badge>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-right">
+                      <div className="text-sm font-bold tabular-nums text-foreground">{item.elo}</div>
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-subtle-foreground)]">ELO</div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-[var(--ds-subtle-foreground)] transition-transform group-active:translate-x-0.5" aria-hidden="true" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex min-h-28 flex-col items-center justify-center rounded-[var(--ds-radius-md)] border border-dashed border-border bg-secondary px-4 text-center">
+              <UserRound className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              <p className="mt-2 text-sm font-semibold text-foreground">Никого не нашли</p>
+              <p className="mt-1 text-xs text-muted-foreground">Попробуйте изменить запрос.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Sheet
+        side="bottom"
+        open={selectedPlayerId !== null}
+        onOpenChange={(open) => {
+          if (!open) closePlayer();
+        }}
+      >
+        <SheetContent data-testid="club-player-sheet" className="max-h-[min(82dvh,var(--tg-viewport-stable-height,82dvh))]">
+          {selectedLoading ? (
+            <>
+              <SheetHeader>
+                <SheetTitle>Профиль игрока</SheetTitle>
+                <SheetDescription>Загружаем статистику…</SheetDescription>
+              </SheetHeader>
+              <div className="mt-5 space-y-3" aria-hidden="true">
+                <div className="h-20 animate-pulse rounded-[var(--ds-radius-lg)] bg-secondary" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
+                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
+                  <div className="h-16 animate-pulse rounded-[var(--ds-radius-md)] bg-secondary" />
                 </div>
+              </div>
+            </>
+          ) : selectedError ? (
+            <>
+              <SheetHeader>
+                <SheetTitle>Не удалось открыть профиль</SheetTitle>
+                <SheetDescription>{selectedError}</SheetDescription>
+              </SheetHeader>
+              {selectedPlayerId && (
+                <Button className="mt-5 w-full" onClick={() => void openPlayer(selectedPlayerId)}>
+                  Попробовать ещё раз
+                </Button>
               )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium text-white">{item.nickname}{item.id === selfId ? ' · вы' : ''}</div>
-                <div className="mt-1 text-xs text-white/35">{gameLevelLabel(item.game_level)}</div>
+            </>
+          ) : selected ? (
+            <>
+              <div className="flex items-center gap-4 pr-10">
+                <PlayerAvatar player={selected.player} large />
+                <SheetHeader className="min-w-0 flex-1 p-0 pr-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <SheetTitle className="truncate text-xl">{selected.player.nickname}</SheetTitle>
+                    {selected.player.id === selfId && <Badge variant="accent" className="shrink-0">Вы</Badge>}
+                  </div>
+                  <SheetDescription className="flex flex-wrap items-center gap-2">
+                    <Badge variant={gameLevelVariant(selected.player.game_level)}>
+                      {gameLevelLabel(selected.player.game_level)}
+                    </Badge>
+                    <span className="font-semibold tabular-nums text-foreground">ELO {selected.player.elo}</span>
+                  </SheetDescription>
+                </SheetHeader>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold text-white/60">{item.elo}</div>
-                <div className="text-[9px] uppercase tracking-wide text-white/25">ELO</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Игроки не найдены.</p>
-      )}
-    </section>
+
+              <section className="mt-5" aria-label="Статистика игрока">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Статистика</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <StatTile value={selected.stats.completedGames} label="игр" />
+                  <StatTile value={selected.stats.wins} label="побед" />
+                  <StatTile value={`${selected.stats.winRate}%`} label="винрейт" />
+                  <StatTile value={selected.stats.firstKilled} label="ПУ" />
+                  <StatTile value={selected.stats.bestMoves} label="ЛХ" />
+                  <StatTile value={selected.tournament_awards.nominations} label="номинаций" />
+                </div>
+              </section>
+
+              <section className="mt-5 rounded-[var(--ds-radius-lg)] border border-border bg-secondary p-4" aria-label="Турнирные результаты">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Турниры</div>
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <div className="text-base font-bold tabular-nums text-foreground">{selected.tournament_awards.firstPlaces}</div>
+                    <div className="mt-1 text-[9px] text-muted-foreground">1 место</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold tabular-nums text-foreground">{selected.tournament_awards.secondPlaces}</div>
+                    <div className="mt-1 text-[9px] text-muted-foreground">2 место</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold tabular-nums text-foreground">{selected.tournament_awards.thirdPlaces}</div>
+                    <div className="mt-1 text-[9px] text-muted-foreground">3 место</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold tabular-nums text-foreground">{selected.stats.tournamentGames}</div>
+                    <div className="mt-1 text-[9px] text-muted-foreground">игр</div>
+                  </div>
+                </div>
+              </section>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

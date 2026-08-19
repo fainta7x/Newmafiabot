@@ -18,10 +18,10 @@ describe('2LA Noire shared form primitives', () => {
       </Field>,
     );
 
-    const input = screen.getByLabelText('Игровой ник');
-    expect(input).toHaveValue('Чагин');
-    expect(input).toHaveAttribute('data-slot', 'input');
-    expect(screen.getByText('Имя за игровым столом.')).toHaveAttribute('data-slot', 'field-description');
+    const input = screen.getByLabelText('Игровой ник') as HTMLInputElement;
+    expect(input.value).toBe('Чагин');
+    expect(input.getAttribute('data-slot')).toBe('input');
+    expect(screen.getByText('Имя за игровым столом.').getAttribute('data-slot')).toBe('field-description');
   });
 
   it('exposes invalid inputs and semantic field messages', () => {
@@ -33,16 +33,16 @@ describe('2LA Noire shared form primitives', () => {
       </>,
     );
 
-    expect(screen.getByLabelText('Телефон')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByRole('alert')).toHaveTextContent('Некорректное значение');
-    expect(screen.getByRole('status')).toHaveTextContent('Сохранено');
+    expect(screen.getByLabelText('Телефон').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('alert').textContent).toContain('Некорректное значение');
+    expect(screen.getByRole('status').textContent).toContain('Сохранено');
   });
 
   it('keeps AsyncState semantics and retry behavior consistent', () => {
     const retry = vi.fn();
     const { rerender } = render(<AsyncState kind="loading" title="Загрузка" />);
 
-    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status').getAttribute('aria-busy')).toBe('true');
 
     rerender(
       <AsyncState
@@ -53,7 +53,7 @@ describe('2LA Noire shared form primitives', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('alert').getAttribute('aria-busy')).toBe('false');
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(retry).toHaveBeenCalledTimes(1);
   });

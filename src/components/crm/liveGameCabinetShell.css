@@ -448,3 +448,70 @@
     min-height: 31px;
   }
 }
+
+/* Stage 4.5.4 — keep the whole table decision in view.
+ *
+ * The old stack could vertically scroll after the judge tapped several hands,
+ * hiding the question or the final confirm action. In this state the footer
+ * already repeats the tied nominations and the selected buttons themselves show
+ * who raised a hand, so the two explanatory hint rows are redundant. Fit the
+ * full decision into one stable, non-scrolling center view instead.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
+  align-items: flex-start;
+  overflow-y: hidden;
+  padding: 5px 7px !important;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  align-content: start;
+}
+
+/* Phase chip + footer already identify voting and tied nominees. */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__eyebrow {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.05;
+}
+
+/* The hand grid itself explains the interaction; the selected state explains
+   who has already voted. Hide both duplicate prose rows. */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title + .live-judge-hud__hint,
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count + .live-judge-hud__hint {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voters {
+  grid-column: 1 / -1;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count {
+  grid-column: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 7px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count ~ .live-judge-action {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 34px;
+  height: 100%;
+  padding-inline: 5px;
+  font-size: 7.5px;
+  line-height: 1.05;
+}
+
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
+    padding: 4px 6px !important;
+  }
+}

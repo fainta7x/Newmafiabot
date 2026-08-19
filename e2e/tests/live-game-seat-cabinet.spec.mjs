@@ -135,13 +135,26 @@ test.describe('Live Game seat cabinet', () => {
     const actionButtons = sheet.locator(':scope > .grid.grid-cols-2 > button');
     expect(await actionButtons.count()).toBeGreaterThanOrEqual(8);
     for (let index = 0; index < await actionButtons.count(); index += 1) {
-      const height = await actionButtons.nth(index).evaluate((element) => element.getBoundingClientRect().height);
-      expect.soft(height, `action ${index + 1} height`).toBeGreaterThanOrEqual(50);
+      const button = actionButtons.nth(index);
+      if (!(await button.isVisible())) continue;
+      const height = await button.evaluate((element) => element.getBoundingClientRect().height);
+      expect.soft(height, `visible action ${index + 1} height`).toBeGreaterThanOrEqual(50);
     }
 
     const regularFoul = sheet.getByRole('button', { name: '+ Обычный фол', exact: true });
+    const removeFoul = sheet.getByRole('button', { name: '− Снять фол', exact: true });
+    const nomination = sheet.getByRole('button', { name: 'Выставить', exact: true });
     const majorTech = sheet.getByRole('button', { name: 'Большой тех', exact: true });
     const ppk = sheet.getByRole('button', { name: 'ППК', exact: true });
+
+    // With zero fouls, the disabled remove action must not waste the prime row.
+    await expect(removeFoul).toBeHidden();
+    const regularBox = await regularFoul.boundingBox();
+    const nominationBox = await nomination.boundingBox();
+    expect(regularBox).not.toBeNull();
+    expect(nominationBox).not.toBeNull();
+    expect(Math.abs(regularBox.width - nominationBox.width)).toBeLessThanOrEqual(2);
+
     const semanticBackgrounds = await Promise.all([regularFoul, majorTech, ppk].map((locator) => locator.evaluate((element) => getComputedStyle(element).backgroundColor)));
     expect(new Set(semanticBackgrounds).size).toBe(3);
 
@@ -154,6 +167,8 @@ test.describe('Live Game seat cabinet', () => {
     await expect(sheet).toBeVisible();
     const foulStat = sheet.locator('.grid.grid-cols-3 > div').first();
     await expect(foulStat).toContainText('1');
+    await expect(sheet.getByRole('button', { name: '− Снять фол', exact: true })).toBeVisible();
+    await capture(page, testInfo, 'live-game-player-actions-with-foul.png');
 
     await expectNoHorizontalOverflow(page, 'player actions');
   });

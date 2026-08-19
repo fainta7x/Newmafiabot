@@ -8,6 +8,7 @@ import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
+import "./components/crm/liveGameTelegram.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

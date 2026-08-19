@@ -1,14 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-const tableGrid = (page) => page
-  .locator('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]')
-  .first();
+const centerPanel = (page) => page.getByTestId('live-judge-hud');
 
 const prepareRecoveredDay = async (page) => {
   await page.goto('/e2e/live-game.html?mode=recovery');
   await expect(page.getByText(/Найдена незавершённая игра · 18:00/)).toBeVisible();
   await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
-  await expect(tableGrid(page)).toBeVisible();
+  await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Прерванная игра восстановлена', { exact: true })).toBeVisible();
 };
 

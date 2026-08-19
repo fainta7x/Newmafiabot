@@ -13,6 +13,7 @@ import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
 import '../src/components/crm/liveGameJudge.css';
 import '../src/components/crm/liveGameCabinetShell.css';
+import '../src/components/crm/liveGameSeatCabinet.css';
 import '../src/components/crm/liveGameTelegram.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';

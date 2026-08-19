@@ -5,11 +5,21 @@ type DivProps = HTMLAttributes<HTMLDivElement>;
 type HeadingProps = HTMLAttributes<HTMLHeadingElement>;
 type ParagraphProps = HTMLAttributes<HTMLParagraphElement>;
 
-export function Card({ className, ...props }: DivProps) {
+export type CardRadius = 'default' | 'feature';
+
+export interface CardProps extends DivProps {
+  radius?: CardRadius;
+}
+
+export function Card({ radius = 'default', className, ...props }: CardProps) {
   return (
     <div
       data-slot="card"
-      className={cn('ds-panel rounded-[var(--ds-radius-lg)] text-white', className)}
+      className={cn(
+        'ds-panel text-white',
+        radius === 'feature' ? 'rounded-[var(--ds-radius-xl)]' : 'rounded-[var(--ds-radius-lg)]',
+        className,
+      )}
       {...props}
     />
   );

@@ -32,7 +32,7 @@ export default function PlayerBottomNavigation({
     <nav
       data-testid="player-bottom-nav"
       aria-label="Основная навигация"
-      className="fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t border-border bg-card/95 px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),8px)] backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t border-border bg-card px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),8px)] backdrop-blur-xl"
     >
       <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {

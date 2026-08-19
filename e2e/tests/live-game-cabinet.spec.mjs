@@ -27,16 +27,28 @@ test.describe('Live Game cabinet shell', () => {
     await expect(hud).toBeVisible();
     const hudTreatment = await hud.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { background: style.backgroundColor, radius: style.borderRadius, border: style.borderTopColor };
+      return {
+        background: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        radius: style.borderRadius,
+        border: style.borderTopColor,
+      };
     });
     expect(hudTreatment.background).toMatch(/rgba?\(255, 255, 255, 0\.04/);
+    expect(hudTreatment.backgroundImage).toContain('linear-gradient');
+    expect(hudTreatment.backgroundImage).toContain('232, 185, 94');
     expect(hudTreatment.radius).toBe('20px');
-    expect(hudTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+    expect(hudTreatment.border).toBe('rgba(232, 185, 94, 0.2)');
 
     const phase = hud.locator('.live-judge-hud__phase');
     await expect(phase).toContainText('Нулевой круг');
-    const dayPhaseColor = await phase.evaluate((element) => getComputedStyle(element).color);
-    expect(dayPhaseColor).toBe('rgb(232, 185, 94)');
+    const phaseTreatment = await phase.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { color: style.color, background: style.backgroundColor, radius: style.borderRadius };
+    });
+    expect(phaseTreatment.color).toBe('rgb(232, 185, 94)');
+    expect(phaseTreatment.background).toBe('rgba(232, 185, 94, 0.11)');
+    expect(phaseTreatment.radius).toBe('999px');
 
     const duplicatedNominationChip = hud.locator('.live-judge-hud__body .live-judge-hud__meta');
     await expect(duplicatedNominationChip).toBeHidden();
@@ -68,6 +80,13 @@ test.describe('Live Game cabinet shell', () => {
     const nightStatus = page.getByTestId('live-game-night-status');
     await expect(nightStatus).toBeVisible();
     await expect(nightStatus).toContainText('Отстрел');
+
+    const hudTreatment = await hud.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundImage: style.backgroundImage, border: style.borderTopColor };
+    });
+    expect(hudTreatment.backgroundImage).toContain('167, 139, 250');
+    expect(hudTreatment.border).toBe('rgba(167, 139, 250, 0.24)');
 
     const phase = hud.locator('.live-judge-hud__phase');
     await expect(phase).toContainText('Ночь 1');

@@ -31,12 +31,16 @@ describe('Live Game seat presentation model', () => {
 
   it('preserves the visual priority for dead, current nominee and speaking seats', () => {
     expect(resolveSeatContainerClass({ ...baseBorderInput(), alive: false })).toContain('border-rose-950');
-    expect(resolveSeatContainerClass({
+    const currentNominee = resolveSeatContainerClass({
       ...baseBorderInput(),
       phase: 'day_voting',
       nominations: [3, 7],
       isSpeaking: true,
-    })).toContain('animate-pulse');
+    });
+    expect(currentNominee).toContain('border-rose-400');
+    expect(currentNominee).toContain('ring-rose-400/50');
+    expect(currentNominee).not.toContain('animate-pulse');
+    expect(currentNominee).not.toContain('scale-[');
     expect(resolveSeatContainerClass({ ...baseBorderInput(), isSpeaking: true })).toContain('border-amber-400');
   });
 

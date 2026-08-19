@@ -105,9 +105,18 @@ test.describe('Live Game seat cabinet', () => {
     await expectNoHorizontalOverflow(page, 'seat table');
     await capture(page, testInfo, 'live-game-seat-cabinet.png');
 
-    // The action returns as soon as the judge starts the next speech.
+    // The action returns as soon as the judge starts the next speech. The
+    // speaking seat must also become the strongest warm focus on the table.
     await page.getByRole('button', { name: /Речь #1/ }).click();
     await expect(seatTwo.locator('.live-seat-quick-action--nomination')).toBeVisible();
+    const speakingTreatment = await seatOne.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { border: style.borderTopColor, shadow: style.boxShadow, backgroundImage: style.backgroundImage };
+    });
+    expect(speakingTreatment.border).toBe('rgba(232, 185, 94, 0.86)');
+    expect(speakingTreatment.shadow).toContain('232, 185, 94');
+    expect(speakingTreatment.backgroundImage).toContain('232, 185, 94');
+    await capture(page, testInfo, 'live-game-speaking-focus.png');
 
     await seat(page, 6).click();
     const sheet = page.locator('.live-player-action-sheet');

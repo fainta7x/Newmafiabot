@@ -58,9 +58,9 @@
 }
 
 .evening-live-engine-shell .live-seat-card--speaking {
-  border-color: rgba(232, 185, 94, 0.62) !important;
-  background: linear-gradient(155deg, rgba(232, 185, 94, 0.11), rgba(255, 255, 255, 0.045) 48%, rgba(255, 255, 255, 0.025)) !important;
-  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.16), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
+  border-color: rgba(232, 185, 94, 0.86) !important;
+  background: linear-gradient(155deg, rgba(232, 185, 94, 0.16), rgba(255, 255, 255, 0.055) 48%, rgba(255, 255, 255, 0.028)) !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.30), 0 0 0 1px rgba(232, 185, 94, 0.08), 0 10px 28px rgba(232, 185, 94, 0.12), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
 }
 
 .evening-live-engine-shell .live-seat-card:has(.live-seat-quick-action--nomination-active) {
@@ -73,8 +73,8 @@
 }
 
 .evening-live-engine-shell .live-seat-card--voting:has(.live-seat-state__value--active) {
-  border-color: rgba(125, 211, 252, 0.48) !important;
-  background: linear-gradient(155deg, rgba(56, 189, 248, 0.10), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
+  border-color: rgba(251, 113, 133, 0.48) !important;
+  background: linear-gradient(155deg, rgba(251, 113, 133, 0.11), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
 }
 
 .evening-live-engine-shell .live-seat-card--dead {

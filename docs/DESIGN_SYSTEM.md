@@ -71,7 +71,7 @@ Delivered scope:
 
 ### Stage 4 — Shared application shell
 
-**Status: in progress.** Stage 4 is intentionally split into short mergeable sub-stages.
+**Status: complete when the Stage 4.3 PR containing this document is merged to `main`.** Stage 4 was intentionally split into short mergeable sub-stages.
 
 #### Stage 4.1 — Player shell chrome
 
@@ -88,27 +88,34 @@ Delivered scope:
 
 #### Stage 4.2 — Shared forms and async states
 
-**Status: complete when the Stage 4.2 PR containing this document is merged to `main`.**
+**Status: complete.**
 
-Scope:
+Delivered scope:
 
 - add canonical `Input` and `Field` primitives only where real migrated forms need them;
 - migrate `AsyncState` to semantic loading/empty/error presentation while keeping its existing public API compatible;
 - migrate Player Profile → Personal data to canonical fields and shared feedback messages without changing profile API behavior;
 - migrate Club → Players search and loading/empty/error presentation to the shared primitives;
-- validate labels, 44px+ field geometry, save/validation behavior and horizontal geometry in a 390×620 Telegram-sized viewport;
-- keep avatar actions, judging, Judge Game launcher, CRM, Live Game, API and database behavior out of this sub-stage.
+- harden canonical `Button` color variants to direct semantic tokens after browser evidence exposed a transparent primary action;
+- validate labels, 44px+ field geometry, save/validation behavior and horizontal geometry in a 390×620 Telegram-sized viewport.
 
 Do not add `Textarea`, `Select` or other primitives merely for completeness. Add them when a real migrated screen needs them.
 
 #### Stage 4.3 — Shared dialogs, sheets and repeated controls
 
-After 4.2 is merged, finish Stage 4 in a separate PR:
+**Status: complete when the Stage 4.3 PR containing this document is merged to `main`.**
 
-- migrate active confirmation callers from legacy `ConfirmDialog` / `window.confirm` where appropriate to the canonical Base UI-backed `Dialog`;
-- migrate active legacy `MobileSheet` callers to canonical `Sheet` where the interaction matches;
-- consolidate repeated filter / segmented-control patterns that already exist on active screens;
-- remove a legacy shared component only after all active callers have migrated.
+Delivered scope:
+
+- rebase the legacy `ConfirmDialog` public API on the canonical Base UI-backed `Dialog`, preserving existing callers while replacing manual modal stacking/focus behavior;
+- replace Player Profile avatar deletion's browser `window.confirm` with the shared confirmation flow;
+- rebase the legacy `MobileSheet` public API on canonical `Sheet`, preserving header/body/footer compatibility and centered desktop presentation;
+- extend canonical `SheetContent` with optional fixed header/footer/body/viewport slots needed by real compatibility callers;
+- add the canonical `SegmentedControl` and migrate both Club (3 sections) and Rating (4 sections) navigation to it;
+- give repeated segmented actions the canonical 44px+ touch geometry and semantic active state;
+- verify confirmation geometry and behavior in the existing 390×620 profile harness and cover compatibility wrappers with focused unit tests.
+
+`ConfirmDialog` and `MobileSheet` compatibility files stay in place through Stage 5. Remove them only during Stage 6 after exact import/caller cleanup proves the wrappers are no longer needed.
 
 Do not widen 4.3 into a whole-application visual rewrite.
 
@@ -133,6 +140,7 @@ After migrated screens are verified:
 - remove superseded screen-local CSS;
 - collapse duplicate button/card/dialog implementations;
 - replace ad-hoc z-index values with canonical layers;
+- remove compatibility wrappers only after all imports have moved to canonical primitives;
 - keep only domain-specific CSS that has a real layout purpose.
 
 Cleanup follows migration; it does not lead it.

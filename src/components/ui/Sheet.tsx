@@ -52,12 +52,20 @@ export interface SheetContentProps
   className?: string;
   children?: ReactNode;
   showClose?: boolean;
+  header?: ReactNode;
+  footer?: ReactNode;
+  bodyClassName?: string;
+  viewportClassName?: string;
 }
 
 export function SheetContent({
   className,
   children,
   showClose = true,
+  header,
+  footer,
+  bodyClassName,
+  viewportClassName,
   ...props
 }: SheetContentProps) {
   const side = useContext(SheetSideContext);
@@ -74,6 +82,7 @@ export function SheetContent({
         className={cn(
           'pointer-events-none fixed inset-0 z-[var(--ds-layer-modal)] flex overflow-hidden [padding-top:env(safe-area-inset-top)] [padding-bottom:env(safe-area-inset-bottom)]',
           viewportClasses[side],
+          viewportClassName,
         )}
       >
         <BaseDrawer.Popup
@@ -94,9 +103,16 @@ export function SheetContent({
               )}
             />
           )}
-          <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+          {header}
+          <BaseDrawer.Content
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+              bodyClassName ?? 'p-5',
+            )}
+          >
             {children}
           </BaseDrawer.Content>
+          {footer}
           {showClose && (
             <BaseDrawer.Close
               aria-label="Закрыть"

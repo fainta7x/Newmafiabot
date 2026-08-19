@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
-import { Button } from '../ui/Button.tsx';
+import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerClubActivity from './PlayerClubActivity.tsx';
 import PlayerClubConnections from './PlayerClubConnections.tsx';
 import PlayerClubDirectory from './PlayerClubDirectory.tsx';
 
 type ClubView = 'players' | 'activity' | 'connections';
 
-const NAV: Array<{ id: ClubView; label: string }> = [
-  { id: 'players', label: 'Игроки' },
-  { id: 'activity', label: 'Активность' },
-  { id: 'connections', label: 'Связи' },
+const NAV: Array<{ value: ClubView; label: string }> = [
+  { value: 'players', label: 'Игроки' },
+  { value: 'activity', label: 'Активность' },
+  { value: 'connections', label: 'Связи' },
 ];
 
 export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
@@ -27,31 +27,12 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
           </p>
         </header>
 
-        <nav
-          className="grid grid-cols-3 gap-1 rounded-[var(--ds-radius-lg)] border border-border bg-card p-1 shadow-[var(--ds-shadow-surface)]"
-          aria-label="Разделы клуба"
-        >
-          {NAV.map((item) => {
-            const active = view === item.id;
-            return (
-              <Button
-                key={item.id}
-                type="button"
-                size="md"
-                variant="ghost"
-                onClick={() => setView(item.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`min-w-0 px-2 text-xs ${active ? '' : 'text-muted-foreground'}`}
-                style={active ? {
-                  backgroundColor: 'var(--ds-foreground)',
-                  color: 'var(--ds-background)',
-                } : undefined}
-              >
-                {item.label}
-              </Button>
-            );
-          })}
-        </nav>
+        <SegmentedControl
+          ariaLabel="Разделы клуба"
+          value={view}
+          items={NAV}
+          onValueChange={setView}
+        />
 
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
         {view === 'activity' && <PlayerClubActivity />}

@@ -26,7 +26,7 @@ export function CardTitle({ className, ...props }: HeadingProps) {
   return (
     <h3
       data-slot="card-title"
-      className={cn('text-base font-bold leading-tight tracking-[-0.018em] text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-foreground', className)}
       {...props}
     />
   );

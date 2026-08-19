@@ -57,6 +57,15 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(contract.top).toBe('rgba(11, 12, 16, 0.92)');
     expect(contract.bottom).toBe('rgba(11, 12, 16, 0.95)');
 
+    const pageTitle = page.getByRole('heading', { name: 'Главная', exact: true });
+    const titleTypography = await pageTitle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fontSize: style.fontSize, fontWeight: style.fontWeight, letterSpacing: style.letterSpacing };
+    });
+    expect(titleTypography.fontSize).toBe('24px');
+    expect(titleTypography.fontWeight).toBe('600');
+    expect(titleTypography.letterSpacing).toBe('normal');
+
     const quickButtons = page.locator('[data-testid^="player-quick-"]');
     expect(await quickButtons.count()).toBe(2);
     const quickHeights = await quickButtons.evaluateAll((buttons) =>

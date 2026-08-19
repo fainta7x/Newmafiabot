@@ -31,7 +31,7 @@ export const CRMOverview = ({
   onCompleteTask,
   onRefresh,
 }: CRMOverviewProps) => (
-  <div className="space-y-4">
+  <div className="crm-overview-canonical space-y-4">
     <OrganizerCommandCenter
       overview={overview}
       onOpenEvening={onOpenEvening}

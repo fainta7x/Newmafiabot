@@ -71,7 +71,7 @@ Delivered scope:
 
 ### Stage 4 — Shared application shell
 
-**Status: complete when the Stage 4.3 PR containing this document is merged to `main`.** Stage 4 was intentionally split into short mergeable sub-stages.
+**Status: complete.** Stage 4 was intentionally split into short mergeable sub-stages.
 
 #### Stage 4.1 — Player shell chrome
 
@@ -103,7 +103,7 @@ Do not add `Textarea`, `Select` or other primitives merely for completeness. Add
 
 #### Stage 4.3 — Shared dialogs, sheets and repeated controls
 
-**Status: complete when the Stage 4.3 PR containing this document is merged to `main`.**
+**Status: complete.**
 
 Delivered scope:
 
@@ -117,7 +117,33 @@ Delivered scope:
 
 `ConfirmDialog` and `MobileSheet` compatibility files stay in place through Stage 5. Remove them only during Stage 6 after exact import/caller cleanup proves the wrappers are no longer needed.
 
-Do not widen 4.3 into a whole-application visual rewrite.
+### Stage 4.4 — Premium Noir visual direction
+
+**Status: complete when the Stage 4.4 PR containing this document is merged to `main`.**
+
+This pass exists because the first semantic migration improved consistency but made the product visually flatter than the earlier 2LA Noire UI. The design system must be technically disciplined **and** retain a distinctive premium character before Live Game adopts it.
+
+Delivered scope:
+
+- keep all existing Noir Cherry/Cyan/Violet/Emerald theme palettes and semantic intents;
+- give canonical surfaces restrained depth through fine top highlights, deeper black elevation and subtle accent reflection;
+- refine `Button`, `Card`, `Input`, `Badge` and `SegmentedControl` globally rather than restyling migrated screens one by one;
+- let Base UI-backed `Dialog` and `Sheet` inherit the raised premium surface automatically;
+- preserve readable touch geometry and Telegram-sized layouts while restoring visual hierarchy;
+- protect the premium treatment in the existing Club/Profile browser tests by asserting non-flat surface, control and elevation properties;
+- require screenshot review before merge.
+
+Visual direction:
+
+- **premium Noir, not generic dark SaaS**;
+- deep near-black surfaces with controlled layering rather than many equally gray boxes;
+- very fine light on the upper edge of raised objects to create material depth;
+- accent color used as a reflection / focused highlight, not as permanent neon everywhere;
+- primary actions may carry a restrained accent glow, but ordinary cards and navigation should not glow;
+- avoid glassmorphism for its own sake, loud gradients, thick borders, excessive blur and casino-like neon;
+- hierarchy should come from contrast, spacing, typography and elevation before decoration.
+
+Do not start Live Game migration until this visual direction has passed browser evidence and has been visually accepted as the base language.
 
 ### Stage 5 — Live Game
 

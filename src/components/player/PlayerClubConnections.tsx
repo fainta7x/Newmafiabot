@@ -37,21 +37,27 @@ function Avatar({ src, name, size = 36 }: { src?: string | null; name: string; s
 }
 
 function PersonRow({ item, kind }: { item: PersonRelationship; kind: 'rival' | 'mate' }) {
+  const tone = kind === 'rival'
+    ? 'border-rose-200/[0.07] bg-rose-300/[0.035]'
+    : 'border-emerald-200/[0.07] bg-emerald-300/[0.035]';
+  const valueTone = kind === 'rival' ? 'text-rose-100/85' : 'text-emerald-100/85';
+
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-black/15 p-2.5">
+    <div className={`flex items-center gap-3 rounded-2xl border p-2.5 ${tone}`}>
       <Avatar src={item.avatar_url} name={item.nickname} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold">{item.nickname}</div>
         <div className="mt-0.5 text-[10px] text-white/30">{kind === 'rival' ? 'встречались' : 'вместе'} {item.games} игр · {item.wins} побед</div>
       </div>
-      <div className="shrink-0 text-sm font-black text-white/75">{item.win_rate}%</div>
+      <div className={`shrink-0 text-sm font-semibold ${valueTone}`}>{item.win_rate}%</div>
     </div>
   );
 }
 
 function DuoRow({ duo }: { duo: ClubDuo }) {
+  const red = duo.team === 'red';
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-black/15 p-2.5">
+    <div className={`flex items-center gap-2 rounded-2xl border p-2.5 ${red ? 'border-rose-200/[0.07] bg-rose-300/[0.03]' : 'border-white/[0.06] bg-black/15'}`}>
       <div className="flex -space-x-2">
         <Avatar src={duo.a_avatar_url} name={duo.a_name} size={32} />
         <Avatar src={duo.b_avatar_url} name={duo.b_name} size={32} />
@@ -82,14 +88,14 @@ export default function PlayerClubConnections() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return <div className="rounded-[26px] border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-xs text-white/35">Считаем противостояния и связки…</div>;
-  if (error) return <div className="rounded-2xl bg-rose-400/10 px-3 py-4 text-xs text-rose-200/70">{error}</div>;
+  if (loading) return <div className="rounded-[24px] border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-xs text-white/35">Считаем противостояния и связки…</div>;
+  if (error) return <div className="rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-4 text-xs text-rose-100/75">{error}</div>;
   if (!data) return null;
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Противостояния</div>
+      <section data-testid="club-rivals" className="rounded-[24px] border border-rose-200/[0.08] bg-gradient-to-br from-rose-300/[0.045] to-white/[0.025] p-4">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-200/55">Противостояния</div>
         <h2 className="mt-1 text-lg font-semibold">С кем чаще пересекаешься</h2>
         <div className="mt-3 space-y-1.5">
           {data.rivals.slice(0, 6).map((item) => <PersonRow key={item.player_id} item={item} kind="rival" />)}
@@ -97,8 +103,8 @@ export default function PlayerClubConnections() {
         </div>
       </section>
 
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Напарники</div>
+      <section data-testid="club-teammates" className="rounded-[24px] border border-emerald-200/[0.08] bg-gradient-to-br from-emerald-300/[0.045] to-white/[0.025] p-4">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200/55">Напарники</div>
         <h2 className="mt-1 text-lg font-semibold">С кем хорошо играется вместе</h2>
         <div className="mt-3 space-y-1.5">
           {data.teammates.slice(0, 6).map((item) => <PersonRow key={item.player_id} item={item} kind="mate" />)}
@@ -106,8 +112,8 @@ export default function PlayerClubConnections() {
         </div>
       </section>
 
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Лучшие связки клуба</div>
+      <section data-testid="club-duos" className="rounded-[24px] border border-amber-200/[0.07] bg-gradient-to-br from-amber-200/[0.035] to-white/[0.02] p-4">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100/50">Лучшие связки клуба</div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
             <div className="mb-1.5 text-[10px] font-semibold text-rose-300/70">🔴 За красных</div>

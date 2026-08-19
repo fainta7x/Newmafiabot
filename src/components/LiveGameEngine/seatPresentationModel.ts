@@ -131,9 +131,11 @@ export const buildSeatVoteStatusPresentation = ({
     statusBg = 'bg-rose-950/20 border border-rose-500/25';
   }
 
+  // The seat number is already a large persistent locator in the footer.
+  // Voting state should only communicate the new information: target or no target.
   const statusText = target !== undefined
-    ? `#${slotNum}→#${target}${automatic ? '*' : ''}`
-    : `#${slotNum}→—`;
+    ? `→ #${target}${automatic ? '*' : ''}`
+    : '';
   const title = target !== undefined
     ? `Игрок #${slotNum} голосует за #${target}${automatic ? ' (автоматический остаток)' : ''}`
     : `Игрок #${slotNum} ещё не проголосовал`;

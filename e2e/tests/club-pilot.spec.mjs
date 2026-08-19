@@ -16,14 +16,24 @@ const expectNoHorizontalOverflow = async (page, label) => {
   expect.soft(metrics.body, `${label}: body overflow`).toBeLessThanOrEqual(metrics.viewport + 1);
 };
 
-test.describe('Stage 3 club pilot', () => {
-  test.use({ viewport: { width: 390, height: 620 } });
+test.describe('Player club cabinet migration', () => {
+  test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('keeps the club directory usable in a Telegram-sized viewport', async ({ page }, testInfo) => {
+  test('keeps directory behavior and gives connections the canonical semantic hierarchy', async ({ page }, testInfo) => {
     await page.goto('/e2e/club-pilot.html');
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty('--tg-viewport-stable-height', '620px');
+    await page.evaluate(async () => {
+      document.documentElement.style.setProperty('--tg-viewport-stable-height', '713px');
+      await document.fonts.ready;
     });
+
+    const heading = page.getByRole('heading', { name: 'Клуб', exact: true });
+    await expect(heading).toBeVisible();
+    const headingTreatment = await heading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fontSize: style.fontSize, fontWeight: style.fontWeight };
+    });
+    expect(headingTreatment.fontSize).toBe('24px');
+    expect(headingTreatment.fontWeight).toBe('600');
 
     const directory = page.getByTestId('club-directory');
     await expect(directory).toBeVisible();
@@ -94,7 +104,7 @@ test.describe('Stage 3 club pilot', () => {
     expect.soft(sheetBox.x, 'sheet left edge').toBeGreaterThanOrEqual(-1);
     expect.soft(sheetBox.x + sheetBox.width, 'sheet right edge').toBeLessThanOrEqual(391);
     expect.soft(sheetBox.y, 'sheet top edge').toBeGreaterThanOrEqual(-1);
-    expect.soft(sheetBox.y + sheetBox.height, 'sheet bottom edge').toBeLessThanOrEqual(621);
+    expect.soft(sheetBox.y + sheetBox.height, 'sheet bottom edge').toBeLessThanOrEqual(714);
 
     const sheetTreatment = await sheet.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -109,5 +119,25 @@ test.describe('Stage 3 club pilot', () => {
     await sheet.getByRole('button', { name: 'Закрыть' }).click();
     await expect(sheet).toBeHidden();
     await expect(page.getByTestId('club-player-p2')).toBeFocused();
+
+    await page.getByRole('button', { name: 'Связи', exact: true }).click();
+    const rivals = page.getByTestId('club-rivals');
+    const teammates = page.getByTestId('club-teammates');
+    const duos = page.getByTestId('club-duos');
+    await expect(rivals).toBeVisible();
+    await expect(teammates).toBeVisible();
+    await expect(duos).toBeVisible();
+    await expect(page.getByText('Матроскина', { exact: true })).toBeVisible();
+
+    const relationshipTreatments = await Promise.all([rivals, teammates, duos].map((locator) => locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundImage: style.backgroundImage, borderRadius: style.borderRadius };
+    })));
+    expect(relationshipTreatments.every((item) => item.backgroundImage.includes('linear-gradient'))).toBe(true);
+    expect(new Set(relationshipTreatments.map((item) => item.backgroundImage)).size).toBe(3);
+    expect(relationshipTreatments.map((item) => item.borderRadius)).toEqual(['24px', '24px', '24px']);
+
+    await expectNoHorizontalOverflow(page, 'club connections');
+    await attachViewport(page, testInfo, 'club-connections.png');
   });
 });

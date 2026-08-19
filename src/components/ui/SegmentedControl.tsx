@@ -28,7 +28,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       data-slot="segmented-control"
       className={cn(
-        'grid gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-surface)] p-1 shadow-[var(--ds-shadow-surface)]',
+        'ds-panel grid gap-1 rounded-[var(--ds-radius-lg)] p-1',
         className,
       )}
       style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}
@@ -44,11 +44,11 @@ export function SegmentedControl<T extends string>({
             disabled={item.disabled}
             aria-current={active ? 'page' : undefined}
             onClick={() => onValueChange(item.value)}
-            className={cn('min-w-0 px-2 text-xs', !active && 'text-muted-foreground', itemClassName)}
-            style={active ? {
-              backgroundColor: 'var(--ds-foreground)',
-              color: 'var(--ds-background)',
-            } : undefined}
+            className={cn(
+              'min-w-0 px-2 text-xs',
+              active ? 'ds-segmented-active' : 'text-muted-foreground',
+              itemClassName,
+            )}
           >
             <span className="truncate">{item.label}</span>
           </Button>

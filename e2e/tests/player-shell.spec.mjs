@@ -147,10 +147,29 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(await activeSegment.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
     expect(await activeSegment.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(9, 10, 13)');
 
+    const segmentHeights = await segmented.locator('button').evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().height),
+    );
+    expect(segmentHeights).toEqual([40, 40, 40, 40]);
+
     const segmentLabelsClipped = await segmented.locator('button > span').evaluateAll((labels) =>
       labels.map((label) => label.scrollWidth > label.clientWidth + 1),
     );
     expect(segmentLabelsClipped).toEqual([false, false, false, false]);
+
+    const historyFilter = page.getByLabel('Фильтр истории');
+    const historyFilterTreatment = await historyFilter.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { borderWidth: style.borderTopWidth, background: style.backgroundColor };
+    });
+    expect(historyFilterTreatment.borderWidth).toBe('0px');
+    expect(historyFilterTreatment.background).toMatch(/^rgba\(255, 255, 255,/);
+    expect(rgbaAlpha(historyFilterTreatment.background)).toBeGreaterThanOrEqual(0.042);
+    expect(rgbaAlpha(historyFilterTreatment.background)).toBeLessThanOrEqual(0.046);
+
+    const historyCard = page.getByTestId('canonical-history-card');
+    expect(await historyCard.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
+
     await expectNoHorizontalOverflow(page, 'games shell');
     await attachViewport(page, testInfo, 'player-cabinet-canonical-games.png');
 

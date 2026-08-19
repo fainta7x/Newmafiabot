@@ -11,9 +11,6 @@
 :root,
 [data-theme] {
   --ds-background: var(--app-bg);
-  --ds-surface: var(--surface-1);
-  --ds-surface-raised: var(--surface-2);
-  --ds-surface-hover: var(--surface-hover);
 
   --ds-foreground: var(--text-primary);
   --ds-muted-foreground: var(--text-secondary);
@@ -45,6 +42,12 @@
   --ds-border-strong: color-mix(in srgb, var(--ds-foreground) 16%, transparent);
   --ds-focus-ring: var(--accent);
   --ds-chrome: color-mix(in srgb, var(--ds-background) 92%, transparent);
+
+  /* Legacy semantic aliases now resolve to the same light material system so
+     already-migrated sections do not become opaque gray cards. */
+  --ds-surface: var(--ds-panel);
+  --ds-surface-raised: var(--ds-panel-raised);
+  --ds-surface-hover: var(--ds-panel-hover);
 
   --ds-radius-sm: 12px;
   --ds-radius-md: 16px;

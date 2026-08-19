@@ -8,11 +8,11 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  neutral: 'border-border bg-secondary text-muted-foreground',
-  accent: 'border-primary/25 bg-[var(--ds-primary-soft)] text-primary',
-  success: 'border-[color:var(--ds-success)]/25 bg-[var(--ds-success-soft)] text-[var(--ds-success)]',
-  warning: 'border-[color:var(--ds-warning)]/25 bg-[var(--ds-warning-soft)] text-[var(--ds-warning)]',
-  danger: 'border-[color:var(--ds-danger)]/25 bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]',
+  neutral: 'border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-muted-foreground',
+  accent: 'border-[var(--ds-border-strong)] bg-[var(--ds-primary-soft)] text-[var(--ds-primary)]',
+  success: 'border-[var(--ds-border-strong)] bg-[var(--ds-success-soft)] text-[var(--ds-success)]',
+  warning: 'border-[var(--ds-border-strong)] bg-[var(--ds-warning-soft)] text-[var(--ds-warning)]',
+  danger: 'border-[var(--ds-border-strong)] bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]',
 };
 
 export function Badge({ variant = 'neutral', className, ...props }: BadgeProps) {
@@ -20,7 +20,7 @@ export function Badge({ variant = 'neutral', className, ...props }: BadgeProps) 
     <span
       data-slot="badge"
       className={cn(
-        'inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-4',
+        'ds-badge inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-4 tracking-[-0.01em]',
         variantClasses[variant],
         className,
       )}

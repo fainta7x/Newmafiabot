@@ -2,9 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 
 type DivProps = HTMLAttributes<HTMLDivElement>;
-
 type HeadingProps = HTMLAttributes<HTMLHeadingElement>;
-
 type ParagraphProps = HTMLAttributes<HTMLParagraphElement>;
 
 export function Card({ className, ...props }: DivProps) {
@@ -12,7 +10,7 @@ export function Card({ className, ...props }: DivProps) {
     <div
       data-slot="card"
       className={cn(
-        'rounded-[var(--ds-radius-lg)] border border-border bg-card text-card-foreground shadow-[var(--ds-shadow-surface)]',
+        'ds-panel rounded-[var(--ds-radius-lg)] text-card-foreground',
         className,
       )}
       {...props}
@@ -28,7 +26,7 @@ export function CardTitle({ className, ...props }: HeadingProps) {
   return (
     <h3
       data-slot="card-title"
-      className={cn('text-base font-bold leading-tight tracking-[-0.01em] text-foreground', className)}
+      className={cn('text-base font-bold leading-tight tracking-[-0.018em] text-foreground', className)}
       {...props}
     />
   );
@@ -52,7 +50,7 @@ export function CardFooter({ className, ...props }: DivProps) {
   return (
     <div
       data-slot="card-footer"
-      className={cn('flex items-center gap-2 border-t border-border px-4 py-3', className)}
+      className={cn('flex items-center gap-2 border-t border-[var(--ds-border)] px-4 py-3', className)}
       {...props}
     />
   );

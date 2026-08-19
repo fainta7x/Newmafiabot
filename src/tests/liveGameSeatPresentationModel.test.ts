@@ -72,8 +72,17 @@ describe('Live Game seat presentation model', () => {
 
     expect(resolveSeatContainerClass({ ...voting, votesByPlayer: { 3: 4 } })).toContain('border-rose-500');
     expect(resolveSeatContainerClass({ ...voting, votesByPlayer: { 3: 8 } })).toContain('opacity-60');
-    expect(resolveSeatContainerClass({ ...voting, currentVotingNomineeIndex: 1, votesByPlayer: {} })).toContain('border-rose-500');
-    expect(resolveSeatContainerClass({ ...voting, currentVotingNomineeIndex: 1, votesByPlayer: undefined })).toBe('border-slate-800 bg-slate-900/50 hover:border-slate-600');
+
+    // Mandatory last-candidate remainder belongs to an ordinary voter seat.
+    // Keep this assertion away from the current nominee itself because nominee
+    // highlighting intentionally has a higher visual priority than vote state.
+    const ordinaryVoterOnLastCandidate = {
+      ...voting,
+      slotNum: 2,
+      currentVotingNomineeIndex: 1,
+    };
+    expect(resolveSeatContainerClass({ ...ordinaryVoterOnLastCandidate, votesByPlayer: {} })).toContain('border-rose-500');
+    expect(resolveSeatContainerClass({ ...ordinaryVoterOnLastCandidate, votesByPlayer: undefined })).toBe('border-slate-800 bg-slate-900/50 hover:border-slate-600');
   });
 
   it('keeps nomination and best-move highlighting behind higher-priority states', () => {

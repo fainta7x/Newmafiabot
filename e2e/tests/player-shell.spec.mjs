@@ -37,6 +37,17 @@ test.describe('Stage 4 shared player shell', () => {
     await expectInsideViewport(page, bottomNav, 'bottom navigation');
     await expectNoHorizontalOverflow(page, 'shared shell');
 
+    const chromeBackgrounds = await page.evaluate(() => {
+      const top = document.querySelector('[data-testid="player-top-bar"]');
+      const bottom = document.querySelector('[data-testid="player-bottom-nav"]');
+      return {
+        top: top ? getComputedStyle(top).backgroundColor : '',
+        bottom: bottom ? getComputedStyle(bottom).backgroundColor : '',
+      };
+    });
+    expect(chromeBackgrounds.top).not.toBe('rgba(0, 0, 0, 0)');
+    expect(chromeBackgrounds.bottom).not.toBe('rgba(0, 0, 0, 0)');
+
     const quickButtons = page.locator('[data-testid^="player-quick-"]');
     expect(await quickButtons.count()).toBe(2);
     const quickHeights = await quickButtons.evaluateAll((buttons) =>

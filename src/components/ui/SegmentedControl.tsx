@@ -28,7 +28,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       data-slot="segmented-control"
       className={cn(
-        'ds-panel grid gap-1 rounded-[var(--ds-radius-lg)] p-1',
+        'grid gap-1 rounded-[var(--ds-radius-md)] bg-[var(--ds-panel)] p-1',
         className,
       )}
       style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}
@@ -45,7 +45,7 @@ export function SegmentedControl<T extends string>({
             aria-current={active ? 'page' : undefined}
             onClick={() => onValueChange(item.value)}
             className={cn(
-              'min-w-0 px-2 text-xs',
+              'min-w-0 rounded-[var(--ds-radius-sm)] px-2 text-[11px] font-semibold',
               active ? 'ds-segmented-active' : 'text-muted-foreground',
               itemClassName,
             )}

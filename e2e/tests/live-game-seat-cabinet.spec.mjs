@@ -101,7 +101,9 @@ test.describe('Live Game seat cabinet', () => {
       return { background: style.backgroundColor, radius: style.borderTopLeftRadius, border: style.borderTopColor };
     });
     expect(sheetTreatment.background).toBe('rgb(18, 19, 24)');
-    expect(sheetTreatment.radius).toBe('24px');
+    // Telegram's host adapter owns the compact mobile-sheet geometry. Stage 4.2
+    // changes the material/palette, not that already-stable radius.
+    expect(sheetTreatment.radius).toBe('18px');
     expect(sheetTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
 
     const actionButtons = sheet.locator(':scope > .grid.grid-cols-2 > button');

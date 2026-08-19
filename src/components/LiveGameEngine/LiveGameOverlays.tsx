@@ -37,20 +37,20 @@ export function DisciplineConfirmationOverlay({ pending, player, onCancel, onCon
   const copy = dangerousActionCopy(pending.action);
 
   return (
-    <div className="fixed inset-0 z-[126] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="live-discipline-confirmation w-full max-w-md rounded-3xl border bg-slate-900 shadow-2xl p-5 space-y-4">
+    <div className="fixed inset-0 z-[126] flex items-center justify-center bg-black/78 p-4 backdrop-blur-md">
+      <div data-testid="live-discipline-confirmation" className="live-discipline-confirmation w-full max-w-md space-y-4 rounded-[24px] border border-white/10 bg-[#121318] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-rose-400">Требуется подтверждение</div>
-          <h3 className="text-lg font-black text-white mt-1">{copy.title}</h3>
-          <p className="text-sm font-bold text-slate-200 mt-2">#{pending.slot} · {player?.nickname || 'Игрок'}</p>
-          <p className="text-xs text-slate-400 mt-2 leading-relaxed">{copy.description}</p>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-200/65">Требуется подтверждение</div>
+          <h3 className="mt-1 text-lg font-semibold text-white">{copy.title}</h3>
+          <p className="mt-2 text-sm font-semibold text-white/72">#{pending.slot} · {player?.nickname || 'Игрок'}</p>
+          <p className="mt-2 text-xs leading-relaxed text-white/38">{copy.description}</p>
         </div>
-        <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 px-3 py-2 text-[11px] text-amber-200">
+        <div className="rounded-2xl border border-amber-200/10 bg-amber-200/[0.06] px-3 py-2 text-[11px] text-amber-50/62">
           Действие будет применено только после подтверждения.
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={onCancel} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black">Отмена</button>
-          <button type="button" onClick={onConfirm} className="min-h-12 rounded-xl bg-rose-600 border border-rose-500 text-white text-xs font-black uppercase tracking-wide">{copy.confirmLabel}</button>
+          <button type="button" onClick={onCancel} className="min-h-12 rounded-2xl border border-white/[0.07] bg-black/20 text-xs font-semibold text-white/52">Отмена</button>
+          <button type="button" onClick={onConfirm} className="min-h-12 rounded-2xl border border-rose-200/14 bg-rose-300/[0.10] text-xs font-semibold text-rose-50/82">{copy.confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -163,28 +163,28 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
   if (!source || slot === null) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl">
-        <div className="text-center space-y-1.5">
-          <div className="text-[10px] uppercase font-black text-amber-400">{source === 'first_killed' ? 'Первый убитый' : 'Заголосован на нулевом круге'}</div>
-          <h2 className="text-xl font-black text-white">Протокол ЛХ</h2>
-          <p className="text-sm text-slate-300 font-bold">Игрок #{slot} · {nickname || 'Игрок'}</p>
-          <p className="text-xs text-slate-500">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/82 p-4 backdrop-blur-md">
+      <div data-testid="live-best-move-sheet" className="w-full max-w-2xl space-y-5 rounded-[24px] border border-white/10 bg-[#121318] p-6 shadow-[0_24px_72px_rgba(0,0,0,0.58)]">
+        <div className="space-y-1.5 text-center">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200/62">{source === 'first_killed' ? 'Первый убитый' : 'Заголосован на нулевом круге'}</div>
+          <h2 className="text-xl font-semibold text-white">Протокол ЛХ</h2>
+          <p className="text-sm font-semibold text-white/60">Игрок #{slot} · {nickname || 'Игрок'}</p>
+          <p className="text-xs text-white/30">Выберите до трёх номеров. Порядок выбора сохраняется.</p>
         </div>
-        <div className="grid grid-cols-5 gap-2 max-w-md mx-auto">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-2">
           {Array.from({ length: 10 }, (_, index) => index + 1).map((seat) => {
             const order = pendingSeats.indexOf(seat);
             return (
-              <button key={seat} type="button" onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number h-14 rounded-xl border font-mono font-black relative ${order >= 0 ? 'ring-2 ring-white/70' : 'opacity-70'}`} data-seat={seat}>
+              <button key={seat} type="button" onClick={() => onToggleSeat(seat)} className={`live-seat-mini-number relative h-14 rounded-xl border font-mono font-bold transition-opacity ${order >= 0 ? 'ring-2 ring-white/55' : 'opacity-60'}`} data-seat={seat}>
                 {seat}
-                {order >= 0 && <span className="absolute top-1 right-1 text-[9px] rounded-full bg-white text-slate-950 w-4 h-4 flex items-center justify-center">{order + 1}</span>}
+                {order >= 0 && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[9px] font-bold text-[#090a0d]">{order + 1}</span>}
               </button>
             );
           })}
         </div>
-        <div className="flex gap-2 justify-center">
-          <button type="button" onClick={onReset} className="px-5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Сбросить</button>
-          <button type="button" onClick={onConfirm} className="px-6 py-2 rounded-xl bg-white text-slate-950 text-xs font-black">Подтвердить протокол</button>
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={onReset} className="min-h-11 rounded-2xl border border-white/[0.07] bg-black/20 px-5 text-xs font-semibold text-white/46">Сбросить</button>
+          <button type="button" onClick={onConfirm} className="min-h-11 rounded-2xl bg-white px-6 text-xs font-semibold text-[#090a0d]">Подтвердить протокол</button>
         </div>
       </div>
     </div>
@@ -194,7 +194,14 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
 export function LiveGameToast({ toast }: { toast: { message: string; type: "error" | "warning" | "success" | "info" } | null }) {
   if (!toast) return null;
   if (toast.type === 'success' && /^#\d+ выставлен \d+-м на речи #\d+$/.test(toast.message)) return null;
-  return <div className={`fixed bottom-4 right-4 z-[130] px-4 py-2.5 rounded-xl border shadow-2xl text-xs font-bold ${toast.type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-300' : toast.type === 'warning' ? 'bg-amber-950 border-amber-500 text-amber-300' : toast.type === 'success' ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>{toast.message}</div>;
+  const tone = toast.type === 'error'
+    ? 'border-rose-200/14 bg-rose-300/[0.10] text-rose-50/82'
+    : toast.type === 'warning'
+      ? 'border-amber-200/14 bg-amber-200/[0.10] text-amber-50/82'
+      : toast.type === 'success'
+        ? 'border-emerald-200/14 bg-emerald-300/[0.10] text-emerald-50/82'
+        : 'border-white/10 bg-[#15161a] text-white/68';
+  return <div className={`fixed bottom-4 right-4 z-[130] rounded-2xl border px-4 py-2.5 text-xs font-semibold shadow-[0_16px_48px_rgba(0,0,0,0.42)] ${tone}`}>{toast.message}</div>;
 }
 
 interface RestorableSessionBannerProps {
@@ -207,11 +214,11 @@ interface RestorableSessionBannerProps {
 export function RestorableSessionBanner({ visible, savedAt, onRestore, onDiscard }: RestorableSessionBannerProps) {
   if (!visible) return null;
   return (
-    <div className="bg-amber-950/70 border border-amber-500/50 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3 text-xs text-amber-200">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-amber-200/12 bg-amber-200/[0.07] p-4 text-xs text-amber-50/68">
       <span>Найдена незавершённая игра · {savedAt || 'недавно'}</span>
       <div className="flex gap-2">
-        <button type="button" onClick={onRestore} className="px-3 py-2 rounded-xl bg-emerald-600 text-white font-black">Восстановить</button>
-        <button type="button" onClick={onDiscard} className="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold">Сбросить</button>
+        <button type="button" onClick={onRestore} className="min-h-10 rounded-xl bg-white px-3 text-xs font-semibold text-[#090a0d]">Восстановить</button>
+        <button type="button" onClick={onDiscard} className="min-h-10 rounded-xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/46">Сбросить</button>
       </div>
     </div>
   );

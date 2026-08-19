@@ -113,31 +113,31 @@ export default function EventsPanel({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 gap-3">
       <button
         type="button"
+        data-testid="live-state-button"
         onClick={() => setStateOpen(true)}
-        className="fixed top-[3px] right-[74px] md:top-[6px] md:right-[92px] z-[111] h-7 md:h-9 px-2.5 md:px-3 rounded-lg md:rounded-xl border border-amber-800/60 bg-amber-950/80 text-amber-200 shadow-lg backdrop-blur flex items-center gap-1.5 text-[9px] md:text-[10px] font-black"
+        className="fixed right-[74px] top-[3px] z-[111] grid h-7 w-7 place-items-center rounded-lg border border-amber-200/15 bg-amber-200/[0.08] text-amber-100/75 shadow-none backdrop-blur md:right-[92px] md:top-[6px] md:flex md:h-9 md:w-auto md:px-3 md:gap-1.5 md:rounded-xl md:text-[10px] md:font-semibold"
         title="Текущее состояние игры"
         aria-label="Текущее состояние игры"
       >
-        <ClipboardList className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        <span className="md:hidden">Состояние</span>
-        <span className="hidden md:inline">Текущее состояние игры</span>
+        <ClipboardList className="h-3.5 w-3.5 md:h-4 md:w-4" />
+        <span className="hidden md:inline">Состояние</span>
       </button>
 
       <LiveGameStateSheet open={stateOpen} onClose={() => setStateOpen(false)} />
 
-      <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
-        <div className="flex flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider">События и Проверки</h3>
-            <div className="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+      <section data-testid="live-events-panel" className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События и проверки</h3>
+            <div data-testid="live-events-filters" className="flex rounded-xl border border-white/[0.07] bg-black/20 p-0.5 text-[9px] font-semibold">
               <button
                 type="button"
                 onClick={() => setFilter("all")}
-                className={`px-2 py-0.5 rounded ${
-                  filter === "all" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-slate-200"
+                className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  filter === "all" ? "bg-white text-[#090a0d]" : "text-white/38 active:bg-white/[0.06]"
                 }`}
               >
                 Все ({nightLogs.length})
@@ -145,8 +145,8 @@ export default function EventsPanel({
               <button
                 type="button"
                 onClick={() => setFilter("day")}
-                className={`px-2 py-0.5 rounded ${
-                  filter === "day" ? "bg-amber-950 text-amber-300 border border-amber-800/40" : "text-slate-400 hover:text-slate-200"
+                className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  filter === "day" ? "border border-amber-200/15 bg-amber-200/[0.10] text-amber-100" : "text-white/38 active:bg-white/[0.06]"
                 }`}
               >
                 Дни
@@ -154,8 +154,8 @@ export default function EventsPanel({
               <button
                 type="button"
                 onClick={() => setFilter("night")}
-                className={`px-2 py-0.5 rounded ${
-                  filter === "night" ? "bg-purple-950 text-purple-300 border border-purple-800/40" : "text-slate-400 hover:text-slate-200"
+                className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  filter === "night" ? "border border-violet-200/15 bg-violet-300/[0.10] text-violet-100" : "text-white/38 active:bg-white/[0.06]"
                 }`}
               >
                 Ночи
@@ -168,7 +168,7 @@ export default function EventsPanel({
               <button
                 type="button"
                 onClick={onUndoLastLog}
-                className="px-2 py-1 text-[10px] font-bold rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 transition-all cursor-pointer flex items-center gap-1 shadow"
+                className="flex min-h-8 items-center gap-1 rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2.5 text-[9px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
                 title="Отменить последнее зафиксированное событие"
               >
                 <span>↩ Отменить</span>
@@ -176,26 +176,28 @@ export default function EventsPanel({
             )}
 
             <button
+              type="button"
+              data-testid="live-copy-protocol"
               onClick={handleCopyTelegramProtocol}
-              className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="flex min-h-8 items-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[9px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
               title="Скопировать протокол в формате Telegram Markdown"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Скопировано!</span>
+                  <Check className="h-3.5 w-3.5 text-emerald-300" />
+                  <span className="text-emerald-200">Скопировано</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Протокол в Telegram</span>
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>Telegram</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-[10px] font-mono text-slate-400">
+        <div data-testid="live-events-log" className="max-h-36 space-y-1 overflow-y-auto rounded-2xl bg-black/20 px-3 py-2.5 pr-2 text-[10px] font-mono text-white/42">
           {filteredLogs.map((log, idx) => {
             const isDay = log.log.startsWith("Д");
             const isNight = log.log.startsWith("Н");
@@ -205,30 +207,32 @@ export default function EventsPanel({
                 const prefix = log.log.substring(0, colonIndex);
                 const rest = log.log.substring(colonIndex + 1);
                 return (
-                  <div key={idx} className="border-b border-slate-850/40 pb-1">
-                    <span className={`${isDay ? "text-amber-500" : "text-purple-400"} font-bold`}>{prefix}:</span>{rest}
+                  <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
+                    <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{rest}
                   </div>
                 );
               }
             }
             return (
-              <div key={idx} className="border-b border-slate-850/40 pb-1">
-                <span className="text-rose-500 font-bold">Н{log.round}:</span> {log.log}
+              <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
+                <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {log.log}
               </div>
             );
           })}
-          {filteredLogs.length === 0 && <span className="italic text-slate-500 block">Событий по выбранному фильтру не зафиксировано...</span>}
+          {filteredLogs.length === 0 && <span className="block py-1 text-white/25">Событий по выбранному фильтру пока нет.</span>}
         </div>
-        <div className="space-y-1 pt-1.5 border-t border-slate-800/40">
+
+        <div className="border-t border-white/[0.06] pt-2">
           <textarea
+            data-testid="live-protocol-notes"
             placeholder="Свободные примечания ведущего к протоколу..."
             value={protocolNotes}
             onChange={(e) => setProtocolNotes(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none"
+            className="min-h-11 w-full resize-none rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5 text-xs text-white/72 outline-none placeholder:text-white/24 focus:border-white/16"
             rows={1}
           />
         </div>
-      </div>
+      </section>
     </div>
   );
 }

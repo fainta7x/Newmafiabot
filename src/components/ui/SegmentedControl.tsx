@@ -41,8 +41,9 @@ export function SegmentedControl<T extends string>({
             disabled={item.disabled}
             aria-current={active ? 'page' : undefined}
             onClick={() => onValueChange(item.value)}
+            style={{ paddingInline: '4px' }}
             className={cn(
-              'min-w-0 rounded-xl px-1 text-[11px] font-semibold',
+              'min-w-0 rounded-xl text-[11px] font-semibold',
               active ? 'ds-segmented-active' : 'text-white/42 active:bg-white/[0.05]',
               itemClassName,
             )}

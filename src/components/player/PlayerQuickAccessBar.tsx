@@ -32,7 +32,7 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenWallet}
             aria-label="Открыть кошелёк"
             aria-pressed={active === 'wallet'}
-            className={`ds-focus-ring flex min-h-10 items-center gap-1.5 rounded-[var(--ds-radius-md)] border px-2.5 text-xs font-semibold tabular-nums transition-colors ${
+            className={`ds-focus-ring flex min-h-[var(--ds-touch-min)] items-center gap-1.5 rounded-[var(--ds-radius-md)] border px-2.5 text-xs font-semibold tabular-nums transition-colors ${
               active === 'wallet'
                 ? 'border-[var(--ds-border-strong)] bg-[var(--ds-panel-active)] text-foreground'
                 : 'border-[var(--ds-border)] bg-[var(--ds-panel)] text-muted-foreground hover:bg-[var(--ds-panel-hover)] hover:text-foreground'
@@ -48,7 +48,7 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenProfile}
             aria-label="Открыть профиль"
             aria-pressed={active === 'profile'}
-            className={`ds-focus-ring grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[var(--ds-radius-md)] border transition-colors ${
+            className={`ds-focus-ring grid h-[var(--ds-touch-min)] w-[var(--ds-touch-min)] shrink-0 place-items-center overflow-hidden rounded-[var(--ds-radius-md)] border transition-colors ${
               active === 'profile'
                 ? 'border-[var(--ds-border-strong)] bg-[var(--ds-panel-active)]'
                 : 'border-[var(--ds-border)] bg-[var(--ds-panel)] hover:bg-[var(--ds-panel-hover)]'

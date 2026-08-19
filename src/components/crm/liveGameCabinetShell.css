@@ -323,3 +323,34 @@
     font-size: 8px;
   }
 }
+
+/* Stage 4.4.1 — center hierarchy cleanup.
+ *
+ * During day speeches the same nomination state used to be rendered twice:
+ * once in the body as a chip and again in the footer. The table itself also
+ * already communicates alive/dead state, so the permanent "Живых" counter was
+ * redundant. Keep a single compact nomination readout in the footer and let the
+ * center body focus on the current speaker/timer/decision.
+ */
+.evening-live-engine-shell .live-judge-hud__body .live-judge-hud__stack:has(> .live-judge-hud__eyebrow) > .live-judge-hud__meta {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__summary {
+  display: flex;
+  min-height: 14px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  font-size: 7.5px;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.evening-live-engine-shell .live-judge-hud__summary > span:last-child {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__footer:has(.live-judge-hud__footer-actions) .live-judge-hud__summary {
+  margin-bottom: 2px;
+}

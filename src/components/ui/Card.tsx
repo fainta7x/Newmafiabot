@@ -9,7 +9,7 @@ export function Card({ className, ...props }: DivProps) {
   return (
     <div
       data-slot="card"
-      className={cn('ds-panel rounded-[var(--ds-radius-xl)] text-white', className)}
+      className={cn('ds-panel rounded-[var(--ds-radius-lg)] text-white', className)}
       {...props}
     />
   );

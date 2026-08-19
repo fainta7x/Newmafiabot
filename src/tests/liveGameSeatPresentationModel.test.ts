@@ -82,7 +82,7 @@ describe('Live Game seat presentation model', () => {
     expect(resolveSeatContainerClass(baseBorderInput())).toContain('border-slate-800/80');
   });
 
-  it('shows an unassigned mandatory vote on the last candidate without changing explicit votes', () => {
+  it('shows an unassigned mandatory vote on the last candidate without repeating the voter number', () => {
     const automatic = buildSeatVoteStatusPresentation({
       slotNum: 3,
       activeNomineeSlot: 8,
@@ -93,7 +93,7 @@ describe('Live Game seat presentation model', () => {
       target: 8,
       automatic: true,
       hasVotedOther: false,
-      statusText: '#3→#8*',
+      statusText: '→ #8*',
     });
     expect(automatic.title).toContain('автоматический остаток');
 
@@ -107,12 +107,12 @@ describe('Live Game seat presentation model', () => {
       target: 4,
       automatic: false,
       hasVotedOther: true,
-      statusText: '#3→#4',
+      statusText: '→ #4',
       statusColor: 'text-slate-500',
     });
   });
 
-  it('leaves an unassigned voter blank before the last candidate', () => {
+  it('leaves an unassigned voter visually blank before the last candidate', () => {
     expect(buildSeatVoteStatusPresentation({
       slotNum: 3,
       activeNomineeSlot: 4,
@@ -121,7 +121,7 @@ describe('Live Game seat presentation model', () => {
     })).toMatchObject({
       target: undefined,
       automatic: false,
-      statusText: '#3→—',
+      statusText: '',
       statusBg: 'bg-slate-950/40',
     });
   });

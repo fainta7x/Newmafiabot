@@ -39,9 +39,9 @@ export function FieldMessage({
 }) {
   const toneClass =
     tone === 'error'
-      ? 'border-[var(--ds-danger)]/25 bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]'
+      ? 'border-[var(--ds-border-strong)] bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]'
       : tone === 'success'
-        ? 'border-[var(--ds-success)]/25 bg-[var(--ds-success-soft)] text-[var(--ds-success)]'
+        ? 'border-[var(--ds-border-strong)] bg-[var(--ds-success-soft)] text-[var(--ds-success)]'
         : 'border-border bg-secondary text-muted-foreground';
 
   return (

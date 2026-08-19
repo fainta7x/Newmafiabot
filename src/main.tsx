@@ -6,6 +6,7 @@ import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtoco
 import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDisciplineGlyphBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
+import "./styles/design-system.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
 import "./components/crm/liveGameTelegram.css";

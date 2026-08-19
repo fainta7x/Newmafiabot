@@ -46,7 +46,9 @@ The user's production Telegram WebApp screenshots of **Главная** and **И
 
 ### Typography
 
-Use the same platform/system font behaviour as the approved player cabinet. Hierarchy is created mostly with size, weight, opacity and spacing — not decorative fonts.
+The approved Android Telegram screenshots render the app's system sans as **Roboto**. `font-sans` is therefore pinned to `Roboto` first, with platform/system fallbacks only if Roboto is unavailable. Do not replace this with a generic `system-ui` definition: it produces visibly different letterforms on Linux/desktop and makes the same UI feel heavier and wider.
+
+Hierarchy is created mostly with size, weight, opacity and spacing — not decorative fonts.
 
 - page title: about `24px`, `font-semibold`;
 - normal content title: `font-semibold`, not blanket `font-bold`;
@@ -54,7 +56,7 @@ Use the same platform/system font behaviour as the approved player cabinet. Hier
 - section eyebrow: about `10px`, `font-semibold`, uppercase, tracking around `0.16–0.18em`;
 - avoid unnecessary negative letter-spacing and excessive uppercase.
 
-Browser evidence must render with the same `font-sans antialiased` body treatment as production and should use an Android-like device pixel ratio when visually comparing against the approved phone screenshots. Do not judge typography from a DPR-1 CI screenshot as if it were the production phone rendering.
+Browser evidence must render with the same `font-sans antialiased` body treatment as production, wait for fonts to be ready, and use an Android-like device pixel ratio when visually comparing against the approved phone screenshots. The approved production screenshot corresponds to roughly `390 CSS px` width, `713 CSS px` Telegram webview height and DPR `2.4`; use that geometry for fidelity evidence rather than the old artificial `390×620 @ DPR 1` preview.
 
 ### Depth
 
@@ -76,7 +78,8 @@ Do not reintroduce:
 - a different visual language for Live Game;
 - arbitrary new radii, shadows or z-index values per screen;
 - Cherry as the fill for every primary action;
-- accessibility-driven visible-size inflation that changes an already approved reference control without a product reason.
+- accessibility-driven visible-size inflation that changes an already approved reference control without a product reason;
+- replacing Roboto with another global UI font merely to make a browser screenshot look fashionable.
 
 ## Technical stack
 

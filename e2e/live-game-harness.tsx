@@ -15,6 +15,7 @@ import '../src/components/crm/liveGameJudge.css';
 import '../src/components/crm/liveGameCabinetShell.css';
 import '../src/components/crm/liveGameSeatCabinet.css';
 import '../src/components/crm/liveGameActionPriority.css';
+import '../src/components/crm/liveGameNightReadability.css';
 import '../src/components/crm/liveGameTelegram.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';

@@ -6,6 +6,9 @@ import PlayerJudging, { loadPlayerJudgingDashboard, type PlayerJudgingDashboard 
 import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
 import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
+import { Button } from '../ui/Button.tsx';
+import { Field, FieldDescription, FieldLabel, FieldMessage } from '../ui/Field.tsx';
+import { Input } from '../ui/Input.tsx';
 
 type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
 type Player = PlayerMeResponse['player'] & { phone?: string | null; club_role?: ClubRole | null };
@@ -175,17 +178,32 @@ export default function PlayerProfileSettings({
         <p className="mt-3 text-xs leading-5 text-white/30">Фото автоматически обрежется в квадрат и подготовится для профиля.</p>
       </section>
 
-      <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Личные данные</div>
+      <section data-testid="profile-personal-data" className="rounded-[var(--ds-radius-lg)] border border-border bg-[var(--ds-surface)] p-4">
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Личные данные</div>
         <div className="mt-3 space-y-3">
-          <label className="block"><span className="mb-1.5 block text-xs text-white/40">Игровой ник</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-white/25" /></label>
-          <label className="block"><span className="mb-1.5 block text-xs text-white/40">Имя</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} maxLength={120} placeholder="Можно не указывать" className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-white/25" /></label>
-          <label className="block"><span className="mb-1.5 block text-xs text-white/40">Телефон</span><input value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} inputMode="tel" placeholder="Можно не указывать" className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-white/25" /></label>
-          <div className="rounded-2xl bg-black/20 px-4 py-3"><div className="text-xs text-white/35">Telegram</div><div className="mt-1 text-sm text-white/70">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Привязан через Telegram'}</div><div className="mt-1 text-[11px] leading-4 text-white/25">Telegram-привязка системная и вручную здесь не меняется.</div></div>
+          <Field>
+            <FieldLabel htmlFor="profile-nickname">Игровой ник</FieldLabel>
+            <Input id="profile-nickname" data-testid="profile-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={60} autoComplete="nickname" />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="profile-full-name">Имя</FieldLabel>
+            <Input id="profile-full-name" data-testid="profile-full-name" value={fullName} onChange={(event) => setFullName(event.target.value)} maxLength={120} placeholder="Можно не указывать" autoComplete="name" />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="profile-phone">Телефон</FieldLabel>
+            <Input id="profile-phone" data-testid="profile-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} inputMode="tel" type="tel" placeholder="Можно не указывать" autoComplete="tel" />
+          </Field>
+          <div className="rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)] px-3.5 py-3">
+            <div className="text-xs font-semibold text-muted-foreground">Telegram</div>
+            <div className="mt-1 text-sm text-foreground">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Привязан через Telegram'}</div>
+            <FieldDescription className="mt-1">Telegram-привязка системная и вручную здесь не меняется.</FieldDescription>
+          </div>
         </div>
-        {error && <p className="mt-3 rounded-2xl bg-rose-400/[0.07] px-3 py-3 text-sm text-rose-100/75">{error}</p>}
-        {message && <p className="mt-3 rounded-2xl bg-emerald-400/[0.07] px-3 py-3 text-sm text-emerald-100/75">{message}</p>}
-        <button type="button" disabled={saving} onClick={() => void saveProfile()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-50">{saving ? 'Сохраняем…' : 'Сохранить изменения'}</button>
+        {error && <FieldMessage className="mt-3" tone="error" data-testid="profile-form-message">{error}</FieldMessage>}
+        {message && <FieldMessage className="mt-3" tone="success" data-testid="profile-form-message">{message}</FieldMessage>}
+        <Button data-testid="profile-save" type="button" size="lg" disabled={saving} onClick={() => void saveProfile()} className="mt-4 w-full">
+          {saving ? 'Сохраняем…' : 'Сохранить изменения'}
+        </Button>
       </section>
 
       {canJudgeClubGame && judging && (

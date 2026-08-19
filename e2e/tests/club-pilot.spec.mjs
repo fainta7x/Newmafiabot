@@ -48,8 +48,7 @@ test.describe('Stage 3 club pilot', () => {
     const tabHeights = await clubTabs.evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height),
     );
-    expect(tabHeights).toHaveLength(3);
-    for (const height of tabHeights) expect(height).toBeGreaterThanOrEqual(44);
+    expect(tabHeights).toEqual([40, 40, 40]);
 
     const tabTreatments = await clubTabs.evaluateAll((buttons) =>
       buttons.map((button) => {

@@ -33,10 +33,10 @@ const kindOfEvening = (format: string): CalendarItem['kind'] => {
 };
 
 const tone = (kind: CalendarItem['kind']) => {
-  if (kind === 'NOVICE') return 'border-sky-400/20 bg-sky-400/10 text-sky-200';
-  if (kind === 'RATING') return 'border-amber-400/20 bg-amber-400/10 text-amber-200';
-  if (kind === 'TOURNAMENT') return 'border-violet-400/20 bg-violet-400/10 text-violet-200';
-  return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200';
+  if (kind === 'NOVICE') return 'border-sky-300/15 bg-sky-300/[0.09] text-sky-100';
+  if (kind === 'RATING') return 'border-amber-200/15 bg-amber-200/[0.09] text-amber-100';
+  if (kind === 'TOURNAMENT') return 'border-violet-200/15 bg-violet-300/[0.09] text-violet-100';
+  return 'border-emerald-200/15 bg-emerald-300/[0.09] text-emerald-100';
 };
 
 const label = (kind: CalendarItem['kind']) => kind === 'NOVICE' ? 'Новички' : kind === 'RATING' ? 'Рейтинг' : kind === 'TOURNAMENT' ? 'Турнир' : 'Клубный';
@@ -121,23 +121,31 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
   const open = (item: CalendarItem) => item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id);
 
   return (
-    <section className="rounded-3xl border border-border-soft bg-surface-1 p-4 sm:p-5">
+    <section data-testid="crm-events-calendar" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
       <div className="flex items-center justify-between gap-3">
-        <button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-border-soft bg-surface-2 text-text-secondary"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronLeft className="h-4 w-4" /></button>
         <div className="text-center">
-          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">Календарь клуба</div>
-          <h2 className="mt-1 text-base font-black capitalize text-text-primary">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</h2>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Календарь клуба</div>
+          <h2 className="mt-1 text-base font-semibold capitalize text-white">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</h2>
         </div>
-        <button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-border-soft bg-surface-2 text-text-secondary"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
         {FILTERS.map((item) => (
-          <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold ${filter === item.id ? 'bg-accent text-white' : 'border border-border-soft bg-surface-2 text-text-secondary'}`}>{item.label}</button>
+          <button
+            key={item.id}
+            type="button"
+            data-testid={`crm-calendar-filter-${item.id.toLowerCase()}`}
+            onClick={() => setFilter(item.id)}
+            className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-medium ${filter === item.id ? 'bg-white text-[#090a0d]' : 'bg-black/20 text-white/40'}`}
+          >
+            {item.label}
+          </button>
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-bold uppercase text-text-muted">
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase text-white/25">
         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((value) => <div key={value}>{value}</div>)}
       </div>
       <div className="mt-1 grid grid-cols-7 gap-1">
@@ -146,23 +154,23 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
           const date = new Date(month.getFullYear(), month.getMonth(), day);
           const dayItems = byDay.get(dayKey(date)) || [];
           return (
-            <div key={dayKey(date)} className="min-h-[72px] rounded-xl border border-border-soft bg-surface-2 p-1">
-              <div className="px-0.5 text-[9px] font-bold text-text-muted">{day}</div>
+            <div key={dayKey(date)} className="min-h-[72px] rounded-xl border border-white/[0.055] bg-black/20 p-1">
+              <div className="px-0.5 text-[9px] font-semibold text-white/30">{day}</div>
               <div className="mt-1 space-y-1">
                 {dayItems.slice(0, 2).map((item) => (
-                  <button key={item.key} type="button" onClick={() => open(item)} title={item.title} className={`block w-full truncate rounded-md border px-1 py-1 text-left text-[7px] font-bold leading-none ${tone(item.kind)}`}>
+                  <button key={item.key} type="button" onClick={() => open(item)} title={item.title} className={`block w-full truncate rounded-md border px-1 py-1 text-left text-[7px] font-semibold leading-none ${tone(item.kind)}`}>
                     {localTime(item.startsAt)} {label(item.kind)}
                   </button>
                 ))}
-                {dayItems.length > 2 && <div className="px-1 text-[7px] text-text-muted">+{dayItems.length - 2}</div>}
+                {dayItems.length > 2 && <div className="px-1 text-[7px] text-white/25">+{dayItems.length - 2}</div>}
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-text-secondary">
-        {(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT'] as CalendarItem['kind'][]).map((kind) => <span key={kind} className={`rounded-full border px-2 py-1 ${tone(kind)}`}>{label(kind)}</span>)}
+      <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
+        {(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT'] as CalendarItem['kind'][]).map((kind) => <span key={kind} className={`rounded-xl border px-2 py-1 ${tone(kind)}`}>{label(kind)}</span>)}
       </div>
     </section>
   );

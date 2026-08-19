@@ -132,12 +132,11 @@
   color: #ffd1db !important;
 }
 
-/* Rare actions deliberately use less fill; dangerous actions still keep their
-   existing confirmation overlays and semantic border colours. */
+/* Rare actions deliberately use smaller type; dangerous actions still keep
+   their existing confirmation overlays and semantic border colours. */
 .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(6),
 .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(7),
 .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(8) {
-  background-opacity: 0.7;
   font-size: 11px !important;
 }
 
@@ -147,7 +146,7 @@
   }
 
   .live-player-action-sheet > .grid.grid-cols-2 > button {
-    min-height: 48px !important;
+    min-height: 50px !important;
     font-size: 10.5px !important;
   }
 

@@ -1,26 +1,37 @@
 /*
- * 2LA Noire design-system foundation.
+ * 2LA Noire shared visual system.
  *
- * The semantic layer stays theme-aware, while shared primitives own the
- * premium Noir presentation: restrained depth, fine highlights and accent
- * reflections instead of screen-specific glow effects.
+ * Visual source of truth is the established player cabinet (Home + Games +
+ * pre-Stage-4.1 shell). Shared primitives must extend that language instead of
+ * introducing a separate CRM/shadcn/"premium" aesthetic.
  */
 
 :root,
 [data-theme] {
-  --ds-background: var(--app-bg);
-  --ds-surface: var(--surface-1);
-  --ds-surface-raised: var(--surface-2);
-  --ds-surface-hover: var(--surface-hover);
+  /* Exact player-cabinet material language. */
+  --ds-background: #090a0d;
+  --ds-chrome: rgba(11, 12, 16, 0.95);
+  --ds-surface: rgba(255, 255, 255, 0.045);
+  --ds-surface-raised: rgba(255, 255, 255, 0.075);
+  --ds-surface-hover: rgba(255, 255, 255, 0.09);
+  --ds-surface-active: rgba(255, 255, 255, 0.09);
+  --ds-inset: rgba(0, 0, 0, 0.2);
 
-  --ds-foreground: var(--text-primary);
-  --ds-muted-foreground: var(--text-secondary);
-  --ds-subtle-foreground: var(--text-muted);
+  --ds-foreground: #ffffff;
+  --ds-muted-foreground: rgba(255, 255, 255, 0.42);
+  --ds-subtle-foreground: rgba(255, 255, 255, 0.3);
+  --ds-faint-foreground: rgba(255, 255, 255, 0.2);
 
-  --ds-primary: var(--accent);
-  --ds-primary-hover: var(--accent-hover);
-  --ds-primary-soft: var(--accent-soft);
-  --ds-on-primary: #ffffff;
+  /* Generic primary actions in the player cabinet are light-on-dark. */
+  --ds-primary: #ffffff;
+  --ds-primary-hover: rgba(255, 255, 255, 0.92);
+  --ds-on-primary: #090a0d;
+
+  /* Brand/domain colour remains separate from generic primary actions. */
+  --ds-accent: var(--accent);
+  --ds-accent-hover: var(--accent-hover);
+  --ds-accent-soft: var(--accent-soft);
+  --ds-on-accent: #ffffff;
 
   --ds-success: var(--success);
   --ds-success-soft: var(--success-soft);
@@ -29,43 +40,27 @@
   --ds-danger: var(--danger);
   --ds-danger-soft: var(--danger-soft);
 
-  --ds-border: var(--border-soft);
-  --ds-border-strong: var(--border-strong);
-  --ds-focus-ring: var(--accent);
+  --ds-border-soft: rgba(255, 255, 255, 0.07);
+  --ds-border: rgba(255, 255, 255, 0.1);
+  --ds-border-strong: rgba(255, 255, 255, 0.16);
+  --ds-focus-ring: var(--ds-accent);
 
-  --ds-highlight: rgba(255, 255, 255, 0.065);
-  --ds-highlight-soft: rgba(255, 255, 255, 0.032);
-  --ds-shadow-edge: rgba(0, 0, 0, 0.34);
-  --ds-accent-halo: rgba(var(--accent-rgb), 0.18);
-
-  --ds-radius-sm: 10px;
-  --ds-radius-md: 14px;
-  --ds-radius-lg: 18px;
-  --ds-radius-xl: 24px;
+  /* Geometry copied from the existing player cabinet. */
+  --ds-radius-sm: 12px;
+  --ds-radius-md: 16px;
+  --ds-radius-lg: 24px;
+  --ds-radius-xl: 28px;
 
   --ds-control-sm: 36px;
   --ds-control-md: 44px;
-  --ds-control-lg: 52px;
+  --ds-control-lg: 48px;
   --ds-touch-min: 44px;
 
-  --ds-shadow-surface:
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 var(--ds-highlight-soft);
-  --ds-shadow-raised:
-    0 24px 68px rgba(0, 0, 0, 0.42),
-    0 0 0 1px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 var(--ds-highlight);
-  --ds-shadow-control:
-    0 8px 20px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 var(--ds-highlight-soft);
-  --ds-shadow-primary:
-    0 10px 26px var(--ds-accent-halo),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-  --ds-shadow-focus: 0 0 0 3px var(--accent-soft);
+  /* The player cabinet uses only restrained depth on large surfaces. */
+  --ds-shadow-surface: 0 18px 60px rgba(0, 0, 0, 0.22);
+  --ds-shadow-raised: 0 24px 64px rgba(0, 0, 0, 0.36);
+  --ds-shadow-focus: 0 0 0 2px var(--ds-accent-soft);
 
-  /* Canonical stacking order for all new UI. Existing legacy layers are moved
-     onto these levels only when their screen is migrated. */
   --ds-layer-page: 0;
   --ds-layer-sticky: 30;
   --ds-layer-game: 140;
@@ -75,8 +70,6 @@
   --ds-layer-toast: 500;
 }
 
-/* shadcn-compatible semantic Tailwind names. Existing app classes remain
-   untouched; these tokens are for new/migrated components only. */
 @theme inline {
   --color-background: var(--ds-background);
   --color-foreground: var(--ds-foreground);
@@ -88,13 +81,13 @@
   --color-primary-foreground: var(--ds-on-primary);
   --color-secondary: var(--ds-surface-raised);
   --color-secondary-foreground: var(--ds-foreground);
-  --color-muted: var(--ds-surface-raised);
+  --color-muted: var(--ds-surface);
   --color-muted-foreground: var(--ds-muted-foreground);
   --color-ui-accent: var(--ds-surface-hover);
   --color-ui-accent-foreground: var(--ds-foreground);
   --color-destructive: var(--ds-danger);
   --color-border: var(--ds-border);
-  --color-input: var(--ds-border-strong);
+  --color-input: var(--ds-border);
   --color-ring: var(--ds-focus-ring);
 }
 
@@ -107,79 +100,88 @@
   box-shadow: var(--ds-shadow-focus);
 }
 
-/* Premium Noir surfaces: color remains theme-driven; character comes from a
-   quiet top highlight, deeper black shadow and a restrained accent reflection. */
+/* Ordinary player-cabinet surface: no faux bevel, no ornamental glow. */
 .ds-surface,
 .ds-panel {
-  background-color: var(--ds-surface);
-  background-image:
-    linear-gradient(180deg, var(--ds-highlight-soft) 0%, rgba(255, 255, 255, 0.008) 32%, transparent 72%);
+  background: var(--ds-surface);
   border: 1px solid var(--ds-border);
   box-shadow: var(--ds-shadow-surface);
   color: var(--ds-foreground);
 }
 
+/* Floating layers keep stronger separation, not faux-3D decoration. */
 .ds-surface-raised,
 .ds-panel-raised {
-  background-color: var(--ds-surface-raised);
-  background-image:
-    radial-gradient(circle at 50% -18%, rgba(var(--accent-rgb), 0.09), transparent 38%),
-    linear-gradient(180deg, var(--ds-highlight) 0%, rgba(255, 255, 255, 0.012) 30%, transparent 70%);
+  background: #15161a;
   border: 1px solid var(--ds-border-strong);
   box-shadow: var(--ds-shadow-raised);
   color: var(--ds-foreground);
 }
 
 .ds-button-primary {
-  background-color: var(--ds-primary);
-  background-image: linear-gradient(180deg, var(--ds-primary-hover) 0%, var(--ds-primary) 68%);
-  border-color: rgba(255, 255, 255, 0.11);
-  box-shadow: var(--ds-shadow-primary);
+  background: var(--ds-primary);
+  border-color: transparent;
+  color: var(--ds-on-primary);
+  box-shadow: none;
 }
 
 .ds-button-primary:hover {
-  filter: brightness(1.045);
+  background: var(--ds-primary-hover);
 }
 
 .ds-button-secondary {
-  background-color: var(--ds-surface-raised);
-  background-image: linear-gradient(180deg, var(--ds-highlight-soft), transparent 72%);
-  border-color: var(--ds-border-strong);
-  box-shadow: var(--ds-shadow-control);
+  background: var(--ds-surface-raised);
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  box-shadow: none;
+}
+
+.ds-button-secondary:hover {
+  background: var(--ds-surface-hover);
+  color: var(--ds-foreground);
 }
 
 .ds-button-outline {
-  background-color: rgba(255, 255, 255, 0.012);
-  border-color: var(--ds-border-strong);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+  background: var(--ds-surface);
+  border-color: var(--ds-border);
+  box-shadow: none;
 }
 
 .ds-button-destructive {
-  background-color: var(--ds-danger);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 72%);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 8px 22px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  background: var(--ds-danger);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .ds-input-surface {
-  background-color: var(--ds-background);
-  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 58%);
-  box-shadow:
-    inset 0 1px 0 rgba(0, 0, 0, 0.3),
-    0 1px 0 rgba(255, 255, 255, 0.018);
+  background: var(--ds-inset);
+  box-shadow: none;
+}
+
+.ds-segmented {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--ds-border-soft);
+  box-shadow: none;
 }
 
 .ds-segmented-active {
-  background-color: var(--ds-foreground);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 70%);
-  color: var(--ds-background);
-  box-shadow:
-    0 7px 18px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  background: var(--ds-primary);
+  color: var(--ds-on-primary);
+  box-shadow: none;
 }
 
 .ds-badge {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  box-shadow: none;
+}
+
+.ds-chrome {
+  background: var(--ds-chrome);
+  border-color: var(--ds-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.ds-nav-active {
+  background: var(--ds-surface-active);
+  color: var(--ds-foreground);
 }

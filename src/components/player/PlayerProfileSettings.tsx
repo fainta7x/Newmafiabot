@@ -180,8 +180,8 @@ export default function PlayerProfileSettings({
         <p className="mt-3 text-xs leading-5 text-white/30">Фото автоматически обрежется в квадрат и подготовится для профиля.</p>
       </section>
 
-      <section data-testid="profile-personal-data" className="rounded-[var(--ds-radius-lg)] border border-border bg-[var(--ds-surface)] p-4">
-        <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Личные данные</div>
+      <section data-testid="profile-personal-data" className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-4">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/75">Личные данные</div>
         <div className="mt-3 space-y-3">
           <Field>
             <FieldLabel htmlFor="profile-nickname">Игровой ник</FieldLabel>
@@ -195,9 +195,9 @@ export default function PlayerProfileSettings({
             <FieldLabel htmlFor="profile-phone">Телефон</FieldLabel>
             <Input id="profile-phone" data-testid="profile-phone" value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} inputMode="tel" type="tel" placeholder="Можно не указывать" autoComplete="tel" />
           </Field>
-          <div className="rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)] px-3.5 py-3">
-            <div className="text-xs font-semibold text-muted-foreground">Telegram</div>
-            <div className="mt-1 text-sm text-foreground">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Привязан через Telegram'}</div>
+          <div className="rounded-[var(--ds-radius-md)] bg-[var(--ds-input-bg)] px-3.5 py-3">
+            <div className="text-xs font-semibold text-muted-foreground/70">Telegram</div>
+            <div className="mt-1 text-sm text-foreground/80">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Привязан через Telegram'}</div>
             <FieldDescription className="mt-1">Telegram-привязка системная и вручную здесь не меняется.</FieldDescription>
           </div>
         </div>

@@ -78,11 +78,22 @@ test.describe('Live Game utility cabinet', () => {
     const day = filters.getByRole('button', { name: 'Дни', exact: true });
     const night = filters.getByRole('button', { name: 'Ночи', exact: true });
     expect(await all.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+
     await day.click();
-    const dayBackground = await day.evaluate((element) => getComputedStyle(element).backgroundColor);
+    const dayTreatment = await day.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { color: style.color, border: style.borderTopColor };
+    });
+    await expect(day).toHaveClass(/text-amber-100/);
+
     await night.click();
-    const nightBackground = await night.evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(dayBackground).not.toBe(nightBackground);
+    const nightTreatment = await night.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { color: style.color, border: style.borderTopColor };
+    });
+    await expect(night).toHaveClass(/text-violet-100/);
+    expect(dayTreatment.color).not.toBe(nightTreatment.color);
+    expect(dayTreatment.border).not.toBe(nightTreatment.border);
 
     const notes = page.getByTestId('live-protocol-notes');
     await expect(notes).toBeVisible();

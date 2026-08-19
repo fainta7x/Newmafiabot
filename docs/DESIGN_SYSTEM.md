@@ -75,9 +75,9 @@ Delivered scope:
 
 #### Stage 4.1 — Player shell chrome
 
-**Status: complete when the Stage 4.1 PR containing this document is merged to `main`.**
+**Status: complete.**
 
-Scope:
+Delivered scope:
 
 - extract the five-item player bottom navigation from `PlayerCabinetShell` into `PlayerBottomNavigation`;
 - replace symbol/emoji navigation chrome with canonical Lucide icons;
@@ -86,19 +86,31 @@ Scope:
 - preserve all existing player section routing, aliases and product content;
 - validate top/bottom geometry, active states and 44px+ touch targets in a 390×620 Telegram-sized viewport.
 
-Not included in 4.1: product-screen content migration, shared form fields, confirmation dialogs, screen-specific sheets, loading/empty/error primitives, CRM or Live Game.
+#### Stage 4.2 — Shared forms and async states
 
-#### Remaining Stage 4 work
+**Status: complete when the Stage 4.2 PR containing this document is merged to `main`.**
 
-After 4.1 is merged, continue in separate PRs with reusable application patterns:
+Scope:
 
-- confirmation dialogs and mobile sheets at real active callers;
-- common form/input/field primitives;
-- loading, empty and error states;
-- shared filters and segmented controls;
-- migrate additional ordinary screens only as needed to validate those patterns.
+- add canonical `Input` and `Field` primitives only where real migrated forms need them;
+- migrate `AsyncState` to semantic loading/empty/error presentation while keeping its existing public API compatible;
+- migrate Player Profile → Personal data to canonical fields and shared feedback messages without changing profile API behavior;
+- migrate Club → Players search and loading/empty/error presentation to the shared primitives;
+- validate labels, 44px+ field geometry, save/validation behavior and horizontal geometry in a 390×620 Telegram-sized viewport;
+- keep avatar actions, judging, Judge Game launcher, CRM, Live Game, API and database behavior out of this sub-stage.
 
-Legacy components are removed only after their active callers have migrated.
+Do not add `Textarea`, `Select` or other primitives merely for completeness. Add them when a real migrated screen needs them.
+
+#### Stage 4.3 — Shared dialogs, sheets and repeated controls
+
+After 4.2 is merged, finish Stage 4 in a separate PR:
+
+- migrate active confirmation callers from legacy `ConfirmDialog` / `window.confirm` where appropriate to the canonical Base UI-backed `Dialog`;
+- migrate active legacy `MobileSheet` callers to canonical `Sheet` where the interaction matches;
+- consolidate repeated filter / segmented-control patterns that already exist on active screens;
+- remove a legacy shared component only after all active callers have migrated.
+
+Do not widen 4.3 into a whole-application visual rewrite.
 
 ### Stage 5 — Live Game
 

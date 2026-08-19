@@ -24,6 +24,8 @@ Do not replace React, Vite or Tailwind as part of this migration.
 
 ### Stage 1 — Foundation
 
+**Status: complete.**
+
 Scope:
 
 - semantic design tokens over the existing Noir theme variables;
@@ -36,15 +38,19 @@ Exit condition: full CI green with no intentional visual change to existing scre
 
 ### Stage 2 — Headless interaction layer
 
-Scope:
+**Status: complete when the Stage 2 PR containing this document is merged to `main`.**
 
-- add Base UI and the minimal shadcn helper dependencies;
-- configure the project for shadcn-style source-owned components;
-- implement canonical `Dialog`, `Sheet`, `Popover`, `Menu` and, when needed, `Select`;
-- define one portal/stacking strategy instead of per-screen z-index escalation;
-- add focused behavior tests for focus, dismissal and overlay stacking.
+Delivered scope:
 
-Do not migrate Live Game in this stage.
+- pin `@base-ui/react` as the headless interaction dependency;
+- configure `components.json` plus package-import aliases for shadcn-style source-owned components;
+- implement canonical `Dialog`, `Sheet`, `Popover` and `Menu` primitives;
+- use the Stage 1 portal/layer contract instead of per-screen z-index escalation;
+- cover opening, dismissal, focus restoration and portaled behavior with focused component tests.
+
+`Select` remains intentionally deferred until a real migrated screen needs it; do not add primitives only to make the component list look complete.
+
+No production screen and no Live Game UI is migrated in Stage 2.
 
 ### Stage 3 — Pilot screen
 
@@ -130,6 +136,8 @@ New UI uses this conceptual order:
 5. modal/dialog/sheet;
 6. critical protocol overlay;
 7. toast.
+
+Portaled `Popover`/`Menu` content uses the popover layer; portaled `Dialog`/`Sheet` content uses the modal layer. The application root remains isolated so unrelated page stacking contexts do not compete with portaled interaction surfaces.
 
 Do not solve a stacking bug by picking an arbitrary larger z-index. Fix the layer ownership or portal placement.
 

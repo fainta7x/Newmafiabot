@@ -48,6 +48,17 @@
     overflow: hidden !important;
   }
 
+  /* Global Live Game service overlays are rendered as siblings of the game
+     modal. Once the modal is above the cabinet nav, those overlays must stay
+     above the modal as well or the table will intercept their taps. */
+  body:has(.evening-live-engine-shell) .fixed.inset-0.z-\[126\] {
+    z-index: 180 !important;
+  }
+
+  body:has(.evening-live-engine-shell) .pointer-events-none.fixed.left-1\/2.top-1.z-\[125\] {
+    z-index: 181 !important;
+  }
+
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky {
     position: relative !important;
     top: auto !important;

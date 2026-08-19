@@ -41,7 +41,11 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
                 variant="ghost"
                 onClick={() => setView(item.id)}
                 aria-current={active ? 'page' : undefined}
-                className={`min-w-0 px-2 text-xs ${active ? 'bg-foreground text-background hover:bg-foreground hover:text-background' : 'text-muted-foreground'}`}
+                className={`min-w-0 px-2 text-xs ${active ? '' : 'text-muted-foreground'}`}
+                style={active ? {
+                  backgroundColor: 'var(--ds-foreground)',
+                  color: 'var(--ds-background)',
+                } : undefined}
               >
                 {item.label}
               </Button>

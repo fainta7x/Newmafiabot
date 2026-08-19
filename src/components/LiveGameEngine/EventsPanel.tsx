@@ -145,8 +145,9 @@ export default function EventsPanel({
               <button
                 type="button"
                 onClick={() => setFilter("day")}
+                style={filter === "day" ? { backgroundColor: "rgba(232, 185, 94, 0.10)", borderColor: "rgba(232, 185, 94, 0.18)" } : undefined}
                 className={`min-h-7 rounded-lg px-2 transition-colors ${
-                  filter === "day" ? "border border-amber-200/15 bg-amber-200/[0.10] text-amber-100" : "text-white/38 active:bg-white/[0.06]"
+                  filter === "day" ? "border text-amber-100" : "text-white/38 active:bg-white/[0.06]"
                 }`}
               >
                 Дни
@@ -154,8 +155,9 @@ export default function EventsPanel({
               <button
                 type="button"
                 onClick={() => setFilter("night")}
+                style={filter === "night" ? { backgroundColor: "rgba(167, 139, 250, 0.10)", borderColor: "rgba(196, 181, 253, 0.18)" } : undefined}
                 className={`min-h-7 rounded-lg px-2 transition-colors ${
-                  filter === "night" ? "border border-violet-200/15 bg-violet-300/[0.10] text-violet-100" : "text-white/38 active:bg-white/[0.06]"
+                  filter === "night" ? "border text-violet-100" : "text-white/38 active:bg-white/[0.06]"
                 }`}
               >
                 Ночи

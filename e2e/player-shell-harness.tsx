@@ -113,7 +113,7 @@ function GamesSample() {
         ))}
       </div>
 
-      <Card>
+      <Card data-testid="canonical-history-card">
         <CardHeader className="pb-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Моя история</div>
         </CardHeader>

@@ -72,6 +72,10 @@
 }
 
 @theme inline {
+  /* Android system-ui in the approved Telegram screenshots resolves to Roboto.
+     Pin it so desktop/browser evidence uses the same letterforms. */
+  --font-sans: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
   --color-background: var(--ds-background);
   --color-foreground: var(--ds-foreground);
   --color-card: var(--ds-surface);

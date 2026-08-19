@@ -22,10 +22,10 @@ const expectInsideViewport = async (page, locator, label) => {
   expect.soft(box.y + box.height, `${label}: bottom`).toBeLessThanOrEqual(viewport.height + 1);
 };
 
-test.describe('Stage 4 shared player shell', () => {
+test.describe('Canonical player-cabinet visual shell', () => {
   test.use({ viewport: { width: 390, height: 620 } });
 
-  test('keeps shared top and bottom chrome usable in a Telegram-sized viewport', async ({ page }, testInfo) => {
+  test('matches the established player-cabinet language in a Telegram-sized viewport', async ({ page }, testInfo) => {
     await page.goto('/e2e/player-shell.html');
     await page.evaluate(() => {
       document.documentElement.style.setProperty('--tg-viewport-stable-height', '620px');
@@ -37,16 +37,25 @@ test.describe('Stage 4 shared player shell', () => {
     await expectInsideViewport(page, bottomNav, 'bottom navigation');
     await expectNoHorizontalOverflow(page, 'shared shell');
 
-    const chromeBackgrounds = await page.evaluate(() => {
+    const contract = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
       const top = document.querySelector('[data-testid="player-top-bar"]');
       const bottom = document.querySelector('[data-testid="player-bottom-nav"]');
       return {
+        background: root.getPropertyValue('--ds-background').trim(),
+        surface: root.getPropertyValue('--ds-surface').trim(),
+        inset: root.getPropertyValue('--ds-inset').trim(),
+        primary: root.getPropertyValue('--ds-primary').trim(),
         top: top ? getComputedStyle(top).backgroundColor : '',
         bottom: bottom ? getComputedStyle(bottom).backgroundColor : '',
       };
     });
-    expect(chromeBackgrounds.top).not.toBe('rgba(0, 0, 0, 0)');
-    expect(chromeBackgrounds.bottom).not.toBe('rgba(0, 0, 0, 0)');
+    expect(contract.background).toBe('#090a0d');
+    expect(contract.surface).toBe('rgba(255, 255, 255, 0.045)');
+    expect(contract.inset).toBe('rgba(0, 0, 0, 0.2)');
+    expect(contract.primary).toBe('#ffffff');
+    expect(contract.top).toBe('rgba(11, 12, 16, 0.92)');
+    expect(contract.bottom).toBe('rgba(11, 12, 16, 0.95)');
 
     const quickButtons = page.locator('[data-testid^="player-quick-"]');
     expect(await quickButtons.count()).toBe(2);
@@ -55,6 +64,29 @@ test.describe('Stage 4 shared player shell', () => {
     );
     for (const height of quickHeights) expect(height).toBeGreaterThanOrEqual(44);
 
+    const card = page.getByTestId('canonical-card');
+    const cardTreatment = await card.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        radius: style.borderRadius,
+        background: style.backgroundColor,
+        border: style.borderTopColor,
+      };
+    });
+    expect(cardTreatment.radius).toBe('28px');
+    expect(cardTreatment.background).toBe('rgba(255, 255, 255, 0.045)');
+    expect(cardTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+
+    const segmented = page.locator('[data-slot="segmented-control"]');
+    const activeSegment = segmented.locator('[aria-current="page"]');
+    await expect(activeSegment).toContainText('История');
+    expect(await activeSegment.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+    expect(await activeSegment.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(9, 10, 13)');
+
+    const primary = page.getByTestId('canonical-primary');
+    expect(await primary.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+    expect(await primary.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(9, 10, 13)');
+
     const navButtons = bottomNav.locator('button');
     expect(await navButtons.count()).toBe(5);
     const navHeights = await navButtons.evaluateAll((buttons) =>
@@ -62,7 +94,10 @@ test.describe('Stage 4 shared player shell', () => {
     );
     for (const height of navHeights) expect(height).toBeGreaterThanOrEqual(44);
 
-    await expect(page.getByTestId('player-nav-home')).toHaveAttribute('aria-current', 'page');
+    const home = page.getByTestId('player-nav-home');
+    await expect(home).toHaveAttribute('aria-current', 'page');
+    expect(await home.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgba(255, 255, 255, 0.09)');
+
     await page.getByTestId('player-nav-club').click();
     await expect(page.getByTestId('player-nav-club')).toHaveAttribute('aria-current', 'page');
     await expect(page.getByTestId('player-shell-content')).toContainText('Текущий раздел: club');
@@ -75,8 +110,8 @@ test.describe('Stage 4 shared player shell', () => {
     await expect(page.getByTestId('player-quick-profile')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('player-shell-content')).toContainText('Текущий раздел: profile');
 
-    const path = testInfo.outputPath('stage4-player-shell.png');
+    const path = testInfo.outputPath('player-cabinet-canonical-shell.png');
     await page.screenshot({ path, fullPage: false });
-    await testInfo.attach('stage4-player-shell.png', { path, contentType: 'image/png' });
+    await testInfo.attach('player-cabinet-canonical-shell.png', { path, contentType: 'image/png' });
   });
 });

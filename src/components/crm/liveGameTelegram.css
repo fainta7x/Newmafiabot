@@ -90,12 +90,14 @@
     max-height: none !important;
   }
 
-  /* Keep one-tap nomination fast, but do not pretend it is available before
-     a speech starts. A nomination belongs to the current player's speech. */
+  /* Keep one-tap nomination fast, but only surface it while a speech is
+     actually active. Between speeches ten disabled “Выст.” controls add noise
+     without giving the judge an available action. */
   .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card):not(:has(> .live-seat-card--speaking))
     .live-seat-quick-action--nomination {
-    opacity: 0.28 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
     pointer-events: none !important;
   }
 
@@ -116,6 +118,17 @@
 
   .live-seat-quick-action--nomination-active span::after {
     content: "Снять";
+  }
+
+  /* Zero discipline is not a judge signal. Preserve each chip's slot so the
+     geometry never jumps, but reveal it only when the count becomes non-zero. */
+  .evening-live-engine-shell .evening-live-discipline > span[data-count="0"] {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  .evening-live-engine-shell .evening-live-discipline > span[data-count]:not([data-count="0"]) {
+    visibility: visible !important;
   }
 
   /* The center HUD already owns the running timer. Repeating “Речь 57с” on

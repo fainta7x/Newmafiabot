@@ -71,7 +71,7 @@ Delivered scope:
 
 ### Stage 4 — Shared application shell
 
-**Status: complete.** Stage 4 was intentionally split into short mergeable sub-stages.
+**Status: complete technically; visual language is gated by Stage 4.5 approval.** Stage 4 was intentionally split into short mergeable sub-stages.
 
 #### Stage 4.1 — Player shell chrome
 
@@ -117,37 +117,48 @@ Delivered scope:
 
 `ConfirmDialog` and `MobileSheet` compatibility files stay in place through Stage 5. Remove them only during Stage 6 after exact import/caller cleanup proves the wrappers are no longer needed.
 
-### Stage 4.4 — Premium Noir visual direction
+#### Stage 4.4 — Raised / faux-depth Premium Noir experiment
 
-**Status: complete when the Stage 4.4 PR containing this document is merged to `main`.**
+**Status: superseded after visual review. Do not use as the canonical visual direction.**
 
-This pass exists because the first semantic migration improved consistency but made the product visually flatter than the earlier 2LA Noire UI. The design system must be technically disciplined **and** retain a distinctive premium character before Live Game adopts it.
+Stage 4.4 tried to restore perceived premium quality with gradients, inset highlights, stronger shadows and accent reflections. Although it was technically valid, visual review found that this moved the product toward a dated faux-3D / 1990s feel. Its code remains in Git history only as an experiment.
 
-Delivered scope:
+Do not restore Stage 4.4 bevels, ornamental gradients, permanent card shadows or glow-heavy controls in later work.
 
-- keep all existing Noir Cherry/Cyan/Violet/Emerald theme palettes and semantic intents;
-- give canonical surfaces restrained depth through fine top highlights, deeper black elevation and subtle accent reflection;
-- refine `Button`, `Card`, `Input`, `Badge` and `SegmentedControl` globally rather than restyling migrated screens one by one;
-- let Base UI-backed `Dialog` and `Sheet` inherit the raised premium surface automatically;
-- preserve readable touch geometry and Telegram-sized layouts while restoring visual hierarchy;
-- protect the premium treatment in the existing Club/Profile browser tests by asserting non-flat surface, control and elevation properties;
-- require screenshot review before merge.
+#### Stage 4.5 — Modern Noir reset
 
-Visual direction:
+**Status: candidate. Must receive explicit user visual approval before merge and before Stage 5 starts.**
 
-- **premium Noir, not generic dark SaaS**;
-- deep near-black surfaces with controlled layering rather than many equally gray boxes;
-- very fine light on the upper edge of raised objects to create material depth;
-- accent color used as a reflection / focused highlight, not as permanent neon everywhere;
-- primary actions may carry a restrained accent glow, but ordinary cards and navigation should not glow;
-- avoid glassmorphism for its own sake, loud gradients, thick borders, excessive blur and casino-like neon;
-- hierarchy should come from contrast, spacing, typography and elevation before decoration.
+Visual source of truth: the player-facing UI immediately before the design-system migration, especially commit `dc30be335f37de50bad6db1acd5e3a035461d902`, while keeping the newer Base UI/accessibility/layer architecture.
 
-Do not start Live Game migration until this visual direction has passed browser evidence and has been visually accepted as the base language.
+Canonical visual direction:
+
+- **modern luxury Noir, not generic shadcn dark and not faux-3D premium**;
+- deep near-black app background;
+- ordinary surfaces use translucent light material around 4–8% rather than opaque gray cards;
+- borders are very thin and low-contrast, roughly equivalent to the earlier `white/10` treatment;
+- no decorative gradients, bevels or box shadows on ordinary cards, fields, tabs or primary buttons;
+- shadows are reserved for genuinely floating layers such as Dialog/Sheet/Popover;
+- generic primary actions are light/white on dark, matching the earlier player UI; brand accent is reserved for focus and domain meaning rather than filling every primary action;
+- hierarchy comes from typography, whitespace, opacity and grouping before decoration;
+- avoid nested bordered boxes, table-like dividers and excessive pill badges when plain text communicates the same information;
+- player lists should feel like airy individual rows rather than a bordered data table;
+- chrome stays dark/translucent with blur and subtle active-state fill;
+- maintain 44px+ touch targets and Telegram stable-viewport behavior.
+
+Verification gate:
+
+1. full CI must be green;
+2. fresh 390×620 browser evidence must be reviewed for Club, Profile, Dialog/Sheet and shared shell;
+3. **do not merge Stage 4.5 based only on automated checks**;
+4. user must explicitly approve the visual direction in chat;
+5. only after that approval may Stage 5 Live Game begin.
 
 ### Stage 5 — Live Game
 
 Live Game moves last because it is a judge console with domain-specific density and Telegram viewport constraints.
+
+**Blocked until Stage 4.5 has explicit visual approval.**
 
 Rules:
 
@@ -179,7 +190,8 @@ Prefer:
 
 - `background`, `surface`, `surface-raised`;
 - `foreground`, `muted-foreground`;
-- `primary`;
+- `primary` / brand accent only where accent meaning is intended;
+- `action` for generic primary action fill;
 - `success`, `warning`, `danger`;
 - `border`, `focus-ring`.
 
@@ -191,7 +203,8 @@ The existing Noir Cherry/Cyan/Violet/Emerald theme variables remain the palette 
 
 - Normal mobile controls target at least 44px touch height/width.
 - Compact controls below 44px require a surrounding hit area or a domain-specific reason.
-- Radius, shadow and border strength should come from design-system tokens rather than being invented per screen.
+- Radius and border strength should come from design-system tokens rather than being invented per screen.
+- Ordinary content surfaces should not gain a shadow merely to appear premium.
 - Dense data is allowed; cramped interaction is not.
 
 ## Layering contract
@@ -232,6 +245,7 @@ During each stage:
 3. keep active iteration PRs draft when practical;
 4. run full CI once the stage is coherent;
 5. visually inspect browser evidence for UI-heavy changes;
-6. merge and stop before beginning the next stage.
+6. for visual-direction stages, require explicit user approval before merge;
+7. merge and stop before beginning the next stage.
 
 Do not combine multiple migration stages into one large PR.

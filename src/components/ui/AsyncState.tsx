@@ -1,4 +1,7 @@
+import { Inbox, LoaderCircle, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { cn } from '../../lib/cn';
+import { Button } from './Button.tsx';
 
 type AsyncStateKind = 'loading' | 'error' | 'empty';
 type AsyncStateTheme = 'player' | 'crm';
@@ -15,6 +18,12 @@ type Props = {
   className?: string;
 };
 
+const defaultIcon = (kind: AsyncStateKind) => {
+  if (kind === 'loading') return <LoaderCircle className="h-5 w-5 animate-spin" />;
+  if (kind === 'error') return <TriangleAlert className="h-5 w-5" />;
+  return <Inbox className="h-5 w-5" />;
+};
+
 export default function AsyncState({
   kind,
   title,
@@ -26,33 +35,41 @@ export default function AsyncState({
   compact = false,
   className = '',
 }: Props) {
-  const player = theme === 'player';
   const error = kind === 'error';
-  const outer = player
-    ? error
-      ? 'border-rose-300/10 bg-rose-300/[0.04] text-white'
-      : 'border-white/10 bg-white/[0.04] text-white'
-    : error
-      ? 'border-danger/30 bg-danger-soft text-text-primary'
-      : 'border-border-soft bg-surface-1 text-text-primary';
-  const descriptionClass = player ? 'text-white/35' : 'text-text-secondary';
-  const button = player
-    ? 'bg-white text-black'
-    : 'bg-accent text-white';
+  const stateIcon = icon ?? defaultIcon(kind);
 
   return (
     <div
+      data-slot="async-state"
+      data-legacy-theme={theme}
+      data-state-kind={kind}
       role={error ? 'alert' : 'status'}
       aria-live={error ? 'assertive' : 'polite'}
-      className={`w-full rounded-3xl border text-center ${outer} ${compact ? 'px-4 py-5' : 'px-5 py-7'} ${className}`}
+      aria-busy={kind === 'loading'}
+      className={cn(
+        'w-full rounded-[var(--ds-radius-lg)] border text-center text-foreground',
+        error
+          ? 'border-[var(--ds-border-strong)] bg-[var(--ds-danger-soft)]'
+          : 'border-border bg-[var(--ds-surface)]',
+        compact ? 'px-4 py-4' : 'px-5 py-6',
+        className,
+      )}
     >
-      {icon != null ? <div className="text-3xl" aria-hidden="true">{icon}</div> : null}
-      <div className={`${icon != null ? 'mt-2' : ''} text-sm font-semibold`}>{title}</div>
-      {description ? <p className={`mt-1 text-xs leading-5 ${descriptionClass}`}>{description}</p> : null}
+      <div
+        className={cn(
+          'mx-auto grid h-9 w-9 place-items-center rounded-full',
+          error ? 'bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]' : 'bg-secondary text-muted-foreground',
+        )}
+        aria-hidden="true"
+      >
+        {stateIcon}
+      </div>
+      <div className="mt-2.5 text-sm font-semibold">{title}</div>
+      {description ? <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{description}</p> : null}
       {onAction ? (
-        <button type="button" onClick={onAction} className={`mt-4 min-h-10 rounded-xl px-4 text-xs font-bold ${button}`}>
+        <Button type="button" variant={error ? 'outline' : 'secondary'} size="sm" onClick={onAction} className="mt-4">
           {actionLabel}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

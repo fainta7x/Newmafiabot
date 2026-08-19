@@ -54,7 +54,7 @@ No production screen and no Live Game UI was migrated in Stage 2.
 
 ### Stage 3 — Pilot screen
 
-**Status: complete when the Stage 3 PR containing this document is merged to `main`.**
+**Status: complete.**
 
 Pilot: **Player app → Club → Players** (`PlayerClubHub` + `PlayerClubDirectory`).
 
@@ -69,18 +69,34 @@ Delivered scope:
 
 `Club → Activity` and `Club → Connections` remain on their existing content implementation in Stage 3. Do not widen the pilot into a full Club redesign before the pilot is reviewed.
 
-Only after the pilot is approved should the system spread to other screens.
-
 ### Stage 4 — Shared application shell
 
-Migrate reusable application chrome and common patterns:
+**Status: in progress.** Stage 4 is intentionally split into short mergeable sub-stages.
 
-- bottom/top navigation;
-- confirmation dialogs;
-- mobile sheets;
-- common forms and fields;
-- loading/empty/error states;
-- shared cards, filters and segmented controls.
+#### Stage 4.1 — Player shell chrome
+
+**Status: complete when the Stage 4.1 PR containing this document is merged to `main`.**
+
+Scope:
+
+- extract the five-item player bottom navigation from `PlayerCabinetShell` into `PlayerBottomNavigation`;
+- replace symbol/emoji navigation chrome with canonical Lucide icons;
+- migrate the fixed top quick-access bar and bottom navigation to semantic design tokens;
+- use the canonical sticky layer instead of screen-specific z-index escalation;
+- preserve all existing player section routing, aliases and product content;
+- validate top/bottom geometry, active states and 44px+ touch targets in a 390×620 Telegram-sized viewport.
+
+Not included in 4.1: product-screen content migration, shared form fields, confirmation dialogs, screen-specific sheets, loading/empty/error primitives, CRM or Live Game.
+
+#### Remaining Stage 4 work
+
+After 4.1 is merged, continue in separate PRs with reusable application patterns:
+
+- confirmation dialogs and mobile sheets at real active callers;
+- common form/input/field primitives;
+- loading, empty and error states;
+- shared filters and segmented controls;
+- migrate additional ordinary screens only as needed to validate those patterns.
 
 Legacy components are removed only after their active callers have migrated.
 

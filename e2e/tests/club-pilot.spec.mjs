@@ -31,6 +31,13 @@ test.describe('Stage 3 club pilot', () => {
     await expect(page.getByText('Богданчик', { exact: true })).toBeVisible();
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
 
+    const directoryTreatment = await directory.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+    });
+    expect(directoryTreatment.backgroundImage).not.toBe('none');
+    expect(directoryTreatment.boxShadow).not.toBe('none');
+
     const segmented = page.locator('[data-slot="segmented-control"]');
     await expect(segmented).toBeVisible();
     await expect(segmented).toHaveAttribute('aria-label', 'Разделы клуба');
@@ -49,11 +56,16 @@ test.describe('Stage 3 club pilot', () => {
     );
     expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[1]);
     expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[2]);
+    const activeShadow = await clubTabs.nth(0).evaluate((button) => getComputedStyle(button).boxShadow);
+    expect(activeShadow).not.toBe('none');
+
+    const search = page.getByTestId('club-search');
+    const searchShadow = await search.evaluate((element) => getComputedStyle(element).boxShadow);
+    expect(searchShadow).not.toBe('none');
 
     await expectNoHorizontalOverflow(page, 'club list');
     await attachViewport(page, testInfo, 'club-pilot-list.png');
 
-    const search = page.getByTestId('club-search');
     await search.fill('Матро');
     await expect(page.getByText('Матроскина', { exact: true })).toBeVisible();
     await expect(page.getByText('Богданчик', { exact: true })).toHaveCount(0);

@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogTitle,
 } from './Dialog.tsx';
 
@@ -74,7 +73,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </Button>
       </div>
 
-      <DialogFooter className="grid grid-cols-2 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-2 gap-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
           {cancelLabel}
         </Button>
@@ -86,7 +85,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         >
           {busy ? 'Подождите…' : confirmLabel}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 );

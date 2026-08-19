@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Calendar, Plus } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 import { api, type GameEvening } from '../../lib/api.ts';
 import { EVENING_FORMAT_DESCRIPTIONS, EVENING_FORMAT_LABELS, normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
 import MobileSheet from '../ui/MobileSheet.tsx';

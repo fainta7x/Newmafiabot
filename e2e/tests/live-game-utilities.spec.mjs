@@ -32,6 +32,8 @@ const cssAlpha = (value) => {
   return 1;
 };
 
+const classTokens = async (locator) => (await locator.getAttribute('class') || '').split(/\s+/).filter(Boolean);
+
 const expectNoHorizontalOverflow = async (page, label) => {
   const metrics = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -80,14 +82,14 @@ test.describe('Live Game utility cabinet', () => {
     expect(await all.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
 
     await day.click();
-    await expect(day).toHaveClass(/text-amber-100/);
-    await expect(day).toHaveClass(/border/);
-    await expect(all).not.toHaveClass(/bg-white/);
+    expect(await classTokens(day)).toContain('text-amber-100');
+    expect(await classTokens(day)).toContain('border');
+    expect(await classTokens(all)).not.toContain('bg-white');
 
     await night.click();
-    await expect(night).toHaveClass(/text-violet-100/);
-    await expect(night).toHaveClass(/border/);
-    await expect(day).not.toHaveClass(/text-amber-100/);
+    expect(await classTokens(night)).toContain('text-violet-100');
+    expect(await classTokens(night)).toContain('border');
+    expect(await classTokens(day)).not.toContain('text-amber-100');
 
     const notes = page.getByTestId('live-protocol-notes');
     await expect(notes).toBeVisible();

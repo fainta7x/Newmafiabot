@@ -11,6 +11,7 @@ import { createEmptyLiveProtocolMarkers } from '../src/lib/gameProtocolCore.ts';
 import '../src/index.css';
 import '../src/releasePolish.css';
 import '../src/components/crm/liveGameJudge.css';
+import '../src/components/crm/liveGameTelegram.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 

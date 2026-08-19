@@ -9,7 +9,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variantClasses: Record<BadgeVariant, string> = {
   neutral: 'border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-muted-foreground',
-  accent: 'border-[color-mix(in_srgb,var(--ds-primary)_28%,transparent)] bg-[var(--ds-primary-soft)] text-[var(--ds-primary)]',
+  accent: 'border-[var(--ds-border-strong)] bg-[var(--ds-primary-soft)] text-[var(--ds-primary)]',
   success: 'border-[var(--ds-border)] bg-[var(--ds-success-soft)] text-[var(--ds-success)]',
   warning: 'border-[var(--ds-border)] bg-[var(--ds-warning-soft)] text-[var(--ds-warning)]',
   danger: 'border-[var(--ds-border)] bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]',

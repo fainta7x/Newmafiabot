@@ -10,7 +10,7 @@ const expectNoHorizontalOverflow = async (page, label) => {
   expect.soft(metrics.body, `${label}: body overflow`).toBeLessThanOrEqual(metrics.viewport + 1);
 };
 
-test.describe('Stage 4.2 shared profile form', () => {
+test.describe('Stage 4 shared profile patterns', () => {
   test.use({ viewport: { width: 390, height: 620 } });
 
   test('keeps canonical fields usable and saves profile data in a Telegram-sized viewport', async ({ page }, testInfo) => {
@@ -54,5 +54,45 @@ test.describe('Stage 4.2 shared profile form', () => {
     await nickname.fill('');
     await save.click();
     await expect(page.getByRole('alert')).toContainText('Ник не может быть пустым');
+  });
+
+  test('keeps avatar deletion inside the canonical confirmation layer', async ({ page }, testInfo) => {
+    await page.goto('/e2e/profile-form.html');
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--tg-viewport-stable-height', '620px');
+    });
+
+    const deleteAvatar = page.getByRole('button', { name: 'Удалить', exact: true }).first();
+    await expect(deleteAvatar).toBeVisible();
+    await deleteAvatar.click();
+
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Удалить аватар?')).toBeVisible();
+
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    expect.soft(box.x).toBeGreaterThanOrEqual(-1);
+    expect.soft(box.x + box.width).toBeLessThanOrEqual(391);
+    expect.soft(box.y).toBeGreaterThanOrEqual(-1);
+    expect.soft(box.y + box.height).toBeLessThanOrEqual(621);
+
+    const confirm = dialog.getByRole('button', { name: 'Удалить', exact: true });
+    const confirmBackground = await confirm.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(confirmBackground).not.toBe('rgba(0, 0, 0, 0)');
+
+    await expectNoHorizontalOverflow(page, 'confirmation dialog');
+
+    const path = testInfo.outputPath('stage4-confirm-dialog.png');
+    await page.screenshot({ path, fullPage: false });
+    await testInfo.attach('stage4-confirm-dialog.png', { path, contentType: 'image/png' });
+
+    await dialog.getByRole('button', { name: 'Отмена' }).click();
+    await expect(dialog).toBeHidden();
+
+    await deleteAvatar.click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Удалить', exact: true }).click();
+    await expect(page.getByTestId('profile-form-message')).toContainText('Аватар удалён');
+    await expect(page.getByRole('alertdialog')).toBeHidden();
   });
 });

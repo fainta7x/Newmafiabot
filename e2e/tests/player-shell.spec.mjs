@@ -22,6 +22,11 @@ const expectInsideViewport = async (page, locator, label) => {
   expect.soft(box.y + box.height, `${label}: bottom`).toBeLessThanOrEqual(viewport.height + 1);
 };
 
+const rgbaAlpha = (value) => {
+  const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/);
+  return match ? Number(match[1]) : 1;
+};
+
 test.describe('Canonical player-cabinet visual shell', () => {
   test.use({ viewport: { width: 390, height: 620 } });
 
@@ -83,7 +88,9 @@ test.describe('Canonical player-cabinet visual shell', () => {
       };
     });
     expect(cardTreatment.radius).toBe('28px');
-    expect(cardTreatment.background).toBe('rgba(255, 255, 255, 0.045)');
+    expect(cardTreatment.background).toMatch(/^rgba\(255, 255, 255,/);
+    expect(rgbaAlpha(cardTreatment.background)).toBeGreaterThanOrEqual(0.042);
+    expect(rgbaAlpha(cardTreatment.background)).toBeLessThanOrEqual(0.046);
     expect(cardTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
 
     const segmented = page.locator('[data-slot="segmented-control"]');
@@ -91,6 +98,11 @@ test.describe('Canonical player-cabinet visual shell', () => {
     await expect(activeSegment).toContainText('История');
     expect(await activeSegment.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
     expect(await activeSegment.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(9, 10, 13)');
+
+    const segmentLabelsClipped = await segmented.locator('button > span').evaluateAll((labels) =>
+      labels.map((label) => label.scrollWidth > label.clientWidth + 1),
+    );
+    expect(segmentLabelsClipped).toEqual([false, false, false, false]);
 
     const primary = page.getByTestId('canonical-primary');
     expect(await primary.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');

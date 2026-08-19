@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
             aria-current={active ? 'page' : undefined}
             onClick={() => onValueChange(item.value)}
             className={cn(
-              'min-w-0 rounded-xl px-2 text-xs font-semibold',
+              'min-w-0 rounded-xl px-1 text-[11px] font-semibold',
               active ? 'ds-segmented-active' : 'text-white/42 active:bg-white/[0.05]',
               itemClassName,
             )}

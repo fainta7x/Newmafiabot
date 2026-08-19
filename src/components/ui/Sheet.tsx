@@ -18,7 +18,7 @@ export interface SheetProps
 }
 
 export function Sheet({ side = 'bottom', children, ...props }: SheetProps) {
-  const swipeDirection = side === 'bottom' ? 'down' : side;
+  const swipeDirection = side === 'bottom' ? 'down' : side === 'top' ? 'up' : side;
   return (
     <SheetSideContext.Provider value={side}>
       <BaseDrawer.Root swipeDirection={swipeDirection} {...props}>

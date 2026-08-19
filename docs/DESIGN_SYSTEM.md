@@ -125,34 +125,49 @@ Stage 4.4 tried to restore perceived premium quality with gradients, inset highl
 
 Do not restore Stage 4.4 bevels, ornamental gradients, permanent card shadows or glow-heavy controls in later work.
 
-#### Stage 4.5 — Modern Noir reset
+#### Stage 4.5 — Established Noir visual reset
 
 **Status: candidate. Must receive explicit user visual approval before merge and before Stage 5 starts.**
 
-Visual source of truth: the player-facing UI immediately before the design-system migration, especially commit `dc30be335f37de50bad6db1acd5e3a035461d902`, while keeping the newer Base UI/accessibility/layer architecture.
+The first Stage 4.5 candidate restored flat composition but incorrectly flattened the palette to nearly black/white and overused new bold/negative-tracking typography. That candidate was rejected in visual review.
+
+Canonical source of truth is now the established 2LA Noire theme system itself rather than a grayscale approximation:
+
+- Noir Cherry default: `#0A0A0C` background, `#121215` / `#19191E` surfaces, warm `#F5F1EA` foreground, `#9E9A93` secondary and `#E13458` accent;
+- Noir Cyan, Violet and Emerald keep the same semantic roles through their existing theme variables;
+- the established web typography stack is `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+- normal content should prefer regular / medium / semibold weights; `font-bold`, negative tracking and uppercase labels are deliberate exceptions rather than defaults.
 
 Canonical visual direction:
 
-- **modern luxury Noir, not generic shadcn dark and not faux-3D premium**;
-- deep near-black app background;
-- ordinary surfaces use translucent light material around 4–8% rather than opaque gray cards;
-- borders are very thin and low-contrast, roughly equivalent to the earlier `white/10` treatment;
-- no decorative gradients, bevels or box shadows on ordinary cards, fields, tabs or primary buttons;
-- shadows are reserved for genuinely floating layers such as Dialog/Sheet/Popover;
-- generic primary actions are light/white on dark, matching the earlier player UI; brand accent is reserved for focus and domain meaning rather than filling every primary action;
-- hierarchy comes from typography, whitespace, opacity and grouping before decoration;
-- avoid nested bordered boxes, table-like dividers and excessive pill badges when plain text communicates the same information;
-- player lists should feel like airy individual rows rather than a bordered data table;
-- chrome stays dark/translucent with blur and subtle active-state fill;
+- **modern themed Noir, not generic black/white shadcn and not faux-3D premium**;
+- retain real `surface-1` / `surface-2` hue instead of replacing surfaces with white transparency;
+- use the active Noir theme accent for primary actions, selected segmented states, focus and meaningful active chrome;
+- keep accent treatment flat: no ornamental gradient, bevel or permanent glow on ordinary controls;
+- ordinary content surfaces have thin low-contrast borders and no box shadow;
+- shadows remain reserved for genuinely floating layers such as Dialog/Sheet/Popover;
+- input fields use `surface-2` with a soft border; accent appears on focus instead of a permanently strong outline;
+- hierarchy comes from typography, spacing, theme color and grouping before decoration;
+- avoid excessive pill badges, nested bordered boxes and table-like dividers when plain text communicates the same information;
 - maintain 44px+ touch targets and Telegram stable-viewport behavior.
+
+Typography rules for migrated player UI:
+
+- explicitly inherit the established system font stack from the document root;
+- body text defaults to regular weight;
+- player names and secondary actions generally use medium;
+- headings and primary actions generally use semibold;
+- do not add negative letter spacing merely to make a component look more designed;
+- preserve uppercase/tracking only for existing small metadata labels where it is part of the established screen language.
 
 Verification gate:
 
 1. full CI must be green;
-2. fresh 390×620 browser evidence must be reviewed for Club, Profile, Dialog/Sheet and shared shell;
-3. **do not merge Stage 4.5 based only on automated checks**;
-4. user must explicitly approve the visual direction in chat;
-5. only after that approval may Stage 5 Live Game begin.
+2. browser checks must confirm the default Noir Cherry surface / accent values and the established system font stack, not merely non-transparent UI;
+3. fresh 390×620 browser evidence must be reviewed for Club, Profile, Dialog/Sheet and shared shell;
+4. **do not merge Stage 4.5 based only on automated checks**;
+5. user must explicitly approve the visual direction in chat;
+6. only after that approval may Stage 5 Live Game begin.
 
 ### Stage 5 — Live Game
 
@@ -190,14 +205,13 @@ Prefer:
 
 - `background`, `surface`, `surface-raised`;
 - `foreground`, `muted-foreground`;
-- `primary` / brand accent only where accent meaning is intended;
-- `action` for generic primary action fill;
+- `primary` for the current Noir theme accent;
 - `success`, `warning`, `danger`;
 - `border`, `focus-ring`.
 
 Avoid introducing new product UI with literal `slate-*`, `rose-*`, `emerald-*`, etc. A domain visualization may use a specific color when that color itself carries game meaning.
 
-The existing Noir Cherry/Cyan/Violet/Emerald theme variables remain the palette source during migration. Semantic tokens alias those themes instead of replacing them.
+The existing Noir Cherry/Cyan/Violet/Emerald theme variables remain the palette source during migration. Semantic tokens alias those themes instead of replacing them with grayscale approximations.
 
 ## Geometry and touch rules
 

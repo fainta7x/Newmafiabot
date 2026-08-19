@@ -38,10 +38,10 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
                 key={item.id}
                 type="button"
                 size="md"
-                variant={active ? 'primary' : 'ghost'}
+                variant="ghost"
                 onClick={() => setView(item.id)}
                 aria-current={active ? 'page' : undefined}
-                className="min-w-0 px-2 text-xs"
+                className={`min-w-0 px-2 text-xs ${active ? 'bg-foreground text-background hover:bg-foreground hover:text-background' : 'text-muted-foreground'}`}
               >
                 {item.label}
               </Button>

@@ -199,3 +199,37 @@
   background: var(--ds-surface-active);
   color: var(--ds-foreground);
 }
+
+/* Organizer mobile chrome deliberately shares the player-cabinet shell rather
+   than keeping the older translucent CRM navigation treatment. */
+@media (max-width: 639px) {
+  .organizer-bottom-nav {
+    height: auto !important;
+    min-height: 68px !important;
+    padding: 8px 4px max(env(safe-area-inset-bottom), 8px) !important;
+    background: var(--ds-chrome-bottom) !important;
+    border-color: var(--ds-border) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+
+  .organizer-bottom-nav > button {
+    min-height: 52px !important;
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .organizer-bottom-nav > button:has(> span.absolute) {
+    background: var(--ds-surface-active);
+    color: var(--ds-foreground);
+  }
+
+  .organizer-bottom-nav > button:has(> span.absolute) svg,
+  .organizer-bottom-nav > button:has(> span.absolute) > span:not(.absolute) {
+    color: var(--ds-foreground) !important;
+  }
+
+  .organizer-bottom-nav > button > span.absolute {
+    display: none;
+  }
+}

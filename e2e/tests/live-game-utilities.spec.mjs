@@ -54,7 +54,7 @@ test.describe('Live Game utility cabinet', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
   test.setTimeout(90_000);
 
-  test('keeps events compact and exposes current game state without crowding the judge bar', async ({ page }, testInfo) => {
+  test('keeps secondary utilities collapsed until the judge asks for them', async ({ page }, testInfo) => {
     await prepareZeroRound(page);
 
     const stateButton = page.getByTestId('live-state-button');
@@ -75,6 +75,24 @@ test.describe('Live Game utility cabinet', () => {
     expect(cssAlpha(panelTreatment.background)).toBeCloseTo(0.04, 3);
     expect(cssAlpha(panelTreatment.border)).toBeCloseTo(0.1, 3);
 
+    const copy = page.getByTestId('live-copy-protocol');
+    const toggle = page.getByTestId('live-events-toggle');
+    const details = page.getByTestId('live-events-details');
+    await expect(copy).toBeVisible();
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(details).toHaveCount(0);
+    await expect(page.getByTestId('live-protocol-notes')).toHaveCount(0);
+
+    const collapsedHeight = await panel.evaluate((element) => element.getBoundingClientRect().height);
+    expect(collapsedHeight).toBeLessThanOrEqual(90);
+    await expectNoHorizontalOverflow(page, 'collapsed events panel');
+    await capture(page, testInfo, 'live-game-utilities-collapsed.png');
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('live-events-details')).toBeVisible();
+
     const filters = page.getByTestId('live-events-filters');
     const all = filters.getByRole('button', { name: /Все/ });
     const day = filters.getByRole('button', { name: 'Дни', exact: true });
@@ -94,8 +112,8 @@ test.describe('Live Game utility cabinet', () => {
     const notes = page.getByTestId('live-protocol-notes');
     await expect(notes).toBeVisible();
     expect(await notes.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    await expectNoHorizontalOverflow(page, 'events panel');
-    await capture(page, testInfo, 'live-game-utilities-panel.png');
+    await expectNoHorizontalOverflow(page, 'expanded events panel');
+    await capture(page, testInfo, 'live-game-utilities-expanded.png');
 
     await stateButton.click();
     const sheet = page.getByTestId('live-state-sheet');

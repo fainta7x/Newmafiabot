@@ -37,7 +37,7 @@ function HomeSample() {
         <p className="mt-1 text-xs leading-5 text-white/40">Привет, Чагин</p>
       </header>
 
-      <Card data-testid="canonical-card" className="rounded-[28px]">
+      <Card data-testid="canonical-card" radius="feature">
         <CardHeader className="pb-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Следующий вечер</div>
         </CardHeader>
@@ -50,7 +50,7 @@ function HomeSample() {
 
       <Card
         data-testid="canonical-summary-card"
-        className="rounded-[28px]"
+        radius="feature"
         style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(255,255,255,0.035))' }}
       >
         <CardHeader className="pb-0">

@@ -9,10 +9,7 @@ export function Card({ className, ...props }: DivProps) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        'ds-panel rounded-[var(--ds-radius-lg)] text-card-foreground',
-        className,
-      )}
+      className={cn('ds-panel rounded-[var(--ds-radius-xl)] text-white', className)}
       {...props}
     />
   );
@@ -26,7 +23,7 @@ export function CardTitle({ className, ...props }: HeadingProps) {
   return (
     <h3
       data-slot="card-title"
-      className={cn('text-base font-bold leading-tight tracking-[-0.018em] text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-white', className)}
       {...props}
     />
   );
@@ -36,7 +33,7 @@ export function CardDescription({ className, ...props }: ParagraphProps) {
   return (
     <p
       data-slot="card-description"
-      className={cn('text-sm leading-5 text-muted-foreground', className)}
+      className={cn('text-sm leading-5 text-white/40', className)}
       {...props}
     />
   );
@@ -50,7 +47,7 @@ export function CardFooter({ className, ...props }: DivProps) {
   return (
     <div
       data-slot="card-footer"
-      className={cn('flex items-center gap-2 border-t border-[var(--ds-border)] px-4 py-3', className)}
+      className={cn('flex items-center gap-2 border-t border-white/[0.07] px-4 py-3', className)}
       {...props}
     />
   );

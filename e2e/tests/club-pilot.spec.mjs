@@ -32,6 +32,8 @@ test.describe('Stage 3 club pilot', () => {
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
 
     const clubTabs = page.locator('nav[aria-label="Разделы клуба"] button');
+    await expect(clubTabs.nth(0)).toHaveAttribute('aria-current', 'page');
+    await expect(clubTabs.nth(1)).not.toHaveAttribute('aria-current', 'page');
     const tabHeights = await clubTabs.evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height),
     );

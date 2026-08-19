@@ -27,8 +27,14 @@ const rgbaAlpha = (value) => {
   return match ? Number(match[1]) : 1;
 };
 
+const attachViewport = async (page, testInfo, name) => {
+  const path = testInfo.outputPath(name);
+  await page.screenshot({ path, fullPage: false });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
+};
+
 test.describe('Canonical player-cabinet visual shell', () => {
-  test.use({ viewport: { width: 390, height: 620 } });
+  test.use({ viewport: { width: 390, height: 620 }, deviceScaleFactor: 2.4 });
 
   test('matches the established player-cabinet language in a Telegram-sized viewport', async ({ page }, testInfo) => {
     await page.goto('/e2e/player-shell.html');
@@ -52,7 +58,9 @@ test.describe('Canonical player-cabinet visual shell', () => {
         inset: root.getPropertyValue('--ds-inset').trim(),
         primary: root.getPropertyValue('--ds-primary').trim(),
         top: top ? getComputedStyle(top).backgroundColor : '',
+        topBorder: top ? getComputedStyle(top).borderBottomColor : '',
         bottom: bottom ? getComputedStyle(bottom).backgroundColor : '',
+        bottomBorder: bottom ? getComputedStyle(bottom).borderTopColor : '',
       };
     });
     expect(contract.background).toBe('#090a0d');
@@ -60,7 +68,10 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(contract.inset).toBe('rgba(0, 0, 0, 0.2)');
     expect(contract.primary).toBe('#ffffff');
     expect(contract.top).toBe('rgba(11, 12, 16, 0.92)');
+    expect(rgbaAlpha(contract.topBorder)).toBeGreaterThanOrEqual(0.068);
+    expect(rgbaAlpha(contract.topBorder)).toBeLessThanOrEqual(0.071);
     expect(contract.bottom).toBe('rgba(11, 12, 16, 0.95)');
+    expect(contract.bottomBorder).toBe('rgba(255, 255, 255, 0.1)');
 
     const pageTitle = page.getByRole('heading', { name: 'Главная', exact: true });
     const titleTypography = await pageTitle.evaluate((element) => {
@@ -76,7 +87,7 @@ test.describe('Canonical player-cabinet visual shell', () => {
     const quickHeights = await quickButtons.evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height),
     );
-    for (const height of quickHeights) expect(height).toBeGreaterThanOrEqual(44);
+    expect(quickHeights).toEqual([40, 40]);
 
     const card = page.getByTestId('canonical-card');
     const cardTreatment = await card.evaluate((element) => {
@@ -93,7 +104,31 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(rgbaAlpha(cardTreatment.background)).toBeLessThanOrEqual(0.046);
     expect(cardTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
 
-    const segmented = page.locator('[data-slot="segmented-control"]');
+    const secondary = page.getByRole('button', { name: 'Рейтинг', exact: true });
+    const secondaryTreatment = await secondary.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { radius: style.borderRadius, height: element.getBoundingClientRect().height };
+    });
+    expect(secondaryTreatment.radius).toBe('12px');
+    expect(secondaryTreatment.height).toBe(44);
+
+    const navButtons = bottomNav.locator('button');
+    expect(await navButtons.count()).toBe(5);
+    const navHeights = await navButtons.evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().height),
+    );
+    expect(navHeights).toEqual([52, 52, 52, 52, 52]);
+
+    const home = page.getByTestId('player-nav-home');
+    await expect(home).toHaveAttribute('aria-current', 'page');
+    expect(await home.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgba(255, 255, 255, 0.09)');
+    await attachViewport(page, testInfo, 'player-cabinet-canonical-home.png');
+
+    await page.getByTestId('player-nav-games').click();
+    await expect(page.getByTestId('player-nav-games')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('heading', { name: 'Игры', exact: true })).toBeVisible();
+
+    const segmented = page.locator('[data-slot="segmented-control"]').first();
     const activeSegment = segmented.locator('[aria-current="page"]');
     await expect(activeSegment).toContainText('История');
     expect(await activeSegment.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
@@ -103,21 +138,8 @@ test.describe('Canonical player-cabinet visual shell', () => {
       labels.map((label) => label.scrollWidth > label.clientWidth + 1),
     );
     expect(segmentLabelsClipped).toEqual([false, false, false, false]);
-
-    const primary = page.getByTestId('canonical-primary');
-    expect(await primary.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
-    expect(await primary.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(9, 10, 13)');
-
-    const navButtons = bottomNav.locator('button');
-    expect(await navButtons.count()).toBe(5);
-    const navHeights = await navButtons.evaluateAll((buttons) =>
-      buttons.map((button) => button.getBoundingClientRect().height),
-    );
-    for (const height of navHeights) expect(height).toBeGreaterThanOrEqual(44);
-
-    const home = page.getByTestId('player-nav-home');
-    await expect(home).toHaveAttribute('aria-current', 'page');
-    expect(await home.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgba(255, 255, 255, 0.09)');
+    await expectNoHorizontalOverflow(page, 'games shell');
+    await attachViewport(page, testInfo, 'player-cabinet-canonical-games.png');
 
     await page.getByTestId('player-nav-club').click();
     await expect(page.getByTestId('player-nav-club')).toHaveAttribute('aria-current', 'page');
@@ -130,9 +152,5 @@ test.describe('Canonical player-cabinet visual shell', () => {
     await page.getByTestId('player-quick-profile').click();
     await expect(page.getByTestId('player-quick-profile')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('player-shell-content')).toContainText('Текущий раздел: profile');
-
-    const path = testInfo.outputPath('player-cabinet-canonical-shell.png');
-    await page.screenshot({ path, fullPage: false });
-    await testInfo.attach('player-cabinet-canonical-shell.png', { path, contentType: 'image/png' });
   });
 });

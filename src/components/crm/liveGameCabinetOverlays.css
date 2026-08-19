@@ -1,0 +1,282 @@
+/* Stage 4.3 — Live Game overlays, protocol/events panel and recovery UI.
+ * Logic, focus behavior, modal stacking and Telegram geometry remain unchanged.
+ */
+
+/* ---------- Events / protocol workbench ---------- */
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) {
+  border-color: var(--ds-border) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) h3 {
+  color: rgba(255, 255, 255, 0.88) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.10em !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) [class~="bg-slate-950"] {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) textarea {
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) button {
+  border-radius: var(--ds-radius-sm) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+
+/* All/day/night filter colours remain semantic, but selected states are quiet. */
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) button[class*="bg-slate-800"] {
+  border-color: transparent !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) button[class*="bg-amber-950"] {
+  border-color: rgba(232, 185, 94, 0.16) !important;
+  background: rgba(232, 185, 94, 0.08) !important;
+  color: #fde9b4 !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) button[class*="bg-purple-950"] {
+  border-color: rgba(167, 139, 250, 0.16) !important;
+  background: rgba(167, 139, 250, 0.08) !important;
+  color: #ddd6fe !important;
+}
+
+.evening-live-engine-shell [class~="bg-slate-900/40"]:has(textarea[placeholder^="Свободные примечания"]) button[class*="bg-rose-950"] {
+  border-color: rgba(251, 113, 133, 0.16) !important;
+  background: rgba(225, 52, 88, 0.075) !important;
+  color: #fecdd3 !important;
+}
+
+/* Fixed state shortcut belongs to the game chrome, not a separate amber badge. */
+.evening-live-engine-shell button[title="Текущее состояние игры"] {
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  background: rgba(11, 12, 16, 0.92) !important;
+  color: rgba(255, 255, 255, 0.58) !important;
+  box-shadow: none !important;
+}
+
+/* ---------- Player action bottom sheet ---------- */
+#root .fixed:has(> .live-player-action-sheet) {
+  background: rgba(9, 10, 13, 0.72) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.live-player-action-sheet {
+  border-color: var(--ds-border) !important;
+  border-radius: var(--ds-radius-xl) var(--ds-radius-xl) 0 0 !important;
+  background: #15161a !important;
+  box-shadow: var(--ds-shadow-raised) !important;
+}
+
+.live-player-action-sheet > div:first-child > div:first-child > div:first-child {
+  font-weight: 600 !important;
+}
+
+.live-player-action-sheet [class*="grid-cols-3"] > div {
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  background: var(--ds-inset) !important;
+}
+
+.live-player-action-sheet button {
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-md) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.66) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.live-player-action-sheet button[class*="bg-amber"],
+.live-player-action-sheet button[class*="bg-yellow"] {
+  border-color: rgba(232, 185, 94, 0.16) !important;
+  background: rgba(232, 185, 94, 0.075) !important;
+  color: #fde9b4 !important;
+}
+
+.live-player-action-sheet button[class*="bg-fuchsia"] {
+  border-color: rgba(251, 113, 133, 0.16) !important;
+  background: rgba(225, 52, 88, 0.075) !important;
+  color: #fecdd3 !important;
+}
+
+.live-player-action-sheet button[class*="bg-rose"],
+.live-player-action-sheet button[class*="bg-red"] {
+  border-color: rgba(251, 113, 133, 0.20) !important;
+  background: rgba(225, 52, 88, 0.095) !important;
+  color: #fecdd3 !important;
+}
+
+.live-player-action-sheet button[class*="bg-purple"] {
+  border-color: rgba(167, 139, 250, 0.18) !important;
+  background: rgba(167, 139, 250, 0.085) !important;
+  color: #ddd6fe !important;
+}
+
+.live-player-action-sheet button[class*="bg-emerald"] {
+  border-color: rgba(110, 231, 183, 0.18) !important;
+  background: rgba(110, 231, 183, 0.085) !important;
+  color: #a7f3d0 !important;
+}
+
+@media (min-width: 768px) {
+  .live-player-action-sheet {
+    border-radius: var(--ds-radius-xl) !important;
+  }
+}
+
+/* ---------- Dangerous-discipline confirmation ---------- */
+#root .fixed:has(> .live-discipline-confirmation) {
+  background: rgba(9, 10, 13, 0.82) !important;
+}
+
+.live-discipline-confirmation {
+  border-color: rgba(251, 113, 133, 0.16) !important;
+  border-radius: var(--ds-radius-xl) !important;
+  background: #15161a !important;
+  box-shadow: var(--ds-shadow-raised) !important;
+}
+
+.live-discipline-confirmation h3,
+.live-discipline-confirmation [class*="font-black"] {
+  font-weight: 600 !important;
+}
+
+.live-discipline-confirmation button {
+  border-radius: var(--ds-radius-md) !important;
+  box-shadow: none !important;
+}
+
+.live-discipline-confirmation button:first-child {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.60) !important;
+}
+
+.live-discipline-confirmation button:last-child {
+  border-color: rgba(251, 113, 133, 0.22) !important;
+  background: rgba(225, 52, 88, 0.15) !important;
+  color: #ffe4e6 !important;
+}
+
+/* ---------- Best move protocol ---------- */
+#root .fixed:has(.live-seat-mini-number) {
+  background: rgba(9, 10, 13, 0.86) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+#root .fixed:has(.live-seat-mini-number) > div {
+  border-color: var(--ds-border) !important;
+  border-radius: var(--ds-radius-xl) !important;
+  background: #15161a !important;
+  box-shadow: var(--ds-shadow-raised) !important;
+}
+
+#root .fixed:has(.live-seat-mini-number) h2,
+#root .fixed:has(.live-seat-mini-number) [class*="font-black"] {
+  font-weight: 600 !important;
+}
+
+#root .fixed:has(.live-seat-mini-number) .live-seat-mini-number {
+  box-shadow: none !important;
+}
+
+#root .fixed:has(.live-seat-mini-number) button:not(.live-seat-mini-number) {
+  border-radius: var(--ds-radius-md) !important;
+  box-shadow: none !important;
+}
+
+#root .fixed:has(.live-seat-mini-number) button[class*="bg-slate-800"] {
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
+#root .fixed:has(.live-seat-mini-number) button[class*="bg-white"] {
+  background: var(--ds-primary) !important;
+  color: var(--ds-on-primary) !important;
+}
+
+/* ---------- Death protocol bridge ---------- */
+#root .fixed:has(button[aria-pressed]) {
+  background: rgba(9, 10, 13, 0.88) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+#root .fixed:has(button[aria-pressed]) > div {
+  border-color: var(--ds-border) !important;
+  border-width: 1px !important;
+  border-radius: var(--ds-radius-xl) !important;
+  background: #15161a !important;
+  box-shadow: var(--ds-shadow-raised) !important;
+}
+
+#root .fixed:has(button[aria-pressed]) [class*="font-black"] {
+  font-weight: 600 !important;
+}
+
+#root .fixed:has(button[aria-pressed]) button {
+  box-shadow: none !important;
+}
+
+#root .fixed:has(button[aria-pressed]) button[aria-pressed="false"] {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.46) !important;
+}
+
+#root .fixed:has(button[aria-pressed]) button[aria-pressed="true"][class*="bg-rose"] {
+  border-color: rgba(251, 113, 133, 0.24) !important;
+  background: rgba(225, 52, 88, 0.13) !important;
+  color: #fecdd3 !important;
+}
+
+#root .fixed:has(button[aria-pressed]) button[aria-pressed="true"][class*="bg-slate"] {
+  border-color: rgba(232, 185, 94, 0.24) !important;
+  background: rgba(232, 185, 94, 0.10) !important;
+  color: #fde9b4 !important;
+}
+
+#root .fixed:has(button[aria-pressed]) button[aria-pressed="true"][class*="bg-emerald"] {
+  border-color: rgba(110, 231, 183, 0.24) !important;
+  background: rgba(110, 231, 183, 0.10) !important;
+  color: #a7f3d0 !important;
+}
+
+/* Saving the protocol is a normal forward action; the selected seat marks
+   carry the semantic colours, while the progress action follows the cabinet. */
+#root .fixed:has(button[aria-pressed]) button[class*="bg-emerald-600"] {
+  border-color: transparent !important;
+  background: var(--ds-primary) !important;
+  color: var(--ds-on-primary) !important;
+}
+
+/* ---------- Recovery / transient state ---------- */
+.evening-live-engine-shell [class*="bg-amber-950/70"][class*="rounded-2xl"] {
+  border-color: rgba(232, 185, 94, 0.16) !important;
+  background: rgba(232, 185, 94, 0.07) !important;
+  color: #fde9b4 !important;
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell [class*="bg-amber-950/70"] button[class*="bg-emerald"] {
+  border: 0 !important;
+  background: var(--ds-primary) !important;
+  color: var(--ds-on-primary) !important;
+}

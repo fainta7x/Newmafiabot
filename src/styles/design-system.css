@@ -133,7 +133,7 @@
 .ds-button-secondary {
   background: var(--ds-surface-raised);
   border-color: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.7);
   box-shadow: none;
 }
 
@@ -177,17 +177,18 @@
 
 .ds-chrome-top,
 .ds-chrome-bottom {
-  border-color: var(--ds-border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
 .ds-chrome-top {
   background: var(--ds-chrome-top);
+  border-color: var(--ds-border-soft);
 }
 
 .ds-chrome-bottom {
   background: var(--ds-chrome-bottom);
+  border-color: var(--ds-border);
 }
 
 .ds-nav-active {

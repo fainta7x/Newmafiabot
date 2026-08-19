@@ -1,27 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-const ROLE_SEQUENCE = [
-  'Мирный', 'Мафия', 'Мирный', 'Шериф', 'Мирный',
-  'Мафия', 'Мирный', 'Дон', 'Мирный', 'Мирный',
-];
+const centerPanel = (page) => page.getByTestId('live-judge-hud');
 
-const tableGrid = (page) => page
-  .locator('.evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]')
-  .first();
-
-const prepareZeroRound = async (page) => {
-  await page.goto('/e2e/live-game.html');
-  await page.getByRole('button', { name: /Начать раздачу ролей/ }).click();
-  const intro = page.getByText('Подготовьте 10 карт');
-  await expect(intro).toBeVisible();
-  await intro.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
-  for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
-  await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
-  await page.getByRole('button', { name: /Договорка · 75с/ }).click();
-  await page.getByRole('button', { name: /Вызов шерифа · 10с/i }).click();
-  await page.getByRole('button', { name: /Свободная посадка · 40с/ }).click();
-  await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
-  await expect(tableGrid(page)).toBeVisible();
+const prepareRecoveredDay = async (page) => {
+  await page.goto('/e2e/live-game.html?mode=recovery');
+  await expect(page.getByText(/Найдена незавершённая игра · 18:00/)).toBeVisible();
+  await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
+  await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Прерванная игра восстановлена', { exact: true })).toBeVisible();
 };
 
 const cssAlpha = (value) => {
@@ -55,7 +41,7 @@ test.describe('Live Game utility cabinet', () => {
   test.setTimeout(90_000);
 
   test('keeps secondary utilities collapsed until the judge asks for them', async ({ page }, testInfo) => {
-    await prepareZeroRound(page);
+    await prepareRecoveredDay(page);
 
     const stateButton = page.getByTestId('live-state-button');
     await expect(stateButton).toBeVisible();
@@ -74,6 +60,13 @@ test.describe('Live Game utility cabinet', () => {
     expect(panelTreatment.radius).toBe('24px');
     expect(cssAlpha(panelTreatment.background)).toBeCloseTo(0.04, 3);
     expect(cssAlpha(panelTreatment.border)).toBeCloseTo(0.1, 3);
+
+    const latest = page.getByTestId('live-events-latest');
+    const undo = page.getByTestId('live-events-undo');
+    await expect(latest).toBeVisible();
+    await expect(latest).toContainText('E2E: сохранённая игра перед восстановлением.');
+    await expect(undo).toBeVisible();
+    await expect(undo).toHaveAttribute('aria-label', 'Отменить последнее событие');
 
     const copy = page.getByTestId('live-copy-protocol');
     const toggle = page.getByTestId('live-events-toggle');

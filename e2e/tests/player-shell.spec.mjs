@@ -34,12 +34,15 @@ const attachViewport = async (page, testInfo, name) => {
 };
 
 test.describe('Canonical player-cabinet visual shell', () => {
-  test.use({ viewport: { width: 390, height: 620 }, deviceScaleFactor: 2.4 });
+  /* 931px-wide production screenshot ≈ 388 CSS px at DPR 2.4.
+     The Telegram webview area in that screenshot is about 713 CSS px tall. */
+  test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
   test('matches the established player-cabinet language in a Telegram-sized viewport', async ({ page }, testInfo) => {
     await page.goto('/e2e/player-shell.html');
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty('--tg-viewport-stable-height', '620px');
+    await page.evaluate(async () => {
+      document.documentElement.style.setProperty('--tg-viewport-stable-height', '713px');
+      await document.fonts.ready;
     });
 
     const topBar = page.getByTestId('player-top-bar');
@@ -53,6 +56,7 @@ test.describe('Canonical player-cabinet visual shell', () => {
       const top = document.querySelector('[data-testid="player-top-bar"]');
       const bottom = document.querySelector('[data-testid="player-bottom-nav"]');
       return {
+        fontSans: root.getPropertyValue('--font-sans').trim(),
         background: root.getPropertyValue('--ds-background').trim(),
         surface: root.getPropertyValue('--ds-surface').trim(),
         inset: root.getPropertyValue('--ds-inset').trim(),
@@ -63,6 +67,7 @@ test.describe('Canonical player-cabinet visual shell', () => {
         bottomBorder: bottom ? getComputedStyle(bottom).borderTopColor : '',
       };
     });
+    expect(contract.fontSans).toContain('Roboto');
     expect(contract.background).toBe('#090a0d');
     expect(contract.surface).toBe('rgba(255, 255, 255, 0.045)');
     expect(contract.inset).toBe('rgba(0, 0, 0, 0.2)');
@@ -76,8 +81,14 @@ test.describe('Canonical player-cabinet visual shell', () => {
     const pageTitle = page.getByRole('heading', { name: 'Главная', exact: true });
     const titleTypography = await pageTitle.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { fontSize: style.fontSize, fontWeight: style.fontWeight, letterSpacing: style.letterSpacing };
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        letterSpacing: style.letterSpacing,
+      };
     });
+    expect(titleTypography.fontFamily).toContain('Roboto');
     expect(titleTypography.fontSize).toBe('24px');
     expect(titleTypography.fontWeight).toBe('600');
     expect(titleTypography.letterSpacing).toBe('normal');
@@ -104,7 +115,9 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(rgbaAlpha(cardTreatment.background)).toBeLessThanOrEqual(0.046);
     expect(cardTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
 
-    const secondary = page.getByRole('button', { name: 'Рейтинг', exact: true });
+    const secondary = page
+      .getByTestId('canonical-summary-card')
+      .getByRole('button', { name: 'Рейтинг', exact: true });
     const secondaryTreatment = await secondary.evaluate((element) => {
       const style = getComputedStyle(element);
       return { radius: style.borderRadius, height: element.getBoundingClientRect().height };

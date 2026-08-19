@@ -38,8 +38,10 @@ The user's production Telegram WebApp screenshots of **Главная** and **И
 
 - large feature/card radius: `28px`;
 - ordinary card/sheet grouping: around `24px`;
-- controls: normally `12–16px` radius;
-- normal mobile interaction target: at least `44px`;
+- compact controls: normally `12px` radius; softer/larger actions may use `16px`;
+- the approved top quick-access wallet/profile controls are **40px visible controls**; do not enlarge them just to satisfy a generic component rule;
+- the approved bottom-nav item height is **52px**;
+- normal new mobile interaction targets should be at least `44px` unless the approved player-cabinet reference intentionally uses a smaller visible control;
 - Telegram stable viewport and safe-area geometry are mandatory.
 
 ### Typography
@@ -51,6 +53,8 @@ Use the same platform/system font behaviour as the approved player cabinet. Hier
 - secondary copy: small and low-contrast;
 - section eyebrow: about `10px`, `font-semibold`, uppercase, tracking around `0.16–0.18em`;
 - avoid unnecessary negative letter-spacing and excessive uppercase.
+
+Browser evidence must render with the same `font-sans antialiased` body treatment as production and should use an Android-like device pixel ratio when visually comparing against the approved phone screenshots. Do not judge typography from a DPR-1 CI screenshot as if it were the production phone rendering.
 
 ### Depth
 
@@ -71,7 +75,8 @@ Do not reintroduce:
 - generic shadcn-dark appearance;
 - a different visual language for Live Game;
 - arbitrary new radii, shadows or z-index values per screen;
-- Cherry as the fill for every primary action.
+- Cherry as the fill for every primary action;
+- accessibility-driven visible-size inflation that changes an already approved reference control without a product reason.
 
 ## Technical stack
 
@@ -95,7 +100,7 @@ Work in short, separately verified PRs.
 Status: **in progress**.
 
 - make shared tokens and primitives reproduce the approved Home/Games language;
-- restore player shell chrome/navigation to that same language while retaining canonical layer/touch rules;
+- restore player shell chrome/navigation to that same language while retaining canonical layers and the approved reference geometry;
 - update browser guards so tests protect the approved visual contract instead of Stage 4.4;
 - do not redesign CRM or Live Game yet.
 
@@ -141,7 +146,7 @@ Do not solve stacking by inventing a larger arbitrary z-index. Fix layer ownersh
 - never assume browser `100dvh` equals the usable Telegram area;
 - fixed app chrome must not cover the active work surface;
 - important screens and every Live Game phase require reduced-height Telegram-like browser evidence;
-- normal interactive controls target at least 44px.
+- new controls normally target at least 44px, but approved reference controls keep their exact visible geometry unless there is a concrete usability problem.
 
 ## Verification policy
 

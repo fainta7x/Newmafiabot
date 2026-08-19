@@ -33,6 +33,16 @@ test.describe('Stage 3 club pilot', () => {
     await expect(secondRow).toContainText('Богданчик');
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
 
+    const bodyFont = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+    expect(bodyFont).toContain('system-ui');
+    const clubHeading = page.getByRole('heading', { name: 'Клуб', exact: true });
+    const headingTreatment = await clubHeading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fontWeight: style.fontWeight, letterSpacing: style.letterSpacing };
+    });
+    expect(headingTreatment.fontWeight).toBe('600');
+    expect(['normal', '0px']).toContain(headingTreatment.letterSpacing);
+
     const rowBoxes = await Promise.all([selfRow.boundingBox(), secondRow.boundingBox()]);
     for (const box of rowBoxes) {
       expect(box).not.toBeNull();
@@ -41,8 +51,13 @@ test.describe('Stage 3 club pilot', () => {
 
     const directoryTreatment = await directory.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+      return {
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        boxShadow: style.boxShadow,
+      };
     });
+    expect(directoryTreatment.backgroundColor).toBe('rgb(18, 18, 21)');
     expect(directoryTreatment.backgroundImage).toBe('none');
     expect(directoryTreatment.boxShadow).toBe('none');
 
@@ -59,21 +74,25 @@ test.describe('Stage 3 club pilot', () => {
     expect(tabHeights).toHaveLength(3);
     for (const height of tabHeights) expect(height).toBeGreaterThanOrEqual(44);
 
-    const tabBackgrounds = await clubTabs.evaluateAll((buttons) =>
-      buttons.map((button) => getComputedStyle(button).backgroundColor),
-    );
-    expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[1]);
-    expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[2]);
-    const activeShadow = await clubTabs.nth(0).evaluate((button) => getComputedStyle(button).boxShadow);
-    expect(activeShadow).toBe('none');
+    const activeTreatment = await clubTabs.nth(0).evaluate((button) => {
+      const style = getComputedStyle(button);
+      return { backgroundColor: style.backgroundColor, color: style.color, boxShadow: style.boxShadow };
+    });
+    expect(activeTreatment.backgroundColor).toBe('rgba(225, 52, 88, 0.15)');
+    expect(activeTreatment.color).toBe('rgb(225, 52, 88)');
+    expect(activeTreatment.boxShadow).toBe('none');
 
     const search = page.getByTestId('club-search');
     const searchTreatment = await search.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+      return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
+    expect(searchTreatment.backgroundColor).toBe('rgb(25, 25, 30)');
     expect(searchTreatment.backgroundImage).toBe('none');
     expect(searchTreatment.boxShadow).toBe('none');
+
+    const rowTreatment = await secondRow.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(rowTreatment).toBe('rgb(25, 25, 30)');
 
     await expectNoHorizontalOverflow(page, 'club list');
     await attachViewport(page, testInfo, 'club-pilot-list.png');
@@ -104,8 +123,9 @@ test.describe('Stage 3 club pilot', () => {
 
     const sheetTreatment = await sheet.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+      return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
+    expect(sheetTreatment.backgroundColor).toBe('rgb(25, 25, 30)');
     expect(sheetTreatment.backgroundImage).toBe('none');
     expect(sheetTreatment.boxShadow).not.toBe('none');
 

@@ -7,6 +7,7 @@ import JudgeMusicPlaylist from './JudgeMusicPlaylist.tsx';
 import JudgeGameLauncher, { type JudgeStartEvening } from './JudgeGameLauncher.tsx';
 import { EveningLiveGameModal } from '../crm/EveningLiveGameModal.tsx';
 import { Button } from '../ui/Button.tsx';
+import ConfirmDialog from '../ui/ConfirmDialog.tsx';
 import { Field, FieldDescription, FieldLabel, FieldMessage } from '../ui/Field.tsx';
 import { Input } from '../ui/Input.tsx';
 
@@ -28,6 +29,7 @@ export default function PlayerProfileSettings({
   const [phone, setPhone] = useState(player.phone || '');
   const [saving, setSaving] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarDeleteOpen, setAvatarDeleteOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [judging, setJudging] = useState<JudgingWithLauncher | null>(null);
@@ -129,7 +131,6 @@ export default function PlayerProfileSettings({
 
   const deleteAvatar = async () => {
     if (avatarSaving || !player.avatar_url) return;
-    if (!window.confirm('Удалить аватар из профиля?')) return;
     setAvatarSaving(true);
     setError(null);
     setMessage(null);
@@ -143,6 +144,7 @@ export default function PlayerProfileSettings({
       setError(deleteError?.message || 'Не удалось удалить аватар');
     } finally {
       setAvatarSaving(false);
+      setAvatarDeleteOpen(false);
     }
   };
 
@@ -171,7 +173,7 @@ export default function PlayerProfileSettings({
           {player.avatar_url ? <img src={player.avatar_url} alt={player.nickname} className="h-24 w-24 shrink-0 rounded-[24px] object-cover ring-1 ring-white/15" /> : <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[24px] bg-white/10 text-3xl font-semibold text-white/65">{player.nickname.slice(0, 1).toUpperCase()}</div>}
           <div className="min-w-0 flex-1 space-y-2">
             <button type="button" disabled={avatarSaving} onClick={() => fileRef.current?.click()} className="min-h-11 w-full rounded-2xl bg-white px-3 text-sm font-semibold text-black disabled:opacity-50">{avatarSaving ? 'Сохраняем…' : player.avatar_url ? 'Сменить аватар' : 'Загрузить аватар'}</button>
-            {player.avatar_url && <button type="button" disabled={avatarSaving} onClick={() => void deleteAvatar()} className="min-h-10 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-white/55 disabled:opacity-50">Удалить</button>}
+            {player.avatar_url && <button type="button" disabled={avatarSaving} onClick={() => setAvatarDeleteOpen(true)} className="min-h-10 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-white/55 disabled:opacity-50">Удалить</button>}
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           </div>
         </div>
@@ -235,6 +237,17 @@ export default function PlayerProfileSettings({
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Оформление профиля</div>
         <p className="mt-2 text-sm leading-6 text-white/35">Здесь позже можно добавить рамки аватара, фон карточки и выбранное достижение — уже как настоящую кастомизацию, не смешивая её с личными данными.</p>
       </section>
+
+      <ConfirmDialog
+        open={avatarDeleteOpen}
+        title="Удалить аватар?"
+        description="Фото будет удалено из профиля. Новый аватар можно загрузить в любой момент."
+        confirmLabel="Удалить"
+        tone="danger"
+        busy={avatarSaving}
+        onCancel={() => setAvatarDeleteOpen(false)}
+        onConfirm={deleteAvatar}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import OrganizerCommandCenter from './OrganizerCommandCenter.tsx';
+import './crmOverviewCanonical.css';
 
 interface CRMOverviewProps {
   overview: CrmOverview | null;
@@ -31,7 +32,7 @@ export const CRMOverview = ({
   onCompleteTask,
   onRefresh,
 }: CRMOverviewProps) => (
-  <div className="space-y-4">
+  <div className="crm-overview-canonical space-y-4">
     <OrganizerCommandCenter
       overview={overview}
       onOpenEvening={onOpenEvening}

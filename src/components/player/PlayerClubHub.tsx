@@ -20,8 +20,8 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
     <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-foreground">
       <div className="mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
-          <h1 className="text-2xl font-semibold tracking-[-0.025em]">Клуб</h1>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground/65">Люди, жизнь клуба и связи за столом</p>
+          <h1 className="text-2xl font-semibold">Клуб</h1>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Люди, жизнь клуба и связи за столом</p>
         </header>
 
         <SegmentedControl

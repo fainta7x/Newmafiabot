@@ -1,28 +1,26 @@
 /*
  * 2LA Noire design-system foundation.
  *
- * Modern Noir keeps the technical benefits of shared semantic tokens and
- * headless primitives, but intentionally avoids faux-3D bevels, heavy shadows
- * and decorative gradients. The visual baseline follows the earlier player UI:
- * deep black, translucent light surfaces, thin borders, strong typography and
- * restrained brand accent.
+ * The presentation layer deliberately follows the established Noir theme
+ * vocabulary instead of flattening the product into generic black/white UI.
+ * Shared primitives keep modern flat geometry, while the existing Cherry /
+ * Cyan / Violet / Emerald theme variables remain the source of visual truth.
  */
 
 :root,
 [data-theme] {
   --ds-background: var(--app-bg);
+  --ds-surface: var(--surface-1);
+  --ds-surface-raised: var(--surface-2);
+  --ds-surface-hover: var(--surface-hover);
 
   --ds-foreground: var(--text-primary);
   --ds-muted-foreground: var(--text-secondary);
   --ds-subtle-foreground: var(--text-muted);
 
-  /* Brand accent is not the default action fill. Generic primary actions stay
-     light-on-dark, while accent remains available for focus/domain emphasis. */
   --ds-primary: var(--accent);
   --ds-primary-hover: var(--accent-hover);
   --ds-primary-soft: var(--accent-soft);
-  --ds-action: var(--text-primary);
-  --ds-on-action: var(--app-bg);
   --ds-on-primary: #ffffff;
 
   --ds-success: var(--success);
@@ -32,27 +30,22 @@
   --ds-danger: var(--danger);
   --ds-danger-soft: var(--danger-soft);
 
-  /* Modern Noir material values mirror the pre-design-system player UI. */
-  --ds-panel: color-mix(in srgb, var(--ds-foreground) 4.5%, transparent);
-  --ds-panel-hover: color-mix(in srgb, var(--ds-foreground) 6.5%, transparent);
-  --ds-panel-active: color-mix(in srgb, var(--ds-foreground) 9%, transparent);
-  --ds-panel-raised: color-mix(in srgb, var(--ds-foreground) 6%, var(--ds-background));
-  --ds-input-bg: rgba(0, 0, 0, 0.2);
-  --ds-border: color-mix(in srgb, var(--ds-foreground) 10%, transparent);
-  --ds-border-strong: color-mix(in srgb, var(--ds-foreground) 16%, transparent);
+  /* Real theme surfaces, not white overlays. This restores the subtle hue of
+     each Noir palette while keeping ordinary content flat and contemporary. */
+  --ds-panel: var(--surface-1);
+  --ds-panel-hover: var(--surface-hover);
+  --ds-panel-active: var(--accent-soft);
+  --ds-panel-raised: var(--surface-2);
+  --ds-input-bg: var(--surface-2);
+  --ds-border: var(--border-soft);
+  --ds-border-strong: var(--border-strong);
   --ds-focus-ring: var(--accent);
-  --ds-chrome: color-mix(in srgb, var(--ds-background) 92%, transparent);
-
-  /* Legacy semantic aliases now resolve to the same light material system so
-     already-migrated sections do not become opaque gray cards. */
-  --ds-surface: var(--ds-panel);
-  --ds-surface-raised: var(--ds-panel-raised);
-  --ds-surface-hover: var(--ds-panel-hover);
+  --ds-chrome: color-mix(in srgb, var(--app-bg) 90%, transparent);
 
   --ds-radius-sm: 12px;
-  --ds-radius-md: 16px;
-  --ds-radius-lg: 24px;
-  --ds-radius-xl: 28px;
+  --ds-radius-md: 14px;
+  --ds-radius-lg: 18px;
+  --ds-radius-xl: 24px;
 
   --ds-control-sm: 36px;
   --ds-control-md: 44px;
@@ -62,7 +55,7 @@
   --ds-shadow-surface: none;
   --ds-shadow-control: none;
   --ds-shadow-primary: none;
-  --ds-shadow-raised: 0 20px 56px rgba(0, 0, 0, 0.38);
+  --ds-shadow-raised: 0 20px 56px rgba(0, 0, 0, 0.42);
   --ds-shadow-focus: 0 0 0 3px var(--accent-soft);
 
   --ds-layer-page: 0;
@@ -77,17 +70,17 @@
 @theme inline {
   --color-background: var(--ds-background);
   --color-foreground: var(--ds-foreground);
-  --color-card: var(--ds-panel);
+  --color-card: var(--ds-surface);
   --color-card-foreground: var(--ds-foreground);
-  --color-popover: var(--ds-panel-raised);
+  --color-popover: var(--ds-surface-raised);
   --color-popover-foreground: var(--ds-foreground);
   --color-primary: var(--ds-primary);
   --color-primary-foreground: var(--ds-on-primary);
-  --color-secondary: var(--ds-panel);
+  --color-secondary: var(--ds-surface-raised);
   --color-secondary-foreground: var(--ds-foreground);
-  --color-muted: var(--ds-panel);
+  --color-muted: var(--ds-surface-raised);
   --color-muted-foreground: var(--ds-muted-foreground);
-  --color-ui-accent: var(--ds-panel-hover);
+  --color-ui-accent: var(--ds-surface-hover);
   --color-ui-accent-foreground: var(--ds-foreground);
   --color-destructive: var(--ds-danger);
   --color-border: var(--ds-border);
@@ -104,8 +97,7 @@
   box-shadow: var(--ds-shadow-focus);
 }
 
-/* Ordinary content surfaces stay almost flat. Hierarchy comes from contrast,
-   spacing and typography rather than bevels or decorative shadows. */
+/* Ordinary content surfaces are real theme surfaces with no faux-3D effects. */
 .ds-surface,
 .ds-panel {
   background: var(--ds-panel);
@@ -114,7 +106,7 @@
   color: var(--ds-foreground);
 }
 
-/* Raised surfaces are reserved for floating UI such as dialogs and sheets. */
+/* Elevation is reserved for genuinely floating UI. */
 .ds-surface-raised,
 .ds-panel-raised {
   background: var(--ds-panel-raised);
@@ -123,19 +115,21 @@
   color: var(--ds-foreground);
 }
 
+/* The established theme accent returns as the generic primary action, but stays
+   flat: color provides hierarchy instead of gradients, bevels or glow. */
 .ds-button-primary {
-  background: var(--ds-action);
+  background: var(--ds-primary);
   border-color: transparent;
   box-shadow: none;
-  color: var(--ds-on-action);
+  color: var(--ds-on-primary);
 }
 
 .ds-button-primary:hover {
-  background: color-mix(in srgb, var(--ds-action) 92%, transparent);
+  background: var(--ds-primary-hover);
 }
 
 .ds-button-secondary {
-  background: var(--ds-panel);
+  background: var(--ds-surface-raised);
   border-color: var(--ds-border);
   box-shadow: none;
 }
@@ -158,8 +152,8 @@
 }
 
 .ds-segmented-active {
-  background: var(--ds-action);
-  color: var(--ds-on-action);
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
   box-shadow: none;
 }
 
@@ -175,6 +169,6 @@
 }
 
 .ds-nav-active {
-  background: var(--ds-panel-active);
-  color: var(--ds-foreground);
+  background: var(--ds-primary-soft);
+  color: var(--ds-primary);
 }

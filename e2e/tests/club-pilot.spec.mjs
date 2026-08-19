@@ -35,8 +35,8 @@ test.describe('Stage 3 club pilot', () => {
       const style = getComputedStyle(element);
       return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
-    expect(directoryTreatment.backgroundImage).not.toBe('none');
-    expect(directoryTreatment.boxShadow).not.toBe('none');
+    expect(directoryTreatment.backgroundImage).toBe('none');
+    expect(directoryTreatment.boxShadow).toBe('none');
 
     const segmented = page.locator('[data-slot="segmented-control"]');
     await expect(segmented).toBeVisible();
@@ -57,11 +57,15 @@ test.describe('Stage 3 club pilot', () => {
     expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[1]);
     expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[2]);
     const activeShadow = await clubTabs.nth(0).evaluate((button) => getComputedStyle(button).boxShadow);
-    expect(activeShadow).not.toBe('none');
+    expect(activeShadow).toBe('none');
 
     const search = page.getByTestId('club-search');
-    const searchShadow = await search.evaluate((element) => getComputedStyle(element).boxShadow);
-    expect(searchShadow).not.toBe('none');
+    const searchTreatment = await search.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+    });
+    expect(searchTreatment.backgroundImage).toBe('none');
+    expect(searchTreatment.boxShadow).toBe('none');
 
     await expectNoHorizontalOverflow(page, 'club list');
     await attachViewport(page, testInfo, 'club-pilot-list.png');
@@ -89,6 +93,13 @@ test.describe('Stage 3 club pilot', () => {
     expect.soft(sheetBox.x + sheetBox.width, 'sheet right edge').toBeLessThanOrEqual(391);
     expect.soft(sheetBox.y, 'sheet top edge').toBeGreaterThanOrEqual(-1);
     expect.soft(sheetBox.y + sheetBox.height, 'sheet bottom edge').toBeLessThanOrEqual(621);
+
+    const sheetTreatment = await sheet.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+    });
+    expect(sheetTreatment.backgroundImage).toBe('none');
+    expect(sheetTreatment.boxShadow).not.toBe('none');
 
     await expectNoHorizontalOverflow(page, 'club player sheet');
     await attachViewport(page, testInfo, 'club-pilot-sheet.png');

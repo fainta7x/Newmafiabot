@@ -10,7 +10,8 @@
 [data-theme] {
   /* Exact player-cabinet material language. */
   --ds-background: #090a0d;
-  --ds-chrome: rgba(11, 12, 16, 0.95);
+  --ds-chrome-top: rgba(11, 12, 16, 0.92);
+  --ds-chrome-bottom: rgba(11, 12, 16, 0.95);
   --ds-surface: rgba(255, 255, 255, 0.045);
   --ds-surface-raised: rgba(255, 255, 255, 0.075);
   --ds-surface-hover: rgba(255, 255, 255, 0.09);
@@ -174,11 +175,19 @@
   box-shadow: none;
 }
 
-.ds-chrome {
-  background: var(--ds-chrome);
+.ds-chrome-top,
+.ds-chrome-bottom {
   border-color: var(--ds-border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+.ds-chrome-top {
+  background: var(--ds-chrome-top);
+}
+
+.ds-chrome-bottom {
+  background: var(--ds-chrome-bottom);
 }
 
 .ds-nav-active {

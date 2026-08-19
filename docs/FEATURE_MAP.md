@@ -3,8 +3,11 @@
 Fast first-hop map for known features. For fuzzy terms use `npm run project:find -- "<query>"`; after edits use `npm run project:affected -- <files>`.
 
 ## Player shell / navigation
-- UI: `src/components/player/PlayerCabinetShell.tsx`, `playerCabinetNavigation.ts`, `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
+- Shell/router: `src/components/player/PlayerCabinetShell.tsx`.
+- Shared fixed chrome: `src/components/player/PlayerQuickAccessBar.tsx` (top wallet/profile access) and `src/components/player/PlayerBottomNavigation.tsx` (five-item primary navigation).
 - Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
+- Primary screen hubs: `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
+- Shared-shell browser geometry: `e2e/player-shell.html`, `e2e/player-shell-harness.tsx`, `e2e/tests/player-shell.spec.mjs`.
 - History/stats content: `src/components/player/PlayerHistoryStatsView.tsx` — active embedded view, not a second cabinet.
 - API family: `/api/player/*` mounts in `src/app.ts`, especially `src/server/routes/playerSelfRoutes.ts` and related player route modules.
 
@@ -61,7 +64,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Judge overlays / action sheets / best-move modal / toast / saved-session banner: `src/components/LiveGameEngine/LiveGameOverlays.tsx`; boundary guard: `src/tests/liveGameOverlaysStructure.test.ts`. State ownership and game-action handlers remain in `LiveGameEngine.tsx`.
 - Center-panel timer math/deadlines: `src/components/LiveGameEngine/timerModel.ts`; focused coverage: `src/tests/liveGameTimerModel.test.ts`.
 - Center-panel voting display calculations: `src/components/LiveGameEngine/votingPresentationModel.ts`; focused coverage: `src/tests/liveGameVotingPresentationModel.test.ts`. Voting outcomes remain in `src/shared/tournamentVoting.ts`.
-- Seat grid / border-priority / current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.
+- Seat grid / border-priority and current-vote presentation: `src/components/LiveGameEngine/seatPresentationModel.ts`; focused coverage: `src/tests/liveGameSeatPresentationModel.test.ts`. Seat actions/fouls/removal stay in `SeatCard.tsx`.
 - Engine state schema, initial factories, snapshot cloning and legacy restore defaults: `src/components/LiveGameEngine/engineStateModel.ts`; focused coverage: `src/tests/liveGameEngineStateModel.test.ts`. React setters, undo/history orchestration and localStorage persistence remain in `LiveGameEngine.tsx`.
 - Conducted browser verification: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/live-game.spec.mjs`. It mounts the existing safe `JudgeTestGameModal -> EveningLiveGameModal -> LiveGameEngine` path only in Vite/Playwright, uses no production DB, checks 390×844 geometry/screenshots, and walks setup -> zero night -> day speeches -> nominations/voting -> night target/Don/Sheriff -> first-killed protocol -> Day 2 plus a separate PPK completion path.
 - Mobile night feedback: `CenterPanel.tsx` keeps selected shot and Don/Sheriff result visible while the timer runs; `liveGameMobileGeometryV6.css` keeps night card markers above the action/discipline controls and gives the HUD status a dedicated mobile cell.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
+import PlayerBottomNavigation from './PlayerBottomNavigation.tsx';
 import PlayerClubHub from './PlayerClubHub.tsx';
 import PlayerConductCenter from './PlayerConductCenter.tsx';
 import PlayerEventsCalendar from './PlayerEventsCalendar.tsx';
@@ -12,8 +13,6 @@ import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
 import PlayerWalletHub from './PlayerWalletHub.tsx';
 import {
-  PLAYER_CABINET_NAV,
-  isPlayerCabinetNavActive,
   isPlayerGameSection,
   isPlayerRatingSection,
   normalizePlayerCabinetSection,
@@ -60,7 +59,10 @@ export default function PlayerCabinetShell({
   const currentData = { ...data, player };
 
   return (
-    <div className="player-events-shell min-h-screen bg-[#090a0d] text-white">
+    <div
+      data-testid="player-cabinet-shell"
+      className="player-events-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground"
+    >
       <style>{`.player-events-shell main{padding-top:.75rem!important}`}</style>
 
       <PlayerQuickAccessBar
@@ -122,19 +124,7 @@ export default function PlayerCabinetShell({
 
       <PlayerLiveOnlyCenter />
 
-      <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#0b0c10]/95 px-1 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
-          {PLAYER_CABINET_NAV.map((item) => {
-            const active = isPlayerCabinetNavActive(item.id, section);
-            return (
-              <button key={item.id} type="button" onClick={() => open(item.id)} className={`flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}>
-                <span className="text-base leading-none">{item.icon}</span>
-                <span className="mt-1 max-w-full truncate">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
     </div>
   );
 }

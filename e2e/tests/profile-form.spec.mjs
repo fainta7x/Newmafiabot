@@ -21,6 +21,8 @@ test.describe('Stage 4 shared profile patterns', () => {
 
     const section = page.getByTestId('profile-personal-data');
     await expect(section).toBeVisible();
+    const sectionColor = await section.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(sectionColor).toBe('rgb(18, 18, 21)');
 
     const nickname = page.getByLabel('Игровой ник');
     const fullName = page.getByLabel('Имя');
@@ -33,10 +35,17 @@ test.describe('Stage 4 shared profile patterns', () => {
       expect(box.height).toBeGreaterThanOrEqual(44);
       const treatment = await field.evaluate((element) => {
         const style = getComputedStyle(element);
-        return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+        return {
+          backgroundColor: style.backgroundColor,
+          backgroundImage: style.backgroundImage,
+          boxShadow: style.boxShadow,
+          fontFamily: style.fontFamily,
+        };
       });
+      expect(treatment.backgroundColor).toBe('rgb(25, 25, 30)');
       expect(treatment.backgroundImage).toBe('none');
       expect(treatment.boxShadow).toBe('none');
+      expect(treatment.fontFamily).toContain('system-ui');
     }
 
     const save = page.getByTestId('profile-save');
@@ -46,11 +55,13 @@ test.describe('Stage 4 shared profile patterns', () => {
         backgroundColor: style.backgroundColor,
         backgroundImage: style.backgroundImage,
         boxShadow: style.boxShadow,
+        fontWeight: style.fontWeight,
       };
     });
-    expect(saveTreatment.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(saveTreatment.backgroundColor).toBe('rgb(225, 52, 88)');
     expect(saveTreatment.backgroundImage).toBe('none');
     expect(saveTreatment.boxShadow).toBe('none');
+    expect(saveTreatment.fontWeight).toBe('600');
 
     await expectNoHorizontalOverflow(page, 'profile form');
 
@@ -94,8 +105,9 @@ test.describe('Stage 4 shared profile patterns', () => {
 
     const dialogTreatment = await dialog.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+      return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
+    expect(dialogTreatment.backgroundColor).toBe('rgb(25, 25, 30)');
     expect(dialogTreatment.backgroundImage).toBe('none');
     expect(dialogTreatment.boxShadow).not.toBe('none');
 
@@ -104,7 +116,7 @@ test.describe('Stage 4 shared profile patterns', () => {
       const style = getComputedStyle(element);
       return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
-    expect(confirmTreatment.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(confirmTreatment.backgroundColor).toBe('rgb(232, 85, 85)');
     expect(confirmTreatment.backgroundImage).toBe('none');
     expect(confirmTreatment.boxShadow).toBe('none');
 

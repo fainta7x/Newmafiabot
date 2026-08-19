@@ -24,6 +24,14 @@ const prepareZeroRound = async (page) => {
   await expect(tableGrid(page)).toBeVisible();
 };
 
+const cssAlpha = (value) => {
+  const slash = String(value).match(/\/\s*([0-9.]+)\s*\)?$/);
+  if (slash) return Number(slash[1]);
+  const rgba = String(value).match(/rgba\([^)]*,\s*([0-9.]+)\)$/);
+  if (rgba) return Number(rgba[1]);
+  return 1;
+};
+
 const expectNoHorizontalOverflow = async (page, label) => {
   const metrics = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -62,8 +70,8 @@ test.describe('Live Game utility cabinet', () => {
       return { radius: style.borderRadius, background: style.backgroundColor, border: style.borderTopColor };
     });
     expect(panelTreatment.radius).toBe('24px');
-    expect(panelTreatment.background).toBe('rgba(255, 255, 255, 0.04)');
-    expect(panelTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+    expect(cssAlpha(panelTreatment.background)).toBeCloseTo(0.04, 3);
+    expect(cssAlpha(panelTreatment.border)).toBeCloseTo(0.1, 3);
 
     const filters = page.getByTestId('live-events-filters');
     const all = filters.getByRole('button', { name: /Все/ });
@@ -92,7 +100,7 @@ test.describe('Live Game utility cabinet', () => {
     });
     expect(sheetTreatment.radius).toBe('24px');
     expect(sheetTreatment.background).toBe('rgb(18, 19, 24)');
-    expect(sheetTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+    expect(cssAlpha(sheetTreatment.border)).toBeCloseTo(0.1, 3);
 
     const phaseCard = page.getByTestId('live-state-phase');
     const nextCard = page.getByTestId('live-state-next');

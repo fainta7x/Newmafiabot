@@ -64,6 +64,10 @@ test.describe('Live Game utility cabinet', () => {
     expect(stateButtonBox.width).toBeLessThanOrEqual(30);
     await expect(stateButton.locator('span')).toBeHidden();
 
+    // Seed one real judge event so the collapsed safety rail can expose both
+    // the latest operation and the existing undo handler without opening log UI.
+    await page.getByTitle('Добавить обычный фол').first().click();
+
     const panel = page.getByTestId('live-events-panel');
     await panel.scrollIntoViewIfNeeded();
     await expect(panel).toBeVisible();
@@ -74,6 +78,13 @@ test.describe('Live Game utility cabinet', () => {
     expect(panelTreatment.radius).toBe('24px');
     expect(cssAlpha(panelTreatment.background)).toBeCloseTo(0.04, 3);
     expect(cssAlpha(panelTreatment.border)).toBeCloseTo(0.1, 3);
+
+    const latest = page.getByTestId('live-events-latest');
+    const undo = page.getByTestId('live-events-undo');
+    await expect(latest).toBeVisible();
+    await expect(latest).not.toHaveText('Журнал и заметки не мешают текущему ходу');
+    await expect(undo).toBeVisible();
+    await expect(undo).toHaveAttribute('aria-label', 'Отменить последнее событие');
 
     const copy = page.getByTestId('live-copy-protocol');
     const toggle = page.getByTestId('live-events-toggle');

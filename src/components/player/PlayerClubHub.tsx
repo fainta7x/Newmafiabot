@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
+import { Button } from '../ui/Button.tsx';
 import PlayerClubActivity from './PlayerClubActivity.tsx';
 import PlayerClubConnections from './PlayerClubConnections.tsx';
 import PlayerClubDirectory from './PlayerClubDirectory.tsx';
@@ -16,24 +17,40 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
   const [view, setView] = useState<ClubView>('players');
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto w-full max-w-[430px] space-y-3">
-        <header className="px-1 pb-1 pt-1">
-          <h1 className="text-2xl font-semibold">Клуб</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Люди, жизнь клуба и связи за столом</p>
+    <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-foreground">
+      <div className="mx-auto w-full max-w-[430px] space-y-4">
+        <header className="px-1 pb-1 pt-2">
+          <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">2LA Noire</div>
+          <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.035em]">Клуб</h1>
+          <p className="mt-1.5 max-w-[330px] text-sm leading-5 text-muted-foreground">
+            Игроки клуба, активность и связи за столом.
+          </p>
         </header>
 
-        <nav className="grid grid-cols-3 gap-1 rounded-2xl bg-white/[0.05] p-1" aria-label="Разделы клуба">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setView(item.id)}
-              className={`min-h-11 rounded-xl px-2 text-[11px] font-semibold transition ${view === item.id ? 'bg-white text-black' : 'text-white/45'}`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <nav
+          className="grid grid-cols-3 gap-1 rounded-[var(--ds-radius-lg)] border border-border bg-card p-1 shadow-[var(--ds-shadow-surface)]"
+          aria-label="Разделы клуба"
+        >
+          {NAV.map((item) => {
+            const active = view === item.id;
+            return (
+              <Button
+                key={item.id}
+                type="button"
+                size="md"
+                variant="ghost"
+                onClick={() => setView(item.id)}
+                aria-current={active ? 'page' : undefined}
+                className={`min-w-0 px-2 text-xs ${active ? '' : 'text-muted-foreground'}`}
+                style={active ? {
+                  backgroundColor: 'var(--ds-foreground)',
+                  color: 'var(--ds-background)',
+                } : undefined}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
         </nav>
 
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}

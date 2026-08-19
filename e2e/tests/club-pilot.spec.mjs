@@ -27,9 +27,17 @@ test.describe('Stage 3 club pilot', () => {
 
     const directory = page.getByTestId('club-directory');
     await expect(directory).toBeVisible();
-    await expect(page.getByTestId('club-player-p1')).toContainText('Чагин');
-    await expect(page.getByTestId('club-player-p2')).toContainText('Богданчик');
+    const selfRow = page.getByTestId('club-player-p1');
+    const secondRow = page.getByTestId('club-player-p2');
+    await expect(selfRow).toContainText('Чагин');
+    await expect(secondRow).toContainText('Богданчик');
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
+
+    const rowBoxes = await Promise.all([selfRow.boundingBox(), secondRow.boundingBox()]);
+    for (const box of rowBoxes) {
+      expect(box).not.toBeNull();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
 
     const directoryTreatment = await directory.evaluate((element) => {
       const style = getComputedStyle(element);

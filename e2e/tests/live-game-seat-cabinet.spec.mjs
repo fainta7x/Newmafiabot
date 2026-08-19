@@ -78,6 +78,13 @@ test.describe('Live Game seat cabinet', () => {
     expect(new Set(numberTreatments.map((item) => item.background)).size).toBe(4);
     expect(numberTreatments.every((item) => item.radius === '10px')).toBe(true);
 
+    // Between speeches there is nothing to nominate yet, so the table should
+    // not repeat ten disabled nomination buttons or thirty zero-value badges.
+    await expect(seatTwo.locator('.live-seat-quick-action--nomination')).toBeHidden();
+    const zeroDiscipline = page.locator('.evening-live-discipline > span[data-count="0"]');
+    expect(await zeroDiscipline.count()).toBeGreaterThan(0);
+    await expect(zeroDiscipline.first()).toBeHidden();
+
     const quickActions = seatOne.locator('.live-seat-quick-action');
     expect(await quickActions.count()).toBeGreaterThanOrEqual(2);
     const seatBox = await seatOne.boundingBox();
@@ -91,6 +98,10 @@ test.describe('Live Game seat cabinet', () => {
 
     await expectNoHorizontalOverflow(page, 'seat table');
     await capture(page, testInfo, 'live-game-seat-cabinet.png');
+
+    // The action returns as soon as the judge starts the next speech.
+    await page.getByRole('button', { name: /Речь #1/ }).click();
+    await expect(seatTwo.locator('.live-seat-quick-action--nomination')).toBeVisible();
 
     await seat(page, 6).click();
     const sheet = page.locator('.live-player-action-sheet');
@@ -123,6 +134,7 @@ test.describe('Live Game seat cabinet', () => {
 
     await regularFoul.click();
     await expect(sheet).toBeHidden();
+    await expect(page.locator('.evening-live-discipline > span[data-count="1"]').first()).toBeVisible();
     await seat(page, 6).click();
     await expect(sheet).toBeVisible();
     const foulStat = sheet.locator('.grid.grid-cols-3 > div').first();

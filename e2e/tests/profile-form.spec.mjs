@@ -31,8 +31,12 @@ test.describe('Stage 4 shared profile patterns', () => {
       const box = await field.boundingBox();
       expect(box).not.toBeNull();
       expect(box.height).toBeGreaterThanOrEqual(44);
-      const shadow = await field.evaluate((element) => getComputedStyle(element).boxShadow);
-      expect(shadow).not.toBe('none');
+      const treatment = await field.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
+      });
+      expect(treatment.backgroundImage).toBe('none');
+      expect(treatment.boxShadow).toBe('none');
     }
 
     const save = page.getByTestId('profile-save');
@@ -40,13 +44,15 @@ test.describe('Stage 4 shared profile patterns', () => {
       const style = getComputedStyle(element);
       return {
         backgroundColor: style.backgroundColor,
+        color: style.color,
         backgroundImage: style.backgroundImage,
         boxShadow: style.boxShadow,
       };
     });
-    expect(saveTreatment.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-    expect(saveTreatment.backgroundImage).not.toBe('none');
-    expect(saveTreatment.boxShadow).not.toBe('none');
+    expect(saveTreatment.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(saveTreatment.color).toBe('rgb(9, 10, 13)');
+    expect(saveTreatment.backgroundImage).toBe('none');
+    expect(saveTreatment.boxShadow).toBe('none');
 
     await expectNoHorizontalOverflow(page, 'profile form');
 
@@ -92,16 +98,17 @@ test.describe('Stage 4 shared profile patterns', () => {
       const style = getComputedStyle(element);
       return { backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
-    expect(dialogTreatment.backgroundImage).not.toBe('none');
+    expect(dialogTreatment.backgroundImage).toBe('none');
     expect(dialogTreatment.boxShadow).not.toBe('none');
 
     const confirm = dialog.getByRole('button', { name: 'Удалить', exact: true });
     const confirmTreatment = await confirm.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage };
+      return { backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow };
     });
     expect(confirmTreatment.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-    expect(confirmTreatment.backgroundImage).not.toBe('none');
+    expect(confirmTreatment.backgroundImage).toBe('none');
+    expect(confirmTreatment.boxShadow).toBe('none');
 
     await expectNoHorizontalOverflow(page, 'confirmation dialog');
 

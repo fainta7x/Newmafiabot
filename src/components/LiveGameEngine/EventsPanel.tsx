@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Copy, Check } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ClipboardList, Copy } from "lucide-react";
 import { ActivePlayerState, Phase } from "./types.js";
 import LiveGameStateSheet from "../crm/LiveGameStateSheet.js";
 import { LEGACY_PROTOCOL_NOTES_KEY } from "../../lib/liveClubSession.js";
@@ -27,6 +27,7 @@ export default function EventsPanel({
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<"all" | "day" | "night">("all");
   const [stateOpen, setStateOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const restoredNotesRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -128,55 +129,17 @@ export default function EventsPanel({
 
       <LiveGameStateSheet open={stateOpen} onClose={() => setStateOpen(false)} />
 
-      <section data-testid="live-events-panel" className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События и проверки</h3>
-            <div data-testid="live-events-filters" className="flex rounded-xl border border-white/[0.07] bg-black/20 p-0.5 text-[9px] font-semibold">
-              <button
-                type="button"
-                onClick={() => setFilter("all")}
-                className={`min-h-7 rounded-lg px-2 transition-colors ${
-                  filter === "all" ? "bg-white text-[#090a0d]" : "text-white/38 active:bg-white/[0.06]"
-                }`}
-              >
-                Все ({nightLogs.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter("day")}
-                style={filter === "day" ? { backgroundColor: "rgba(232, 185, 94, 0.10)", borderColor: "rgba(232, 185, 94, 0.18)" } : undefined}
-                className={`min-h-7 rounded-lg px-2 transition-colors ${
-                  filter === "day" ? "border text-amber-100" : "text-white/38 active:bg-white/[0.06]"
-                }`}
-              >
-                Дни
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter("night")}
-                style={filter === "night" ? { backgroundColor: "rgba(167, 139, 250, 0.10)", borderColor: "rgba(196, 181, 253, 0.18)" } : undefined}
-                className={`min-h-7 rounded-lg px-2 transition-colors ${
-                  filter === "night" ? "border text-violet-100" : "text-white/38 active:bg-white/[0.06]"
-                }`}
-              >
-                Ночи
-              </button>
+      <section data-testid="live-events-panel" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События</h3>
+              <span className="rounded-lg bg-black/20 px-1.5 py-1 text-[9px] font-semibold text-white/30">{nightLogs.length}</span>
             </div>
+            <p className="mt-1 text-[9px] text-white/26">Журнал и заметки не мешают текущему ходу</p>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {onUndoLastLog && nightLogs.length > 0 && (
-              <button
-                type="button"
-                onClick={onUndoLastLog}
-                className="flex min-h-8 items-center gap-1 rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2.5 text-[9px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
-                title="Отменить последнее зафиксированное событие"
-              >
-                <span>↩ Отменить</span>
-              </button>
-            )}
-
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               data-testid="live-copy-protocol"
@@ -187,53 +150,112 @@ export default function EventsPanel({
               {copied ? (
                 <>
                   <Check className="h-3.5 w-3.5 text-emerald-300" />
-                  <span className="text-emerald-200">Скопировано</span>
+                  <span className="hidden sm:inline text-emerald-200">Готово</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-3.5 w-3.5" />
-                  <span>Telegram</span>
+                  <span className="hidden sm:inline">Telegram</span>
                 </>
               )}
+            </button>
+
+            <button
+              type="button"
+              data-testid="live-events-toggle"
+              aria-expanded={detailsOpen}
+              aria-controls="live-events-details"
+              onClick={() => setDetailsOpen((value) => !value)}
+              className="flex min-h-8 items-center gap-1 rounded-xl border border-white/[0.07] bg-black/20 px-2.5 text-[9px] font-semibold text-white/48 active:bg-white/[0.06]"
+            >
+              <span>{detailsOpen ? "Скрыть" : "Журнал"}</span>
+              {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>
 
-        <div data-testid="live-events-log" className="max-h-36 space-y-1 overflow-y-auto rounded-2xl bg-black/20 px-3 py-2.5 pr-2 text-[10px] font-mono text-white/42">
-          {filteredLogs.map((log, idx) => {
-            const isDay = log.log.startsWith("Д");
-            const isNight = log.log.startsWith("Н");
-            if (isDay || isNight) {
-              const colonIndex = log.log.indexOf(":");
-              if (colonIndex !== -1) {
-                const prefix = log.log.substring(0, colonIndex);
-                const rest = log.log.substring(colonIndex + 1);
+        {detailsOpen && (
+          <div id="live-events-details" data-testid="live-events-details" className="mt-3 space-y-3 border-t border-white/[0.06] pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div data-testid="live-events-filters" className="flex rounded-xl border border-white/[0.07] bg-black/20 p-0.5 text-[9px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                    filter === "all" ? "bg-white text-[#090a0d]" : "text-white/38 active:bg-white/[0.06]"
+                  }`}
+                >
+                  Все ({nightLogs.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("day")}
+                  style={filter === "day" ? { backgroundColor: "rgba(232, 185, 94, 0.10)", borderColor: "rgba(232, 185, 94, 0.18)" } : undefined}
+                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                    filter === "day" ? "border text-amber-100" : "text-white/38 active:bg-white/[0.06]"
+                  }`}
+                >
+                  Дни
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("night")}
+                  style={filter === "night" ? { backgroundColor: "rgba(167, 139, 250, 0.10)", borderColor: "rgba(196, 181, 253, 0.18)" } : undefined}
+                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                    filter === "night" ? "border text-violet-100" : "text-white/38 active:bg-white/[0.06]"
+                  }`}
+                >
+                  Ночи
+                </button>
+              </div>
+
+              {onUndoLastLog && nightLogs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onUndoLastLog}
+                  className="flex min-h-8 items-center gap-1 rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2.5 text-[9px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
+                  title="Отменить последнее зафиксированное событие"
+                >
+                  <span>↩ Отменить</span>
+                </button>
+              )}
+            </div>
+
+            <div data-testid="live-events-log" className="max-h-36 space-y-1 overflow-y-auto rounded-2xl bg-black/20 px-3 py-2.5 pr-2 text-[10px] font-mono text-white/42">
+              {filteredLogs.map((log, idx) => {
+                const isDay = log.log.startsWith("Д");
+                const isNight = log.log.startsWith("Н");
+                if (isDay || isNight) {
+                  const colonIndex = log.log.indexOf(":");
+                  if (colonIndex !== -1) {
+                    const prefix = log.log.substring(0, colonIndex);
+                    const rest = log.log.substring(colonIndex + 1);
+                    return (
+                      <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
+                        <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{rest}
+                      </div>
+                    );
+                  }
+                }
                 return (
                   <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-                    <span className={`${isDay ? "text-amber-200/75" : "text-violet-200/75"} font-semibold`}>{prefix}:</span>{rest}
+                    <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {log.log}
                   </div>
                 );
-              }
-            }
-            return (
-              <div key={idx} className="border-b border-white/[0.055] pb-1 last:border-b-0">
-                <span className="font-semibold text-rose-200/75">Н{log.round}:</span> {log.log}
-              </div>
-            );
-          })}
-          {filteredLogs.length === 0 && <span className="block py-1 text-white/25">Событий по выбранному фильтру пока нет.</span>}
-        </div>
+              })}
+              {filteredLogs.length === 0 && <span className="block py-1 text-white/25">Событий по выбранному фильтру пока нет.</span>}
+            </div>
 
-        <div className="border-t border-white/[0.06] pt-2">
-          <textarea
-            data-testid="live-protocol-notes"
-            placeholder="Свободные примечания ведущего к протоколу..."
-            value={protocolNotes}
-            onChange={(e) => setProtocolNotes(e.target.value)}
-            className="min-h-11 w-full resize-none rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5 text-xs text-white/72 outline-none placeholder:text-white/24 focus:border-white/16"
-            rows={1}
-          />
-        </div>
+            <textarea
+              data-testid="live-protocol-notes"
+              placeholder="Свободные примечания ведущего к протоколу..."
+              value={protocolNotes}
+              onChange={(e) => setProtocolNotes(e.target.value)}
+              className="min-h-11 w-full resize-none rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5 text-xs text-white/72 outline-none placeholder:text-white/24 focus:border-white/16"
+              rows={1}
+            />
+          </div>
+        )}
       </section>
     </div>
   );

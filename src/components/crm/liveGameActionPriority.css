@@ -78,6 +78,22 @@
   grid-row: 1;
 }
 
+/* Context-aware first row: when there is no regular foul to remove, do not
+   spend a third of the prime judge row on a disabled control. Keep the existing
+   button in the DOM for semantics, but hide it visually and give +F / nomination
+   half the row each. As soon as the first foul exists the 3-action row returns. */
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(2) {
+  display: none !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(1) {
+  grid-column: 1 / 4;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(5) {
+  grid-column: 4 / 7;
+}
+
 /* Row 2 — technical discipline. Give each decision more width because these
    are less frequent but more consequential than a regular foul. */
 .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(3) {

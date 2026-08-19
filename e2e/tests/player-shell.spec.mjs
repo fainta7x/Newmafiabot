@@ -22,9 +22,11 @@ const expectInsideViewport = async (page, locator, label) => {
   expect.soft(box.y + box.height, `${label}: bottom`).toBeLessThanOrEqual(viewport.height + 1);
 };
 
-const rgbaAlpha = (value) => {
-  const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/);
-  return match ? Number(match[1]) : 1;
+const cssAlpha = (value) => {
+  const rgba = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/);
+  if (rgba) return Number(rgba[1]);
+  const modern = value.match(/\/\s*([\d.]+)\s*\)$/);
+  return modern ? Number(modern[1]) : 1;
 };
 
 const attachViewport = async (page, testInfo, name) => {
@@ -73,8 +75,8 @@ test.describe('Canonical player-cabinet visual shell', () => {
     expect(contract.inset).toBe('rgba(0, 0, 0, 0.2)');
     expect(contract.primary).toBe('#ffffff');
     expect(contract.top).toBe('rgba(11, 12, 16, 0.92)');
-    expect(rgbaAlpha(contract.topBorder)).toBeGreaterThanOrEqual(0.068);
-    expect(rgbaAlpha(contract.topBorder)).toBeLessThanOrEqual(0.071);
+    expect(cssAlpha(contract.topBorder)).toBeGreaterThanOrEqual(0.068);
+    expect(cssAlpha(contract.topBorder)).toBeLessThanOrEqual(0.071);
     expect(contract.bottom).toBe('rgba(11, 12, 16, 0.95)');
     expect(contract.bottomBorder).toBe('rgba(255, 255, 255, 0.1)');
 
@@ -110,9 +112,8 @@ test.describe('Canonical player-cabinet visual shell', () => {
       };
     });
     expect(cardTreatment.radius).toBe('28px');
-    expect(cardTreatment.background).toMatch(/^rgba\(255, 255, 255,/);
-    expect(rgbaAlpha(cardTreatment.background)).toBeGreaterThanOrEqual(0.042);
-    expect(rgbaAlpha(cardTreatment.background)).toBeLessThanOrEqual(0.046);
+    expect(cssAlpha(cardTreatment.background)).toBeGreaterThanOrEqual(0.042);
+    expect(cssAlpha(cardTreatment.background)).toBeLessThanOrEqual(0.046);
     expect(cardTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
 
     const secondary = page
@@ -163,9 +164,8 @@ test.describe('Canonical player-cabinet visual shell', () => {
       return { borderWidth: style.borderTopWidth, background: style.backgroundColor };
     });
     expect(historyFilterTreatment.borderWidth).toBe('0px');
-    expect(historyFilterTreatment.background).toMatch(/^rgba\(255, 255, 255,/);
-    expect(rgbaAlpha(historyFilterTreatment.background)).toBeGreaterThanOrEqual(0.042);
-    expect(rgbaAlpha(historyFilterTreatment.background)).toBeLessThanOrEqual(0.046);
+    expect(cssAlpha(historyFilterTreatment.background)).toBeGreaterThanOrEqual(0.042);
+    expect(cssAlpha(historyFilterTreatment.background)).toBeLessThanOrEqual(0.046);
 
     const historyCard = page.getByTestId('canonical-history-card');
     expect(await historyCard.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');

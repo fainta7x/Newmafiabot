@@ -98,7 +98,7 @@ export function SheetContent({
             <div
               aria-hidden="true"
               className={cn(
-                'mx-auto h-1 w-10 shrink-0 rounded-full bg-[var(--ds-border-strong)]',
+                'mx-auto h-1 w-10 shrink-0 rounded-full bg-white/16',
                 side === 'bottom' ? 'mt-2.5' : 'mb-2.5 order-last',
               )}
             />
@@ -117,7 +117,7 @@ export function SheetContent({
             <BaseDrawer.Close
               aria-label="Закрыть"
               data-slot="sheet-close"
-              className="ds-focus-ring absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-[var(--ds-radius-md)] text-muted-foreground transition-colors hover:bg-ui-accent hover:text-foreground"
+              className="ds-focus-ring absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl text-white/42 transition-colors hover:bg-white/[0.07] hover:text-white"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </BaseDrawer.Close>
@@ -155,7 +155,7 @@ export function SheetTitle({
   return (
     <BaseDrawer.Title
       data-slot="sheet-title"
-      className={cn('text-base font-bold leading-tight text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-white', className)}
       {...props}
     />
   );
@@ -168,7 +168,7 @@ export function SheetDescription({
   return (
     <BaseDrawer.Description
       data-slot="sheet-description"
-      className={cn('text-sm leading-relaxed text-muted-foreground', className)}
+      className={cn('text-sm leading-relaxed text-white/40', className)}
       {...props}
     />
   );

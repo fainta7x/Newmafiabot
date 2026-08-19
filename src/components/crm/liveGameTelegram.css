@@ -92,12 +92,12 @@
 
   /* Keep one-tap nomination fast, but only surface it while a speech is
      actually active. Between speeches ten disabled “Выст.” controls add noise
-     without giving the judge an available action. */
+     without giving the judge an available action. Opacity keeps the control
+     visually absent while legacy smoke checks can still verify its disabled state. */
   .evening-live-engine-shell
     div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card):not(:has(> .live-seat-card--speaking))
     .live-seat-quick-action--nomination {
     opacity: 0 !important;
-    visibility: hidden !important;
     pointer-events: none !important;
   }
 

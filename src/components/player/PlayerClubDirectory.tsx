@@ -1,5 +1,5 @@
 import { ChevronRight, Search, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, type BadgeVariant } from '../ui/Badge.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card.tsx';
@@ -94,6 +94,7 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   const [selected, setSelected] = useState<PublicPlayerProfile | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
   const [selectedError, setSelectedError] = useState<string | null>(null);
+  const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,10 +136,12 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
   };
 
   const closePlayer = () => {
+    const trigger = lastTriggerRef.current;
     setSelectedPlayerId(null);
     setSelected(null);
     setSelectedError(null);
     setSelectedLoading(false);
+    if (trigger) window.requestAnimationFrame(() => trigger.focus());
   };
 
   return (
@@ -185,7 +188,10 @@ export default function PlayerClubDirectory({ selfId }: { selfId: string }) {
                   data-testid={`club-player-${item.id}`}
                   type="button"
                   disabled={selectedLoading}
-                  onClick={() => void openPlayer(item.id)}
+                  onClick={(event) => {
+                    lastTriggerRef.current = event.currentTarget;
+                    void openPlayer(item.id);
+                  }}
                   className="ds-focus-ring group flex min-h-[76px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-ui-accent active:bg-ui-accent disabled:pointer-events-none disabled:opacity-45"
                 >
                   <PlayerAvatar player={item} />

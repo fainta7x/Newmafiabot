@@ -1,7 +1,8 @@
-/* Stage 4.5.5 — night check readability.
- * Presentation only. Existing night targets, results, timers and transitions stay unchanged.
+/* Stage 4.5.5 — center readability fixes.
+ * Presentation only. Existing voting/night targets, results, timers and transitions stay unchanged.
  */
 
+/* Night checks: keep actor / target / result as one fast-glance line. */
 .evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__name {
   max-height: 18px;
   overflow: hidden;
@@ -30,8 +31,71 @@
   font-size: 25px;
 }
 
+/* Table decision: #112 technically fit the controls but clipped its own copy.
+ * Give context/question full-width rows, then spend the last row on count + confirm.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__stack {
+  grid-template-columns: minmax(64px, 0.82fr) minmax(88px, 1.18fr);
+  gap: 4px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__eyebrow {
+  grid-column: 1 / -1;
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 6.5px;
+  line-height: 1.05;
+  letter-spacing: 0.025em;
+  text-align: left;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title {
+  grid-column: 1 / -1;
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 11px;
+  line-height: 1.05;
+  text-align: left;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voters {
+  grid-column: 1 / -1;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count {
+  grid-column: 1;
+  padding-inline: 5px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count ~ .live-judge-action {
+  grid-column: 2;
+  padding-inline: 7px;
+  font-size: 7.5px;
+  line-height: 1.05;
+  white-space: normal;
+}
+
+/* The header pill must not ellipsize the current voting phase on the narrow board. */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__phase {
+  min-height: 20px;
+  padding-inline: 5px;
+  font-size: 6px;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 @media (max-width: 767px) {
   .evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__name {
     font-size: 8.5px;
+  }
+
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
+    padding: 4px 6px !important;
   }
 }

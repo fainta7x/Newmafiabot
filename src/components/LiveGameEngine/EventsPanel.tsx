@@ -58,6 +58,7 @@ export default function EventsPanel({
     if (filter === "night") return l.log.startsWith("Н") || !l.log.startsWith("Д");
     return true;
   });
+  const latestLog = nightLogs.length > 0 ? nightLogs[nightLogs.length - 1]?.log ?? null : null;
 
   const calculatePlayerScore = (player: ActivePlayerState) => {
     let score = 0;
@@ -131,15 +132,30 @@ export default function EventsPanel({
 
       <section data-testid="live-events-panel" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События</h3>
               <span className="rounded-lg bg-black/20 px-1.5 py-1 text-[9px] font-semibold text-white/30">{nightLogs.length}</span>
             </div>
-            <p className="mt-1 text-[9px] text-white/26">Журнал и заметки не мешают текущему ходу</p>
+            <p data-testid="live-events-latest" className={`mt-1 truncate text-[9px] ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
+              {latestLog || "Журнал и заметки не мешают текущему ходу"}
+            </p>
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
+            {onUndoLastLog && latestLog && (
+              <button
+                type="button"
+                data-testid="live-events-undo"
+                onClick={onUndoLastLog}
+                className="grid min-h-8 min-w-8 place-items-center rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2 text-[11px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
+                title="Отменить последнее зафиксированное событие"
+                aria-label="Отменить последнее событие"
+              >
+                ↩
+              </button>
+            )}
+
             <button
               type="button"
               data-testid="live-copy-protocol"
@@ -208,17 +224,6 @@ export default function EventsPanel({
                   Ночи
                 </button>
               </div>
-
-              {onUndoLastLog && nightLogs.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onUndoLastLog}
-                  className="flex min-h-8 items-center gap-1 rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2.5 text-[9px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
-                  title="Отменить последнее зафиксированное событие"
-                >
-                  <span>↩ Отменить</span>
-                </button>
-              )}
             </div>
 
             <div data-testid="live-events-log" className="max-h-36 space-y-1 overflow-y-auto rounded-2xl bg-black/20 px-3 py-2.5 pr-2 text-[10px] font-mono text-white/42">

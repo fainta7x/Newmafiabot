@@ -38,7 +38,7 @@ Exit condition: full CI green with no intentional visual change to existing scre
 
 ### Stage 2 — Headless interaction layer
 
-**Status: complete when the Stage 2 PR containing this document is merged to `main`.**
+**Status: complete.**
 
 Delivered scope:
 
@@ -50,17 +50,24 @@ Delivered scope:
 
 `Select` remains intentionally deferred until a real migrated screen needs it; do not add primitives only to make the component list look complete.
 
-No production screen and no Live Game UI is migrated in Stage 2.
+No production screen and no Live Game UI was migrated in Stage 2.
 
 ### Stage 3 — Pilot screen
 
-Move one ordinary, non-critical player-facing screen to the new primitives.
+**Status: complete when the Stage 3 PR containing this document is merged to `main`.**
 
-Goals:
+Pilot: **Player app → Club → Players** (`PlayerClubHub` + `PlayerClubDirectory`).
 
-- validate typography, density, touch sizes and theme behavior on a real phone;
-- validate Telegram WebApp safe-area behavior;
-- compare old/new implementation before expanding the migration.
+Delivered scope:
+
+- migrate the Club shell and Players directory to semantic design tokens;
+- use the canonical `Button`, `Card` and `Badge` primitives on a real player-facing screen;
+- open player details in the canonical Base UI-backed bottom `Sheet` instead of replacing the directory view;
+- preserve the existing player-directory/profile API contracts and read-only behavior;
+- validate search, focus return, 44px+ tab touch targets and horizontal geometry;
+- add browser evidence in a 390×620 Telegram-sized viewport.
+
+`Club → Activity` and `Club → Connections` remain on their existing content implementation in Stage 3. Do not widen the pilot into a full Club redesign before the pilot is reviewed.
 
 Only after the pilot is approved should the system spread to other screens.
 

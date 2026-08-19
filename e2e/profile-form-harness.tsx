@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import PlayerProfileSettings from '../src/components/player/PlayerProfileSettings.tsx';
-import type { PlayerMeResponse } from '../src/types/player.ts';
 import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
+
+type ProfilePlayer = Parameters<typeof PlayerProfileSettings>[0]['player'];
 
 const INITIAL_PLAYER = {
   id: 'p1',
@@ -16,7 +16,7 @@ const INITIAL_PLAYER = {
   game_level: 'club',
   club_role: 'guest',
   tokens: 42,
-} as unknown as PlayerMeResponse['player'] & { phone: string; club_role: 'guest' };
+} as unknown as ProfilePlayer;
 
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -48,15 +48,10 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return jsonResponse({ error: `E2E route not mocked: ${url.pathname}` }, 404);
 };
 
-function ProfileHarness() {
-  const [player, setPlayer] = useState(INITIAL_PLAYER);
-  return (
-    <main className="min-h-screen bg-background px-3 py-3 text-foreground">
-      <div className="mx-auto w-full max-w-[430px]">
-        <PlayerProfileSettings player={player} onPlayerChange={setPlayer} />
-      </div>
-    </main>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')!).render(<ProfileHarness />);
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <main className="min-h-screen bg-background px-3 py-3 text-foreground">
+    <div className="mx-auto w-full max-w-[430px]">
+      <PlayerProfileSettings player={INITIAL_PLAYER} onPlayerChange={() => {}} />
+    </div>
+  </main>,
+);

@@ -1,5 +1,13 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { Button } from './Button.tsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from './Dialog.tsx';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -23,35 +31,64 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   busy = false,
   onConfirm,
   onCancel,
-}) => {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div role="alertdialog" aria-modal="true" className="w-full max-w-sm rounded-[20px] border border-border-soft bg-surface-1 p-4 text-text-primary shadow-2xl">
-        <div className="flex items-start gap-3">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] ${tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning'}`}>
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[15px] font-bold">{title}</h3>
-            {description ? <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-text-secondary">{description}</p> : null}
-          </div>
-          <button type="button" onClick={onCancel} disabled={busy} className="-mr-1 -mt-1 flex h-11 w-11 items-center justify-center rounded-[12px] text-text-muted hover:text-text-primary disabled:opacity-50">
-            <X className="h-5 w-5" />
-          </button>
+}) => (
+  <Dialog
+    open={open}
+    onOpenChange={(nextOpen) => {
+      if (!nextOpen && !busy) onCancel();
+    }}
+  >
+    <DialogContent
+      role="alertdialog"
+      showClose={false}
+      className="max-w-sm"
+      data-slot="confirm-dialog"
+    >
+      <div className="flex items-start gap-3">
+        <div
+          aria-hidden="true"
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--ds-radius-md)] ${
+            tone === 'danger'
+              ? 'bg-[var(--ds-danger-soft)] text-[var(--ds-danger)]'
+              : 'bg-[var(--ds-warning-soft)] text-[var(--ds-warning)]'
+          }`}
+        >
+          <AlertTriangle className="h-5 w-5" />
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button type="button" onClick={onCancel} disabled={busy} className="min-h-11 rounded-[12px] border border-border-soft bg-surface-2 text-[13px] font-semibold text-text-secondary disabled:opacity-50">
-            {cancelLabel}
-          </button>
-          <button type="button" onClick={() => void onConfirm()} disabled={busy} className={`min-h-11 rounded-[12px] text-[13px] font-bold text-white disabled:opacity-50 ${tone === 'danger' ? 'bg-danger' : 'bg-accent'}`}>
-            {busy ? 'Подождите…' : confirmLabel}
-          </button>
+        <div className="min-w-0 flex-1">
+          <DialogTitle>{title}</DialogTitle>
+          {description ? (
+            <DialogDescription className="mt-1 whitespace-pre-line">{description}</DialogDescription>
+          ) : null}
         </div>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          aria-label="Закрыть"
+          onClick={onCancel}
+          disabled={busy}
+          className="-mr-2 -mt-2"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </Button>
       </div>
-    </div>
-  );
-};
+
+      <DialogFooter className="grid grid-cols-2 sm:grid-cols-2">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
+          {cancelLabel}
+        </Button>
+        <Button
+          type="button"
+          variant={tone === 'danger' ? 'destructive' : 'primary'}
+          onClick={() => void onConfirm()}
+          disabled={busy}
+        >
+          {busy ? 'Подождите…' : confirmLabel}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
 
 export default ConfirmDialog;

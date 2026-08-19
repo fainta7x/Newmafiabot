@@ -29,11 +29,6 @@ const SAMPLE_TABS: Array<{ value: SampleTab; label: string }> = [
   { value: 'recaps', label: 'Итоги' },
 ];
 
-const HISTORY_SCOPE: Array<{ value: HistoryScope; label: string }> = [
-  { value: 'mine', label: 'Мои игры' },
-  { value: 'all', label: 'Все игры' },
-];
-
 function HomeSample() {
   return (
     <div className="mx-auto w-full max-w-[430px] space-y-3">
@@ -42,7 +37,7 @@ function HomeSample() {
         <p className="mt-1 text-xs leading-5 text-white/40">Привет, Чагин</p>
       </header>
 
-      <Card data-testid="canonical-card">
+      <Card data-testid="canonical-card" className="rounded-[28px]">
         <CardHeader className="pb-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Следующий вечер</div>
         </CardHeader>
@@ -55,6 +50,7 @@ function HomeSample() {
 
       <Card
         data-testid="canonical-summary-card"
+        className="rounded-[28px]"
         style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(255,255,255,0.035))' }}
       >
         <CardHeader className="pb-0">
@@ -83,7 +79,7 @@ function GamesSample() {
 
   return (
     <div className="mx-auto w-full max-w-[430px] space-y-3">
-      <header className="px-1 pb-2 pt-1">
+      <header className="px-1 pb-3 pt-1">
         <h1 className="text-2xl font-semibold">Игры</h1>
         <p className="mt-1 text-xs leading-5 text-white/40">История партий, показатели, карьера и итоги вечеров</p>
       </header>
@@ -95,21 +91,34 @@ function GamesSample() {
         onValueChange={setSampleTab}
       />
 
-      <SegmentedControl
-        ariaLabel="Фильтр истории"
-        value={historyScope}
-        items={HISTORY_SCOPE}
-        onValueChange={setHistoryScope}
-        className="border-transparent"
-        itemClassName="text-sm"
-      />
+      <div
+        aria-label="Фильтр истории"
+        className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.045] p-1"
+      >
+        {([
+          { value: 'mine' as const, label: 'Мои игры' },
+          { value: 'all' as const, label: 'Все игры' },
+        ]).map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => setHistoryScope(item.value)}
+            aria-current={historyScope === item.value ? 'page' : undefined}
+            className={`min-h-10 rounded-xl px-3 text-sm font-medium transition ${
+              historyScope === item.value ? 'bg-white text-black' : 'text-white/50'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       <Card>
         <CardHeader className="pb-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Моя история</div>
         </CardHeader>
         <CardContent className="pt-3">
-          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/40">
+          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">
             Сохранённых игр пока нет.
           </div>
         </CardContent>

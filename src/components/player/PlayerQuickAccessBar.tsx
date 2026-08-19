@@ -31,7 +31,7 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenWallet}
             aria-label="Открыть кошелёк"
             aria-pressed={active === 'wallet'}
-            className={`ds-focus-ring flex min-h-[var(--ds-touch-min)] items-center gap-1.5 rounded-2xl border px-2.5 text-xs font-semibold tabular-nums transition ${
+            className={`ds-focus-ring flex h-10 items-center gap-1.5 rounded-2xl border px-2.5 text-xs font-semibold tabular-nums transition ${
               active === 'wallet'
                 ? 'border-amber-200/20 bg-amber-200/[0.10] text-amber-50'
                 : 'border-white/10 bg-white/[0.045] text-white/65'
@@ -47,7 +47,7 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenProfile}
             aria-label="Открыть профиль"
             aria-pressed={active === 'profile'}
-            className={`ds-focus-ring grid h-[var(--ds-touch-min)] w-[var(--ds-touch-min)] shrink-0 place-items-center overflow-hidden rounded-2xl border transition ${
+            className={`ds-focus-ring grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border transition ${
               active === 'profile'
                 ? 'border-white/25 bg-white/[0.12]'
                 : 'border-white/10 bg-white/[0.045]'

@@ -19,7 +19,7 @@ const capture = async (page, testInfo, name) => {
 test.describe('Live Game cabinet shell', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('uses warm day hierarchy and white generic progress action', async ({ page }, testInfo) => {
+  test('uses warm day hierarchy, one nomination readout and white generic progress action', async ({ page }, testInfo) => {
     await page.goto('/e2e/live-game-cabinet.html');
     await page.evaluate(() => document.fonts.ready);
 
@@ -37,6 +37,15 @@ test.describe('Live Game cabinet shell', () => {
     await expect(phase).toContainText('Нулевой круг');
     const dayPhaseColor = await phase.evaluate((element) => getComputedStyle(element).color);
     expect(dayPhaseColor).toBe('rgb(232, 185, 94)');
+
+    const duplicatedNominationChip = hud.locator('.live-judge-hud__body .live-judge-hud__meta');
+    await expect(duplicatedNominationChip).toBeHidden();
+
+    const summary = hud.locator('.live-judge-hud__summary');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('Выставлены: #3 · #7');
+    const aliveCounter = summary.getByText(/Живых:/);
+    await expect(aliveCounter).toBeHidden();
 
     const primary = hud.locator('.live-judge-hud__primary');
     await expect(primary).toContainText('К голосованию');

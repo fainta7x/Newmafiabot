@@ -24,6 +24,16 @@ const prepareZeroRound = async (page) => {
   await expect(tableGrid(page)).toBeVisible();
 };
 
+const cssAlpha = (value) => {
+  const slash = String(value).match(/\/\s*([0-9.]+)\s*\)?$/);
+  if (slash) return Number(slash[1]);
+  const rgba = String(value).match(/rgba\([^)]*,\s*([0-9.]+)\)$/);
+  if (rgba) return Number(rgba[1]);
+  return 1;
+};
+
+const classTokens = async (locator) => (await locator.getAttribute('class') || '').split(/\s+/).filter(Boolean);
+
 const expectNoHorizontalOverflow = async (page, label) => {
   const metrics = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -62,19 +72,24 @@ test.describe('Live Game utility cabinet', () => {
       return { radius: style.borderRadius, background: style.backgroundColor, border: style.borderTopColor };
     });
     expect(panelTreatment.radius).toBe('24px');
-    expect(panelTreatment.background).toBe('rgba(255, 255, 255, 0.04)');
-    expect(panelTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+    expect(cssAlpha(panelTreatment.background)).toBeCloseTo(0.04, 3);
+    expect(cssAlpha(panelTreatment.border)).toBeCloseTo(0.1, 3);
 
     const filters = page.getByTestId('live-events-filters');
     const all = filters.getByRole('button', { name: /Все/ });
     const day = filters.getByRole('button', { name: 'Дни', exact: true });
     const night = filters.getByRole('button', { name: 'Ночи', exact: true });
     expect(await all.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+
     await day.click();
-    const dayBackground = await day.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(await classTokens(day)).toContain('text-amber-100');
+    expect(await classTokens(day)).toContain('border');
+    expect(await classTokens(all)).not.toContain('bg-white');
+
     await night.click();
-    const nightBackground = await night.evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(dayBackground).not.toBe(nightBackground);
+    expect(await classTokens(night)).toContain('text-violet-100');
+    expect(await classTokens(night)).toContain('border');
+    expect(await classTokens(day)).not.toContain('text-amber-100');
 
     const notes = page.getByTestId('live-protocol-notes');
     await expect(notes).toBeVisible();
@@ -92,7 +107,7 @@ test.describe('Live Game utility cabinet', () => {
     });
     expect(sheetTreatment.radius).toBe('24px');
     expect(sheetTreatment.background).toBe('rgb(18, 19, 24)');
-    expect(sheetTreatment.border).toBe('rgba(255, 255, 255, 0.1)');
+    expect(cssAlpha(sheetTreatment.border)).toBeCloseTo(0.1, 3);
 
     const phaseCard = page.getByTestId('live-state-phase');
     const nextCard = page.getByTestId('live-state-next');

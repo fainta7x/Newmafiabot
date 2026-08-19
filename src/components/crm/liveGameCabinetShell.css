@@ -452,10 +452,10 @@
 /* Stage 4.5.4 — keep the whole table decision in view.
  *
  * The old stack could vertically scroll after the judge tapped several hands,
- * hiding the question or the final confirm action. In this state the footer
- * already repeats the tied nominations and the selected buttons themselves show
- * who raised a hand, so the two explanatory hint rows are redundant. Fit the
- * full decision into one stable, non-scrolling center view instead.
+ * hiding the question or the final confirm action. Preserve the explicit
+ * "Поднять / оставить" context and the question, but keep them on one compact
+ * top row. The footer already repeats tied nominations and the selected buttons
+ * themselves show who raised a hand, so the two prose hint rows stay hidden.
  */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
   align-items: flex-start;
@@ -465,25 +465,40 @@
 
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__stack {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(66px, 0.65fr);
   gap: 4px;
   align-content: start;
 }
 
-/* Phase chip + footer already identify voting and tied nominees. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__eyebrow {
-  display: none;
+  grid-column: 1;
+  min-width: 0;
+  align-self: center;
+  margin: 0;
+  color: rgba(251, 113, 133, 0.78);
+  font-size: 6.5px;
+  line-height: 1;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  min-width: 0;
+  align-self: center;
   margin: 0;
-  font-size: 13px;
-  line-height: 1.05;
+  color: rgba(255, 255, 255, 0.90);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* The hand grid itself explains the interaction; the selected state explains
-   who has already voted. Hide both duplicate prose rows. */
+   who has already voted. Hide only the duplicate instruction/list rows. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title + .live-judge-hud__hint,
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count + .live-judge-hud__hint {
   display: none;

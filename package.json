@@ -27,6 +27,7 @@
     "db:legacy-player-link-dry-run": "tsx src/scripts/legacyPlayerLinkDryRun.ts"
   },
   "dependencies": {
+    "@base-ui/react": "1.6.0",
     "@google/genai": "^2.14.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.1",

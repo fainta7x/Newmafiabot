@@ -82,7 +82,7 @@ export function DialogTitle({
   return (
     <BaseDialog.Title
       data-slot="dialog-title"
-      className={cn('text-base font-bold leading-tight text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-foreground', className)}
       {...props}
     />
   );

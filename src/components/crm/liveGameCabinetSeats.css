@@ -1,0 +1,212 @@
+/* Stage 4.2 — Live Game seats and one-tap judge actions.
+ *
+ * Geometry and protocol state stay owned by LiveGameEngine + liveGameJudge.css.
+ * This layer only changes material, colour hierarchy and emphasis.
+ */
+
+.evening-live-engine-shell .live-seat-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-md) !important;
+  box-shadow: none !important;
+  transition: border-color 120ms ease, background-color 120ms ease, opacity 120ms ease !important;
+}
+
+/* Speaking / active step = warm procedural attention, never a glow. */
+.evening-live-engine-shell .live-seat-card--speaking {
+  background: rgba(232, 185, 94, 0.07) !important;
+  border-color: rgba(232, 185, 94, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.08) !important;
+}
+
+/* Nomination and vote-target meaning remain Cherry/rose, but as a soft state
+   instead of a red dashboard card. Tailwind state classes are kept for logic. */
+.evening-live-engine-shell .live-seat-card:has(.live-seat-state__value--active),
+.evening-live-engine-shell .live-seat-card[class*="border-rose-500"] {
+  background: rgba(225, 52, 88, 0.075) !important;
+  border-color: rgba(251, 113, 133, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(225, 52, 88, 0.06) !important;
+}
+
+/* Current voting nominee / shootout / best-move markers are warm rather than
+   glowing. No scale/pulse treatment is allowed on a judge work surface. */
+.evening-live-engine-shell .live-seat-card[class*="border-amber-"],
+.evening-live-engine-shell .live-seat-card[class*="ring-amber-"] {
+  background: rgba(232, 185, 94, 0.065) !important;
+  border-color: rgba(232, 185, 94, 0.25) !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.055) !important;
+  animation: none !important;
+}
+
+.evening-live-engine-shell .live-seat-card[class*="ring-2"],
+.evening-live-engine-shell .live-seat-card[class*="shadow-[0_0"],
+.evening-live-engine-shell .live-seat-card[class*="scale-"] {
+  transform: none !important;
+  animation: none !important;
+}
+
+.evening-live-engine-shell .live-seat-card--dead {
+  background: rgba(225, 52, 88, 0.035) !important;
+  border-color: rgba(251, 113, 133, 0.10) !important;
+  opacity: 0.62;
+}
+
+/* Voting is dense information. Idle voters are quiet; the selected voter gets
+   the cool voting/info colour rather than another red block. */
+.evening-live-engine-shell .live-seat-card--voting:not(:has(.live-seat-state__value--active)) {
+  background: rgba(255, 255, 255, 0.032) !important;
+}
+
+.evening-live-engine-shell .live-seat-card--voting:has(.live-seat-state__value--active) {
+  background: rgba(56, 189, 248, 0.07) !important;
+  border-color: rgba(125, 211, 252, 0.25) !important;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.05) !important;
+}
+
+/* ---------- seat identity ---------- */
+.evening-live-engine-shell .live-seat-footer {
+  border-color: var(--ds-border-soft);
+  background: var(--ds-inset);
+}
+
+.evening-live-engine-shell .live-seat-footer__name {
+  color: rgba(255, 255, 255, 0.84);
+  font-weight: 600;
+}
+
+.evening-live-engine-shell .live-seat-role {
+  border-color: var(--ds-border-soft);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+/* Keep the ten coloured numbers intentionally: they are the fastest table key
+   and preserve the colour richness of the approved version. Only remove the
+   old glossy shadow and align the compact radius. */
+.evening-live-engine-shell .live-seat-number,
+.evening-live-engine-shell .live-seat-mini-number {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+/* ---------- one-tap judge controls ---------- */
+.evening-live-engine-shell .live-seat-quick-action {
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(255, 255, 255, 0.52);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.evening-live-engine-shell .live-seat-quick-action:active {
+  background: rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.evening-live-engine-shell .live-seat-quick-action--nomination {
+  border-color: rgba(251, 113, 133, 0.12);
+  background: rgba(225, 52, 88, 0.045);
+  color: rgba(253, 164, 175, 0.76);
+}
+
+.evening-live-engine-shell .live-seat-quick-action--nomination-active {
+  border-color: rgba(251, 113, 133, 0.25);
+  background: rgba(225, 52, 88, 0.13);
+  color: #fecdd3;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--foul {
+  border-color: rgba(232, 185, 94, 0.13);
+  background: rgba(232, 185, 94, 0.055);
+  color: #fde9b4;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--remove-foul {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* ---------- state / discipline ---------- */
+.evening-live-engine-shell .live-seat-state__label {
+  color: rgba(255, 255, 255, 0.30);
+  font-weight: 600;
+}
+
+.evening-live-engine-shell .live-seat-state__value {
+  color: rgba(255, 255, 255, 0.60);
+  font-weight: 700;
+}
+
+.evening-live-engine-shell .live-seat-state__value--active {
+  color: #fda4af;
+}
+
+.evening-live-engine-shell .live-seat-card--voting .live-seat-state__value--active {
+  color: #bae6fd;
+}
+
+.evening-live-engine-shell .live-seat-state__value--done {
+  color: #a7f3d0;
+}
+
+.evening-live-engine-shell .live-seat-state__value--warning {
+  color: #fde9b4;
+}
+
+.evening-live-engine-shell .evening-live-discipline > span {
+  border-color: rgba(255, 255, 255, 0.055);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.30);
+  font-weight: 700;
+}
+
+/* ---------- night protocol markers ---------- */
+.evening-live-engine-shell .live-seat-night-marker {
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.evening-live-engine-shell .live-seat-night-marker--shot {
+  border-color: rgba(251, 113, 133, 0.20);
+  background: rgba(225, 52, 88, 0.09);
+  color: #fecdd3;
+}
+
+.evening-live-engine-shell .live-seat-night-marker--don {
+  border-color: rgba(167, 139, 250, 0.20);
+  background: rgba(167, 139, 250, 0.09);
+  color: #ddd6fe;
+}
+
+.evening-live-engine-shell .live-seat-night-marker--sheriff {
+  border-color: rgba(110, 231, 183, 0.20);
+  background: rgba(110, 231, 183, 0.085);
+  color: #a7f3d0;
+}
+
+/* CRM identity bridge should visually belong to the same seat, not float over
+   it as a separate glossy element. */
+.evening-live-engine-shell .evening-live-player-avatar {
+  border-color: var(--ds-border) !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell .evening-live-identity-name {
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(255, 255, 255, 0.84);
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  /* Geometry, grid coordinates, board height and quick-action footprint are
+     deliberately untouched. Only soften the compact-card radius slightly. */
+  .evening-live-engine-shell .live-seat-card {
+    border-radius: 14px !important;
+  }
+}

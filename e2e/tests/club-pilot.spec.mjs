@@ -27,8 +27,8 @@ test.describe('Stage 3 club pilot', () => {
 
     const directory = page.getByTestId('club-directory');
     await expect(directory).toBeVisible();
-    await expect(page.getByText('Чагин', { exact: true })).toBeVisible();
-    await expect(page.getByText('Богданчик', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('club-player-p1')).toContainText('Чагин');
+    await expect(page.getByTestId('club-player-p2')).toContainText('Богданчик');
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
 
     const directoryTreatment = await directory.evaluate((element) => {

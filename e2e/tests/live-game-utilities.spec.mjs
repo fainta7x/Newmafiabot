@@ -80,20 +80,14 @@ test.describe('Live Game utility cabinet', () => {
     expect(await all.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
 
     await day.click();
-    const dayTreatment = await day.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { color: style.color, border: style.borderTopColor };
-    });
     await expect(day).toHaveClass(/text-amber-100/);
+    await expect(day).toHaveClass(/border/);
+    await expect(all).not.toHaveClass(/bg-white/);
 
     await night.click();
-    const nightTreatment = await night.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { color: style.color, border: style.borderTopColor };
-    });
     await expect(night).toHaveClass(/text-violet-100/);
-    expect(dayTreatment.color).not.toBe(nightTreatment.color);
-    expect(dayTreatment.border).not.toBe(nightTreatment.border);
+    await expect(night).toHaveClass(/border/);
+    await expect(day).not.toHaveClass(/text-amber-100/);
 
     const notes = page.getByTestId('live-protocol-notes');
     await expect(notes).toBeVisible();

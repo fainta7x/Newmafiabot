@@ -16,9 +16,11 @@ const player = {
   nickname: 'Чагин',
   tokens: 100,
   avatar_url: null,
+  elo: 1000,
 } as unknown as PlayerMeResponse['player'];
 
 type SampleTab = 'history' | 'stats' | 'career' | 'recaps';
+type HistoryScope = 'mine' | 'all';
 
 const SAMPLE_TABS: Array<{ value: SampleTab; label: string }> = [
   { value: 'history', label: 'История' },
@@ -27,12 +29,101 @@ const SAMPLE_TABS: Array<{ value: SampleTab; label: string }> = [
   { value: 'recaps', label: 'Итоги' },
 ];
 
-function Harness() {
-  const [section, setSection] = useState<PlayerCabinetSection>('home');
+const HISTORY_SCOPE: Array<{ value: HistoryScope; label: string }> = [
+  { value: 'mine', label: 'Мои игры' },
+  { value: 'all', label: 'Все игры' },
+];
+
+function HomeSample() {
+  return (
+    <div className="mx-auto w-full max-w-[430px] space-y-3">
+      <header className="px-1 pb-1 pt-1">
+        <h1 className="text-2xl font-semibold">Главная</h1>
+        <p className="mt-1 text-xs leading-5 text-white/40">Привет, Чагин</p>
+      </header>
+
+      <Card data-testid="canonical-card">
+        <CardHeader className="pb-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Следующий вечер</div>
+        </CardHeader>
+        <CardContent className="pt-3">
+          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/40">
+            Ближайших игровых вечеров пока нет.
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card
+        data-testid="canonical-summary-card"
+        style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(255,255,255,0.035))' }}
+      >
+        <CardHeader className="pb-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Твоя игра</div>
+        </CardHeader>
+        <CardContent className="pt-3">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">1000</div><div className="mt-1 text-[10px] text-white/35">ELO</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">#29</div><div className="mt-1 text-[10px] text-white/35">место</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">0</div><div className="mt-1 text-[10px] text-white/35">игр</div></div>
+            <div className="rounded-2xl bg-black/20 p-3"><div className="text-xl font-semibold">0%</div><div className="mt-1 text-[10px] text-white/35">побед</div></div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button variant="secondary">Рейтинг</Button>
+            <Button variant="secondary">Мои игры</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function GamesSample() {
   const [sampleTab, setSampleTab] = useState<SampleTab>('history');
+  const [historyScope, setHistoryScope] = useState<HistoryScope>('mine');
 
   return (
-    <div className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] text-white">
+    <div className="mx-auto w-full max-w-[430px] space-y-3">
+      <header className="px-1 pb-2 pt-1">
+        <h1 className="text-2xl font-semibold">Игры</h1>
+        <p className="mt-1 text-xs leading-5 text-white/40">История партий, показатели, карьера и итоги вечеров</p>
+      </header>
+
+      <SegmentedControl
+        ariaLabel="Разделы игр"
+        value={sampleTab}
+        items={SAMPLE_TABS}
+        onValueChange={setSampleTab}
+      />
+
+      <SegmentedControl
+        ariaLabel="Фильтр истории"
+        value={historyScope}
+        items={HISTORY_SCOPE}
+        onValueChange={setHistoryScope}
+        className="border-transparent"
+        itemClassName="text-sm"
+      />
+
+      <Card>
+        <CardHeader className="pb-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Моя история</div>
+        </CardHeader>
+        <CardContent className="pt-3">
+          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/40">
+            Сохранённых игр пока нет.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Harness() {
+  const [section, setSection] = useState<PlayerCabinetSection>('home');
+  const gamesVisible = section === 'games' || section === 'stats' || section === 'career' || section === 'recaps';
+
+  return (
+    <div className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] font-sans text-white antialiased">
       <PlayerQuickAccessBar
         player={player}
         tokenBalance={100}
@@ -45,37 +136,8 @@ function Harness() {
         data-testid="player-shell-content"
         className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] px-3 pb-24 pt-20"
       >
-        <div className="mx-auto w-full max-w-[430px] space-y-3">
-          <header className="px-1 pb-1 pt-1">
-            <h1 className="text-2xl font-semibold">Главная</h1>
-            <p className="mt-1 text-xs leading-5 text-white/40">Привет, Чагин</p>
-          </header>
-
-          <Card data-testid="canonical-card">
-            <CardHeader className="pb-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Следующий вечер</div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/40">
-                Ближайших игровых вечеров пока нет.
-              </div>
-            </CardContent>
-          </Card>
-
-          <SegmentedControl
-            ariaLabel="Пример разделов игр"
-            value={sampleTab}
-            items={SAMPLE_TABS}
-            onValueChange={setSampleTab}
-          />
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary">Рейтинг</Button>
-            <Button data-testid="canonical-primary">Выбрать игры</Button>
-          </div>
-
-          <p className="sr-only">Текущий раздел: {section}</p>
-        </div>
+        {gamesVisible ? <GamesSample /> : <HomeSample />}
+        <p className="sr-only">Текущий раздел: {section}</p>
       </main>
 
       <PlayerBottomNavigation section={section} onOpen={setSection} />

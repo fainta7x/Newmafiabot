@@ -1,0 +1,37 @@
+/* Stage 4.5.5 — night check readability.
+ * Presentation only. Existing night targets, results, timers and transitions stay unchanged.
+ */
+
+.evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__name {
+  max-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  font-size: 9px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__label {
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer {
+  grid-template-columns: minmax(0, 1fr) 56px;
+  column-gap: 5px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__time {
+  height: 42px;
+  font-size: 25px;
+}
+
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) .live-judge-timer__name {
+    font-size: 8.5px;
+  }
+}

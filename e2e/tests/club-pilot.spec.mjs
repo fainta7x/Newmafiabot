@@ -31,11 +31,18 @@ test.describe('Stage 3 club pilot', () => {
     await expect(page.getByText('Богданчик', { exact: true })).toBeVisible();
     await expect(page.getByText('6', { exact: true }).first()).toBeVisible();
 
-    const tabHeights = await page.locator('nav[aria-label="Разделы клуба"] button').evaluateAll((buttons) =>
+    const clubTabs = page.locator('nav[aria-label="Разделы клуба"] button');
+    const tabHeights = await clubTabs.evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height),
     );
     expect(tabHeights).toHaveLength(3);
     for (const height of tabHeights) expect(height).toBeGreaterThanOrEqual(44);
+
+    const tabBackgrounds = await clubTabs.evaluateAll((buttons) =>
+      buttons.map((button) => getComputedStyle(button).backgroundColor),
+    );
+    expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[1]);
+    expect(tabBackgrounds[0]).not.toBe(tabBackgrounds[2]);
 
     await expectNoHorizontalOverflow(page, 'club list');
     await attachViewport(page, testInfo, 'club-pilot-list.png');

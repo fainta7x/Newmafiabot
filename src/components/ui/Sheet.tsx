@@ -55,6 +55,7 @@ export interface SheetContentProps
   header?: ReactNode;
   footer?: ReactNode;
   bodyClassName?: string;
+  viewportClassName?: string;
 }
 
 export function SheetContent({
@@ -64,6 +65,7 @@ export function SheetContent({
   header,
   footer,
   bodyClassName,
+  viewportClassName,
   ...props
 }: SheetContentProps) {
   const side = useContext(SheetSideContext);
@@ -80,6 +82,7 @@ export function SheetContent({
         className={cn(
           'pointer-events-none fixed inset-0 z-[var(--ds-layer-modal)] flex overflow-hidden [padding-top:env(safe-area-inset-top)] [padding-bottom:env(safe-area-inset-bottom)]',
           viewportClasses[side],
+          viewportClassName,
         )}
       >
         <BaseDrawer.Popup

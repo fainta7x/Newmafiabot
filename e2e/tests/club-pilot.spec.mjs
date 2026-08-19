@@ -53,6 +53,11 @@ test.describe('Stage 3 club pilot', () => {
     await search.fill('Матро');
     await expect(page.getByText('Матроскина', { exact: true })).toBeVisible();
     await expect(page.getByText('Богданчик', { exact: true })).toHaveCount(0);
+
+    await search.fill('НетТакогоИгрока');
+    const emptyState = page.locator('[data-slot="async-state"][data-state-kind="empty"]');
+    await expect(emptyState).toBeVisible();
+    await expect(emptyState).toContainText('Никого не нашли');
     await search.fill('');
 
     await page.getByTestId('club-player-p2').click();

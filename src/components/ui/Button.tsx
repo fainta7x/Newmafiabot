@@ -18,10 +18,10 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'min-h-[var(--ds-control-sm)] px-3 text-xs',
-  md: 'min-h-[var(--ds-control-md)] px-4 text-sm',
-  lg: 'min-h-[var(--ds-control-lg)] px-4 text-sm',
-  icon: 'h-[var(--ds-touch-min)] w-[var(--ds-touch-min)] p-0',
+  sm: 'min-h-[var(--ds-control-sm)] rounded-[var(--ds-radius-sm)] px-3 text-xs',
+  md: 'min-h-[var(--ds-control-md)] rounded-[var(--ds-radius-sm)] px-4 text-sm',
+  lg: 'min-h-[var(--ds-control-lg)] rounded-[var(--ds-radius-md)] px-4 text-sm',
+  icon: 'h-[var(--ds-touch-min)] w-[var(--ds-touch-min)] rounded-[var(--ds-radius-md)] p-0',
 };
 
 export function Button({
@@ -34,7 +34,7 @@ export function Button({
     <button
       data-slot="button"
       className={cn(
-        'ds-focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] font-semibold transition-[background-color,border-color,color,transform] duration-150 select-none disabled:pointer-events-none disabled:opacity-45 active:translate-y-px',
+        'ds-focus-ring inline-flex shrink-0 items-center justify-center gap-2 font-semibold transition-[background-color,border-color,color,transform] duration-150 select-none disabled:pointer-events-none disabled:opacity-45 active:translate-y-px',
         variantClasses[variant],
         sizeClasses[size],
         className,

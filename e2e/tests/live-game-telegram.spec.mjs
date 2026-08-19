@@ -99,7 +99,7 @@ test.describe('Live Game in Telegram WebApp host', () => {
 
     await nominateTwo.click();
     await expect(seatCard(page, 2).getByRole('button', { name: 'Снять выставление #2', exact: true })).toBeVisible();
-    await expect(centerPanel(page)).toContainText('Выставлены #2');
+    await expect(centerPanel(page)).toContainText('Выставлены: #2');
 
     const hudMetrics = await centerPanel(page).evaluate((node) => ({
       scrollWidth: node.scrollWidth,

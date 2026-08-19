@@ -10,16 +10,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'border border-transparent bg-[var(--ds-primary)] text-[var(--ds-on-primary)] hover:bg-[var(--ds-primary-hover)]',
-  secondary:
-    'border border-[var(--ds-border)] bg-[var(--ds-surface-raised)] text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
-  outline:
-    'border border-[var(--ds-border-strong)] bg-transparent text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
-  ghost:
-    'border border-transparent bg-transparent text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
-  destructive:
-    'border border-transparent bg-[var(--ds-danger)] text-white hover:brightness-110',
+  primary: 'ds-button-primary border text-[var(--ds-on-primary)]',
+  secondary: 'ds-button-secondary border text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
+  outline: 'ds-button-outline border text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
+  ghost: 'border border-transparent bg-transparent text-[var(--ds-foreground)] hover:bg-[var(--ds-surface-hover)]',
+  destructive: 'ds-button-destructive border text-white hover:brightness-105',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -39,7 +34,7 @@ export function Button({
     <button
       data-slot="button"
       className={cn(
-        'ds-focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 select-none disabled:pointer-events-none disabled:opacity-45 active:translate-y-px',
+        'ds-focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] font-semibold tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,filter,transform] duration-150 select-none disabled:pointer-events-none disabled:opacity-45 active:translate-y-px',
         variantClasses[variant],
         sizeClasses[size],
         className,

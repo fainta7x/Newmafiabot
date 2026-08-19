@@ -47,10 +47,10 @@ export default function PlayerBottomNavigation({
               onClick={() => onOpen(item.id)}
               aria-current={active ? 'page' : undefined}
               className={`ds-focus-ring group flex min-h-[58px] min-w-0 flex-col items-center justify-center rounded-[var(--ds-radius-sm)] px-1 text-[10px] font-medium transition-colors ${
-                active ? 'ds-nav-active' : 'text-muted-foreground hover:text-foreground'
+                active ? 'ds-nav-active' : 'text-muted-foreground hover:bg-[var(--ds-surface-hover)] hover:text-foreground'
               }`}
             >
-              <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.25 : 1.9} aria-hidden="true" />
+              <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.9} aria-hidden="true" />
               <span className="mt-1 max-w-full truncate">{item.label}</span>
             </button>
           );

@@ -79,8 +79,14 @@ test.describe('Live Game seat cabinet', () => {
     expect(numberTreatments.every((item) => item.radius === '10px')).toBe(true);
 
     // Between speeches there is nothing to nominate yet, so the table should
-    // not repeat ten disabled nomination buttons or thirty zero-value badges.
-    await expect(seatTwo.locator('.live-seat-quick-action--nomination')).toBeHidden();
+    // not visually repeat ten disabled nomination buttons or thirty zero-value badges.
+    const inactiveNomination = seatTwo.locator('.live-seat-quick-action--nomination');
+    const inactiveTreatment = await inactiveNomination.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { opacity: style.opacity, pointerEvents: style.pointerEvents };
+    });
+    expect(inactiveTreatment.opacity).toBe('0');
+    expect(inactiveTreatment.pointerEvents).toBe('none');
     const zeroDiscipline = page.locator('.evening-live-discipline > span[data-count="0"]');
     expect(await zeroDiscipline.count()).toBeGreaterThan(0);
     await expect(zeroDiscipline.first()).toBeHidden();

@@ -16,7 +16,7 @@ export default function PlayerBottomNavigation({
     <nav
       data-testid="player-bottom-nav"
       aria-label="Основная навигация"
-      className="ds-chrome fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-2 pb-[max(env(safe-area-inset-bottom),8px)]"
+      className="ds-chrome-bottom fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-2 pb-[max(env(safe-area-inset-bottom),8px)]"
     >
       <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {

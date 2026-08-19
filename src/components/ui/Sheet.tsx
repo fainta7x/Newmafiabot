@@ -155,7 +155,7 @@ export function SheetTitle({
   return (
     <BaseDrawer.Title
       data-slot="sheet-title"
-      className={cn('text-base font-bold leading-tight text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-foreground', className)}
       {...props}
     />
   );

@@ -24,37 +24,52 @@ export default function PlayerMoreHub({
 
         <button
           type="button"
+          data-testid="more-profile-card"
           onClick={() => onOpen('profile')}
-          className="flex w-full items-center gap-3 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4 text-left"
+          className="flex w-full items-center gap-3 rounded-[28px] border border-white/10 p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+          style={{
+            background: 'linear-gradient(145deg, color-mix(in srgb, var(--ds-accent) 11%, transparent), rgba(255,255,255,0.055) 56%, rgba(255,255,255,0.028))',
+          }}
         >
           {player.avatar_url ? (
             <img src={player.avatar_url} alt={player.nickname} className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/15" />
           ) : (
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-xl font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</div>
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-[color-mix(in_srgb,var(--ds-accent)_18%,transparent)] bg-[var(--ds-accent-soft)] text-xl font-semibold text-white/80">{player.nickname.slice(0, 1).toUpperCase()}</div>
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-lg font-semibold">{player.nickname}</span>
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-accent)]">Твой профиль</span>
+            <span className="mt-1 block truncate text-lg font-semibold">{player.nickname}</span>
             <span className="mt-1 block text-xs text-white/35">{player.elo} ELO · профиль и настройки</span>
           </span>
           <span className="text-xl text-white/25">›</span>
         </button>
 
         <section className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onOpen('club')} className="min-h-[126px] rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-left active:bg-white/[0.07]">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">◆</div>
+          <button
+            type="button"
+            data-testid="more-club-card"
+            onClick={() => onOpen('club')}
+            className="min-h-[126px] rounded-[24px] border border-emerald-200/10 bg-gradient-to-br from-emerald-300/[0.075] to-white/[0.03] p-4 text-left active:bg-emerald-300/[0.09]"
+          >
+            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-emerald-200/10 bg-emerald-300/[0.09] text-lg text-emerald-100">◆</div>
             <div className="mt-3 text-sm font-semibold">Клуб</div>
             <div className="mt-1 text-xs leading-4 text-white/35">Люди, связи и жизнь 2LA Noire</div>
           </button>
-          <button type="button" onClick={() => onOpen('payments')} className="min-h-[126px] rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-left active:bg-white/[0.07]">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/[0.06] text-lg text-white/65">₽</div>
+          <button
+            type="button"
+            data-testid="more-payments-card"
+            onClick={() => onOpen('payments')}
+            className="min-h-[126px] rounded-[24px] border border-sky-200/10 bg-gradient-to-br from-sky-300/[0.07] to-white/[0.03] p-4 text-left active:bg-sky-300/[0.09]"
+          >
+            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-sky-200/10 bg-sky-300/[0.09] text-lg text-sky-100">₽</div>
             <div className="mt-3 text-sm font-semibold">Оплата</div>
             <div className="mt-1 text-xs leading-4 text-white/35">Баланс и история платежей</div>
           </button>
         </section>
 
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-2">
-          <button type="button" onClick={() => onOpen('conduct')} className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left active:bg-white/[0.06]">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/[0.08] text-amber-100">▶</span>
+          <button type="button" data-testid="more-conduct-row" onClick={() => onOpen('conduct')} className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left active:bg-amber-200/[0.05]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-amber-200/10 bg-amber-200/[0.08] text-amber-100">▶</span>
             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Ведение игр</span><span className="mt-0.5 block text-xs text-white/30">Судейский режим и назначенные игры</span></span>
             <span className="text-lg text-white/20">›</span>
           </button>

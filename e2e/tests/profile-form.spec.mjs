@@ -33,12 +33,16 @@ test.describe('Stage 4.2 shared profile form', () => {
       expect(box.height).toBeGreaterThanOrEqual(44);
     }
 
+    const save = page.getByTestId('profile-save');
+    const saveBackground = await save.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(saveBackground).not.toBe('rgba(0, 0, 0, 0)');
+
     await expectNoHorizontalOverflow(page, 'profile form');
 
     await nickname.fill('Чагин 2');
     await fullName.fill('Евгений');
     await phone.fill('+7 999 111-22-33');
-    await page.getByTestId('profile-save').click();
+    await save.click();
 
     await expect(page.getByTestId('profile-form-message')).toContainText('Профиль сохранён');
     await expect(nickname).toHaveValue('Чагин 2');
@@ -48,7 +52,7 @@ test.describe('Stage 4.2 shared profile form', () => {
     await testInfo.attach('stage4-profile-form.png', { path, contentType: 'image/png' });
 
     await nickname.fill('');
-    await page.getByTestId('profile-save').click();
+    await save.click();
     await expect(page.getByRole('alert')).toContainText('Ник не может быть пустым');
   });
 });

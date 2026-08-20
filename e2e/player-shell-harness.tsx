@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import PlayerBottomNavigation from '../src/components/player/PlayerBottomNavigation.tsx';
+import PlayerLiveOnlyCenter from '../src/components/player/PlayerLiveOnlyCenter.tsx';
 import PlayerQuickAccessBar from '../src/components/player/PlayerQuickAccessBar.tsx';
 import { Button } from '../src/components/ui/Button.tsx';
 import { Card, CardContent, CardHeader } from '../src/components/ui/Card.tsx';
@@ -18,6 +19,41 @@ const player = {
   avatar_url: null,
   elo: 1000,
 } as unknown as PlayerMeResponse['player'];
+
+const liveJourney = {
+  phase: 'live',
+  evening: {
+    id: 'eve-live',
+    title: 'Игровой вечер — 21 августа',
+    starts_at: '2026-08-21T20:00:00+03:00',
+    venue: 'Суп с Котом',
+    format: 'CASUAL',
+    default_price: 400,
+  },
+  participation: {
+    response_status: 'going',
+    attendance_status: 'attended',
+    state: 'waiting',
+    seat_number: null,
+  },
+  score: { red: 2, black: 1, completed: 3, total_created: 4 },
+  present_count: 12,
+  current_game: null,
+  recent_results: [],
+  latest_self_game: null,
+};
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+globalThis.fetch = async (input: RequestInfo | URL) => {
+  const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+  const url = new URL(raw, window.location.origin);
+  if (url.pathname === '/api/player/evening-journey') return json({ journey: liveJourney });
+  return json({ error: 'E2E route not mocked' }, 404);
+};
 
 type SampleTab = 'history' | 'stats' | 'career' | 'recaps';
 type HistoryScope = 'mine' | 'all';
@@ -91,10 +127,7 @@ function GamesSample() {
         onValueChange={setSampleTab}
       />
 
-      <div
-        aria-label="Фильтр истории"
-        className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.045] p-1"
-      >
+      <div aria-label="Фильтр истории" className="grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.045] p-1">
         {([
           { value: 'mine' as const, label: 'Мои игры' },
           { value: 'all' as const, label: 'Все игры' },
@@ -104,9 +137,7 @@ function GamesSample() {
             type="button"
             onClick={() => setHistoryScope(item.value)}
             aria-current={historyScope === item.value ? 'page' : undefined}
-            className={`min-h-10 rounded-xl px-3 text-sm font-medium transition ${
-              historyScope === item.value ? 'bg-white text-black' : 'text-white/50'
-            }`}
+            className={`min-h-10 rounded-xl px-3 text-sm font-medium transition ${historyScope === item.value ? 'bg-white text-black' : 'text-white/50'}`}
           >
             {item.label}
           </button>
@@ -118,9 +149,7 @@ function GamesSample() {
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Моя история</div>
         </CardHeader>
         <CardContent className="pt-3">
-          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">
-            Сохранённых игр пока нет.
-          </div>
+          <div className="rounded-2xl bg-black/20 px-3 py-4 text-sm text-white/45">Сохранённых игр пока нет.</div>
         </CardContent>
       </Card>
     </div>
@@ -132,7 +161,7 @@ function Harness() {
   const gamesVisible = section === 'games' || section === 'stats' || section === 'career' || section === 'recaps';
 
   return (
-    <div className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] font-sans text-white antialiased">
+    <div className="player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] font-sans text-white antialiased">
       <PlayerQuickAccessBar
         player={player}
         tokenBalance={100}
@@ -141,10 +170,12 @@ function Harness() {
         onOpenProfile={() => setSection('profile')}
       />
 
-      <main
-        data-testid="player-shell-content"
-        className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] px-3 pb-24 pt-20"
-      >
+      <div className="h-14" aria-hidden="true" />
+      <div data-testid="player-live-status-slot" className="player-live-status-slot">
+        <PlayerLiveOnlyCenter />
+      </div>
+
+      <main data-testid="player-shell-content" className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] px-3 pb-24 pt-3">
         {gamesVisible ? <GamesSample /> : <HomeSample />}
         <p className="sr-only">Текущий раздел: {section}</p>
       </main>

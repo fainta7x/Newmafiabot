@@ -48,12 +48,20 @@ test.describe('Live Game utility cabinet', () => {
     await expect(stateButton).toBeVisible();
     await expect(recoveryTitle).toBeVisible();
     const stateButtonBox = await stateButton.boundingBox();
-    const recoveryTitleBox = await recoveryTitle.boundingBox();
+    const recoveryTitleTextBox = await recoveryTitle.evaluate((element) => {
+      const textNode = Array.from(element.childNodes).find((node) =>
+        node.nodeType === Node.TEXT_NODE && node.textContent?.includes('Восстановленная игра'));
+      if (!textNode) return null;
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x, width: rect.width };
+    });
     expect(stateButtonBox).not.toBeNull();
-    expect(recoveryTitleBox).not.toBeNull();
+    expect(recoveryTitleTextBox).not.toBeNull();
     expect(stateButtonBox.width).toBeGreaterThanOrEqual(44);
     expect(stateButtonBox.height).toBeGreaterThanOrEqual(44);
-    expect(recoveryTitleBox.x + recoveryTitleBox.width).toBeLessThanOrEqual(stateButtonBox.x - 4);
+    expect(recoveryTitleTextBox.x + recoveryTitleTextBox.width).toBeLessThanOrEqual(stateButtonBox.x - 4);
     await expect(stateButton.locator('span')).toBeHidden();
 
     const panel = page.getByTestId('live-events-panel');

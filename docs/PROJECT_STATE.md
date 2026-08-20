@@ -3,8 +3,8 @@
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
 **Status date:** 2026-08-20  
-**Latest release record:** PR #118 merged as `9fdbaaf812280180b395688ea112303645d75ea2`  
-**Release gate:** integration head `b86c9003178ac2ce5f672992175f3b0bd3653faa`, GitHub CI run #943 — green before merge  
+**Latest release record:** PR #121 merged as `ef261b4718ab6c62810daa7a4335b78f5b5afc68`  
+**Release gate:** GitHub CI run #947 — green before merge  
 **Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
 **Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
 
@@ -72,8 +72,11 @@ Implemented and connected:
 Implemented and connected:
 
 - organizer auth;
-- persistent organizer entitlement may be bound to a **server-verified canonical player identity** after one successful organizer-password login;
-- once bound, the same verified player profile can auto-establish organizer access through its signed player/Telegram session or linked VK session, while password login remains the fallback;
+- organizer entitlement belongs to a **server-verified canonical player identity** (`player_id`), never to a client-supplied Telegram/VK ID, username or screen name;
+- the canonical club-owner player profile is the sole built-in CRM owner and can establish organizer access directly after Telegram or linked VK proves that same player profile — no organizer password is required for that owner account;
+- other bot admins, judges and hosts do **not** inherit CRM-owner access automatically;
+- a successful organizer-password login can still bind organizer entitlement to another already verified canonical player identity as an explicit fallback/recovery path;
+- Player Cabinet shows the organizer-panel entry only when the resolved session has organizer authority;
 - Today/command center;
 - evenings/calendar/workspace;
 - participants/tables/games/protocol workflow;
@@ -81,8 +84,6 @@ Implemented and connected:
 - tasks/analytics;
 - commerce/admin data;
 - Telegram/VK/system diagnostics.
-
-The organizer entitlement belongs to `player_id`, never to a client-supplied Telegram/VK ID, username or screen name. External accounts are only trusted after their existing server-side verification/link flow resolves them to that canonical player.
 
 ### Live Game
 

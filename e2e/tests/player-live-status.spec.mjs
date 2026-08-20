@@ -28,16 +28,26 @@ test.describe('Player active-evening status', () => {
 
     const positioning = await launcher.evaluate((element) => {
       const style = getComputedStyle(element);
-      return { position: style.position, zIndex: style.zIndex, transform: style.transform };
+      return {
+        position: style.position,
+        zIndex: style.zIndex,
+        transform: style.transform,
+        translate: style.translate,
+      };
     });
     expect(positioning.position).toBe('relative');
     expect(positioning.transform).toBe('none');
+    expect(['none', '0px']).toContain(positioning.translate);
 
     const top = await box(topBar);
     const live = await box(launcher);
     const title = await box(pageTitle);
     const bottom = await box(bottomNav);
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
 
+    expect.soft(live.x).toBeGreaterThanOrEqual(11);
+    expect.soft(live.x + live.width).toBeLessThanOrEqual(viewport.width - 11);
     expect.soft(live.y).toBeGreaterThanOrEqual(top.y + top.height - 1);
     expect.soft(live.y + live.height).toBeLessThanOrEqual(title.y + 1);
     expect.soft(live.y + live.height).toBeLessThan(bottom.y);

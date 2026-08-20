@@ -15,6 +15,7 @@ describe('Live Game voting presentation model', () => {
 
     expect(view.eligible).toBe(3);
     expect(view.remaining).toBe(2);
+    expect(view.currentVotes).toBe(1);
     expect(view.isLast).toBe(false);
     expect(view.assignments).toEqual([
       { slot: 1, target: 4, automatic: false },
@@ -23,7 +24,7 @@ describe('Live Game voting presentation model', () => {
     ]);
   });
 
-  it('shows every missing mandatory vote on the last candidate without replacing explicit votes', () => {
+  it('keeps missing mandatory votes visually unassigned even on the last candidate', () => {
     const view = buildCollectingVotingPresentation({
       eligibleVoterSeats: [1, 2, 3, 4],
       eligibleVoters: 4,
@@ -34,23 +35,25 @@ describe('Live Game voting presentation model', () => {
 
     expect(view.nominee).toBe(9);
     expect(view.remaining).toBe(2);
+    expect(view.currentVotes).toBe(1);
     expect(view.assignments).toEqual([
       { slot: 1, target: 6, automatic: false },
-      { slot: 2, target: 9, automatic: true },
+      { slot: 2, target: null, automatic: false },
       { slot: 3, target: 9, automatic: false },
-      { slot: 4, target: 9, automatic: true },
+      { slot: 4, target: null, automatic: false },
     ]);
   });
 
-  it('ignores vote-map keys that are not eligible voters when counting remaining votes', () => {
+  it('counts only eligible explicit assignments and the current nominee votes', () => {
     const view = buildCollectingVotingPresentation({
       eligibleVoterSeats: [1, 2, 3],
       nominatedSeats: [8],
       currentNomineeIndex: 0,
-      votesByPlayer: { 1: 8, 99: 8 },
+      votesByPlayer: { 1: 8, 2: 7, 99: 8 },
     });
 
-    expect(view.remaining).toBe(2);
+    expect(view.remaining).toBe(1);
+    expect(view.currentVotes).toBe(1);
   });
 
   it('keeps table-decision majority arithmetic and selected-seat ordering deterministic', () => {

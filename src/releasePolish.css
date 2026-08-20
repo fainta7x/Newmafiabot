@@ -44,6 +44,7 @@
   max-width: none !important;
   margin: 0.5rem 0 0.25rem !important;
   transform: none !important;
+  translate: none !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important;
 }
 

@@ -154,12 +154,11 @@
     pointer-events: none !important;
   }
 
-  /* During active play the collapsed Events panel already owns one disposable
-     secondary line for the latest journal entry. Reuse that line as the mobile
-     toast lane: keep the title and judge actions untouched, hide only the latest
-     log while feedback is visible, and place the compact toast over that line. */
-  html body:has(.evening-live-engine-shell [data-testid="live-events-panel"])
-    .evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
+  /* EventsPanel and the toast are siblings in the direct-engine harness rather
+     than descendants of the table shell. Scope the gameplay lane from body so
+     the same rule works in the real modal and the isolated browser evidence. */
+  html body:has([data-testid="live-events-panel"])
+    [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
     top: auto !important;
     bottom: 8px !important;
     left: 8px !important;
@@ -171,10 +170,11 @@
     font-size: 8.5px !important;
     line-height: 1.15 !important;
     text-align: left !important;
+    pointer-events: none !important;
   }
 
-  html body:has(.evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"])
-    .evening-live-engine-shell [data-testid="live-events-latest"] {
+  html body:has([class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"])
+    [data-testid="live-events-latest"] {
     visibility: hidden !important;
   }
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import { loadJudgeMusicPlaylist, type JudgeMusicTrack } from '../../hooks/useJudgeGameMusic.ts';
 import {
@@ -18,6 +19,7 @@ type Props = {
   onCancel: () => void;
   validateSetupAndStart: () => void;
   onRoleDealActiveChange?: (active: boolean) => void;
+  speechRecordingControl?: React.ReactNode;
 };
 
 const defaultSelection = (tracks: JudgeMusicTrack[], previous: JudgeGameMusicSelection | null): JudgeGameMusicSelection => {
@@ -37,6 +39,7 @@ export default function ClubGameSetupPhase({
   onCancel,
   validateSetupAndStart,
   onRoleDealActiveChange,
+  speechRecordingControl,
 }: Props) {
   const [tracks, setTracks] = React.useState<JudgeMusicTrack[]>([]);
   const [musicLoading, setMusicLoading] = React.useState(true);
@@ -108,21 +111,28 @@ export default function ClubGameSetupPhase({
 
   return (
     <div className="space-y-3">
-      <section className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-slate-900/55 p-4 sm:p-5">
+      <section data-testid="club-game-setup-hero" className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-slate-900/55 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-200/55">Фаза 1 · старт игры</div>
             <h2 className="mt-2 text-xl font-black text-white">Раздача ролей</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">Состав и ведущий уже взяты из игры. Выберите музыку, раздайте 10 физических карт и отметьте фактические роли — после десятой карты движок сразу перейдёт к договорке.</p>
           </div>
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-300/[0.08] text-xl">🃏</div>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-300/[0.08] text-violet-100/70">
+            <Layers3 className="h-5 w-5" aria-hidden="true" />
+          </div>
         </div>
       </section>
+
+      {speechRecordingControl}
 
       <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-black text-white">♫ Музыка этой игры</div>
+            <div className="flex items-center gap-2 text-xs font-black text-white">
+              <Music2 className="h-3.5 w-3.5 text-white/55" aria-hidden="true" />
+              <span>Музыка этой игры</span>
+            </div>
             <div className="mt-1 text-[10px] leading-4 text-slate-500">Два фиксированных трека вместо случайного выбора из плейлиста.</div>
           </div>
           {musicLoading && <span className="text-[10px] text-slate-500">Загрузка…</span>}

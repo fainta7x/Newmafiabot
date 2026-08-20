@@ -33,7 +33,9 @@ const hasEnvKey = (text: string, key: string): boolean => new RegExp(`(?:^|\\n)\
 
 const packageJsonText = readText('package.json');
 const packageJson = packageJsonText ? JSON.parse(packageJsonText) as { name?: string; version?: string } : {};
+const agents = readText('AGENTS.md');
 const projectState = readText('docs/PROJECT_STATE.md');
+const runbook = readText('docs/RUNBOOK.md');
 const renderYaml = readText('render.yaml');
 const productionEnvExample = readText('.env.production.example');
 
@@ -42,7 +44,8 @@ const commit = runGit('rev-parse', 'HEAD');
 const shortCommit = commit?.slice(0, 8) || null;
 const statusOutput = runGit('status', '--porcelain');
 const dirtyEntries = statusOutput ? statusOutput.split('\n').filter(Boolean) : [];
-const recordedMain = capture(projectState, /\*\*Current main:\*\*\s*`([0-9a-f]{7,40})`/i);
+const projectStateDate = capture(projectState, /\*\*Status date:\*\*\s*([^\n]+)/i);
+const latestReleaseRecord = capture(projectState, /\*\*Latest release record:\*\*\s*([^\n]+)/i);
 
 const docs = [
   'AGENTS.md',
@@ -64,6 +67,9 @@ const renderTursoUrl = hasEnvKey(renderYaml, 'TURSO_DATABASE_URL');
 const renderTursoToken = hasEnvKey(renderYaml, 'TURSO_AUTH_TOKEN');
 const envExampleTursoUrl = /(?:^|\n)TURSO_DATABASE_URL=/m.test(productionEnvExample);
 const envExampleTursoToken = /(?:^|\n)TURSO_AUTH_TOKEN=/m.test(productionEnvExample);
+const agentsPrBudget = /maximum \*\*3 pull requests total\*\*/i.test(agents);
+const runbookPrBudget = /maximum \*\*3 PRs\*\*/i.test(runbook);
+const pinnedCurrentMain = /\*\*Current main:\*\*/i.test(projectState);
 
 const render = {
   service: capture(renderYaml, /(?:^|\n)\s*name:\s*([^\n#]+)/),
@@ -84,6 +90,12 @@ const storage = {
   checkpointRole: 'bootstrap/recovery only; never overwrite non-empty runtime data',
 };
 
+const workContract = {
+  maxPrsPerUserRequest: agentsPrBudget && runbookPrBudget ? 3 : null,
+  agentsDeclaresPrBudget: agentsPrBudget,
+  runbookDeclaresPrBudget: runbookPrBudget,
+};
+
 const checkFailures: string[] = [];
 for (const doc of docs) {
   if (!doc.present) checkFailures.push(`Missing canonical document: ${doc.file}`);
@@ -91,7 +103,9 @@ for (const doc of docs) {
 for (const tool of navigationTools) {
   if (!tool.present) checkFailures.push(`Missing navigation tool: ${tool.file}`);
 }
-if (!recordedMain) checkFailures.push('docs/PROJECT_STATE.md has no Current main marker');
+if (!projectStateDate) checkFailures.push('docs/PROJECT_STATE.md has no Status date marker');
+if (pinnedCurrentMain) checkFailures.push('docs/PROJECT_STATE.md must not pin a mutable Current main SHA; Git owns the current SHA');
+if (!agentsPrBudget || !runbookPrBudget) checkFailures.push('3-PR-per-user-request work budget must be declared in both AGENTS.md and RUNBOOK.md');
 if (!render.service) checkFailures.push('render.yaml service name was not detected');
 if (!render.branch) checkFailures.push('render.yaml branch was not detected');
 if (!render.autoDeployTrigger) checkFailures.push('render.yaml autoDeployTrigger was not detected');
@@ -113,18 +127,19 @@ const info = {
     changedEntries: dirtyEntries.length,
   },
   handoff: {
-    recordedMain,
-    currentCommitMatchesRecordedMain: Boolean(commit && recordedMain && commit === recordedMain),
+    projectStateDate,
+    latestReleaseRecord,
     docs,
     navigationTools,
   },
   render,
   storage,
+  workContract,
   check: {
     ok: checkFailures.length === 0,
     failures: checkFailures,
   },
-  note: 'Read-only repository/config snapshot. It does not query GitHub Actions, Render secrets, Turso contents or live deployed runtime.',
+  note: 'Read-only repository/config snapshot. Current SHA comes from Git. This does not query GitHub Actions, Render secrets, Turso contents or live deployed runtime.',
 };
 
 const jsonMode = process.argv.includes('--json');
@@ -134,11 +149,6 @@ if (jsonMode) {
   process.stdout.write(`${JSON.stringify(info, null, 2)}\n`);
 } else {
   const yesNo = (value: boolean | null): string => value === null ? 'unknown' : value ? 'yes' : 'no';
-  const recordedState = info.handoff.currentCommitMatchesRecordedMain
-    ? 'matches current commit'
-    : recordedMain
-      ? 'different from current commit (normal on a feature/docs branch; reconcile before claiming main state)'
-      : 'not recorded';
 
   console.log('2LA Noire project context');
   console.log('-------------------------');
@@ -147,29 +157,33 @@ if (jsonMode) {
   console.log(`Git branch: ${branch || 'unavailable'}`);
   console.log(`Git commit: ${commit || 'unavailable'}`);
   console.log(`Working tree clean: ${yesNo(info.git.clean)}${dirtyEntries.length ? ` (${dirtyEntries.length} changed entries)` : ''}`);
-  console.log(`PROJECT_STATE current main: ${recordedMain || 'not recorded'} — ${recordedState}`);
+  console.log(`PROJECT_STATE status date: ${projectStateDate || 'not recorded'}`);
+  console.log(`Latest release record: ${latestReleaseRecord || 'not recorded'}`);
   console.log('');
   console.log('Canonical docs:');
   for (const doc of docs) console.log(`  ${doc.present ? 'OK ' : 'MISS'} ${doc.file}`);
   console.log('Navigation tools:');
   for (const tool of navigationTools) console.log(`  ${tool.present ? 'OK ' : 'MISS'} ${tool.file}`);
   console.log('');
-  console.log('Render config:');
+  console.log('Work contract:');
+  console.log(`  max PRs per user request: ${info.workContract.maxPrsPerUserRequest ?? 'not enforced'}`);
+  console.log('');
+  console.log('Render/storage config:');
   console.log(`  service: ${info.render.service || 'not found'}`);
   console.log(`  branch: ${info.render.branch || 'not found'}`);
   console.log(`  auto deploy: ${info.render.autoDeployTrigger || 'not found'}`);
   console.log(`  health: ${info.render.healthCheckPath || 'not found'}`);
   console.log(`  Turso URL declared: ${yesNo(info.render.tursoDatabaseUrlDeclared)}`);
   console.log(`  Turso token declared: ${yesNo(info.render.tursoAuthTokenDeclared)}`);
+  console.log(`  production storage contract: ${info.storage.productionContract}`);
   console.log(`  local DB fallback: ${info.render.databasePath || 'not found'}`);
-  console.log(`  storage contract: ${info.storage.productionContract}`);
   console.log('');
   console.log(`Handoff integrity: ${info.check.ok ? 'OK' : 'FAILED'}`);
   for (const failure of checkFailures) console.log(`  - ${failure}`);
   console.log('');
   console.log('Navigate: known feature -> FEATURE_MAP; symptom -> ERROR_PLAYBOOK; fuzzy term -> npm run project:find.');
   console.log('After edits: npm run project:affected -- <changed files>.');
-  console.log('Note: this command does not prove live Render/Turso secrets, deployed SHA or runtime health.');
+  console.log('Note: this command does not prove GitHub CI, live Render secrets, deployed SHA or runtime health.');
 }
 
 if (checkMode && !info.check.ok) process.exitCode = 1;

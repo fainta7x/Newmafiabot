@@ -1,318 +1,225 @@
 # 2LA Noire — Architecture Map
 
-This document is a navigation index for targeted work. It is intentionally shorter than a full technical specification.
+This file answers **where a subsystem lives and what owns it**. It does not own current release status or work procedure.
 
-Use it to answer: **where should I look first?**
-
-Do not treat it as proof that a specific function still behaves exactly as described; read the relevant implementation before changing it.
-
-## Request flow
+## 1. Request flow
 
 Typical web flow:
 
-`React component -> src/lib/api.ts -> Express route -> service / DB wrapper -> SQLite`
+`React UI -> src/lib/api.ts -> Express route -> service/DB wrapper -> storage`
 
 Typical integration flow:
 
-`Organizer/player UI -> Express integration route -> integration service -> Telegram/VK API or Python bot service -> persisted status/outbox`
+`Organizer/player UI -> Express integration route -> integration service -> Telegram/VK/Python bot -> persisted status/outbox`
 
-## Application entry points
+## 2. Application entry points
 
-### Node/web server
+### Node/web
 
-- `server.ts` — process entry point.
-- `src/app.ts` — Express application construction, schema ensures, reconciliations, router mounting, production static serving.
+- `server.ts` — process entry.
+- `src/app.ts` — Express construction, schema ensures/reconciliation, router mounts, static serving.
 
-The fastest way to understand currently mounted APIs is to inspect `src/app.ts`. Do not infer active routes from filenames alone.
+`src/app.ts` is authoritative for mounted APIs. Do not infer active routes from filenames alone.
 
-### React application
+### React
 
 - `src/` — application source.
-- `src/components/` — large UI modules.
-- `src/lib/api.ts` — primary client API facade/types used by organizer UI and older shared code.
-- `src/types/` — shared TypeScript data shapes.
+- `src/components/` — Player, Organizer CRM, Live Game and shared UI.
+- `src/lib/api.ts` — main client API facade/shared types.
+- `src/types/` — shared data shapes.
 
-## Player application
+## 3. Player application
 
 Primary shell:
 
 - `src/components/player/PlayerCabinetShell.tsx`
 
-Primary player areas:
+Primary areas:
 
-- `PlayerHomeDashboard.tsx` — home.
-- `PlayerEventsCalendar.tsx` — events/calendar, registration and event details.
-- `PlayerGamesHub.tsx` — games hub/navigation.
-- `PlayerCabinetV2.tsx` — active history/statistics content; despite the V2 name it is still used.
-- `PlayerRatingHub.tsx` — rating/Elo/rating periods.
-- `PlayerClubHub.tsx` — club/player directory.
-- `PlayerWalletHub.tsx` — wallet, tokens, economy/payment-facing UX.
-- `PlayerProfileHub.tsx` — player profile/settings.
-- `PlayerConductCenter.tsx` — conduct/game-management experience extracted from the removed legacy shell.
-- `PlayerSmartNotifications.tsx` — player notification navigation.
-- `PlayerLiveOnlyCenter.tsx` — live-only overlays/experience.
+- `PlayerHomeDashboard.tsx` — Home;
+- `PlayerEventsCalendar.tsx` — events/registration;
+- `PlayerGamesHub.tsx` + `PlayerHistoryStatsView.tsx` — games/history/stats;
+- `PlayerRatingHub.tsx` / `PlayerRatingTable.tsx` — rating;
+- `PlayerClubHub.tsx` — club/directory;
+- `PlayerWalletHub.tsx` — wallet/tokens/economy;
+- `PlayerProfileHub.tsx` — profile/settings;
+- `PlayerConductCenter.tsx` — judging/conduct;
+- `PlayerLiveOnlyCenter.tsx` — live-only experience.
 
-Important routing normalization in `PlayerCabinetShell.tsx`:
+Primary player APIs are under `/api/player/*`; inspect `src/app.ts` and `src/server/routes/player*Routes.ts` for exact ownership.
 
-- `payments` resolves to `wallet`.
-- `more` resolves to `club`.
-- bottom navigation is Home / Events / Games / Rating / Club.
-
-## Organizer CRM
+## 4. Organizer CRM
 
 Primary shell:
 
 - `src/components/OrganizerCRM.tsx`
 
-Main organizer areas:
+Main areas:
 
-- `src/components/crm/CRMOverview.tsx`
-- `src/components/crm/EveningsList.tsx`
-- `src/components/crm/EveningWorkspace.tsx`
-- `src/components/crm/PlayersCRM.tsx`
-- `src/components/crm/TasksCRM.tsx`
-- `src/components/crm/AnalyticsCRM.tsx`
-- `src/components/crm/MoreCRM.tsx`
+- `src/components/crm/CRMOverview.tsx`;
+- `EveningsList.tsx`;
+- `EveningWorkspace.tsx`;
+- `PlayersCRM.tsx`;
+- `TasksCRM.tsx`;
+- `AnalyticsCRM.tsx`;
+- `MoreCRM.tsx`.
 
-Organizer URL map:
+Main organizer URLs:
 
-- `/admin` — overview.
-- `/admin/evenings` — evenings.
-- `/admin/evenings/:id` — evening overview.
-- `/admin/evenings/:id/participants` — participants.
-- `/admin/evenings/:id/tables` — tables.
-- `/admin/evenings/:id/games` — games.
-- `/admin/players` — players.
-- `/admin/players/:id` — player detail.
-- `/admin/tasks` — tasks.
-- `/admin/analytics` — analytics.
-- `/admin/more` — secondary/admin/system areas.
+- `/admin`;
+- `/admin/evenings` and `/admin/evenings/:id/...`;
+- `/admin/players` and `/admin/players/:id`;
+- `/admin/tasks`;
+- `/admin/analytics`;
+- `/admin/more`.
 
-## Live Game / game protocol
+## 5. Live Game
 
-Primary UI area:
+Primary implementation:
 
-- `src/components/LiveGameEngine/`
+- `src/components/LiveGameEngine.tsx`;
+- `src/components/LiveGameEngine/`;
+- visual runtime layers under `src/components/crm/liveGame*.css`.
 
-Before changing voting, fouls, removals, PPK, zero round or game completion behavior:
+Durable pure/helper boundaries include:
 
-1. read `docs/BUSINESS_RULES.md`;
-2. locate the relevant Live Game tests;
-3. preserve the user-approved rules even if a simplification appears cleaner.
+- `setupMode.ts`;
+- `setupRoles.ts`;
+- `setupState.ts`;
+- `daySpeechModel.ts`;
+- `nightTargetModel.ts`;
+- `timerModel.ts`;
+- `votingPresentationModel.ts`;
+- `seatPresentationModel.ts`;
+- `engineStateModel.ts`;
+- `LiveGameOverlays.tsx`.
 
-Speech recording:
+Game state/action ownership remains primarily in `LiveGameEngine.tsx` and seat actions in `SeatCard.tsx`.
 
-- `src/components/LiveGameEngine/SpeechRecordingPilot.tsx` — browser recording/local fallback.
-- `src/server/routes/playerSpeechRecordingRoutes.ts` — player-facing server route.
-- `src/server/routes/speechRecordingRoutes.ts` — underlying clip upload/list/audio behavior where applicable.
+Voting outcomes remain authoritative in `src/shared/tournamentVoting.ts`.
 
-## Server route groups
+Before changing voting/fouls/removals/PPK/zero round/game completion, read `docs/BUSINESS_RULES.md` and relevant tests.
 
-`src/app.ts` is authoritative for what is mounted.
+Browser evidence:
 
-### Player (`/api/player`)
+- `e2e/live-game.html`;
+- `e2e/live-game-harness.tsx`;
+- `e2e/tests/live-game.spec.mjs`.
 
-Major router files include:
+## 6. Server route ownership
 
-- `playerJudgingRoutes.ts`
-- `playerJudgeMusicRoutes.ts`
-- `playerSelfRoutes.ts`
-- `playerLiveRoutes.ts`
-- `playerPulseRoutes.ts`
-- `playerStoriesRoutes.ts`
-- `playerEveningVotingRoutes.ts`
-- `playerProgressionRoutes.ts`
-- `playerProfileSettingsRoutes.ts`
-- `playerGameDetailRoutes.ts`
-- `playerRatingPeriodRoutes.ts`
-- `playerEconomyRoutes.ts`
-- `playerBettingRoutes.ts`
-- `playerPaymentRoutes.ts`
-- `playerExperienceRoutes.ts`
-- `playerInsightsRoutes.ts`
-- `playerReplayRoutes.ts`
-- `playerEveningJourneyRoutes.ts`
+### Organizer/club
 
-Speech recordings are mounted separately under:
-
-- `/api/player/speech-recordings`
-
-Caution: `playerSelfRoutesLegacy.ts` still serves real behavior via the current self routes. Confirm usage before cleanup.
-
-### Organizer / club data
-
-- `/api/admin-data` -> `adminDataRoutes.ts`
-- `/api/commerce` -> `commerceAdminRoutes.ts`
-- `/api/evenings` -> announcement + evening routes
-- `/api/participant` and `/api/evening-participants` -> participant routes
-- `/api/players` -> player/Elo/token routes
-- `/api/tasks` -> tasks
-- `/api/analytics` -> analytics
-- `/api/crm` -> CRM + table scouting
-- `/api/rating` and `/api/rating-periods` -> rating flows
+- `/api/admin-data` -> `adminDataRoutes.ts`;
+- `/api/commerce` -> `commerceAdminRoutes.ts`;
+- `/api/evenings` -> evening/announcement routes;
+- `/api/participant` / `/api/evening-participants` -> participant routes;
+- `/api/players` -> player/Elo/token routes;
+- `/api/tasks` -> task routes;
+- `/api/analytics` -> analytics routes;
+- `/api/crm` -> CRM/table-scouting routes;
+- `/api/rating` / `/api/rating-periods` -> rating flows.
 
 ### Games
 
-- `/api/games` -> organizer betting + active game routes.
-- `POST /api/games` itself is intentionally retired and returns HTTP 410.
-
-Do not resurrect the old creation route. Create/manage games through the evening/tournament protocol workflow.
+- `/api/games` owns current game-related organizer/betting reads/actions.
+- `POST /api/games` is intentionally retired with HTTP 410. Do not resurrect it.
+- Create/manage games through evening/tournament protocol workflow.
 
 ### Tournaments
 
-Mounted under `/api/tournaments`:
-
-- Telegram publication.
-- judge authority.
-- flexible results.
-- tournament CRUD/workflow.
-- protocol imports.
-- token settlement.
-- protocol editing.
-- awards.
+Mounted under `/api/tournaments` for tournament workflow, protocols, judge authority, awards, results, publication and token settlement.
 
 ### Public
 
-Mounted under `/api/public`:
+Mounted under `/api/public` for public join/live paths including VK-related flows.
 
-- VK join start/respond/state.
-- public live.
-- public routes/join experiences.
+## 7. Database and persistence
 
-## Telegram
+Primary ownership:
 
-Web-side route/service areas:
+- `src/db/index.ts` — **authoritative backend selection and DB wrapper**;
+- `src/db/tursoHttpDatabase.ts` — Turso HTTP adapter;
+- `src/db/` + `drizzle/` — schema/migrations/ensure logic.
 
-- `src/server/routes/botRoutes.ts`
-- `src/server/routes/botAnnouncementRoutes.ts`
-- `src/server/routes/botTelegramRoutes.ts`
-- `src/server/routes/telegramSettingsRoutes.ts`
-- tournament Telegram routes.
-- Telegram publishing schema/service files.
-- `src/server/services/telegramSyncOutboxService.ts` — worker starts outside test runtime.
+### Production backend selection
 
-Python bot process/modules live mainly at repository root and under bot handler modules, including:
+`getDb()` in `src/db/index.ts` selects storage as follows:
 
-- `main.py`
-- `config.py`
-- `commands.py`
-- `bot_menu.py`
-- `bot_announcement_api.py`
-- `bot_api.py`
-- `bot_profile_link_api.py`
-- `bot_telegram_api.py`
-- `handlers/`
+1. If **both** `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` exist -> use remote Turso.
+2. If neither exists -> use local SQLite through `DATABASE_PATH`/default path.
+3. If only one Turso variable exists -> fail startup; never silently mix backends.
 
-Safe runtime diagnostics are documented in:
+For the current production contract, Turso is the primary persistent store. Render's `/tmp/...sqlite` path is fallback/local storage and must not be treated as proof that production data is ephemeral.
 
-- `docs/telegram-runtime-health.md`
+### Bootstrap/checkpoint
 
-Do not smoke-test by sending a club-wide announcement when a read-only health check or targeted recipient test is sufficient.
+- Existing non-empty runtime data always wins.
+- Repository checkpoint is used only for empty/missing bootstrap/recovery according to guarded logic.
+- Canonical files: `mafia_crm.checkpoint.sqlite.gz.b64` + `mafia_crm.checkpoint.meta.json`.
 
-## VK
+Never restore a checkpoint over a non-empty production/runtime DB during ordinary deploy work.
 
-Primary web integration entry:
+## 8. Render
 
-- `src/server/routes/integrationRoutes.ts`
+Configuration file: `render.yaml`.
 
-Additional join/direct routers/services are mounted in `src/app.ts`, including:
+Current topology:
 
-- `vkJoinStartRouter.ts`
-- `vkJoinRegistrationCallbackRouter.ts`
-- `vkJoinRespondRouter.ts`
-- `vkJoinStateRouter.ts`
-- `vkDirectIntegrationRouter.ts`
+- one Node web service;
+- branch `main`;
+- Frankfurt;
+- Free plan;
+- manual deploy;
+- `/api/health` health check;
+- production secrets supplied by Render, including Turso credentials.
 
-VK schema ensure files:
+A GitHub merge does not prove deployment. See `PROJECT_STATE` for current release/deploy state and `RUNBOOK` for procedure.
 
-- `src/db/ensureVkIntegrationSchema.ts`
-- `src/db/ensureVkJoinSchema.ts`
+## 9. Telegram
 
-Safe runtime diagnostics are documented in:
+Web-side ownership includes:
 
-- `docs/vk-runtime-health.md`
+- `botRoutes.ts`;
+- `botAnnouncementRoutes.ts`;
+- `botTelegramRoutes.ts`;
+- `telegramSettingsRoutes.ts`;
+- tournament Telegram routes;
+- `src/server/services/telegramSyncOutboxService.ts`.
 
-Build-time VK direct variants may be selected through Vite configuration. Check `vite.config.*` before declaring `.vk-direct.*` files unused.
+Python bot ownership includes root bot modules and `handlers/`.
 
-## Database and persistence
+Runtime diagnostics: `docs/telegram-runtime-health.md`.
 
-Primary DB area:
+## 10. VK
 
-- `src/db/`
-- `src/db/index.ts` — database wrapper/opening.
+Primary web entry:
 
-At application startup `src/app.ts` ensures multiple schemas and performs guarded reconciliations/backfills.
+- `src/server/routes/integrationRoutes.ts`;
+- `vkJoin*Router.ts`;
+- `vkDirectIntegrationRouter.ts`;
+- `vkRuntimeHealthService.ts`.
 
-Critical safety rule:
+Runtime diagnostics: `docs/vk-runtime-health.md`.
 
-**A non-empty runtime database wins over repository bootstrap/checkpoint data.**
+Inspect Vite transforms before declaring `.vk-direct.*` variants unused.
 
-Repository checkpoint artifacts are recovery/bootstrap tools, not a synchronization mechanism for live production data.
+## 11. Testing / CI
 
-See:
+- `src/tests/` — Vitest.
+- `e2e/` — isolated mobile Playwright.
+- `.github/workflows/ci.yml` — authoritative main CI workflow.
+- `src/scripts/projectContext.ts` — read-only project/handoff check used by CI.
 
-- `AGENTS.md`
-- `docs/RUNBOOK.md`
+## 12. Navigation rule
 
-before any DB/checkpoint operation.
+For a normal task:
 
-## Testing
+1. `AGENTS.md`;
+2. `PROJECT_STATE`;
+3. last 5–10 commits;
+4. `FEATURE_MAP` or `ERROR_PLAYBOOK`;
+5. exact source/tests;
+6. this architecture map only when ownership/topology is unclear.
 
-- `src/tests/` — main Vitest coverage.
-- Feature-local tests may also exist close to implementation files.
-- `vite.config.*` contains Vitest/build configuration.
-
-The current policy is the full Vitest suite with no project-specific hidden exclusion list.
-
-When fixing a bug:
-
-1. add/adjust a focused regression test where practical;
-2. run focused tests while iterating;
-3. rely on full CI before merge.
-
-## Build and CI
-
-Main scripts in `package.json`:
-
-- `npm run typecheck`
-- `npm test`
-- `npm run build`
-- `npm run release:audit`
-- `npm run project:status` (handoff/status helper)
-
-CI:
-
-- `.github/workflows/ci.yml`
-
-Current CI runs Node 22 and blocks on data-safety audit, typecheck, tests and production build; a separate Python 3.11 job compiles bot sources.
-
-## Deployment
-
-- `render.yaml` — Render service definition.
-
-Current staging service definition:
-
-- service: `2la-noire-web-staging`
-- branch: `main`
-- region: Frankfurt
-- health path: `/api/health`
-- `autoDeployTrigger: off`
-
-A merged/green Git commit is therefore **not proof of deployment**.
-
-See `docs/RUNBOOK.md` for the runtime verification sequence.
-
-## Fast discovery rules
-
-For a normal task, do **not** scan the whole repository.
-
-Use this order:
-
-1. `AGENTS.md`
-2. `docs/PROJECT_STATE.md`
-3. last 5–10 commits on `main`
-4. this architecture map
-5. files directly related to the requested feature
-6. focused tests for those files
-
-Only widen discovery when the targeted path is insufficient or contradictory.
+Do not turn this document into a second project-state or roadmap file.

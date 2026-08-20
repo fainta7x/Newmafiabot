@@ -12,6 +12,24 @@ const expectNoHorizontalOverflow = async (page) => {
   expect.soft(metrics.body).toBeLessThanOrEqual(metrics.viewport + 1);
 };
 
+const expectCloseoutTouchTargets = async (page, label) => {
+  const panel = page.getByTestId('evening-closeout-panel');
+  const heights = await panel.locator('button:visible').evaluateAll((buttons) =>
+    buttons.map((button) => button.getBoundingClientRect().height),
+  );
+  expect(heights.length, `${label}: visible actions`).toBeGreaterThan(0);
+  expect(Math.min(...heights), `${label}: smallest action`).toBeGreaterThanOrEqual(44);
+
+  const textInputs = panel.locator('input:visible:not([type="checkbox"])');
+  const inputCount = await textInputs.count();
+  if (inputCount) {
+    const inputHeights = await textInputs.evaluateAll((inputs) =>
+      inputs.map((input) => input.getBoundingClientRect().height),
+    );
+    expect(Math.min(...inputHeights), `${label}: smallest text input`).toBeGreaterThanOrEqual(44);
+  }
+};
+
 test.describe('Organizer evening closeout', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2.4 });
 
@@ -29,6 +47,7 @@ test.describe('Organizer evening closeout', () => {
     await expect(page.getByText(/Черновиков игр: 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Закрыть вечер' })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
+    await expectCloseoutTouchTargets(page, 'pending closeout');
     await attachFullPage(page, testInfo, 'crm-evening-closeout-pending.png');
 
     const markPaid = page.getByRole('button', { name: 'Отметить оплату Пристань' });
@@ -38,6 +57,7 @@ test.describe('Organizer evening closeout', () => {
     await expect(page.getByText('Оплачено 400 ₽', { exact: true })).toBeVisible();
     await expect(page.getByText('долгов сейчас 1')).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    await expectCloseoutTouchTargets(page, 'paid closeout');
     await attachFullPage(page, testInfo, 'crm-evening-closeout-paid-undo.png');
 
     await page.getByRole('button', { name: 'Снять оплату Пристань' }).click();
@@ -54,16 +74,19 @@ test.describe('Organizer evening closeout', () => {
     await expect(search).toBeVisible();
     await search.fill('Вид');
     await expect(page.getByRole('button', { name: /Вид.*Был/ })).toBeVisible();
+    await expectCloseoutTouchTargets(page, 'walk-in closeout');
     await page.getByRole('button', { name: /Вид.*Был/ }).click();
     await expect(page.getByText(/Без предварительного «Иду»:.*Вид/)).toBeVisible();
 
     await page.getByPlaceholder('Найти любого игрока').fill('Чагин');
     await expect(page.getByText('Чагин')).toBeVisible();
     await expect(page.getByRole('button', { name: '400' })).toBeVisible();
+    await expectCloseoutTouchTargets(page, 'amount closeout');
 
     await page.getByText('Закрыть без полной игровой статистики.').click();
     await expect(page.getByRole('button', { name: 'Закрыть вечер' })).toBeEnabled();
     await expectNoHorizontalOverflow(page);
+    await expectCloseoutTouchTargets(page, 'ready closeout');
     await attachFullPage(page, testInfo, 'crm-evening-closeout-ready.png');
   });
 });

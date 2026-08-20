@@ -68,31 +68,29 @@
   }
 
   /*
-   * During “поднять / оставить” the table itself is the voting input.
-   * Keep every eligible seat neutral until the judge taps it, then use the
-   * same rose/cherry voting semantic as an ordinary vote. Dead seats keep
-   * their normal eliminated treatment and are never made selectable.
+   * Table-decision mode is recognizable by its coloured majority counter
+   * (<strong>) inside the central panel. In this mode ordinary nominee/current
+   * nominee highlights must not look like votes for lifting all tied players.
    */
-  html body .evening-live-engine-shell .live-seat-card[data-table-decision="true"]:not(.live-seat-card--dead) {
-    border-color: rgba(255, 255, 255, 0.10) !important;
-    background: linear-gradient(155deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.022)) !important;
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 7px 18px rgba(0, 0, 0, 0.20) !important;
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+    > :nth-child(11) > div.flex-1 strong[class*="text-amber-400"],
+    > :nth-child(11) > div.flex-1 strong[class*="text-emerald-400"]
+  ) > :nth-child(-n+10) {
+    border-color: rgb(30 41 59) !important;
+    background: rgb(15 23 42 / 0.5) !important;
+    box-shadow: none !important;
     transform: none !important;
     animation: none !important;
     opacity: 1 !important;
   }
 
-  html body .evening-live-engine-shell .live-seat-card[data-table-decision="true"][data-table-vote-selected="true"] {
-    border-color: rgba(251, 113, 133, 0.72) !important;
-    background: linear-gradient(155deg, rgba(225, 52, 88, 0.18), rgba(255, 255, 255, 0.035)) !important;
-    box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.22), 0 0 18px rgba(225, 52, 88, 0.16) !important;
-  }
-
-  html body .evening-live-engine-shell .live-seat-card[data-table-vote-selected="true"] .live-seat-state__label {
-    color: rgba(255, 185, 199, 0.64) !important;
-  }
-
-  html body .evening-live-engine-shell .live-seat-card[data-table-vote-selected="true"] .live-seat-state__value {
-    color: #fda4af !important;
+  /* Only a player explicitly tapped as a table voter receives a highlight. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(
+    > :nth-child(11) > div.flex-1 strong[class*="text-amber-400"],
+    > :nth-child(11) > div.flex-1 strong[class*="text-emerald-400"]
+  ) > [data-table-vote-selected="true"] {
+    border-color: rgb(16 185 129) !important;
+    background: rgb(6 78 59 / 0.24) !important;
+    box-shadow: inset 0 0 0 1px rgb(16 185 129 / 0.65), 0 0 18px rgb(16 185 129 / 0.32) !important;
   }
 }

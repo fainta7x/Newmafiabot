@@ -1,0 +1,174 @@
+/* Stage 4.4.6 — player action priority.
+ *
+ * Visual-only layer. Keep all existing Live Game handlers, confirmation gates,
+ * foul/removal/PPK rules and Telegram sheet geometry unchanged.
+ */
+
+.live-player-action-sheet {
+  max-width: 430px;
+}
+
+/* Make the current discipline snapshot quicker to scan without spending a full
+   card row on three zero-heavy metrics. */
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div {
+  min-height: 42px !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div > div:first-child {
+  font-size: 6.5px !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0.06em !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div > div:last-child {
+  margin-top: 2px;
+  font-size: 13px !important;
+  line-height: 1 !important;
+}
+
+/* Reduce dead vertical rhythm in the sheet so a judge can reach every action
+   without the rare controls pushing below the comfortable thumb zone. */
+.live-player-action-sheet > * + * {
+  margin-top: 10px !important;
+}
+
+/* Existing DOM order:
+ * 1 + regular foul
+ * 2 remove regular foul
+ * 3 minor tech
+ * 4 major tech
+ * 5 nomination
+ * 6 note
+ * 7 direct removal
+ * 8 PPK
+ *
+ * Reflow only. No handler or availability changes.
+ */
+.live-player-action-sheet > .grid.grid-cols-2 {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  grid-auto-flow: row !important;
+  gap: 7px !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 50px !important;
+  padding: 7px 6px !important;
+  line-height: 1.08 !important;
+  white-space: normal !important;
+}
+
+/* Row 1 — highest-frequency judge actions. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(1) {
+  grid-column: 1 / 3;
+  grid-row: 1;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(2) {
+  grid-column: 3 / 5;
+  grid-row: 1;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(5) {
+  grid-column: 5 / 7;
+  grid-row: 1;
+}
+
+/* Context-aware first row: when there is no regular foul to remove, do not
+   spend a third of the prime judge row on a disabled control. Keep the existing
+   button in the DOM for semantics, but hide it visually and give +F / nomination
+   half the row each. As soon as the first foul exists the 3-action row returns. */
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(2) {
+  display: none !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(1) {
+  grid-column: 1 / 4;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2:has(> button:nth-child(2):disabled) > button:nth-child(5) {
+  grid-column: 4 / 7;
+}
+
+/* Row 2 — technical discipline. Give each decision more width because these
+   are less frequent but more consequential than a regular foul. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(3) {
+  grid-column: 1 / 4;
+  grid-row: 2;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(4) {
+  grid-column: 4 / 7;
+  grid-row: 2;
+}
+
+/* Row 3 — rare/support actions. Still one tap away, but no longer visually
+   compete with the actions used on almost every game. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(6) {
+  grid-column: 1 / 3;
+  grid-row: 3;
+  margin-top: 3px;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(7) {
+  grid-column: 3 / 5;
+  grid-row: 3;
+  margin-top: 3px;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(8) {
+  grid-column: 5 / 7;
+  grid-row: 3;
+  margin-top: 3px;
+}
+
+/* The most common regular-foul action gets the strongest warm hierarchy. The
+   remove-foul action stays quiet until it is actually available. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(1) {
+  border-color: rgba(232, 185, 94, 0.34) !important;
+  background: rgba(232, 185, 94, 0.13) !important;
+  color: #ffe7aa !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(2):not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+/* Nomination belongs to the current speech protocol, so its rose tone stays
+   aligned with the table and center HUD. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(5):not(:disabled) {
+  border-color: rgba(251, 113, 133, 0.34) !important;
+  background: rgba(225, 52, 88, 0.13) !important;
+  color: #ffd1db !important;
+}
+
+/* Rare actions deliberately use smaller type; dangerous actions still keep
+   their existing confirmation overlays and semantic border colours. */
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(6),
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(7),
+.live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(8) {
+  font-size: 11px !important;
+}
+
+@media (max-width: 767px) {
+  .live-player-action-sheet {
+    padding: 12px 14px 14px !important;
+  }
+
+  .live-player-action-sheet > .grid.grid-cols-2 > button {
+    min-height: 50px !important;
+    font-size: 10.5px !important;
+  }
+
+  .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(6),
+  .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(7),
+  .live-player-action-sheet > .grid.grid-cols-2 > button:nth-child(8) {
+    font-size: 10px !important;
+  }
+}

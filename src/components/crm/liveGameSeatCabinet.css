@@ -1,0 +1,380 @@
+/* Stage 4.2 — Live Game seats + fast judge actions.
+ *
+ * Geometry and game mechanics remain owned by liveGameJudge.css / engine code.
+ * This layer only changes the visual hierarchy of seat cards, identity,
+ * discipline readouts and the existing player-action sheet.
+ */
+
+/* ---------- compact game chrome ---------- */
+.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky {
+  background: rgba(11, 12, 16, 0.95) !important;
+  border-color: var(--ds-border) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky > div:first-child > div:first-child {
+  color: rgba(255, 255, 255, 0.90) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky button {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.46) !important;
+  box-shadow: none !important;
+}
+
+.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky button[class*="amber"] {
+  border-color: rgba(232, 185, 94, 0.20) !important;
+  background: rgba(232, 185, 94, 0.10) !important;
+  color: #fde9b4 !important;
+}
+
+/* ---------- seat identity palette ---------- */
+.live-seat-card[data-seat="1"] { --seat-rgb: 59, 130, 246; }
+.live-seat-card[data-seat="2"] { --seat-rgb: 249, 115, 22; }
+.live-seat-card[data-seat="3"] { --seat-rgb: 234, 179, 8; }
+.live-seat-card[data-seat="4"] { --seat-rgb: 239, 68, 68; }
+.live-seat-card[data-seat="5"] { --seat-rgb: 34, 197, 94; }
+.live-seat-card[data-seat="6"] { --seat-rgb: 6, 182, 212; }
+.live-seat-card[data-seat="7"] { --seat-rgb: 236, 72, 153; }
+.live-seat-card[data-seat="8"] { --seat-rgb: 139, 92, 246; }
+.live-seat-card[data-seat="9"] { --seat-rgb: 217, 119, 6; }
+.live-seat-card[data-seat="10"] { --seat-rgb: 132, 204, 22; }
+
+.evening-live-engine-shell .live-seat-card {
+  background:
+    linear-gradient(155deg, rgba(var(--seat-rgb, 255, 255, 255), 0.075) 0%, rgba(255, 255, 255, 0.040) 43%, rgba(255, 255, 255, 0.025) 100%) !important;
+  border-color: rgba(var(--seat-rgb, 255, 255, 255), 0.16) !important;
+  border-radius: var(--ds-radius-md) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 22px rgba(0, 0, 0, 0.20) !important;
+}
+
+.evening-live-engine-shell .live-seat-card:active {
+  background:
+    linear-gradient(155deg, rgba(var(--seat-rgb, 255, 255, 255), 0.105) 0%, rgba(255, 255, 255, 0.055) 45%, rgba(255, 255, 255, 0.032) 100%) !important;
+}
+
+.evening-live-engine-shell .live-seat-card--speaking {
+  border-color: rgba(232, 185, 94, 0.86) !important;
+  background: linear-gradient(155deg, rgba(232, 185, 94, 0.16), rgba(255, 255, 255, 0.055) 48%, rgba(255, 255, 255, 0.028)) !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.30), 0 0 0 1px rgba(232, 185, 94, 0.08), 0 10px 28px rgba(232, 185, 94, 0.12), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
+}
+
+.evening-live-engine-shell .live-seat-card:has(.live-seat-quick-action--nomination-active) {
+  border-color: rgba(251, 113, 133, 0.44) !important;
+  background: linear-gradient(155deg, rgba(225, 52, 88, 0.10), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
+}
+
+.evening-live-engine-shell .live-seat-card--voting {
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 22px rgba(0, 0, 0, 0.20) !important;
+}
+
+.evening-live-engine-shell .live-seat-card--voting:has(.live-seat-state__value--active) {
+  border-color: rgba(251, 113, 133, 0.48) !important;
+  background: linear-gradient(155deg, rgba(251, 113, 133, 0.11), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
+}
+
+.evening-live-engine-shell .live-seat-card--dead {
+  border-color: rgba(251, 113, 133, 0.16) !important;
+  background: linear-gradient(155deg, rgba(225, 52, 88, 0.065), rgba(255, 255, 255, 0.025)) !important;
+  opacity: 0.76 !important;
+}
+
+/* The number stays an instant table locator, but becomes a small identity chip
+   instead of a candy-coloured solid block. */
+.evening-live-engine-shell .live-seat-number {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 10px;
+  border-color: rgba(var(--seat-rgb, 255, 255, 255), 0.44) !important;
+  background: rgba(var(--seat-rgb, 255, 255, 255), 0.16) !important;
+  color: rgb(var(--seat-rgb, 255, 255, 255)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06) !important;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.evening-live-engine-shell .live-seat-card[data-seat="3"] .live-seat-number,
+.evening-live-engine-shell .live-seat-card[data-seat="10"] .live-seat-number {
+  color: #f7eaa5 !important;
+}
+
+/* ---------- identity + role ---------- */
+.evening-live-engine-shell .evening-live-player-avatar {
+  width: clamp(46px, 12vw, 58px) !important;
+  height: clamp(46px, 12vw, 58px) !important;
+  border-radius: 16px !important;
+  border-color: rgba(var(--seat-rgb, 255, 255, 255), 0.22) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24) !important;
+}
+
+.evening-live-engine-shell .evening-live-identity-name {
+  max-width: calc(100% - 6px);
+  padding: 3px 7px;
+  border: 1px solid var(--ds-border-soft);
+  border-radius: 8px;
+  background: rgba(9, 10, 13, 0.78);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 9px;
+  line-height: 11px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.evening-live-engine-shell .live-seat-footer {
+  min-height: 43px;
+  padding: 5px 6px;
+  border-color: var(--ds-border-soft);
+  background: rgba(7, 8, 11, 0.74);
+}
+
+.evening-live-engine-shell .live-seat-footer__name {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+
+.evening-live-engine-shell .live-seat-role {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 10px;
+  border-color: var(--ds-border-soft);
+  background: var(--ds-inset);
+  box-shadow: none;
+}
+
+/* ---------- fast judge controls ---------- */
+.evening-live-engine-shell .live-seat-quickbar {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  gap: 3px;
+}
+
+.evening-live-engine-shell .live-seat-quickbar__group {
+  gap: 3px;
+}
+
+.evening-live-engine-shell .live-seat-quick-action {
+  height: 29px;
+  min-width: 27px;
+  padding: 0 6px;
+  border-radius: 10px;
+  border-color: var(--ds-border-soft);
+  background: rgba(9, 10, 13, 0.82);
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 8px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--nomination {
+  border-color: rgba(225, 52, 88, 0.16);
+  background: rgba(225, 52, 88, 0.065);
+  color: rgba(255, 185, 199, 0.74);
+}
+
+.evening-live-engine-shell .live-seat-quick-action--nomination-active {
+  border-color: rgba(251, 113, 133, 0.34);
+  background: rgba(225, 52, 88, 0.18);
+  color: #ffd5df;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--foul {
+  border-color: rgba(232, 185, 94, 0.18);
+  background: rgba(232, 185, 94, 0.075);
+  color: #f8d98f;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--remove-foul {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* ---------- discipline at-a-glance ---------- */
+.evening-live-engine-shell .evening-live-discipline {
+  bottom: 47px;
+  height: 20px;
+  gap: 3px;
+}
+
+.evening-live-engine-shell .evening-live-discipline > span {
+  width: 24px;
+  min-width: 24px;
+  height: 19px;
+  border-radius: 7px;
+  border-color: var(--ds-border-soft);
+  background: rgba(9, 10, 13, 0.72);
+  opacity: 0.28;
+}
+
+.evening-live-engine-shell .evening-live-discipline > span[data-count]:not([data-count="0"]) {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.evening-live-engine-shell .evening-live-discipline-foul {
+  color: #f8d98f;
+}
+
+.evening-live-engine-shell .evening-live-discipline-minor {
+  color: #fde68a;
+}
+
+.evening-live-engine-shell .evening-live-discipline-major {
+  color: #fda4af;
+}
+
+.evening-live-engine-shell .evening-live-discipline > span::before {
+  font-size: 6.5px;
+  font-weight: 700;
+}
+
+/* ---------- state copy ---------- */
+.evening-live-engine-shell .live-seat-state__label {
+  color: rgba(255, 255, 255, 0.30);
+  font-weight: 600;
+}
+
+.evening-live-engine-shell .live-seat-state__value {
+  color: rgba(255, 255, 255, 0.70);
+  font-weight: 700;
+}
+
+.evening-live-engine-shell .live-seat-state__value--active {
+  color: #fda4af;
+}
+
+.evening-live-engine-shell .live-seat-state__value--done {
+  color: #86efac;
+}
+
+.evening-live-engine-shell .live-seat-state__value--warning {
+  color: #f8d98f;
+}
+
+/* ---------- player action sheet ---------- */
+.live-player-action-sheet {
+  border-color: var(--ds-border) !important;
+  background: #121318 !important;
+  box-shadow: 0 -20px 64px rgba(0, 0, 0, 0.52) !important;
+}
+
+.live-player-action-sheet > div:first-child > div:first-child > div:first-child {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 17px !important;
+  line-height: 1.15 !important;
+  font-weight: 600 !important;
+}
+
+.live-player-action-sheet > div:first-child > button {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.54) !important;
+  box-shadow: none !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div {
+  min-height: 48px;
+  border-radius: 14px !important;
+  background: var(--ds-inset) !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div:nth-child(1) {
+  border-color: rgba(232, 185, 94, 0.18) !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div:nth-child(2) {
+  border-color: rgba(253, 230, 138, 0.16) !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div:nth-child(3) {
+  border-color: rgba(251, 113, 133, 0.18) !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div > div:first-child {
+  color: rgba(255, 255, 255, 0.30) !important;
+  font-weight: 600 !important;
+}
+
+.live-player-action-sheet > div:first-child .grid.grid-cols-3 > div > div:last-child {
+  font-weight: 700 !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button {
+  min-height: 50px !important;
+  border-radius: var(--ds-radius-md) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="amber"] {
+  border-color: rgba(232, 185, 94, 0.22) !important;
+  background: rgba(232, 185, 94, 0.085) !important;
+  color: #f8d98f !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="yellow"] {
+  border-color: rgba(253, 230, 138, 0.18) !important;
+  background: rgba(253, 230, 138, 0.07) !important;
+  color: #fde68a !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="rose"] {
+  border-color: rgba(251, 113, 133, 0.22) !important;
+  background: rgba(251, 113, 133, 0.085) !important;
+  color: #fecdd3 !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="fuchsia"] {
+  border-color: rgba(225, 52, 88, 0.24) !important;
+  background: rgba(225, 52, 88, 0.085) !important;
+  color: #ffc0cf !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="red"] {
+  border-color: rgba(248, 113, 113, 0.24) !important;
+  background: rgba(248, 113, 113, 0.085) !important;
+  color: #fecaca !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="purple"] {
+  border-color: rgba(196, 181, 253, 0.22) !important;
+  background: rgba(167, 139, 250, 0.085) !important;
+  color: #ddd6fe !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button[class*="slate"] {
+  border-color: var(--ds-border-soft) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.52) !important;
+}
+
+.live-player-action-sheet > .grid.grid-cols-2 > button:disabled {
+  opacity: 0.25 !important;
+}
+
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-seat-card {
+    border-radius: 14px !important;
+  }
+
+  .evening-live-engine-shell .evening-live-identity {
+    padding: 35px 4px 67px !important;
+  }
+
+  .evening-live-engine-shell .live-seat-number {
+    width: 28px;
+    height: 28px;
+  }
+
+  .live-player-action-sheet {
+    border-radius: 24px 24px 0 0 !important;
+    padding: 14px !important;
+  }
+}

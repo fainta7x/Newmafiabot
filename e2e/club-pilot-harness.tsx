@@ -37,6 +37,25 @@ const PROFILE = {
   },
 };
 
+const RELATIONSHIPS = {
+  rivals: [
+    { player_id: 'p2', nickname: 'Богданчик', games: 18, wins: 8, win_rate: 44, avatar_url: '' },
+    { player_id: 'p5', nickname: 'Вид', games: 14, wins: 9, win_rate: 64, avatar_url: '' },
+  ],
+  teammates: [
+    { player_id: 'p3', nickname: 'Матроскина', games: 16, wins: 11, win_rate: 69, avatar_url: '' },
+    { player_id: 'p6', nickname: 'Пристань', games: 12, wins: 8, win_rate: 67, avatar_url: '' },
+  ],
+  club_duos: {
+    red: [
+      { a_id: 'p1', a_name: 'Чагин', b_id: 'p3', b_name: 'Матроскина', team: 'red', games: 10, wins: 7, win_rate: 70, a_avatar_url: '', b_avatar_url: '' },
+    ],
+    black: [
+      { a_id: 'p2', a_name: 'Богданчик', b_id: 'p4', b_name: 'Денди', team: 'black', games: 9, wins: 6, win_rate: 67, a_avatar_url: '', b_avatar_url: '' },
+    ],
+  },
+};
+
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'Content-Type': 'application/json' },
@@ -48,6 +67,10 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
 
   if (url.pathname === '/api/player/players') {
     return jsonResponse({ players: PLAYERS });
+  }
+
+  if (url.pathname === '/api/player/relationships') {
+    return jsonResponse(RELATIONSHIPS);
   }
 
   if (url.pathname === '/api/player/players/p2') {

@@ -1,237 +1,167 @@
 # 2LA Noire Design System
 
-This document is the durable plan and contract for modernizing the application's UI without rewriting product logic or destabilizing Live Game.
+This document is the durable visual contract for the whole application.
 
-## Goal
+The design-system migration must preserve product logic, sports-Mafia rules, Telegram/VK integrations and data flows. Base UI and shared React components own interaction behavior; **the established player cabinet owns the visual language**.
 
-Move from screen-specific Tailwind/CSS styling to a small shared design system built on the existing React 19 + Tailwind CSS 4 stack, then add shadcn-style components backed by Base UI for interactive primitives.
+## Canonical visual source of truth
 
-The migration is evolutionary. Existing product behavior, Telegram/VK integrations, game rules and data flows must not be rewritten merely to adopt the design system.
+As of 2026-08-19 the user explicitly chose the current player cabinet as the design reference for **all** application surfaces: player cabinet, organizer CRM and Live Game.
 
-## Target stack
+Primary code references:
 
-- React 19 + TypeScript + Vite — unchanged.
-- Tailwind CSS 4 — unchanged; remains the styling engine.
-- 2LA Noire semantic design tokens — canonical color/surface/type/geometry/layer vocabulary.
-- shadcn-style local components — source-owned component layer rather than a black-box visual framework.
-- Base UI — headless behavior for Dialog, Sheet, Popover, Menu, Select and related interactive primitives.
-- Lucide — canonical general-purpose icon set.
-- Motion — reserved for meaningful transitions, not decorative animation everywhere.
+- `src/components/player/PlayerHomeDashboard.tsx` — canonical cards, hierarchy, actions and semantic accent use;
+- `src/components/player/PlayerGamesHub.tsx` — canonical tabs / segmented controls and page header;
+- the player shell immediately before Stage 4.1 (`a4c53b34446c617b76ac6b90b02c4c760ff45638`) — canonical top quick-access bar and bottom navigation geometry.
 
-Do not replace React, Vite or Tailwind as part of this migration.
+The user's production Telegram WebApp screenshots of **Главная** and **Игры** are the visual approval reference. Do not use Organizer CRM, generic shadcn examples or the rejected Stage 4.4 experiment as visual inspiration.
 
-## Migration stages
+## Canonical visual language
 
-### Stage 1 — Foundation
+### Colour and material
 
-**Status: complete.**
+- app background: `#090a0d`;
+- top chrome: approximately `rgba(11, 12, 16, 0.92)` with strong blur;
+- bottom chrome: approximately `rgba(11, 12, 16, 0.95)` with strong blur;
+- ordinary card surface: about `rgba(255,255,255,0.035–0.045)`;
+- stronger/selected neutral surface: about `rgba(255,255,255,0.07–0.09)`;
+- inset/content tile: about `rgba(0,0,0,0.20)`;
+- ordinary border: `white/7–10%`;
+- stronger border: around `white/16%`;
+- primary text: white;
+- secondary copy: normally `white/35–45%`;
+- tertiary/supporting text may drop to `white/20–30%`.
 
-Scope:
+**Generic primary actions are white with dark text.** Cherry, amber, green and other colours are semantic accents, not the universal primary fill. Examples: LIVE uses Cherry; judge/work tooling may use amber; errors/destructive actions use danger.
 
-- semantic design tokens over the existing Noir theme variables;
-- canonical geometry, focus, touch-size and elevation/layer tokens;
-- first source-owned primitives: `Button`, `Card`, `Badge`;
-- isolate the application root in preparation for portaled headless UI;
-- no production screen migration.
+### Geometry
 
-Exit condition: full CI green with no intentional visual change to existing screens.
+- large feature/card radius: `28px`;
+- ordinary card/sheet grouping: around `24px`;
+- compact controls: normally `12px` radius; softer/larger actions may use `16px`;
+- the approved top quick-access wallet/profile controls are **40px visible controls**; do not enlarge them just to satisfy a generic component rule;
+- the approved bottom-nav item height is **52px**;
+- normal new mobile interaction targets should be at least `44px` unless the approved player-cabinet reference intentionally uses a smaller visible control;
+- Telegram stable viewport and safe-area geometry are mandatory.
 
-### Stage 2 — Headless interaction layer
+### Typography
 
-**Status: complete.**
+The approved Android Telegram screenshots render the app's system sans as **Roboto**. `font-sans` is therefore pinned to `Roboto` first, with platform/system fallbacks only if Roboto is unavailable. Do not replace this with a generic `system-ui` definition: it produces visibly different letterforms on Linux/desktop and makes the same UI feel heavier and wider.
 
-Delivered scope:
+Hierarchy is created mostly with size, weight, opacity and spacing — not decorative fonts.
 
-- pin `@base-ui/react` as the headless interaction dependency;
-- configure `components.json` plus package-import aliases for shadcn-style source-owned components;
-- implement canonical `Dialog`, `Sheet`, `Popover` and `Menu` primitives;
-- use the Stage 1 portal/layer contract instead of per-screen z-index escalation;
-- cover opening, dismissal, focus restoration and portaled behavior with focused component tests.
+- page title: about `24px`, `font-semibold`;
+- normal content title: `font-semibold`, not blanket `font-bold`;
+- secondary copy: small and low-contrast;
+- section eyebrow: about `10px`, `font-semibold`, uppercase, tracking around `0.16–0.18em`;
+- avoid unnecessary negative letter-spacing and excessive uppercase.
 
-`Select` remains intentionally deferred until a real migrated screen needs it; do not add primitives only to make the component list look complete.
+Browser evidence must render with the same `font-sans antialiased` body treatment as production, wait for fonts to be ready, and use an Android-like device pixel ratio when visually comparing against the approved phone screenshots. The approved production screenshot corresponds to roughly `390 CSS px` width, `713 CSS px` Telegram webview height and DPR `2.4`; use that geometry for fidelity evidence rather than the old artificial `390×620 @ DPR 1` preview.
 
-No production screen and no Live Game UI was migrated in Stage 2.
+### Depth
 
-### Stage 3 — Pilot screen
+The approved player cabinet is modern and restrained, not flat white/black and not faux-3D.
 
-**Status: complete.**
+- ordinary large cards may use the existing very soft `0 18px 60px rgba(0,0,0,.22)` depth;
+- normal buttons, inputs and tabs do not use bevels, inset highlights or ornamental shadows;
+- Dialog/Sheet/Popover may use stronger real floating elevation;
+- subtle gradients already present in approved player-cabinet feature cards are allowed when they serve hierarchy, but **do not create decorative bevel gradients in shared controls**.
 
-Pilot: **Player app → Club → Players** (`PlayerClubHub` + `PlayerClubDirectory`).
+## Explicit anti-patterns
 
-Delivered scope:
+Do not reintroduce:
 
-- migrate the Club shell and Players directory to semantic design tokens;
-- use the canonical `Button`, `Card` and `Badge` primitives on a real player-facing screen;
-- open player details in the canonical Base UI-backed bottom `Sheet` instead of replacing the directory view;
-- preserve the existing player-directory/profile API contracts and read-only behavior;
-- validate search, focus return, 44px+ tab touch targets and horizontal geometry;
-- add browser evidence in a 390×620 Telegram-sized viewport.
+- the rejected Stage 4.4 faux-premium treatment (bevels, inset highlights, glow-heavy controls, ornamental gradients);
+- a grayscale black/white reinterpretation that removes the cabinet's semantic Cherry/amber/etc. accents;
+- CRM-specific styling as the global visual source;
+- generic shadcn-dark appearance;
+- a different visual language for Live Game;
+- arbitrary new radii, shadows or z-index values per screen;
+- Cherry as the fill for every primary action;
+- accessibility-driven visible-size inflation that changes an already approved reference control without a product reason;
+- replacing Roboto with another global UI font merely to make a browser screenshot look fashionable.
 
-`Club → Activity` and `Club → Connections` remain on their existing content implementation in Stage 3. Do not widen the pilot into a full Club redesign before the pilot is reviewed.
+## Technical stack
 
-### Stage 4 — Shared application shell
+Keep the current stack:
 
-**Status: complete.** Stage 4 was intentionally split into short mergeable sub-stages.
+- React 19 + TypeScript + Vite;
+- Tailwind CSS 4;
+- source-owned 2LA Noire semantic tokens and UI primitives;
+- Base UI for headless Dialog / Sheet / Popover / Menu behaviour;
+- Lucide where a neutral icon is appropriate, but existing player-cabinet glyph/icon choices may remain when they are part of the approved reference;
+- Motion only for meaningful transitions.
 
-#### Stage 4.1 — Player shell chrome
+The technical work from Stages 1–4.3 remains useful: semantic tokens, canonical layers, Base UI portal/focus behaviour, shared forms, async states, confirmation flow and common controls are retained. **Only the visual direction introduced in Stage 4.4 is rejected.**
 
-**Status: complete.**
+## Current app-wide rollout
 
-Delivered scope:
+Work in short, separately verified PRs.
 
-- extract the five-item player bottom navigation from `PlayerCabinetShell` into `PlayerBottomNavigation`;
-- replace symbol/emoji navigation chrome with canonical Lucide icons;
-- migrate the fixed top quick-access bar and bottom navigation to semantic design tokens;
-- use the canonical sticky layer instead of screen-specific z-index escalation;
-- preserve all existing player section routing, aliases and product content;
-- validate top/bottom geometry, active states and 44px+ touch targets in a 390×620 Telegram-sized viewport.
+### 1. Canonical player-cabinet foundation
 
-#### Stage 4.2 — Shared forms and async states
+Status: **in progress**.
 
-**Status: complete.**
+- make shared tokens and primitives reproduce the approved Home/Games language;
+- restore player shell chrome/navigation to that same language while retaining canonical layers and the approved reference geometry;
+- update browser guards so tests protect the approved visual contract instead of Stage 4.4;
+- do not redesign CRM or Live Game yet.
 
-Delivered scope:
+Exit gate: green CI + fresh Telegram-sized screenshot review.
 
-- add canonical `Input` and `Field` primitives only where real migrated forms need them;
-- migrate `AsyncState` to semantic loading/empty/error presentation while keeping its existing public API compatible;
-- migrate Player Profile → Personal data to canonical fields and shared feedback messages without changing profile API behavior;
-- migrate Club → Players search and loading/empty/error presentation to the shared primitives;
-- harden canonical `Button` color variants to direct semantic tokens after browser evidence exposed a transparent primary action;
-- validate labels, 44px+ field geometry, save/validation behavior and horizontal geometry in a 390×620 Telegram-sized viewport.
+### 2. Remaining player cabinet
 
-Do not add `Textarea`, `Select` or other primitives merely for completeness. Add them when a real migrated screen needs them.
+Migrate `События`, `Рейтинг`, `Клуб`, `Профиль`, wallet/economy and related player surfaces to the same Home/Games language. Do not redesign Home/Games merely for consistency — they are the reference.
 
-#### Stage 4.3 — Shared dialogs, sheets and repeated controls
+### 3. Organizer CRM
 
-**Status: complete.**
+Restyle organizer shell, navigation, cards, forms, tables and dialogs in the **same** player-cabinet language. CRM may be denser because the task is administrative, but density is not permission to use a separate visual system.
 
-Delivered scope:
+### 4. Live Game — shell and center
 
-- rebase the legacy `ConfirmDialog` public API on the canonical Base UI-backed `Dialog`, preserving existing callers while replacing manual modal stacking/focus behavior;
-- replace Player Profile avatar deletion's browser `window.confirm` with the shared confirmation flow;
-- rebase the legacy `MobileSheet` public API on canonical `Sheet`, preserving header/body/footer compatibility and centered desktop presentation;
-- extend canonical `SheetContent` with optional fixed header/footer/body/viewport slots needed by real compatibility callers;
-- add the canonical `SegmentedControl` and migrate both Club (3 sections) and Rating (4 sections) navigation to it;
-- give repeated segmented actions the canonical 44px+ touch geometry and semantic active state;
-- verify confirmation geometry and behavior in the existing 390×620 profile harness and cover compatibility wrappers with focused unit tests.
+Rebuild the judge workspace shell and center HUD using the approved visual language, while prioritizing Telegram WebApp usable height and judge speed. Preserve the game engine and all sports-Mafia mechanics.
 
-`ConfirmDialog` and `MobileSheet` compatibility files stay in place through Stage 5. Remove them only during Stage 6 after exact import/caller cleanup proves the wrappers are no longer needed.
+### 5. Live Game — seats and fast judge actions
 
-### Stage 4.4 — Premium Noir visual direction
+Unify player seats, fouls, nominations, status information, night actions and one-tap judge controls. Judge information must be immediately readable and actions must remain fast.
 
-**Status: complete when the Stage 4.4 PR containing this document is merged to `main`.**
+### 6. Live Game overlays + final cleanup
 
-This pass exists because the first semantic migration improved consistency but made the product visually flatter than the earlier 2LA Noire UI. The design system must be technically disciplined **and** retain a distinctive premium character before Live Game adopts it.
-
-Delivered scope:
-
-- keep all existing Noir Cherry/Cyan/Violet/Emerald theme palettes and semantic intents;
-- give canonical surfaces restrained depth through fine top highlights, deeper black elevation and subtle accent reflection;
-- refine `Button`, `Card`, `Input`, `Badge` and `SegmentedControl` globally rather than restyling migrated screens one by one;
-- let Base UI-backed `Dialog` and `Sheet` inherit the raised premium surface automatically;
-- preserve readable touch geometry and Telegram-sized layouts while restoring visual hierarchy;
-- protect the premium treatment in the existing Club/Profile browser tests by asserting non-flat surface, control and elevation properties;
-- require screenshot review before merge.
-
-Visual direction:
-
-- **premium Noir, not generic dark SaaS**;
-- deep near-black surfaces with controlled layering rather than many equally gray boxes;
-- very fine light on the upper edge of raised objects to create material depth;
-- accent color used as a reflection / focused highlight, not as permanent neon everywhere;
-- primary actions may carry a restrained accent glow, but ordinary cards and navigation should not glow;
-- avoid glassmorphism for its own sake, loud gradients, thick borders, excessive blur and casino-like neon;
-- hierarchy should come from contrast, spacing, typography and elevation before decoration.
-
-Do not start Live Game migration until this visual direction has passed browser evidence and has been visually accepted as the base language.
-
-### Stage 5 — Live Game
-
-Live Game moves last because it is a judge console with domain-specific density and Telegram viewport constraints.
-
-Rules:
-
-- preserve the existing game engine and sports-Mafia mechanics;
-- reuse the shared primitives only where they improve judge speed and reliability;
-- keep the Telegram stable viewport test;
-- preserve direct one-tap judge actions;
-- require browser evidence for key phases before merge.
-
-Do not force generic dashboard components into the table geometry if they make judging slower.
-
-### Stage 6 — Cleanup
-
-After migrated screens are verified:
-
-- remove superseded screen-local CSS;
-- collapse duplicate button/card/dialog implementations;
-- replace ad-hoc z-index values with canonical layers;
-- remove compatibility wrappers only after all imports have moved to canonical primitives;
-- keep only domain-specific CSS that has a real layout purpose.
-
-Cleanup follows migration; it does not lead it.
-
-## Semantic token rules
-
-New/migrated components should use semantic intent rather than palette names.
-
-Prefer:
-
-- `background`, `surface`, `surface-raised`;
-- `foreground`, `muted-foreground`;
-- `primary`;
-- `success`, `warning`, `danger`;
-- `border`, `focus-ring`.
-
-Avoid introducing new product UI with literal `slate-*`, `rose-*`, `emerald-*`, etc. A domain visualization may use a specific color when that color itself carries game meaning.
-
-The existing Noir Cherry/Cyan/Violet/Emerald theme variables remain the palette source during migration. Semantic tokens alias those themes instead of replacing them.
-
-## Geometry and touch rules
-
-- Normal mobile controls target at least 44px touch height/width.
-- Compact controls below 44px require a surrounding hit area or a domain-specific reason.
-- Radius, shadow and border strength should come from design-system tokens rather than being invented per screen.
-- Dense data is allowed; cramped interaction is not.
+Unify confirmations/overlays, verify all phases in Telegram-sized browser evidence, then remove superseded visual CSS and duplicate implementations only after callers are proven migrated.
 
 ## Layering contract
 
-New UI uses this conceptual order:
+Use the canonical conceptual order:
 
 1. page;
-2. sticky navigation;
+2. sticky app navigation;
 3. Live Game work surface;
 4. popover/menu;
 5. modal/dialog/sheet;
-6. critical protocol overlay;
+6. critical game/protocol overlay;
 7. toast.
 
-Portaled `Popover`/`Menu` content uses the popover layer; portaled `Dialog`/`Sheet` content uses the modal layer. The application root remains isolated so unrelated page stacking contexts do not compete with portaled interaction surfaces.
-
-Do not solve a stacking bug by picking an arbitrary larger z-index. Fix the layer ownership or portal placement.
+Do not solve stacking by inventing a larger arbitrary z-index. Fix layer ownership or portal placement.
 
 ## Telegram WebApp contract
 
-- Use Telegram stable viewport/safe-area data when the host provides it.
-- Do not assume `100dvh` equals usable game space.
-- App navigation must not overlap a full-screen work surface.
-- Test important mobile work surfaces in a Telegram-like reduced stable viewport, not only a generic browser viewport.
-
-## Component ownership
-
-The application owns the source code of its UI components. shadcn is a component-generation/style approach, not a runtime visual dependency that controls the product look.
-
-Base UI owns headless interaction behavior where appropriate; 2LA Noire tokens and component source own presentation.
+- use stable viewport / safe-area values when provided;
+- never assume browser `100dvh` equals the usable Telegram area;
+- fixed app chrome must not cover the active work surface;
+- important screens and every Live Game phase require reduced-height Telegram-like browser evidence;
+- new controls normally target at least 44px, but approved reference controls keep their exact visible geometry unless there is a concrete usability problem.
 
 ## Verification policy
 
-During each stage:
+For each visual stage:
 
-1. work on one branch/PR;
-2. use focused tests while iterating;
-3. keep active iteration PRs draft when practical;
-4. run full CI once the stage is coherent;
-5. visually inspect browser evidence for UI-heavy changes;
-6. merge and stop before beginning the next stage.
+1. branch from fresh `main`;
+2. make only the scoped visual migration;
+3. use focused checks while iterating;
+4. open a draft PR if iteration continues;
+5. run one full CI once coherent;
+6. inspect fresh browser screenshots;
+7. for major visual-direction changes, get explicit user approval before merge;
+8. merge and stop before beginning the next stage.
 
-Do not combine multiple migration stages into one large PR.
+Do not combine player-cabinet rollout, CRM migration and Live Game redesign into one giant PR.

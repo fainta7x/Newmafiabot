@@ -144,12 +144,16 @@ export default function SeatCard(props: SeatCardProps) {
       lastNomineeSlot: lastNominee,
       votesByPlayer,
     });
-    const active = presentation.statusText.includes('Голос') || presentation.statusText.includes('Автомат');
-    const done = presentation.statusText.includes('Против');
+
+    // An untouched seat already communicates “not voted” by its neutral card.
+    // Only render new information once the vote has a target.
+    if (presentation.target === undefined) return null;
+
+    const isCurrentTarget = !presentation.hasVotedOther;
     return (
       <div title={presentation.title}>
-        <div className="live-seat-state__label">Голос</div>
-        <div className={`live-seat-state__value ${active ? 'live-seat-state__value--active' : done ? 'live-seat-state__value--done' : ''}`}>{presentation.statusText}</div>
+        <div className="live-seat-state__label">{presentation.automatic ? 'Авто' : 'Голос'}</div>
+        <div className={`live-seat-state__value ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`}>{presentation.statusText}</div>
       </div>
     );
   };

@@ -107,6 +107,7 @@ describe('live game emergency recovery', () => {
     fireEvent.click(restoreButton);
 
     await waitFor(() => expect(onPhaseChange).toHaveBeenCalledWith('night'));
+    fireEvent.click(screen.getByTestId('live-events-toggle'));
     expect(screen.getByText('Н2:')).toBeTruthy();
 
     const finishButton = await screen.findByRole('button', { name: 'Завершить игру' });

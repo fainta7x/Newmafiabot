@@ -44,7 +44,7 @@ export function DialogContent({
             <BaseDialog.Close
               aria-label="Закрыть"
               data-slot="dialog-close"
-              className="ds-focus-ring absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-[var(--ds-radius-md)] text-muted-foreground transition-colors hover:bg-ui-accent hover:text-foreground"
+              className="ds-focus-ring absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl text-white/42 transition-colors hover:bg-white/[0.07] hover:text-white"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </BaseDialog.Close>
@@ -82,7 +82,7 @@ export function DialogTitle({
   return (
     <BaseDialog.Title
       data-slot="dialog-title"
-      className={cn('text-base font-bold leading-tight text-foreground', className)}
+      className={cn('text-base font-semibold leading-tight text-white', className)}
       {...props}
     />
   );
@@ -95,7 +95,7 @@ export function DialogDescription({
   return (
     <BaseDialog.Description
       data-slot="dialog-description"
-      className={cn('text-sm leading-relaxed text-muted-foreground', className)}
+      className={cn('text-sm leading-relaxed text-white/40', className)}
       {...props}
     />
   );

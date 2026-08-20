@@ -30,7 +30,8 @@ describe('live engine native wiring', () => {
     const presentation = read('src/components/LiveGameEngine/seatPresentationModel.ts');
     expect(seat).toContain('canToggleVoteAssignment');
     expect(seat).toContain('buildSeatVoteStatusPresentation');
-    expect(presentation).toContain("`#${slotNum}→#${target}${automatic ? '*' : ''}`");
+    expect(presentation).toContain("`→ #${target}${automatic ? '*' : ''}`");
+    expect(seat).toContain('presentation.target === undefined');
     expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
   });
 });

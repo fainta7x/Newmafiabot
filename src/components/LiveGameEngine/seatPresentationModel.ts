@@ -5,7 +5,7 @@ const BORDER = {
   shootoutYes: 'border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)] bg-rose-500/20 ring-2 ring-rose-500/40 scale-[1.02]',
   shootoutResultNominee: 'border-amber-500/80 bg-amber-500/10 ring-1 ring-amber-500/30',
   shootoutNominee: 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.45)] bg-amber-500/15 ring-2 ring-amber-400/40 scale-[1.02]',
-  currentNominee: 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.5)] scale-[1.02] animate-pulse',
+  currentNominee: 'border-rose-400 bg-rose-500/12 ring-2 ring-rose-400/50 shadow-[0_0_22px_rgba(244,63,94,0.38)]',
   speaking: 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.45)] bg-amber-500/15 ring-2 ring-amber-400/40 scale-[1.03]',
   votingThis: 'border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.35)] bg-rose-500/10 ring-2 ring-rose-500/30',
   votedOther: 'border-slate-950 bg-slate-950/20 opacity-60',
@@ -131,9 +131,11 @@ export const buildSeatVoteStatusPresentation = ({
     statusBg = 'bg-rose-950/20 border border-rose-500/25';
   }
 
+  // The seat number is already a large persistent locator in the footer.
+  // Voting state should only communicate the new information: target or no target.
   const statusText = target !== undefined
-    ? `#${slotNum}→#${target}${automatic ? '*' : ''}`
-    : `#${slotNum}→—`;
+    ? `→ #${target}${automatic ? '*' : ''}`
+    : '';
   const title = target !== undefined
     ? `Игрок #${slotNum} голосует за #${target}${automatic ? ' (автоматический остаток)' : ''}`
     : `Игрок #${slotNum} ещё не проголосовал`;

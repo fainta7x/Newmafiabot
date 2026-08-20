@@ -9,6 +9,12 @@ import "./index.css";
 import "./styles/design-system.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
+import "./components/crm/liveGameCabinetShell.css";
+import "./components/crm/liveGameSeatCabinet.css";
+import "./components/crm/liveGameActionPriority.css";
+import "./components/crm/liveGameNightReadability.css";
+import "./components/crm/liveGameRecoveryPolish.css";
+import "./components/crm/liveGameDeathProtocolCabinet.css";
 import "./components/crm/liveGameTelegram.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

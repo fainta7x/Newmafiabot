@@ -1,4 +1,3 @@
-import { Coins } from 'lucide-react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 
 export default function PlayerQuickAccessBar({
@@ -17,12 +16,12 @@ export default function PlayerQuickAccessBar({
   return (
     <header
       data-testid="player-top-bar"
-      className="fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b border-border bg-[var(--ds-surface)] backdrop-blur-xl"
+      className="ds-chrome-top fixed inset-x-0 top-0 z-[var(--ds-layer-sticky)] h-14 border-b"
     >
       <div className="mx-auto flex h-full w-full max-w-[430px] items-center justify-between gap-3 px-3 pr-[58px]">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-bold tracking-[0.12em] text-foreground">2LA Noire</div>
-          <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{player.nickname}</div>
+          <div className="truncate text-xs font-semibold tracking-[0.12em] text-white/72">2LA Noire</div>
+          <div className="mt-0.5 truncate text-[10px] text-white/28">{player.nickname}</div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
@@ -32,13 +31,13 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenWallet}
             aria-label="Открыть кошелёк"
             aria-pressed={active === 'wallet'}
-            className={`ds-focus-ring flex min-h-[var(--ds-touch-min)] items-center gap-1.5 rounded-[var(--ds-radius-md)] border px-3 text-xs font-bold tabular-nums transition-colors ${
+            className={`ds-focus-ring flex h-10 items-center gap-1.5 rounded-2xl border px-2.5 text-xs font-semibold tabular-nums transition ${
               active === 'wallet'
-                ? 'border-primary/30 bg-[var(--ds-primary-soft)] text-primary'
-                : 'border-border bg-secondary text-muted-foreground hover:bg-ui-accent hover:text-foreground'
+                ? 'border-amber-200/20 bg-amber-200/[0.10] text-amber-50'
+                : 'border-white/10 bg-white/[0.045] text-white/65'
             }`}
           >
-            <Coins className="h-4 w-4" aria-hidden="true" />
+            <span aria-hidden="true">🪙</span>
             <span>{Math.trunc(Number(tokenBalance || 0)).toLocaleString('ru-RU')}</span>
           </button>
 
@@ -48,16 +47,16 @@ export default function PlayerQuickAccessBar({
             onClick={onOpenProfile}
             aria-label="Открыть профиль"
             aria-pressed={active === 'profile'}
-            className={`ds-focus-ring grid h-[var(--ds-touch-min)] w-[var(--ds-touch-min)] shrink-0 place-items-center overflow-hidden rounded-[var(--ds-radius-md)] border transition-colors ${
+            className={`ds-focus-ring grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border transition ${
               active === 'profile'
-                ? 'border-primary/35 bg-[var(--ds-primary-soft)] shadow-[var(--ds-shadow-focus)]'
-                : 'border-border bg-secondary hover:bg-ui-accent'
+                ? 'border-white/25 bg-white/[0.12]'
+                : 'border-white/10 bg-white/[0.045]'
             }`}
           >
             {player.avatar_url ? (
               <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-sm font-bold text-foreground">{player.nickname.slice(0, 1).toUpperCase()}</span>
+              <span className="text-sm font-semibold text-white/70">{player.nickname.slice(0, 1).toUpperCase()}</span>
             )}
           </button>
         </div>

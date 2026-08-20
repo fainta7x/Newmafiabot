@@ -13,8 +13,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       data-slot="input"
       aria-invalid={ariaInvalid}
       className={cn(
-        'ds-focus-ring ds-input-surface min-h-[var(--ds-control-md)] w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-border-strong)] px-3.5 text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] placeholder:text-[var(--ds-subtle-foreground)] disabled:cursor-not-allowed disabled:opacity-45',
-        ariaInvalid ? 'border-[var(--ds-danger)]' : 'focus:border-[var(--ds-primary)]',
+        'ds-focus-ring ds-input-surface min-h-[var(--ds-control-md)] w-full rounded-[var(--ds-radius-md)] border px-3.5 text-sm text-white outline-none transition-[border-color,box-shadow,background-color] placeholder:text-white/28 disabled:cursor-not-allowed disabled:opacity-45',
+        ariaInvalid ? 'border-[var(--ds-danger)]' : 'border-white/10 focus:border-[var(--ds-accent)]',
         className,
       )}
       {...props}

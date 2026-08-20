@@ -1,0 +1,76 @@
+.crm-overview-canonical {
+  color: var(--ds-foreground);
+}
+
+.crm-overview-canonical .text-text-primary {
+  color: var(--ds-foreground) !important;
+}
+
+.crm-overview-canonical .text-text-secondary {
+  color: var(--ds-muted-foreground) !important;
+}
+
+.crm-overview-canonical .text-text-muted {
+  color: var(--ds-subtle-foreground) !important;
+}
+
+.crm-overview-canonical .border-border-soft {
+  border-color: var(--ds-border) !important;
+}
+
+.crm-overview-canonical .bg-surface-1 {
+  background: var(--ds-surface) !important;
+}
+
+.crm-overview-canonical .bg-surface-2 {
+  background: var(--ds-inset) !important;
+}
+
+.crm-overview-canonical .bg-surface-hover {
+  background: var(--ds-surface-hover) !important;
+}
+
+.crm-overview-canonical section {
+  border-radius: var(--ds-radius-lg) !important;
+}
+
+.crm-overview-canonical h2 {
+  font-size: 24px !important;
+  line-height: 1.18 !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+}
+
+.crm-overview-canonical h3,
+.crm-overview-canonical .font-black {
+  font-weight: 600 !important;
+}
+
+.crm-overview-canonical button.bg-accent {
+  background: var(--ds-primary) !important;
+  color: var(--ds-on-primary) !important;
+}
+
+.crm-overview-canonical button.bg-accent:hover,
+.crm-overview-canonical button.bg-accent:active {
+  background: var(--ds-primary-hover) !important;
+}
+
+.crm-overview-canonical button[class*="rounded-[12px]"],
+.crm-overview-canonical button[class*="rounded-[13px]"],
+.crm-overview-canonical button[class*="rounded-[14px]"] {
+  border-radius: var(--ds-radius-md) !important;
+}
+
+.crm-overview-canonical [class*="rounded-[20px]"],
+.crm-overview-canonical [class*="rounded-[22px]"] {
+  border-radius: var(--ds-radius-lg) !important;
+}
+
+.crm-overview-canonical [class*="rounded-[15px]"] {
+  border-radius: var(--ds-radius-md) !important;
+}
+
+.crm-overview-canonical [class*="rounded-[9px]"] {
+  border-radius: var(--ds-radius-sm) !important;
+}

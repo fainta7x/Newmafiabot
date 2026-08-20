@@ -1,0 +1,532 @@
+/* Stage 4.1 — Live Game shell + center only.
+ *
+ * This intentionally leaves seat-card/action geometry to the next migration
+ * stage. It overrides only the conducted-game work surface and center judge HUD
+ * after liveGameJudge.css, preserving the existing Telegram viewport adapter.
+ */
+
+.evening-live-engine-shell {
+  --live-bg: var(--ds-background);
+  --live-surface: var(--ds-surface);
+  --live-line: var(--ds-border-soft);
+  --live-line-strong: var(--ds-border);
+  --live-text: var(--ds-foreground);
+  --live-text-2: rgba(255, 255, 255, 0.62);
+  --live-muted: rgba(255, 255, 255, 0.34);
+  --live-stage: #e8b95e;
+  --live-stage-soft: rgba(232, 185, 94, 0.11);
+  --live-stage-line: rgba(232, 185, 94, 0.20);
+  --live-green: #6ee7b7;
+  --live-amber: #e8b95e;
+  --live-red: #fb7185;
+  background: var(--ds-background) !important;
+  color: var(--ds-foreground);
+  font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Night switches to violet whenever the table exposes a night protocol marker
+   or the center timer exposes its explicit night status. Zero/day remain warm
+   amber; voting gets the same rose protocol colour used by nominations. */
+.evening-live-engine-shell:has(.live-seat-night-marker) .live-judge-hud,
+.evening-live-engine-shell .live-judge-hud:has([data-testid="live-game-night-status"]) {
+  --live-stage: #c4b5fd;
+  --live-stage-soft: rgba(167, 139, 250, 0.11);
+  --live-stage-line: rgba(167, 139, 250, 0.24);
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary),
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) {
+  --live-stage: #fb7185;
+  --live-stage-soft: rgba(251, 113, 133, 0.10);
+  --live-stage-line: rgba(251, 113, 133, 0.24);
+}
+
+/* The surrounding judge shell should feel like the same product as Home/Games,
+   not like a separate slate admin console. Desktop toolbar is kept functional;
+   mobile still hides it via liveGameJudge.css. */
+.evening-live-engine-shell > div > div.space-y-4 > div:first-child {
+  border-color: var(--ds-border) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  background: var(--ds-surface) !important;
+  box-shadow: var(--ds-shadow-surface) !important;
+}
+
+.evening-live-engine-shell > div > div.space-y-4 > div:first-child > span {
+  color: rgba(255, 255, 255, 0.46) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+}
+
+.evening-live-engine-shell > div > div.space-y-4 > div:first-child button {
+  min-height: 36px;
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-sm) !important;
+  background: var(--ds-inset) !important;
+  color: rgba(255, 255, 255, 0.60) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell > div > div.space-y-4 > div:first-child button:first-of-type:not(:disabled) {
+  border-color: rgba(232, 185, 94, 0.16) !important;
+  background: rgba(232, 185, 94, 0.07) !important;
+  color: #fde9b4 !important;
+}
+
+/* ---------- canonical center judge HUD ---------- */
+.evening-live-engine-shell .live-judge-hud {
+  position: relative !important;
+  isolation: isolate;
+  background-color: rgba(255, 255, 255, 0.045) !important;
+  background-image: linear-gradient(180deg, var(--live-stage-soft) 0%, rgba(255, 255, 255, 0.018) 34%, rgba(255, 255, 255, 0) 72%) !important;
+  border: 1px solid var(--live-stage-line) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045), var(--ds-shadow-surface) !important;
+  color: var(--ds-foreground) !important;
+}
+
+.evening-live-engine-shell .live-judge-hud::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 2px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, transparent, var(--live-stage) 28%, var(--live-stage) 72%, transparent);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.live-judge-hud__header {
+  min-height: 36px;
+  padding: 7px 9px 6px;
+  border-color: var(--ds-border-soft);
+  background: linear-gradient(90deg, var(--live-stage-soft), rgba(255, 255, 255, 0) 72%);
+}
+
+.live-judge-hud__phase {
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--live-stage-line);
+  border-radius: 999px;
+  background: var(--live-stage-soft);
+  color: var(--live-stage);
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  display: inline-flex;
+  align-items: center;
+}
+
+.live-judge-hud__header-button {
+  min-height: 28px;
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.48);
+  font-weight: 600;
+}
+
+.live-judge-hud__header-button:active {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.live-judge-hud__body {
+  padding: 8px 9px;
+}
+
+.live-judge-hud__stack {
+  gap: 6px;
+}
+
+.live-judge-hud__eyebrow {
+  color: var(--live-stage);
+  font-size: 8px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+}
+
+.live-judge-hud__title {
+  color: var(--ds-foreground);
+  font-size: 14px;
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.live-judge-hud__title strong {
+  color: var(--live-stage);
+  font-weight: 700;
+}
+
+.live-judge-hud__hint {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.live-judge-chip {
+  min-height: 24px;
+  padding: 5px 7px;
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.live-judge-chip strong {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 700;
+}
+
+/* Timer remains glanceable, but no longer looks like a green dashboard widget. */
+.live-judge-timer__label {
+  color: var(--live-stage);
+  font-weight: 600;
+  letter-spacing: 0.10em;
+}
+
+.live-judge-timer__name {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+}
+
+.live-judge-timer__time {
+  color: var(--live-stage);
+  font-weight: 700;
+  text-shadow: 0 0 18px var(--live-stage-soft);
+}
+
+.live-judge-timer__time--danger {
+  color: var(--live-red);
+  text-shadow: 0 0 18px rgba(251, 113, 133, 0.16);
+}
+
+.live-judge-timer__bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.live-judge-timer__bar > div {
+  background: var(--live-stage);
+  box-shadow: 0 0 10px var(--live-stage);
+}
+
+.live-judge-timer__button {
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.48);
+  font-weight: 600;
+}
+
+.live-judge-timer__button--primary {
+  border-color: transparent;
+  background: var(--ds-primary);
+  color: var(--ds-on-primary);
+}
+
+.live-judge-timer__button--pause {
+  border-color: rgba(232, 185, 94, 0.16);
+  background: rgba(232, 185, 94, 0.08);
+  color: #fde9b4;
+}
+
+/* Voting is information-heavy: keep the same geometry but use the rose
+   protocol colour already associated with nominations and elimination. */
+.live-judge-stat,
+.live-judge-table-decision-count {
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+}
+
+.live-judge-stat__label,
+.live-judge-table-decision-count span {
+  color: rgba(255, 255, 255, 0.34);
+  font-weight: 500;
+}
+
+.live-judge-stat__value {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 700;
+}
+
+.live-judge-table-decision-count strong {
+  color: var(--live-stage);
+  font-weight: 700;
+}
+
+.live-judge-table-voter {
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.52);
+  font-weight: 700;
+}
+
+.live-judge-table-voter--selected {
+  border-color: var(--live-stage-line);
+  background: var(--live-stage-soft);
+  color: var(--live-stage);
+}
+
+.live-judge-action {
+  min-height: 34px;
+  border-color: var(--ds-border-soft);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.56);
+  font-weight: 600;
+}
+
+.live-judge-action--primary,
+.live-judge-action--success {
+  border-color: transparent;
+  background: var(--ds-primary);
+  color: var(--ds-on-primary);
+}
+
+.live-judge-hud__footer {
+  padding: 6px 8px 7px;
+  border-color: var(--ds-border-soft);
+  background: rgba(0, 0, 0, 0.10);
+}
+
+.live-judge-hud__summary {
+  color: rgba(255, 255, 255, 0.30);
+  font-weight: 500;
+}
+
+.live-judge-hud__secondary,
+.live-judge-hud__primary {
+  min-height: 36px;
+  border-radius: var(--ds-radius-sm);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.live-judge-hud__secondary {
+  border-color: var(--ds-border-soft);
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.live-judge-hud__primary {
+  border-color: transparent;
+  background: var(--ds-primary);
+  color: var(--ds-on-primary);
+}
+
+/* List mode receives the same surface language; seat redesign remains deferred. */
+.evening-live-engine-shell .space-y-3 > div[class*="rounded-xl"][class*="border"] {
+  border-color: var(--ds-border-soft) !important;
+  border-radius: var(--ds-radius-md) !important;
+  background: var(--ds-surface) !important;
+}
+
+@media (max-width: 767px) {
+  /* Preserve the exact PR #80 stable-height geometry; only material/radius and
+     text hierarchy change in this stage. */
+  .evening-live-engine-shell .live-judge-hud {
+    border-radius: 20px !important;
+  }
+
+  .live-judge-hud__body {
+    padding: 6px 7px !important;
+  }
+
+  .live-judge-hud__title {
+    font-size: 13px;
+  }
+
+  .live-judge-hud__phase {
+    min-height: 20px;
+    padding-inline: 6px;
+    font-size: 8px;
+  }
+}
+
+/* Stage 4.4.1 — center hierarchy cleanup.
+ *
+ * During day speeches the same nomination state used to be rendered twice:
+ * once in the body as a chip and again in the footer. The table itself also
+ * already communicates alive/dead state, so the permanent "Живых" counter was
+ * redundant. Keep a single compact nomination readout in the footer and let the
+ * center body focus on the current speaker/timer/decision.
+ */
+.evening-live-engine-shell .live-judge-hud__body .live-judge-hud__stack:has(> .live-judge-hud__eyebrow) > .live-judge-hud__meta {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__summary {
+  display: flex;
+  min-height: 14px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  font-size: 7.5px;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.evening-live-engine-shell .live-judge-hud__summary > span:last-child {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud__footer:has(.live-judge-hud__footer-actions) .live-judge-hud__summary {
+  margin-bottom: 2px;
+}
+
+/* Stage 4.5.3 — raise / leave table decision.
+ *
+ * This is the judge's fastest ten-person hand count. Keep the existing five-by-
+ * two geometry and handlers, but make each target large enough to hit reliably
+ * and make a selected hand unmistakable without any movement or animation.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voters {
+  gap: 4px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voter {
+  height: 32px;
+  min-height: 32px;
+  border-color: rgba(255, 255, 255, 0.10);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 9px;
+  font-weight: 750;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voter[aria-pressed="true"],
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voter--selected {
+  border-color: rgba(251, 113, 133, 0.56);
+  background: rgba(225, 52, 88, 0.22);
+  color: #ffe4ea;
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.14), 0 0 12px rgba(225, 52, 88, 0.12);
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count {
+  min-height: 34px;
+  padding: 6px 8px;
+  border-color: rgba(251, 113, 133, 0.16);
+  background: rgba(251, 113, 133, 0.055);
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count span {
+  color: rgba(255, 255, 255, 0.50);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count strong {
+  color: #fb7185;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 6.5px;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voter {
+    height: 31px;
+    min-height: 31px;
+  }
+}
+
+/* Stage 4.5.4 — keep the whole table decision in view.
+ *
+ * The old stack could vertically scroll after the judge tapped several hands,
+ * hiding the question or the final confirm action. Preserve the explicit
+ * "Поднять / оставить" context and the question, but keep them on one compact
+ * top row. The footer already repeats tied nominations and the selected buttons
+ * themselves show who raised a hand, so the two prose hint rows stay hidden.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
+  align-items: flex-start;
+  overflow-y: hidden;
+  padding: 5px 7px !important;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(66px, 0.65fr);
+  gap: 4px;
+  align-content: start;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__eyebrow {
+  grid-column: 1;
+  min-width: 0;
+  align-self: center;
+  margin: 0;
+  color: rgba(251, 113, 133, 0.78);
+  font-size: 6.5px;
+  line-height: 1;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title {
+  grid-column: 2;
+  min-width: 0;
+  align-self: center;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.90);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The hand grid itself explains the interaction; the selected state explains
+   who has already voted. Hide only the duplicate instruction/list rows. */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__title + .live-judge-hud__hint,
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count + .live-judge-hud__hint {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-voters {
+  grid-column: 1 / -1;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count {
+  grid-column: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 7px;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count ~ .live-judge-action {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 34px;
+  height: 100%;
+  padding-inline: 5px;
+  font-size: 7.5px;
+  line-height: 1.05;
+}
+
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
+    padding: 4px 6px !important;
+  }
+}

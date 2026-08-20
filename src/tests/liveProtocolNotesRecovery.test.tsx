@@ -29,12 +29,14 @@ describe('live protocol note recovery', () => {
   it('hydrates judge notes from the recovery bridge after re-entry', async () => {
     localStorage.setItem(LEGACY_PROTOCOL_NOTES_KEY, 'Не забыть отметить спорное голосование');
     render(<Harness />);
+    fireEvent.click(screen.getByTestId('live-events-toggle'));
 
     expect(await screen.findByDisplayValue('Не забыть отметить спорное голосование')).toBeTruthy();
   });
 
   it('writes edited judge notes immediately to recovery storage', async () => {
     render(<Harness />);
+    fireEvent.click(screen.getByTestId('live-events-toggle'));
     const textarea = screen.getByPlaceholderText('Свободные примечания ведущего к протоколу...');
     fireEvent.change(textarea, { target: { value: 'Проверить ЛХ после игры' } });
 

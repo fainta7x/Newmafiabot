@@ -3,6 +3,7 @@ import { isTelegramDestinationId } from '../../db/ensureTelegramPublishingSchema
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { CLUB_EVENING_MAX_PRICE, loadEveningSlotPlan } from '../services/eveningSlotPlanningService.ts';
+import { reconcileWeeklyEveningAutomation } from '../services/weeklyEveningAutomationService.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -192,6 +193,15 @@ router.put('/tournaments/:tournamentId/telegram-publications/:destinationId', as
 router.get('/telegram/public-router', async (req, res) => {
   try {
     const db = req.db;
+    // The Telegram bot already refreshes this endpoint every 30 minutes. Reuse that
+    // existing heartbeat as the scheduler for Friday calendar + Monday announcements.
+    // The reconciler is due-aware and idempotent, so delayed wake-ups catch up safely.
+    try {
+      await reconcileWeeklyEveningAutomation(db);
+    } catch (error) {
+      console.warn('[WEEKLY EVENING AUTOMATION] Bot refresh reconcile failed:', error);
+    }
+
     const destinations = await listDestinations(db);
     const publicDestination = destinations.find((item: any) => item.id === 'public') || null;
     const noviceDestination = destinations.find((item: any) => item.id === 'novice') || null;

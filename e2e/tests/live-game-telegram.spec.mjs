@@ -89,6 +89,41 @@ test.describe('Live Game in Telegram WebApp host', () => {
     expect(hostMetrics.navVisibility).toBe('hidden');
     expect(hostMetrics.navPointerEvents).toBe('none');
 
+    const stateButton = page.getByTestId('live-state-button');
+    const rolesButton = page.locator('button[title="Скрыть роли"]');
+    const closeButton = page.locator('button[title="Закрыть движок"]');
+    await expect(stateButton).toBeVisible();
+    await expect(rolesButton).toBeVisible();
+    await expect(closeButton).toBeVisible();
+
+    const headerMetrics = await page.evaluate(() => {
+      const modal = document.querySelector('.fixed.inset-0.z-\\[95\\]:has(> .evening-live-engine-shell)');
+      const header = modal?.querySelector(':scope > .sticky');
+      const state = document.querySelector('[data-testid="live-state-button"]');
+      const roles = header?.querySelector('button[title="Скрыть роли"]');
+      const close = header?.querySelector('button[title="Закрыть движок"]');
+      const rect = (node) => {
+        const box = node?.getBoundingClientRect();
+        return box ? { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right } : null;
+      };
+      return {
+        header: rect(header),
+        state: rect(state),
+        roles: rect(roles),
+        close: rect(close),
+      };
+    });
+
+    for (const key of ['state', 'roles', 'close']) {
+      const box = headerMetrics[key];
+      expect(box).not.toBeNull();
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(headerMetrics.header?.height || 0).toBeGreaterThanOrEqual(44);
+    expect(headerMetrics.state.right).toBeLessThanOrEqual(headerMetrics.roles.x - 4);
+    expect(headerMetrics.roles.right).toBeLessThanOrEqual(headerMetrics.close.x - 4);
+
     const nominateTwo = seatCard(page, 2).getByRole('button', { name: 'Выставить #2', exact: true });
     await expect(nominateTwo).toBeVisible();
     expect(await nominateTwo.evaluate((node) => getComputedStyle(node).pointerEvents)).toBe('none');

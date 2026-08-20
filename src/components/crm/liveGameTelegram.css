@@ -28,7 +28,7 @@
     --live-stable-height: var(--tg-viewport-stable-height, 100dvh);
     --live-board-height: min(
       610px,
-      calc(var(--live-stable-height) - 38px - var(--live-safe-top) - var(--live-safe-bottom))
+      calc(var(--live-stable-height) - 48px - var(--live-safe-top) - var(--live-safe-bottom))
     );
 
     z-index: 140 !important;
@@ -57,13 +57,72 @@
 
   body:has(.evening-live-engine-shell) .pointer-events-none.fixed.left-1\/2.top-1.z-\[125\] {
     z-index: 181 !important;
+    max-width: 150px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    font-size: 7px !important;
+    letter-spacing: 0.08em !important;
+    white-space: nowrap !important;
   }
 
+  /* The judge header is an action surface, not decoration. Keep the compact
+     chrome but give every persistent control a canonical 44px touch target. */
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky {
     position: relative !important;
     top: auto !important;
-    flex: 0 0 34px !important;
-    min-height: 34px !important;
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Скрыть роли"],
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Показать роли"],
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Закрыть движок"] {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Recovery evidence mounts the engine under a simpler non-sticky header.
+     Give that header the same vertical contract and reserve the right edge for
+     State so its hit area never covers the recovery title. */
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > div:first-child:not(.sticky):not(.evening-live-engine-shell) {
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding-right: 60px !important;
+  }
+
+  /* EventsPanel renders State from inside the engine, but it belongs to the
+     same top chrome. In a normal game it sits after the game number. */
+  body:has(.fixed.inset-0.z-\[95\] > .sticky button[title="Закрыть движок"])
+    [data-testid="live-state-button"] {
+    top: var(--live-safe-top) !important;
+    right: auto !important;
+    left: 76px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+  }
+
+  /* The recovery harness has no role/close group, so State owns the right edge. */
+  body:has(.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell):not(:has(> .sticky button[title="Закрыть движок"])))
+    [data-testid="live-state-button"] {
+    top: var(--live-safe-top) !important;
+    right: 8px !important;
+    left: auto !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
   }
 
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .evening-live-engine-shell {
@@ -190,6 +249,14 @@
   .live-judge-hud__body {
     padding: 5px 6px !important;
     overflow-x: hidden !important;
+  }
+
+  /* The main progression rail is tapped constantly during a game. Keep it
+     visually compact, but give both Back and the primary next action a full
+     mobile touch target without expanding the denser timer/seat controls. */
+  .live-judge-hud__footer-actions > .live-judge-hud__secondary,
+  .live-judge-hud__footer-actions > .live-judge-hud__primary {
+    min-height: 44px !important;
   }
 
   .live-judge-timer {

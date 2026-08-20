@@ -115,18 +115,34 @@ describe('evening closeout workflow', () => {
     expect(task?.status).toBe('done');
   });
 
-  it('adds an unregistered existing player as a walk-in and preserves planned response separately from attendance', async () => {
+  it('adds an unregistered player as a walk-in with a quick custom charge', async () => {
     const db = createDb();
     const eveningId = await seedEvening(db);
     await seedPlayer(db, 'walk1', 'Гость');
 
-    const participant = await addEveningWalkIn(db, eveningId, { player_id: 'walk1' });
+    const participant = await addEveningWalkIn(db, eveningId, { player_id: 'walk1', amount_due: 200 });
     expect(participant?.response_status).toBe('unanswered');
     expect(participant?.attendance_status).toBe('attended');
     expect(participant?.arrival_status).toBe('on_time');
+    expect(Number(participant?.amount_due)).toBe(200);
 
     const state = await loadEveningCloseout(db, eveningId);
     expect(state.unplanned_attended.map((item: any) => item.nickname)).toContain('Гость');
+  });
+
+  it('lets someone who previously said thinking still be marked as unexpectedly present', async () => {
+    const db = createDb();
+    const eveningId = await seedEvening(db);
+    await seedPlayer(db, 'p-thinking', 'Вид');
+    await seedParticipant(db, eveningId, 'ep-thinking', 'p-thinking', 'thinking', 400, 0);
+
+    const participant = await addEveningWalkIn(db, eveningId, { player_id: 'p-thinking' });
+    expect(participant?.attendance_status).toBe('attended');
+    expect(participant?.response_status).toBe('thinking');
+
+    const state = await loadEveningCloseout(db, eveningId);
+    expect(state.pending_expected).toHaveLength(0);
+    expect(state.unplanned_attended.map((item: any) => item.nickname)).toContain('Вид');
   });
 
   it('archives unfinished game drafts only after explicit missing-stats confirmation', async () => {

@@ -95,6 +95,21 @@ Avoid mixing:
 - deployment changes + unrelated refactor;
 - mass legacy deletion based only on filenames.
 
+### Per-request PR budget
+
+For assistant-driven repository work, one user message/request has a hard budget of **at most 3 PRs**.
+
+Rules:
+
+1. Count PR work against the user message that requested the batch.
+2. After the third PR, stop code/doc changes and stop waiting/polling for additional CI as part of that same request.
+3. Give a compact handoff: which PRs were completed/opened, their current verification state, and the next unresolved item.
+4. Continue the next PR or next visual-fix batch only after a new user message.
+5. Do not evade the limit by creating extra stacked PRs for newly discovered polish inside the same request.
+6. Multiple coherent commits inside one PR are allowed, but one PR must not become an endless CI/visual-repair loop. Batch related fixes before another full CI run; defer expanding follow-up work to the next request when necessary.
+
+This budget exists to keep long assistant runs responsive and recoverable. Blocking correctness/data-safety problems take priority within the three-PR budget; lower-priority polish is deferred first.
+
 ## 5. Database safety
 
 This is a critical rule.

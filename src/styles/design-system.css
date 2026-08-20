@@ -200,6 +200,18 @@
   color: var(--ds-foreground);
 }
 
+/* Tailwind utility colour aliases can fall back to currentColor when an
+   isolated Vite/Playwright entry is compiled without the same utility graph as
+   the production shell. These classes are part of our shared component
+   contract, so keep their material colour deterministic here. */
+.border-border {
+  border-color: var(--ds-border) !important;
+}
+
+.divide-border > :not(:last-child) {
+  border-color: var(--ds-border) !important;
+}
+
 /* Organizer mobile chrome deliberately shares the player-cabinet shell rather
    than keeping the older translucent CRM navigation treatment. */
 @media (max-width: 639px) {
@@ -231,5 +243,19 @@
 
   .organizer-bottom-nav > button > span.absolute {
     display: none;
+  }
+}
+
+/* The evening close-out is a one-handed organizer work surface. Its ordinary
+   actions and editable fields must follow the same 44px mobile touch contract as
+   the player cabinet even when a local component uses older compact utilities. */
+@media (max-width: 767px) {
+  [data-testid="evening-closeout-panel"] button {
+    min-height: var(--ds-touch-min) !important;
+    touch-action: manipulation;
+  }
+
+  [data-testid="evening-closeout-panel"] input:not([type="checkbox"]) {
+    min-height: var(--ds-touch-min) !important;
   }
 }

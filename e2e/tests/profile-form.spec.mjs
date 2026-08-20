@@ -21,6 +21,8 @@ test.describe('Stage 4 shared profile patterns', () => {
 
     const section = page.getByTestId('profile-personal-data');
     await expect(section).toBeVisible();
+    const sectionBorder = await section.evaluate((element) => getComputedStyle(element).borderTopColor);
+    expect(sectionBorder).toBe('rgba(255, 255, 255, 0.1)');
 
     const nickname = page.getByLabel('Игровой ник');
     const fullName = page.getByLabel('Имя');

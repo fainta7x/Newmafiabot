@@ -79,6 +79,13 @@ test.describe('Player club cabinet migration', () => {
     expect(searchTreatment.backgroundImage).toBe('none');
     expect(searchTreatment.boxShadow).toBe('none');
 
+    const firstPlayerRow = page.locator('[data-testid^="club-player-"]').first();
+    const directoryList = firstPlayerRow.locator('..');
+    const listBorder = await directoryList.evaluate((element) => getComputedStyle(element).borderTopColor);
+    const rowDivider = await firstPlayerRow.evaluate((element) => getComputedStyle(element).borderTopColor);
+    expect(listBorder).toBe('rgba(255, 255, 255, 0.1)');
+    expect(rowDivider).toBe('rgba(255, 255, 255, 0.1)');
+
     await expectNoHorizontalOverflow(page, 'club list');
     await attachViewport(page, testInfo, 'club-pilot-list.png');
 

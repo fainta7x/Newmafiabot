@@ -67,6 +67,9 @@ test.describe('Live Game cabinet shell', () => {
     });
     expect(primaryTreatment.background).toBe('rgb(255, 255, 255)');
     expect(primaryTreatment.color).toBe('rgb(9, 10, 13)');
+    const primaryBox = await primary.boundingBox();
+    expect(primaryBox).not.toBeNull();
+    expect(primaryBox.height).toBeGreaterThanOrEqual(44);
 
     await expectNoHorizontalOverflow(page, 'day center');
     await capture(page, testInfo, 'live-game-cabinet-day.png');

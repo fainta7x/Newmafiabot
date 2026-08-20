@@ -182,7 +182,7 @@ export default function ClubGameSetupPhase({
 
         <div className="space-y-2 border-t border-white/[0.06] p-2.5">
           <label className="block rounded-[14px] bg-black/15 p-2.5">
-            <span className="mb-1.5 block text-[9px] font-semibold text-white/36">Раздача ролей</span>
+            <span className="mb-1.5 block text-[9px] font-semibold text-white/36">Раздача</span>
             <select
               value={selection.dealTrackId || ''}
               disabled={musicLoading}

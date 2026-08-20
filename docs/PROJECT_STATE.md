@@ -72,6 +72,8 @@ Implemented and connected:
 Implemented and connected:
 
 - organizer auth;
+- persistent organizer entitlement may be bound to a **server-verified canonical player identity** after one successful organizer-password login;
+- once bound, the same verified player profile can auto-establish organizer access through its signed player/Telegram session or linked VK session, while password login remains the fallback;
 - Today/command center;
 - evenings/calendar/workspace;
 - participants/tables/games/protocol workflow;
@@ -79,6 +81,8 @@ Implemented and connected:
 - tasks/analytics;
 - commerce/admin data;
 - Telegram/VK/system diagnostics.
+
+The organizer entitlement belongs to `player_id`, never to a client-supplied Telegram/VK ID, username or screen name. External accounts are only trusted after their existing server-side verification/link flow resolves them to that canonical player.
 
 ### Live Game
 

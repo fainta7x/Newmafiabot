@@ -29,13 +29,13 @@ describe('Live Game seat presentation model', () => {
     expect(getSeatGridPositionClass(11)).toBe('');
   });
 
-  it('preserves the visual priority for dead, current nominee and speaking seats', () => {
+  it('preserves the visual priority for dead, current nominee and speaking seats outside voter selection', () => {
     expect(resolveSeatContainerClass({ ...baseBorderInput(), alive: false })).toContain('border-rose-950');
     const currentNominee = resolveSeatContainerClass({
       ...baseBorderInput(),
       phase: 'day_voting',
       nominations: [3, 7],
-      isSpeaking: true,
+      isSpeaking: false,
     });
     expect(currentNominee).toContain('border-rose-400');
     expect(currentNominee).toContain('ring-rose-400/50');
@@ -65,28 +65,22 @@ describe('Live Game seat presentation model', () => {
     })).toContain('ring-2 ring-amber-400/40');
   });
 
-  it('keeps interactive-voting border semantics, including the existing missing-map nuance', () => {
+  it('makes explicit voter assignment outrank nominee highlighting during voting', () => {
     const voting = {
       ...baseBorderInput(),
       phase: 'day_voting' as const,
-      nominations: [4, 8],
+      nominations: [3, 8],
       currentVotingNomineeIndex: 0,
       isInteractiveVoting: true,
     };
 
-    expect(resolveSeatContainerClass({ ...voting, votesByPlayer: { 3: 4 } })).toContain('border-rose-500');
+    expect(resolveSeatContainerClass({ ...voting, votesByPlayer: { 3: 3 } })).toContain('border-rose-500');
     expect(resolveSeatContainerClass({ ...voting, votesByPlayer: { 3: 8 } })).toContain('opacity-60');
+    expect(resolveSeatContainerClass({ ...voting, slotNum: 2, votesByPlayer: {} })).toContain('border-slate-800');
 
-    // Mandatory last-candidate remainder belongs to an ordinary voter seat.
-    // Keep this assertion away from the current nominee itself because nominee
-    // highlighting intentionally has a higher visual priority than vote state.
-    const ordinaryVoterOnLastCandidate = {
-      ...voting,
-      slotNum: 2,
-      currentVotingNomineeIndex: 1,
-    };
-    expect(resolveSeatContainerClass({ ...ordinaryVoterOnLastCandidate, votesByPlayer: {} })).toContain('border-rose-500');
-    expect(resolveSeatContainerClass({ ...ordinaryVoterOnLastCandidate, votesByPlayer: undefined })).toBe('border-slate-800 bg-slate-900/50 hover:border-slate-600');
+    const lastCandidate = { ...voting, slotNum: 2, currentVotingNomineeIndex: 1 };
+    expect(resolveSeatContainerClass({ ...lastCandidate, votesByPlayer: {} })).toContain('border-slate-800');
+    expect(resolveSeatContainerClass({ ...lastCandidate, votesByPlayer: { 2: 8 } })).toContain('border-rose-500');
   });
 
   it('keeps nomination and best-move highlighting behind higher-priority states', () => {
@@ -95,25 +89,35 @@ describe('Live Game seat presentation model', () => {
     expect(resolveSeatContainerClass(baseBorderInput())).toContain('border-slate-800/80');
   });
 
-  it('shows an unassigned mandatory vote on the last candidate without repeating the voter number', () => {
-    const automatic = buildSeatVoteStatusPresentation({
+  it('shows only explicitly assigned voter targets', () => {
+    const unassigned = buildSeatVoteStatusPresentation({
       slotNum: 3,
       activeNomineeSlot: 8,
-      lastNomineeSlot: 8,
       votesByPlayer: {},
     });
-    expect(automatic).toMatchObject({
-      target: 8,
-      automatic: true,
+    expect(unassigned).toMatchObject({
+      target: undefined,
+      automatic: false,
       hasVotedOther: false,
-      statusText: '→ #8*',
+      statusText: '',
     });
-    expect(automatic.title).toContain('автоматический остаток');
+    expect(unassigned.title).toContain('ещё не проголосовал');
+
+    const explicitCurrent = buildSeatVoteStatusPresentation({
+      slotNum: 3,
+      activeNomineeSlot: 8,
+      votesByPlayer: { 3: 8 },
+    });
+    expect(explicitCurrent).toMatchObject({
+      target: 8,
+      automatic: false,
+      hasVotedOther: false,
+      statusText: '→ #8',
+    });
 
     const explicitOther = buildSeatVoteStatusPresentation({
       slotNum: 3,
       activeNomineeSlot: 8,
-      lastNomineeSlot: 8,
       votesByPlayer: { 3: 4 },
     });
     expect(explicitOther).toMatchObject({
@@ -122,20 +126,6 @@ describe('Live Game seat presentation model', () => {
       hasVotedOther: true,
       statusText: '→ #4',
       statusColor: 'text-slate-500',
-    });
-  });
-
-  it('leaves an unassigned voter visually blank before the last candidate', () => {
-    expect(buildSeatVoteStatusPresentation({
-      slotNum: 3,
-      activeNomineeSlot: 4,
-      lastNomineeSlot: 8,
-      votesByPlayer: {},
-    })).toMatchObject({
-      target: undefined,
-      automatic: false,
-      statusText: '',
-      statusBg: 'bg-slate-950/40',
     });
   });
 });

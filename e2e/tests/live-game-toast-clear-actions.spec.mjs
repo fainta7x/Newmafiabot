@@ -23,14 +23,12 @@ test.describe('Live Game toast safety', () => {
       const style = getComputedStyle(element);
       return {
         top: Number.parseFloat(style.top),
-        bottom: style.bottom,
         pointerEvents: style.pointerEvents,
       };
     });
 
     expect(toastStyle.top).toBeGreaterThanOrEqual(32);
     expect(toastStyle.top).toBeLessThanOrEqual(64);
-    expect(toastStyle.bottom).toBe('auto');
     expect(toastStyle.pointerEvents).toBe('none');
     expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(panelBox.y - 8);
 

@@ -73,7 +73,6 @@
   text-align: center;
 }
 
-/* `Поднять всех?` immediately above already defines the meaning of this count. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count > span {
   display: none;
 }
@@ -218,10 +217,7 @@
     padding: 4px 6px !important;
   }
 
-  /* Voting should simplify the table, not erase the people. Restore a quiet
-   identity layer: nickname readable, avatar subdued. Vote-state text and seat
-   number/role still carry stronger contrast above it.
-   */
+  /* Voting should simplify the table, not erase the people. */
   .evening-live-engine-shell:has(.live-seat-card--voting) .evening-live-player-avatar {
     visibility: visible !important;
     opacity: 0.22 !important;
@@ -233,5 +229,30 @@
     opacity: 0.72 !important;
     background: rgba(9, 10, 13, 0.66) !important;
     color: rgba(255, 255, 255, 0.76) !important;
+  }
+
+  /* Direct-engine recovery evidence has no modal identity overlay by design.
+   * Keep player identity visible in that fallback path without changing the
+   * normal modal presentation, which already owns avatars and names.
+   */
+  .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__name {
+    position: absolute;
+    z-index: 22;
+    left: 5px;
+    right: 5px;
+    top: 50%;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: translateY(-8px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.74) !important;
+    font-size: 8px !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+    pointer-events: none;
   }
 }

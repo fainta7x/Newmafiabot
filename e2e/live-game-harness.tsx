@@ -17,6 +17,7 @@ import '../src/components/crm/liveGameSeatCabinet.css';
 import '../src/components/crm/liveGameActionPriority.css';
 import '../src/components/crm/liveGameNightReadability.css';
 import '../src/components/crm/liveGameTelegram.css';
+import '../src/components/crm/liveGameRecoveryPolish.css';
 
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 
@@ -102,6 +103,24 @@ const seedRecoverySession = () => {
 
 if (RECOVERY_MODE) seedRecoverySession();
 
+function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
+  return (
+    <div className="fixed inset-0 z-[95] flex flex-col overflow-hidden bg-[#090a0d] text-white">
+      <div className="flex h-[34px] shrink-0 items-center border-b border-white/[0.07] bg-[#0b0c10]/95 px-2 text-[10px] font-semibold text-white/55">
+        Восстановленная игра
+      </div>
+      <div className="evening-live-engine-shell min-h-0 flex-1">
+        <LiveGameEngine
+          players={[]}
+          initialJudgeId="e2e-judge"
+          onGameFinished={() => onResult('completed')}
+          onCancel={() => onResult('cancelled')}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Harness() {
   const [result, setResult] = useState<'running' | 'completed' | 'cancelled'>('running');
 
@@ -109,12 +128,7 @@ function Harness() {
     <AppErrorBoundary>
       {result === 'running' ? (
         RECOVERY_MODE ? (
-          <LiveGameEngine
-            players={[]}
-            initialJudgeId="e2e-judge"
-            onGameFinished={() => setResult('completed')}
-            onCancel={() => setResult('cancelled')}
-          />
+          <RecoveryShell onResult={setResult} />
         ) : (
           <JudgeTestGameModal
             judge={{ id: 'e2e-judge', nickname: 'E2E Judge' }}

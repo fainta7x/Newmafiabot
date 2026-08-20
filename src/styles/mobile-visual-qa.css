@@ -1,0 +1,22 @@
+/* Mobile visual-QA corrections that enforce the existing design-system contract.
+   Keep these selectors narrow: they fix concrete production surfaces without
+   redefining component semantics or the shared palette. */
+
+@media (max-width: 767px) {
+  /* Evening close-out is an organizer work surface used one-handed during/after
+     a club night. Several compact legacy controls were still 32-40px tall even
+     though --ds-touch-min is 44px. Preserve the layout, but make every ordinary
+     action reliably tappable. */
+  [data-testid="evening-closeout-panel"] button {
+    min-height: var(--ds-touch-min);
+    touch-action: manipulation;
+  }
+
+  [data-testid="evening-closeout-panel"] input:not([type="checkbox"]) {
+    min-height: var(--ds-touch-min);
+  }
+
+  [data-testid="evening-closeout-panel"] button {
+    font-size: max(10px, 1em);
+  }
+}

@@ -125,14 +125,25 @@
     border-radius: 12px !important;
   }
 
+  /* The board height already follows Telegram's stable viewport. Do not make
+     the entire judge surface independently scrollable: that is what let the
+     center HUD drift vertically after taps. */
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .evening-live-engine-shell {
     flex: 1 1 auto !important;
     width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: hidden !important;
+  }
+
+  /* liveGameJudge.css used a 14px bottom pad for the old scrollable board.
+     With stable viewport sizing that pad creates artificial overflow. */
+  .evening-live-engine-shell > div {
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 2px !important;
+    overflow: hidden !important;
   }
 
   /* The old mobile layout forced at least 540px even when Telegram exposed
@@ -160,9 +171,43 @@
     pointer-events: none !important;
   }
 
+  /* A foul correction button appears only after the first foul. Reserve its
+     slot from the beginning so +Ф never shifts over the avatar when −Ф mounts. */
+  .evening-live-engine-shell .live-seat-quickbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 45px !important;
+    align-items: start !important;
+    gap: 3px !important;
+  }
+
+  .evening-live-engine-shell .live-seat-quickbar__group {
+    width: 45px !important;
+    min-width: 45px !important;
+    display: grid !important;
+    grid-template-columns: 21px 21px !important;
+    gap: 3px !important;
+    justify-self: end !important;
+  }
+
+  .evening-live-engine-shell .live-seat-quickbar__group .live-seat-quick-action {
+    width: 21px !important;
+    min-width: 21px !important;
+    padding: 0 !important;
+    font-size: 7px !important;
+  }
+
+  .evening-live-engine-shell .live-seat-quick-action--remove-foul {
+    grid-column: 1 !important;
+  }
+
+  .evening-live-engine-shell .live-seat-quick-action--foul {
+    grid-column: 2 !important;
+  }
+
   .live-seat-quick-action--nomination {
-    min-width: 38px !important;
-    padding-inline: 4px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-inline: 2px !important;
   }
 
   .live-seat-quick-action--nomination span {
@@ -171,7 +216,7 @@
 
   .live-seat-quick-action--nomination span::after {
     content: "Выст.";
-    font-size: 8px;
+    font-size: 7.5px;
     line-height: 1;
   }
 
@@ -229,26 +274,33 @@
     pointer-events: none !important;
   }
 
-  /* Tight but stable controls for the two-column center on a reduced Telegram
-     viewport. Content may scroll vertically inside the HUD, never sideways. */
+  /* The center is a fixed protocol cell, not a nested scrolling panel. All
+     stage layouts must fit inside the center row; only modal/sheet layers may
+     scroll independently. */
   .live-judge-hud,
   .live-judge-hud__body,
   .live-judge-hud__stack,
   .live-judge-timer,
-  .live-judge-vote-actions,
-  .live-judge-table-voters {
+  .live-judge-vote-actions {
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
   .live-judge-hud {
-    overflow-x: hidden !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   .live-judge-hud__body {
-    padding: 5px 6px !important;
-    overflow-x: hidden !important;
+    min-height: 0 !important;
+    padding: 4px 6px !important;
+    overflow: hidden !important;
+  }
+
+  .live-judge-hud__stack {
+    min-height: 0 !important;
+    gap: 4px !important;
   }
 
   /* The main progression rail is tapped constantly during a game. Keep it
@@ -260,23 +312,24 @@
   }
 
   .live-judge-timer {
-    grid-template-columns: minmax(0, 1fr) 54px !important;
+    grid-template-columns: minmax(0, 1fr) 52px !important;
     column-gap: 5px !important;
+    row-gap: 3px !important;
   }
 
   .live-judge-timer__time {
-    height: 38px !important;
-    font-size: 24px !important;
+    height: 34px !important;
+    font-size: 22px !important;
   }
 
   .live-judge-timer__buttons {
-    grid-template-columns: 32px minmax(0, 1fr) 32px 32px !important;
+    grid-template-columns: 30px minmax(0, 1fr) 30px 30px !important;
     gap: 3px !important;
     min-width: 0 !important;
   }
 
   .live-judge-timer__button {
-    height: 29px !important;
+    height: 27px !important;
     min-width: 0 !important;
   }
 }

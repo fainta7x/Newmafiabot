@@ -134,6 +134,20 @@ The regular club cadence is automatic rather than organizer-maintained by hand.
 - If the service was asleep at the exact due time, the next safe reconciliation should catch up the still-upcoming Friday instead of silently skipping the week.
 - Existing manually created Friday drafts inside the rolling window may be promoted to registration-open/published state rather than duplicated.
 
+## Evening close-out
+
+Closing a club evening should be **fast, flexible and fact-based**, not a rigid admin checklist.
+
+- Every regular Friday evening gets a high-priority organizer task due **Saturday at 19:00 Moscow** to finish the evening.
+- Before final close, the organizer must resolve the factual attendance of players who answered **«Иду»** or **«Приду позже»**: attended or no-show.
+- The close-out UI should support bulk attendance actions as well as per-player correction so the organizer is not forced through every row one by one.
+- A player who arrived without registration can be added or found quickly during close-out and marked as attended without fabricating a prior «Иду» response. Planned response and factual attendance remain separate facts.
+- Payment does **not** block closing. For an attended player, the recorded paid amount is income and any remaining amount becomes debt at settlement.
+- If all game protocols are present and completed, close normally.
+- If games were not entered or unfinished drafts remain, the organizer may explicitly choose **«закрыть без полной игровой статистики»**. Unfinished drafts must be excluded from active statistics rather than silently treated as completed games.
+- Closing the evening completes its organizer close-out task.
+- The UI should optimize for a short flow: **attendance → walk-ins → payment/debt → games → close**.
+
 ## Announcements
 
 The intended flow is:

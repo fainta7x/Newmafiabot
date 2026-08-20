@@ -31,6 +31,21 @@ test.describe('Organizer evening closeout', () => {
     await expectNoHorizontalOverflow(page);
     await attachFullPage(page, testInfo, 'crm-evening-closeout-pending.png');
 
+    const markPaid = page.getByRole('button', { name: 'Отметить оплату Пристань' });
+    await expect(markPaid).toBeVisible();
+    await markPaid.click();
+    await expect(page.getByRole('button', { name: 'Снять оплату Пристань' })).toBeVisible();
+    await expect(page.getByText('Оплачено 400 ₽', { exact: true })).toBeVisible();
+    await expect(page.getByText('долгов сейчас 1')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await attachFullPage(page, testInfo, 'crm-evening-closeout-paid-undo.png');
+
+    await page.getByRole('button', { name: 'Снять оплату Пристань' }).click();
+    const restoredMarkPaid = page.getByRole('button', { name: 'Отметить оплату Пристань' });
+    await expect(restoredMarkPaid).toBeVisible();
+    await expect(restoredMarkPaid.locator('..').getByText('осталось 400 ₽', { exact: true })).toBeVisible();
+    await expect(page.getByText('долгов сейчас 2')).toBeVisible();
+
     await page.getByRole('button', { name: 'Остальных не было' }).click();
     await expect(page.getByText('Все ожидаемые игроки сверены.')).toBeVisible();
 

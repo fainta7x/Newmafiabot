@@ -85,6 +85,11 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     [state],
   );
 
+  const paidAttended = useMemo(
+    () => (state?.attended || []).filter((item) => item.payment_status === 'paid' && Number(item.amount_due || 0) > 0 && Number(item.amount_paid || 0) > 0),
+    [state],
+  );
+
   const patchParticipants = async (updates: any[], label: string) => {
     if (!updates.length || busy) return;
     setBusy(label); setError(null); setMessage(null);
@@ -206,9 +211,14 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
         <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2 text-[12px] font-black text-text-primary"><CircleDollarSign className="h-4 w-4 text-success" /> Оплата</div><span className="text-[10px] text-text-muted">долгов сейчас {state.outstanding.length}</span></div>
         {state.outstanding.length ? <div className="mt-2 space-y-1.5">{state.outstanding.map((item) => {
           const balance = Math.max(0, Number(item.amount_due || 0) - Number(item.amount_paid || 0));
-          return <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[10px] font-bold text-text-primary">{item.nickname}</div><div className="text-[9px] text-text-muted">осталось {money(balance)}</div></div><button type="button" disabled={Boolean(busy)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: Number(item.amount_due || 0), payment_status: 'paid' }], `paid-${item.id}`)} className="rounded-lg bg-success-soft px-2.5 py-1.5 text-[9px] font-bold text-success disabled:opacity-50">Оплачено</button></div>;
-        })}</div> : <div className="mt-2 text-[10px] text-success">Все отмеченные присутствующие рассчитались.</div>}
-        {state.outstanding.length ? <p className="mt-2 text-[9px] leading-4 text-text-muted">Если не нажимать «Оплачено», остаток автоматически сохранится как долг при закрытии.</p> : null}
+          return <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[10px] font-bold text-text-primary">{item.nickname}</div><div className="text-[9px] text-text-muted">осталось {money(balance)}</div></div><button type="button" aria-label={`Отметить оплату ${item.nickname}`} disabled={Boolean(busy)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: Number(item.amount_due || 0), payment_status: 'paid' }], `paid-${item.id}`)} className="rounded-lg bg-success-soft px-2.5 py-1.5 text-[9px] font-bold text-success disabled:opacity-50">Оплачено</button></div>;
+        })}</div> : <div className="mt-2 text-[10px] text-success">Долгов нет.</div>}
+
+        {paidAttended.length ? <div className={`${state.outstanding.length ? 'mt-2 border-t border-border-soft pt-2' : 'mt-2'} space-y-1.5`}>
+          {paidAttended.map((item) => <div key={`paid-${item.id}`} className="flex items-center gap-2 rounded-xl bg-success-soft/50 px-3 py-2"><div className="min-w-0 flex-1"><div className="truncate text-[10px] font-bold text-text-primary">{item.nickname}</div><div className="text-[9px] text-success">Оплачено {money(Number(item.amount_paid || 0))}</div></div><button type="button" aria-label={`Снять оплату ${item.nickname}`} disabled={Boolean(busy)} onClick={() => void patchParticipants([{ id: item.id, amount_paid: 0, payment_status: 'unpaid' }], `unpaid-${item.id}`)} className="rounded-lg border border-border-soft bg-surface-1 px-2.5 py-1.5 text-[9px] font-bold text-text-secondary disabled:opacity-50">Снять оплату</button></div>)}
+        </div> : null}
+
+        {state.outstanding.length ? <p className="mt-2 text-[9px] leading-4 text-text-muted">Если не нажимать «Оплачено», остаток автоматически сохранится как долг при закрытии. Ошибочно подтверждённую оплату можно снять до закрытия вечера.</p> : null}
       </div>
 
       <div className="mt-3 rounded-[14px] bg-surface-2 p-3">

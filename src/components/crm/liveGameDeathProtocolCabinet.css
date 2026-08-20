@@ -1,0 +1,156 @@
+/* Stage 4.6 — Death protocol visual migration.
+ * Presentation only. Selection exclusivity, timer, persistence and transitions
+ * remain owned by EveningDeathProtocolOverlay / liveDeathProtocol.
+ */
+
+/* The death protocol is the only z-126 overlay with a 10-seat selector grid. */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) {
+  background: rgba(0, 0, 0, 0.78) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl {
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  background: #121318 !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52) !important;
+  color: #fff !important;
+}
+
+/* Header */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl > div:first-child > div:first-child > div:first-child {
+  color: rgba(232, 185, 94, 0.78) !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl > div:first-child > div:first-child > div:nth-child(2) {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 16px !important;
+  line-height: 1.1 !important;
+  font-weight: 600 !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl > div:first-child > div:first-child > div:nth-child(3) {
+  color: rgba(255, 255, 255, 0.38) !important;
+  font-size: 9px !important;
+  line-height: 1.35 !important;
+}
+
+/* Countdown: transition from night to day uses the shared warm judge accent. */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl > div:first-child > div:last-child {
+  min-width: 54px !important;
+  height: 44px !important;
+  border: 1px solid rgba(232, 185, 94, 0.18) !important;
+  border-radius: 14px !important;
+  background: rgba(232, 185, 94, 0.07) !important;
+  color: #f8d98f !important;
+  box-shadow: none !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+/* Row labels / summaries */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .space-y-1\.5 > .flex > span:first-child {
+  color: rgba(255, 255, 255, 0.58) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .space-y-1\.5 > .flex > span:last-child {
+  color: rgba(255, 255, 255, 0.30) !important;
+  font-size: 8px !important;
+}
+
+/* Seat selectors: quiet by default, semantic only when selected. */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 > button {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  background: rgba(0, 0, 0, 0.20) !important;
+  color: rgba(255, 255, 255, 0.44) !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 > button.bg-rose-600[aria-pressed="true"] {
+  border-color: rgba(251, 113, 133, 0.34) !important;
+  background: rgba(225, 52, 88, 0.16) !important;
+  color: #fecdd3 !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 > button.border-amber-400[aria-pressed="true"] {
+  border-color: rgba(232, 185, 94, 0.34) !important;
+  background: rgba(232, 185, 94, 0.10) !important;
+  color: #fde9b4 !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 > button.bg-emerald-700[aria-pressed="true"] {
+  border-color: rgba(125, 211, 252, 0.30) !important;
+  background: rgba(56, 189, 248, 0.11) !important;
+  color: #bae6fd !important;
+}
+
+/* Footer actions: generic save is canonical white-on-dark. */
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-12 > button {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  font-size: 9px !important;
+  line-height: 1.1 !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-12 > button:nth-child(1),
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-12 > button:nth-child(2) {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(0, 0, 0, 0.20) !important;
+  color: rgba(255, 255, 255, 0.54) !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-12 > button:nth-child(3) {
+  border-color: transparent !important;
+  background: #fff !important;
+  color: #090a0d !important;
+}
+
+.fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .rounded-xl.border-rose-700 {
+  border-color: rgba(251, 113, 133, 0.18) !important;
+  background: rgba(225, 52, 88, 0.07) !important;
+  color: rgba(254, 205, 211, 0.78) !important;
+}
+
+@media (max-width: 767px) {
+  .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) {
+    align-items: flex-end !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) > .w-full.max-w-2xl {
+    width: 100% !important;
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 14px !important;
+    border-width: 1px 1px 0 1px !important;
+    border-radius: 24px 24px 0 0 !important;
+    box-shadow: 0 -20px 64px rgba(0, 0, 0, 0.48) !important;
+  }
+
+  .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 {
+    gap: 4px !important;
+  }
+
+  .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-10 > button {
+    min-width: 0 !important;
+    aspect-ratio: 1 !important;
+    font-size: 10px !important;
+  }
+
+  .fixed.inset-0.z-\[126\]:has(.grid.grid-cols-10) .grid.grid-cols-12 {
+    gap: 6px !important;
+  }
+}

@@ -1,181 +1,207 @@
 # 2LA Noire — Error Playbook
 
-Use this when the task starts from a symptom rather than a known feature. Goal: identify the smallest likely failure layer before widening discovery.
+Use this file when work starts from a symptom/error rather than a known feature. Goal: identify the smallest likely failure layer before widening discovery.
 
 Useful commands:
 
 ```bash
 npm run project:find -- "<visible label / error / route / table>"
 npm run project:affected -- <changed files>
+npm run project:status
 ```
 
-## UI opens correctly, then closes/resets after refresh or save
-Start with component effects/state synchronization, URL/deep-link state and parent refresh props. Do not start from DB unless server data is actually wrong.
+## UI opens, then closes/resets after refresh/save
 
-Typical first hops:
-- `src/components/player/PlayerEventsCalendar.tsx`
-- active shell/hub component that owns the section
-- exact API callback that triggers refresh
+Start with component state/effects, URL/deep-link state and parent refresh props. Do not start from the DB unless the server response is actually wrong.
 
-Look for: effects depending on refreshed arrays/objects, `setSelected(null)`, route normalization, stale closure, remount keys.
+Look for remount keys, effects depending on refreshed arrays/objects, stale closures and selection reset.
 
 ## UI shows stale data after successful mutation
-Trace mutation -> response -> client refresh/invalidation -> rendering. Confirm server returned the new state before changing React state logic.
 
-For organizer data start from `src/components/OrganizerCRM.tsx` / `EveningWorkspace.tsx`; for player data start from the active player hub plus the exact `/api/player/*` route.
+Trace:
+
+`mutation -> server response -> client refresh/invalidation -> render`
+
+Confirm the server returned the new state before changing React state logic.
 
 ## 401 / 403
-Check exact route auth middleware and mount order first:
-- `src/server/auth.ts`
-- `src/server/routes/authRoutes.ts`
-- route module
-- `src/app.ts`
 
-If GET works and POST/PATCH fails, do not assume session is globally broken.
+Check the exact route middleware and mount order first:
 
-## 404 from API
-1. Search the exact path fragment with `project:find`.
+- `src/server/auth.ts`;
+- route module;
+- `src/app.ts`.
+
+If GET works and POST/PATCH fails, do not assume the whole session is broken.
+
+## 404 / 410 from API
+
+1. Search exact path fragment.
 2. Check router-local path.
 3. Check mount prefix in `src/app.ts`.
-4. Check whether client calls old/retired API.
+4. Check whether the client calls an old/retired API.
 
-`POST /api/games` returning 410 is intentional; current game creation must use evening/tournament protocol workflows.
+`POST /api/games` returning 410 is intentional. Current creation uses evening/tournament protocol flows.
 
-## Wrong game vote / foul / removal / PPK behavior
-Read `docs/BUSINESS_RULES.md` first. Then trace Live Game state transition and persisted protocol, not only UI labels.
+## Wrong vote / foul / removal / PPK / game outcome
+
+Read `docs/BUSINESS_RULES.md` first.
+
+Then trace Live Game state transition and persisted protocol, not only UI labels.
 
 First hops:
-- `src/components/LiveGameEngine.tsx`
-- `src/components/LiveGameEngine/`
-- `src/components/game/`
-- game/protocol route/service found by `project:find`
 
-Never weaken an approved rule to satisfy an existing test; decide whether implementation or test is stale.
+- `src/components/LiveGameEngine.tsx`;
+- `src/components/LiveGameEngine/`;
+- `src/shared/tournamentVoting.ts` for voting outcomes;
+- exact persisted protocol route/service.
 
-## Tournament result / nomination / score looks wrong
-Trace: saved protocol -> calculation/service -> override/award logic -> publication/UI. Compare source data before patching final output.
+Never weaken an approved rule just to satisfy a stale test.
 
-Search:
-```bash
-npm run project:find -- "tournament award result nomination"
-```
+## Tournament result / nomination / score is wrong
 
-Also inspect relevant `drizzle/` migration/ensure schema when persisted fields appear missing.
+Trace:
 
-## Player disappeared / old data returned / avatars rolled back
-Treat as data-safety incident until disproven.
+`saved protocol -> calculation/service -> override/award logic -> publication/UI`
 
-Check:
-- active runtime DB path
-- startup/bootstrap logs
-- checkpoint version/metadata
-- `src/lib/playerAvatarManifest.ts`
-- `AGENTS.md` canonical DB rules
-- `docs/RUNBOOK.md`
+Compare source data before patching only the final displayed number.
 
-Never restore an old repository DB/checkpoint over a non-empty runtime DB just to make data reappear.
+## Player/data/avatar disappeared or old data returned
+
+Treat this as a data-safety incident until disproven.
+
+**Do not start by assuming `DATABASE_PATH` is the production database.**
+
+Check in this order:
+
+1. `src/db/index.ts` backend selection.
+2. Expected production contract in `docs/PROJECT_STATE.md` / `npm run project:status`.
+3. Whether `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are configured together at runtime.
+4. If Turso is active, inspect Turso/runtime behavior and startup logs; local `/tmp` is only fallback.
+5. Only when Turso is not active, inspect local `DATABASE_PATH` and filesystem persistence.
+6. Inspect startup/bootstrap logs and checkpoint metadata only after identifying the active backend.
+7. For avatar-specific issues also inspect player avatar storage/manifest/route behavior.
+
+Never restore an old repository checkpoint over a non-empty runtime DB just to make data reappear.
+
+## Deploy happened but app looks old / differs from green main
+
+Check deployment identity before reopening code:
+
+1. current remote `main` SHA;
+2. intended release gate/CI;
+3. Render manual deployment state;
+4. deployed service health/load;
+5. only then investigate application code.
+
+`autoDeployTrigger: off`, so green main does not imply deployed main.
+
+## Deploy appears to lose data
+
+Before any restore:
+
+1. determine selected DB backend from `src/db/index.ts`;
+2. confirm Turso pair vs local fallback;
+3. check recent live-data markers;
+4. inspect startup logs for empty-DB bootstrap messages;
+5. stop before destructive recovery unless the target DB and recovery source are proven.
+
+A repository checkpoint is bootstrap/recovery only, not normal production synchronization.
 
 ## Telegram announcement did not arrive
+
 Separate stages:
+
 1. announcement persisted/queued;
-2. outbox/REST bridge produced delivery attempt;
+2. web outbox/REST bridge attempted delivery;
 3. Python bot received/processed it;
 4. Telegram token/webhook/API is live;
 5. target user can be messaged.
 
-First hops: `eveningAnnouncementRoutes.ts`, `botAnnouncementRoutes.ts`, `telegramSyncOutboxService.ts`, `bot_announcement_api.py`, `bot_telegram_api.py`.
-
-Use `docs/telegram-runtime-health.md` for safe live diagnosis. Repository CI cannot prove token/webhook/deployed SHA.
+Use `docs/telegram-runtime-health.md`. Do not use club-wide spam as a generic diagnostic.
 
 ## VK integration fails
+
 Separate:
+
 1. app config;
 2. OAuth/callback state;
 3. persisted integration state;
 4. live group/token permission;
 5. requested action.
 
-First hops: `integrationRoutes.ts`, `vkRuntimeHealthService.ts`, `vkJoin*`, `vkDirectIntegrationRouter.ts`.
-
-Use `docs/vk-runtime-health.md`; do not test by public spam.
+Use `docs/vk-runtime-health.md`.
 
 ## Speech recording uploads but does not play later
-Check server persistence/readback and local fallback separately. Start with `playerSpeechRecordingRoutes.ts`, then find UI callers with:
 
-```bash
-npm run project:find -- "speech recording audio"
-```
+Check server persistence/readback and browser/local fallback separately. Start with `playerSpeechRecordingRoutes.ts`, then find UI callers with `project:find`.
 
 ## Token balance / wallet is wrong
+
 Trace ledger entries before editing displayed balance.
 
 First hops:
-- `src/server/services/tokenLedgerService.ts`
-- `playerEconomyRoutes.ts`
-- `playerTokensRoutes.ts`
-- `PlayerWalletHub.tsx`
 
-Use `npm run project:affected -- src/server/services/tokenLedgerService.ts` for focused test suggestions.
+- `src/server/services/tokenLedgerService.ts`;
+- `playerEconomyRoutes.ts`;
+- `playerTokensRoutes.ts`;
+- `PlayerWalletHub.tsx`.
 
-## Payment button/provider says unavailable
-Check product state before treating as bug. External online acquiring/SBP is intentionally disabled. Manual payment accounting/history/outstanding amount is separate functionality.
+## Payment provider/button says unavailable
 
-## CRM loses route/scroll after navigation
-Start from organizer route parsing/return context/refresh handling in `src/components/OrganizerCRM.tsx`, then the active CRM child. Do not rewrite backend routing unless URL/API is actually wrong.
+Check product state first. External online acquiring/SBP is intentionally disabled until an explicit provider decision. Manual accounting/history is separate real functionality.
 
-## Mobile layout breaks only when keyboard opens
-Start with `src/hooks/useMobileKeyboardViewport.ts` and the affected CRM/player component. Reproduce viewport/scroll behavior before changing global layout.
+## Mobile layout breaks in Telegram / keyboard / reduced height
 
-## TypeScript CI failure
-Use the first compiler error, not the cascade. Fix source typing rather than adding broad `any` or disabling typecheck. Check recent changed imports/request types first.
+Start with the affected screen and stable viewport/safe-area ownership. For keyboard-specific issues inspect `useMobileKeyboardViewport.ts`.
 
-Run the relevant local/typecheck path before asking full CI to prove the same half-fix repeatedly.
+For Live Game, reproduce with the existing Telegram-like Playwright evidence before changing global geometry.
+
+## TypeScript failure
+
+Use the first compiler error, not the cascade. Fix source typing rather than adding broad `any` or disabling typecheck.
 
 ## Vitest failure
-1. Read exact failing assertion/stack.
-2. Run only that test/file once.
-3. Determine deterministic regression vs flaky timing/state leak.
-4. Fix cause; do not loop reruns until green.
+
+1. Read the exact assertion/stack.
+2. Run that file/test once.
+3. Determine deterministic regression vs timing/state leak.
+4. Fix cause.
 5. Run affected tests.
-6. Use `npm run project:verify:fast` if a cheap project-wide pass is useful.
-7. Run full CI only when the repair batch is coherent.
+6. Use full CI only when the repair batch is coherent.
 
-If the PR needs several repair commits, keep/return it to draft while iterating so heavy CI is not restarted for every intermediate commit.
+## Playwright failure
 
-## Playwright smoke failure
-1. Inspect the exact browser/server failure before rerunning Playwright.
-2. Reproduce the smallest route/auth/UI condition locally when possible.
-3. Distinguish an expected browser console response (for example intentional unauthenticated 401) from a real page error.
-4. Fix the cause with a focused test/request first.
-5. Do not reinstall/run the entire browser smoke stack after every tiny source edit; let final CI run it when the repair is coherent.
+1. Inspect exact browser/server failure.
+2. Reproduce the smallest relevant state.
+3. Distinguish test expectation drift from real UI/product regression.
+4. Fix with a focused assertion/scenario first.
+5. After green, inspect screenshots visually; green execution alone is not visual acceptance.
 
 ## Full CI cancelled repeatedly
-Check whether new commits are landing in the same PR branch while CI is running.
+
+Check whether commits are landing while the same PR workflow runs.
 
 If yes:
 
-1. stop parallel writers on that branch;
-2. convert the PR to draft while repairs continue;
-3. reconcile the latest branch head once;
-4. finish focused changes/tests without heavy CI;
-5. mark ready only when the new head is coherent.
-
-A cancelled obsolete run is not evidence that another full rerun should be started immediately.
+1. stop parallel writers;
+2. finish the repair coherently;
+3. avoid triggering heavy CI for every half-fix;
+4. run final CI once the head is stable.
 
 ## Production build fails after tests pass
-Inspect Vite/esbuild import/export/static asset differences, environment-only references and server bundle boundaries. `npm test` success is not enough; `npm run build` is mandatory for final release verification, but it does not need to run after every small edit.
 
-## Render behaves differently from green main
-Check deployment identity first. `render.yaml` has `autoDeployTrigger: off`, so green main may not be deployed. Confirm deployed SHA/config/secrets before reopening code that passed CI.
+Inspect Vite/esbuild import/export/static-asset/environment boundaries. `npm test` success does not replace production build verification.
 
 ## Dependency/security warning
-Use the current `package-lock.json` only. Confirm the package is actually present with current install/tree before changing versions. Never use `npm audit fix --force` blindly.
+
+Use the current lockfile/tree. Confirm the vulnerable package is actually present. Never use `npm audit fix --force` blindly.
 
 ## Unknown symptom
-1. Search exact user-visible text/error: `npm run project:find -- "..."`.
+
+1. Search exact visible text/error.
 2. Read top 3–8 hits.
-3. Identify layer: UI state, API/auth, service/rule, persistence/schema, integration/runtime, deploy.
+3. Identify layer: UI, API/auth, service/rule, persistence, integration/runtime or deploy.
 4. Reproduce with the smallest focused test/request.
-5. After edits use `npm run project:affected -- <files>`.
-6. Use `npm run project:verify:fast` after a coherent batch if needed.
-7. Full `npm run project:verify` + GitHub CI only when ready for merge.
+5. Use `project:affected` after edits.
+6. Use full CI only when the change is ready.

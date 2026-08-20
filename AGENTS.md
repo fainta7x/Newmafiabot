@@ -1,110 +1,141 @@
-# Repository workflow
+# 2LA Noire — AI work contract
 
-This file is the mandatory starting point for AI-assisted work in this repository.
+This file is the mandatory starting point for AI-assisted work in this repository. It defines **how the assistant must work**. It must not duplicate detailed project state, architecture or business rules.
 
-## Fast session startup
+## 1. Mandatory startup
 
-Before ordinary code work:
+For every new chat/session that touches the repository:
 
-1. Fetch/sync the latest intended remote branch (normally `main`).
-2. Read `docs/PROJECT_STATE.md`.
-3. Review only the last 5–10 commits on `main` unless deeper history is needed.
-4. If the requested feature is known, use `docs/FEATURE_MAP.md` for the first-hop files.
-5. If the task starts from a symptom/error, use `docs/ERROR_PLAYBOOK.md` before widening discovery.
-6. If the term/path is still unclear and a local working copy is available, run `npm run project:find -- "<query>"` and read only the highest-scoring 3–8 files first.
-7. Use `docs/ARCHITECTURE.md` when the task genuinely spans subsystems or the feature map is insufficient.
-8. Read `docs/BUSINESS_RULES.md` when the change touches Mafia/game/product rules.
-9. Read `docs/RUNBOOK.md` for verification, deployment, DB, integration or recovery work.
-10. When a local working copy is available, `npm run project:status` gives a read-only context snapshot.
+1. Fetch the latest remote `main`.
+2. Read this file.
+3. Read `docs/PROJECT_STATE.md`.
+4. Review only the last 5–10 commits on `main` unless deeper history is necessary.
+5. Use `docs/FEATURE_MAP.md` for known features or `docs/ERROR_PLAYBOOK.md` for symptoms/errors.
+6. Read `docs/ARCHITECTURE.md` only when the task spans subsystems or ownership is unclear.
+7. Read `docs/BUSINESS_RULES.md` before changing Mafia/game/product behavior.
+8. Read `docs/RUNBOOK.md` for CI, deployment, database, recovery or integration work.
+9. When a local checkout is available, run `npm run project:status`; use `--check --json` for machine-readable verification.
 
-Do **not** re-audit the entire repository at the start of every task. `docs/PROJECT_STATE.md` is the canonical high-level handoff; widen discovery only when targeted code contradicts it or the requested change genuinely spans subsystems.
+Do **not** rebuild project context primarily from old chat history. Old chats and historical roadmaps are secondary evidence only.
 
-`docs/live-club-roadmap.md` is historical planning material, not the source of truth for current completion.
+## 2. Source-of-truth precedence
 
-## Source-of-truth precedence
+Use this order when sources disagree:
 
-- Latest remote code/mounts: implementation truth.
-- Latest green CI: build/test truth.
-- `docs/BUSINESS_RULES.md`: user-approved domain/product behavior.
-- `docs/PROJECT_STATE.md`: current high-level feature status and next queue.
-- `docs/FEATURE_MAP.md`: fast feature-to-file routing.
-- `docs/ERROR_PLAYBOOK.md`: symptom-to-layer routing.
-- `docs/ARCHITECTURE.md`: broader subsystem navigation map.
-- Git history/merged PRs: completed technical transitions.
-- Old chat summaries and old roadmap checkboxes must not override newer Git state.
+1. latest remote code/mounts — implementation truth;
+2. latest green CI for the exact SHA — build/test truth;
+3. `docs/BUSINESS_RULES.md` — user-approved domain behavior;
+4. `docs/PROJECT_STATE.md` — current product/deploy state and next queue;
+5. `docs/ARCHITECTURE.md` — subsystem ownership and runtime topology;
+6. `docs/FEATURE_MAP.md` / `docs/ERROR_PLAYBOOK.md` — navigation aids;
+7. merged PR/commit history — recent transitions;
+8. historical roadmap/release notes — history only;
+9. old chats — never override newer Git state.
 
-Before any code or data changes, fetch and fast-forward-sync the current branch with its upstream remote. Treat the latest remote commit as the source of truth and preserve all user changes made through Google AI Studio; never replace them with older chat, local, database snapshot, or asset versions.
+If docs contradict current code, do a **targeted reconciliation**, update the stale doc in the same workstream, and do not continue with two competing interpretations.
 
-## Working style
+## 3. One fact, one owner
 
-- Do one targeted discovery pass, then keep a compact file map instead of rescanning the repository.
-- Prefer the sequence `FEATURE_MAP/ERROR_PLAYBOOK -> project:find if needed -> exact source files`, not repeated repository-wide searches.
-- Prefer one focused branch/PR per purpose.
-- Treat a working branch as single-writer by default. Do not let ChatGPT, AI Studio or another agent push competing edits to the same branch at the same time. If the branch head moves unexpectedly, reconcile that change before writing again instead of racing it.
-- Do not open a normal review PR at the start of active iteration. Prefer `fresh main -> working branch -> focused edits/tests -> PR -> one full CI -> merge`. If a PR must exist while work is still in progress, keep it as a draft so heavy CI stays skipped until it is ready for review.
-- While iterating, run only directly relevant focused tests. Do not run the full Vitest suite, production build or Playwright after every small edit.
-- Once the changed file set is known and a local checkout is available, run `npm run project:affected -- <changed files>` to rank likely tests and surface risk flags. Treat it as a heuristic, not a replacement for full CI.
-- Use `npm run project:verify:fast` for the cheap project-wide safety pass (release audit + typecheck + lint) after a meaningful batch of edits; keep behavior-specific testing focused.
-- Before merge, rely on the repository's full CI gates; never weaken tests or TypeScript to force green.
-- If full CI fails, inspect the exact failed job first. Return the PR to draft while making multi-step repairs when practical, run the smallest relevant check, then mark it ready only when the repair is coherent so full CI runs again once.
-- If tooling forces several sequential commits to an already-open PR, avoid triggering full CI for every half-fix. Prefer batching locally; when that is impossible, use GitHub-supported CI-skip commit markers only for intermediate commits and ensure the final substantive commit triggers CI normally.
-- Do not stack unrelated changes on a red `main`.
-- If a test unexpectedly fails, inspect the exact failure before rerunning; do not rerun repeatedly until green.
-- Never delegate an implementation request back to AI Studio and never substitute prompt-writing for repository changes when repository access is available.
-- Do not infer that a file is unused because its name includes `legacy`, `old`, `V2`, etc. Confirm imports, route mounts and build transforms.
+Do not copy mutable facts into several documents.
 
-## Fast local commands
+- Current SHA, deployed/not-deployed state, active production storage, current queue -> `docs/PROJECT_STATE.md`.
+- Work/verification/deploy procedure -> `docs/RUNBOOK.md`.
+- Subsystem ownership/runtime topology -> `docs/ARCHITECTURE.md`.
+- Visual contract -> `docs/DESIGN_SYSTEM.md`.
+- Game/product rules -> `docs/BUSINESS_RULES.md`.
+- Feature-to-file routing -> `docs/FEATURE_MAP.md`.
 
-- `npm run project:status` — branch/SHA/handoff/Render config snapshot; read-only.
-- `npm run project:find -- "events calendar"` — ranked source/test/doc search over tracked text files.
-- `npm run project:find -- "401 organizer" --json` — machine-readable search results.
-- `npm run project:affected -- src/path/a.ts src/path/b.ts` — changed-file risk flags + likely focused tests.
-- `npm run project:verify:fast` — release audit + typecheck + lint; no full Vitest/build/Playwright.
-- `npm run project:verify` — complete web verification before merge.
+Other docs should link to the owner instead of restating mutable facts.
 
-## Documentation maintenance
+## 4. Working style
 
-Durable project state belongs in Git, not only in chat.
+- Perform one targeted discovery pass, then keep a compact file map.
+- Prefer `FEATURE_MAP/ERROR_PLAYBOOK -> exact source files -> focused tests`.
+- Never infer that `legacy`, `old`, `V2`, `Base`, etc. means unused; confirm imports/mounts/build transforms.
+- Preserve newer user/AI Studio changes. A working branch has one writer by default.
+- If a branch head moves unexpectedly, stop and reconcile before writing again.
+- Never delegate implementation back to AI Studio when repository access is available.
+- Do not substitute prompt-writing for requested repository work.
 
-After a significant change, update the relevant handoff document in the same PR when practical:
+## 5. PR budget — hard rule
 
-- `docs/PROJECT_STATE.md` — feature status, current queue, important architecture/deploy cautions.
-- `docs/FEATURE_MAP.md` — only when durable feature ownership/first-hop paths change.
-- `docs/ERROR_PLAYBOOK.md` — only when a recurring diagnostic path changes or a new high-value failure mode is learned.
-- `docs/ARCHITECTURE.md` — subsystem ownership, entry points, route mounts.
-- `docs/BUSINESS_RULES.md` — only when an approved rule/product decision changes.
-- `docs/RUNBOOK.md` — only when the safe work/verify/deploy process changes.
+For **one user message/request**, create at most **3 pull requests total**.
 
-Do not update `PROJECT_STATE`'s “Last verified main” to an unmerged branch SHA. A verified-main marker means that exact `main` commit passed standard CI.
+- After the third PR, stop repository changes and CI polling.
+- Give a short handoff: what is done, what remains, what is blocked.
+- Continue only after the user's next message.
+- Prefer fewer PRs when one coherent PR is sufficient.
+- Do not evade the limit by creating several branches without PRs for the same work.
+- One PR may contain several coherent commits, but it must not become an endless `screenshot -> fix -> full CI -> fix -> full CI` loop.
 
-## Canonical SQLite data
+## 6. Branch / CI discipline
 
-- The only repository SQLite snapshot allowed as canonical is `mafia_crm.checkpoint.sqlite.gz.b64`, described by `mafia_crm.checkpoint.meta.json`.
-- The canonical current tournament snapshot is the version that matches the current tournament avatar manifest (`src/lib/playerAvatarManifest.ts`) and the verified current tournament results. Do not restore older `*.bak*`, `bak_game7`, `bak_game8`, legacy SQLite copies, or arbitrary local DB files over it.
-- A non-empty active runtime database always wins over repository bootstrap snapshots. Never overwrite, reset, clean, restore, or replace an existing runtime DB during Git sync/import.
-- Repository checkpoints are bootstrap/recovery artifacts only when the runtime DB is absent or zero-length, unless the user explicitly requests a verified data restore.
-- If several DB candidates exist, compare current-tournament markers before choosing: current avatar coverage and the verified tournament placements for Матроскина, Денди, and Богданчик. A candidate with missing avatars or stale placements is non-canonical.
-- Never commit raw runtime SQLite databases or ad-hoc `.bak` copies. If a new canonical checkpoint is intentionally produced, create it from the verified active runtime DB using the repository checkpoint workflow and update its metadata together.
+Default flow:
 
-### Development / AI Studio checkpoint cycle
+`fresh green main -> focused branch -> focused checks -> coherent PR -> one full CI -> screenshot/runtime review if relevant -> merge -> verify main`
 
-This Git checkpoint flow is for development and Google AI Studio only. A production runtime database lives on the server and uses separate server backups; production data must not be synchronized through Git checkpoints.
+During iteration:
 
-Use the guarded commands:
+- run only directly relevant tests;
+- use `npm run project:affected -- <changed files>` when useful;
+- use `npm run project:verify:fast` after a meaningful batch;
+- avoid full Vitest/build/Playwright after every tiny edit.
 
-- `npm run checkpoint:git-export` — locate the configured active runtime DB, refuse if it is missing/empty, create a consistent SQLite online backup, verify it, and update only `mafia_crm.checkpoint.sqlite.gz.b64` plus `mafia_crm.checkpoint.meta.json` with checksum, creation time and schema marker.
-- `npm run checkpoint:git-import` — validate encoding, checksum, schema marker and SQLite integrity, then import only when the configured runtime DB is absent or zero-length. There is no force/overwrite path for a non-empty runtime DB.
+Before merge:
 
-Short AI Studio cycle: `fetch/fast-forward -> preserve non-empty runtime -> work -> export verified runtime -> commit checkpoint + metadata + related avatar changes`.
+- full repository CI is authoritative;
+- never weaken TypeScript/tests to force green;
+- inspect the exact failing job before rerunning;
+- for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots for clipping, overlap, lost identity, bad hierarchy and wrong mobile geometry.
 
-## Final verification
+## 7. Database safety
 
-During iteration, prefer focused tests plus `npm run project:verify:fast` when a cheap project-wide pass is useful.
+Production data is more important than repository convenience.
 
-The default complete web verification is available as:
+- The current production-primary database is **remote Turso** when both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are configured.
+- The local `DATABASE_PATH` SQLite file is a fallback/local path, not proof of production storage ownership.
+- Repository checkpoint files are bootstrap/recovery artifacts only.
+- A non-empty runtime database always wins over repository checkpoint/bootstrap data.
+- Never reset, restore, replace, clean or overwrite production/runtime data during normal Git/deploy work.
+- Never infer that a Render deploy resets data solely because `render.yaml` contains `/tmp`; first inspect the DB selection logic in `src/db/index.ts` and current project state.
 
-- `npm run project:verify`
+Canonical repository checkpoint files:
 
-It runs release data-safety audit, strict TypeScript, ESLint, the full Vitest suite and production build.
+- `mafia_crm.checkpoint.sqlite.gz.b64`
+- `mafia_crm.checkpoint.meta.json`
 
-Run the complete verification only when the change is coherent and ready for review/merge, not after every small edit. GitHub CI remains authoritative and also checks Python bot syntax and Playwright smoke. See `docs/RUNBOOK.md` for the exact release/runtime sequence.
+Use only guarded checkpoint commands documented in `docs/RUNBOOK.md`.
+
+## 8. Documentation maintenance — required
+
+Durable changes must be recorded in Git, not only in chat.
+
+In the same PR when practical:
+
+- update `PROJECT_STATE` when feature status, current queue, verified main, deployment/storage assumptions or release state changes;
+- update `ARCHITECTURE` when entry points, ownership or runtime topology changes;
+- update `RUNBOOK` when safe work/deploy/recovery procedure changes;
+- update `DESIGN_SYSTEM` only when the durable visual contract changes;
+- update `BUSINESS_RULES` only after explicit user-approved product/rule change;
+- update `FEATURE_MAP` only when first-hop ownership changes.
+
+Do not maintain detailed chronological completed-work lists in multiple docs. Git history is the history.
+
+## 9. End-of-task handoff
+
+A good handoff contains only:
+
+- PR/merge/main SHA;
+- CI result;
+- what changed;
+- what remains;
+- runtime verification still needed;
+- one explicit caution if any.
+
+Before claiming the project is ready to deploy, distinguish:
+
+- `green main`;
+- `deployed main`;
+- `runtime verified`.
+
+These are three different states.

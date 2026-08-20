@@ -19,12 +19,23 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+
+      # Production-primary persistence. Both values must be configured together.
+      # src/db/index.ts selects Turso when both are present.
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+
+      # Local SQLite fallback only. On the Free plan /tmp is not persistent and
+      # must not be mistaken for the production source of truth when Turso is set.
       - key: DATABASE_PATH
         value: /tmp/2la-noire-web-staging/mafia_crm.sqlite
-      - key: SEED_DEMO_DATA
-        value: false
       - key: DATABASE_BOOTSTRAP_FROM_CHECKPOINT
         value: true
+      - key: SEED_DEMO_DATA
+        value: false
+
       - key: ORGANIZER_PASSWORD
         sync: false
       - key: JWT_SECRET

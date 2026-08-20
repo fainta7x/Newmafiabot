@@ -36,6 +36,16 @@ body:has([data-testid="live-state-overlay"]) .fixed.bottom-4.right-4.z-\[130\] {
 }
 
 @media (max-width: 767px) {
+  /* The collapsed Events panel keeps its actionable controls on the right.
+   * Anchor transient feedback to the left and cap its width so the toast can
+   * never cover Undo / Copy / Journal. Pointer events remain disabled, so the
+   * judge can also keep tapping through the notification while it fades. */
+  body:not(:has([data-testid="live-state-overlay"])) .fixed.bottom-4.right-4.z-\[130\] {
+    left: 8px !important;
+    right: auto !important;
+    max-width: min(210px, calc(100vw - 150px)) !important;
+  }
+
   /* Direct-engine recovery evidence has no modal identity layer. Give its
    * footer two explicit rows: nickname first, number/role below. */
   .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer {

@@ -68,7 +68,38 @@
 
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count {
   grid-column: 1;
-  padding-inline: 5px;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0;
+  padding: 4px 5px;
+  text-align: center;
+}
+
+/* `Поднять всех?` immediately above already defines what this count means.
+ * The old repeated label was what collapsed into the broken `За` fragment.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count > span {
+  display: none;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count > strong {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count > strong > small {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 6px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count ~ .live-judge-action {
@@ -88,6 +119,64 @@
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+/* Eliminated players must remain identifiable. The mobile identity overlay is
+ * intentionally quiet after elimination, so the existing footer nickname is
+ * promoted instead of allowing the exit status to replace the person.
+ */
+.evening-live-engine-shell .live-seat-card--dead {
+  opacity: 0.88 !important;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-footer__identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 3px;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-number,
+.evening-live-engine-shell .live-seat-card--dead .live-seat-role {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-number {
+  font-size: 9px;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-footer__name {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.66) !important;
+  font-size: 7px !important;
+  line-height: 1 !important;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-state svg {
+  width: 12px;
+  height: 12px;
+  margin-bottom: 3px;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-state__value {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 1px solid rgba(251, 113, 133, 0.20);
+  border-radius: 999px;
+  background: rgba(225, 52, 88, 0.07);
+  color: rgba(253, 164, 175, 0.78);
+  font-size: 7px;
+  line-height: 1;
+  font-weight: 700;
 }
 
 @media (max-width: 767px) {

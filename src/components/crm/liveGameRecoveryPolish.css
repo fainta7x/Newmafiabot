@@ -46,12 +46,12 @@ body:has([data-testid="live-state-overlay"]) .fixed.bottom-4.right-4.z-\[130\] {
     max-width: min(210px, calc(100vw - 150px)) !important;
   }
 
-  /* When a toast is visible beside the collapsed Events panel, reserve a small
-   * first-row lane in the panel's left column. The title/latest-log move below
-   * the transient message while the action cluster on the right stays put. */
+  /* Keep the Events title stable. While transient feedback is visible, move
+   * only the latest-log line down so the toast gets a dedicated middle lane
+   * between the title and the log. The right-side action cluster never moves. */
   body:has(.fixed.bottom-4.right-4.z-\[130\]):not(:has([data-testid="live-state-overlay"]))
-    [data-testid="live-events-panel"] > div:first-child > div:first-child {
-    padding-top: 24px;
+    [data-testid="live-events-latest"] {
+    margin-top: 30px !important;
   }
 
   /* Direct-engine recovery evidence has no modal identity layer. Give its

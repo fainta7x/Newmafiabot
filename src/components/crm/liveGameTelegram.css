@@ -251,6 +251,14 @@
     overflow-x: hidden !important;
   }
 
+  /* The main progression rail is tapped constantly during a game. Keep it
+     visually compact, but give both Back and the primary next action a full
+     mobile touch target without expanding the denser timer/seat controls. */
+  .live-judge-hud__footer-actions > .live-judge-hud__secondary,
+  .live-judge-hud__footer-actions > .live-judge-hud__primary {
+    min-height: 44px !important;
+  }
+
   .live-judge-timer {
     grid-template-columns: minmax(0, 1fr) 54px !important;
     column-gap: 5px !important;

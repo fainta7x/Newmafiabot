@@ -31,9 +31,7 @@
   font-size: 25px;
 }
 
-/* Table decision: #112 technically fit the controls but clipped its own copy.
- * Give context/question full-width rows, then spend the last row on count + confirm.
- */
+/* Table decision: full context/question, then hand grid, then count + confirm. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__stack {
   grid-template-columns: minmax(64px, 0.82fr) minmax(88px, 1.18fr);
   gap: 4px;
@@ -75,9 +73,7 @@
   text-align: center;
 }
 
-/* `Поднять всех?` immediately above already defines what this count means.
- * The old repeated label was what collapsed into the broken `За` fragment.
- */
+/* `Поднять всех?` immediately above already defines the meaning of this count. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-table-decision-count > span {
   display: none;
 }
@@ -110,20 +106,28 @@
   white-space: normal;
 }
 
-/* The header pill must not ellipsize the current voting phase on the narrow board. */
-.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__phase {
+/* Narrow voting header: never use an ellipsis for the current phase. Two short
+ * lines are preferable to hiding `нулевой круг` from the judge.
+ */
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__phase,
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary) .live-judge-hud__phase {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
   min-height: 20px;
-  padding-inline: 5px;
-  font-size: 6px;
-  letter-spacing: 0.035em;
-  white-space: nowrap;
+  padding: 3px 5px;
+  font-size: 5.5px;
+  line-height: 1.05;
+  letter-spacing: 0.025em;
+  white-space: normal;
   overflow: visible;
   text-overflow: clip;
+  text-align: left;
 }
 
-/* Eliminated players must remain identifiable. The mobile identity overlay is
- * intentionally quiet after elimination, so the existing footer nickname is
- * promoted instead of allowing the exit status to replace the person.
+/* Eliminated players must remain identifiable. The bottom row is too narrow to
+ * fit seat number + full nickname + role, so reuse the already-rendered nickname
+ * as a central identity line above the secondary exit-status pill.
  */
 .evening-live-engine-shell .live-seat-card--dead {
   opacity: 0.88 !important;
@@ -132,7 +136,6 @@
 .evening-live-engine-shell .live-seat-card--dead .live-seat-footer__identity {
   flex: 1 1 auto;
   min-width: 0;
-  gap: 3px;
 }
 
 .evening-live-engine-shell .live-seat-card--dead .live-seat-number,
@@ -147,20 +150,33 @@
 }
 
 .evening-live-engine-shell .live-seat-card--dead .live-seat-footer__name {
+  position: absolute;
+  z-index: 25;
+  left: 5px;
+  right: 5px;
+  top: 50%;
   display: block !important;
-  min-width: 0 !important;
+  width: auto !important;
   max-width: none !important;
+  transform: translateY(-28px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: rgba(255, 255, 255, 0.66) !important;
-  font-size: 7px !important;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.76) !important;
+  font-size: 8px !important;
   line-height: 1 !important;
+  font-weight: 700 !important;
+  pointer-events: none;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-state {
+  transform: translateY(9px);
 }
 
 .evening-live-engine-shell .live-seat-card--dead .live-seat-state svg {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   margin-bottom: 3px;
 }
 
@@ -169,12 +185,12 @@
   min-height: 20px;
   align-items: center;
   justify-content: center;
-  padding: 3px 6px;
+  padding: 3px 5px;
   border: 1px solid rgba(251, 113, 133, 0.20);
   border-radius: 999px;
   background: rgba(225, 52, 88, 0.07);
   color: rgba(253, 164, 175, 0.78);
-  font-size: 7px;
+  font-size: 6.5px;
   line-height: 1;
   font-weight: 700;
 }

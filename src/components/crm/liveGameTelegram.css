@@ -88,13 +88,36 @@
     border-radius: 12px !important;
   }
 
-  /* EventsPanel renders this control from inside the engine, but it belongs to
-     the same top chrome. Put its 44px hit area immediately after the game number
-     so it never competes with the two right-hand controls. */
-  body:has(.evening-live-engine-shell) [data-testid="live-state-button"] {
+  /* Recovery evidence mounts the engine under a simpler non-sticky header.
+     Give that header the same vertical contract and reserve the right edge for
+     State so its hit area never covers the recovery title. */
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > div:first-child:not(.sticky):not(.evening-live-engine-shell) {
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding-right: 60px !important;
+  }
+
+  /* EventsPanel renders State from inside the engine, but it belongs to the
+     same top chrome. In a normal game it sits after the game number. */
+  body:has(.fixed.inset-0.z-\[95\] > .sticky button[title="Закрыть движок"])
+    [data-testid="live-state-button"] {
     top: var(--live-safe-top) !important;
     right: auto !important;
     left: 76px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+  }
+
+  /* The recovery harness has no role/close group, so State owns the right edge. */
+  body:has(.fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell):not(:has(> .sticky button[title="Закрыть движок"])))
+    [data-testid="live-state-button"] {
+    top: var(--live-safe-top) !important;
+    right: 8px !important;
+    left: auto !important;
     width: 44px !important;
     min-width: 44px !important;
     height: 44px !important;

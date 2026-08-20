@@ -14,6 +14,10 @@ const createTestDatabase = () => {
   return db;
 };
 
+const responseCookies = (value: string | string[] | undefined) => (
+  Array.isArray(value) ? value : value ? [value] : []
+);
+
 afterEach(() => {
   while (openDatabases.length) {
     const db = openDatabases.pop();
@@ -61,7 +65,7 @@ describe('organizer access linked to verified player identity', () => {
     expect(autoMe.body.isOrganizer).toBe(true);
     expect(autoMe.body.organizerAutoAuthorized).toBe(true);
     expect(autoMe.body.player?.id).toBe(player.id);
-    expect(autoMe.headers['set-cookie']?.join(';')).toContain('organizer_token=');
+    expect(responseCookies(autoMe.headers['set-cookie']).join(';')).toContain('organizer_token=');
 
     const ordinaryMe = await request(app)
       .get('/api/auth/me')
@@ -109,6 +113,6 @@ describe('organizer access linked to verified player identity', () => {
     expect(autoMe.body.isOrganizer).toBe(true);
     expect(autoMe.body.organizerAutoAuthorized).toBe(true);
     expect(autoMe.body.player?.id).toBe(player.id);
-    expect(autoMe.headers['set-cookie']?.join(';')).toContain('organizer_token=');
+    expect(responseCookies(autoMe.headers['set-cookie']).join(';')).toContain('organizer_token=');
   });
 });

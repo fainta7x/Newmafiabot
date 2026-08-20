@@ -11,21 +11,26 @@ test.describe('Live Game toast safety', () => {
     const panel = page.getByTestId('live-events-panel');
     const undo = page.getByTestId('live-events-undo');
     const eventsTitle = panel.getByText('События', { exact: true });
+    const latest = page.getByTestId('live-events-latest');
 
     await expect(toast).toBeVisible();
     await panel.scrollIntoViewIfNeeded();
     await expect(panel).toBeVisible();
     await expect(undo).toBeVisible();
     await expect(eventsTitle).toBeVisible();
+    await expect(latest).toBeVisible();
 
     const toastBox = await toast.boundingBox();
     const undoBox = await undo.boundingBox();
     const titleBox = await eventsTitle.boundingBox();
+    const latestBox = await latest.boundingBox();
     expect(toastBox).not.toBeNull();
     expect(undoBox).not.toBeNull();
     expect(titleBox).not.toBeNull();
+    expect(latestBox).not.toBeNull();
     expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(undoBox.x - 4);
-    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(titleBox.y - 2);
+    expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(toastBox.y - 2);
+    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(latestBox.y - 2);
     expect(await toast.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
 
     const path = testInfo.outputPath('live-game-toast-clear-actions.png');

@@ -158,8 +158,8 @@
      secondary line for the latest journal entry. Reuse that line as the mobile
      toast lane: keep the title and judge actions untouched, hide only the latest
      log while feedback is visible, and place the compact toast over that line. */
-  html body .evening-live-engine-shell:has([data-testid="live-events-panel"])
-    [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
+  html body:has(.evening-live-engine-shell [data-testid="live-events-panel"])
+    .evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"] {
     top: auto !important;
     bottom: 8px !important;
     left: 8px !important;
@@ -173,9 +173,8 @@
     text-align: left !important;
   }
 
-  html body .evening-live-engine-shell:has(
-      [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"]
-    ) [data-testid="live-events-latest"] {
+  html body:has(.evening-live-engine-shell [class~="fixed"][class~="bottom-4"][class~="right-4"][class~="z-[130]"])
+    .evening-live-engine-shell [data-testid="live-events-latest"] {
     visibility: hidden !important;
   }
 }

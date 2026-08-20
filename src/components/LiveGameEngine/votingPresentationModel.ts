@@ -7,6 +7,7 @@ export interface VotingAssignmentPresentation {
 export interface CollectingVotingPresentation {
   eligible: number;
   remaining: number;
+  currentVotes: number;
   isLast: boolean;
   nominee: number;
   assignments: VotingAssignmentPresentation[];
@@ -26,8 +27,12 @@ export const buildCollectingVotingPresentation = ({
   votesByPlayer: Record<number, number>;
 }): CollectingVotingPresentation => {
   const nominee = nominatedSeats[currentNomineeIndex] as number;
-  const explicitAssigned = Object.keys(votesByPlayer)
-    .filter((raw) => eligibleVoterSeats.includes(Number(raw)))
+  const eligibleSeatSet = new Set(eligibleVoterSeats);
+  const explicitEntries = Object.entries(votesByPlayer)
+    .filter(([raw]) => eligibleSeatSet.has(Number(raw)));
+  const explicitAssigned = explicitEntries.length;
+  const currentVotes = explicitEntries
+    .filter(([, target]) => target === nominee)
     .length;
   const eligible = eligibleVoters ?? eligibleVoterSeats.length;
   const remaining = Math.max(0, eligible - explicitAssigned);
@@ -37,11 +42,11 @@ export const buildCollectingVotingPresentation = ({
     .sort((a, b) => a - b)
     .map((slot) => ({
       slot,
-      target: votesByPlayer[slot] ?? (isLast ? nominee : null),
-      automatic: votesByPlayer[slot] === undefined && isLast,
+      target: votesByPlayer[slot] ?? null,
+      automatic: false,
     }));
 
-  return { eligible, remaining, isLast, nominee, assignments };
+  return { eligible, remaining, currentVotes, isLast, nominee, assignments };
 };
 
 export const buildTableDecisionPresentation = ({

@@ -1,39 +1,8 @@
-/* Recovery / toast polish discovered from visual evidence.
- * Keeps gameplay and persistence unchanged; this layer only resolves overlap.
+/* Recovery-only polish discovered from visual evidence.
+ * Keeps gameplay and persistence unchanged. Mobile toast geometry is owned by
+ * liveGameMobileGeometryV6.css so recovery styles cannot move feedback back
+ * into the judge's lower workspace.
  */
-
-/* Default Live Game toast: compact and out of the player grid. */
-.fixed.bottom-4.right-4.z-\[130\] {
-  top: auto !important;
-  left: auto !important;
-  right: 8px !important;
-  bottom: 8px !important;
-  width: auto !important;
-  max-width: min(180px, calc(100vw - 16px)) !important;
-  transform: none !important;
-  padding: 5px 8px !important;
-  border-radius: 10px !important;
-  font-size: 8.5px !important;
-  line-height: 1.15 !important;
-  text-align: left !important;
-  pointer-events: none !important;
-}
-
-/* State Sheet leaves a clean band above the sheet on mobile. Keep transient
- * feedback entirely in that band instead of touching the sheet header/list. */
-body:has([data-testid="live-state-overlay"]) .fixed.bottom-4.right-4.z-\[130\] {
-  top: 8px !important;
-  right: auto !important;
-  bottom: auto !important;
-  left: 50% !important;
-  width: max-content !important;
-  max-width: calc(100vw - 24px) !important;
-  transform: translateX(-50%) !important;
-  padding: 7px 10px !important;
-  border-radius: 12px !important;
-  font-size: 10px !important;
-  text-align: center !important;
-}
 
 @media (max-width: 767px) {
   /* Direct-engine recovery evidence has no modal identity layer. Give its

@@ -137,9 +137,11 @@ export default function EventsPanel({
               <h3 className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">События</h3>
               <span className="rounded-lg bg-black/20 px-1.5 py-1 text-[9px] font-semibold text-white/30">{nightLogs.length}</span>
             </div>
-            <p data-testid="live-events-latest" className={`mt-1 truncate text-[9px] ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
-              {latestLog || "Журнал и заметки не мешают текущему ходу"}
-            </p>
+            <div data-testid="live-events-feedback" className="relative mt-1 h-3 min-w-0 overflow-hidden">
+              <p data-testid="live-events-latest" className={`absolute inset-0 truncate text-[9px] leading-3 ${latestLog ? "text-white/42" : "text-white/26"}`} title={latestLog || undefined}>
+                {latestLog || "Журнал и заметки не мешают текущему ходу"}
+              </p>
+            </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">

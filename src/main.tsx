@@ -7,6 +7,7 @@ import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDi
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./styles/design-system.css";
+import "./styles/mobile-visual-qa.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
 import "./components/crm/liveGameCabinetShell.css";

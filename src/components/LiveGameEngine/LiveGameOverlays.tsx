@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PendingActionType, PlayerDiscipline } from "../../lib/gameDiscipline.js";
 import type { BestMoveSource } from "../../lib/gameProtocolCore.js";
 import type { ActivePlayerState } from "./types.js";
@@ -192,8 +194,51 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
 }
 
 export function LiveGameToast({ toast }: { toast: { message: string; type: "error" | "warning" | "success" | "info" } | null }) {
+  const [feedbackTarget, setFeedbackTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!toast || typeof document === 'undefined') {
+      setFeedbackTarget(null);
+      return;
+    }
+
+    const findTarget = () => document.querySelector<HTMLElement>('[data-testid="live-events-feedback"]');
+    const immediateTarget = findTarget();
+    if (immediateTarget) {
+      setFeedbackTarget(immediateTarget);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => setFeedbackTarget(findTarget()));
+    return () => window.cancelAnimationFrame(frame);
+  }, [toast?.message]);
+
   if (!toast) return null;
   if (toast.type === 'success' && /^#\d+ выставлен \d+-м на речи #\d+$/.test(toast.message)) return null;
+
+  if (feedbackTarget) {
+    const inlineTone = toast.type === 'error'
+      ? 'text-rose-200/90'
+      : toast.type === 'warning'
+        ? 'text-amber-200/90'
+        : toast.type === 'success'
+          ? 'text-emerald-200/90'
+          : 'text-white/62';
+
+    return createPortal(
+      <span
+        data-testid="live-game-inline-toast"
+        role="status"
+        aria-live="polite"
+        className={`absolute inset-0 z-10 block truncate bg-[#101116] text-[9px] font-semibold leading-3 pointer-events-none ${inlineTone}`}
+        title={toast.message}
+      >
+        {toast.message}
+      </span>,
+      feedbackTarget,
+    );
+  }
+
   const tone = toast.type === 'error'
     ? 'border-rose-200/14 bg-rose-300/[0.10] text-rose-50/82'
     : toast.type === 'warning'

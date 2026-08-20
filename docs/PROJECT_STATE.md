@@ -3,16 +3,17 @@
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
 **Status date:** 2026-08-20  
-**Current main:** `9fdbaaf812280180b395688ea112303645d75ea2`  
-**Release integration:** PR #118 merged into `main`  
+**Latest release record:** PR #118 merged as `9fdbaaf812280180b395688ea112303645d75ea2`  
 **Release gate:** integration head `b86c9003178ac2ce5f672992175f3b0bd3653faa`, GitHub CI run #943 — green before merge  
 **Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
 **Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
 
+The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
+
 ## Current source-of-truth model
 
-- Code: latest remote `main`.
-- Current project/deploy state: this file.
+- Code/current SHA: latest remote `main`.
+- Current product/deploy/storage state: this file.
 - Work procedure: `AGENTS.md` + `docs/RUNBOOK.md`.
 - Runtime topology: `docs/ARCHITECTURE.md`.
 - Feature routing: `docs/FEATURE_MAP.md`.
@@ -129,7 +130,7 @@ Live credentials/callback state must be checked at runtime when the requested fl
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.
 - Multi-city/multi-club expansion is not a current product priority.
 - Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested product work.
-- Live Game CSS consolidation is technical debt, not a pre-Friday release requirement.
+- Live Game CSS consolidation is technical debt, not a release requirement.
 
 ## Verification model
 
@@ -155,7 +156,7 @@ CI currently includes:
 
 ## Immediate next queue
 
-1. Manually deploy current verified release lineage from `main` to Render.
+1. Manually deploy the accepted release lineage from current `main` to Render.
 2. Verify `/api/health`, application load/auth and that recent live data/avatars remain present.
 3. Prepare the next club evening: create/verify event, registration, announcements and organizer workflow.
 4. Fix only concrete bugs found in deployed/runtime use before adding more cosmetic polish.

@@ -106,9 +106,7 @@
   white-space: normal;
 }
 
-/* Narrow voting header: never use an ellipsis for the current phase. Two short
- * lines are preferable to hiding `нулевой круг` from the judge.
- */
+/* Narrow voting header: never use an ellipsis for the current phase. */
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__phase,
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary) .live-judge-hud__phase {
   flex: 1 1 auto;
@@ -125,10 +123,7 @@
   text-align: left;
 }
 
-/* Eliminated players must remain identifiable. The bottom row is too narrow to
- * fit seat number + full nickname + role, so reuse the already-rendered nickname
- * as a central identity line above the secondary exit-status pill.
- */
+/* Eliminated players stay identifiable: nickname is central, exit status secondary. */
 .evening-live-engine-shell .live-seat-card--dead {
   opacity: 0.88 !important;
 }
@@ -193,6 +188,28 @@
   font-size: 6.5px;
   line-height: 1;
   font-weight: 700;
+}
+
+/* Live Game toast safety. The default bottom-right toast covers the State Sheet
+ * and player rows. Keep it transient, compact and non-interactive just below
+ * the 34px game chrome instead of over the judge's working content.
+ */
+body:has(.evening-live-engine-shell) .fixed.bottom-4.right-4.z-\[130\] {
+  top: 40px !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  transform: translateX(-50%);
+  padding: 7px 10px !important;
+  border-radius: 12px !important;
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36) !important;
 }
 
 @media (max-width: 767px) {

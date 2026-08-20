@@ -72,24 +72,22 @@ export const resolveSeatContainerClass = ({
   }
 
   if (phase === 'shootout' && shootoutNominees.includes(slotNum)) return BORDER.shootoutNominee;
-  if (isCurrentNominee) return BORDER.currentNominee;
   if (isSpeaking) return BORDER.speaking;
 
+  // During interactive voting the card's first job is to show whether this
+  // concrete voter has been assigned. This intentionally outranks nominee
+  // highlighting so tapping the nominee's own card has visible feedback too.
   if (phase === 'day_voting' && isInteractiveVoting) {
-    const lastNominee = nominations[nominations.length - 1];
-    const hasAssignments = votesByPlayer !== undefined;
     const explicitTarget = votesByPlayer?.[slotNum];
-    const hasVotedOther = hasAssignments && explicitTarget !== undefined && explicitTarget !== activeNomineeSlot;
-    const isVotingThis = hasAssignments && (
-      explicitTarget === activeNomineeSlot ||
-      (activeNomineeSlot === lastNominee && explicitTarget === undefined)
-    );
+    const hasVotedOther = explicitTarget !== undefined && explicitTarget !== activeNomineeSlot;
+    const isVotingThis = explicitTarget === activeNomineeSlot;
 
     if (isVotingThis) return BORDER.votingThis;
     if (hasVotedOther) return BORDER.votedOther;
     return BORDER.interactiveIdle;
   }
 
+  if (isCurrentNominee) return BORDER.currentNominee;
   if (isNominated) return BORDER.nominated;
   if (isChosenInBestMove) return BORDER.bestMove;
   return BORDER.aliveIdle;
@@ -108,18 +106,15 @@ export interface SeatVoteStatusPresentation {
 export const buildSeatVoteStatusPresentation = ({
   slotNum,
   activeNomineeSlot,
-  lastNomineeSlot,
   votesByPlayer,
 }: {
   slotNum: number;
   activeNomineeSlot: number | undefined;
-  lastNomineeSlot: number | undefined;
   votesByPlayer?: Record<number, number>;
 }): SeatVoteStatusPresentation => {
-  const explicitTarget = votesByPlayer?.[slotNum];
-  const automatic = explicitTarget === undefined && activeNomineeSlot === lastNomineeSlot;
-  const target = explicitTarget ?? (automatic ? lastNomineeSlot : undefined);
-  const hasVotedOther = explicitTarget !== undefined && explicitTarget !== activeNomineeSlot;
+  const target = votesByPlayer?.[slotNum];
+  const automatic = false;
+  const hasVotedOther = target !== undefined && target !== activeNomineeSlot;
 
   let statusColor = 'text-slate-400';
   let statusBg = 'bg-slate-950/40';
@@ -131,13 +126,9 @@ export const buildSeatVoteStatusPresentation = ({
     statusBg = 'bg-rose-950/20 border border-rose-500/25';
   }
 
-  // The seat number is already a large persistent locator in the footer.
-  // Voting state should only communicate the new information: target or no target.
-  const statusText = target !== undefined
-    ? `→ #${target}${automatic ? '*' : ''}`
-    : '';
+  const statusText = target !== undefined ? `→ #${target}` : '';
   const title = target !== undefined
-    ? `Игрок #${slotNum} голосует за #${target}${automatic ? ' (автоматический остаток)' : ''}`
+    ? `Игрок #${slotNum} голосует за #${target}`
     : `Игрок #${slotNum} ещё не проголосовал`;
 
   return { target, automatic, hasVotedOther, statusColor, statusBg, statusText, title };

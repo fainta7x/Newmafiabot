@@ -141,8 +141,8 @@
   }
 
   /* Setup has no Events panel, so transient feedback stays directly under the
-     app header instead of covering setup controls. Desktop keeps the component's
-     original bottom-right placement. */
+     app header instead of covering setup controls. During active play React routes
+     feedback into the Events secondary line instead of using a fixed overlay. */
   html body .evening-live-engine-shell .fixed.bottom-4.right-4 {
     top: 2.55rem !important;
     bottom: auto !important;
@@ -152,27 +152,5 @@
     max-width: none !important;
     text-align: center !important;
     pointer-events: none !important;
-  }
-
-  /* During active play the Events panel owns the lower feedback lane. Use simple
-     utility-class selectors here: the previous attribute selector containing the
-     arbitrary z-index class was not matching reliably in the Telegram harness. */
-  html body:has([data-testid="live-events-panel"]) .fixed.bottom-4.right-4 {
-    top: auto !important;
-    bottom: 8px !important;
-    left: 8px !important;
-    right: auto !important;
-    width: auto !important;
-    max-width: min(210px, calc(100vw - 150px)) !important;
-    padding: 5px 8px !important;
-    border-radius: 10px !important;
-    font-size: 8.5px !important;
-    line-height: 1.15 !important;
-    text-align: left !important;
-    pointer-events: none !important;
-  }
-
-  html body:has(.fixed.bottom-4.right-4) [data-testid="live-events-latest"] {
-    visibility: hidden !important;
   }
 }

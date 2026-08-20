@@ -1,6 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type CrmOverview, type GameEvening, type Player } from '../../lib/api.ts';
 
+const refreshTelegramPlayerSession = async () => {
+  if (typeof window === 'undefined') return;
+  const initData = (window as any).Telegram?.WebApp?.initData;
+  if (typeof initData !== 'string' || !initData) return;
+
+  try {
+    // /admin is rendered outside the normal player bootstrap, so explicitly
+    // refresh the server-verified Telegram player session before /auth/me.
+    // Failure is non-fatal: password login remains the recovery path.
+    await fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ initData }),
+    });
+  } catch {
+    // Keep the existing password fallback if Telegram is unavailable.
+  }
+};
+
 export const useOrganizerCrmSession = () => {
   const resumeRefreshTimerRef = useRef<number | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
@@ -33,6 +53,7 @@ export const useOrganizerCrmSession = () => {
     setLoading(true);
     setLoadError(null);
     try {
+      await refreshTelegramPlayerSession();
       const me = await api.getMe();
       if (!me.isOrganizer) {
         setIsOrganizer(false);

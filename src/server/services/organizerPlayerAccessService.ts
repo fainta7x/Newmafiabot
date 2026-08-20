@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureOrganizerPlayerAccessSchema } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { resolveVkJoinSession } from './vkJoinAuthService.ts';
 
@@ -39,6 +40,7 @@ export async function grantOrganizerPlayerAccess(
   db: DatabaseWrapper,
   identity: VerifiedPlayerIdentity,
 ): Promise<void> {
+  await ensureOrganizerPlayerAccessSchema(db);
   await db.run(`
     INSERT INTO organizer_player_access (player_id, granted_at, granted_via)
     VALUES (?, ?, ?)
@@ -49,6 +51,7 @@ export async function grantOrganizerPlayerAccess(
 }
 
 export async function hasOrganizerPlayerAccess(db: DatabaseWrapper, playerId: string): Promise<boolean> {
+  await ensureOrganizerPlayerAccessSchema(db);
   const row = await db.get<{ player_id: string }>(
     'SELECT player_id FROM organizer_player_access WHERE player_id = ? LIMIT 1',
     [playerId],

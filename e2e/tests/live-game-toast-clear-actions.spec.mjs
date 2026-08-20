@@ -18,7 +18,9 @@ test.describe('Live Game toast safety', () => {
     await expect(panel).toBeVisible();
     await expect(undo).toBeVisible();
     await expect(title).toBeVisible();
-    await expect(latest).toHaveCSS('visibility', 'hidden');
+
+    const latestVisibility = await latest.evaluate((element) => getComputedStyle(element).visibility);
+    expect(latestVisibility).toBe('hidden');
 
     const toastBox = await toast.boundingBox();
     const panelBox = await panel.boundingBox();

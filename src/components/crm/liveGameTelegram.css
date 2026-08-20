@@ -28,7 +28,7 @@
     --live-stable-height: var(--tg-viewport-stable-height, 100dvh);
     --live-board-height: min(
       610px,
-      calc(var(--live-stable-height) - 38px - var(--live-safe-top) - var(--live-safe-bottom))
+      calc(var(--live-stable-height) - 48px - var(--live-safe-top) - var(--live-safe-bottom))
     );
 
     z-index: 140 !important;
@@ -59,11 +59,41 @@
     z-index: 181 !important;
   }
 
+  /* The judge header is an action surface, not decoration. Keep the compact
+     chrome but give every persistent control a canonical 44px touch target. */
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .sticky {
     position: relative !important;
     top: auto !important;
-    flex: 0 0 34px !important;
-    min-height: 34px !important;
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Скрыть роли"],
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Показать роли"],
+  .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell)
+    > .sticky button[title="Закрыть движок"] {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+  }
+
+  /* EventsPanel renders this control from inside the engine, but it belongs to
+     the same top chrome. Put its 44px hit area immediately after the game number
+     so it never competes with the two right-hand controls. */
+  body:has(.evening-live-engine-shell) [data-testid="live-state-button"] {
+    top: var(--live-safe-top) !important;
+    right: auto !important;
+    left: 76px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
   }
 
   .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) > .evening-live-engine-shell {

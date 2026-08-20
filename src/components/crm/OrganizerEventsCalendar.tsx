@@ -41,7 +41,7 @@ const tone = (kind: CalendarItem['kind']) => {
 
 const label = (kind: CalendarItem['kind']) => kind === 'NOVICE' ? 'Новички' : kind === 'RATING' ? 'Рейтинг' : kind === 'TOURNAMENT' ? 'Турнир' : 'Клубный';
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 interface Props {
   evenings: GameEvening[];

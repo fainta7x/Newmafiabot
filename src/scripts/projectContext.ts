@@ -67,7 +67,7 @@ const renderTursoUrl = hasEnvKey(renderYaml, 'TURSO_DATABASE_URL');
 const renderTursoToken = hasEnvKey(renderYaml, 'TURSO_AUTH_TOKEN');
 const envExampleTursoUrl = /(?:^|\n)TURSO_DATABASE_URL=/m.test(productionEnvExample);
 const envExampleTursoToken = /(?:^|\n)TURSO_AUTH_TOKEN=/m.test(productionEnvExample);
-const agentsPrBudget = /maximum \*\*3 pull requests total\*\*/i.test(agents);
+const agentsPrBudget = /(?:at most|maximum) \*\*3 pull requests total\*\*/i.test(agents);
 const runbookPrBudget = /maximum \*\*3 PRs\*\*/i.test(runbook);
 const pinnedCurrentMain = /\*\*Current main:\*\*/i.test(projectState);
 

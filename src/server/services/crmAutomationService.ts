@@ -76,4 +76,16 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
       lp.player_id, null, nowIso, nowIso,
     ]);
   }
+
+  // A close-out task is an obligation only while its evening is open. Keep this
+  // compatible with both the new close-out endpoint and the older simple settle path.
+  await db.run(`
+    UPDATE organizer_tasks
+       SET status='done', completed_at=COALESCE(completed_at, ?), updated_at=?
+     WHERE automation_key LIKE 'evening-close:%'
+       AND status NOT IN ('done', 'cancelled')
+       AND evening_id IN (
+         SELECT id FROM game_evenings WHERE status='completed' OR settled_at IS NOT NULL
+       )
+  `, [nowIso, nowIso]);
 }

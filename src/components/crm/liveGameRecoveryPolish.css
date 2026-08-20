@@ -19,10 +19,10 @@
   pointer-events: none !important;
 }
 
-/* When State Sheet is open there is free space above it; use that instead of
- * covering its player list. */
+/* State Sheet leaves a clean band above the sheet on mobile. Keep transient
+ * feedback entirely in that band instead of touching the sheet header/list. */
 body:has([data-testid="live-state-overlay"]) .fixed.bottom-4.right-4.z-\[130\] {
-  top: 40px !important;
+  top: 8px !important;
   right: auto !important;
   bottom: auto !important;
   left: 50% !important;

@@ -22,7 +22,7 @@ type Props = {
   speechRecordingControl?: React.ReactNode;
 };
 
-const defaultSelection = (tracks: JudgeMusicTrack[], previous: JudgeJudgeGameMusicSelection | null): JudgeGameMusicSelection => {
+const defaultSelection = (tracks: JudgeMusicTrack[], previous: JudgeGameMusicSelection | null): JudgeGameMusicSelection => {
   const ids = new Set(tracks.map((track) => track.id));
   const previousDeal = previous?.dealTrackId && ids.has(previous.dealTrackId) ? previous.dealTrackId : null;
   const previousNight = previous?.nightTrackId && ids.has(previous.nightTrackId) ? previous.nightTrackId : null;

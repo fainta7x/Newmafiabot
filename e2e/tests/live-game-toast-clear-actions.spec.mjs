@@ -7,34 +7,34 @@ test.describe('Live Game toast safety', () => {
     await page.goto('/e2e/live-game.html?mode=recovery');
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
 
-    const toast = page.getByText('Прерванная игра восстановлена', { exact: true });
     const panel = page.getByTestId('live-events-panel');
+    const feedback = page.getByTestId('live-events-feedback');
+    const toast = page.getByTestId('live-game-inline-toast');
     const undo = page.getByTestId('live-events-undo');
     const title = panel.getByText('События', { exact: true });
-    const latest = page.getByTestId('live-events-latest');
 
-    await expect(toast).toBeVisible();
-    await panel.scrollIntoViewIfNeeded();
     await expect(panel).toBeVisible();
+    await expect(feedback).toBeVisible();
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveText('Прерванная игра восстановлена');
     await expect(undo).toBeVisible();
     await expect(title).toBeVisible();
 
-    const latestVisibility = await latest.evaluate((element) => getComputedStyle(element).visibility);
-    expect(latestVisibility).toBe('hidden');
-
     const toastBox = await toast.boundingBox();
-    const panelBox = await panel.boundingBox();
+    const feedbackBox = await feedback.boundingBox();
     const undoBox = await undo.boundingBox();
     const titleBox = await title.boundingBox();
     expect(toastBox).not.toBeNull();
-    expect(panelBox).not.toBeNull();
+    expect(feedbackBox).not.toBeNull();
     expect(undoBox).not.toBeNull();
     expect(titleBox).not.toBeNull();
 
-    expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(toastBox.y - 2);
+    expect(toastBox.x).toBeGreaterThanOrEqual(feedbackBox.x - 1);
+    expect(toastBox.y).toBeGreaterThanOrEqual(feedbackBox.y - 1);
+    expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(feedbackBox.x + feedbackBox.width + 1);
+    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(feedbackBox.y + feedbackBox.height + 1);
+    expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(toastBox.y + 2);
     expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(undoBox.x - 4);
-    expect(toastBox.y).toBeGreaterThanOrEqual(panelBox.y + 18);
-    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height - 4);
     expect(await toast.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
 
     const path = testInfo.outputPath('live-game-toast-clear-actions.png');

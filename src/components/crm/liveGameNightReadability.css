@@ -190,10 +190,7 @@
   font-weight: 700;
 }
 
-/* Live Game toast safety. This exact fixed-position utility combination is used
- * by LiveGameToast. Target the toast itself so the rule also works in the
- * isolated State Sheet browser harness where the table shell is intentionally absent.
- */
+/* Live Game toast safety. */
 .fixed.bottom-4.right-4.z-\[130\] {
   top: 40px !important;
   right: auto !important;
@@ -219,5 +216,22 @@
 
   .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) .live-judge-hud__body {
     padding: 4px 6px !important;
+  }
+
+  /* Voting should simplify the table, not erase the people. Restore a quiet
+   identity layer: nickname readable, avatar subdued. Vote-state text and seat
+   number/role still carry stronger contrast above it.
+   */
+  .evening-live-engine-shell:has(.live-seat-card--voting) .evening-live-player-avatar {
+    visibility: visible !important;
+    opacity: 0.22 !important;
+    filter: saturate(0.65) brightness(0.82);
+  }
+
+  .evening-live-engine-shell:has(.live-seat-card--voting) .evening-live-identity-name {
+    visibility: visible !important;
+    opacity: 0.72 !important;
+    background: rgba(9, 10, 13, 0.66) !important;
+    color: rgba(255, 255, 255, 0.76) !important;
   }
 }

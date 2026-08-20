@@ -30,19 +30,6 @@ const expectHorizontallyInsideViewport = async (page, locator, label) => {
   expect.soft(box.x + box.width, `${label}: right edge`).toBeLessThanOrEqual(viewport.width + 1);
 };
 
-const expectButtonsInside = async (container, buttons, label) => {
-  const containerBox = await container.boundingBox();
-  expect(containerBox, `${label}: container bounding box`).not.toBeNull();
-  for (let index = 0; index < await buttons.count(); index += 1) {
-    const button = buttons.nth(index);
-    await expect(button, `${label}: button ${index + 1} visible`).toBeVisible();
-    const box = await button.boundingBox();
-    expect(box, `${label}: button ${index + 1} bounding box`).not.toBeNull();
-    expect.soft(box.x, `${label}: button ${index + 1} left`).toBeGreaterThanOrEqual(containerBox.x - 1);
-    expect.soft(box.x + box.width, `${label}: button ${index + 1} right`).toBeLessThanOrEqual(containerBox.x + containerBox.width + 1);
-  }
-};
-
 const attachViewport = async (page, testInfo, name) => {
   const path = testInfo.outputPath(name);
   await page.screenshot({ path, fullPage: false });
@@ -200,14 +187,22 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(centerPanel(page).getByText('Все речи завершены', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
-    await expect(centerPanel(page).getByText(/Кто против/)).toBeVisible();
+    const votingHud = centerPanel(page);
+    await expect(votingHud.getByText(/Кто против/)).toBeVisible();
+    await expect(votingHud.getByRole('button', { name: '+1' })).toHaveCount(0);
+    await expect(votingHud.getByRole('button', { name: '−1' })).toHaveCount(0);
     await expectNoHorizontalOverflow(page, 'voting');
-    await attachViewport(page, testInfo, '03-voting.png');
 
     for (const voter of [1, 2, 3, 4, 5, 6]) {
       await seatCard(page, voter).click();
     }
+    await expect(votingHud.locator('.live-judge-stat__value').first()).toHaveText('6');
+    await expect(votingHud.locator('.live-judge-stat__value').nth(1)).toHaveText('4/10');
+    await expect(seatCard(page, 1).getByText('→ #2', { exact: true })).toBeVisible();
+    await attachViewport(page, testInfo, '03-voting-card-selection.png');
+
     await page.getByRole('button', { name: /Следующий/ }).click();
+    await expect(seatCard(page, 7).getByText(/Авто/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
 
     await expect(centerPanel(page).getByText(/Заголосован/)).toBeVisible();
@@ -347,17 +342,18 @@ test.describe('Live Game browser stabilization', () => {
     const hud = centerPanel(page);
     await expect(hud.getByText(/Поднять \/ оставить/)).toBeVisible();
     await expect(hud.getByText('Поднять всех?', { exact: true })).toBeVisible();
-    const tableVoterButtons = hud.locator('.live-judge-table-voter');
-    await expect(tableVoterButtons).toHaveCount(10);
-    await expectButtonsInside(hud, tableVoterButtons, 'raise-leave voters');
+    await expect(hud.locator('.live-judge-table-voter')).toHaveCount(0);
+    await expect(hud.getByText(/Нажимайте карточки игроков/)).toBeVisible();
 
     for (const voter of [1, 2, 3, 4, 5, 6]) {
-      await hud.getByRole('button', { name: `#${voter}`, exact: true }).click();
+      await seatCard(page, voter).click();
+      await expect(seatCard(page, voter)).toHaveAttribute('data-table-vote-selected', 'true');
     }
     await expect(hud.locator('.live-judge-table-decision-count strong')).toContainText('6/10');
     await expect(hud.getByText('нужно 6', { exact: true })).toBeVisible();
+    await expect(seatCard(page, 7)).not.toHaveAttribute('data-table-vote-selected', 'true');
     await expectNoHorizontalOverflow(page, 'raise-leave decision');
-    await attachViewport(page, testInfo, '13-table-decision.png');
+    await attachViewport(page, testInfo, '13-table-decision-card-selection.png');
     await page.getByRole('button', { name: 'Зафиксировать решение', exact: true }).click();
 
     await expect(centerPanel(page).getByText('Последняя речь #2', { exact: true })).toBeVisible();

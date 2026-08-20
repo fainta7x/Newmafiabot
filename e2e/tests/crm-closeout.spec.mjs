@@ -25,7 +25,7 @@ test.describe('Organizer evening closeout', () => {
     await expect(page.getByRole('button', { name: 'Остальных не было' })).toBeVisible();
     await expect(page.getByText('Богдан')).toBeVisible();
     await expect(page.getByText('Матроскина')).toBeVisible();
-    await expect(page.getByText('Гость без записи')).toBeVisible();
+    await expect(page.getByText('Гость без записи', { exact: true })).toBeVisible();
     await expect(page.getByText(/Черновиков игр: 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Закрыть вечер' })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
@@ -42,7 +42,6 @@ test.describe('Organizer evening closeout', () => {
     await page.getByRole('button', { name: /Вид.*Был/ }).click();
     await expect(page.getByText(/Без предварительного «Иду»:.*Вид/)).toBeVisible();
 
-    await page.getByRole('button', { name: /Пришёл без записи/ }).click();
     await page.getByPlaceholder('Найти любого игрока').fill('Чагин');
     await expect(page.getByText('Чагин')).toBeVisible();
     await expect(page.getByRole('button', { name: '400' })).toBeVisible();

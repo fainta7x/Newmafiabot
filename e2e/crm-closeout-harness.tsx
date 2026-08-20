@@ -9,6 +9,7 @@ const participants = [
   { id: 'ep2', player_id: 'p2', nickname: 'Матроскина', response_status: 'late', registration_status: 'late', attendance_status: 'pending', payment_status: 'unpaid', amount_due: 300, amount_paid: 100 },
   { id: 'ep3', player_id: 'p3', nickname: 'Пристань', response_status: 'going', registration_status: 'going', attendance_status: 'attended', payment_status: 'partial', amount_due: 400, amount_paid: 200 },
   { id: 'ep4', player_id: 'p4', nickname: 'Гость без записи', response_status: 'unanswered', registration_status: 'unanswered', attendance_status: 'attended', payment_status: 'unpaid', amount_due: 400, amount_paid: 0 },
+  { id: 'ep6', player_id: 'p6', nickname: 'Вид', response_status: 'thinking', registration_status: 'thinking', attendance_status: 'pending', payment_status: 'unpaid', amount_due: 400, amount_paid: 0 },
 ];
 
 let state: any = null;

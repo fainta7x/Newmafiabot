@@ -1,5 +1,7 @@
 import type { DatabaseWrapper } from './index.ts';
 
+const ensuredDatabases = new WeakSet<object>();
+
 /**
  * Persistent organizer entitlement bound to the canonical player identity.
  *
@@ -8,6 +10,8 @@ import type { DatabaseWrapper } from './index.ts';
  * either verified external account without hard-coding external IDs.
  */
 export async function ensureOrganizerPlayerAccessSchema(db: DatabaseWrapper): Promise<void> {
+  if (ensuredDatabases.has(db as object)) return;
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS organizer_player_access (
       player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
@@ -15,4 +19,6 @@ export async function ensureOrganizerPlayerAccessSchema(db: DatabaseWrapper): Pr
       granted_via TEXT NOT NULL DEFAULT 'password_verified_identity'
     );
   `);
+
+  ensuredDatabases.add(db as object);
 }

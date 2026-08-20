@@ -61,7 +61,7 @@ export default function PlayerCabinetShell({
   return (
     <div
       data-testid="player-cabinet-shell"
-      className="player-events-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground"
+      className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground"
     >
       <style>{`.player-events-shell main{padding-top:.75rem!important}`}</style>
 
@@ -74,6 +74,9 @@ export default function PlayerCabinetShell({
       />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
+      <div data-testid="player-live-status-slot" className="player-live-status-slot">
+        <PlayerLiveOnlyCenter />
+      </div>
 
       {section === 'home' ? (
         <PlayerHomeDashboard
@@ -121,8 +124,6 @@ export default function PlayerCabinetShell({
           onOpenConduct={() => open('conduct')}
         />
       )}
-
-      <PlayerLiveOnlyCenter />
 
       <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
     </div>

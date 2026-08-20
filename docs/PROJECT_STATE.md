@@ -3,8 +3,8 @@
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
 **Status date:** 2026-08-20  
-**Latest release record:** PR #121 merged as `ef261b4718ab6c62810daa7a4335b78f5b5afc68`  
-**Release gate:** GitHub CI run #947 — green before merge  
+**Latest release record before this workstream:** PR #122 merged as `f7ce28ef3e1899430d4b5c0b4a81bd520f650b50`  
+**Release gate:** GitHub CI run #949 — green before merge  
 **Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
 **Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
 
@@ -60,6 +60,7 @@ Implemented and connected:
 - authentication/session;
 - canonical Player Cabinet shell and dashboard;
 - events/calendar/registration;
+- rolling regular-Friday calendar keeps registration available roughly 35 days ahead;
 - games/history/statistics/career/replay;
 - rating/Elo/rating periods;
 - club/player profiles and avatar support;
@@ -79,6 +80,8 @@ Implemented and connected:
 - Player Cabinet shows the organizer-panel entry only when the resolved session has organizer authority;
 - Today/command center;
 - evenings/calendar/workspace;
+- regular Friday evenings are reconciled automatically for the next 35 days without immediately publishing external posts;
+- the upcoming Friday becomes due for Telegram channel/group publication, initial eligible personal Telegram invitations and VK publication every Monday at 19:00 Moscow; retries are idempotent and delayed wake-ups catch up safely;
 - participants/tables/games/protocol workflow;
 - player CRM;
 - tasks/analytics;
@@ -116,7 +119,8 @@ Connected:
 - Telegram WebApp/player entry;
 - announcement/bot APIs;
 - synchronization/outbox paths;
-- organizer non-destructive runtime diagnostics.
+- organizer non-destructive runtime diagnostics;
+- existing 30-minute public-router refresh is also the heartbeat that reconciles the rolling Friday calendar and due weekly announcement; the reconciler is safe to rerun.
 
 A green CI run does not prove live bot token/webhook/service health. Verify after deploy when relevant.
 
@@ -126,7 +130,8 @@ Connected:
 
 - OAuth/callback/join/direct paths;
 - organizer runtime diagnostics;
-- public join/live endpoints.
+- public join/live endpoints;
+- direct Friday-evening publication is part of the same Monday weekly announcement reconciliation.
 
 Live credentials/callback state must be checked at runtime when the requested flow depends on them.
 
@@ -161,11 +166,11 @@ CI currently includes:
 
 ## Immediate next queue
 
-1. Manually deploy the accepted release lineage from current `main` to Render.
-2. Verify `/api/health`, application load/auth and that recent live data/avatars remain present.
-3. Prepare the next club evening: create/verify event, registration, announcements and organizer workflow.
-4. Fix only concrete bugs found in deployed/runtime use before adding more cosmetic polish.
-5. Resume the setup/role-distribution visual cleanup when operational readiness for the evening is secure.
+1. Complete the flexible Saturday 19:00 organizer close-out workflow for regular evenings: attendance, walk-ins, payments/debts, optional missing game statistics and final close.
+2. Manually deploy the accepted current `main` to Render.
+3. Verify `/api/health`, passwordless owner CRM entry and that recent live data/avatars remain present.
+4. Verify the rolling Friday calendar in the player application and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
+5. Resume cosmetic Live Game/setup polish only after operational readiness for the next evening is secure.
 
 ## Mandatory session rule
 

@@ -31,7 +31,7 @@ const ClubSpeechRecordingControl = () => (
         </div>
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-white/68">Запись речей</div>
-          <div className="mt-0.5 text-[9px] leading-3.5 text-white/28">Опционально · можно оставить выключенной</div>
+          <div className="mt-0.5 text-[9px] leading-4 text-white/28">Опционально · можно оставить выключенной</div>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">

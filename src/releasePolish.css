@@ -26,6 +26,28 @@
   }
 }
 
+/* The active-evening launcher used to be a fixed floating card above every
+   player screen. Keep the useful live state, but let it occupy real layout
+   space directly below the top chrome so it can never cover working content. */
+.player-live-status-slot {
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
+  padding-inline: 0.75rem;
+}
+
+.player-live-status-slot > button:first-child {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 1 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0.5rem 0 0.25rem !important;
+  transform: none !important;
+  translate: none !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important;
+}
+
 @media (min-width: 390px) and (max-width: 430px) {
   .player-cabinet-shell img,
   .player-cabinet-shell svg,

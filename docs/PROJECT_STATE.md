@@ -3,8 +3,8 @@
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
 **Status date:** 2026-08-20  
-**Latest release record before this workstream:** PR #122 merged as `f7ce28ef3e1899430d4b5c0b4a81bd520f650b50`  
-**Release gate:** GitHub CI run #949 — green before merge  
+**Latest release record before this workstream:** PR #123 merged as `bb4edbee0e0dd154a6e4ea7a87f81ef6382a5b13`  
+**Release gate:** GitHub CI run #951 — green before merge  
 **Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
 **Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
 
@@ -82,6 +82,8 @@ Implemented and connected:
 - evenings/calendar/workspace;
 - regular Friday evenings are reconciled automatically for the next 35 days without immediately publishing external posts;
 - the upcoming Friday becomes due for Telegram channel/group publication, initial eligible personal Telegram invitations and VK publication every Monday at 19:00 Moscow; retries are idempotent and delayed wake-ups catch up safely;
+- every regular Friday receives a high-priority organizer close-out task due Saturday 19:00 Moscow;
+- close-out is optimized for attendance, walk-ins, payment/debt and games; unpaid attended players may close as debt, and missing/unfinished game statistics may be explicitly waived without blocking the evening forever;
 - participants/tables/games/protocol workflow;
 - player CRM;
 - tasks/analytics;
@@ -166,10 +168,10 @@ CI currently includes:
 
 ## Immediate next queue
 
-1. Complete the flexible Saturday 19:00 organizer close-out workflow for regular evenings: attendance, walk-ins, payments/debts, optional missing game statistics and final close.
-2. Manually deploy the accepted current `main` to Render.
-3. Verify `/api/health`, passwordless owner CRM entry and that recent live data/avatars remain present.
-4. Verify the rolling Friday calendar in the player application and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
+1. Manually deploy the accepted current `main` to Render.
+2. Verify `/api/health`, passwordless owner CRM entry and that recent live data/avatars remain present.
+3. Verify the rolling Friday calendar in the player application and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
+4. On the next completed evening, verify the Saturday 19:00 close-out task and the fast close flow against real attendance/payment data.
 5. Resume cosmetic Live Game/setup polish only after operational readiness for the next evening is secure.
 
 ## Mandatory session rule

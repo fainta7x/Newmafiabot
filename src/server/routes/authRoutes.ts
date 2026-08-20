@@ -10,6 +10,11 @@ import {
 } from '../auth.ts';
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
+import {
+  grantOrganizerPlayerAccess,
+  hasOrganizerPlayerAccess,
+  resolveVerifiedPlayerIdentity,
+} from '../services/organizerPlayerAccessService.ts';
 
 const router = Router();
 
@@ -31,6 +36,18 @@ const setPlayerCookie = (res: Response, playerId: string) => {
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
+};
+
+const setOrganizerCookie = (res: Response) => {
+  const token = generateOrganizerToken();
+  res.cookie('organizer_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  return token;
 };
 
 const validateTelegramRequest = (initData: unknown) => {
@@ -101,7 +118,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
   if (!checkLoginRateLimit(clientIp)) {
@@ -117,21 +134,22 @@ router.post('/login', (req, res) => {
 
   if (verifyOrganizerPassword(password)) {
     resetLoginRateLimit(clientIp);
-    const token = generateOrganizerToken();
 
-    res.cookie('organizer_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    // A correct organizer password may bind only the identity that the server
+    // has already verified through the signed player cookie or VK join session.
+    // Client-supplied player / Telegram / VK IDs are never trusted here.
+    const identity = await resolveVerifiedPlayerIdentity(req.db, req);
+    if (identity) await grantOrganizerPlayerAccess(req.db, identity);
 
+    const token = setOrganizerCookie(res);
     return res.json({
       success: true,
       role: 'ORGANIZER',
       token,
-      message: 'Успешная авторизация организатора',
+      organizerAccountLinked: Boolean(identity),
+      message: identity
+        ? 'Успешная авторизация. Аккаунт привязан к доступу организатора.'
+        : 'Успешная авторизация организатора',
     });
   }
 
@@ -139,30 +157,39 @@ router.post('/login', (req, res) => {
 });
 
 router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
-  const playerId = getPlayerSessionId(req);
+  const db = req.db;
+  const identity = await resolveVerifiedPlayerIdentity(db, req);
   let player = null;
 
-  if (playerId) {
-    const db = req.db;
+  if (identity) {
     const linkedPlayer = await db.get(
       `SELECT id, nickname, full_name, telegram_username, elo, tokens
        FROM players
        WHERE id = ?
        LIMIT 1`,
-      [playerId],
+      [identity.playerId],
     );
-    if (linkedPlayer) {
-      player = toSafePlayer(linkedPlayer);
-    } else {
-      res.clearCookie('player_token', { path: '/' });
-    }
+    if (linkedPlayer) player = toSafePlayer(linkedPlayer);
+  } else if (getPlayerSessionId(req)) {
+    // A signed player cookie pointed to a profile that no longer exists.
+    res.clearCookie('player_token', { path: '/' });
+  }
+
+  let isOrganizer = req.userRole === 'ORGANIZER';
+  let organizerAutoAuthorized = false;
+
+  if (!isOrganizer && identity && await hasOrganizerPlayerAccess(db, identity.playerId)) {
+    setOrganizerCookie(res);
+    isOrganizer = true;
+    organizerAutoAuthorized = true;
   }
 
   return res.json({
-    role: req.userRole || 'PLAYER',
-    isOrganizer: req.userRole === 'ORGANIZER',
+    role: isOrganizer ? 'ORGANIZER' : 'PLAYER',
+    isOrganizer,
     linked: Boolean(player),
     player,
+    organizerAutoAuthorized,
   });
 });
 

@@ -1,0 +1,72 @@
+/* Recovery / toast polish discovered from visual evidence.
+ * Keeps gameplay and persistence unchanged; this layer only resolves overlap.
+ */
+
+/* Default Live Game toast: compact and out of the player grid. */
+.fixed.bottom-4.right-4.z-\[130\] {
+  top: auto !important;
+  left: auto !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  width: auto !important;
+  max-width: min(180px, calc(100vw - 16px)) !important;
+  transform: none !important;
+  padding: 5px 8px !important;
+  border-radius: 10px !important;
+  font-size: 8.5px !important;
+  line-height: 1.15 !important;
+  text-align: left !important;
+  pointer-events: none !important;
+}
+
+/* When State Sheet is open there is free space above it; use that instead of
+ * covering its player list. */
+body:has([data-testid="live-state-overlay"]) .fixed.bottom-4.right-4.z-\[130\] {
+  top: 40px !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  width: max-content !important;
+  max-width: calc(100vw - 24px) !important;
+  transform: translateX(-50%) !important;
+  padding: 7px 10px !important;
+  border-radius: 12px !important;
+  font-size: 10px !important;
+  text-align: center !important;
+}
+
+@media (max-width: 767px) {
+  /* Direct-engine recovery evidence has no modal identity layer. Give its
+   * footer two explicit rows: nickname first, number/role below. */
+  .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer {
+    position: relative;
+    min-height: 50px;
+    padding: 18px 5px 5px !important;
+    align-items: flex-end;
+  }
+
+  .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__name {
+    position: absolute;
+    z-index: 22;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.74) !important;
+    font-size: 7.5px !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+    pointer-events: none;
+  }
+
+  .evening-live-engine-shell:not(:has(.evening-live-identity-layer)) .live-seat-footer__identity {
+    flex: 0 0 auto;
+  }
+}

@@ -22,7 +22,7 @@ type Props = {
   speechRecordingControl?: React.ReactNode;
 };
 
-const defaultSelection = (tracks: JudgeMusicTrack[], previous: JudgeGameMusicSelection | null): JudgeGameMusicSelection => {
+const defaultSelection = (tracks: JudgeMusicTrack[], previous: JudgeJudgeGameMusicSelection | null): JudgeGameMusicSelection => {
   const ids = new Set(tracks.map((track) => track.id));
   const previousDeal = previous?.dealTrackId && ids.has(previous.dealTrackId) ? previous.dealTrackId : null;
   const previousNight = previous?.nightTrackId && ids.has(previous.nightTrackId) ? previous.nightTrackId : null;
@@ -127,7 +127,7 @@ export default function ClubGameSetupPhase({
             <p className="mt-1 text-[11px] leading-4 text-white/42">Раздайте физические карты и зафиксируйте фактические роли игроков.</p>
           </div>
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-black/20 text-white/45">
-            <Layers3 className="h-4.5 w-4.5" aria-hidden="true" />
+            <Layers3 className="h-4 w-4" aria-hidden="true" />
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[9px] font-semibold text-white/34">
@@ -171,7 +171,7 @@ export default function ClubGameSetupPhase({
             </div>
             <div className="min-w-0">
               <div className="text-[11px] font-semibold text-white/68">Музыка игры</div>
-              <div className="mt-0.5 text-[9px] leading-3.5 text-white/28">Раздача и ночной протокол</div>
+              <div className="mt-0.5 text-[9px] leading-4 text-white/28">Раздача и ночной протокол</div>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

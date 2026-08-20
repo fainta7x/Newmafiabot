@@ -106,9 +106,8 @@ Current judge workspace includes:
 - Don/Sheriff night-check readability;
 - eliminated-player identity preservation;
 - recovery presentation aligned to the main table;
-- death protocol aligned to the cabinet visual language.
-
-The setup/physical role-distribution screen still has older cosmetic styling. It is functional and is **not a release blocker**; polish it only when it is the next requested visual task.
+- death protocol aligned to the cabinet visual language;
+- setup and physical role distribution aligned to the same judge-first cabinet hierarchy, with the start action prioritized and music/speech recording kept as secondary controls.
 
 Approved Mafia mechanics remain governed by `docs/BUSINESS_RULES.md`; the design migration must not reinterpret them.
 
@@ -172,7 +171,7 @@ CI currently includes:
 2. Verify `/api/health`, passwordless owner CRM entry and that recent live data/avatars remain present.
 3. Verify the rolling Friday calendar in the player application and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
 4. On the next completed evening, verify the Saturday 19:00 close-out task and the fast close flow against real attendance/payment data.
-5. Resume cosmetic Live Game/setup polish only after operational readiness for the next evening is secure.
+5. Continue Live Game cosmetic polish only for concrete issues found in fresh judge/runtime evidence after operational readiness for the next evening is secure.
 
 ## Mandatory session rule
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers3, Music2 } from 'lucide-react';
+import { ChevronDown, Layers3, Music2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import { loadJudgeMusicPlaylist, type JudgeMusicTrack } from '../../hooks/useJudgeGameMusic.ts';
 import {
@@ -108,92 +108,112 @@ export default function ClubGameSetupPhase({
   }));
   const selectedDealTrack = tracks.find((track) => track.id === selection.dealTrackId) || null;
   const selectedNightTrack = tracks.find((track) => track.id === selection.nightTrackId) || null;
+  const selectedTrackCount = Number(Boolean(selectedDealTrack)) + Number(Boolean(selectedNightTrack));
+  const musicSummary = musicLoading
+    ? 'Загрузка…'
+    : selectedTrackCount === 0
+      ? 'Без музыки'
+      : selectedTrackCount === 1
+        ? '1 трек'
+        : '2 трека';
 
   return (
-    <div className="space-y-3">
-      <section data-testid="club-game-setup-hero" className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-slate-900/55 p-4 sm:p-5">
+    <div className="space-y-2.5 pb-2">
+      <section data-testid="club-game-setup-hero" className="rounded-[24px] border border-white/[0.09] bg-white/[0.045] p-3.5 shadow-[0_14px_42px_rgba(0,0,0,0.16)]">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-200/55">Фаза 1 · старт игры</div>
-            <h2 className="mt-2 text-xl font-black text-white">Раздача ролей</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-400">Состав и ведущий уже взяты из игры. Выберите музыку, раздайте 10 физических карт и отметьте фактические роли — после десятой карты движок сразу перейдёт к договорке.</p>
+          <div className="min-w-0">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Подготовка игры</div>
+            <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Раздача ролей</h2>
+            <p className="mt-1 text-[11px] leading-4 text-white/42">Раздайте физические карты и зафиксируйте фактические роли игроков.</p>
           </div>
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-300/[0.08] text-violet-100/70">
-            <Layers3 className="h-5 w-5" aria-hidden="true" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-black/20 text-white/45">
+            <Layers3 className="h-4 w-4" aria-hidden="true" />
           </div>
         </div>
-      </section>
-
-      {speechRecordingControl}
-
-      <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-black text-white">
-              <Music2 className="h-3.5 w-3.5 text-white/55" aria-hidden="true" />
-              <span>Музыка этой игры</span>
-            </div>
-            <div className="mt-1 text-[10px] leading-4 text-slate-500">Два фиксированных трека вместо случайного выбора из плейлиста.</div>
-          </div>
-          {musicLoading && <span className="text-[10px] text-slate-500">Загрузка…</span>}
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">1 · Раздача ролей</span>
-            <select
-              value={selection.dealTrackId || ''}
-              disabled={musicLoading}
-              onChange={(event) => updateSelection({ dealTrackId: event.target.value || null })}
-              className="min-h-12 w-full rounded-2xl border border-white/10 bg-slate-950 px-3 text-sm text-white disabled:opacity-50"
-            >
-              <option value="">Без музыки</option>
-              {tracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
-            </select>
-            <span className="mt-1.5 block text-[10px] leading-4 text-slate-500">Включается по кнопке начала раздачи, плавно нарастает и гаснет после фиксации ролей.</span>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">2 · Договорка и все ночи</span>
-            <select
-              value={selection.nightTrackId || ''}
-              disabled={musicLoading}
-              onChange={(event) => updateSelection({ nightTrackId: event.target.value || null })}
-              className="min-h-12 w-full rounded-2xl border border-white/10 bg-slate-950 px-3 text-sm text-white disabled:opacity-50"
-            >
-              <option value="">Без музыки</option>
-              {tracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
-            </select>
-            <span className="mt-1.5 block text-[10px] leading-4 text-slate-500">Нулевая ночь: с договорки через вызов Шерифа и свободную посадку до пробуждения города. Обычные ночи: от начала ночи до завершения проверки Шерифа.</span>
-          </label>
-        </div>
-
-        {!musicLoading && tracks.length === 0 && (
-          <div className="mt-3 rounded-2xl border border-dashed border-white/10 bg-black/15 px-3 py-3 text-xs leading-5 text-slate-500">В личном плейлисте нет доступных треков. Игру можно запустить без музыки.</div>
-        )}
-      </section>
-
-      <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-black text-white">Стол готов</div>
-            <div className="mt-1 text-[10px] text-slate-500">10 мест · физические карты 6 / 1 / 2 / 1</div>
-          </div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2 text-center"><div className="text-lg font-black text-white">10</div><div className="text-[9px] text-slate-500">мест</div></div>
-        </div>
-        <div className="mt-3 grid grid-cols-5 gap-1.5">
-          {dealSeats.map((seat) => <div key={seat.seat_number} className="min-w-0 rounded-xl border border-white/[0.07] bg-black/20 px-1.5 py-2 text-center"><div className="text-[10px] font-black text-white">{seat.seat_number}</div><div className="mt-1 truncate text-[8px] text-slate-500">{seat.nickname}</div></div>)}
+        <div className="mt-3 flex items-center gap-2 text-[9px] font-semibold text-white/34">
+          <span className="rounded-lg bg-black/20 px-2 py-1.5">10 игроков</span>
+          <span className="rounded-lg bg-black/20 px-2 py-1.5">6 · 1 · 2 · 1</span>
         </div>
       </section>
 
       {awaitingStart ? (
-        <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.06] px-4 py-4 text-center text-sm font-bold text-emerald-100">Роли зафиксированы · переходим к договорке…</div>
+        <div className="rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.06] px-4 py-3.5 text-center text-[12px] font-semibold text-emerald-100">Роли зафиксированы · открываю договорку…</div>
       ) : (
-        <div className="grid grid-cols-[0.7fr_1.3fr] gap-2">
-          <button type="button" onClick={onCancel} className="min-h-13 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-xs font-bold text-slate-400">Назад</button>
-          <button type="button" onClick={openRoleDeal} className="min-h-13 rounded-2xl bg-white px-4 text-sm font-black text-black">Начать раздачу ролей →</button>
+        <div data-testid="club-game-setup-primary-actions" className="grid grid-cols-[0.65fr_1.35fr] gap-2">
+          <button type="button" onClick={onCancel} className="min-h-[52px] rounded-[16px] border border-white/[0.08] bg-white/[0.035] px-3 text-[11px] font-semibold text-white/42 active:bg-white/[0.06]">Назад</button>
+          <button data-testid="club-game-start-role-deal" type="button" onClick={openRoleDeal} className="min-h-[52px] rounded-[16px] bg-white px-4 text-[12px] font-semibold text-[#090a0d] active:bg-white/90">Начать раздачу ролей →</button>
         </div>
       )}
+
+      <section data-testid="club-game-table-preview" className="rounded-[22px] border border-white/[0.07] bg-white/[0.028] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold text-white/68">Состав стола</div>
+            <div className="mt-0.5 text-[9px] text-white/28">Проверьте рассадку перед первой картой</div>
+          </div>
+          <div className="rounded-xl bg-black/20 px-2.5 py-1.5 text-[10px] font-semibold text-white/42">10/10</div>
+        </div>
+        <div className="mt-2.5 grid grid-cols-5 gap-1.5">
+          {dealSeats.map((seat) => (
+            <div key={seat.seat_number} className="min-w-0 rounded-[10px] border border-white/[0.055] bg-black/15 px-1 py-1.5 text-center">
+              <div className="text-[10px] font-semibold text-white/78">{seat.seat_number}</div>
+              <div className="mt-0.5 truncate text-[7.5px] text-white/28">{seat.nickname}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <details data-testid="club-game-music-settings" className="group overflow-hidden rounded-[20px] border border-white/[0.07] bg-white/[0.025]">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-left [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-black/20 text-white/38">
+              <Music2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold text-white/68">Музыка игры</div>
+              <div className="mt-0.5 text-[9px] leading-4 text-white/28">Раздача и ночной протокол</div>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="rounded-lg border border-white/[0.06] bg-black/20 px-2 py-1 text-[8px] font-semibold text-white/32">{musicSummary}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-white/24 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </div>
+        </summary>
+
+        <div className="space-y-2 border-t border-white/[0.06] p-2.5">
+          <label className="block rounded-[14px] bg-black/15 p-2.5">
+            <span className="mb-1.5 block text-[9px] font-semibold text-white/36">Раздача</span>
+            <select
+              value={selection.dealTrackId || ''}
+              disabled={musicLoading}
+              onChange={(event) => updateSelection({ dealTrackId: event.target.value || null })}
+              className="min-h-11 w-full rounded-[12px] border border-white/[0.08] bg-[#090a0d] px-3 text-[12px] text-white/78 outline-none disabled:opacity-50"
+            >
+              <option value="">Без музыки</option>
+              {tracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+            </select>
+          </label>
+
+          <label className="block rounded-[14px] bg-black/15 p-2.5">
+            <span className="mb-1.5 block text-[9px] font-semibold text-white/36">Договорка и ночи</span>
+            <select
+              value={selection.nightTrackId || ''}
+              disabled={musicLoading}
+              onChange={(event) => updateSelection({ nightTrackId: event.target.value || null })}
+              className="min-h-11 w-full rounded-[12px] border border-white/[0.08] bg-[#090a0d] px-3 text-[12px] text-white/78 outline-none disabled:opacity-50"
+            >
+              <option value="">Без музыки</option>
+              {tracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+            </select>
+          </label>
+
+          {!musicLoading && tracks.length === 0 && (
+            <div className="rounded-[14px] border border-dashed border-white/[0.08] bg-black/15 px-3 py-2.5 text-[10px] leading-4 text-white/30">Доступных треков нет. Игра запустится без музыки.</div>
+          )}
+        </div>
+      </details>
+
+      {speechRecordingControl}
 
       {showPhysicalDeal && (
         <PhysicalRoleDeal

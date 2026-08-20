@@ -17,11 +17,35 @@ type Props = {
   onComplete: (assignments: Record<number, PhysicalRole>) => void;
 };
 
-const ROLE_META: Record<PhysicalRole, { label: string; icon: string; max: number; active: string }> = {
-  citizen: { label: 'Мирный', icon: '🔴', max: 6, active: 'border-rose-400/50 bg-rose-400/15 text-rose-100' },
-  sheriff: { label: 'Шериф', icon: '⭐', max: 1, active: 'border-amber-300/50 bg-amber-300/15 text-amber-100' },
-  mafia: { label: 'Мафия', icon: '⚫', max: 2, active: 'border-slate-300/40 bg-slate-200/10 text-slate-100' },
-  don: { label: 'Дон', icon: '🎩', max: 1, active: 'border-violet-300/50 bg-violet-300/15 text-violet-100' },
+const ROLE_META: Record<PhysicalRole, { label: string; max: number; marker: string; active: string; countTone: string }> = {
+  citizen: {
+    label: 'Мирный',
+    max: 6,
+    marker: 'bg-rose-400',
+    active: 'border-rose-300/35 bg-rose-300/[0.10] text-rose-100',
+    countTone: 'text-rose-200/80',
+  },
+  sheriff: {
+    label: 'Шериф',
+    max: 1,
+    marker: 'bg-amber-300',
+    active: 'border-amber-300/35 bg-amber-300/[0.10] text-amber-100',
+    countTone: 'text-amber-200/80',
+  },
+  mafia: {
+    label: 'Мафия',
+    max: 2,
+    marker: 'bg-white/55',
+    active: 'border-white/20 bg-white/[0.08] text-white',
+    countTone: 'text-white/68',
+  },
+  don: {
+    label: 'Дон',
+    max: 1,
+    marker: 'bg-violet-300',
+    active: 'border-violet-300/35 bg-violet-300/[0.10] text-violet-100',
+    countTone: 'text-violet-200/80',
+  },
 };
 
 const ROLES = Object.keys(ROLE_META) as PhysicalRole[];
@@ -94,12 +118,12 @@ export default function PhysicalRoleDeal({
 
   if (sortedSeats.length !== 10) {
     return (
-      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur-md">
-        <div className="w-full max-w-md rounded-3xl border border-rose-400/20 bg-slate-900 p-5 text-center">
-          <div className="text-2xl">🃏</div>
-          <div className="mt-2 text-lg font-black text-white">Для раздачи нужны 10 игроков</div>
-          <p className="mt-2 text-sm text-slate-400">Сначала сформируйте полный стол, затем откройте раздачу ролей.</p>
-          <button type="button" onClick={cancel} className="mt-5 min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-black">Вернуться</button>
+      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[#090a0d]/95 p-3 backdrop-blur-xl">
+        <div className="w-full max-w-md rounded-[28px] border border-rose-300/15 bg-white/[0.045] p-5 text-center shadow-2xl">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200/55">Раздача недоступна</div>
+          <div className="mt-2 text-lg font-semibold text-white">Для раздачи нужны 10 игроков</div>
+          <p className="mt-2 text-[11px] leading-4 text-white/38">Сначала сформируйте полный стол, затем откройте раздачу ролей.</p>
+          <button type="button" onClick={cancel} className="mt-5 min-h-12 w-full rounded-[16px] bg-white text-[12px] font-semibold text-[#090a0d]">Вернуться</button>
         </div>
       </div>
     );
@@ -107,67 +131,84 @@ export default function PhysicalRoleDeal({
 
   if (!started) {
     return (
-      <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-slate-950/95 p-4 backdrop-blur-md">
-        <section className="w-full max-w-md rounded-3xl border border-violet-300/15 bg-slate-900 p-5 shadow-2xl">
+      <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-[#090a0d]/95 p-3 backdrop-blur-xl">
+        <section data-testid="physical-role-deal-intro" className="w-full max-w-md rounded-[28px] border border-white/[0.09] bg-[#121318] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.48)]">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">Фаза 1 · 🃏 Раздача ролей</div>
-              <h2 className="mt-2 text-2xl font-black text-white">Подготовьте 10 карт</h2>
+            <div className="min-w-0">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Раздача ролей</div>
+              <h2 className="mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-white">Подготовьте 10 карт</h2>
+              <p className="mt-1 text-[11px] leading-4 text-white/38">6 мирных · 1 шериф · 2 мафии · 1 дон</p>
             </div>
-            <button type="button" onClick={cancel} className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
+            <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
           </div>
+
           <div className="mt-4 grid grid-cols-4 gap-1.5">
             {ROLES.map((role) => {
               const meta = ROLE_META[role];
-              return <div key={role} className="rounded-xl border border-white/10 bg-black/20 px-2 py-2 text-center"><div className="text-lg">{meta.icon}</div><div className="mt-1 text-[9px] font-bold text-slate-300">{meta.label}</div><div className="mt-0.5 text-xs font-black text-white">{meta.max}</div></div>;
+              return (
+                <div key={role} className="rounded-[14px] border border-white/[0.06] bg-black/15 px-2 py-2.5 text-center">
+                  <span className={`mx-auto block h-2 w-2 rounded-full ${meta.marker}`} />
+                  <div className="mt-1.5 text-[9px] font-semibold text-white/48">{meta.label}</div>
+                  <div className="mt-0.5 text-[13px] font-semibold text-white/82">{meta.max}</div>
+                </div>
+              );
             })}
           </div>
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-xs leading-5 text-slate-400">
-            Перемешайте карты и положите их перед собой рубашкой вверх. Игроки по очереди вслепую тянут карту. Приложение только фиксирует фактический результат.
-          </div>
+
+          <div className="mt-3 rounded-[16px] bg-black/15 px-3 py-2.5 text-[10px] leading-4 text-white/34">Перемешайте физические карты. После каждой вытянутой карты просто отметьте роль игрока.</div>
+
           {!musicDisabled && (
-            <div className="mt-3 rounded-2xl border border-violet-300/10 bg-violet-300/[0.05] px-3 py-3 text-xs text-violet-100/65">
-              ♫ На раздаче: <strong>{musicTrackTitle || 'выбранный трек'}</strong> · громкость плавно нарастёт.
+            <div className="mt-2.5 flex items-center justify-between gap-3 rounded-[14px] border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+              <span className="text-[9px] font-semibold text-white/30">Музыка раздачи</span>
+              <strong className="min-w-0 truncate text-[10px] font-semibold text-white/60">{musicTrackTitle || 'Выбранный трек'}</strong>
             </div>
           )}
+
           <button
+            data-testid="physical-role-deal-start"
             type="button"
             onClick={() => {
               if (!musicDisabled) requestJudgeGameMusicStart(musicTrackId || undefined);
               setStarted(true);
             }}
-            className="mt-4 min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl"
+            className="mt-4 min-h-[52px] w-full rounded-[16px] bg-white px-4 text-[12px] font-semibold text-[#090a0d] active:bg-white/90"
           >
-            {musicDisabled ? 'Начать раздачу' : '♫ Включить музыку и начать раздачу'}
+            {musicDisabled ? 'Начать раздачу' : 'Включить музыку и начать раздачу'}
           </button>
-          {!musicDisabled && <p className="mt-2 text-center text-[10px] leading-4 text-slate-500">Это нажатие одновременно разрешает браузеру воспроизведение звука.</p>}
         </section>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[150] overflow-y-auto bg-slate-950/95 p-3 backdrop-blur-md sm:p-5">
-      <div className="mx-auto w-full max-w-lg space-y-3">
-        <section className="rounded-3xl border border-white/10 bg-slate-900 p-4 shadow-2xl">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/60">{musicDisabled ? '🃏 Раздача ролей' : '♫ Музыка · 🃏 Раздача ролей'}</div>
-              <h2 className="mt-1 text-xl font-black text-white">Физические карты</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-400">Игрок вслепую тянет карту со стола. Вы только фиксируете в приложении роль, которую он получил.</p>
+    <div data-testid="physical-role-deal-active" className="fixed inset-0 z-[150] overflow-y-auto bg-[#090a0d]/95 p-2.5 backdrop-blur-xl sm:p-4">
+      <div className="mx-auto w-full max-w-lg space-y-2.5">
+        <section className="rounded-[24px] border border-white/[0.08] bg-[#121318] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.34)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/28">Раздача ролей</div>
+              <div className="mt-1 text-[17px] font-semibold tracking-[-0.01em] text-white">Фиксируйте фактическую карту</div>
             </div>
-            <button type="button" onClick={cancel} className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/5 text-slate-400">✕</button>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="rounded-[12px] bg-black/20 px-2.5 py-2 text-center">
+                <div className="text-[14px] font-semibold text-white/82">{assignedCount}/10</div>
+                <div className="text-[7.5px] text-white/26">готово</div>
+              </div>
+              <button type="button" onClick={cancel} aria-label="Закрыть раздачу" className="grid h-11 w-11 place-items-center rounded-[14px] border border-white/[0.08] bg-black/20 text-lg text-white/38 active:bg-white/[0.06]">×</button>
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-1.5">
+          <div className="mt-3 grid grid-cols-4 gap-1.5">
             {ROLES.map((role) => {
               const meta = ROLE_META[role];
               const done = counts[role] === meta.max;
               return (
-                <div key={role} className={`rounded-xl border px-2 py-2 text-center ${done ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-white/10 bg-black/20'}`}>
-                  <div className="text-base">{meta.icon}</div>
-                  <div className="mt-0.5 text-[9px] font-bold text-slate-300">{meta.label}</div>
-                  <div className={`mt-0.5 text-xs font-black ${done ? 'text-emerald-300' : 'text-white'}`}>{counts[role]}/{meta.max}</div>
+                <div key={role} className={`rounded-[12px] border px-1.5 py-2 text-center ${done ? 'border-emerald-300/15 bg-emerald-300/[0.06]' : 'border-white/[0.055] bg-black/15'}`}>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${meta.marker}`} />
+                    <span className="text-[8px] font-semibold text-white/38">{meta.label}</span>
+                  </div>
+                  <div className={`mt-1 text-[11px] font-semibold ${done ? 'text-emerald-200/80' : meta.countTone}`}>{counts[role]}/{meta.max}</div>
                 </div>
               );
             })}
@@ -175,22 +216,21 @@ export default function PhysicalRoleDeal({
         </section>
 
         {activeSeat && (
-          <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
+          <section className="rounded-[26px] border border-white/[0.09] bg-white/[0.045] p-3.5">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Карту тянет</div>
-                <div className="mt-1 text-2xl font-black text-white">Место №{activeSeat.seat_number}</div>
-                <div className="mt-1 text-sm font-semibold text-slate-300">{activeSeat.nickname || `Игрок ${activeSeat.seat_number}`}</div>
+              <div className="min-w-0">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.13em] text-white/28">Карту тянет</div>
+                <div className="mt-1 flex min-w-0 items-baseline gap-2">
+                  <span className="font-mono text-[24px] font-semibold tracking-[-0.05em] text-white">#{activeSeat.seat_number}</span>
+                  <span className="truncate text-[17px] font-semibold text-white/78">{activeSeat.nickname || `Игрок ${activeSeat.seat_number}`}</span>
+                </div>
               </div>
-              <div className="rounded-2xl bg-black/30 px-3 py-2 text-center">
-                <div className="text-xl font-black text-white">{assignedCount}/10</div>
-                <div className="text-[9px] text-slate-500">зафиксировано</div>
-              </div>
+              <span className="shrink-0 rounded-[10px] bg-black/20 px-2 py-1 text-[8px] font-semibold text-white/28">{activeIndex + 1} из 10</span>
             </div>
 
-            <p className="mt-4 rounded-2xl border border-violet-300/10 bg-violet-300/[0.05] px-3 py-3 text-xs leading-5 text-violet-100/60">После того как игрок посмотрел физическую карту, нажмите его роль. Приложение ничего не разыгрывает и не меняет состав колоды.</p>
+            <div className="mt-2.5 text-[10px] leading-4 text-white/34">Игрок посмотрел карту → нажмите полученную роль.</div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               {ROLES.map((role) => {
                 const meta = ROLE_META[role];
                 const selected = assignments[activeSeat.seat_number] === role;
@@ -202,13 +242,13 @@ export default function PhysicalRoleDeal({
                     type="button"
                     disabled={unavailable}
                     onClick={() => chooseRole(role)}
-                    className={`min-h-16 rounded-2xl border px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-25 ${selected ? meta.active : 'border-white/10 bg-slate-900 text-slate-300'}`}
+                    className={`min-h-[64px] rounded-[16px] border px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${selected ? meta.active : 'border-white/[0.08] bg-black/20 text-white/62 active:bg-white/[0.055]'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xl">{meta.icon}</span>
-                      <span className="text-[10px] font-black text-white/35">{counts[role]}/{meta.max}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${meta.marker}`} />
+                      <span className="text-[9px] font-semibold text-white/26">{counts[role]}/{meta.max}</span>
                     </div>
-                    <div className="mt-1 text-sm font-black">{meta.label}</div>
+                    <div className="mt-2 text-[13px] font-semibold">{meta.label}</div>
                   </button>
                 );
               })}
@@ -216,7 +256,7 @@ export default function PhysicalRoleDeal({
           </section>
         )}
 
-        <section className="rounded-3xl border border-white/10 bg-slate-900 p-3">
+        <section className="rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-2.5">
           <div className="grid grid-cols-5 gap-1.5">
             {sortedSeats.map((seat, index) => {
               const role = assignments[seat.seat_number];
@@ -225,20 +265,21 @@ export default function PhysicalRoleDeal({
                 <button
                   key={seat.seat_number}
                   type="button"
+                  aria-label={`Место ${seat.seat_number} · ${seat.nickname}`}
                   onClick={() => goToSeat(index)}
-                  className={`min-h-14 rounded-xl border px-1.5 py-1.5 text-center ${index === activeIndex ? 'border-white/35 bg-white/10' : role ? 'border-emerald-300/15 bg-emerald-300/[0.05]' : 'border-white/10 bg-black/20'}`}
+                  className={`min-h-[52px] min-w-0 rounded-[11px] border px-1 py-1.5 text-center ${index === activeIndex ? 'border-white/22 bg-white/[0.08]' : role ? 'border-emerald-300/10 bg-emerald-300/[0.035]' : 'border-white/[0.055] bg-black/15'}`}
                 >
-                  <div className="text-xs font-black text-white">{seat.seat_number}</div>
-                  <div className="mt-0.5 text-base leading-none">{meta?.icon || '·'}</div>
-                  <div className="mt-1 truncate text-[8px] text-slate-500">{seat.nickname}</div>
+                  <div className="text-[10px] font-semibold text-white/72">{seat.seat_number}</div>
+                  <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${meta?.marker || 'bg-white/12'}`} />
+                  <div className="mt-1 truncate text-[7px] text-white/24">{seat.nickname}</div>
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" disabled={activeIndex === 0} onClick={() => goToSeat(activeIndex - 1)} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] text-xs font-bold text-slate-300 disabled:opacity-25">← Предыдущее место</button>
-            <button type="button" disabled={activeIndex >= sortedSeats.length - 1} onClick={() => goToSeat(activeIndex + 1)} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] text-xs font-bold text-slate-300 disabled:opacity-25">Следующее место →</button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" disabled={activeIndex === 0} onClick={() => goToSeat(activeIndex - 1)} className="min-h-11 rounded-[14px] border border-white/[0.07] bg-black/15 text-[10px] font-semibold text-white/42 disabled:opacity-20">← Предыдущее</button>
+            <button type="button" disabled={activeIndex >= sortedSeats.length - 1} onClick={() => goToSeat(activeIndex + 1)} className="min-h-11 rounded-[14px] border border-white/[0.07] bg-black/15 text-[10px] font-semibold text-white/42 disabled:opacity-20">Следующее →</button>
           </div>
         </section>
 
@@ -246,9 +287,9 @@ export default function PhysicalRoleDeal({
           type="button"
           disabled={!exactComplete}
           onClick={complete}
-          className="min-h-14 w-full rounded-2xl bg-white px-4 text-sm font-black text-black shadow-xl disabled:bg-slate-800 disabled:text-slate-500"
+          className="min-h-[52px] w-full rounded-[16px] bg-white px-4 text-[12px] font-semibold text-[#090a0d] disabled:bg-white/[0.055] disabled:text-white/22"
         >
-          {exactComplete ? '✓ Роли зафиксированы — перейти к договорке' : `Нужно распределить 6 / 1 / 2 / 1 · ${assignedCount}/10`}
+          {exactComplete ? 'Роли зафиксированы — перейти к договорке' : `Распределите 6 / 1 / 2 / 1 · ${assignedCount}/10`}
         </button>
       </div>
     </div>

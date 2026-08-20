@@ -150,7 +150,7 @@ export default function EventsPanel({
                 type="button"
                 data-testid="live-events-undo"
                 onClick={onUndoLastLog}
-                className="grid min-h-8 min-w-8 place-items-center rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2 text-[11px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
+                className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-rose-200/12 bg-rose-300/[0.07] px-2 text-[11px] font-semibold text-rose-100/75 active:bg-rose-300/[0.11]"
                 title="Отменить последнее зафиксированное событие"
                 aria-label="Отменить последнее событие"
               >
@@ -162,7 +162,7 @@ export default function EventsPanel({
               type="button"
               data-testid="live-copy-protocol"
               onClick={handleCopyTelegramProtocol}
-              className="flex min-h-8 items-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[9px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-sky-200/10 bg-sky-300/[0.07] px-2.5 text-[9px] font-semibold text-sky-100/75 active:bg-sky-300/[0.11]"
               title="Скопировать протокол в формате Telegram Markdown"
             >
               {copied ? (
@@ -184,7 +184,7 @@ export default function EventsPanel({
               aria-expanded={detailsOpen}
               aria-controls="live-events-details"
               onClick={() => setDetailsOpen((value) => !value)}
-              className="flex min-h-8 items-center gap-1 rounded-xl border border-white/[0.07] bg-black/20 px-2.5 text-[9px] font-semibold text-white/48 active:bg-white/[0.06]"
+              className="flex min-h-11 items-center gap-1 rounded-xl border border-white/[0.07] bg-black/20 px-2.5 text-[9px] font-semibold text-white/48 active:bg-white/[0.06]"
             >
               <span>{detailsOpen ? "Скрыть" : "Журнал"}</span>
               {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -199,7 +199,7 @@ export default function EventsPanel({
                 <button
                   type="button"
                   onClick={() => setFilter("all")}
-                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  className={`min-h-11 min-w-11 rounded-lg px-2 transition-colors ${
                     filter === "all" ? "bg-white text-[#090a0d]" : "text-white/38 active:bg-white/[0.06]"
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function EventsPanel({
                   type="button"
                   onClick={() => setFilter("day")}
                   style={filter === "day" ? { backgroundColor: "rgba(232, 185, 94, 0.10)", borderColor: "rgba(232, 185, 94, 0.18)" } : undefined}
-                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  className={`min-h-11 min-w-11 rounded-lg px-2 transition-colors ${
                     filter === "day" ? "border text-amber-100" : "text-white/38 active:bg-white/[0.06]"
                   }`}
                 >
@@ -219,7 +219,7 @@ export default function EventsPanel({
                   type="button"
                   onClick={() => setFilter("night")}
                   style={filter === "night" ? { backgroundColor: "rgba(167, 139, 250, 0.10)", borderColor: "rgba(196, 181, 253, 0.18)" } : undefined}
-                  className={`min-h-7 rounded-lg px-2 transition-colors ${
+                  className={`min-h-11 min-w-11 rounded-lg px-2 transition-colors ${
                     filter === "night" ? "border text-violet-100" : "text-white/38 active:bg-white/[0.06]"
                   }`}
                 >

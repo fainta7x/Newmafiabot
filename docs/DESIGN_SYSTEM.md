@@ -107,6 +107,18 @@ Player identity must never disappear merely because a player is dead, voted out 
 
 Do not hide judge-critical copy with ellipsis just to fit a test.
 
+### Setup / physical role distribution
+
+The pre-game setup is part of the judge workflow, not a separate settings screen.
+
+- `Раздача ролей` and its primary start action must be visible before optional settings;
+- table composition remains quickly reviewable before the first card;
+- music and speech recording are secondary, compact controls and must not push the primary start action below them;
+- during physical dealing, the current seat/player and the four role choices are the dominant work area;
+- role colours are semantic accents only; the surrounding surface remains the canonical neutral cabinet material;
+- previous/next seat navigation and completion remain explicit, finger-sized controls;
+- setup polish must not alter the physical-card role counts or automatic transition into the game protocol.
+
 ## Layering contract
 
 Conceptual order:
@@ -145,4 +157,4 @@ For every visual PR:
 
 The app-wide migration to the Player Cabinet language across Player, Organizer CRM and Live Game was integrated through release PR #118 on 2026-08-20. Do not reopen that rollout roadmap from older branches/docs.
 
-Remaining visual work is ordinary product polish/bug fixing, not a separate global migration program. The setup/physical role-distribution screen may still receive later cosmetic alignment, but it is functional and not a current release blocker.
+Remaining visual work is ordinary product polish/bug fixing, not a separate global migration program. Setup and physical role distribution now follow the same cabinet/judge-first contract; future changes there should be concrete polish or bug fixes rather than another redesign stage.

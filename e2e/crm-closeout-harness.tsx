@@ -4,6 +4,18 @@ import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
 
+// The production OrganizerCRM shell scrolls the window. The global app CSS keeps
+// html/body/#root at 100% for full-screen game surfaces, so this isolated evidence
+// harness must release those fixed heights or a full-page screenshot clips the
+// close-out panel at exactly one viewport even though the real CRM is scrollable.
+for (const node of [document.documentElement, document.body, document.getElementById('root')]) {
+  if (!node) continue;
+  node.style.height = 'auto';
+  node.style.minHeight = '100%';
+}
+document.documentElement.style.overflowY = 'auto';
+document.body.style.overflowY = 'auto';
+
 const participants = [
   { id: 'ep1', player_id: 'p1', nickname: 'Богдан', response_status: 'going', registration_status: 'going', attendance_status: 'pending', payment_status: 'unpaid', amount_due: 400, amount_paid: 0 },
   { id: 'ep2', player_id: 'p2', nickname: 'Матроскина', response_status: 'late', registration_status: 'late', attendance_status: 'pending', payment_status: 'unpaid', amount_due: 300, amount_paid: 100 },

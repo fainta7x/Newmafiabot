@@ -27,6 +27,11 @@ test.describe('Organizer events cabinet migration', () => {
     await expect(calendar).toBeVisible();
     expect(await calendar.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
 
+    const previousMonth = page.getByRole('button', { name: 'Предыдущий месяц' });
+    const nextMonth = page.getByRole('button', { name: 'Следующий месяц' });
+    expect(await previousMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    expect(await nextMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+
     const allFilter = page.getByTestId('crm-calendar-filter-all');
     await expect(allFilter).toBeVisible();
     const filterTreatment = await allFilter.evaluate((element) => {
@@ -35,6 +40,18 @@ test.describe('Organizer events cabinet migration', () => {
     });
     expect(filterTreatment.background).toBe('rgb(255, 255, 255)');
     expect(filterTreatment.color).toBe('rgb(9, 10, 13)');
+
+    const filterHeights = await calendar.locator('[data-testid^="crm-calendar-filter-"]').evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().height),
+    );
+    expect(Math.min(...filterHeights)).toBeGreaterThanOrEqual(44);
+
+    const draftEvent = page.getByTestId('crm-calendar-event-evening-draft');
+    await expect(draftEvent).toBeVisible();
+    await expect(draftEvent).toHaveText('20:00');
+    await expect(draftEvent).toHaveAttribute('aria-label', /Клубный вечер — черновик · 20:00 · Клубный/);
+    const eventTextFits = await draftEvent.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
+    expect(eventTextFits).toBe(true);
 
     const segmented = page.locator('[data-slot="segmented-control"]');
     await expect(segmented).toBeVisible();

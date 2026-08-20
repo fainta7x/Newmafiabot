@@ -41,7 +41,7 @@ const tone = (kind: CalendarItem['kind']) => {
 
 const label = (kind: CalendarItem['kind']) => kind === 'NOVICE' ? 'Новички' : kind === 'RATING' ? 'Рейтинг' : kind === 'TOURNAMENT' ? 'Турнир' : 'Клубный';
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
 interface Props {
   evenings: GameEvening[];
@@ -123,12 +123,12 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
   return (
     <section data-testid="crm-events-calendar" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
       <div className="flex items-center justify-between gap-3">
-        <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronLeft className="h-4 w-4" /></button>
         <div className="text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Календарь клуба</div>
           <h2 className="mt-1 text-base font-semibold capitalize text-white">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</h2>
         </div>
-        <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronRight className="h-4 w-4" /></button>
       </div>
 
       <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
@@ -138,7 +138,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
             type="button"
             data-testid={`crm-calendar-filter-${item.id.toLowerCase()}`}
             onClick={() => setFilter(item.id)}
-            className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-medium ${filter === item.id ? 'bg-white text-[#090a0d]' : 'bg-black/20 text-white/40'}`}
+            className={`min-h-11 shrink-0 rounded-xl px-3 text-[11px] font-medium ${filter === item.id ? 'bg-white text-[#090a0d]' : 'bg-black/20 text-white/40'}`}
           >
             {item.label}
           </button>
@@ -157,11 +157,23 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
             <div key={dayKey(date)} className="min-h-[72px] rounded-xl border border-white/[0.055] bg-black/20 p-1">
               <div className="px-0.5 text-[9px] font-semibold text-white/30">{day}</div>
               <div className="mt-1 space-y-1">
-                {dayItems.slice(0, 2).map((item) => (
-                  <button key={item.key} type="button" onClick={() => open(item)} title={item.title} className={`block w-full truncate rounded-md border px-1 py-1 text-left text-[7px] font-semibold leading-none ${tone(item.kind)}`}>
-                    {localTime(item.startsAt)} {label(item.kind)}
-                  </button>
-                ))}
+                {dayItems.slice(0, 2).map((item) => {
+                  const time = localTime(item.startsAt);
+                  const accessibleLabel = `${item.title} · ${time} · ${label(item.kind)}`;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      data-testid={`crm-calendar-event-${item.key}`}
+                      onClick={() => open(item)}
+                      title={accessibleLabel}
+                      aria-label={accessibleLabel}
+                      className={`block w-full rounded-md border px-1 py-1 text-center font-mono text-[8px] font-semibold leading-none ${tone(item.kind)}`}
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
                 {dayItems.length > 2 && <div className="px-1 text-[7px] text-white/25">+{dayItems.length - 2}</div>}
               </div>
             </div>

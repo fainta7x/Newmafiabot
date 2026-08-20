@@ -47,7 +47,8 @@ test.describe('Live Game utility cabinet', () => {
     await expect(stateButton).toBeVisible();
     const stateButtonBox = await stateButton.boundingBox();
     expect(stateButtonBox).not.toBeNull();
-    expect(stateButtonBox.width).toBeLessThanOrEqual(30);
+    expect(stateButtonBox.width).toBeGreaterThanOrEqual(44);
+    expect(stateButtonBox.height).toBeGreaterThanOrEqual(44);
     await expect(stateButton.locator('span')).toBeHidden();
 
     const panel = page.getByTestId('live-events-panel');

@@ -15,6 +15,8 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - UI: `src/components/player/PlayerEventsCalendar.tsx`.
 - Organizer: `src/components/crm/EveningsList.tsx`, `src/components/crm/EveningWorkspace.tsx`.
 - API: `src/server/routes/eveningsRoutes.ts`, `participantRoutes.ts`, `playerEveningJourneyRoutes.ts`.
+- Rolling regular-Friday calendar + Monday 19:00 TG/VK/personal-announcement reconciliation: `src/server/services/weeklyEveningAutomationService.ts`; state schema: `src/db/ensureWeeklyEveningAutomationSchema.ts`; focused coverage: `src/tests/weeklyEveningAutomation.test.ts`.
+- The existing Telegram bot `public_router_refresh_task` reaches `/api/bot/telegram/public-router`; `botTelegramRoutes.ts` reuses that 30-minute heartbeat to run the due-aware/idempotent weekly reconciler.
 - Selection closes after refresh/save: inspect local selection/deep-link effects before touching DB.
 
 ## Games / stats / career / replay
@@ -53,6 +55,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - UI: `src/components/crm/EveningWorkspace.tsx`.
 - API: `eveningsRoutes.ts`, `participantRoutes.ts`, `eveningAnnouncementRoutes.ts`, `tableScoutingRoutes.ts`.
 - Announcement creation and external Telegram/VK delivery are separate diagnostic stages.
+- Weekly auto-announcement deliberately keeps calendar publication separate from external publication; do not re-couple `published` status to immediate TG/VK posts.
 
 ## Live Game / voting / fouls / PPK
 - Main UI: `src/components/LiveGameEngine.tsx` plus `src/components/LiveGameEngine/` and `src/components/game/`.

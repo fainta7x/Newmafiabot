@@ -143,6 +143,7 @@ Closing a club evening should be **fast, flexible and fact-based**, not a rigid 
 - The close-out UI should support bulk attendance actions as well as per-player correction so the organizer is not forced through every row one by one.
 - A player who arrived without registration can be added or found quickly during close-out and marked as attended without fabricating a prior «Иду» response. Planned response and factual attendance remain separate facts.
 - Payment does **not** block closing. For an attended player, the recorded paid amount is income and any remaining amount becomes debt at settlement.
+- Before final close/settlement, a manually confirmed payment must remain correctable: an accidental full-payment mark can be removed and returned to unpaid so the organizer is never trapped by one mistaken tap.
 - If all game protocols are present and completed, close normally.
 - If games were not entered or unfinished drafts remain, the organizer may explicitly choose **«закрыть без полной игровой статистики»**. Unfinished drafts must be excluded from active statistics rather than silently treated as completed games.
 - Closing the evening completes its organizer close-out task.

@@ -29,17 +29,20 @@ const capture = (text: string, expression: RegExp): string | null => {
   return match?.[1]?.trim() || null;
 };
 
+const hasEnvKey = (text: string, key: string): boolean => new RegExp(`(?:^|\\n)\\s*-?\\s*key:\\s*${key}\\s*(?:\\n|$)|(?:^|\\n)${key}=`, 'm').test(text);
+
 const packageJsonText = readText('package.json');
 const packageJson = packageJsonText ? JSON.parse(packageJsonText) as { name?: string; version?: string } : {};
 const projectState = readText('docs/PROJECT_STATE.md');
 const renderYaml = readText('render.yaml');
+const productionEnvExample = readText('.env.production.example');
 
 const branch = runGit('rev-parse', '--abbrev-ref', 'HEAD');
 const commit = runGit('rev-parse', 'HEAD');
 const shortCommit = commit?.slice(0, 8) || null;
 const statusOutput = runGit('status', '--porcelain');
 const dirtyEntries = statusOutput ? statusOutput.split('\n').filter(Boolean) : [];
-const verifiedMain = capture(projectState, /\*\*Last verified main:\*\*\s*`([0-9a-f]{7,40})`/i);
+const recordedMain = capture(projectState, /\*\*Current main:\*\*\s*`([0-9a-f]{7,40})`/i);
 
 const docs = [
   'AGENTS.md',
@@ -49,6 +52,7 @@ const docs = [
   'docs/ARCHITECTURE.md',
   'docs/BUSINESS_RULES.md',
   'docs/RUNBOOK.md',
+  'docs/DESIGN_SYSTEM.md',
 ].map((file) => ({ file, present: existsSync(path.join(root, file)) }));
 
 const navigationTools = [
@@ -56,26 +60,46 @@ const navigationTools = [
   'src/scripts/projectAffected.ts',
 ].map((file) => ({ file, present: existsSync(path.join(root, file)) }));
 
+const renderTursoUrl = hasEnvKey(renderYaml, 'TURSO_DATABASE_URL');
+const renderTursoToken = hasEnvKey(renderYaml, 'TURSO_AUTH_TOKEN');
+const envExampleTursoUrl = /(?:^|\n)TURSO_DATABASE_URL=/m.test(productionEnvExample);
+const envExampleTursoToken = /(?:^|\n)TURSO_AUTH_TOKEN=/m.test(productionEnvExample);
+
 const render = {
   service: capture(renderYaml, /(?:^|\n)\s*name:\s*([^\n#]+)/),
   branch: capture(renderYaml, /(?:^|\n)\s*branch:\s*([^\n#]+)/),
   autoDeployTrigger: capture(renderYaml, /(?:^|\n)\s*autoDeployTrigger:\s*([^\n#]+)/),
   healthCheckPath: capture(renderYaml, /(?:^|\n)\s*healthCheckPath:\s*([^\n#]+)/),
   databasePath: capture(renderYaml, /DATABASE_PATH[\s\S]*?\n\s*value:\s*([^\n#]+)/),
+  tursoDatabaseUrlDeclared: renderTursoUrl,
+  tursoAuthTokenDeclared: renderTursoToken,
+};
+
+const storage = {
+  productionContract: renderTursoUrl && renderTursoToken
+    ? 'turso-primary-when-secrets-configured'
+    : 'INVALID-or-local-only',
+  localFallbackPath: render.databasePath,
+  envExampleDocumentsTurso: envExampleTursoUrl && envExampleTursoToken,
+  checkpointRole: 'bootstrap/recovery only; never overwrite non-empty runtime data',
 };
 
 const checkFailures: string[] = [];
 for (const doc of docs) {
-  if (!doc.present) checkFailures.push(`Missing handoff document: ${doc.file}`);
+  if (!doc.present) checkFailures.push(`Missing canonical document: ${doc.file}`);
 }
 for (const tool of navigationTools) {
   if (!tool.present) checkFailures.push(`Missing navigation tool: ${tool.file}`);
 }
-if (!verifiedMain) checkFailures.push('docs/PROJECT_STATE.md has no Last verified main marker');
+if (!recordedMain) checkFailures.push('docs/PROJECT_STATE.md has no Current main marker');
 if (!render.service) checkFailures.push('render.yaml service name was not detected');
 if (!render.branch) checkFailures.push('render.yaml branch was not detected');
 if (!render.autoDeployTrigger) checkFailures.push('render.yaml autoDeployTrigger was not detected');
 if (!render.healthCheckPath) checkFailures.push('render.yaml healthCheckPath was not detected');
+if (renderTursoUrl !== renderTursoToken) checkFailures.push('render.yaml must declare TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together');
+if (!renderTursoUrl || !renderTursoToken) checkFailures.push('render.yaml must document the current Turso production storage contract');
+if (!envExampleTursoUrl || !envExampleTursoToken) checkFailures.push('.env.production.example must document both Turso production variables');
+if (/\/var\/data\/mafia_crm\.sqlite/.test(productionEnvExample)) checkFailures.push('.env.production.example still contains obsolete /var/data SQLite production path');
 
 const info = {
   project: packageJson.name || 'Newmafiabot',
@@ -89,17 +113,18 @@ const info = {
     changedEntries: dirtyEntries.length,
   },
   handoff: {
-    verifiedMain,
-    currentCommitMatchesVerifiedMain: Boolean(commit && verifiedMain && commit === verifiedMain),
+    recordedMain,
+    currentCommitMatchesRecordedMain: Boolean(commit && recordedMain && commit === recordedMain),
     docs,
     navigationTools,
   },
   render,
+  storage,
   check: {
     ok: checkFailures.length === 0,
     failures: checkFailures,
   },
-  note: 'This command is read-only and does not query GitHub Actions or live Render runtime.',
+  note: 'Read-only repository/config snapshot. It does not query GitHub Actions, Render secrets, Turso contents or live deployed runtime.',
 };
 
 const jsonMode = process.argv.includes('--json');
@@ -109,10 +134,10 @@ if (jsonMode) {
   process.stdout.write(`${JSON.stringify(info, null, 2)}\n`);
 } else {
   const yesNo = (value: boolean | null): string => value === null ? 'unknown' : value ? 'yes' : 'no';
-  const verifiedState = info.handoff.currentCommitMatchesVerifiedMain
+  const recordedState = info.handoff.currentCommitMatchesRecordedMain
     ? 'matches current commit'
-    : verifiedMain
-      ? 'different from current commit (normal on a feature/docs branch; reconcile before claiming main verification)'
+    : recordedMain
+      ? 'different from current commit (normal on a feature/docs branch; reconcile before claiming main state)'
       : 'not recorded';
 
   console.log('2LA Noire project context');
@@ -122,9 +147,9 @@ if (jsonMode) {
   console.log(`Git branch: ${branch || 'unavailable'}`);
   console.log(`Git commit: ${commit || 'unavailable'}`);
   console.log(`Working tree clean: ${yesNo(info.git.clean)}${dirtyEntries.length ? ` (${dirtyEntries.length} changed entries)` : ''}`);
-  console.log(`PROJECT_STATE verified main: ${verifiedMain || 'not recorded'} — ${verifiedState}`);
+  console.log(`PROJECT_STATE current main: ${recordedMain || 'not recorded'} — ${recordedState}`);
   console.log('');
-  console.log('Handoff docs:');
+  console.log('Canonical docs:');
   for (const doc of docs) console.log(`  ${doc.present ? 'OK ' : 'MISS'} ${doc.file}`);
   console.log('Navigation tools:');
   for (const tool of navigationTools) console.log(`  ${tool.present ? 'OK ' : 'MISS'} ${tool.file}`);
@@ -134,14 +159,17 @@ if (jsonMode) {
   console.log(`  branch: ${info.render.branch || 'not found'}`);
   console.log(`  auto deploy: ${info.render.autoDeployTrigger || 'not found'}`);
   console.log(`  health: ${info.render.healthCheckPath || 'not found'}`);
-  console.log(`  database: ${info.render.databasePath || 'not found'}`);
+  console.log(`  Turso URL declared: ${yesNo(info.render.tursoDatabaseUrlDeclared)}`);
+  console.log(`  Turso token declared: ${yesNo(info.render.tursoAuthTokenDeclared)}`);
+  console.log(`  local DB fallback: ${info.render.databasePath || 'not found'}`);
+  console.log(`  storage contract: ${info.storage.productionContract}`);
   console.log('');
   console.log(`Handoff integrity: ${info.check.ok ? 'OK' : 'FAILED'}`);
   for (const failure of checkFailures) console.log(`  - ${failure}`);
   console.log('');
   console.log('Navigate: known feature -> FEATURE_MAP; symptom -> ERROR_PLAYBOOK; fuzzy term -> npm run project:find.');
   console.log('After edits: npm run project:affected -- <changed files>.');
-  console.log('Note: this command is read-only and does not prove GitHub CI or live Render status.');
+  console.log('Note: this command does not prove live Render/Turso secrets, deployed SHA or runtime health.');
 }
 
 if (checkMode && !info.check.ok) process.exitCode = 1;

@@ -15,6 +15,7 @@ type Participant = {
 };
 
 type Player = { id: string; nickname: string };
+type WalkInCandidate = Player & { participant?: Participant };
 
 type CloseoutState = {
   evening: { id: string; title: string; starts_at: string; status: string; settled_at?: string | null };
@@ -41,12 +42,14 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 };
 
 const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
+const expectedResponse = (participant: Participant) => ['going', 'late'].includes(String(participant.response_status || participant.registration_status || ''));
 
 export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningId }) => {
   const [state, setState] = useState<CloseoutState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState('');
   const [guestNickname, setGuestNickname] = useState('');
+  const [walkInDue, setWalkInDue] = useState(400);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [allowMissingStats, setAllowMissingStats] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,14 +69,21 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
   const isFuture = state ? new Date(state.evening.starts_at).getTime() > Date.now() && state.evening.status !== 'active' : true;
   const readonly = state?.evening.status === 'completed' || Boolean(state?.evening.settled_at);
 
-  const filteredPlayers = useMemo(() => {
+  const walkInCandidates = useMemo<WalkInCandidate[]>(() => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
-    const present = new Set((state?.participants || []).map((item) => item.player_id));
+    const participantByPlayer = new Map((state?.participants || []).map((item) => [item.player_id, item]));
     return players
-      .filter((player) => !present.has(player.id))
       .filter((player) => !query || player.nickname.toLocaleLowerCase('ru-RU').includes(query))
+      .map((player) => ({ ...player, participant: participantByPlayer.get(player.id) }))
+      .filter((candidate) => !candidate.participant || candidate.participant.attendance_status === 'pending')
+      .sort((a, b) => Number(Boolean(b.participant)) - Number(Boolean(a.participant)))
       .slice(0, 8);
   }, [players, search, state]);
+
+  const unexpectedPending = useMemo(
+    () => (state?.participants || []).filter((item) => item.attendance_status === 'pending' && !expectedResponse(item)),
+    [state],
+  );
 
   const patchParticipants = async (updates: any[], label: string) => {
     if (!updates.length || busy) return;
@@ -99,13 +109,23 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     setBusy('walk-in'); setError(null); setMessage(null);
     try {
       await request(`/api/evenings/${encodeURIComponent(eveningId)}/closeout/walk-in`, {
-        method: 'POST', body: JSON.stringify(input),
+        method: 'POST', body: JSON.stringify({ ...input, amount_due: walkInDue }),
       });
       setSearch(''); setGuestNickname('');
       await load(true);
       setMessage('Пришедший игрок добавлен и отмечен как присутствовавший.');
     } catch (err: any) { setError(err?.message || 'Не удалось добавить игрока'); }
     finally { setBusy(null); }
+  };
+
+  const markCandidatePresent = async (candidate: WalkInCandidate) => {
+    if (candidate.participant) {
+      await patchParticipants([{ id: candidate.participant.id, attendance_fact: 'attended_on_time' }], `walk-in-existing-${candidate.participant.id}`);
+      setSearch('');
+      setMessage(`${candidate.nickname}: отмечен как пришедший.`);
+      return;
+    }
+    await addWalkIn({ player_id: candidate.id });
   };
 
   const settle = async () => {
@@ -143,7 +163,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
   );
 
   return (
-    <section className="rounded-[20px] border border-warning/25 bg-surface-1 p-4">
+    <section className="rounded-[20px] border border-warning/25 bg-surface-1 p-4" data-testid="evening-closeout-panel">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.14em] text-warning">Закрытие вечера</div>
@@ -161,14 +181,22 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
             <button type="button" disabled={Boolean(busy)} onClick={() => void patchParticipants(state.pending_expected.map((item) => ({ id: item.id, attendance_fact: 'no_show' })), 'all-no-show')} className="min-h-10 flex-1 rounded-xl bg-danger-soft px-2 text-[10px] font-bold text-danger disabled:opacity-50">Остальных не было</button>
           </div>
           <div className="mt-2 space-y-1.5">
-            {state.pending_expected.map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><span className="min-w-0 flex-1 truncate text-[11px] font-bold text-text-primary">{item.nickname}</span><button onClick={() => void patchParticipants([{ id: item.id, attendance_fact: 'attended_on_time' }], `yes-${item.id}`)} className="rounded-lg bg-success-soft px-2.5 py-1.5 text-[9px] font-bold text-success">Был</button><button onClick={() => void patchParticipants([{ id: item.id, attendance_fact: 'no_show' }], `no-${item.id}`)} className="rounded-lg bg-danger-soft px-2.5 py-1.5 text-[9px] font-bold text-danger">Не был</button></div>)}
+            {state.pending_expected.map((item) => <div key={item.id} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2"><span className="min-w-0 flex-1 truncate text-[11px] font-bold text-text-primary">{item.nickname}</span><button type="button" onClick={() => void patchParticipants([{ id: item.id, attendance_fact: 'attended_on_time' }], `yes-${item.id}`)} className="rounded-lg bg-success-soft px-2.5 py-1.5 text-[9px] font-bold text-success">Был</button><button type="button" onClick={() => void patchParticipants([{ id: item.id, attendance_fact: 'no_show' }], `no-${item.id}`)} className="rounded-lg bg-danger-soft px-2.5 py-1.5 text-[9px] font-bold text-danger">Не был</button></div>)}
           </div>
         </> : <div className="mt-2 flex items-center gap-2 text-[10px] text-success"><CheckCircle2 className="h-4 w-4" /> Все ожидаемые игроки сверены.</div>}
 
-        <button type="button" onClick={() => void openWalkIn()} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-border-soft bg-surface-1 text-[10px] font-bold text-text-primary"><UserPlus className="h-4 w-4" /> Пришёл без записи</button>
+        {unexpectedPending.length ? <p className="mt-3 rounded-xl bg-surface-1 px-3 py-2 text-[9px] leading-4 text-text-muted">Ещё {unexpectedPending.length} игрок(а) отвечали «не иду / думаю / не ответил». Если кто-то всё-таки пришёл — найди его ниже одним поиском.</p> : null}
+
+        <button type="button" onClick={() => void openWalkIn()} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-border-soft bg-surface-1 text-[10px] font-bold text-text-primary"><UserPlus className="h-4 w-4" /> Пришёл без записи / несмотря на ответ</button>
         {showWalkIn ? <div className="mt-2 rounded-xl border border-border-soft bg-surface-1 p-2.5">
-          <div className="flex items-center gap-2 rounded-lg bg-surface-2 px-2"><Search className="h-3.5 w-3.5 text-text-muted" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти игрока" className="min-h-9 min-w-0 flex-1 bg-transparent text-[10px] text-text-primary outline-none" /></div>
-          {filteredPlayers.length ? <div className="mt-2 space-y-1">{filteredPlayers.map((player) => <button key={player.id} type="button" onClick={() => void addWalkIn({ player_id: player.id })} className="flex min-h-9 w-full items-center justify-between rounded-lg px-2 text-left text-[10px] font-bold text-text-primary hover:bg-surface-2"><span>{player.nickname}</span><span className="text-success">+ Был</span></button>)}</div> : null}
+          <div className="flex items-center gap-2 rounded-lg bg-surface-2 px-2"><Search className="h-3.5 w-3.5 text-text-muted" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти любого игрока" className="min-h-9 min-w-0 flex-1 bg-transparent text-[10px] text-text-primary outline-none" /></div>
+          {walkInCandidates.length ? <div className="mt-2 space-y-1">{walkInCandidates.map((candidate) => <button key={candidate.id} type="button" onClick={() => void markCandidatePresent(candidate)} className="flex min-h-9 w-full items-center justify-between rounded-lg px-2 text-left text-[10px] font-bold text-text-primary hover:bg-surface-2"><span className="min-w-0 truncate">{candidate.nickname}</span><span className="ml-2 shrink-0 text-success">{candidate.participant ? 'Был →' : '+ Добавить'}</span></button>)}</div> : null}
+
+          <div className="mt-3 text-[9px] font-bold text-text-muted">Сколько должен новый walk-in</div>
+          <div className="mt-1.5 grid grid-cols-5 gap-1">
+            {[0, 100, 200, 300, 400].map((amount) => <button key={amount} type="button" onClick={() => setWalkInDue(amount)} className={`min-h-8 rounded-lg text-[9px] font-bold ${walkInDue === amount ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary'}`}>{amount === 0 ? '0 ₽' : amount}</button>)}
+          </div>
+
           <div className="mt-2 flex gap-2"><input value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} placeholder="Или новый гость" className="min-h-9 min-w-0 flex-1 rounded-lg bg-surface-2 px-2 text-[10px] text-text-primary outline-none" /><button disabled={!guestNickname.trim() || Boolean(busy)} onClick={() => void addWalkIn({ nickname: guestNickname.trim() })} className="rounded-lg bg-accent px-3 text-[9px] font-bold text-white disabled:opacity-40">Добавить</button></div>
         </div> : null}
         {state.unplanned_attended.length ? <div className="mt-2 text-[9px] text-text-muted">Без предварительного «Иду»: {state.unplanned_attended.map((item) => item.nickname).join(', ')}</div> : null}

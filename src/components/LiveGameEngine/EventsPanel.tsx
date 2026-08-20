@@ -120,7 +120,7 @@ export default function EventsPanel({
         type="button"
         data-testid="live-state-button"
         onClick={() => setStateOpen(true)}
-        className="fixed right-[74px] top-[3px] z-[111] grid h-7 w-7 place-items-center rounded-lg border border-amber-200/15 bg-amber-200/[0.08] text-amber-100/75 shadow-none backdrop-blur md:right-[92px] md:top-[6px] md:flex md:h-9 md:w-auto md:px-3 md:gap-1.5 md:rounded-xl md:text-[10px] md:font-semibold"
+        className="fixed right-2 top-0 z-[111] grid h-11 w-11 place-items-center rounded-xl border border-amber-200/15 bg-amber-200/[0.08] text-amber-100/75 shadow-none backdrop-blur md:right-[92px] md:top-[6px] md:flex md:h-9 md:w-auto md:px-3 md:gap-1.5 md:rounded-xl md:text-[10px] md:font-semibold"
         title="Текущее состояние игры"
         aria-label="Текущее состояние игры"
       >

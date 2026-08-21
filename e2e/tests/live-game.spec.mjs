@@ -216,7 +216,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).first()).toBeVisible();
 
     await startSpeech(page, 1);
-    await expect(seatCard(page, 1).locator('.live-seat-quickbar__group')).toBeVisible();
+    await expect(seatCard(page, 1).locator('.live-seat-quickbar__group')).toBeHidden();
     const playerAction = await openPlayerAction(page, 1);
     await playerAction.getByRole('button', { name: '+ Обычный фол', exact: true }).click();
     await expect(seatCard(page, 1).locator('.evening-live-discipline-foul')).toHaveAttribute('data-count', '1');

@@ -116,9 +116,9 @@ test.describe('Live Game seat cabinet', () => {
       const style = getComputedStyle(element);
       return { border: style.borderTopColor, shadow: style.boxShadow, backgroundImage: style.backgroundImage };
     });
-    expect(speakingTreatment.border).toBe('rgba(232, 185, 94, 0.86)');
+    expect(speakingTreatment.border).toBe('rgba(232, 185, 94, 0.56)');
     expect(speakingTreatment.shadow).toContain('232, 185, 94');
-    expect(speakingTreatment.backgroundImage).toContain('232, 185, 94');
+    expect(speakingTreatment.backgroundImage).toBe('none');
     await capture(page, testInfo, 'live-game-speaking-focus.png');
 
     await seat(page, 6).click();

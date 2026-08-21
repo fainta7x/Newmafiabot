@@ -80,7 +80,7 @@ import {
 } from "../lib/gameProtocolCore.js";
 import { buildVotingFarewellQueue, determineLiveWinner } from "../lib/liveGameFlow.js";
 
-export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange }: LiveGameEngineProps) {
+export default function LiveGameEngine({ players, initialJudgeId, onGameFinished, onCancel, onPhaseChange, rolesHidden, onRolesHiddenChange }: LiveGameEngineProps) {
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
@@ -135,6 +135,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [restorableSession, setRestorableSession] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "list">("table");
   const [showRolesOnTable, setShowRolesOnTable] = useState(true);
+  const rolesAreVisible = rolesHidden === undefined ? showRolesOnTable : !rolesHidden;
+  const toggleRolesOnTable = () => {
+    const nextVisible = !rolesAreVisible;
+    setShowRolesOnTable(nextVisible);
+    onRolesHiddenChange?.(!nextVisible);
+  };
 
   useEffect(() => { onPhaseChange?.(phase); }, [phase, onPhaseChange]);
 
@@ -1195,7 +1201,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           playBeep={playBeep}
           votes={votes}
           handleAllocateVotes={handleAllocateVotes}
-          showRolesOnTable={showRolesOnTable}
+          showRolesOnTable={rolesAreVisible}
           shootoutNominees={[]}
           isTimerRunning={isTimerRunning}
           setIsTimerRunning={setIsTimerRunning}
@@ -1362,7 +1368,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             <span className="text-[10px] text-slate-300 font-black uppercase flex items-center gap-1.5"><Shield className="w-4 h-4 text-rose-500" />Панель судейства</span>
             <div className="flex gap-2">
               <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
-              <button type="button" onClick={() => setShowRolesOnTable((value) => !value)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{showRolesOnTable ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{showRolesOnTable ? 'Скрыть роли' : 'Показать роли'}</button>
+              <button type="button" onClick={toggleRolesOnTable} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{rolesAreVisible ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{rolesAreVisible ? 'Скрыть роли' : 'Показать роли'}</button>
               <button
                 type="button"
                 onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}

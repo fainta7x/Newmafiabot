@@ -39,4 +39,6 @@ export interface LiveGameEngineProps {
   onGameFinished: (gameData: { winning_team: "Красные" | "Чёрные"; protocol_text: string; slots: GameSlot[]; judge_id: number }) => void;
   onCancel: () => void;
   onPhaseChange?: (phase: string) => void;
+  rolesHidden?: boolean;
+  onRolesHiddenChange?: (hidden: boolean) => void;
 }

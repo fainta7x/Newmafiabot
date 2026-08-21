@@ -13,11 +13,11 @@ const expectNoHorizontalOverflow = async (page) => {
 test.describe('Organizer overview cabinet migration', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('uses canonical typography, surfaces and semantic accents without changing actions', async ({ page }, testInfo) => {
+  test('keeps the Today screen compact while preserving the actionable evening summary', async ({ page }, testInfo) => {
     await page.goto('/e2e/crm-overview.html');
     await page.evaluate(() => document.fonts.ready);
 
-    const heading = page.getByRole('heading', { name: 'Пульт организатора' });
+    const heading = page.getByRole('heading', { name: 'Сегодня', exact: true });
     await expect(heading).toBeVisible();
     const headingTreatment = await heading.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -26,6 +26,7 @@ test.describe('Organizer overview cabinet migration', () => {
     expect(headingTreatment.fontSize).toBe('24px');
     expect(headingTreatment.fontWeight).toBe('600');
     expect(['normal', '0px']).toContain(headingTreatment.letterSpacing);
+    await expect(page.getByText('Organizer 2.0', { exact: true })).toHaveCount(0);
 
     const eventHeading = page.getByRole('heading', { name: 'Пятничный клубный вечер' });
     await expect(eventHeading).toBeVisible();
@@ -40,7 +41,6 @@ test.describe('Organizer overview cabinet migration', () => {
     await expect(expectedMetric).toBeVisible();
     expect(await expectedMetric.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0.2)');
 
-    await eventHeading.click();
     await expectNoHorizontalOverflow(page);
 
     const path = testInfo.outputPath('crm-overview-canonical.png');

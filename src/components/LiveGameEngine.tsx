@@ -108,6 +108,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gameFinishedRef = useRef(false);
+  // Mobile browsers can deliver a duplicate tap/click for the same control.
+  // Keep one regular foul per intentional tap without blocking the next action.
+  const recentRegularFoulRef = useRef<{ slot: number; at: number } | null>(null);
   const [isMuted, setIsMuted] = useState(false);
 
   const [nominations, setNominations] = useState<number[]>([]);
@@ -473,6 +476,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const addRegularFoulFromMenu = (slot: number) => {
+    const now = Date.now();
+    const recent = recentRegularFoulRef.current;
+    if (recent?.slot === slot && now - recent.at < 500) return;
+    recentRegularFoulRef.current = { slot, at: now };
+
     const id = String(slot);
     const next = addRegularFoul(discipline, id);
     const pending = next.players[id]?.pendingAction;

@@ -268,6 +268,10 @@ test.describe('Live Game browser stabilization', () => {
     await fillBestMove(page, [1, 4, 8]);
 
     await expect(centerPanel(page).getByText('Последняя речь #2', { exact: true })).toBeVisible();
+    const farewellAction = await openPlayerAction(page, 2);
+    await expect(farewellAction.getByRole('button', { name: '+ Обычный фол', exact: true })).toBeVisible();
+    await expect(farewellAction.getByRole('button', { name: 'Выставить', exact: true })).toHaveCount(0);
+    await farewellAction.getByRole('button', { name: '×', exact: true }).click();
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
 
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();

@@ -1002,9 +1002,18 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     finishNightToDay();
   };
 
+  const isFarewellSpeechActive = () => activeSpeakerSlot !== null && (
+    (phase === 'night' && postNightStage === 'farewell') ||
+    (phase === 'day_voting' && votingFarewellQueue.length > 0)
+  );
+
   const handleSeatClick = (slot: number) => {
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player) return;
+    if (isFarewellSpeechActive()) {
+      if (slot === activeSpeakerSlot) setActionPlayerSlot(slot);
+      return;
+    }
     if (phase === 'night') {
       if (postNightStage !== 'none' || !player.alive) return;
       saveSnapshot();
@@ -1291,6 +1300,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   }
 
   const actionPlayer = actionPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === actionPlayerSlot) || null;
+  const farewellActionOpen = isFarewellSpeechActive() && actionPlayerSlot === activeSpeakerSlot;
   const actionDiscipline = actionPlayerSlot === null ? null : discipline.players[String(actionPlayerSlot)] || null;
   const nominationBlockedBySpeaker = Boolean(
     actionPlayerSlot !== null &&
@@ -1317,7 +1327,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onConfirm={confirmPendingDisciplineAction}
       />
       <PlayerActionOverlay
-        player={phase === 'day_speeches' ? actionPlayer : null}
+        player={phase === 'day_speeches' || farewellActionOpen ? actionPlayer : null}
+        mode={farewellActionOpen ? 'farewell' : 'standard'}
         disciplinePlayer={actionDiscipline}
         activeSpeakerSlot={activeSpeakerSlot}
         nominations={nominations}

@@ -44,43 +44,28 @@
 .live-seat-card[data-seat="9"] { --seat-rgb: 217, 119, 6; }
 .live-seat-card[data-seat="10"] { --seat-rgb: 132, 204, 22; }
 
-.evening-live-engine-shell .live-seat-card {
-  background:
-    linear-gradient(155deg, rgba(var(--seat-rgb, 255, 255, 255), 0.075) 0%, rgba(255, 255, 255, 0.040) 43%, rgba(255, 255, 255, 0.025) 100%) !important;
-  border-color: rgba(var(--seat-rgb, 255, 255, 255), 0.16) !important;
-  border-radius: var(--ds-radius-md) !important;
+/* Seat colours identify only the compact seat number. Every live player
+   uses one calm black card, so the judge reads status before decoration. */
+.evening-live-engine-shell .live-seat-card,
+.evening-live-engine-shell .live-seat-card:active,
+.evening-live-engine-shell .live-seat-card--speaking,
+.evening-live-engine-shell .live-seat-card:has(.live-seat-quick-action--nomination-active),
+.evening-live-engine-shell .live-seat-card--voting,
+.evening-live-engine-shell .live-seat-card--voting:has(.live-seat-state__value--active) {
+  background: #0b0c10 !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 22px rgba(0, 0, 0, 0.20) !important;
-}
-
-.evening-live-engine-shell .live-seat-card:active {
-  background:
-    linear-gradient(155deg, rgba(var(--seat-rgb, 255, 255, 255), 0.105) 0%, rgba(255, 255, 255, 0.055) 45%, rgba(255, 255, 255, 0.032) 100%) !important;
 }
 
 .evening-live-engine-shell .live-seat-card--speaking {
-  border-color: rgba(232, 185, 94, 0.86) !important;
-  background: linear-gradient(155deg, rgba(232, 185, 94, 0.16), rgba(255, 255, 255, 0.055) 48%, rgba(255, 255, 255, 0.028)) !important;
-  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.30), 0 0 0 1px rgba(232, 185, 94, 0.08), 0 10px 28px rgba(232, 185, 94, 0.12), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
-}
-
-.evening-live-engine-shell .live-seat-card:has(.live-seat-quick-action--nomination-active) {
-  border-color: rgba(251, 113, 133, 0.44) !important;
-  background: linear-gradient(155deg, rgba(225, 52, 88, 0.10), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
-}
-
-.evening-live-engine-shell .live-seat-card--voting {
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 22px rgba(0, 0, 0, 0.20) !important;
-}
-
-.evening-live-engine-shell .live-seat-card--voting:has(.live-seat-state__value--active) {
-  border-color: rgba(251, 113, 133, 0.48) !important;
-  background: linear-gradient(155deg, rgba(251, 113, 133, 0.11), rgba(255, 255, 255, 0.040) 48%, rgba(255, 255, 255, 0.025)) !important;
+  border-color: rgba(232, 185, 94, 0.56) !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 185, 94, 0.12), 0 8px 22px rgba(0, 0, 0, 0.20) !important;
 }
 
 .evening-live-engine-shell .live-seat-card--dead {
-  border-color: rgba(251, 113, 133, 0.16) !important;
-  background: linear-gradient(155deg, rgba(225, 52, 88, 0.065), rgba(255, 255, 255, 0.025)) !important;
-  opacity: 0.76 !important;
+  border-color: rgba(251, 113, 133, 0.24) !important;
+  background: #140b0f !important;
+  opacity: 0.58 !important;
 }
 
 /* The number stays an instant table locator, but becomes a small identity chip
@@ -108,8 +93,8 @@
   width: clamp(46px, 12vw, 58px) !important;
   height: clamp(46px, 12vw, 58px) !important;
   border-radius: 16px !important;
-  border-color: rgba(var(--seat-rgb, 255, 255, 255), 0.22) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: #15171d !important;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24) !important;
 }
 

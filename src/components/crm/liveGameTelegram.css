@@ -448,7 +448,7 @@
     width: auto !important;
   }
 
-  .evening-live-engine-shell .live-seat-card > .live-seat-quickbar__group {
+  .evening-live-engine-shell .live-seat-card > .live-seat-quickbar > .live-seat-quickbar__group {
     display: none !important;
   }
 

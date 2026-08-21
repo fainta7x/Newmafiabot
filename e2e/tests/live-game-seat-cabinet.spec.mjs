@@ -69,9 +69,11 @@ test.describe('Live Game seat cabinet', () => {
     })));
     expect(cardTreatments[0].radius).toBe('14px');
     expect(cardTreatments[1].radius).toBe('14px');
-    expect(cardTreatments[0].backgroundImage).toContain('linear-gradient');
-    expect(cardTreatments[0].backgroundImage).not.toBe(cardTreatments[1].backgroundImage);
-    expect(cardTreatments[0].borderColor).not.toBe(cardTreatments[1].borderColor);
+    // The number chip is colourful; the large seat cards stay one quiet
+    // black surface so player identity never competes with live status.
+    expect(cardTreatments[0].backgroundImage).toBe('none');
+    expect(cardTreatments[0].backgroundImage).toBe(cardTreatments[1].backgroundImage);
+    expect(cardTreatments[0].borderColor).toBe(cardTreatments[1].borderColor);
 
     const numberTreatments = await Promise.all([1, 2, 5, 8].map((slot) => page.locator(`.live-seat-number[data-seat="${slot}"]`).evaluate((element) => {
       const style = getComputedStyle(element);
@@ -93,7 +95,7 @@ test.describe('Live Game seat cabinet', () => {
     // while discipline controls move into the one-tap action sheet.
     const zeroDiscipline = page.locator('.evening-live-discipline > span[data-count="0"]');
     await expect(zeroDiscipline).toHaveCount(0);
-    await expect(seatOne.locator('.live-seat-quickbar__group')).toBeVisible();
+    await expect(seatOne.locator('.live-seat-quickbar__group')).toBeHidden();
 
     const nominationAction = seatOne.locator('.live-seat-quick-action--nomination');
     const seatBox = await seatOne.boundingBox();
@@ -114,9 +116,9 @@ test.describe('Live Game seat cabinet', () => {
       const style = getComputedStyle(element);
       return { border: style.borderTopColor, shadow: style.boxShadow, backgroundImage: style.backgroundImage };
     });
-    expect(speakingTreatment.border).toBe('rgba(232, 185, 94, 0.86)');
+    expect(speakingTreatment.border).toBe('rgba(232, 185, 94, 0.56)');
     expect(speakingTreatment.shadow).toContain('232, 185, 94');
-    expect(speakingTreatment.backgroundImage).toContain('232, 185, 94');
+    expect(speakingTreatment.backgroundImage).toBe('none');
     await capture(page, testInfo, 'live-game-speaking-focus.png');
 
     await seat(page, 6).click();

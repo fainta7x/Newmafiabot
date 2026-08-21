@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, RefreshCw, Search, UserPlus } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
 import { EVENING_RESPONSE_LABELS, countEveningResponses, getEveningResponse, isAttendingResponse } from '../../lib/eveningResponse.ts';

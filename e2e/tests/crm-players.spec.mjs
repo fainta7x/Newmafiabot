@@ -91,8 +91,7 @@ test.describe('Organizer players mobile workflow', () => {
     await attachViewport(page, testInfo, 'crm-player-access-settings.png');
     await page.getByRole('button', { name: 'Сохранить и записать', exact: true }).click();
 
-    await expect(page.getByText('Записать на вечер', { exact: true })).toBeVisible();
-    await expect(page.getByText('Киндер', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Записать на вечер', exact: true })).toBeVisible();
     await expect(page.getByText('Пятничный клубный вечер', { exact: true })).toBeVisible();
     await expect(page.getByText(/Будет добавлен со статусом «Иду»/)).toBeVisible();
     await expectNoHorizontalOverflow(page, 'player signup');

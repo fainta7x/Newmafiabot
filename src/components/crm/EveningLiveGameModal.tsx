@@ -14,13 +14,6 @@ interface EveningLiveGameModalProps {
   onUpdated: (game: ClubGameRecord) => void;
 }
 
-type LiveVisualDiscipline = {
-  fouls: number;
-  minorTech: number;
-  majorTech: number;
-  alive: boolean;
-};
-
 const roleToProtocol = (role: string | null | undefined): string | null => {
   if (role === 'Мирный' || role === 'citizen') return 'citizen';
   if (role === 'Шериф' || role === 'sheriff') return 'sheriff';
@@ -176,7 +169,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   );
   const [livePhase, setLivePhase] = useState('setup');
   const [rolesHidden, setRolesHidden] = useState(false);
-  const [liveDiscipline, setLiveDiscipline] = useState<Record<number, LiveVisualDiscipline>>({});
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
@@ -206,44 +198,6 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       window.confirm = originalConfirm;
     };
   }, []);
-
-  useEffect(() => {
-    if (livePhase === 'setup') {
-      setLiveDiscipline({});
-      return;
-    }
-
-    let lastSignature = '';
-    const syncFromLiveSession = () => {
-      try {
-        liveRecorder.sync();
-        const raw = localStorage.getItem('mafia_live_session');
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        const activePlayers = Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : [];
-        const next: Record<number, LiveVisualDiscipline> = {};
-        for (const player of activePlayers) {
-          const slot = Number(player?.slot_num);
-          if (!Number.isInteger(slot) || slot < 1 || slot > 10) continue;
-          next[slot] = {
-            fouls: Number(player?.fouls || 0),
-            minorTech: Number(player?.minor_tech_fouls || 0),
-            majorTech: Number(player?.major_tech_fouls || 0),
-            alive: player?.alive !== false,
-          };
-        }
-        const signature = JSON.stringify(next);
-        if (signature !== lastSignature) {
-          lastSignature = signature;
-          setLiveDiscipline(next);
-        }
-      } catch {}
-    };
-
-    syncFromLiveSession();
-    const intervalId = window.setInterval(syncFromLiveSession, 300);
-    return () => window.clearInterval(intervalId);
-  }, [livePhase, liveRecorder]);
 
   const finishConfirmedSave = (updated: ClubGameRecord) => {
     liveRecorder.finish();
@@ -356,36 +310,22 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
         {livePhase !== 'setup' && (
           <div className="evening-live-identity-layer" aria-hidden="true">
-            {livePlayers.map((player) => {
-              const current = liveDiscipline[player.seat_number];
-              const fouls = current?.fouls ?? Number((player as any).regular_fouls || 0);
-              const minorTech = current?.minorTech ?? Number((player as any).minor_technical_fouls || 0);
-              const majorTech = current?.majorTech ?? Number((player as any).major_technical_fouls || 0);
-              const alive = current?.alive ?? true;
-              return (
-                <div
-                  key={player.seat_number}
-                  className="evening-live-identity"
-                  style={seatPlacement[player.seat_number]}
-                  data-seat={player.seat_number}
-                  data-alive={alive ? 'true' : 'false'}
-                >
-                  <PlayerAvatar
-                    playerId={player.player_id}
-                    nickname={player.display_name}
-                    size="xl"
-                    forceStoredLookup
-                    className="evening-live-player-avatar"
-                  />
-                  <span className="evening-live-identity-name">{player.display_name}</span>
-                  <div className="evening-live-discipline" aria-label={`Фолы ${fouls}, малые техфолы ${minorTech}, большие техфолы ${majorTech}`}>
-                    <span className="evening-live-discipline-foul">✓{fouls}</span>
-                    <span className="evening-live-discipline-minor">!{minorTech}</span>
-                    <span className="evening-live-discipline-major">!{majorTech}</span>
-                  </div>
-                </div>
-              );
-            })}
+            {livePlayers.map((player) => (
+              <div
+                key={player.seat_number}
+                className="evening-live-identity"
+                style={seatPlacement[player.seat_number]}
+                data-seat={player.seat_number}
+              >
+                <PlayerAvatar
+                  playerId={player.player_id}
+                  nickname={player.display_name}
+                  size="xl"
+                  forceStoredLookup
+                  className="evening-live-player-avatar"
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>

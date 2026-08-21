@@ -53,6 +53,18 @@ const responseTone = (participant: EveningParticipant) => {
   return 'bg-surface-2 text-text-muted';
 };
 
+const rowStatusLabel = (participant: EveningParticipant) => {
+  if (participant.attendance_status === 'attended') return 'Здесь';
+  if (participant.attendance_status === 'no_show') return 'Не пришёл';
+  return EVENING_RESPONSE_LABELS[getEveningResponse(participant)];
+};
+
+const rowStatusTone = (participant: EveningParticipant) => {
+  if (participant.attendance_status === 'attended') return 'bg-success-soft text-success';
+  if (participant.attendance_status === 'no_show') return 'bg-danger-soft text-danger';
+  return responseTone(participant);
+};
+
 const factSummary = (participant: EveningParticipant) => {
   if (participant.attendance_status === 'no_show') return 'Не пришёл';
   if (participant.attendance_status === 'attended') {
@@ -71,13 +83,13 @@ const buildParticipantView = (participant: EveningParticipant, canMarkFacts: boo
   if (participant.attendance_status === 'attended') {
     const remaining = debt(participant);
     if (!paymentComplete(participant) && remaining > 0) {
-      return { participant, action: canEdit ? 'pay' : null, needsAction: canEdit, subtitle: `Здесь · осталось ${money(remaining)}` };
+      return { participant, action: canEdit ? 'pay' : null, needsAction: canEdit, subtitle: `Осталось ${money(remaining)}` };
     }
     return {
       participant,
       action: null,
       needsAction: false,
-      subtitle: participant.payment_status === 'waived' ? 'Здесь · без оплаты' : 'Здесь · оплачено',
+      subtitle: participant.payment_status === 'waived' ? 'Без оплаты' : 'Оплачено',
     };
   }
 
@@ -228,7 +240,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           <button type="button" onClick={() => setActiveParticipant(participant)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-center gap-1.5"><strong className="truncate text-[12px] font-semibold text-text-primary">{participant.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-semibold ${responseTone(participant)}`}>{EVENING_RESPONSE_LABELS[getEveningResponse(participant)]}</span></span>
+              <span className="flex min-w-0 items-center gap-1.5"><strong className="truncate text-[12px] font-semibold text-text-primary">{participant.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-semibold ${rowStatusTone(participant)}`}>{rowStatusLabel(participant)}</span></span>
               <span className={`mt-0.5 block truncate text-[9px] ${item.needsAction ? 'text-warning' : 'text-text-muted'}`}>{item.subtitle}</span>
             </span>
           </button>

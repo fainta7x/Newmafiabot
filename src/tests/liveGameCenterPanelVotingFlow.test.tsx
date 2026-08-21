@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CenterPanel from '../components/LiveGameEngine/CenterPanel';
 import type { VotingRound } from '../shared/tournamentVoting';
@@ -51,22 +51,45 @@ const baseProps = () => ({
 afterEach(() => {
   cleanup();
   deactivateTableDecisionSelection();
+  sessionStorage.clear();
 });
 
 describe('CenterPanel live flow guardrails', () => {
-  it('keeps zero-night progression on the single canonical next-step control', () => {
-    const next = vi.fn();
-    render(<CenterPanel
-      {...baseProps()}
+  it('keeps zero-night music and progression on the single canonical next-step control', () => {
+    const agreement = vi.fn();
+    const openZeroRound = vi.fn();
+    const initialProps = baseProps();
+    const { rerender } = render(<CenterPanel
+      {...initialProps}
       phase="zero_night"
       nextSpeaker={null}
-      getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: next })}
+      getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: agreement })}
     />);
 
+    const musicStart = screen.getByRole('button', { name: /Включить музыку ночи/i });
+    expect(musicStart).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Договорка · 75с/i })).toBeNull();
+    expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
+
+    fireEvent.click(musicStart);
     expect(screen.getAllByRole('button', { name: /Договорка · 75с/i })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /Вызов шерифа · 10с/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Свободная посадка · 40с/i })).toBeNull();
-    expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
+
+    rerender(<CenterPanel
+      {...initialProps}
+      phase="zero_night"
+      zeroNightSubPhase="seating"
+      nextSpeaker={null}
+      getNextStepInfo={() => ({ label: 'Открыть нулевой круг', onClick: openZeroRound })}
+    />);
+
+    const musicStop = screen.getByRole('button', { name: /Выключить музыку/i });
+    expect(musicStop).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Открыть нулевой круг/i })).toBeNull();
+
+    fireEvent.click(musicStop);
+    expect(screen.getAllByRole('button', { name: /Открыть нулевой круг/i })).toHaveLength(1);
   });
 
   it('keeps voting on player cards and never exposes synthetic plus/minus voters', () => {

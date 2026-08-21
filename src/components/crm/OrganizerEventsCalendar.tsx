@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { api, type GameEvening, type Tournament } from '../../lib/api.ts';
 
 type CalendarItem = {
@@ -42,6 +42,7 @@ const tone = (kind: CalendarItem['kind']) => {
 const label = (kind: CalendarItem['kind']) => kind === 'NOVICE' ? 'Новички' : kind === 'RATING' ? 'Рейтинг' : kind === 'TOURNAMENT' ? 'Турнир' : 'Клубный';
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const localTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+const compactDate = (value: string) => new Date(value).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' });
 
 interface Props {
   evenings: GameEvening[];
@@ -53,6 +54,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filter, setFilter] = useState<Filter>('ALL');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +99,11 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
   }, [evenings, tournaments]);
 
   const visible = useMemo(() => items.filter((item) => filter === 'ALL' || item.kind === filter), [items, filter]);
+  const upcoming = useMemo(() => {
+    const now = Date.now() - 6 * 60 * 60 * 1000;
+    const future = items.filter((item) => new Date(item.startsAt).getTime() >= now);
+    return (future.length ? future : items).slice(0, 3);
+  }, [items]);
   const byDay = useMemo(() => {
     const result = new Map<string, CalendarItem[]>();
     for (const item of visible) {
@@ -120,8 +127,8 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
 
   const open = (item: CalendarItem) => item.tournament ? onOpenTournament(item.id) : onOpenEvening(item.id);
 
-  return (
-    <section data-testid="crm-events-calendar" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+  const calendarBody = (
+    <>
       <div className="flex items-center justify-between gap-3">
         <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronLeft className="h-4 w-4" /></button>
         <div className="text-center">
@@ -184,6 +191,40 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
       <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
         {(['NOVICE', 'CASUAL', 'RATING', 'TOURNAMENT'] as CalendarItem['kind'][]).map((kind) => <span key={kind} className={`rounded-xl border px-2 py-1 ${tone(kind)}`}>{label(kind)}</span>)}
       </div>
+    </>
+  );
+
+  return (
+    <section data-testid="crm-events-calendar" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 sm:p-4">
+      <div className="sm:hidden">
+        <button
+          type="button"
+          aria-expanded={mobileExpanded}
+          onClick={() => setMobileExpanded((value) => !value)}
+          className="flex min-h-[48px] w-full items-center gap-3 text-left"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-black/20 text-white/55"><CalendarDays className="h-4.5 w-4.5" /></span>
+          <span className="min-w-0 flex-1">
+            <strong className="block text-[13px] font-semibold text-white">Календарь клуба</strong>
+            <span className="mt-0.5 block text-[11px] capitalize text-white/35">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/45">{mobileExpanded ? 'Свернуть' : 'Месяц'}{mobileExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
+        </button>
+
+        {!mobileExpanded ? (
+          <div data-testid="crm-calendar-compact" className="mt-2 space-y-1.5">
+            {upcoming.length ? upcoming.map((item) => (
+              <button key={item.key} type="button" onClick={() => open(item)} className="flex min-h-[46px] w-full items-center gap-2.5 rounded-[13px] bg-black/20 px-3 text-left">
+                <span className={`rounded-lg border px-2 py-1 text-[9px] font-semibold ${tone(item.kind)}`}>{label(item.kind)}</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-white/75">{item.title}</span>
+                <span className="shrink-0 text-[10px] text-white/35">{compactDate(item.startsAt)} · {localTime(item.startsAt)}</span>
+              </button>
+            )) : <div className="rounded-[13px] bg-black/20 px-3 py-3 text-[11px] text-white/35">Ближайших событий нет</div>}
+          </div>
+        ) : <div data-testid="crm-calendar-expanded" className="mt-3 border-t border-white/[0.07] pt-3">{calendarBody}</div>}
+      </div>
+
+      <div className="hidden sm:block">{calendarBody}</div>
     </section>
   );
 };

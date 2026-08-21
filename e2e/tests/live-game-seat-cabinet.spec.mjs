@@ -93,7 +93,7 @@ test.describe('Live Game seat cabinet', () => {
     // while discipline controls move into the one-tap action sheet.
     const zeroDiscipline = page.locator('.evening-live-discipline > span[data-count="0"]');
     await expect(zeroDiscipline).toHaveCount(0);
-    await expect(seatOne.locator('.live-seat-quickbar__group')).toBeHidden();
+    await expect(seatOne.locator('.live-seat-quickbar__group')).toBeVisible();
 
     const nominationAction = seatOne.locator('.live-seat-quick-action--nomination');
     const seatBox = await seatOne.boundingBox();

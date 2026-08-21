@@ -67,7 +67,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 
       {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onBack={onBack} onOpenSection={openSection} /> : null}
       {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
-      {section === 'management' || section === 'tables' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} /> : null}
+      {section === 'management' || section === 'tables' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} initialPane={section === 'tables' ? 'tables' : undefined} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} onBack={onBack} /> : null}
     </div>
   );

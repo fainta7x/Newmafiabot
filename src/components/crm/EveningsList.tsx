@@ -24,19 +24,25 @@ const moscowIso = (value: string) => `${value.length === 16 ? `${value}:00` : va
 const displayMoscow = (value: string) => new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 const eveningTotal = (format: EveningFormat, count: number, price: number) => format === 'CASUAL' ? Math.min(count * price, 400) : count * price;
 const isClosed = (evening: GameEvening) => evening.status === 'completed' || evening.status === 'cancelled' || Boolean(evening.settled_at);
+const startTimestamp = (evening: GameEvening) => new Date(evening.starts_at).getTime();
+const isOverdueOpen = (evening: GameEvening, now = Date.now()) => !isClosed(evening)
+  && evening.status !== 'active'
+  && evening.status !== 'draft'
+  && startTimestamp(evening) < now;
 
 const statusLabel = (evening: GameEvening) => {
   if (evening.status === 'active') return 'Идёт сейчас';
   if (evening.status === 'draft') return 'Черновик';
   if (evening.status === 'cancelled') return 'Отменён';
   if (isClosed(evening)) return 'Завершён';
+  if (isOverdueOpen(evening)) return 'Ожидает запуска';
   return 'Запланирован';
 };
 
 const eventStatusTone = (evening: GameEvening) => {
   if (evening.status === 'active') return 'border-emerald-200/10 bg-emerald-300/[0.08] text-emerald-100';
   if (isClosed(evening)) return 'border-white/[0.07] bg-white/[0.055] text-white/45';
-  if (evening.status === 'draft') return 'border-amber-200/10 bg-amber-200/[0.08] text-amber-100';
+  if (evening.status === 'draft' || isOverdueOpen(evening)) return 'border-amber-200/10 bg-amber-200/[0.08] text-amber-100';
   return 'border-sky-200/10 bg-sky-300/[0.08] text-sky-100';
 };
 
@@ -87,25 +93,30 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
     const now = Date.now();
     const openEvenings = evenings
       .filter((evening) => !isClosed(evening))
-      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
-    const active = openEvenings.filter((evening) => evening.status === 'active');
-    const upcoming = openEvenings.filter((evening) => evening.status !== 'active' && new Date(evening.starts_at).getTime() >= now);
-    const staleDrafts = openEvenings.filter((evening) => evening.status === 'draft' && new Date(evening.starts_at).getTime() < now);
+      .sort((a, b) => startTimestamp(a) - startTimestamp(b));
+    const active = openEvenings
+      .filter((evening) => evening.status === 'active')
+      .sort((a, b) => startTimestamp(b) - startTimestamp(a));
+    const overdue = openEvenings
+      .filter((evening) => isOverdueOpen(evening, now))
+      .sort((a, b) => startTimestamp(b) - startTimestamp(a));
+    const upcoming = openEvenings.filter((evening) => evening.status !== 'active' && startTimestamp(evening) >= now);
+    const staleDrafts = openEvenings.filter((evening) => evening.status === 'draft' && startTimestamp(evening) < now);
 
-    const highlighted: GameEvening[] = [];
-    if (active.length) highlighted.push(...active);
-    const nearest = upcoming[0] || (!active.length ? staleDrafts[0] || openEvenings[0] : undefined);
-    if (nearest && !highlighted.some((item) => item.id === nearest.id)) highlighted.push(nearest);
+    const currentCandidates = [...active, ...overdue];
+    const highlighted = currentCandidates.slice(0, 2);
+    if (highlighted.length < 2 && upcoming[0]) highlighted.push(upcoming[0]);
+    if (!highlighted.length && staleDrafts[0]) highlighted.push(staleDrafts[0]);
 
     const highlightedIds = new Set(highlighted.map((item) => item.id));
-    const staleIds = new Set(staleDrafts.map((item) => item.id));
-    const future = openEvenings.filter((evening) => !highlightedIds.has(evening.id) && !staleIds.has(evening.id));
+    const currentAttention = currentCandidates.filter((evening) => !highlightedIds.has(evening.id));
+    const future = upcoming.filter((evening) => !highlightedIds.has(evening.id));
     const staleAttention = staleDrafts.filter((evening) => !highlightedIds.has(evening.id));
     const history = evenings
       .filter(isClosed)
-      .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime());
+      .sort((a, b) => startTimestamp(b) - startTimestamp(a));
 
-    return { highlighted, future, staleAttention, history };
+    return { highlighted, currentAttention, future, staleAttention, history };
   }, [evenings]);
 
   const primaryEvening = clusters.highlighted[0] || null;
@@ -212,7 +223,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className={`text-[9px] font-semibold uppercase tracking-[0.14em] ${primaryEvening.status === 'active' ? 'text-emerald-200/80' : primaryEvening.status === 'draft' ? 'text-amber-100/70' : 'text-white/35'}`}>
-                    {primaryEvening.status === 'active' ? 'Идёт сейчас' : primaryEvening.status === 'draft' && new Date(primaryEvening.starts_at).getTime() < Date.now() ? 'Требует решения' : 'Ближайший вечер'}
+                    {primaryEvening.status === 'active' ? 'Идёт сейчас' : primaryEvening.status === 'draft' && startTimestamp(primaryEvening) < Date.now() ? 'Требует решения' : isOverdueOpen(primaryEvening) ? 'Время уже наступило' : 'Ближайший вечер'}
                   </div>
                   <h3 className="mt-1.5 break-words text-[19px] font-semibold leading-tight text-white">{primaryEvening.title}</h3>
                   <p className="mt-1 text-[11px] text-white/42">{displayMoscow(primaryEvening.starts_at)}{primaryEvening.venue ? ` · ${primaryEvening.venue}` : ''}</p>
@@ -241,6 +252,13 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
             <div data-testid="crm-events-next" className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">
               <div className="px-3.5 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Следом</div>
               <EventRow evening={nextEvening} onOpenEvening={onOpenEvening} />
+            </div>
+          ) : null}
+
+          {clusters.currentAttention.length ? (
+            <div data-testid="crm-events-attention" className="overflow-hidden rounded-[18px] border border-amber-200/10 bg-amber-200/[0.04]">
+              <div className="px-3.5 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-100/55">Ещё требуют внимания · {clusters.currentAttention.length}</div>
+              {clusters.currentAttention.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} />)}
             </div>
           ) : null}
 

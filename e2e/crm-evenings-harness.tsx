@@ -11,7 +11,7 @@ const atOffset = (days: number, hour = 20) => {
   return date.toISOString();
 };
 
-const evenings = [
+const regularEvenings = [
   {
     id: 'draft',
     title: 'Старый черновик вечера',
@@ -93,6 +93,33 @@ const evenings = [
     total_revenue: 3800,
   },
 ] as unknown as GameEvening[];
+
+const activeEvening = regularEvenings.find((evening) => evening.id === 'active')!;
+const plannedEvening = regularEvenings.find((evening) => evening.id === 'planned')!;
+const laterEvening = regularEvenings.find((evening) => evening.id === 'later')!;
+const completedEvening = regularEvenings.find((evening) => evening.id === 'completed')!;
+const edgeEvenings: GameEvening[] = [
+  activeEvening,
+  {
+    ...activeEvening,
+    id: 'active-old',
+    title: 'Незакрытый предыдущий вечер',
+    starts_at: atOffset(-4),
+  },
+  {
+    ...plannedEvening,
+    id: 'overdue',
+    title: 'Сегодняшний вечер ожидает запуска',
+    starts_at: atOffset(-2),
+  },
+  plannedEvening,
+  laterEvening,
+  completedEvening,
+];
+
+const evenings = new URLSearchParams(window.location.search).get('scenario') === 'edge'
+  ? edgeEvenings
+  : regularEvenings;
 
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,

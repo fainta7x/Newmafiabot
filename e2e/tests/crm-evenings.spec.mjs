@@ -39,7 +39,7 @@ test.describe('Organizer events mobile workflow', () => {
     const current = page.getByTestId('crm-events-current');
     await expect(current).toBeVisible();
     await expect(current.getByTestId('crm-evening-active')).toBeVisible();
-    await expect(current.getByText('Идёт сейчас', { exact: true })).toBeVisible();
+    await expect(current.getByTestId('crm-evening-active')).toContainText('Идёт сейчас');
     await expect(current.getByTestId('crm-events-next')).toContainText('Вечер для новичков');
     await expect(current.getByTestId('crm-events-stale-drafts')).toContainText('Черновики требуют решения');
     await expect(page.getByTestId('crm-evening-later')).toHaveCount(0);
@@ -84,5 +84,30 @@ test.describe('Organizer events mobile workflow', () => {
     expect(await expanded.getByRole('button', { name: 'Предыдущий месяц' }).evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     expect(await expanded.getByRole('button', { name: 'Следующий месяц' }).evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await attachViewport(page, testInfo, 'crm-events-calendar.png');
+  });
+
+  test('keeps overdue and additional active evenings out of Future without hiding them', async ({ page }, testInfo) => {
+    await page.goto('/e2e/crm-evenings.html?scenario=edge');
+    await page.evaluate(() => document.fonts.ready);
+
+    const current = page.getByTestId('crm-events-current');
+    await expect(current.getByTestId('crm-evening-active')).toBeVisible();
+    await expect(current.getByTestId('crm-events-next').getByTestId('crm-evening-active-old')).toBeVisible();
+
+    const attention = current.getByTestId('crm-events-attention');
+    await expect(attention.getByTestId('crm-evening-overdue')).toBeVisible();
+    await expect(attention.getByTestId('crm-evening-overdue')).toContainText('Ожидает запуска');
+    await expectNoHorizontalOverflow(page, 'current event edge cases');
+    await attachViewport(page, testInfo, 'crm-events-current-attention.png');
+
+    const timeTabs = page.getByRole('navigation', { name: 'Период событий' });
+    await timeTabs.getByRole('button', { name: /Будущее/ }).click();
+    const future = page.getByTestId('crm-events-future');
+    await expect(future.getByTestId('crm-evening-planned')).toBeVisible();
+    await expect(future.getByTestId('crm-evening-later')).toBeVisible();
+    await expect(future.getByTestId('crm-evening-active')).toHaveCount(0);
+    await expect(future.getByTestId('crm-evening-active-old')).toHaveCount(0);
+    await expect(future.getByTestId('crm-evening-overdue')).toHaveCount(0);
+    await expectNoHorizontalOverflow(page, 'future event edge cases');
   });
 });

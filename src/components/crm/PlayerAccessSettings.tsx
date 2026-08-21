@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { CalendarPlus, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import type { PlayerDetails } from '../../lib/api.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
+import { usePlayerEveningQuickAdd } from './PlayerEveningQuickAdd.tsx';
 
 type GameLevel = 'novice' | 'club' | 'tournament';
 type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
@@ -49,6 +50,7 @@ const labelFor = <T extends string>(items: Array<{ value: T; label: string }>, v
 
 export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetails; onSaved?: () => void | Promise<void> }) {
   const accessPlayer = player as PlayerWithAccess;
+  const quickAdd = usePlayerEveningQuickAdd();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => normalize(accessPlayer));
   const [saving, setSaving] = useState(false);
@@ -56,7 +58,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
 
   useEffect(() => setDraft(normalize(accessPlayer)), [player]);
 
-  const save = async () => {
+  const save = async (openSignup = false) => {
     if (saving) return;
     setSaving(true);
     setError(null);
@@ -71,12 +73,22 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       if (!response.ok) throw new Error(body?.error || body?.message || 'Не удалось сохранить игровой статус');
       setOpen(false);
       await onSaved?.();
+      if (openSignup && quickAdd) quickAdd.openForPlayer({ ...player, ...body } as PlayerDetails);
     } catch (saveError: any) {
       setError(saveError?.message || 'Не удалось сохранить игровой статус');
     } finally {
       setSaving(false);
     }
   };
+
+  const footer = quickAdd ? (
+    <div className="grid grid-cols-[0.85fr_1.15fr] gap-2">
+      <button type="button" disabled={saving} onClick={() => void save(false)} className="min-h-[48px] rounded-[13px] border border-border-soft bg-surface-2 px-3 text-[12px] font-bold text-text-primary disabled:opacity-40">{saving ? 'Сохраняем…' : 'Сохранить'}</button>
+      <button type="button" disabled={saving} onClick={() => void save(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-accent px-3 text-[12px] font-bold text-white disabled:opacity-40"><CalendarPlus className="h-4 w-4" /> Сохранить и записать</button>
+    </div>
+  ) : (
+    <button type="button" disabled={saving} onClick={() => void save(false)} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-40">{saving ? 'Сохраняем…' : 'Сохранить'}</button>
+  );
 
   return (
     <>
@@ -94,9 +106,10 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
           <div className="min-w-0 rounded-[11px] bg-black/20 px-1.5 py-2"><span className="block text-[8px] text-text-muted">Клуб</span><strong className="mt-1 block truncate text-[10px] font-semibold text-text-primary">{labelFor(CLUB_ROLES, draft.club_role)}</strong></div>
           <div className="min-w-0 rounded-[11px] bg-black/20 px-1.5 py-2"><span className="block text-[8px] text-text-muted">Ведение</span><strong className="mt-1 block truncate text-[10px] font-semibold text-text-primary">{labelFor(JUDGE_LEVELS, draft.judge_level)}</strong></div>
         </div>
+        {quickAdd ? <button data-testid="crm-player-signup" type="button" onClick={() => quickAdd.openForPlayer(player)} className="mt-2.5 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[11px] border border-accent/25 bg-accent-soft px-3 text-[11px] font-semibold text-accent"><CalendarPlus className="h-4 w-4" /> Записать на вечер</button> : null}
       </section>
 
-      <MobileSheet open={open} onClose={() => setOpen(false)} title="Игровой статус" subtitle={player.nickname} widthClass="sm:max-w-lg" footer={<button type="button" disabled={saving} onClick={() => void save()} className="min-h-[48px] w-full rounded-[13px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-40">{saving ? 'Сохраняем…' : 'Сохранить'}</button>}>
+      <MobileSheet open={open} onClose={() => setOpen(false)} title="Игровой статус" subtitle={player.nickname} widthClass="sm:max-w-lg" footer={footer}>
         <div data-testid="crm-player-access-sheet" className="space-y-4">
           {error ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
           <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Игровой допуск</span><select value={draft.game_level} onChange={(event) => setDraft((value) => ({ ...value, game_level: event.target.value as GameLevel }))} className="mobile-field">{GAME_LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label} — {item.hint}</option>)}</select></label>

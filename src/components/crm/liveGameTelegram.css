@@ -311,6 +311,12 @@
     gap: 3px !important;
   }
 
+  /* Voting has one extra context row (the nominated players). Shave only its
+     vertical inset so the row remains visible inside the fixed-height HUD. */
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary) .live-judge-hud__body {
+    padding-block: 3px !important;
+  }
+
   /* The main progression rail is tapped constantly during a game. Keep it
      visually compact, but give both Back and the primary next action a full
      mobile touch target without expanding the denser timer/seat controls. */

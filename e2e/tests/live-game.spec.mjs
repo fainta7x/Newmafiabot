@@ -271,7 +271,7 @@ test.describe('Live Game browser stabilization', () => {
     const eliminatedIdentity = page.locator('.evening-live-identity[data-seat="2"][data-alive="false"]');
     const eliminatedAvatar = eliminatedIdentity.locator('.evening-live-player-avatar');
     await expect(eliminatedAvatar).toBeVisible();
-    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toBeVisible();
+    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toHaveCount(0);
     const eliminatedAvatarOpacity = await eliminatedAvatar.evaluate((node) => Number(getComputedStyle(node).opacity));
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar remains secondary').toBeGreaterThanOrEqual(0.25);
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar must not compete with status').toBeLessThanOrEqual(0.5);

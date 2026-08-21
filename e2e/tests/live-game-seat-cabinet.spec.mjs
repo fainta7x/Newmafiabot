@@ -69,9 +69,11 @@ test.describe('Live Game seat cabinet', () => {
     })));
     expect(cardTreatments[0].radius).toBe('14px');
     expect(cardTreatments[1].radius).toBe('14px');
-    expect(cardTreatments[0].backgroundImage).toContain('linear-gradient');
-    expect(cardTreatments[0].backgroundImage).not.toBe(cardTreatments[1].backgroundImage);
-    expect(cardTreatments[0].borderColor).not.toBe(cardTreatments[1].borderColor);
+    // The number chip is colourful; the large seat cards stay one quiet
+    // black surface so player identity never competes with live status.
+    expect(cardTreatments[0].backgroundImage).toBe('none');
+    expect(cardTreatments[0].backgroundImage).toBe(cardTreatments[1].backgroundImage);
+    expect(cardTreatments[0].borderColor).toBe(cardTreatments[1].borderColor);
 
     const numberTreatments = await Promise.all([1, 2, 5, 8].map((slot) => page.locator(`.live-seat-number[data-seat="${slot}"]`).evaluate((element) => {
       const style = getComputedStyle(element);

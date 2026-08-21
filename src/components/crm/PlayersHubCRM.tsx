@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import type { GameEvening } from '../../lib/api.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
-import { PlayerRolesAdminCRM } from './PlayerRolesAdminCRM.tsx';
 import { PlayersCRM } from './PlayersCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
-type PlayerHubTab = 'profiles' | 'access' | 'rating';
+type PlayerHubTab = 'profiles' | 'rating';
 
 interface PlayersHubCRMProps {
   evenings: GameEvening[];
@@ -31,7 +30,6 @@ export const PlayersHubCRM: React.FC<PlayersHubCRMProps> = ({
         value={tab}
         items={[
           { value: 'profiles', label: 'Игроки' },
-          { value: 'access', label: 'Доступы' },
           { value: 'rating', label: 'Рейтинг' },
         ]}
         onValueChange={(value) => setTab(value)}
@@ -47,7 +45,6 @@ export const PlayersHubCRM: React.FC<PlayersHubCRMProps> = ({
         />
       ) : null}
 
-      {tab === 'access' ? <PlayerRolesAdminCRM /> : null}
       {tab === 'rating' ? <RatingPeriodsCRM /> : null}
     </div>
   );

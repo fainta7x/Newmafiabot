@@ -10,10 +10,10 @@ const expectNoHorizontalOverflow = async (page) => {
   expect.soft(metrics.body).toBeLessThanOrEqual(metrics.viewport + 1);
 };
 
-test.describe('Organizer CRM cabinet pilot', () => {
+test.describe('Organizer CRM secondary tools', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('uses the player-cabinet material language without flattening semantic colours', async ({ page }, testInfo) => {
+  test('keeps frequent tools visible and rare service controls collapsed on mobile', async ({ page }, testInfo) => {
     await page.goto('/e2e/crm-more.html');
     await page.evaluate(() => document.fonts.ready);
 
@@ -23,7 +23,7 @@ test.describe('Organizer CRM cabinet pilot', () => {
       const style = getComputedStyle(element);
       return { fontSize: style.fontSize, fontWeight: style.fontWeight };
     });
-    expect(headingTreatment.fontSize).toBe('24px');
+    expect(headingTreatment.fontSize).toBe('21px');
     expect(headingTreatment.fontWeight).toBe('600');
 
     const tasks = page.getByTestId('crm-more-tasks');
@@ -42,7 +42,15 @@ test.describe('Organizer CRM cabinet pilot', () => {
 
     const group = tasks.locator('xpath=..');
     await expect(group).toBeVisible();
-    expect(await group.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
+    expect(await group.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('20px');
+
+    const serviceToggle = page.getByRole('button', { name: /Настройки и обслуживание/ });
+    await expect(serviceToggle).toBeVisible();
+    await expect(page.getByTestId('crm-more-data')).toHaveCount(0);
+    await serviceToggle.click();
+    await expect(page.getByTestId('crm-more-service-tools')).toBeVisible();
+    await expect(page.getByTestId('crm-more-data')).toBeVisible();
+    await serviceToggle.click();
 
     const bottomNav = page.locator('.organizer-bottom-nav');
     const activeNav = page.getByTestId('crm-nav-more');

@@ -35,6 +35,7 @@ import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
 
@@ -555,8 +556,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
               <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4" /> Задача</button>
               <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4" /> Общение</button>
-              <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4" /> Ещё</button>
+              <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4" /> Настройки</button>
             </section>
+
+            <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
 
             <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
               <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
@@ -627,12 +630,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
       <input id="player-avatar-file" type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
 
-      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Действия с игроком" widthClass="sm:max-w-sm">
+      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Настройки профиля" widthClass="sm:max-w-sm">
         <div className="space-y-2">
           <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
           <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />
-          <MenuButton icon={Clock3} label="Создать задачу" onClick={() => { setShowPlayerMenu(false); setTaskError(null); setShowTaskSheet(true); }} />
-          <MenuButton icon={MessageSquare} label="Записать результат общения" onClick={() => { setShowPlayerMenu(false); setCommError(null); setShowCommSheet(true); }} />
           {playerDetails?.avatar_updated_at ? <MenuButton icon={Trash2} label="Удалить фото" tone="danger" onClick={() => { setShowPlayerMenu(false); setConfirmDeleteAvatar(true); }} disabled={avatarBusy} /> : null}
         </div>
       </MobileSheet>

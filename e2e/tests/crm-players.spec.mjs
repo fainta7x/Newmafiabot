@@ -19,15 +19,15 @@ const attachViewport = async (page, testInfo, name) => {
 test.describe('Organizer players mobile workflow', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('keeps profiles, access and rating inside one player hub', async ({ page }, testInfo) => {
+  test('keeps player settings in the profile and rating in the player domain', async ({ page }, testInfo) => {
     await page.goto('/e2e/crm-players.html');
     await page.evaluate(() => document.fonts.ready);
 
     const hub = page.getByRole('navigation', { name: 'Раздел игроков' });
     await expect(hub).toBeVisible();
     await expect(hub.getByRole('button', { name: 'Игроки', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(hub.getByRole('button', { name: 'Доступы', exact: true })).toBeVisible();
     await expect(hub.getByRole('button', { name: 'Рейтинг', exact: true })).toBeVisible();
+    await expect(hub.getByRole('button', { name: 'Доступы', exact: true })).toHaveCount(0);
 
     await expect(page.getByRole('heading', { name: 'Игроки', exact: true })).toBeVisible();
     const search = page.getByPlaceholder('Ник, имя, телефон или Telegram');
@@ -48,7 +48,14 @@ test.describe('Organizer players mobile workflow', () => {
     await expect(quickActions.getByText('Связаться', { exact: true })).toBeVisible();
     await expect(quickActions.getByRole('button', { name: 'Задача', exact: true })).toBeVisible();
     await expect(quickActions.getByRole('button', { name: 'Общение', exact: true })).toBeVisible();
-    await expect(quickActions.getByRole('button', { name: 'Ещё', exact: true })).toBeVisible();
+    await expect(quickActions.getByRole('button', { name: 'Настройки', exact: true })).toBeVisible();
+    await expect(quickActions.getByRole('button', { name: 'Ещё', exact: true })).toHaveCount(0);
+
+    const access = page.getByTestId('crm-player-access-summary');
+    await expect(access).toContainText('Игровой статус');
+    await expect(access).toContainText('Игрок клуба');
+    await expect(access).toContainText('Участник клуба');
+    await expect(access).toContainText('Нет');
 
     const actionHeights = await quickActions.locator('a, button').evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
     expect(Math.min(...actionHeights)).toBeGreaterThanOrEqual(48);
@@ -59,14 +66,27 @@ test.describe('Organizer players mobile workflow', () => {
     await expectNoHorizontalOverflow(page, 'player profile');
     await attachViewport(page, testInfo, 'crm-player-profile.png');
 
+    await page.getByTestId('crm-player-access-edit').click();
+    const accessSheet = page.getByTestId('crm-player-access-sheet');
+    await expect(accessSheet).toBeVisible();
+    await expect(accessSheet.getByText('Игровой допуск', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Роль в клубе', { exact: true })).toBeVisible();
+    await expect(accessSheet.getByText('Ведущий / судья', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'player access settings');
+    await attachViewport(page, testInfo, 'crm-player-access-settings.png');
     await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
-    await hub.getByRole('button', { name: 'Доступы', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Статусы и роли игроков', exact: true })).toBeVisible();
-    await expect(page.getByPlaceholder('Найти игрока')).toBeVisible();
-    await expectNoHorizontalOverflow(page, 'players access');
-    await attachViewport(page, testInfo, 'crm-players-access.png');
 
+    await quickActions.getByRole('button', { name: 'Настройки', exact: true }).click();
+    const profileSettings = page.getByText('Настройки профиля', { exact: true });
+    await expect(profileSettings).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Редактировать данные', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Создать задачу', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Записать результат общения', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
     await hub.getByRole('button', { name: 'Рейтинг', exact: true }).click();
+    await expect(hub.getByRole('button', { name: 'Рейтинг', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('Рейтинговые периоды', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'players rating');
     await attachViewport(page, testInfo, 'crm-players-rating.png');

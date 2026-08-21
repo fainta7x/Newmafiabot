@@ -1,7 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import { Calendar, Menu, RefreshCw, Users } from 'lucide-react';
 import { api } from '../src/lib/api.ts';
-import PlayersCRM from '../src/components/crm/PlayersCRM.tsx';
+import PlayersHubCRM from '../src/components/crm/PlayersHubCRM.tsx';
 import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
@@ -22,10 +22,10 @@ const evening = {
 } as any;
 
 const players = [
-  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null },
-  { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null },
-  { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null },
-  { id: 'vid', nickname: 'Вид', full_name: null, contact_status: 'paused', days_since_last_visit: 18, open_tasks_count: 0, attendance_count: 7, avatar_updated_at: null },
+  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none' },
+  { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null, game_level: 'tournament', club_role: 'team', judge_level: 'host' },
+  { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none' },
+  { id: 'vid', nickname: 'Вид', full_name: null, contact_status: 'paused', days_since_last_visit: 18, open_tasks_count: 0, attendance_count: 7, avatar_updated_at: null, game_level: 'club', club_role: 'guest', judge_level: 'none' },
 ] as any[];
 
 const playerDetails = {
@@ -41,6 +41,7 @@ const playerDetails = {
   engagement_stage: 'regular',
   calculated_stage: 'regular',
   game_level: 'club',
+  club_role: 'member',
   judge_level: 'none',
   preferred_format: 'Клубный',
   referred_by: 'Пристань',
@@ -109,7 +110,7 @@ function Harness() {
   return (
     <div className="relative mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
       <main className="px-3 pb-28 pt-3">
-        <PlayersCRM
+        <PlayersHubCRM
           evenings={[evening]}
           onOpenEvening={(id) => { document.body.dataset.openEvening = id; }}
           onCrmChanged={() => undefined}

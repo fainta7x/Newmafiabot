@@ -69,8 +69,8 @@
 
   div:has(> label > input[placeholder="Ник, имя, телефон или Telegram"]) + div > div > button {
     min-width: 0 !important;
-    padding-inline: 0.5rem !important;
-    font-size: 10px !important;
+    padding-inline: 0.25rem !important;
+    font-size: 9px !important;
   }
 }
 

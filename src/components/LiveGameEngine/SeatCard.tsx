@@ -98,6 +98,9 @@ export default function SeatCard(props: SeatCardProps) {
   const player = activePlayers.find((item) => item.slot_num === slotNum);
   if (!player) return null;
 
+  const regularFouls = Number(player.fouls || 0);
+  const minorTechFouls = Number(player.minor_tech_fouls || 0);
+  const majorTechFouls = Number(player.major_tech_fouls || 0);
   const isSpeaking = activeSpeakerSlot === slotNum;
   const isNominated = nominations.includes(slotNum);
   const activeVoteNominee = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : undefined;
@@ -107,7 +110,7 @@ export default function SeatCard(props: SeatCardProps) {
   const showFarewellFouls = !player.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
-  const hasVisibleDiscipline = player.fouls > 0 || player.minor_tech_fouls > 0 || player.major_tech_fouls > 0;
+  const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -187,7 +190,7 @@ export default function SeatCard(props: SeatCardProps) {
     if (isSpeaking) {
       return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
     }
-    if (player.has_foul_penalty || player.fouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
+    if (player.has_foul_penalty || regularFouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
     if (isNominated) return <div><div className="live-seat-state__value live-seat-state__value--active">Выставлен</div></div>;
     if (player.has_spoken_this_round) return <div><div className="live-seat-state__value live-seat-state__value--done">Речь ✓</div></div>;
     return null;
@@ -224,7 +227,7 @@ export default function SeatCard(props: SeatCardProps) {
             <ListPlus /><span>{isNominated ? 'Снять' : 'Выставить'}</span>
           </button>
           <div className="live-seat-quickbar__group">
-            {player.fouls > 0 && (
+            {regularFouls > 0 && (
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "down"); }}
@@ -232,7 +235,7 @@ export default function SeatCard(props: SeatCardProps) {
                 title="Снять обычный фол"
               >−Ф</button>
             )}
-            {player.fouls < 4 && (
+            {regularFouls < 4 && (
               <button
                 type="button"
                 onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "up"); }}
@@ -256,12 +259,12 @@ export default function SeatCard(props: SeatCardProps) {
         <div
           className="evening-live-discipline z-[25]"
           data-testid={`live-seat-discipline-${slotNum}`}
-          aria-label={`Фолы ${player.fouls}, малые техфолы ${player.minor_tech_fouls}, большие техфолы ${player.major_tech_fouls}`}
+          aria-label={`Фолы ${regularFouls}, малые техфолы ${minorTechFouls}, большие техфолы ${majorTechFouls}`}
           onClick={(event) => event.stopPropagation()}
         >
-          {player.fouls > 0 && <span className="evening-live-discipline-foul" data-count={player.fouls}>{player.fouls}</span>}
-          {player.minor_tech_fouls > 0 && <span className="evening-live-discipline-minor" data-count={player.minor_tech_fouls}>{player.minor_tech_fouls}</span>}
-          {player.major_tech_fouls > 0 && <span className="evening-live-discipline-major" data-count={player.major_tech_fouls}>{player.major_tech_fouls}</span>}
+          {regularFouls > 0 && <span className="evening-live-discipline-foul" data-count={regularFouls}>{regularFouls}</span>}
+          {minorTechFouls > 0 && <span className="evening-live-discipline-minor" data-count={minorTechFouls}>{minorTechFouls}</span>}
+          {majorTechFouls > 0 && <span className="evening-live-discipline-major" data-count={majorTechFouls}>{majorTechFouls}</span>}
         </div>
       )}
 
@@ -278,8 +281,8 @@ export default function SeatCard(props: SeatCardProps) {
 
       {showFarewellFouls && (
         <div className="absolute right-1.5 top-1.5 z-30 flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-          <button type="button" disabled={player.fouls <= 0} onClick={() => handleFoulChange(slotNum, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
-          <button type="button" disabled={player.fouls >= 4} onClick={() => handleFoulChange(slotNum, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
+          <button type="button" disabled={regularFouls <= 0} onClick={() => handleFoulChange(slotNum, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
+          <button type="button" disabled={regularFouls >= 4} onClick={() => handleFoulChange(slotNum, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
         </div>
       )}
 

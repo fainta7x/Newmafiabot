@@ -52,7 +52,15 @@ const playerDetails = {
   last_visit: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
   do_not_invite_until: null,
   pause_reason: null,
-  gameStats: { totalGames: 21, wins: 11 },
+  gameStats: {
+    totalGames: 21,
+    wins: 11,
+    winRate: 52,
+    roleCounts: { citizen: 12, sheriff: 3, mafia: 4, don: 2 },
+    bestMoves: 2,
+    firstKilled: 1,
+    zeroRoundVoted: 0,
+  },
   stats: { attendanceCount: 8 },
   nextTask: { id: 'task-1', title: 'Уточнить время приезда', status: 'open', due_at: futureStart, created_at: now },
   tasks: [
@@ -72,7 +80,10 @@ const playerDetails = {
   clubGames: [],
   tournamentGames: [],
   tournaments: [],
-  achievements: [],
+  tournamentAwards: [],
+  awardTournaments: [],
+  awardStats: { firstPlaces: 0, secondPlaces: 0, thirdPlaces: 0, nominations: 0 },
+  achievements: null,
 } as any;
 
 api.getPlayers = async () => players as any;

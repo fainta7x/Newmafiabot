@@ -30,7 +30,10 @@ test.describe('Organizer evening roster mobile workflow', () => {
     await expect(page.getByTestId('evening-roster-action-summary')).toContainText('Оплата 1');
 
     await expect(page.getByTestId('evening-roster-row-ep-bogdan')).toBeVisible();
-    await expect(page.getByTestId('evening-roster-row-ep-matroskina')).toBeVisible();
+    const matroskinaRow = page.getByTestId('evening-roster-row-ep-matroskina');
+    await expect(matroskinaRow).toBeVisible();
+    await expect(matroskinaRow).toContainText('осталось 400 ₽');
+    await expect(page.getByTestId('evening-roster-action-ep-matroskina')).toHaveText('Принять 400 ₽');
     await expect(page.getByTestId('evening-roster-row-ep-pristan')).not.toBeVisible();
     await expect(page.getByTestId('evening-roster-add-player')).toBeVisible();
     await expect(page.getByText('Рассылка и игровая регистрация', { exact: true })).toBeVisible();
@@ -44,7 +47,7 @@ test.describe('Organizer evening roster mobile workflow', () => {
     const bogdanAction = page.getByTestId('evening-roster-action-ep-bogdan');
     await expect(bogdanAction).toHaveText('Пришёл');
     await bogdanAction.click();
-    await expect(page.getByTestId('evening-roster-action-ep-bogdan')).toHaveText('Оплачено');
+    await expect(page.getByTestId('evening-roster-action-ep-bogdan')).toHaveText('Принять 400 ₽');
     await page.getByTestId('evening-roster-action-ep-bogdan').click();
     await expect(page.getByTestId('evening-roster-action-summary')).toContainText('1 действие');
     await expect(page.getByTestId('evening-roster-row-ep-bogdan')).not.toBeVisible();

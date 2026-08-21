@@ -12,6 +12,7 @@ interface EveningManagementViewProps {
   onOpenPlayerCard?: (id: string) => void;
   initialAddOpen?: boolean;
   onInitialAddHandled?: () => void;
+  initialPane?: OperationsPane;
 }
 
 type OperationsPane = 'work' | 'roster' | 'tasks' | 'tables' | 'closeout';
@@ -30,12 +31,15 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
   onOpenPlayerCard,
   initialAddOpen = false,
   onInitialAddHandled,
+  initialPane,
 }) => {
-  const [pane, setPane] = useState<OperationsPane>(initialAddOpen ? 'roster' : 'work');
+  const [pane, setPane] = useState<OperationsPane>(initialAddOpen ? 'roster' : initialPane || 'work');
+  const [openRosterAdd, setOpenRosterAdd] = useState(initialAddOpen);
 
   useEffect(() => {
-    if (initialAddOpen) setPane('roster');
-  }, [initialAddOpen, eveningId]);
+    if (initialAddOpen) { setPane('roster'); setOpenRosterAdd(true); return; }
+    setPane(initialPane || 'work');
+  }, [initialAddOpen, initialPane, eveningId]);
 
   const current = panes.find((item) => item.id === pane) || panes[0];
 
@@ -78,7 +82,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
       {pane === 'work' ? <EveningParticipantsWorkboard
         eveningId={eveningId}
         onBack={onBack}
-        onAddPlayer={() => setPane('roster')}
+        onAddPlayer={() => { setOpenRosterAdd(true); setPane('roster'); }}
         onOpenPlayerCard={onOpenPlayerCard}
         onChanged={() => undefined}
       /> : null}
@@ -87,8 +91,8 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
         eveningId={eveningId}
         onBack={onBack}
         onOpenPlayerCard={onOpenPlayerCard}
-        initialAddOpen={initialAddOpen}
-        onInitialAddHandled={onInitialAddHandled}
+        initialAddOpen={initialAddOpen || openRosterAdd}
+        onInitialAddHandled={() => { setOpenRosterAdd(false); onInitialAddHandled?.(); }}
       /> : null}
 
       {pane === 'tasks' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}

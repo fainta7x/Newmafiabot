@@ -164,7 +164,10 @@ test.describe('Live Game seat cabinet', () => {
 
     await regularFoul.click();
     await expect(sheet).toBeHidden();
-    await expect(page.locator('.evening-live-discipline > span[data-count="1"]').first()).toBeVisible();
+    const activeFoulBadge = page.locator('.evening-live-discipline-foul[data-count="1"]').first();
+    await expect(activeFoulBadge).toBeVisible();
+    await capture(page, testInfo, 'live-game-foul-on-table.png');
+
     await seat(page, 6).click();
     await expect(sheet).toBeVisible();
     const foulStat = sheet.locator('.grid.grid-cols-3 > div').first();

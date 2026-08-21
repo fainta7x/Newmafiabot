@@ -172,8 +172,10 @@
   }
 
   /* A foul correction button appears only after the first foul. Reserve its
-     slot from the beginning so +Ф never shifts over the avatar when −Ф mounts. */
-  .evening-live-engine-shell .live-seat-quickbar {
+     slot from the beginning so +Ф never shifts over the avatar when −Ф mounts.
+     Scope this grid only to daytime action quickbars: night target/check markers
+     use the same wrapper and must keep their compact flex layout. */
+  .evening-live-engine-shell .live-seat-quickbar:has(.live-seat-quickbar__group) {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) 45px !important;
     align-items: start !important;
@@ -222,6 +224,21 @@
 
   .live-seat-quick-action--nomination-active span::after {
     content: "Снять";
+  }
+
+  /* Night selection must stay a small readable marker with its role/shot icon. */
+  .evening-live-engine-shell .live-seat-quickbar:has(.live-seat-night-marker) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  .evening-live-engine-shell .live-seat-night-marker svg {
+    display: block !important;
+    width: 13px !important;
+    min-width: 13px !important;
+    height: 13px !important;
+    flex: 0 0 13px !important;
   }
 
   /* Zero discipline is not a judge signal. Preserve each chip's slot so the

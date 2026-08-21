@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import { api } from '../../lib/api.ts';
-import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
+import EveningParticipantsWorkboard from './EveningParticipantsWorkboard.tsx';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
 import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
@@ -48,7 +48,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
 
       <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><strong className="block text-[13px] text-text-primary">Ответы и запись на игры</strong><span className="mt-1 block text-[10px] leading-4 text-text-muted">Фильтры ниже позволяют быстро найти тех, кому нужно написать, и тех, кто уже выбрал игры.</span></section>
 
-      <BaseEveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} />
+      <EveningParticipantsWorkboard eveningId={eveningId} onBack={onBack} onAddPlayer={() => undefined} onOpenPlayerCard={onOpenPlayerCard} onChanged={refresh} />
 
       <EveningGameRegistrationDashboard eveningId={eveningId} refreshKey={refreshKey} onChanged={refresh} />
 

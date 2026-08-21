@@ -1,43 +1,31 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
-const mocks = vi.hoisted(() => ({ getEvening: vi.fn(), getPlayers: vi.fn(), updateParticipant: vi.fn() }));
-vi.mock('../lib/api', () => ({ api: { getEvening: mocks.getEvening, getPlayers: mocks.getPlayers, updateParticipant: mocks.updateParticipant } }));
-vi.mock('../components/ui/PlayerAvatar', () => ({ PlayerAvatar: () => <span data-testid="player-avatar" /> }));
+vi.mock('../components/crm/EveningGameRegistrationDashboard', () => ({
+  default: () => <div data-testid="game-registration-dashboard">Ответы и игры</div>,
+}));
+vi.mock('../components/crm/EveningInviteAudienceManager', () => ({
+  default: () => <div data-testid="invite-audience-manager">База рассылки</div>,
+}));
+
 import { EveningParticipantsView } from '../components/crm/EveningParticipantsView';
 
-const participant = { id: 'ep-1', evening_id: 'evening-1', player_id: 'player-1', table_id: null, nickname: 'Спящий', phone: null, telegram_username: null, lifecycle_status: 'regular', elo: 1000, registration_status: 'going', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 500, amount_paid: 0, notes: null, registered_at: null, confirmed_at: null, checked_in_at: null, created_at: '2026-08-07T18:00:00.000Z', updated_at: '2026-08-07T18:00:00.000Z' };
-const evening = { id: 'evening-1', title: 'Пятничный вечер', starts_at: '2026-08-07T18:00:00.000Z', ends_at: null, timezone: 'Europe/Moscow', venue: 'Клуб', format: 'STANDARD', status: 'active', capacity: 1, default_price: 500, notes: null, settled_at: null, created_at: '2026-08-01T18:00:00.000Z', updated_at: '2026-08-07T18:00:00.000Z', tables: [], participants: [participant] };
-
-describe('EveningParticipantsView response/attendance/payment model', () => {
-  beforeEach(() => {
-    mocks.getEvening.mockResolvedValue(evening);
-    mocks.getPlayers.mockResolvedValue([]);
-    mocks.updateParticipant.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({ ...participant, ...patch }));
-  });
+describe('EveningParticipantsView invitation flow', () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-  it('opens evening context first and keeps attendance/payment independent from response', async () => {
-    const onOpenPlayerCard = vi.fn();
-    render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} onOpenPlayerCard={onOpenPlayerCard} />);
-    expect((await screen.findAllByText('Иду')).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Резерв')).toBeNull();
-    expect(screen.queryByText('Свободно')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
+  it('keeps invitations focused on answers and game choices', () => {
+    render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Спящий/ }));
-    expect(await screen.findByTestId('evening-roster-player-sheet')).toBeTruthy();
-    expect(screen.getByText('В этом вечере')).toBeTruthy();
-    expect(screen.getByText(/Ответ: Иду/)).toBeTruthy();
-    expect(onOpenPlayerCard).not.toHaveBeenCalled();
+    expect(screen.getByText('Кого пригласил')).toBeTruthy();
+    expect(screen.getByTestId('game-registration-dashboard')).toBeTruthy();
+    expect(screen.queryByText('База рассылки')).toBeNull();
+    expect(screen.queryByText('Явка не отмечена')).toBeNull();
+    expect(screen.queryByText('Оплачено')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть профиль игрока' }));
-    expect(onOpenPlayerCard).toHaveBeenCalledWith('player-1');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Пришёл' }));
-    await waitFor(() => expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', { attendance_status: 'attended' }));
+    fireEvent.click(screen.getByRole('button', { name: /Кого звать на вечер/ }));
+    expect(screen.getByTestId('invite-audience-manager')).toBeTruthy();
   });
 });

@@ -61,6 +61,7 @@ export function DisciplineConfirmationOverlay({ pending, player, onCancel, onCon
 
 interface PlayerActionOverlayProps {
   player: ActivePlayerState | null;
+  mode?: 'standard' | 'farewell';
   disciplinePlayer: PlayerDiscipline | null;
   activeSpeakerSlot: number | null;
   nominations: number[];
@@ -78,6 +79,7 @@ interface PlayerActionOverlayProps {
 
 export function PlayerActionOverlay({
   player,
+  mode = 'standard',
   disciplinePlayer,
   activeSpeakerSlot,
   nominations,
@@ -125,23 +127,27 @@ export function PlayerActionOverlay({
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 font-black shrink-0">×</button>
         </div>
 
-        {player.alive ? (
+        {player.alive || mode === 'farewell' ? (
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => { onAddRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-amber-950/60 border border-amber-700/70 text-amber-200 text-xs font-black">+ Обычный фол</button>
             <button type="button" disabled={regularFouls <= 0} onClick={() => { onRemoveRegularFoul(player.slot_num); onClose(); }} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-300 text-xs font-black disabled:opacity-30">− Снять фол</button>
             <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'minor'); onClose(); }} className="min-h-12 rounded-xl bg-yellow-950/45 border border-yellow-700/60 text-yellow-200 text-xs font-black">Малый тех</button>
             <button type="button" onClick={() => { onAddTechFoul(player.slot_num, 'major'); onClose(); }} className="min-h-12 rounded-xl bg-rose-950/55 border border-rose-700/70 text-rose-200 text-xs font-black">Большой тех</button>
-            <button
-              type="button"
-              disabled={nominationDisabled}
-              onClick={() => { onToggleNomination(player.slot_num); onClose(); }}
-              className={`min-h-12 rounded-xl border text-xs font-black disabled:opacity-30 ${isNominated ? 'bg-slate-950 border-slate-600 text-slate-300' : 'bg-fuchsia-950/40 border-fuchsia-700/60 text-fuchsia-200'}`}
-            >
-              {isNominated ? 'Снять выставление' : 'Выставить'}
-            </button>
-            <button type="button" onClick={() => onEditNote(player)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
-            <button type="button" onClick={() => onDirectRemove(player.slot_num)} className="min-h-12 rounded-xl bg-red-950/60 border border-red-700/70 text-red-200 text-xs font-black">Удалить</button>
-            <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-12 rounded-xl bg-purple-950/60 border border-purple-700/70 text-purple-200 text-xs font-black">ППК</button>
+            {mode === 'standard' && (
+              <>
+                <button
+                  type="button"
+                  disabled={nominationDisabled}
+                  onClick={() => { onToggleNomination(player.slot_num); onClose(); }}
+                  className={`min-h-12 rounded-xl border text-xs font-black disabled:opacity-30 ${isNominated ? 'bg-slate-950 border-slate-600 text-slate-300' : 'bg-fuchsia-950/40 border-fuchsia-700/60 text-fuchsia-200'}`}
+                >
+                  {isNominated ? 'Снять выставление' : 'Выставить'}
+                </button>
+                <button type="button" onClick={() => onEditNote(player)} className="min-h-12 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-black">Заметка</button>
+                <button type="button" onClick={() => onDirectRemove(player.slot_num)} className="min-h-12 rounded-xl bg-red-950/60 border border-red-700/70 text-red-200 text-xs font-black">Удалить</button>
+                <button type="button" aria-label="ППК" onClick={() => onPpk(player.slot_num)} className="min-h-12 rounded-xl bg-purple-950/60 border border-purple-700/70 text-purple-200 text-xs font-black">ППК</button>
+              </>
+            )}
           </div>
         ) : (
           <button type="button" onClick={() => onRestorePlayer(player.slot_num)} className="w-full min-h-12 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-200 text-xs font-black">Вернуть за стол</button>

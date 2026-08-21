@@ -24,7 +24,9 @@ test.describe('Organizer players mobile workflow', () => {
     await page.evaluate(() => document.fonts.ready);
 
     await expect(page.getByRole('heading', { name: 'Игроки', exact: true })).toBeVisible();
-    await expect(page.getByPlaceholder('Ник, имя, телефон или Telegram')).toBeVisible();
+    const search = page.getByPlaceholder('Ник, имя, телефон или Telegram');
+    await expect(search).toBeVisible();
+    expect(parseFloat(await search.evaluate((element) => getComputedStyle(element).paddingLeft))).toBeGreaterThanOrEqual(36);
     await expect(page.getByRole('button', { name: 'Добавить', exact: true })).toBeVisible();
     await expect(page.getByTestId('crm-player-list')).toBeVisible();
     await expect(page.getByRole('button', { name: /Богдан/ })).toBeVisible();

@@ -48,6 +48,13 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important;
 }
 
+/* Shared mobile-field padding can otherwise win over Tailwind's search-icon
+   spacing. Preserve the explicit pl-10 contract anywhere a search glyph sits
+   inside the field. */
+.mobile-field.pl-10 {
+  padding-left: 2.5rem !important;
+}
+
 @media (min-width: 390px) and (max-width: 430px) {
   .player-cabinet-shell img,
   .player-cabinet-shell svg,

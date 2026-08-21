@@ -13,6 +13,7 @@ import type { ActivePlayerState, NightSubPhase, Phase } from './types.js';
 
 export type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
 export type PostNightStage = 'none' | 'farewell' | 'death_protocol';
+export type ZeroNightMusicState = 'pending' | 'playing' | 'stopped';
 
 export type PendingDisciplineConfirmation = {
   slot: number;
@@ -45,6 +46,7 @@ export type LiveSnapshot = {
   timerMax: number;
   isTimerRunning: boolean;
   zeroNightSubPhase: 'agreement' | 'sheriff' | 'seating' | null;
+  zeroNightMusicState: ZeroNightMusicState;
   shotPlayerSlot: number | null;
   donCheckSlot: number | null;
   donCheckResult: boolean | null;
@@ -127,6 +129,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
   timerMax: snapshot.timerMax ?? 60,
   isTimerRunning: Boolean(snapshot.isTimerRunning),
   zeroNightSubPhase: snapshot.zeroNightSubPhase ?? null,
+  zeroNightMusicState: snapshot.zeroNightMusicState ?? 'pending',
   shotPlayerSlot: snapshot.shotPlayerSlot ?? null,
   donCheckSlot: snapshot.donCheckSlot ?? null,
   donCheckResult: snapshot.donCheckResult ?? null,

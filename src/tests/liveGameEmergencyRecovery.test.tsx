@@ -85,7 +85,10 @@ const recoverySnapshot = () => ({
 });
 
 describe('live game emergency recovery', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
   afterEach(() => cleanup());
 
   it('restores an interrupted game to its saved phase and blocks a double finish click', async () => {
@@ -116,5 +119,47 @@ describe('live game emergency recovery', () => {
 
     expect(onGameFinished).toHaveBeenCalledTimes(1);
     expect(onGameFinished.mock.calls[0][0].winning_team).toBe('Чёрные');
+  });
+
+  it('requires an explicit music resume before continuing a restored zero night', async () => {
+    const zeroNightPlayers = players.map((player) => ({
+      ...player,
+      alive: true,
+      eliminated_phase: '',
+      exit_reason: 'alive',
+    }));
+    localStorage.setItem('mafia_live_session', JSON.stringify({
+      ...recoverySnapshot(),
+      activePlayers: zeroNightPlayers,
+      phase: 'zero_night',
+      roundNumber: 1,
+      nightSubPhase: 'intro',
+      postNightStage: 'none',
+      activeSpeakerSlot: null,
+      customTimerLabel: 'Договорка',
+      timeLeft: 75,
+      timerMax: 75,
+      zeroNightSubPhase: 'agreement',
+      zeroNightMusicState: 'playing',
+      shotPlayerSlot: null,
+      nightLogs: [],
+    }));
+
+    render(
+      <LiveGameEngine
+        players={[]}
+        initialJudgeId={777}
+        onGameFinished={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+
+    const resumeMusic = await screen.findByRole('button', { name: /Включить музыку ночи/i });
+    expect(screen.queryByRole('button', { name: /Вызов шерифа · 10с/i })).toBeNull();
+
+    fireEvent.click(resumeMusic);
+    expect(await screen.findByRole('button', { name: /Вызов шерифа · 10с/i })).toBeTruthy();
   });
 });

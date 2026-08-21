@@ -56,47 +56,10 @@ export const requestJudgeNightMusicStart = () => {
 
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
 
-type LiveAudioState = {
-  phase: string | null;
-  zeroNightSubPhase: string | null;
-  nightSubPhase: string | null;
-  sheriffCheckSlot: number | null;
-};
-
-const readLiveAudioState = (): LiveAudioState | null => {
-  try {
-    const raw = localStorage.getItem('mafia_live_session');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return {
-      phase: typeof parsed?.phase === 'string' ? parsed.phase : null,
-      zeroNightSubPhase: typeof parsed?.zeroNightSubPhase === 'string' ? parsed.zeroNightSubPhase : null,
-      nightSubPhase: typeof parsed?.nightSubPhase === 'string' ? parsed.nightSubPhase : null,
-      sheriffCheckSlot: Number.isFinite(Number(parsed?.sheriffCheckSlot)) && parsed?.sheriffCheckSlot !== null
-        ? Number(parsed.sheriffCheckSlot)
-        : null,
-    };
-  } catch {
-    return null;
-  }
-};
-
-const hasOpenLiveEngine = () => Boolean(
-  document.querySelector('.evening-live-engine-shell, .tournament-live-shell')
-);
-
-const zeroNightWantsMusic = (live: LiveAudioState | null) => {
-  if (live?.phase !== 'zero_night') return false;
-  return live.zeroNightSubPhase === 'agreement'
-    || live.zeroNightSubPhase === 'sheriff'
-    || live.zeroNightSubPhase === 'seating';
-};
-
 export default function JudgeGameMusicController() {
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);
-  const nightWantedRef = useRef(false);
   const wantedRef = useRef(false);
   const wantedTrackRef = useRef<string | undefined>(undefined);
 
@@ -127,8 +90,8 @@ export default function JudgeGameMusicController() {
       wantedRef.current = false;
       wantedTrackRef.current = undefined;
       clearManualState();
-      // Explicit stop always wins immediately. No timer or night subphase is
-      // allowed to masquerade as the judge pressing this button.
+      // Explicit stop always wins immediately. Night phase state must never
+      // restart music after the judge has pressed the stop step.
       music.stop();
     };
     window.addEventListener(START_EVENT, startDeal);
@@ -141,12 +104,8 @@ export default function JudgeGameMusicController() {
 
   useEffect(() => {
     const sync = () => {
-      const live = hasOpenLiveEngine() ? readLiveAudioState() : null;
-      const selection = readJudgeGameMusicSelection();
-
-      // A manually started regular-night track is sticky. Rehydrate the flag if
-      // Telegram/WebView remounted this controller while the game was still open.
-      // It can only be cleared by the explicit STOP event above.
+      // A judge-started track is sticky across Telegram/WebView remounts while
+      // the game is open. It can only be cleared by the explicit STOP event.
       if (!manualRef.current) {
         const stored = readStoredManualState();
         if (stored) {
@@ -155,14 +114,8 @@ export default function JudgeGameMusicController() {
         }
       }
 
-      const phaseWantsNightMusic = zeroNightWantsMusic(live);
-      const configured = selection?.configured === true;
-      const selectedNightTrack = configured ? selection.nightTrackId || undefined : undefined;
-      const shouldPlayForZeroNight = phaseWantsNightMusic && (!configured || Boolean(selectedNightTrack));
-
-      nightWantedRef.current = shouldPlayForZeroNight;
-      const shouldPlay = manualRef.current || shouldPlayForZeroNight;
-      const desiredTrack = manualRef.current ? manualTrackRef.current : selectedNightTrack;
+      const shouldPlay = manualRef.current;
+      const desiredTrack = manualTrackRef.current;
       wantedRef.current = shouldPlay;
       wantedTrackRef.current = desiredTrack;
 

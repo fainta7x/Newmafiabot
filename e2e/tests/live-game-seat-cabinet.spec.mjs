@@ -38,9 +38,11 @@ const prepareZeroRound = async (page) => {
   await intro.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Начать раздачу', exact: true }).click();
   for (const role of ROLE_SEQUENCE) await page.getByRole('button', { name: new RegExp(role) }).click();
   await page.getByRole('button', { name: /Роли зафиксированы/ }).click();
+  await page.getByRole('button', { name: /Включить музыку ночи/ }).click();
   await page.getByRole('button', { name: /Договорка · 75с/ }).click();
   await page.getByRole('button', { name: /Вызов шерифа · 10с/i }).click();
   await page.getByRole('button', { name: /Свободная посадка · 40с/ }).click();
+  await page.getByRole('button', { name: /Выключить музыку/ }).click();
   await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
   await expect(tableGrid(page)).toBeVisible();
 };

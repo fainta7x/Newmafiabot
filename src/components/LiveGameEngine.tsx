@@ -31,6 +31,7 @@ import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
+import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
   BestMoveProtocolOverlay,
   DisciplineConfirmationOverlay,
@@ -44,6 +45,7 @@ import {
   PendingDisciplineConfirmation,
   PostNightStage,
   VotingStage,
+  ZeroNightMusicState,
   cloneLiveSnapshot,
   createEmptyActivePlayer,
   createInitialLiveDiscipline,
@@ -103,6 +105,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [activeSpeakerSlot, setActiveSpeakerSlot] = useState<number | null>(null);
   const [customTimerLabel, setCustomTimerLabel] = useState<string | null>(null);
   const [zeroNightSubPhase, setZeroNightSubPhase] = useState<"agreement" | "sheriff" | "seating" | null>(null);
+  const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gameFinishedRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -201,6 +204,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     timerMax,
     isTimerRunning,
     zeroNightSubPhase,
+    zeroNightMusicState,
     shotPlayerSlot,
     donCheckSlot,
     donCheckResult,
@@ -241,6 +245,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setTimerMax(restored.timerMax);
     setIsTimerRunning(restored.isTimerRunning);
     setZeroNightSubPhase(restored.zeroNightSubPhase);
+    setZeroNightMusicState(restored.zeroNightMusicState);
     setShotPlayerSlot(restored.shotPlayerSlot);
     setDonCheckSlot(restored.donCheckSlot);
     setDonCheckResult(restored.donCheckResult);
@@ -288,12 +293,17 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
-    zeroNightSubPhase, votingFarewellQueue, votingFarewellIndex,
+    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex,
   ]);
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
-    restoreSnapshot(restorableSession as LiveSnapshot);
+    const restored = normalizeLiveSnapshotForRestore(restorableSession as LiveSnapshot);
+    const recoverySnapshot = restored.phase === 'zero_night' && restored.zeroNightMusicState === 'playing'
+      ? { ...restored, zeroNightMusicState: 'pending' as const }
+      : restored;
+    if (restored.phase === 'zero_night') requestJudgeGameMusicStop();
+    restoreSnapshot(recoverySnapshot);
     setNightLogs(restorableSession.nightLogs || []);
     setShotPlayerSlot(restorableSession.shotPlayerSlot ?? null);
     setDonCheckSlot(restorableSession.donCheckSlot ?? null);
@@ -410,6 +420,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       team: p.team === 'Чёрные' ? 'black' : 'red',
     }))));
     localStorage.removeItem("mafia_live_session");
+    setZeroNightMusicState('pending');
     setPhase('zero_night');
   };
 
@@ -1011,7 +1022,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       if (!zeroNightSubPhase) return { label: 'Договорка · 75с', onClick: () => handleStartZeroNightTimer('agreement') };
       if (zeroNightSubPhase === 'agreement') return { label: 'Вызов шерифа · 10с', onClick: () => handleStartZeroNightTimer('sheriff') };
       if (zeroNightSubPhase === 'sheriff') return { label: 'Посадка · 40с', onClick: () => handleStartZeroNightTimer('seating') };
-      return { label: 'Разбудить город', onClick: () => { setPhase('day_speeches'); setCustomTimerLabel(null); setIsTimerRunning(false); } };
+      return { label: 'Разбудить город', onClick: () => { setZeroNightMusicState('pending'); setPhase('day_speeches'); setCustomTimerLabel(null); setIsTimerRunning(false); } };
     }
     if (phase === 'day_speeches') {
       if (activeSpeakerSlot) return { label: `Завершить речь #${activeSpeakerSlot}`, onClick: () => markPlayerSpoken(activeSpeakerSlot) };
@@ -1228,6 +1239,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       timeLeft,
       setTimeLeft,
       zeroNightSubPhase,
+      zeroNightMusicState,
+      setZeroNightMusicState,
       customTimerLabel,
       isTimerRunning,
       setIsTimerRunning,

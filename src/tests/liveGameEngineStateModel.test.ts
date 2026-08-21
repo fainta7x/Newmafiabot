@@ -46,6 +46,7 @@ const createSnapshot = (): LiveSnapshot => ({
   timerMax: 60,
   isTimerRunning: true,
   zeroNightSubPhase: null,
+  zeroNightMusicState: 'pending',
   shotPlayerSlot: null,
   donCheckSlot: null,
   donCheckResult: null,
@@ -178,6 +179,7 @@ describe('Live Game engine state model', () => {
       timerMax: 0,
       isTimerRunning: undefined,
       zeroNightSubPhase: undefined,
+      zeroNightMusicState: undefined,
       shotPlayerSlot: 0,
       donCheckSlot: 0,
       donCheckResult: false,
@@ -211,6 +213,7 @@ describe('Live Game engine state model', () => {
     expect(restored.timerMax).toBe(0);
     expect(restored.isTimerRunning).toBe(false);
     expect(restored.zeroNightSubPhase).toBeNull();
+    expect(restored.zeroNightMusicState).toBe('pending');
     expect(restored.shotPlayerSlot).toBe(0);
     expect(restored.donCheckSlot).toBe(0);
     expect(restored.donCheckResult).toBe(false);

@@ -32,8 +32,17 @@ test.describe('Organizer evening roster mobile workflow', () => {
     await expect(page.getByTestId('evening-roster-row-ep-bogdan')).toBeVisible();
     const matroskinaRow = page.getByTestId('evening-roster-row-ep-matroskina');
     await expect(matroskinaRow).toBeVisible();
-    await expect(matroskinaRow).toContainText('осталось 400 ₽');
+    await expect(matroskinaRow).toContainText('Здесь');
+    await expect(matroskinaRow).toContainText('Осталось 400 ₽');
+    await expect(matroskinaRow).not.toContainText('Приду позже');
     await expect(page.getByTestId('evening-roster-action-ep-matroskina')).toHaveText('Принять 400 ₽');
+
+    await matroskinaRow.getByRole('button').first().click();
+    const matroskinaSheet = page.getByTestId('evening-roster-player-sheet');
+    await expect(matroskinaSheet).toContainText('Здесь · осталось 400 ₽');
+    await expect(matroskinaSheet).toContainText('Ответ: Приду позже');
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+
     await expect(page.getByTestId('evening-roster-row-ep-pristan')).not.toBeVisible();
     await expect(page.getByTestId('evening-roster-add-player')).toBeVisible();
     await expect(page.getByText('Рассылка и игровая регистрация', { exact: true })).toBeVisible();
@@ -47,6 +56,10 @@ test.describe('Organizer evening roster mobile workflow', () => {
     const bogdanAction = page.getByTestId('evening-roster-action-ep-bogdan');
     await expect(bogdanAction).toHaveText('Пришёл');
     await bogdanAction.click();
+    const bogdanRow = page.getByTestId('evening-roster-row-ep-bogdan');
+    await expect(bogdanRow).toContainText('Здесь');
+    await expect(bogdanRow).toContainText('Осталось 400 ₽');
+    await expect(bogdanRow).not.toContainText('Иду');
     await expect(page.getByTestId('evening-roster-action-ep-bogdan')).toHaveText('Принять 400 ₽');
     await page.getByTestId('evening-roster-action-ep-bogdan').click();
     await expect(page.getByTestId('evening-roster-action-summary')).toContainText('1 действие');

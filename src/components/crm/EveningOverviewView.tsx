@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, Gamepad2, Play, RefreshCw, Users } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
 
 interface EveningOverviewViewProps {
@@ -54,7 +55,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   const stats = useMemo(() => {
     const participants = evening?.participants || [];
-    const expected = participants.filter((item) => ['going', 'late'].includes(String((item as any).response_status || (item as any).registration_status || '')));
+    const expected = participants.filter((item) => ['going', 'late'].includes(getEveningResponse(item)));
     const attended = participants.filter((item) => item.attendance_status === 'attended');
     const paid = participants.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
     const due = participants.reduce((sum, item) => sum + Number(item.amount_due || 0), 0);

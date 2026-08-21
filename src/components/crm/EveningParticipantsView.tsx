@@ -50,6 +50,8 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
 
       <EveningParticipantsWorkboard eveningId={eveningId} onBack={onBack} onAddPlayer={() => undefined} onOpenPlayerCard={onOpenPlayerCard} onChanged={refresh} />
 
+      <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><button type="button" className="min-h-[44px] w-full text-left text-[11px] font-semibold text-text-primary">Рассылка и игровая регистрация</button></section>
+
       <EveningGameRegistrationDashboard eveningId={eveningId} refreshKey={refreshKey} onChanged={refresh} />
 
       <EveningRosterSlotEditor eveningId={eveningId} onChanged={refresh} />

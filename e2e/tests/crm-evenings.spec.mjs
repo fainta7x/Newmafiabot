@@ -19,93 +19,70 @@ const attachViewport = async (page, testInfo, name) => {
 test.describe('Organizer events mobile workflow', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('starts compact and keeps the full calendar one tap away', async ({ page }, testInfo) => {
+  test('separates current work, future plans, history and the calendar', async ({ page }, testInfo) => {
     await page.goto('/e2e/crm-evenings.html');
     await page.evaluate(() => document.fonts.ready);
 
+    await expect(page.getByRole('heading', { name: 'События', exact: true })).toBeVisible();
+    await expect(page.getByTestId('crm-new-evening')).toBeVisible();
+    await expect(page.getByTestId('crm-events-calendar')).toHaveCount(0);
+
+    const typeTabs = page.getByRole('navigation', { name: 'Типы событий' });
+    await expect(typeTabs.getByRole('button', { name: 'Игровые вечера', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(typeTabs.getByRole('button', { name: 'Турниры', exact: true })).toBeVisible();
+
+    const timeTabs = page.getByRole('navigation', { name: 'Период событий' });
+    await expect(timeTabs.getByRole('button', { name: 'Актуальное', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(timeTabs.getByRole('button', { name: /Будущее/ })).toBeVisible();
+    await expect(timeTabs.getByRole('button', { name: 'История', exact: true })).toBeVisible();
+
+    const current = page.getByTestId('crm-events-current');
+    await expect(current).toBeVisible();
+    await expect(current.getByTestId('crm-evening-active')).toBeVisible();
+    await expect(current.getByText('Идёт сейчас', { exact: true })).toBeVisible();
+    await expect(current.getByTestId('crm-events-next')).toContainText('Вечер для новичков');
+    await expect(current.getByTestId('crm-events-stale-drafts')).toContainText('Черновики требуют решения');
+    await expect(page.getByTestId('crm-evening-later')).toHaveCount(0);
+    await expect(page.getByTestId('crm-evening-completed')).toHaveCount(0);
+    await expectNoHorizontalOverflow(page, 'current events');
+    await attachViewport(page, testInfo, 'crm-events-current.png');
+
+    await current.getByTestId('crm-evening-active').getByRole('button', { name: /Открыть вечер/ }).click();
+    await expect.poll(() => page.evaluate(() => document.body.dataset.openEvening)).toBe('active');
+
+    await timeTabs.getByRole('button', { name: /Будущее/ }).click();
+    const future = page.getByTestId('crm-events-future');
+    await expect(future).toBeVisible();
+    await expect(future.getByTestId('crm-evening-later')).toBeVisible();
+    await expect(page.getByTestId('crm-evening-active')).toHaveCount(0);
+    await expect(page.getByTestId('crm-evening-completed')).toHaveCount(0);
+    await expect(future.getByRole('button', { name: '+ След. пятница', exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'future events');
+    await attachViewport(page, testInfo, 'crm-events-future.png');
+
+    await timeTabs.getByRole('button', { name: 'История', exact: true }).click();
+    const history = page.getByTestId('crm-events-history');
+    await expect(history).toBeVisible();
+    await expect(history.getByTestId('crm-evening-completed')).toContainText('Прошлый клубный вечер');
+    await expect(history.getByTestId('crm-evening-completed')).toContainText('3800 ₽');
+    await expect(page.getByTestId('crm-evening-active')).toHaveCount(0);
+    await expectNoHorizontalOverflow(page, 'event history');
+    await attachViewport(page, testInfo, 'crm-events-history.png');
+
+    const calendarButton = page.getByRole('button', { name: 'Календарь', exact: true });
+    expect(await calendarButton.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    await calendarButton.click();
     const calendar = page.getByTestId('crm-events-calendar');
     await expect(calendar).toBeVisible();
-    expect(await calendar.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
     await expect(page.getByTestId('crm-calendar-compact')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Предыдущий месяц' })).toHaveCount(0);
-    await expectNoHorizontalOverflow(page, 'compact calendar');
-    await attachViewport(page, testInfo, 'crm-events-calendar-compact.png');
+    await expectNoHorizontalOverflow(page, 'calendar requested');
 
     const calendarToggle = page.getByRole('button', { name: /Календарь клуба.*Месяц/ });
-    await expect(calendarToggle).toBeVisible();
-    expect(await calendarToggle.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(48);
     await calendarToggle.click();
     const expanded = page.getByTestId('crm-calendar-expanded');
     await expect(expanded).toBeVisible();
-
-    const previousMonth = expanded.getByRole('button', { name: 'Предыдущий месяц' });
-    const nextMonth = expanded.getByRole('button', { name: 'Следующий месяц' });
-    expect(await previousMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    expect(await nextMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-
-    const allFilter = expanded.getByTestId('crm-calendar-filter-all');
-    await expect(allFilter).toBeVisible();
-    const filterTreatment = await allFilter.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, color: style.color };
-    });
-    expect(filterTreatment.background).toBe('rgb(255, 255, 255)');
-    expect(filterTreatment.color).toBe('rgb(9, 10, 13)');
-
-    const filterHeights = await expanded.locator('[data-testid^="crm-calendar-filter-"]').evaluateAll((buttons) =>
-      buttons.map((button) => button.getBoundingClientRect().height),
-    );
-    expect(Math.min(...filterHeights)).toBeGreaterThanOrEqual(44);
-
-    const draftEvent = expanded.getByTestId('crm-calendar-event-evening-draft');
-    await expect(draftEvent).toBeVisible();
-    await expect(draftEvent).toHaveText('20:00');
-    await expect(draftEvent).toHaveAttribute('aria-label', /Клубный вечер — черновик · 20:00 · Клубный/);
-    const eventTextFits = await draftEvent.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
-    expect(eventTextFits).toBe(true);
-    await attachViewport(page, testInfo, 'crm-events-calendar-expanded.png');
-
-    const collapseToggle = page.getByRole('button', { name: /Календарь клуба.*Свернуть/ });
-    await expect(collapseToggle).toBeVisible();
-    await collapseToggle.click();
-    await expect(page.getByTestId('crm-calendar-compact')).toBeVisible();
-
-    const segmented = page.locator('[data-slot="segmented-control"]');
-    await expect(segmented).toBeVisible();
-    const tabs = segmented.locator('button');
-    expect(await tabs.nth(0).evaluate((element) => element.getBoundingClientRect().height)).toBe(40);
-    await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'page');
-
-    const hero = page.getByTestId('crm-evenings-hero');
-    await expect(hero).toBeVisible();
-    expect(await hero.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
-
-    const newEvening = page.getByTestId('crm-new-evening');
-    const primaryTreatment = await newEvening.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, color: style.color };
-    });
-    expect(primaryTreatment.background).toBe('rgb(255, 255, 255)');
-    expect(primaryTreatment.color).toBe('rgb(9, 10, 13)');
-
-    const draft = page.getByTestId('crm-evening-draft');
-    const active = page.getByTestId('crm-evening-active');
-    const planned = page.getByTestId('crm-evening-planned');
-    await expect(draft).toBeVisible();
-    await expect(active).toBeVisible();
-    await expect(planned).toBeVisible();
-    for (const card of [draft, active, planned]) {
-      expect(await card.evaluate((element) => getComputedStyle(element).borderRadius)).toBe('24px');
-    }
-
-    const statusBackgrounds = await Promise.all([draft, active, planned].map((card) => card.locator('span').first().evaluate((element) => getComputedStyle(element).backgroundColor)));
-    expect(new Set(statusBackgrounds).size).toBe(3);
-
-    await active.getByRole('button', { name: /Открыть вечер/ }).click();
-    await expect.poll(() => page.evaluate(() => document.body.dataset.openEvening)).toBe('active');
-
-    await expectNoHorizontalOverflow(page, 'event list');
-    await hero.scrollIntoViewIfNeeded();
-    await attachViewport(page, testInfo, 'crm-events-list.png');
+    expect(await expanded.getByRole('button', { name: 'Предыдущий месяц' }).evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    expect(await expanded.getByRole('button', { name: 'Следующий месяц' }).evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    await attachViewport(page, testInfo, 'crm-events-calendar.png');
   });
 });

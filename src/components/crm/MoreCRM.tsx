@@ -14,14 +14,10 @@ import {
   LogOut,
   Palette,
   Send,
-  Trophy,
-  UserCog,
 } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
-import { PlayerRolesAdminCRM } from './PlayerRolesAdminCRM.tsx';
-import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 import { TelegramCRM } from './TelegramCRM.tsx';
 import { SystemStatusCard } from './SystemStatusCard.tsx';
 
@@ -33,7 +29,7 @@ interface MoreCRMProps {
   onLogout: () => void | Promise<void>;
 }
 
-type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'player_roles' | 'ratings' | 'system' | null;
+type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | null;
 
 type MenuItem = {
   id: string;
@@ -48,8 +44,6 @@ const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   betting: 'Управление ставками',
   commerce: 'Оплата и поддержка',
   telegram: 'Telegram',
-  player_roles: 'Статусы и роли игроков',
-  ratings: 'Рейтинговые периоды',
   system: 'Состояние системы',
 };
 
@@ -57,8 +51,8 @@ const menuTone = (id: string) => {
   if (id === 'tasks' || id === 'betting') return 'border-amber-200/10 bg-amber-200/[0.08] text-amber-100';
   if (id === 'analytics' || id === 'telegram') return 'border-sky-200/10 bg-sky-300/[0.08] text-sky-100';
   if (id === 'commerce' || id === 'system') return 'border-emerald-200/10 bg-emerald-300/[0.08] text-emerald-100';
-  if (id === 'ratings' || id === 'theme') return 'border-violet-200/10 bg-violet-300/[0.08] text-violet-100';
-  if (id === 'player_roles' || id === 'game') return 'border-[color-mix(in_srgb,var(--ds-accent)_18%,transparent)] bg-[var(--ds-accent-soft)] text-[var(--ds-accent)]';
+  if (id === 'theme') return 'border-violet-200/10 bg-violet-300/[0.08] text-violet-100';
+  if (id === 'game') return 'border-[color-mix(in_srgb,var(--ds-accent)_18%,transparent)] bg-[var(--ds-accent-soft)] text-[var(--ds-accent)]';
   return 'border-white/[0.07] bg-white/[0.06] text-white/60';
 };
 
@@ -111,9 +105,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         {subscreen === 'data' ? <DataSettingsCRM /> : null}
         {subscreen === 'betting' ? <BettingAdminCRM /> : null}
         {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
-        {subscreen === 'player_roles' ? <PlayerRolesAdminCRM /> : null}
         {subscreen === 'telegram' ? <TelegramCRM /> : null}
-        {subscreen === 'ratings' ? <RatingPeriodsCRM /> : null}
         {subscreen === 'system' ? <SystemStatusCard /> : null}
       </div>
     );
@@ -122,13 +114,11 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   const workItems: MenuItem[] = [
     { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
-    { id: 'telegram', label: 'Telegram', detail: 'Анонсы, каналы и публикации', icon: Send, onClick: () => setSubscreen('telegram') },
-    { id: 'commerce', label: 'Оплата и поддержка', detail: 'Сборы, жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
+    { id: 'telegram', label: 'Telegram', detail: 'Каналы, публикации и общие настройки', icon: Send, onClick: () => setSubscreen('telegram') },
+    { id: 'commerce', label: 'Оплата и поддержка', detail: 'Жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
   ];
 
-  const gameItems: MenuItem[] = [
-    { id: 'player_roles', label: 'Статусы и роли игроков', detail: 'Допуски, ведущие и судьи', icon: UserCog, onClick: () => setSubscreen('player_roles') },
-    { id: 'ratings', label: 'Рейтинговые периоды', detail: 'Сезоны и границы рейтинга', icon: Trophy, onClick: () => setSubscreen('ratings') },
+  const otherTools: MenuItem[] = [
     { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
     ...(onOpenGameEngine
       ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }]
@@ -145,22 +135,22 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
     <div className="mx-auto w-full max-w-xl space-y-3.5 sm:space-y-4">
       <header className="px-1 pt-0.5">
         <h2 className="text-[21px] font-semibold text-white sm:text-2xl">Ещё</h2>
-        <p className="mt-0.5 text-[11px] leading-4 text-white/35 sm:text-xs sm:leading-5">Дополнительные инструменты. Основная работа остаётся в «Сегодня», «Событиях» и «Игроках».</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-white/35 sm:text-xs sm:leading-5">Служебные и общие инструменты. Игроки, их доступы и рейтинг теперь находятся в «Игроках».</p>
       </header>
 
       <section className="space-y-1.5">
-        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Работа</div>
+        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Организация</div>
         <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
           {workItems.map((item) => <MenuRow key={item.id} {...item} />)}
         </div>
       </section>
 
-      <section className="space-y-1.5">
-        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Игроки и игра</div>
+      {otherTools.length ? <section className="space-y-1.5">
+        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Дополнительно</div>
         <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
-          {gameItems.map((item) => <MenuRow key={item.id} {...item} />)}
+          {otherTools.map((item) => <MenuRow key={item.id} {...item} />)}
         </div>
-      </section>
+      </section> : null}
 
       <section className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
         <button

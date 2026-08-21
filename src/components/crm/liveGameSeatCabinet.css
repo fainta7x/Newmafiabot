@@ -126,6 +126,34 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
+/* Eliminated players stay recognizable. The protocol state remains above this
+   identity layer, so the face becomes context rather than competing with the
+   killed/voted/removed label. */
+.evening-live-engine-shell .evening-live-identity[data-alive="false"] .evening-live-player-avatar {
+  opacity: 0.34 !important;
+  visibility: visible !important;
+  filter: grayscale(0.85) saturate(0.45);
+  transform: scale(0.92);
+  box-shadow: none !important;
+}
+
+.evening-live-engine-shell .evening-live-identity[data-alive="false"] .evening-live-identity-name {
+  opacity: 0.58 !important;
+  visibility: visible !important;
+  background: rgba(9, 10, 13, 0.88);
+  color: rgba(255, 255, 255, 0.62);
+  box-shadow: none;
+}
+
+.evening-live-engine-shell .live-seat-card--dead .live-seat-state__value {
+  padding: 4px 7px;
+  border: 1px solid rgba(251, 113, 133, 0.18);
+  border-radius: 8px;
+  background: rgba(22, 10, 15, 0.88);
+  color: #fda4af;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+}
+
 .evening-live-engine-shell .live-seat-footer {
   min-height: 43px;
   padding: 5px 6px;

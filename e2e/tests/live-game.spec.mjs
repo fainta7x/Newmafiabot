@@ -270,7 +270,13 @@ test.describe('Live Game browser stabilization', () => {
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
 
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
-    await expect(page.locator('.evening-live-identity[data-seat="2"][data-alive="false"] .evening-live-player-avatar')).toBeHidden();
+    const eliminatedIdentity = page.locator('.evening-live-identity[data-seat="2"][data-alive="false"]');
+    const eliminatedAvatar = eliminatedIdentity.locator('.evening-live-player-avatar');
+    await expect(eliminatedAvatar).toBeVisible();
+    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toBeVisible();
+    const eliminatedAvatarOpacity = await eliminatedAvatar.evaluate((node) => Number(getComputedStyle(node).opacity));
+    expect.soft(eliminatedAvatarOpacity, 'eliminated avatar remains secondary').toBeGreaterThanOrEqual(0.25);
+    expect.soft(eliminatedAvatarOpacity, 'eliminated avatar must not compete with status').toBeLessThanOrEqual(0.5);
     await clickOptional(page.getByRole('button', { name: /Включить музыку ночи/ }));
     await page.getByRole('button', { name: 'Отстрел', exact: true }).click();
     await seatCard(page, 1).click();
@@ -308,6 +314,7 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
+    await expect(eliminatedAvatar).toBeVisible();
     await expectNoHorizontalOverflow(page, 'day 1');
     await attachViewport(page, testInfo, '08-day-1.png');
   });

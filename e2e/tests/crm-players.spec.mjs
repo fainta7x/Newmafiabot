@@ -19,9 +19,15 @@ const attachViewport = async (page, testInfo, name) => {
 test.describe('Organizer players mobile workflow', () => {
   test.use({ viewport: { width: 390, height: 713 }, deviceScaleFactor: 2.4 });
 
-  test('keeps player work action-first and secondary history collapsed', async ({ page }, testInfo) => {
+  test('keeps profiles, access and rating inside one player hub', async ({ page }, testInfo) => {
     await page.goto('/e2e/crm-players.html');
     await page.evaluate(() => document.fonts.ready);
+
+    const hub = page.getByRole('navigation', { name: 'Раздел игроков' });
+    await expect(hub).toBeVisible();
+    await expect(hub.getByRole('button', { name: 'Игроки', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(hub.getByRole('button', { name: 'Доступы', exact: true })).toBeVisible();
+    await expect(hub.getByRole('button', { name: 'Рейтинг', exact: true })).toBeVisible();
 
     await expect(page.getByRole('heading', { name: 'Игроки', exact: true })).toBeVisible();
     const search = page.getByPlaceholder('Ник, имя, телефон или Telegram');
@@ -53,7 +59,16 @@ test.describe('Organizer players mobile workflow', () => {
     await expectNoHorizontalOverflow(page, 'player profile');
     await attachViewport(page, testInfo, 'crm-player-profile.png');
 
-    await history.locator('summary').click();
-    await expect(history.getByText('Подтвердил, что будет в пятницу', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await hub.getByRole('button', { name: 'Доступы', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Статусы и роли игроков', exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder('Найти игрока')).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'players access');
+    await attachViewport(page, testInfo, 'crm-players-access.png');
+
+    await hub.getByRole('button', { name: 'Рейтинг', exact: true }).click();
+    await expect(page.getByText('Рейтинговые периоды', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page, 'players rating');
+    await attachViewport(page, testInfo, 'crm-players-rating.png');
   });
 });

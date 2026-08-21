@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Plus } from 'lucide-react';
 import { api, type GameEvening } from '../../lib/api.ts';
 import { EVENING_FORMAT_DESCRIPTIONS, EVENING_FORMAT_LABELS, normalizeEveningFormat, type EveningFormat } from '../../lib/eveningFormat.ts';
@@ -29,6 +29,13 @@ const eventStatusTone = (status: GameEvening['status'], completed: boolean) => {
   return 'border-sky-200/10 bg-sky-300/[0.08] text-sky-100';
 };
 
+const eveningRank = (evening: GameEvening) => {
+  if (evening.status === 'active') return 0;
+  if (evening.status === 'draft') return 1;
+  if (evening.status === 'completed' || evening.settled_at) return 3;
+  return 2;
+};
+
 export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initialCreateOpen = false, onInitialCreateHandled }) => {
   const [tab, setTab] = useState<'evenings' | 'tournaments'>('evenings');
   const [tournamentId, setTournamentId] = useState<string | null>(null);
@@ -45,6 +52,15 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   const [price, setPrice] = useState(100);
   const [venue, setVenue] = useState('Суп с Котом');
   const [notes, setNotes] = useState('');
+
+  const sortedEvenings = useMemo(() => [...evenings].sort((a, b) => {
+    const rank = eveningRank(a) - eveningRank(b);
+    if (rank) return rank;
+    const aTime = new Date(a.starts_at).getTime();
+    const bTime = new Date(b.starts_at).getTime();
+    const completed = eveningRank(a) === 3;
+    return completed ? bTime - aTime : aTime - bTime;
+  }), [evenings]);
 
   const reset = () => {
     setTitle(''); setStartsAt(''); setFormat('CASUAL'); setSlotCount(6); setDuration(60);
@@ -100,7 +116,7 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
   const moveTop = () => requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }));
   const openTournament = (id: string) => { tournamentScroll.current = window.scrollY; setTab('tournaments'); setTournamentId(id); moveTop(); };
 
-  return <div className="space-y-4">
+  return <div className="space-y-3 sm:space-y-4">
     {!tournamentId && <OrganizerEventsCalendar evenings={evenings} onOpenEvening={onOpenEvening} onOpenTournament={openTournament} />}
 
     <SegmentedControl
@@ -114,32 +130,32 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
       tournamentId ? <TournamentDetailView tournamentId={tournamentId} onBack={() => { setTournamentId(null); requestAnimationFrame(() => window.scrollTo({ top: tournamentScroll.current })); }} />
         : <TournamentsList onOpenTournament={openTournament} />
     ) : <>
-      <section data-testid="crm-evenings-hero" className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.065] to-white/[0.03] p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Организация клуба</div>
-            <h2 className="mt-1 text-xl font-semibold text-white">Игровые вечера</h2>
-            <p className="mt-1 text-xs leading-5 text-white/38">Календарь, игровые слоты и запись игроков · 100 ₽ за игру, на клубном вечере максимум 400 ₽</p>
+      <section data-testid="crm-evenings-hero" className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3.5 sm:rounded-[28px] sm:bg-gradient-to-br sm:from-white/[0.065] sm:to-white/[0.03] sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[18px] font-semibold text-white sm:text-xl">Игровые вечера</h2>
+            <p className="mt-0.5 text-[11px] text-white/35">{sortedEvenings.length} в CRM · активные и ближайшие идут первыми</p>
+            <p className="mt-1 hidden text-xs leading-5 text-white/38 sm:block">Календарь, игровые слоты и запись игроков · 100 ₽ за игру, на клубном вечере максимум 400 ₽</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button disabled={quickBusy} onClick={() => void createFriday()} className="min-h-11 rounded-2xl border border-emerald-200/10 bg-emerald-300/[0.08] px-4 text-xs font-semibold text-emerald-100 disabled:opacity-50"><Plus className="mr-1 inline h-4 w-4" />{quickBusy ? 'Создаём…' : 'Следующая пятница'}</button>
-            <button data-testid="crm-new-evening" onClick={showCreate} className="min-h-11 rounded-2xl bg-white px-4 text-xs font-semibold text-[#090a0d]"><Plus className="mr-1 inline h-4 w-4" />Новый вечер</button>
-          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button disabled={quickBusy} onClick={() => void createFriday()} className="min-h-11 rounded-[13px] border border-emerald-200/10 bg-emerald-300/[0.08] px-3 text-[11px] font-semibold text-emerald-100 disabled:opacity-50 sm:rounded-2xl sm:px-4 sm:text-xs"><Plus className="mr-1 inline h-4 w-4" />{quickBusy ? 'Создаём…' : 'След. пятница'}</button>
+          <button data-testid="crm-new-evening" onClick={showCreate} className="min-h-11 rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] sm:rounded-2xl sm:px-4 sm:text-xs"><Plus className="mr-1 inline h-4 w-4" />Новый вечер</button>
         </div>
         {error && !open ? <div className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs text-rose-100/75">{error}</div> : null}
       </section>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {evenings.map((evening) => {
+        {sortedEvenings.map((evening) => {
           const fmt = normalizeEveningFormat(evening.format);
           const completed = evening.status === 'completed' || Boolean(evening.settled_at);
           return <article key={evening.id} data-testid={`crm-evening-${evening.id}`} className={`rounded-[24px] border border-white/10 bg-white/[0.04] p-4 ${completed ? 'opacity-85' : ''}`}>
             <div className="flex items-center justify-between gap-3"><span className={`rounded-xl border px-2.5 py-1 text-[10px] font-semibold ${eventStatusTone(evening.status, completed)}`}>{evening.status === 'draft' ? 'Черновик' : evening.status === 'active' ? 'Идёт сейчас' : completed ? 'Завершён' : 'Запланирован'}</span><span className="text-[10px] font-semibold text-white/38">{EVENING_FORMAT_LABELS[fmt]}</span></div>
-            <h3 className="mt-4 text-base font-semibold text-white">{evening.title}</h3>
+            <h3 className="mt-3 text-base font-semibold text-white">{evening.title}</h3>
             <p className="mt-1 text-xs text-white/40">📅 {displayMoscow(evening.starts_at)}</p>
             {evening.venue ? <p className="mt-0.5 text-[11px] text-white/32">📍 {evening.venue}</p> : null}
-            <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-black/20 p-2.5 text-center"><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Запись</span><b className="mt-0.5 block text-sm font-semibold">{evening.registered_count || 0}</b></div><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Пришло</span><b className="mt-0.5 block text-sm font-semibold">{evening.attended_count || 0}</b></div><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Выручка</span><b className="mt-0.5 block text-sm font-semibold">{evening.total_revenue || 0} ₽</b></div></div>
-            <button onClick={() => onOpenEvening(evening.id)} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.07] text-xs font-semibold text-white/70 active:bg-white/[0.1]">Открыть вечер <ArrowRight className="h-4 w-4" /></button>
+            <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-black/20 p-2.5 text-center"><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Запись</span><b className="mt-0.5 block text-sm font-semibold">{evening.registered_count || 0}</b></div><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Пришло</span><b className="mt-0.5 block text-sm font-semibold">{evening.attended_count || 0}</b></div><div><span className="block text-[9px] uppercase tracking-wide text-white/25">Выручка</span><b className="mt-0.5 block text-sm font-semibold">{evening.total_revenue || 0} ₽</b></div></div>
+            <button onClick={() => onOpenEvening(evening.id)} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.07] text-xs font-semibold text-white/70 active:bg-white/[0.1]">Открыть вечер <ArrowRight className="h-4 w-4" /></button>
           </article>;
         })}
       </div>

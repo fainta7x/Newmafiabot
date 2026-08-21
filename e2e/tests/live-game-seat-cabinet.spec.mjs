@@ -97,11 +97,11 @@ test.describe('Live Game seat cabinet', () => {
 
     const nominationAction = seatOne.locator('.live-seat-quick-action--nomination');
     const seatBox = await seatOne.boundingBox();
-    const nominationBox = await nominationAction.boundingBox();
+    const nominationActionBox = await nominationAction.boundingBox();
     expect(seatBox).not.toBeNull();
-    expect(nominationBox).not.toBeNull();
-    expect.soft(nominationBox.x).toBeGreaterThanOrEqual(seatBox.x - 1);
-    expect.soft(nominationBox.x + nominationBox.width).toBeLessThanOrEqual(seatBox.x + seatBox.width + 1);
+    expect(nominationActionBox).not.toBeNull();
+    expect.soft(nominationActionBox.x).toBeGreaterThanOrEqual(seatBox.x - 1);
+    expect.soft(nominationActionBox.x + nominationActionBox.width).toBeLessThanOrEqual(seatBox.x + seatBox.width + 1);
 
     await expectNoHorizontalOverflow(page, 'seat table');
     await capture(page, testInfo, 'live-game-seat-cabinet.png');

@@ -5,25 +5,25 @@ import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
 
-const pad = (value: number) => String(value).padStart(2, '0');
-const now = new Date();
-const year = now.getFullYear();
-const month = now.getMonth() + 1;
-const iso = (day: number, hour = 20) => `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:00:00+03:00`;
+const atOffset = (days: number, hour = 20) => {
+  const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+};
 
 const evenings = [
   {
     id: 'draft',
-    title: 'Клубный вечер — черновик',
-    starts_at: iso(6),
+    title: 'Старый черновик вечера',
+    starts_at: atOffset(-10),
     timezone: 'Europe/Moscow',
     venue: 'Суп с Котом',
     format: 'CASUAL',
     status: 'draft',
     capacity: 10,
     default_price: 100,
-    created_at: iso(1),
-    updated_at: iso(1),
+    created_at: atOffset(-12),
+    updated_at: atOffset(-10),
     registered_count: 6,
     attended_count: 0,
     total_revenue: 0,
@@ -31,15 +31,15 @@ const evenings = [
   {
     id: 'active',
     title: 'Рейтинговый вечер',
-    starts_at: iso(14),
+    starts_at: atOffset(-1),
     timezone: 'Europe/Moscow',
     venue: 'Суп с Котом',
     format: 'RATING',
     status: 'active',
     capacity: 10,
     default_price: 100,
-    created_at: iso(1),
-    updated_at: iso(1),
+    created_at: atOffset(-14),
+    updated_at: atOffset(0),
     registered_count: 12,
     attended_count: 10,
     total_revenue: 3200,
@@ -47,31 +47,47 @@ const evenings = [
   {
     id: 'planned',
     title: 'Вечер для новичков',
-    starts_at: iso(22),
+    starts_at: atOffset(2),
     timezone: 'Europe/Moscow',
     venue: 'Суп с Котом',
     format: 'NOVICE',
     status: 'published',
     capacity: 10,
     default_price: 100,
-    created_at: iso(1),
-    updated_at: iso(1),
+    created_at: atOffset(-3),
+    updated_at: atOffset(-1),
     registered_count: 8,
+    attended_count: 0,
+    total_revenue: 0,
+  },
+  {
+    id: 'later',
+    title: 'Клубный вечер на следующей неделе',
+    starts_at: atOffset(9),
+    timezone: 'Europe/Moscow',
+    venue: 'Суп с Котом',
+    format: 'CASUAL',
+    status: 'published',
+    capacity: 10,
+    default_price: 100,
+    created_at: atOffset(-2),
+    updated_at: atOffset(-1),
+    registered_count: 4,
     attended_count: 0,
     total_revenue: 0,
   },
   {
     id: 'completed',
     title: 'Прошлый клубный вечер',
-    starts_at: iso(3),
+    starts_at: atOffset(-14),
     timezone: 'Europe/Moscow',
     venue: 'Суп с Котом',
     format: 'CASUAL',
     status: 'completed',
     capacity: 10,
     default_price: 100,
-    created_at: iso(1),
-    updated_at: iso(1),
+    created_at: atOffset(-20),
+    updated_at: atOffset(-13),
     registered_count: 11,
     attended_count: 10,
     total_revenue: 3800,

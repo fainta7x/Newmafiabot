@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Gamepad2, Megaphone, Settings, Users } from 'lucide-react';
+import { ClipboardCheck, Gamepad2, Megaphone, Users } from 'lucide-react';
 import { EveningOverviewView } from './EveningOverviewView.tsx';
 import { EveningParticipantsView } from './EveningParticipantsView.tsx';
 import { EveningGamesView } from './EveningGamesView.tsx';
@@ -26,10 +26,10 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
   initialSection = 'overview',
   onSectionChange,
 }) => {
-  const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'participants' : initialSection);
+  const [section, setSection] = useState<EveningSection>(initialAddOpen ? 'management' : initialSection);
 
   useEffect(() => {
-    setSection(initialAddOpen ? 'participants' : initialSection);
+    setSection(initialAddOpen ? 'management' : initialSection);
   }, [eveningId, initialAddOpen, initialSection]);
 
   const openSection = (next: EveningSection) => {
@@ -37,16 +37,11 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
     onSectionChange?.(next);
   };
 
-  // Вечер разделён по жизненному циклу организатора:
-  // 1. Анонс и сбор ответов
-  // 2. Фактические участники вечера
-  // 3. Проведение игр
-  // 4. Служебные настройки
   const tabs: Array<{ id: EveningSection; label: string; icon: React.ReactNode }> = [
-    { id: 'overview', label: 'Анонс', icon: <Megaphone className="h-4 w-4" /> },
-    { id: 'participants', label: 'Участники', icon: <Users className="h-4 w-4" /> },
+    { id: 'overview', label: 'Вечер', icon: <Megaphone className="h-4 w-4" /> },
+    { id: 'participants', label: 'Кого пригласил', icon: <Users className="h-4 w-4" /> },
+    { id: 'management', label: 'Сам вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
     { id: 'games', label: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
-    { id: 'management', label: 'Управление', icon: <Settings className="h-4 w-4" /> },
   ];
 
   return (
@@ -71,9 +66,9 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
       </div>
 
       {section === 'overview' ? <EveningOverviewView eveningId={eveningId} onBack={onBack} onOpenSection={openSection} /> : null}
-      {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} /> : null}
+      {section === 'participants' ? <EveningParticipantsView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={false} onInitialAddHandled={onInitialAddHandled} /> : null}
+      {section === 'management' ? <EveningManagementView eveningId={eveningId} onBack={onBack} onOpenPlayerCard={onOpenPlayerCard} initialAddOpen={initialAddOpen} onInitialAddHandled={onInitialAddHandled} /> : null}
       {section === 'games' ? <EveningGamesView eveningId={eveningId} onBack={onBack} /> : null}
-      {section === 'management' ? <EveningManagementView eveningId={eveningId} onBack={onBack} /> : null}
     </div>
   );
 };

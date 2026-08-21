@@ -20,7 +20,7 @@ describe('EveningParticipantsView response/attendance/payment model', () => {
   });
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-  it('opens profile in one tap and keeps attendance/payment independent from response', async () => {
+  it('opens evening context first and keeps attendance/payment independent from response', async () => {
     const onOpenPlayerCard = vi.fn();
     render(<EveningParticipantsView eveningId="evening-1" onBack={() => undefined} onOpenPlayerCard={onOpenPlayerCard} />);
     expect((await screen.findAllByText('Иду')).length).toBeGreaterThan(0);
@@ -29,13 +29,15 @@ describe('EveningParticipantsView response/attendance/payment model', () => {
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /^Спящий/ }));
+    expect(await screen.findByTestId('evening-roster-player-sheet')).toBeTruthy();
+    expect(screen.getByText('В этом вечере')).toBeTruthy();
+    expect(screen.getByText(/Ответ: Иду/)).toBeTruthy();
+    expect(onOpenPlayerCard).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть профиль игрока' }));
     expect(onOpenPlayerCard).toHaveBeenCalledWith('player-1');
 
     fireEvent.click(screen.getByRole('button', { name: 'Пришёл' }));
     await waitFor(() => expect(mocks.updateParticipant).toHaveBeenCalledWith('ep-1', { attendance_status: 'attended' }));
-
-    fireEvent.click(screen.getByRole('button', { name: 'Действия Спящий' }));
-    expect(await screen.findByText('Ответ на вечер')).toBeTruthy();
-    expect(screen.queryByText('Стол')).toBeNull();
   });
 });

@@ -65,7 +65,9 @@ test.describe('Organizer events mobile workflow', () => {
     expect(eventTextFits).toBe(true);
     await attachViewport(page, testInfo, 'crm-events-calendar-expanded.png');
 
-    await calendarToggle.click();
+    const collapseToggle = page.getByRole('button', { name: /Календарь клуба.*Свернуть/ });
+    await expect(collapseToggle).toBeVisible();
+    await collapseToggle.click();
     await expect(page.getByTestId('crm-calendar-compact')).toBeVisible();
 
     const segmented = page.locator('[data-slot="segmented-control"]');

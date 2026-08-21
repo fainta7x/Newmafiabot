@@ -169,6 +169,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   );
   const [livePhase, setLivePhase] = useState('setup');
   const [rolesHidden, setRolesHidden] = useState(false);
+  const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
@@ -198,6 +199,34 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       window.confirm = originalConfirm;
     };
   }, []);
+
+  useEffect(() => {
+    if (livePhase === 'setup') {
+      setLiveAlive({});
+      return;
+    }
+
+    let lastSignature = '';
+    const syncAliveState = () => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem('mafia_live_session') || '{}');
+        const next: Record<number, boolean> = {};
+        for (const player of Array.isArray(parsed?.activePlayers) ? parsed.activePlayers : []) {
+          const slot = Number(player?.slot_num);
+          if (Number.isInteger(slot) && slot >= 1 && slot <= 10) next[slot] = player?.alive !== false;
+        }
+        const signature = JSON.stringify(next);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          setLiveAlive(next);
+        }
+      } catch {}
+    };
+
+    syncAliveState();
+    const intervalId = window.setInterval(syncAliveState, 300);
+    return () => window.clearInterval(intervalId);
+  }, [livePhase]);
 
   const finishConfirmedSave = (updated: ClubGameRecord) => {
     liveRecorder.finish();
@@ -316,6 +345,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                 className="evening-live-identity"
                 style={seatPlacement[player.seat_number]}
                 data-seat={player.seat_number}
+                data-alive={liveAlive[player.seat_number] === false ? 'false' : 'true'}
               >
                 <PlayerAvatar
                   playerId={player.player_id}

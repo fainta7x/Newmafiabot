@@ -364,3 +364,90 @@
     min-width: 0 !important;
   }
 }
+
+
+/* One visual owner per seat on mobile.
+   SeatCard owns the dynamic discipline values; the identity layer owns avatars only. */
+@media (max-width: 767px) {
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline {
+    position: absolute !important;
+    top: auto !important;
+    right: 5px !important;
+    bottom: 47px !important;
+    left: 5px !important;
+    z-index: 26 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    width: auto !important;
+    height: 19px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count] {
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 27px !important;
+    min-width: 27px !important;
+    height: 19px !important;
+    padding: 0 3px !important;
+    gap: 2px !important;
+    overflow: hidden !important;
+    border-radius: 7px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    text-indent: -999px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::before {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    background: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    color: currentColor !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 8px !important;
+    font-weight: 950 !important;
+    line-height: 1 !important;
+    text-indent: 0 !important;
+  }
+
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline > span[data-count]::after {
+    min-width: 0 !important;
+    color: currentColor !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 8px !important;
+    font-weight: 950 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    text-indent: 0 !important;
+  }
+
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline-foul[data-count]::before { content: "Ф" !important; }
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline-minor[data-count]::before { content: "Т" !important; }
+  .evening-live-engine-shell .live-seat-card > .evening-live-discipline-major[data-count]::before { content: "Т!" !important; }
+
+  /* The card itself opens the action sheet. Keeping ten permanent action
+     strips on a phone hides the table instead of helping the judge. */
+  .evening-live-engine-shell .live-seat-card > .live-seat-quickbar:has(.live-seat-quickbar__group) {
+    display: none !important;
+  }
+
+  .evening-live-engine-shell .evening-live-identity-layer .evening-live-identity {
+    padding: 10px 4px 52px !important;
+    gap: 0 !important;
+  }
+}

@@ -37,11 +37,11 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
     onSectionChange?.(next);
   };
 
-  const tabs: Array<{ id: EveningSection; label: string; icon: React.ReactNode }> = [
-    { id: 'overview', label: 'Вечер', icon: <Megaphone className="h-4 w-4" /> },
-    { id: 'participants', label: 'Кого пригласил', icon: <Users className="h-4 w-4" /> },
-    { id: 'management', label: 'Сам вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
-    { id: 'games', label: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
+  const tabs: Array<{ id: EveningSection; label: string; mobileLabel: string; icon: React.ReactNode }> = [
+    { id: 'overview', label: 'Вечер', mobileLabel: 'Анонс', icon: <Megaphone className="h-4 w-4" /> },
+    { id: 'participants', label: 'Кого пригласил', mobileLabel: 'Ответы', icon: <Users className="h-4 w-4" /> },
+    { id: 'management', label: 'Сам вечер', mobileLabel: 'Вечер', icon: <ClipboardCheck className="h-4 w-4" /> },
+    { id: 'games', label: 'Игры', mobileLabel: 'Игры', icon: <Gamepad2 className="h-4 w-4" /> },
   ];
 
   return (
@@ -58,7 +58,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
                 className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1 rounded-[10px] px-1 text-[10px] font-bold transition-colors sm:text-[12px] ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
               >
                 {tab.icon}
-                <span className="truncate">{tab.label}</span>
+                <span className="truncate sm:hidden">{tab.mobileLabel}</span><span className="hidden truncate sm:inline">{tab.label}</span>
               </button>
             );
           })}

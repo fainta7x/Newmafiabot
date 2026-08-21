@@ -45,38 +45,35 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><ClipboardCheck className="h-5 w-5" /></span>
+      <section className="rounded-[16px] border border-border-soft bg-surface-1 px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent"><ClipboardCheck className="h-4 w-4" /></span>
           <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-accent">Сам вечер</div>
-            <h2 className="mt-0.5 text-[17px] font-black text-text-primary">{current.label}</h2>
-            <p className="mt-1 text-[11px] leading-5 text-text-secondary">
-              {pane === 'work' ? 'Отмечай приход и оплату. Вверху — только люди, по которым нужно действие.' : null}
-              {pane === 'roster' ? 'Добавь внезапного гостя, убери ошибочную запись или исправь данные участника.' : null}
-              {pane === 'tasks' ? 'Задачи организатора только для этого вечера.' : null}
-              {pane === 'tables' ? 'Настройки стола. Игроков выбираешь уже при запуске конкретной игры.' : null}
-              {pane === 'closeout' ? 'Финальная явка, долги и незавершённые игры перед закрытием вечера.' : null}
+            <div className="flex items-baseline gap-2"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-accent">Сам вечер</span><h2 className="truncate text-[15px] font-black text-text-primary">{current.label}</h2></div>
+            <p className="mt-0.5 truncate text-[10px] text-text-secondary">
+              {pane === 'work' ? 'Явка и оплата — только те, по кому нужно действие.' : null}
+              {pane === 'roster' ? 'Гости, ошибочные записи и ручные правки.' : null}
+              {pane === 'tasks' ? 'Задачи организатора для этого вечера.' : null}
+              {pane === 'tables' ? 'Настройки стола; игроков выберешь в конкретной игре.' : null}
+              {pane === 'closeout' ? 'Финальная сверка явки, денег и игр.' : null}
             </p>
           </div>
         </div>
       </section>
 
-      <nav aria-label="Рабочие разделы вечера" className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-none">
-        <div className="flex w-max min-w-full gap-1.5">
-          {panes.map((item) => {
-            const active = item.id === pane;
-            return <button
-              key={item.id}
-              type="button"
-              onClick={() => setPane(item.id)}
-              className={`flex min-h-[48px] min-w-[104px] items-center gap-2 rounded-[13px] border px-3 text-left transition-colors ${active ? 'border-accent bg-accent text-white' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
-            >
-              {item.icon}
-              <span><strong className="block text-[11px] font-black">{item.label}</strong><span className={`block text-[8px] ${active ? 'text-white/75' : 'text-text-muted'}`}>{item.hint}</span></span>
-            </button>;
-          })}
-        </div>
+      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-6 gap-1.5">
+        {panes.map((item, index) => {
+          const active = item.id === pane;
+          return <button
+            key={item.id}
+            type="button"
+            onClick={() => setPane(item.id)}
+            className={`col-span-2 flex min-h-[46px] items-center justify-center gap-1.5 rounded-[12px] border px-2 text-center transition-colors ${index > 2 ? 'col-span-3' : ''} ${active ? 'border-accent bg-accent text-white' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
+          >
+            {item.icon}
+            <span className="text-[11px] font-black">{item.label}</span>
+          </button>;
+        })}
       </nav>
 
       {pane === 'work' ? <EveningParticipantsWorkboard

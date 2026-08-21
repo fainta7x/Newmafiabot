@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { GameEvening } from '../../lib/api.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
+import { PlayerEveningQuickAddProvider } from './PlayerEveningQuickAdd.tsx';
 import { PlayersCRM } from './PlayersCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
@@ -29,20 +30,22 @@ export const PlayersHubCRM: React.FC<PlayersHubCRMProps> = ({
         ariaLabel="Раздел игроков"
         value={tab}
         items={[
-          { value: 'profiles', label: 'Игроки' },
+          { value: 'profiles', label: 'База' },
           { value: 'rating', label: 'Рейтинг' },
         ]}
         onValueChange={(value) => setTab(value)}
       />
 
       {tab === 'profiles' ? (
-        <PlayersCRM
-          evenings={evenings}
-          onOpenEvening={onOpenEvening}
-          selectedPlayerId={selectedPlayerId}
-          onClosePlayerCard={onClosePlayerCard}
-          onCrmChanged={onCrmChanged}
-        />
+        <PlayerEveningQuickAddProvider evenings={evenings} onOpenEvening={onOpenEvening} onCrmChanged={onCrmChanged}>
+          <PlayersCRM
+            evenings={evenings}
+            onOpenEvening={onOpenEvening}
+            selectedPlayerId={selectedPlayerId}
+            onClosePlayerCard={onClosePlayerCard}
+            onCrmChanged={onCrmChanged}
+          />
+        </PlayerEveningQuickAddProvider>
       ) : null}
 
       {tab === 'rating' ? <RatingPeriodsCRM /> : null}

@@ -5,7 +5,7 @@ import { CRMOverview } from './crm/CRMOverview.tsx';
 import { EveningsList } from './crm/EveningsList.tsx';
 import { EveningWorkspace, type EveningSection } from './crm/EveningWorkspace.tsx';
 import { MoreCRM } from './crm/MoreCRM.tsx';
-import { PlayersCRM } from './crm/PlayersCRM.tsx';
+import { PlayersHubCRM } from './crm/PlayersHubCRM.tsx';
 import { TasksCRM } from './crm/TasksCRM.tsx';
 import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
@@ -346,7 +346,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             ) : null}
 
             {activeTab === 'players' ? (
-              <PlayersCRM
+              <PlayersHubCRM
                 evenings={evenings}
                 onOpenEvening={handleOpenEvening}
                 selectedPlayerId={activePlayerId}

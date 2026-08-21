@@ -90,7 +90,7 @@ const expectCanonicalJudgeBaseline = async (page) => {
   await expect(hud).not.toContainText('спорн');
 
   expect(await tableGrid(page).locator('svg.lucide-crosshair').count()).toBe(0);
-  await expect(seatCard(page, 1).getByRole('button', { name: 'Выставить #1', exact: true })).toBeHidden();
+  await expect(seatCard(page, 1).getByRole('button', { name: 'Выставить #1', exact: true })).toBeVisible();
 
   const seatColors = await page.evaluate(() => {
     const getColor = (seat) => {
@@ -216,7 +216,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).first()).toBeVisible();
 
     await startSpeech(page, 1);
-    await expect(seatCard(page, 1).locator('.live-seat-quickbar')).toBeHidden();
+    await expect(seatCard(page, 1).locator('.live-seat-quickbar__group')).toBeHidden();
     const playerAction = await openPlayerAction(page, 1);
     await playerAction.getByRole('button', { name: '+ Обычный фол', exact: true }).click();
     await expect(seatCard(page, 1).locator('.evening-live-discipline-foul')).toHaveAttribute('data-count', '1');

@@ -440,9 +440,15 @@
   .evening-live-engine-shell .live-seat-card > .evening-live-discipline-minor[data-count]::before { content: "Т" !important; }
   .evening-live-engine-shell .live-seat-card > .evening-live-discipline-major[data-count]::before { content: "Т!" !important; }
 
-  /* The card itself opens the action sheet. Keeping ten permanent action
-     strips on a phone hides the table instead of helping the judge. */
+  /* Keep direct nomination one-tap, but move discipline changes to the
+     card action sheet. This removes two noisy buttons from every seat. */
   .evening-live-engine-shell .live-seat-card > .live-seat-quickbar:has(.live-seat-quickbar__group) {
+    display: flex !important;
+    right: auto !important;
+    width: auto !important;
+  }
+
+  .evening-live-engine-shell .live-seat-card > .live-seat-quickbar__group {
     display: none !important;
   }
 

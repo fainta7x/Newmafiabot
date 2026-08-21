@@ -216,18 +216,11 @@ test.describe('Live Game browser stabilization', () => {
     await expect(page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).first()).toBeVisible();
 
     await startSpeech(page, 1);
-    const quickAddFoul = seatCard(page, 1).locator('.live-seat-quick-action--foul');
-    await expect(quickAddFoul).toBeVisible();
-    const foulButtonBefore = await quickAddFoul.boundingBox();
-    expect(foulButtonBefore).not.toBeNull();
-    await quickAddFoul.dblclick();
-    await expect(seatCard(page, 1).locator('.live-seat-quick-action--remove-foul')).toBeVisible();
+    await expect(seatCard(page, 1).locator('.live-seat-quickbar__group')).toBeVisible();
+    const playerAction = await openPlayerAction(page, 1);
+    await playerAction.getByRole('button', { name: '+ Обычный фол', exact: true }).click();
     await expect(seatCard(page, 1).locator('.evening-live-discipline-foul')).toHaveAttribute('data-count', '1');
-    const foulButtonAfter = await quickAddFoul.boundingBox();
-    expect(foulButtonAfter).not.toBeNull();
-    expect.soft(Math.abs(foulButtonAfter.x - foulButtonBefore.x), 'quick +Ф must not shift horizontally').toBeLessThanOrEqual(1);
-    expect.soft(Math.abs(foulButtonAfter.y - foulButtonBefore.y), 'quick +Ф must not shift vertically').toBeLessThanOrEqual(1);
-    await attachViewport(page, testInfo, '03-quick-foul-stable.png');
+    await attachViewport(page, testInfo, '03-card-actions-clean.png');
 
     await nominate(page, 2);
     await finishSpeech(page, 1);
@@ -278,7 +271,7 @@ test.describe('Live Game browser stabilization', () => {
     const eliminatedIdentity = page.locator('.evening-live-identity[data-seat="2"][data-alive="false"]');
     const eliminatedAvatar = eliminatedIdentity.locator('.evening-live-player-avatar');
     await expect(eliminatedAvatar).toBeVisible();
-    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toBeVisible();
+    await expect(eliminatedIdentity.locator('.evening-live-identity-name')).toHaveCount(0);
     const eliminatedAvatarOpacity = await eliminatedAvatar.evaluate((node) => Number(getComputedStyle(node).opacity));
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar remains secondary').toBeGreaterThanOrEqual(0.25);
     expect.soft(eliminatedAvatarOpacity, 'eliminated avatar must not compete with status').toBeLessThanOrEqual(0.5);

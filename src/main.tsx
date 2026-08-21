@@ -3,7 +3,6 @@ import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx";
 import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtocolOverlay.tsx";
-import { EveningLiveDisciplineGlyphBridge } from "./components/crm/EveningLiveDisciplineGlyphBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./styles/design-system.css";
@@ -23,7 +22,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <App />
       <JudgeGameMusicController />
       <EveningDeathProtocolBridge />
-      <EveningLiveDisciplineGlyphBridge />
     </AppErrorBoundary>
   </React.StrictMode>
 );

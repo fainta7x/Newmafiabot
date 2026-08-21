@@ -13,7 +13,7 @@ interface EveningParticipantsViewProps {
   onInitialAddHandled?: () => void;
 }
 
-export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = ({ eveningId, onBack }) => {
+export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = ({ eveningId }) => {
   const [evening, setEvening] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);

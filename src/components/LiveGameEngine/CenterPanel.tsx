@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
+import type { ZeroNightMusicState } from "./engineStateModel.js";
 import {
   BEST_MOVE_SECONDS,
   buildTimerIdentity,
@@ -30,6 +31,8 @@ interface CenterPanelProps {
   timeLeft: number;
   setTimeLeft: (time: number) => void;
   zeroNightSubPhase: string | null;
+  zeroNightMusicState: ZeroNightMusicState;
+  setZeroNightMusicState: React.Dispatch<React.SetStateAction<ZeroNightMusicState>>;
   customTimerLabel: string | null;
   isTimerRunning: boolean;
   setIsTimerRunning: (isRunning: boolean) => void;
@@ -110,6 +113,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     timeLeft,
     setTimeLeft,
     zeroNightSubPhase,
+    zeroNightMusicState,
+    setZeroNightMusicState,
     customTimerLabel,
     isTimerRunning,
     setIsTimerRunning,
@@ -149,8 +154,6 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
-  const [zeroNightMusicStarted, setZeroNightMusicStarted] = React.useState(false);
-  const [zeroNightMusicStopped, setZeroNightMusicStopped] = React.useState(false);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
   const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const timerDeadlineRef = React.useRef<number | null>(null);
@@ -227,13 +230,6 @@ export default function CenterPanel(props: CenterPanelProps) {
       setMusicStoppedRound(null);
     }
   }, [phase, roundNumber]);
-
-  React.useEffect(() => {
-    if (phase !== 'zero_night') {
-      setZeroNightMusicStarted(false);
-      setZeroNightMusicStopped(false);
-    }
-  }, [phase]);
 
   React.useEffect(() => {
     const identity = buildTimerIdentity(phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax);
@@ -590,22 +586,22 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const baseNextStep = getNextStepInfo();
   const nextStep = (() => {
-    if (phase === 'zero_night' && !zeroNightSubPhase && !zeroNightMusicStarted) {
+    if (phase === 'zero_night' && zeroNightMusicState === 'pending') {
       return {
         label: '♫ Включить музыку ночи',
         onClick: () => {
-          requestJudgeNightMusicStart();
-          setZeroNightMusicStarted(true);
+          const started = requestJudgeNightMusicStart();
+          setZeroNightMusicState(started ? 'playing' : 'stopped');
         },
       };
     }
 
-    if (phase === 'zero_night' && zeroNightSubPhase === 'seating' && !zeroNightMusicStopped) {
+    if (phase === 'zero_night' && zeroNightSubPhase === 'seating' && zeroNightMusicState === 'playing') {
       return {
         label: '♫ Выключить музыку',
         onClick: () => {
           requestJudgeGameMusicStop();
-          setZeroNightMusicStopped(true);
+          setZeroNightMusicState('stopped');
         },
       };
     }

@@ -22,6 +22,8 @@ const baseProps = () => ({
   timeLeft: 60,
   setTimeLeft: vi.fn(),
   zeroNightSubPhase: null,
+  zeroNightMusicState: 'pending' as const,
+  setZeroNightMusicState: vi.fn(),
   customTimerLabel: null,
   isTimerRunning: false,
   setIsTimerRunning: vi.fn(),
@@ -58,10 +60,12 @@ describe('CenterPanel live flow guardrails', () => {
   it('keeps zero-night music and progression on the single canonical next-step control', () => {
     const agreement = vi.fn();
     const openZeroRound = vi.fn();
+    const setZeroNightMusicState = vi.fn();
     const initialProps = baseProps();
     const { rerender } = render(<CenterPanel
       {...initialProps}
       phase="zero_night"
+      setZeroNightMusicState={setZeroNightMusicState}
       nextSpeaker={null}
       getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: agreement })}
     />);
@@ -72,6 +76,16 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
 
     fireEvent.click(musicStart);
+    expect(setZeroNightMusicState).toHaveBeenCalledWith('playing');
+
+    rerender(<CenterPanel
+      {...initialProps}
+      phase="zero_night"
+      zeroNightMusicState="playing"
+      setZeroNightMusicState={setZeroNightMusicState}
+      nextSpeaker={null}
+      getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: agreement })}
+    />);
     expect(screen.getAllByRole('button', { name: /Договорка · 75с/i })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /Вызов шерифа · 10с/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Свободная посадка · 40с/i })).toBeNull();
@@ -80,6 +94,8 @@ describe('CenterPanel live flow guardrails', () => {
       {...initialProps}
       phase="zero_night"
       zeroNightSubPhase="seating"
+      zeroNightMusicState="playing"
+      setZeroNightMusicState={setZeroNightMusicState}
       nextSpeaker={null}
       getNextStepInfo={() => ({ label: 'Открыть нулевой круг', onClick: openZeroRound })}
     />);
@@ -89,6 +105,17 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.queryByRole('button', { name: /Открыть нулевой круг/i })).toBeNull();
 
     fireEvent.click(musicStop);
+    expect(setZeroNightMusicState).toHaveBeenCalledWith('stopped');
+
+    rerender(<CenterPanel
+      {...initialProps}
+      phase="zero_night"
+      zeroNightSubPhase="seating"
+      zeroNightMusicState="stopped"
+      setZeroNightMusicState={setZeroNightMusicState}
+      nextSpeaker={null}
+      getNextStepInfo={() => ({ label: 'Открыть нулевой круг', onClick: openZeroRound })}
+    />);
     expect(screen.getAllByRole('button', { name: /Открыть нулевой круг/i })).toHaveLength(1);
   });
 

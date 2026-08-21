@@ -34,6 +34,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           timeLeft={night ? 35 : 60}
           setTimeLeft={noOp}
           zeroNightSubPhase={null}
+          zeroNightMusicState="pending"
+          setZeroNightMusicState={noOp}
           customTimerLabel={night ? 'Отстрел' : null}
           isTimerRunning={false}
           setIsTimerRunning={noOp}

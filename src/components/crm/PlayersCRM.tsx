@@ -51,7 +51,7 @@ type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
 
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
   { id: 'all', label: 'Все' },
-  { id: 'attention', label: 'Требуют внимания' },
+  { id: 'attention', label: 'Внимание' },
   { id: 'newcomers', label: 'Новички' },
   { id: 'lapsed', label: 'Давно не были' },
 ];
@@ -96,7 +96,6 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
   const [detailError, setDetailError] = useState<string | null>(null);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [primaryBusy, setPrimaryBusy] = useState(false);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -282,35 +281,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   }, [allGames, playerDetails]);
 
-
   const contactHref = playerDetails?.telegram_username
     ? `https://t.me/${playerDetails.telegram_username.replace('@', '')}`
     : playerDetails?.phone
       ? `tel:${playerDetails.phone}`
       : undefined;
-
-  const handlePrimaryAction = async () => {
-    if (!playerDetails || primaryBusy) return;
-    setPrimaryBusy(true);
-    setProfileError(null);
-    setProfileMessage(null);
-    try {
-      if (bookingEvening) {
-        setActivePlayerCardId(null);
-        setPlayerDetails(null);
-        onOpenEvening(bookingEvening.id);
-      } else if (contactHref) {
-        window.open(contactHref, playerDetails.telegram_username ? '_blank' : '_self', 'noopener,noreferrer');
-      } else {
-        setTaskError(null);
-        setShowTaskSheet(true);
-      }
-    } catch (err: any) {
-      setProfileError(err?.message || 'Не удалось выполнить действие');
-    } finally {
-      setPrimaryBusy(false);
-    }
-  };
 
   const handleCreatePlayer = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -500,22 +475,17 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     }
   };
 
-  const primaryLabel = bookingEvening
-    ? 'Открыть ближайший вечер'
-    : contactHref
-      ? 'Связаться'
-      : 'Создать задачу';
-
   const nextTask = playerDetails?.nextTask || null;
+  const engagementLabel = playerDetails ? getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage) : '';
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h2 className="text-[24px] font-black tracking-tight text-text-primary">Игроки</h2>
-          <p className="mt-1 text-[13px] text-text-secondary">Найди человека и сразу переходи к следующему действию.</p>
+    <div className="min-w-0 space-y-3.5 sm:space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2>
+          <p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : `${visiblePlayers.length} человек · поиск и быстрые действия`}</p>
         </div>
-        <button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] items-center gap-2 rounded-[12px] bg-accent px-3.5 text-[13px] font-bold text-white"><Plus className="h-4 w-4" /> Добавить</button>
+        <button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button>
       </div>
 
       <div className="flex gap-2">
@@ -524,7 +494,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       </div>
 
       <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max min-w-full gap-2">
-        {QUICK_FILTERS.map((item) => <button key={item.id} type="button" onClick={() => setActiveQuickFilter(item.id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${activeQuickFilter === item.id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>)}
+        {QUICK_FILTERS.map((item) => <button key={item.id} type="button" onClick={() => setActiveQuickFilter(item.id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${activeQuickFilter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>)}
       </div></div>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
@@ -534,19 +504,19 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       ) : visiblePlayers.length === 0 ? (
         <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">Игроки не найдены</p></div>
       ) : (
-        <div className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
+        <div data-testid="crm-player-list" className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
           {visiblePlayers.map((player, index) => {
             const lastVisit = player.days_since_last_visit !== null && player.days_since_last_visit !== undefined ? `Был ${player.days_since_last_visit} дн. назад` : 'Ещё не был';
             const nextStep = Number(player.open_tasks_count || 0) > 0
-    ? `Задач: ${player.open_tasks_count}`
-    : player.contact_status !== 'normal'
-      ? getRussianContactStatusLabel(player.contact_status)
-      : 'Без активных задач';
+              ? `Задач: ${player.open_tasks_count}`
+              : player.contact_status !== 'normal'
+                ? getRussianContactStatusLabel(player.contact_status)
+                : 'Без активных задач';
             return (
-              <button key={player.id} type="button" onClick={() => handleOpenCard(player.id)} className={`flex min-h-[72px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}>
+              <button key={player.id} type="button" onClick={() => handleOpenCard(player.id)} className={`flex min-h-[70px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors active:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}>
                 <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
                 <span className="min-w-0 flex-1">
-                  <strong className="block break-words text-[14px] font-bold leading-5 text-text-primary">{player.nickname}</strong>
+                  <strong className="block break-words text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong>
                   {player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}
                   <span className="mt-1 block text-[11px] text-text-muted">{lastVisit} · {nextStep}</span>
                 </span>
@@ -558,59 +528,73 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       )}
 
       <MobileSheet open={Boolean(activePlayerCardId)} onClose={handleCloseCard} title={playerDetails ? (
-        <div className="flex min-w-0 items-center gap-2.5"><PlayerAvatar playerId={playerDetails.id} avatarVersion={playerDetails.avatar_updated_at} nickname={playerDetails.nickname} size="sm" /><div className="min-w-0"><div className="break-words text-[15px] font-bold text-text-primary">{playerDetails.nickname}</div>{playerDetails.full_name ? <div className="truncate text-[11px] text-text-secondary">{playerDetails.full_name}</div> : null}</div></div>
-      ) : 'Профиль игрока'} subtitle={playerDetails ? `${getRussianContactStatusLabel(playerDetails.contact_status)} · ${getRussianEngagementStageLabel(playerDetails.engagement_stage || playerDetails.calculated_stage)}` : 'Загрузка'} widthClass="sm:max-w-2xl" bodyClassName="p-0">
+        <div className="flex min-w-0 items-center gap-2.5"><PlayerAvatar playerId={playerDetails.id} avatarVersion={playerDetails.avatar_updated_at} nickname={playerDetails.nickname} size="sm" /><div className="min-w-0"><div className="break-words text-[15px] font-semibold text-text-primary">{playerDetails.nickname}</div>{playerDetails.full_name ? <div className="truncate text-[11px] text-text-secondary">{playerDetails.full_name}</div> : null}</div></div>
+      ) : 'Профиль игрока'} subtitle={playerDetails ? `${getRussianContactStatusLabel(playerDetails.contact_status)} · ${engagementLabel}` : 'Загрузка'} widthClass="sm:max-w-2xl" bodyClassName="p-0">
         {loadingDetails ? <div className="py-20 text-center text-[13px] text-text-secondary">Загрузка профиля…</div> : detailError ? (
           <div className="p-4"><div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{detailError}<button type="button" onClick={() => activePlayerCardId && void loadPlayerDetails(activePlayerCardId)} className="ml-2 font-bold underline">Повторить</button></div></div>
         ) : playerDetails ? (
-          <div className="space-y-5 p-3.5 sm:p-4">
+          <div data-testid="crm-player-work-card" className="space-y-3 p-3.5 sm:space-y-4 sm:p-4">
             {profileError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{profileError}</div> : null}
             {profileMessage ? <div className="rounded-[13px] border border-success/30 bg-success-soft p-3 text-[12px] text-success">{profileMessage}</div> : null}
 
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <button type="button" disabled={primaryBusy} onClick={() => void handlePrimaryAction()} className="min-h-[50px] min-w-0 flex-1 rounded-[13px] bg-accent px-3 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{primaryBusy ? '…' : primaryLabel}</button>
-                <button type="button" onClick={() => setShowPlayerMenu(true)} className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[13px] border border-border-soft bg-surface-2 text-text-secondary" aria-label="Ещё действия"><MoreHorizontal className="h-5 w-5" /></button>
-              </div>
-              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[12px] border border-border-soft bg-surface-1 text-[12px] font-bold text-text-primary"><MessageSquare className="h-4 w-4 text-accent" /> Связаться</a> : null}
+            <section data-testid="crm-player-next" className="rounded-[17px] border border-white/10 bg-white/[0.055] p-3.5">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">Следующее</div>
+              {bookingEvening && booking ? (
+                <div className="mt-1.5 flex items-center gap-3">
+                  <div className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-text-primary">{bookingEvening.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking.registration_status, booking.arrival_status)}</span></div>
+                  <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="min-h-[44px] shrink-0 rounded-[12px] bg-white px-3 text-[11px] font-semibold text-[#090a0d]">Открыть</button>
+                </div>
+              ) : nextTask ? (
+                <div className="mt-1.5"><strong className="block text-[13px] font-semibold text-text-primary">{nextTask.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{nextTask.due_at ? `Срок ${fmtDate(nextTask.due_at, true)}` : 'Без срока'}</span></div>
+              ) : (
+                <div className="mt-1.5 text-[12px] text-text-secondary">Нет запланированных действий. Можно связаться или поставить задачу.</div>
+              )}
             </section>
 
-            <section className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-[17px] border border-border-soft bg-surface-1 p-3.5 sm:grid-cols-4">
-              {[
-                ['Последний визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
-                ['Игры', playerDetails.gameStats?.totalGames || 0],
-                ['Победы', playerDetails.gameStats?.wins || 0],
-                ['Следующее', bookingEvening && booking ? `${fmtDate(bookingEvening.starts_at, true)} · ${getEveningResponseLabel(booking.registration_status, booking.arrival_status)}` : nextTask ? fmtDate(nextTask.due_at || nextTask.created_at, true) : 'Нет'],
-              ].map(([label, value]) => <div key={String(label)} className="min-w-0"><span className="block text-[10px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[13px] font-bold text-text-primary">{value}</strong></div>)}
+            <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">
+              {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
+              <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4" /> Задача</button>
+              <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4" /> Общение</button>
+              <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4" /> Ещё</button>
             </section>
 
             <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
-              <div className="flex items-center justify-between gap-3"><span className="text-[12px] text-text-secondary">Статус</span><strong className={`text-[12px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
-              <div className="flex items-start justify-between gap-3"><span className="text-[12px] text-text-secondary">Контакт</span><strong className="text-right text-[12px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
-              {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[11px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
+              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Группа</span><strong className="text-right text-[11px] text-text-primary">{engagementLabel}</strong></div>
+              <div className="flex items-start justify-between gap-3"><span className="text-[11px] text-text-secondary">Контакт</span><strong className="text-right text-[11px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
+              {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[10px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
               {playerDetails.do_not_invite_until ? <div className="rounded-[11px] bg-warning-soft p-2.5 text-[11px] text-warning">Не приглашать до {fmtDate(playerDetails.do_not_invite_until)}{playerDetails.pause_reason ? ` · ${playerDetails.pause_reason}` : ''}</div> : null}
             </section>
 
-            <section className="space-y-2">
-              <div className="flex items-center gap-2"><History className="h-4 w-4 text-accent" /><h3 className="text-[14px] font-black text-text-primary">История</h3></div>
-              <div className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">
+            <section className="grid grid-cols-4 gap-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5 text-center">
+              {[
+                ['Визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
+                ['Игры', playerDetails.gameStats?.totalGames || 0],
+                ['Победы', playerDetails.gameStats?.wins || 0],
+                ['Задачи', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
+              ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[8px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}
+            </section>
+
+            <details data-testid="crm-player-history" className="group rounded-[17px] border border-border-soft bg-surface-1">
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><History className="h-4 w-4 text-accent" /> История <span className="ml-auto text-[11px] font-medium text-text-muted">{unifiedTimeline.length}</span><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
+              <div className="overflow-hidden border-t border-border-soft">
                 {unifiedTimeline.slice(0, 10).map((item, index) => <div key={item.id} className={`${index ? 'border-t border-border-soft' : ''} px-3.5 py-3`}><div className="flex items-baseline justify-between gap-3"><strong className="min-w-0 break-words text-[12px] text-text-primary">{item.title}</strong><span className="shrink-0 text-[10px] text-text-muted">{fmtDate(item.date)}</span></div><p className="mt-0.5 text-[11px] leading-4 text-text-secondary">{item.detail || item.kind}</p></div>)}
                 {unifiedTimeline.length === 0 ? <div className="py-8 text-center text-[12px] text-text-muted">История пока пустая</div> : null}
               </div>
-            </section>
+            </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Игры и статистика <span className="ml-auto text-[11px] font-medium text-text-muted">{allGames.length}</span></summary>
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Игры и статистика <span className="ml-auto text-[11px] font-medium text-text-muted">{allGames.length}</span></summary>
               <div className="space-y-2 border-t border-border-soft p-3">{allGames.length ? allGames.map((game) => <PlayerGameCard key={game.id} game={game} />) : <div className="py-6 text-center text-[12px] text-text-muted">Игр пока нет</div>}</div>
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><Award className="h-4 w-4 text-warning" /> Турнирные места и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><Award className="h-4 w-4 text-warning" /> Турнирные места и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
               <div className="border-t border-border-soft p-3"><PlayerProfileContent player={playerDetails} /></div>
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-bold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Полные данные CRM</summary>
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Полные данные CRM</summary>
               <div className="space-y-3 border-t border-border-soft p-3 text-[12px]">
                 {[
                   ['Телефон', playerDetails.phone || '—'],
@@ -632,7 +616,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
         <div className="space-y-4">
           <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
           <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вовлечённость</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">Все этапы</option><option value="lead">Лид</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option></select></label>
-          <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, label]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{label}</button>)}</div></div>
+          <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, itemLabel]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{itemLabel}</button>)}</div></div>
           <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить фильтры</button>
         </div>
       </MobileSheet>

@@ -84,6 +84,27 @@ Do not use:
 - decorative gradients on generic buttons/inputs;
 - arbitrary per-screen shadows.
 
+## Organizer CRM contract
+
+Organizer CRM uses the same product language, but on mobile it must behave like a work tool rather than a dashboard catalogue.
+
+Always prioritize:
+
+1. what requires action now;
+2. the nearest event or player context;
+3. common one-tap actions;
+4. compact operational status;
+5. history, analytics and rare administration on a secondary level.
+
+Durable mobile rules:
+
+- `Сегодня` starts with the current/nearest evening and blockers; branding/explanatory copy must not push work below the fold;
+- `События` keeps the nearest events and creation actions readily visible; the full month calendar may expand on demand rather than occupying the initial mobile viewport;
+- `Игроки` is action-first: search/list -> next context -> contact/task/communication actions -> essential status/notes; long history, detailed statistics and internal CRM data remain available but collapsed by default;
+- `Ещё` separates frequent organizer tools from game/admin tools and keeps rare maintenance controls collapsed by default;
+- preserving functionality does not require giving every function equal visual weight;
+- do not remove advanced functionality merely to simplify the first mobile screen; move it behind a clear secondary disclosure instead.
+
 ## Live Game contract
 
 Live Game uses the same product language but optimizes for judge speed.

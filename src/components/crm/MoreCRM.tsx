@@ -3,7 +3,9 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   Coins,
   Database,
@@ -41,12 +43,6 @@ type MenuItem = {
   onClick: () => void;
 };
 
-type MenuGroup = {
-  title: string;
-  description: string;
-  items: MenuItem[];
-};
-
 const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   data: 'Данные и настройки',
   betting: 'Управление ставками',
@@ -66,6 +62,24 @@ const menuTone = (id: string) => {
   return 'border-white/[0.07] bg-white/[0.06] text-white/60';
 };
 
+const MenuRow = ({ id, label, detail, icon: Icon, onClick }: MenuItem) => (
+  <button
+    data-testid={`crm-more-${id}`}
+    type="button"
+    onClick={onClick}
+    className="flex min-h-[58px] w-full items-center gap-3 rounded-[16px] px-2.5 text-left transition-colors active:bg-white/[0.055] sm:min-h-[64px] sm:px-3"
+  >
+    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border ${menuTone(id)}`}>
+      <Icon className="h-[18px] w-[18px]" />
+    </span>
+    <span className="min-w-0 flex-1">
+      <strong className="block text-[13px] font-semibold text-white sm:text-sm">{label}</strong>
+      <span className="mt-0.5 block truncate text-[10px] leading-4 text-white/32 sm:text-xs">{detail}</span>
+    </span>
+    <ChevronRight className="h-5 w-5 shrink-0 text-white/18" />
+  </button>
+);
+
 export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenTasks,
   onOpenAnalytics,
@@ -74,22 +88,23 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onLogout,
 }) => {
   const [subscreen, setSubscreen] = useState<Subscreen>(null);
+  const [serviceOpen, setServiceOpen] = useState(false);
 
   if (subscreen) {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-3">
-        <div className="flex items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
+        <div className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.04] p-3 sm:rounded-[24px]">
           <button
             type="button"
             onClick={() => setSubscreen(null)}
             aria-label="Назад в раздел Ещё"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-black/20 text-white/55 transition-colors active:bg-white/[0.07] active:text-white"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-black/20 text-white/55 transition-colors active:bg-white/[0.07] active:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Ещё</div>
-            <h2 className="mt-0.5 truncate text-lg font-semibold text-white">{subscreenTitles[subscreen]}</h2>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/30">Ещё</div>
+            <h2 className="mt-0.5 truncate text-[17px] font-semibold text-white sm:text-lg">{subscreenTitles[subscreen]}</h2>
           </div>
         </div>
 
@@ -104,83 +119,69 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
     );
   }
 
-  const groups: MenuGroup[] = [
-    {
-      title: 'Работа клуба',
-      description: 'Инструменты для организации вечеров и текущей работы.',
-      items: [
-        { id: 'tasks', label: 'Все задачи', detail: 'Полная очередь задач CRM', icon: ClipboardList, onClick: onOpenTasks },
-        { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки, рассылки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
-        { id: 'commerce', label: 'Оплата и поддержка', detail: 'СБП, пакеты жетонов, поддержка, сборы и VK', icon: Coins, onClick: () => setSubscreen('commerce') },
-        { id: 'telegram', label: 'Telegram', detail: 'Каналы, шаблоны и публикации клуба', icon: Send, onClick: () => setSubscreen('telegram') },
-        { id: 'ratings', label: 'Рейтинговые периоды', detail: 'Сезоны, границы периодов и расчёт рейтинга', icon: Trophy, onClick: () => setSubscreen('ratings') },
-      ],
-    },
-    {
-      title: 'Игроки и игровая система',
-      description: 'Права, экономика и инструменты проведения игр.',
-      items: [
-        { id: 'player_roles', label: 'Статусы и роли игроков', detail: 'Допуски, ведущие, судьи и взаимодействие', icon: UserCog, onClick: () => setSubscreen('player_roles') },
-        { id: 'betting', label: 'Управление ставками', detail: 'Банки, ставки, выплаты, возвраты и пересчёт', icon: Dice5, onClick: () => setSubscreen('betting') },
-        ...(onOpenGameEngine
-          ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }]
-          : []),
-      ],
-    },
-    {
-      title: 'Настройки и обслуживание',
-      description: 'Редкие административные действия и служебные параметры.',
-      items: [
-        { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин, начисления и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },
-        { id: 'system', label: 'Состояние системы', detail: 'Проверка сервисов и технического состояния', icon: Activity, onClick: () => setSubscreen('system') },
-        { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим приложения', icon: Palette, onClick: onOpenTheme },
-      ],
-    },
+  const workItems: MenuItem[] = [
+    { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
+    { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
+    { id: 'telegram', label: 'Telegram', detail: 'Анонсы, каналы и публикации', icon: Send, onClick: () => setSubscreen('telegram') },
+    { id: 'commerce', label: 'Оплата и поддержка', detail: 'Сборы, жетоны и ручные операции', icon: Coins, onClick: () => setSubscreen('commerce') },
+  ];
+
+  const gameItems: MenuItem[] = [
+    { id: 'player_roles', label: 'Статусы и роли игроков', detail: 'Допуски, ведущие и судьи', icon: UserCog, onClick: () => setSubscreen('player_roles') },
+    { id: 'ratings', label: 'Рейтинговые периоды', detail: 'Сезоны и границы рейтинга', icon: Trophy, onClick: () => setSubscreen('ratings') },
+    { id: 'betting', label: 'Управление ставками', detail: 'Банки, выплаты и возвраты', icon: Dice5, onClick: () => setSubscreen('betting') },
+    ...(onOpenGameEngine
+      ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }]
+      : []),
+  ];
+
+  const serviceItems: MenuItem[] = [
+    { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },
+    { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
+    { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },
   ];
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-4">
-      <header className="px-1 pb-1 pt-1">
-        <h2 className="text-2xl font-semibold text-white">Ещё</h2>
-        <p className="mt-1 text-xs leading-5 text-white/40">Дополнительные инструменты организатора без перегрузки основных экранов</p>
+    <div className="mx-auto w-full max-w-xl space-y-3.5 sm:space-y-4">
+      <header className="px-1 pt-0.5">
+        <h2 className="text-[21px] font-semibold text-white sm:text-2xl">Ещё</h2>
+        <p className="mt-0.5 text-[11px] leading-4 text-white/35 sm:text-xs sm:leading-5">Дополнительные инструменты. Основная работа остаётся в «Сегодня», «Событиях» и «Игроках».</p>
       </header>
 
-      {groups.map((group) => (
-        <section key={group.title} className="space-y-2">
-          <div className="px-1">
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{group.title}</h3>
-            <p className="mt-1 text-[11px] leading-4 text-white/28">{group.description}</p>
-          </div>
+      <section className="space-y-1.5">
+        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Работа</div>
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
+          {workItems.map((item) => <MenuRow key={item.id} {...item} />)}
+        </div>
+      </section>
 
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-2">
-            {group.items.map(({ id, label, detail, icon: Icon, onClick }, index) => (
-              <button
-                key={id}
-                data-testid={`crm-more-${id}`}
-                type="button"
-                onClick={onClick}
-                className={`flex min-h-[64px] w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors active:bg-white/[0.055] ${index ? 'mt-1' : ''}`}
-              >
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl border ${menuTone(id)}`}>
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-sm font-semibold text-white">{label}</strong>
-                  <span className="mt-0.5 block text-xs leading-4 text-white/35">{detail}</span>
-                </span>
-                <ChevronRight className="h-5 w-5 shrink-0 text-white/18" />
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      <section className="space-y-1.5">
+        <div className="px-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Игроки и игра</div>
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
+          {gameItems.map((item) => <MenuRow key={item.id} {...item} />)}
+        </div>
+      </section>
+
+      <section className="rounded-[20px] border border-white/10 bg-white/[0.035] p-1.5 sm:rounded-[24px] sm:p-2">
+        <button
+          type="button"
+          aria-expanded={serviceOpen}
+          onClick={() => setServiceOpen((value) => !value)}
+          className="flex min-h-[52px] w-full items-center gap-3 rounded-[15px] px-2.5 text-left"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-white/[0.07] bg-white/[0.05] text-white/45"><Database className="h-[18px] w-[18px]" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-white">Настройки и обслуживание</strong><span className="mt-0.5 block text-[10px] text-white/30">Редкие административные действия</span></span>
+          {serviceOpen ? <ChevronUp className="h-5 w-5 text-white/25" /> : <ChevronDown className="h-5 w-5 text-white/25" />}
+        </button>
+        {serviceOpen ? <div data-testid="crm-more-service-tools" className="mt-1 border-t border-white/[0.07] pt-1">{serviceItems.map((item) => <MenuRow key={item.id} {...item} />)}</div> : null}
+      </section>
 
       <button
         type="button"
         onClick={() => void onLogout()}
-        className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-4 text-sm font-semibold text-rose-100/75"
+        className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[16px] border border-rose-300/15 bg-rose-300/[0.06] px-4 text-[12px] font-semibold text-rose-100/70"
       >
-        <LogOut className="h-[18px] w-[18px]" /> Выйти из CRM
+        <LogOut className="h-[17px] w-[17px]" /> Выйти из CRM
       </button>
     </div>
   );

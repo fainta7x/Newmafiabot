@@ -65,6 +65,19 @@ const expectHudLocked = async (page, label) => {
   expect.soft(metrics.shellTop, `${label}: board shell must stay at top`).toBeLessThanOrEqual(1);
 };
 
+const expectNightMarkerIcon = async (page, slot, modifier) => {
+  const marker = seatCard(page, slot).locator(`.live-seat-night-marker--${modifier}`);
+  const icon = marker.locator('svg');
+  await expect(marker).toBeVisible();
+  await expect(icon).toBeVisible();
+  const iconBox = await icon.boundingBox();
+  expect(iconBox, `${modifier} icon box`).not.toBeNull();
+  expect.soft(iconBox.width, `${modifier} icon width`).toBeGreaterThanOrEqual(12);
+  expect.soft(iconBox.height, `${modifier} icon height`).toBeGreaterThanOrEqual(12);
+  const quickbarDisplay = await marker.locator('..').evaluate((node) => getComputedStyle(node).display);
+  expect.soft(quickbarDisplay, `${modifier} quickbar layout`).toBe('flex');
+};
+
 const clickOptional = async (locator) => {
   if (await locator.isVisible().catch(() => false)) await locator.click();
 };
@@ -112,9 +125,15 @@ const prepareGame = async (page, testInfo) => {
   await expect(page.getByText('Нулевая ночь', { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page, 'zero night');
 
+  const zeroNightMusicStart = page.getByRole('button', { name: /Включить музыку ночи/ });
+  await expect(zeroNightMusicStart).toBeVisible();
+  await zeroNightMusicStart.click();
   await page.getByRole('button', { name: /Договорка · 75с/ }).click();
   await page.getByRole('button', { name: /Вызов шерифа · 10с/i }).click();
   await page.getByRole('button', { name: /Свободная посадка · 40с/ }).click();
+  const zeroNightMusicStop = page.getByRole('button', { name: /Выключить музыку/ });
+  await expect(zeroNightMusicStop).toBeVisible();
+  await zeroNightMusicStop.click();
   await page.getByRole('button', { name: /Открыть нулевой круг/ }).click();
 
   await expect(tableGrid(page)).toBeVisible();
@@ -257,16 +276,19 @@ test.describe('Live Game browser stabilization', () => {
     await seatCard(page, 1).click();
     await expect(page.getByTestId('live-game-night-status')).toHaveText('Отстрел: #1');
     await expect(seatCard(page, 1).getByText('Отстрел', { exact: true })).toBeVisible();
+    await expectNightMarkerIcon(page, 1, 'shot');
 
     await page.getByRole('button', { name: 'Проверка Дона', exact: true }).click();
     await seatCard(page, 4).click();
     await expect(page.getByTestId('live-game-night-status')).toHaveText('Дон · #4: Шериф');
     await expect(seatCard(page, 4).getByText('Дон', { exact: true })).toBeVisible();
+    await expectNightMarkerIcon(page, 4, 'don');
 
     await page.getByRole('button', { name: 'Проверка Шерифа', exact: true }).click();
     await seatCard(page, 6).click();
     await expect(page.getByTestId('live-game-night-status')).toHaveText('Шериф · #6: ЧЁРНЫЙ!');
     await expect(seatCard(page, 6).getByText('Шериф', { exact: true })).toBeVisible();
+    await expectNightMarkerIcon(page, 6, 'sheriff');
     await attachViewport(page, testInfo, '05-night-checks.png');
     await clickOptional(page.getByRole('button', { name: /Выключить музыку/ }));
 

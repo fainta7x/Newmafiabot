@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { api } from '../src/lib/api.ts';
-import { EveningParticipantsView } from '../src/components/crm/EveningParticipantsView.tsx';
+import { EveningWorkspace } from '../src/components/crm/EveningWorkspace.tsx';
 import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
@@ -80,8 +80,9 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
 function Harness() {
   return <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
     <main className="px-3 py-3">
-      <EveningParticipantsView
+      <EveningWorkspace
         eveningId="evening-active"
+        initialSection="participants"
         onBack={() => { document.body.dataset.back = '1'; }}
         onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }}
       />

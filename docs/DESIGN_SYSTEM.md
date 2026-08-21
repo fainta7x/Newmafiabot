@@ -101,6 +101,7 @@ Durable mobile rules:
 - `Сегодня` starts with the current/nearest evening and blockers; branding/explanatory copy must not push work below the fold;
 - `События` keeps the nearest events and creation actions readily visible; the full month calendar may expand on demand rather than occupying the initial mobile viewport;
 - `Игроки` is action-first: search/list -> next context -> contact/task/communication actions -> essential status/notes; long history, detailed statistics and internal CRM data remain available but collapsed by default;
+- `Состав` inside an evening starts with a short action queue built from factual attendance and payment state; announcement/registration tools and the full CRM roster stay available on a secondary level, and tapping a participant opens the evening-specific card before any global player profile;
 - `Ещё` separates frequent organizer tools from game/admin tools and keeps rare maintenance controls collapsed by default;
 - preserving functionality does not require giving every function equal visual weight;
 - do not remove advanced functionality merely to simplify the first mobile screen; move it behind a clear secondary disclosure instead.

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../../lib/api.ts';
 import { EveningParticipantsView as BaseEveningParticipantsView } from './EveningParticipantsViewBase.tsx';
 import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
+import EveningParticipantsWorkboard from './EveningParticipantsWorkboard.tsx';
 import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
 
 interface EveningParticipantsViewProps {
@@ -24,6 +26,9 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showCommunicationTools, setShowCommunicationTools] = useState(false);
+  const [showFullRoster, setShowFullRoster] = useState(Boolean(props.initialAddOpen));
+  const [forceAddOpen, setForceAddOpen] = useState(Boolean(props.initialAddOpen));
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +40,13 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     void fetch(`/api/evenings/${encodeURIComponent(props.eveningId)}/slots`, { credentials: 'include' }).catch(() => {});
     return () => { cancelled = true; };
   }, [props.eveningId, refreshKey]);
+
+  useEffect(() => {
+    if (props.initialAddOpen) {
+      setShowFullRoster(true);
+      setForceAddOpen(true);
+    }
+  }, [props.initialAddOpen]);
 
   const refresh = () => setRefreshKey((value) => value + 1);
 
@@ -116,6 +128,21 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     }
   };
 
+  const openAddPlayer = () => {
+    setShowFullRoster(true);
+    setForceAddOpen(true);
+  };
+
+  const toggleFullRoster = () => {
+    if (showFullRoster) {
+      setShowFullRoster(false);
+      setForceAddOpen(false);
+      refresh();
+    } else {
+      setShowFullRoster(true);
+    }
+  };
+
   return (
     <div className="min-w-0 overflow-x-hidden space-y-4">
       {status === 'draft' ? (
@@ -138,44 +165,86 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         </section>
       ) : null}
 
-      <EveningInviteAudienceManager onChanged={refresh} />
+      <EveningParticipantsWorkboard
+        eveningId={props.eveningId}
+        onBack={props.onBack}
+        onAddPlayer={openAddPlayer}
+        onOpenPlayerCard={props.onOpenPlayerCard}
+        onChanged={refresh}
+      />
 
-      {status === 'published' || status === 'active' ? (
-        <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <strong className="block text-[13px] text-text-primary">Telegram-анонс</strong>
-              <span className="mt-0.5 block text-[11px] text-text-secondary">Личные приглашения получают только игроки из рассылки, подходящие по уровню. Напоминание уйдёт только тем, кто уже получил анонс и всё ещё без ответа.</span>
-            </div>
-            <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                disabled={announcing || reminding}
-                onClick={() => void announceEvening()}
-                className="min-h-[44px] rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50"
-              >
-                {announcing ? 'Отправляем…' : '📣 Отправить анонс'}
-              </button>
-              <button
-                type="button"
-                disabled={announcing || reminding}
-                onClick={() => void remindUnanswered()}
-                className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-4 text-[12px] font-bold text-text-primary disabled:opacity-50"
-              >
-                {reminding ? 'Напоминаем…' : '🔔 Напомнить без ответа'}
-              </button>
-            </div>
-          </div>
-          {announceMessage ? <p className="mt-2 text-[11px] text-success">{announceMessage}</p> : null}
-          {announceError ? <p className="mt-2 text-[11px] text-danger">{announceError}</p> : null}
-          {reminderMessage ? <p className="mt-2 text-[11px] text-success">{reminderMessage}</p> : null}
-          {reminderError ? <p className="mt-2 text-[11px] text-danger">{reminderError}</p> : null}
-        </section>
-      ) : null}
+      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-2.5" data-testid="evening-roster-secondary-tools">
+        <button
+          type="button"
+          onClick={() => setShowCommunicationTools((value) => !value)}
+          className="flex min-h-[48px] w-full items-center gap-3 rounded-[13px] px-2.5 text-left hover:bg-surface-2"
+        >
+          <span className="min-w-0 flex-1"><strong className="block text-[11px] font-semibold text-text-primary">Рассылка и игровая регистрация</strong><span className="mt-0.5 block text-[9px] text-text-muted">Анонс, напоминания, приглашения и слоты — когда они действительно нужны.</span></span>
+          {showCommunicationTools ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
+        </button>
 
-      <EveningGameRegistrationDashboard eveningId={props.eveningId} refreshKey={refreshKey} />
-      <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={refresh} />
-      <BaseEveningParticipantsView key={`${props.eveningId}:${refreshKey}`} {...props} />
+        {showCommunicationTools ? <div className="mt-2 space-y-3 border-t border-border-soft pt-3">
+          <EveningInviteAudienceManager onChanged={refresh} />
+
+          {status === 'published' || status === 'active' ? (
+            <section className="rounded-[16px] border border-border-soft bg-surface-2 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <strong className="block text-[13px] text-text-primary">Telegram-анонс</strong>
+                  <span className="mt-0.5 block text-[11px] text-text-secondary">Личные приглашения получают только игроки из рассылки, подходящие по уровню. Напоминание уйдёт только тем, кто уже получил анонс и всё ещё без ответа.</span>
+                </div>
+                <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={announcing || reminding}
+                    onClick={() => void announceEvening()}
+                    className="min-h-[44px] rounded-[12px] bg-accent px-4 text-[12px] font-bold text-white disabled:opacity-50"
+                  >
+                    {announcing ? 'Отправляем…' : '📣 Отправить анонс'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={announcing || reminding}
+                    onClick={() => void remindUnanswered()}
+                    className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-1 px-4 text-[12px] font-bold text-text-primary disabled:opacity-50"
+                  >
+                    {reminding ? 'Напоминаем…' : '🔔 Напомнить без ответа'}
+                  </button>
+                </div>
+              </div>
+              {announceMessage ? <p className="mt-2 text-[11px] text-success">{announceMessage}</p> : null}
+              {announceError ? <p className="mt-2 text-[11px] text-danger">{announceError}</p> : null}
+              {reminderMessage ? <p className="mt-2 text-[11px] text-success">{reminderMessage}</p> : null}
+              {reminderError ? <p className="mt-2 text-[11px] text-danger">{reminderError}</p> : null}
+            </section>
+          ) : null}
+
+          <EveningGameRegistrationDashboard eveningId={props.eveningId} refreshKey={refreshKey} />
+          <EveningRosterSlotEditor eveningId={props.eveningId} onChanged={refresh} />
+        </div> : null}
+
+        <div className="my-1 border-t border-border-soft" />
+
+        <button
+          type="button"
+          data-testid="evening-roster-full-toggle"
+          onClick={toggleFullRoster}
+          className="flex min-h-[48px] w-full items-center gap-3 rounded-[13px] px-2.5 text-left hover:bg-surface-2"
+        >
+          <span className="min-w-0 flex-1"><strong className="block text-[11px] font-semibold text-text-primary">Полный состав и правки</strong><span className="mt-0.5 block text-[9px] text-text-muted">Добавление, частичная оплата, сортировка и редкие поля остаются здесь.</span></span>
+          {showFullRoster ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
+        </button>
+      </section>
+
+      {showFullRoster ? <BaseEveningParticipantsView
+        key={`${props.eveningId}:${refreshKey}`}
+        {...props}
+        initialAddOpen={forceAddOpen || props.initialAddOpen}
+        onInitialAddHandled={() => {
+          setForceAddOpen(false);
+          props.onInitialAddHandled?.();
+        }}
+      /> : null}
     </div>
   );
 };

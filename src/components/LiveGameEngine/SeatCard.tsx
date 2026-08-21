@@ -107,7 +107,10 @@ export default function SeatCard(props: SeatCardProps) {
   const isNightShot = phase === "night" && shotPlayerSlot === slotNum;
   const isNightDon = phase === "night" && donCheckSlot === slotNum;
   const isNightSheriff = phase === "night" && sheriffCheckSlot === slotNum;
-  const showFarewellFouls = !player.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
+  const showFarewellFouls = !player.alive && activeSpeakerSlot === slotNum && (
+    (phase === "night" && postNightStage === "farewell") ||
+    (phase === "day_voting" && votingSubPhase === "resolved")
+  );
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
   const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;

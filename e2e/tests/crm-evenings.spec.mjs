@@ -35,14 +35,15 @@ test.describe('Organizer events mobile workflow', () => {
     await expect(calendarToggle).toBeVisible();
     expect(await calendarToggle.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(48);
     await calendarToggle.click();
-    await expect(page.getByTestId('crm-calendar-expanded')).toBeVisible();
+    const expanded = page.getByTestId('crm-calendar-expanded');
+    await expect(expanded).toBeVisible();
 
-    const previousMonth = page.getByRole('button', { name: 'Предыдущий месяц' });
-    const nextMonth = page.getByRole('button', { name: 'Следующий месяц' });
+    const previousMonth = expanded.getByRole('button', { name: 'Предыдущий месяц' });
+    const nextMonth = expanded.getByRole('button', { name: 'Следующий месяц' });
     expect(await previousMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     expect(await nextMonth.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
 
-    const allFilter = page.getByTestId('crm-calendar-filter-all');
+    const allFilter = expanded.getByTestId('crm-calendar-filter-all');
     await expect(allFilter).toBeVisible();
     const filterTreatment = await allFilter.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -51,17 +52,18 @@ test.describe('Organizer events mobile workflow', () => {
     expect(filterTreatment.background).toBe('rgb(255, 255, 255)');
     expect(filterTreatment.color).toBe('rgb(9, 10, 13)');
 
-    const filterHeights = await calendar.locator('[data-testid^="crm-calendar-filter-"]').evaluateAll((buttons) =>
+    const filterHeights = await expanded.locator('[data-testid^="crm-calendar-filter-"]').evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height),
     );
     expect(Math.min(...filterHeights)).toBeGreaterThanOrEqual(44);
 
-    const draftEvent = page.getByTestId('crm-calendar-event-evening-draft');
+    const draftEvent = expanded.getByTestId('crm-calendar-event-evening-draft');
     await expect(draftEvent).toBeVisible();
     await expect(draftEvent).toHaveText('20:00');
     await expect(draftEvent).toHaveAttribute('aria-label', /Клубный вечер — черновик · 20:00 · Клубный/);
     const eventTextFits = await draftEvent.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
     expect(eventTextFits).toBe(true);
+    await attachViewport(page, testInfo, 'crm-events-calendar-expanded.png');
 
     await calendarToggle.click();
     await expect(page.getByTestId('crm-calendar-compact')).toBeVisible();

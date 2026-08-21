@@ -107,6 +107,7 @@ export default function SeatCard(props: SeatCardProps) {
   const showFarewellFouls = !player.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
+  const hasVisibleDiscipline = player.fouls > 0 || player.minor_tech_fouls > 0 || player.major_tech_fouls > 0;
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -186,8 +187,8 @@ export default function SeatCard(props: SeatCardProps) {
     if (isSpeaking) {
       return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
     }
-    if (isNominated) return <div><div className="live-seat-state__value live-seat-state__value--active">Выставлен</div></div>;
     if (player.has_foul_penalty || player.fouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
+    if (isNominated) return <div><div className="live-seat-state__value live-seat-state__value--active">Выставлен</div></div>;
     if (player.has_spoken_this_round) return <div><div className="live-seat-state__value live-seat-state__value--done">Речь ✓</div></div>;
     return null;
   };
@@ -248,6 +249,19 @@ export default function SeatCard(props: SeatCardProps) {
           {isNightShot && <span className="live-seat-night-marker live-seat-night-marker--shot"><PistolIcon />Отстрел</span>}
           {isNightDon && <span className="live-seat-night-marker live-seat-night-marker--don"><MafiaHatIcon />Дон</span>}
           {isNightSheriff && <span className="live-seat-night-marker live-seat-night-marker--sheriff"><Star />Шериф</span>}
+        </div>
+      )}
+
+      {hasVisibleDiscipline && (
+        <div
+          className="evening-live-discipline z-[25]"
+          data-testid={`live-seat-discipline-${slotNum}`}
+          aria-label={`Фолы ${player.fouls}, малые техфолы ${player.minor_tech_fouls}, большие техфолы ${player.major_tech_fouls}`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {player.fouls > 0 && <span className="evening-live-discipline-foul" data-count={player.fouls}>{player.fouls}</span>}
+          {player.minor_tech_fouls > 0 && <span className="evening-live-discipline-minor" data-count={player.minor_tech_fouls}>{player.minor_tech_fouls}</span>}
+          {player.major_tech_fouls > 0 && <span className="evening-live-discipline-major" data-count={player.major_tech_fouls}>{player.major_tech_fouls}</span>}
         </div>
       )}
 

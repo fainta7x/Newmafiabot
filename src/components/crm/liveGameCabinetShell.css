@@ -35,7 +35,7 @@
 }
 
 .evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary),
-.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-voters) {
+.evening-live-engine-shell .live-judge-hud:has(.live-judge-table-decision) {
   --live-stage: #fb7185;
   --live-stage-soft: rgba(251, 113, 133, 0.10);
   --live-stage-line: rgba(251, 113, 133, 0.24);

@@ -303,6 +303,14 @@
     gap: 4px !important;
   }
 
+  /* Voting and the card-based table decision are the two densest protocol
+     states. One tighter gap keeps their complete judge context inside the
+     fixed HUD cell without hiding text or reintroducing nested scrolling. */
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-vote-summary) .live-judge-hud__stack,
+  .evening-live-engine-shell .live-judge-hud:has(.live-judge-table-decision) .live-judge-hud__stack {
+    gap: 3px !important;
+  }
+
   /* The main progression rail is tapped constantly during a game. Keep it
      visually compact, but give both Back and the primary next action a full
      mobile touch target without expanding the denser timer/seat controls. */

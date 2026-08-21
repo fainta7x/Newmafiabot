@@ -82,7 +82,7 @@ function Harness() {
     <main className="px-3 py-3">
       <EveningWorkspace
         eveningId="evening-active"
-        initialSection="participants"
+        initialSection="management"
         onBack={() => { document.body.dataset.back = '1'; }}
         onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }}
       />

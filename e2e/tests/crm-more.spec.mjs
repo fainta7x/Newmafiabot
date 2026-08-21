@@ -71,6 +71,8 @@ test.describe('Organizer CRM secondary tools', () => {
     expect(await legacyIndicator.evaluate((element) => getComputedStyle(element).display)).toBe('none');
 
     await expectNoHorizontalOverflow(page);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
+    await expect(heading).toBeVisible();
 
     const path = testInfo.outputPath('crm-more-canonical.png');
     await page.screenshot({ path, fullPage: false });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, FileCheck, Moon, Save, Users, Vote, X } from 'lucide-react';
+import { CheckCircle2, FileCheck, Moon, PencilLine, Save, Users, Vote, X } from 'lucide-react';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
 import { clubGamesApi, type ClubGameRecord } from '../../lib/clubGamesApi';
 import {
@@ -66,6 +66,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
   const [voteDrafts, setVoteDrafts] = useState<Record<string, string>>({});
   const [highlightedRoundIdx, setHighlightedRoundIdx] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const firstRender = useRef(true);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,6 +75,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     setProtocol(game.club_protocol.protocol);
     setPlayerResults(game.club_protocol.player_results);
     setSaveState('saved');
+    setSaveError(null);
     setActiveTab('players');
     firstRender.current = true;
   }, [game.id, isOpen]);
@@ -83,6 +85,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
     nextResults: PlayerResultData[] = playerResults
   ) => {
     setSaveState('saving');
+    setSaveError(null);
     try {
       const updated = await clubGamesApi.saveProtocol(game.id, {
         protocol: nextProtocol,
@@ -97,6 +100,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       return true;
     } catch (err) {
       console.error(err);
+      setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить протокол');
       setSaveState('error');
       return false;
     }
@@ -317,14 +321,12 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
       return;
     }
     const completed = { ...protocol, status: 'completed' as const };
-    setProtocol(completed);
     await save(completed, playerResults);
   };
 
   const reopenDraft = async () => {
     if (!confirm('Вернуть завершённую игру в режим корректировки?')) return;
     const draft = { ...protocol, status: 'draft' as const, completed_at: null };
-    setProtocol(draft);
     await save(draft, playerResults);
   };
 
@@ -351,6 +353,8 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
                 <span className="text-[10px] text-slate-500 font-mono">{saveState === 'saving' ? 'сохранение…' : saveState === 'unsaved' ? 'есть изменения' : saveState === 'error' ? 'ошибка сохранения' : 'сохранено'}</span>
               </div>
               <p className="text-xs text-slate-400 mt-1">{game.table_name || 'Стол не указан'}{game.judge_name ? ` • Ведущий: ${game.judge_name}` : ''}</p>
+              {protocol.status === 'completed' ? <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 text-[11px] font-black text-amber-200 disabled:opacity-50"><PencilLine className="h-4 w-4" />Исправить протокол</button> : null}
+              {saveState === 'error' && saveError ? <p role="alert" className="mt-2 text-[11px] font-bold text-rose-300">Не сохранилось: {saveError}</p> : null}
             </div>
             <button type="button" onClick={async () => { if (protocol.status === 'draft' && saveState !== 'saved') await save(); onClose(); }} className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white">
               <X className="w-5 h-5" />
@@ -446,7 +450,7 @@ export const EveningGameProtocolModal: React.FC<EveningGameProtocolModalProps> =
           <div className="p-4 border-t border-slate-800 bg-slate-900 flex flex-wrap justify-between gap-2">
             <button type="button" onClick={() => save()} disabled={saveState === 'saving'} className="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5"><Save className="w-4 h-4" />Сохранить</button>
             {protocol.status === 'completed' ? (
-              <button type="button" onClick={reopenDraft} className="px-4 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black">Вернуть на корректировку</button>
+              <button type="button" onClick={reopenDraft} disabled={saveState === 'saving'} className="px-4 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black disabled:opacity-50">Вернуть на корректировку</button>
             ) : (
               <button type="button" onClick={completeGame} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Завершить игру</button>
             )}

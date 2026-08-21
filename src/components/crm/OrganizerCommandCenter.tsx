@@ -184,12 +184,11 @@ export default function OrganizerCommandCenter({
 
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
-  return <div className="mx-auto w-full max-w-3xl space-y-4">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">Organizer 2.0</div>
-        <h2 className="mt-1 text-[25px] font-black leading-tight text-text-primary">Пульт организатора</h2>
-        <p className="mt-1 text-[12px] leading-5 text-text-secondary">Только то, что требует решения сейчас. Остальные разделы остаются справочниками.</p>
+  return <div className="mx-auto w-full max-w-3xl space-y-3.5 sm:space-y-4">
+    <div data-testid="crm-today-header" className="flex items-center justify-between gap-3 px-0.5">
+      <div className="min-w-0">
+        <h2 className="text-[21px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2>
+        <p className="mt-0.5 text-[11px] leading-4 text-text-muted sm:text-[12px] sm:text-text-secondary">Сначала — то, что требует решения сейчас.</p>
       </div>
       <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className="h-4 w-4" /></button>
     </div>

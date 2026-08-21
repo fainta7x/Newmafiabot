@@ -220,8 +220,9 @@ test.describe('Live Game browser stabilization', () => {
     await expect(quickAddFoul).toBeVisible();
     const foulButtonBefore = await quickAddFoul.boundingBox();
     expect(foulButtonBefore).not.toBeNull();
-    await quickAddFoul.click();
+    await quickAddFoul.dblclick();
     await expect(seatCard(page, 1).locator('.live-seat-quick-action--remove-foul')).toBeVisible();
+    await expect(seatCard(page, 1).locator('.evening-live-discipline-foul')).toHaveAttribute('data-count', '1');
     const foulButtonAfter = await quickAddFoul.boundingBox();
     expect(foulButtonAfter).not.toBeNull();
     expect.soft(Math.abs(foulButtonAfter.x - foulButtonBefore.x), 'quick +Ф must not shift horizontally').toBeLessThanOrEqual(1);

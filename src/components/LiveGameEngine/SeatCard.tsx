@@ -139,6 +139,17 @@ export default function SeatCard(props: SeatCardProps) {
       : 'border-slate-800 bg-slate-900/50 hover:border-slate-600'
     : baseContainerBorder;
 
+  const handleQuickRegularFoul = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    direction: "up" | "down",
+  ) => {
+    event.stopPropagation();
+    // A double-tap can surface as two click events. The second one carries
+    // detail > 1, while a later deliberate press remains a normal click.
+    if (direction === "up" && event.detail > 1) return;
+    handleFoulChange(slotNum, direction);
+  };
+
   const handleCardClick = () => {
     if (tableDecisionActive) {
       if (!player.alive) return;
@@ -230,7 +241,7 @@ export default function SeatCard(props: SeatCardProps) {
             {regularFouls > 0 && (
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "down"); }}
+                onClick={(event) => handleQuickRegularFoul(event, "down")}
                 className="live-seat-quick-action live-seat-quick-action--remove-foul"
                 title="Снять обычный фол"
               >−Ф</button>
@@ -238,7 +249,7 @@ export default function SeatCard(props: SeatCardProps) {
             {regularFouls < 4 && (
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); handleFoulChange(slotNum, "up"); }}
+                onClick={(event) => handleQuickRegularFoul(event, "up")}
                 className="live-seat-quick-action live-seat-quick-action--foul"
                 title="Добавить обычный фол"
               >+Ф</button>
@@ -281,8 +292,8 @@ export default function SeatCard(props: SeatCardProps) {
 
       {showFarewellFouls && (
         <div className="absolute right-1.5 top-1.5 z-30 flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-          <button type="button" disabled={regularFouls <= 0} onClick={() => handleFoulChange(slotNum, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
-          <button type="button" disabled={regularFouls >= 4} onClick={() => handleFoulChange(slotNum, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
+          <button type="button" disabled={regularFouls <= 0} onClick={(event) => handleQuickRegularFoul(event, "down")} className="live-seat-quick-action" title="Снять обычный фол">−Ф</button>
+          <button type="button" disabled={regularFouls >= 4} onClick={(event) => handleQuickRegularFoul(event, "up")} className="live-seat-quick-action live-seat-quick-action--foul" title="Добавить обычный фол">+Ф</button>
         </div>
       )}
 

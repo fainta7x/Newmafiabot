@@ -205,7 +205,10 @@ export default function SeatCard(props: SeatCardProps) {
       return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
     }
     if (player.has_foul_penalty || regularFouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
-    if (isNominated) return <div><div className="live-seat-state__value live-seat-state__value--active">Выставлен</div></div>;
+    // The nomination is already visible in the compact action chip and in the
+    // centre panel. Do not duplicate it in the middle of the card: on mobile it
+    // covers the avatar and makes the table harder to scan.
+    if (isNominated) return null;
     if (player.has_spoken_this_round) return <div><div className="live-seat-state__value live-seat-state__value--done">Речь ✓</div></div>;
     return null;
   };

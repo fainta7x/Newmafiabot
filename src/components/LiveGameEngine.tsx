@@ -1011,7 +1011,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player) return;
     if (isFarewellSpeechActive()) {
-      if (slot === activeSpeakerSlot) setActionPlayerSlot(slot);
+      // During a farewell speech, the vote is already resolved. Keep the player
+      // management sheet available for every seat, but use its farewell mode so
+      // nomination and other game-flow actions stay unavailable.
+      setActionPlayerSlot(slot);
       return;
     }
     if (phase === 'night') {
@@ -1300,7 +1303,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   }
 
   const actionPlayer = actionPlayerSlot === null ? null : activePlayers.find((p) => p.slot_num === actionPlayerSlot) || null;
-  const farewellActionOpen = isFarewellSpeechActive() && actionPlayerSlot === activeSpeakerSlot;
+  const farewellActionOpen = isFarewellSpeechActive() && actionPlayerSlot !== null;
   const actionDiscipline = actionPlayerSlot === null ? null : discipline.players[String(actionPlayerSlot)] || null;
   const nominationBlockedBySpeaker = Boolean(
     actionPlayerSlot !== null &&

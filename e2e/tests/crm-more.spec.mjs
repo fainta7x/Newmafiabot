@@ -71,8 +71,13 @@ test.describe('Organizer CRM secondary tools', () => {
     expect(await legacyIndicator.evaluate((element) => getComputedStyle(element).display)).toBe('none');
 
     await expectNoHorizontalOverflow(page);
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-    await expect(heading).toBeVisible();
+
+    // Reload before evidence capture so the screenshot represents the initial
+    // human-facing state rather than the scroll position used to inspect the
+    // collapsed maintenance controls above.
+    await page.goto('/e2e/crm-more.html');
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.getByRole('heading', { name: 'Ещё', exact: true })).toBeVisible();
 
     const path = testInfo.outputPath('crm-more-canonical.png');
     await page.screenshot({ path, fullPage: false });

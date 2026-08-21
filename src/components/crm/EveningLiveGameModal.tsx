@@ -336,6 +336,8 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           initialJudgeId={getClubJudgeIdentity(game)}
           onCancel={onClose}
           onPhaseChange={setLivePhase}
+          rolesHidden={rolesHidden}
+          onRolesHiddenChange={setRolesHidden}
           onGameFinished={async (gameData) => {
             setSaving(true);
             setSaveError(null);

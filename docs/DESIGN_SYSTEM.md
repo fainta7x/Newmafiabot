@@ -127,6 +127,10 @@ Phase semantics:
 
 Player identity must never disappear merely because a player is dead, voted out or currently in a voting state. Status is secondary to identity.
 
+Non-zero ordinary/technical discipline must be readable directly on the relevant seat without opening the player sheet. Zero counters stay visually absent so the table does not become a grid of empty badges.
+
+When seat states compete for the same central status area, the judge-critical state wins. In particular, a 30-second third-foul penalty remains the central warning even if that player is also nominated; nomination remains visible through the seat treatment and nomination control.
+
 Do not hide judge-critical copy with ellipsis just to fit a test.
 
 ### Setup / physical role distribution

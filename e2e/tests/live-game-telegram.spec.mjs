@@ -149,7 +149,7 @@ test.describe('Live Game in Telegram WebApp host', () => {
 
     await page.getByRole('button', { name: /Завершить речь #1/ }).click();
     await expect(seatCard(page, 1).locator('.live-seat-state__value--done')).toBeHidden();
-    await expect(page.locator('.evening-live-identity[data-seat="1"] .evening-live-identity-name')).toBeVisible();
+    await expect(page.locator('.evening-live-identity[data-seat="1"] .evening-live-identity-name')).toHaveCount(0);
 
     const screenshotPath = testInfo.outputPath('telegram-stable-viewport.png');
     await page.screenshot({ path: screenshotPath, fullPage: false });

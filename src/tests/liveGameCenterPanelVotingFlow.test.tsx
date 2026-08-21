@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CenterPanel from '../components/LiveGameEngine/CenterPanel';
 import type { VotingRound } from '../shared/tournamentVoting';
+import { deactivateTableDecisionSelection } from '../components/LiveGameEngine/tableDecisionSelectionStore';
 
 const players = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,
@@ -47,7 +48,10 @@ const baseProps = () => ({
   getNextStepInfo: () => null,
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  deactivateTableDecisionSelection();
+});
 
 describe('CenterPanel live flow guardrails', () => {
   it('keeps zero-night progression on the single canonical next-step control', () => {
@@ -65,7 +69,7 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.getByText('Договорка', { exact: true })).toBeTruthy();
   });
 
-  it('continues the full voting order even when one candidate already has an unbeatable lead', () => {
+  it('keeps voting on player cards and never exposes synthetic plus/minus voters', () => {
     const currentRound: VotingRound = {
       round_number: 1,
       is_revote: false,
@@ -92,13 +96,44 @@ describe('CenterPanel live flow guardrails', () => {
     />);
 
     expect(screen.queryByText(/голосование математически решено/i)).toBeNull();
-    expect(screen.queryByRole('button', { name: /Зафиксировать итог/i })).toBeNull();
-    expect(screen.getByRole('button', { name: '+1' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '−1' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
+    expect(screen.getByText(/Нажимайте карточки игроков/)).toBeTruthy();
+    expect(screen.getByText('6', { exact: true })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });
 
-  it('does not expose manual plus/minus controls for the automatic last candidate', () => {
+  it('shows the explicit voter count rather than the aggregate remainder preview', () => {
+    const currentRound: VotingRound = {
+      round_number: 1,
+      is_revote: false,
+      nominated_seats: [2, 5],
+      vote_counts: { 2: 8, 5: 2 },
+      eligible_voters: 10,
+      day_number: 0,
+      outcome: 'pending',
+      eliminated_seats: [],
+      table_leave_votes: null,
+    };
+
+    render(<CenterPanel
+      {...baseProps()}
+      phase="day_voting"
+      nextSpeaker={null}
+      nominations={[2, 5]}
+      votes={{ 2: 8, 5: 2 }}
+      votesByPlayer={{ 1: 2, 2: 2 }}
+      votingRounds={[currentRound]}
+      activeVotingRoundIndex={0}
+      votingStage="collecting"
+    />);
+
+    const stats = document.querySelectorAll('.live-judge-stat__value');
+    expect(stats[0]?.textContent).toBe('2');
+    expect(stats[1]?.textContent).toBe('8/10');
+  });
+
+  it('keeps the last candidate explicit until the judge actually finalizes', () => {
     const currentRound: VotingRound = {
       round_number: 1,
       is_revote: false,
@@ -124,7 +159,7 @@ describe('CenterPanel live flow guardrails', () => {
       votingStage="collecting"
     />);
 
-    expect(screen.getByText(/оставшиеся голоса автоматически идут в последнюю кандидатуру/i)).toBeTruthy();
+    expect(screen.getByText(/Неотмеченные голоса уйдут сюда только при подведении итога/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
     expect(screen.getByRole('button', { name: /Подвести итог/i })).toBeTruthy();

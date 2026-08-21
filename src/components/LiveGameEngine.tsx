@@ -578,10 +578,37 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const current = votingRounds[activeVotingRoundIndex];
     if (!current) return;
     const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
-    const explicit = getExplicitVoteCounts(current.nominated_seats, assignments, eligibleSeats);
-    const finalCounts = calculateVoteRemainder(current.nominated_seats, current.eligible_voters ?? eligibleSeats.length, explicit);
-    setVotes(finalCounts);
-    setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? { ...round, vote_counts: finalCounts } : round));
+    const explicitCounts = getExplicitVoteCounts(current.nominated_seats, assignments, eligibleSeats);
+    setVotes(explicitCounts);
+    setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex
+      ? { ...round, vote_counts: explicitCounts }
+      : round));
+  };
+
+  const handleFinalizeVote = () => {
+    const current = votingRounds[activeVotingRoundIndex];
+    if (!current) return;
+    const lastNominee = current.nominated_seats[current.nominated_seats.length - 1];
+    if (!lastNominee) return;
+    saveSnapshot();
+    const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
+    setVotesByPlayer((previous) => {
+      const next = { ...previous };
+      eligibleSeats.forEach((slot) => {
+        if (next[slot] === undefined) next[slot] = lastNominee;
+      });
+      const explicitCounts = getExplicitVoteCounts(current.nominated_seats, next, eligibleSeats);
+      const finalCounts = calculateVoteRemainder(
+        current.nominated_seats,
+        current.eligible_voters ?? eligibleSeats.length,
+        explicitCounts,
+      );
+      setVotes(finalCounts);
+      setVotingRounds((rounds) => rounds.map((round, index) => index === activeVotingRoundIndex
+        ? { ...round, vote_counts: finalCounts }
+        : round));
+      return next;
+    });
   };
 
   const selectVotingNomineeIndex = (index: number) => {
@@ -625,21 +652,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     });
   };
 
-  const handleInteractiveAutoRemainder = () => {
-    const current = votingRounds[activeVotingRoundIndex];
-    if (!current) return;
-    saveSnapshot();
-    const last = current.nominated_seats[current.nominated_seats.length - 1];
-    if (!last) return;
-    const eligible = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
-    setVotesByPlayer((previous) => {
-      const next = { ...previous };
-      eligible.forEach((slot) => { if (next[slot] === undefined) next[slot] = last; });
-      updateCurrentRoundVotes(next);
-      return next;
-    });
-  };
-
   const handleTransitionToVoting = () => {
     saveSnapshot();
     if (discipline.isNextVotingCancelled) {
@@ -660,13 +672,14 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       startNightPhase();
       return;
     }
-    const eligible = activePlayers.filter((p) => p.alive).length;
-    const explicit: Record<number, number> = Object.fromEntries(nominations.map((slot) => [slot, 0]));
+    const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
+    const eligible = eligibleSeats.length;
+    const explicit = getExplicitVoteCounts(nominations, {}, eligibleSeats);
     const initialRound: VotingRound = {
       round_number: 1,
       is_revote: false,
       nominated_seats: [...nominations],
-      vote_counts: calculateVoteRemainder(nominations, eligible, explicit),
+      vote_counts: explicit,
       day_number: liveRoundToTournamentDay(roundNumber),
       eligible_voters: eligible,
       parent_round_number: null,
@@ -676,7 +689,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
     setVotingRounds([initialRound]);
     setActiveVotingRoundIndex(0);
-    setVotes(initialRound.vote_counts);
+    setVotes(explicit);
     setVotesByPlayer({});
     setCurrentVotingNomineeIndex(0);
     setVotingStage('collecting');
@@ -779,8 +792,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     saveSnapshot();
     const child = createNextRevoteRound({ ...current, outcome: 'tie_revote' }, winners);
     child.round_number = votingRounds.length + 1;
-    const eligible = current.eligible_voters ?? activePlayers.filter((p) => p.alive).length;
-    child.vote_counts = calculateVoteRemainder(child.nominated_seats, eligible, child.vote_counts);
+    const eligibleSeats = activePlayers.filter((p) => p.alive).map((p) => p.slot_num);
+    child.vote_counts = getExplicitVoteCounts(child.nominated_seats, {}, eligibleSeats);
     setVotingRounds((previous) => [...previous, child]);
     setActiveVotingRoundIndex(votingRounds.length);
     setVotes(child.vote_counts);
@@ -1229,7 +1242,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       votesByPlayer,
       currentVotingNomineeIndex,
       selectVotingNomineeIndex,
-      handleInteractiveAutoRemainder,
+      handleInteractiveAutoRemainder: handleFinalizeVote,
       handleAllocateVotes,
       handleResolveVoting,
       nightSubPhase,
@@ -1272,6 +1285,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const bestMovePlayerNickname = activeBestMoveSlot === null
     ? ''
     : activePlayers.find((player) => player.slot_num === activeBestMoveSlot)?.nickname || 'Игрок';
+  const requiresTableSeatVoting = phase === 'day_voting' &&
+    (votingStage === 'collecting' || votingStage === 'table_decision');
+  const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode;
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
@@ -1334,11 +1350,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             <div className="flex gap-2">
               <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
               <button type="button" onClick={() => setShowRolesOnTable((value) => !value)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{showRolesOnTable ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{showRolesOnTable ? 'Скрыть роли' : 'Показать роли'}</button>
-              <button type="button" onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{viewMode === 'table' ? 'Список' : 'Стол'}</button>
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
+                disabled={requiresTableSeatVoting}
+                title={requiresTableSeatVoting ? 'Во время голосования используется стол' : undefined}
+                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {requiresTableSeatVoting ? 'Стол для голосования' : viewMode === 'table' ? 'Список' : 'Стол'}
+              </button>
             </div>
           </div>
 
-          {viewMode === 'table' ? renderTable() : (
+          {effectiveViewMode === 'table' ? renderTable() : (
             <div className="space-y-3">
               <CenterPanel {...centerPanelProps()} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

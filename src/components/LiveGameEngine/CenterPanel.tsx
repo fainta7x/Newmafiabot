@@ -15,6 +15,11 @@ import {
   buildCollectingVotingPresentation,
   buildTableDecisionPresentation,
 } from "./votingPresentationModel.js";
+import {
+  activateTableDecisionSelection,
+  deactivateTableDecisionSelection,
+  useTableDecisionSelection,
+} from "./tableDecisionSelectionStore.js";
 
 interface CenterPanelProps {
   activePlayers: ActivePlayerState[];
@@ -118,10 +123,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     nominations,
     currentVotingNomineeIndex,
     selectVotingNomineeIndex,
-    votes,
     votesByPlayer,
     handleInteractiveAutoRemainder,
-    handleAllocateVotes,
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
@@ -144,13 +147,14 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleConfirmTableDecision,
   } = props;
 
-  const [tableVoterSlots, setTableVoterSlots] = React.useState<number[]>([]);
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
+  const [pendingVotingResolution, setPendingVotingResolution] = React.useState(false);
   const timerDeadlineRef = React.useRef<number | null>(null);
   const timerIdentityRef = React.useRef('');
   const bestMoveDeadlineRef = React.useRef<number | null>(null);
+  const tableDecisionSelection = useTableDecisionSelection();
 
   const activeSpeaker = activePlayers.find((player) => player.slot_num === activeSpeakerSlot);
   const donPlayer = activePlayers.find((player) => player.role === 'Дон');
@@ -161,6 +165,12 @@ export default function CenterPanel(props: CenterPanelProps) {
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
   const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
+  const tableDecisionRequired = phase === 'day_voting'
+    && votingStage === 'round_result'
+    && currentVotingResult?.outcome === 'requires_table_decision';
+  const tableDecisionKey = tableDecisionRequired && currentRound
+    ? `${activeVotingRoundIndex}:${currentRound.round_number}:${currentRound.nominated_seats.join('-')}`
+    : null;
 
   React.useEffect(() => {
     if (phase === 'day_voting' && votingStage === 'revote_speeches' && activeSpeakerSlot !== null && timeLeft > 30) {
@@ -169,11 +179,45 @@ export default function CenterPanel(props: CenterPanelProps) {
   }, [phase, votingStage, activeSpeakerSlot, timeLeft, setTimeLeft]);
 
   React.useEffect(() => {
-    if (votingStage !== 'round_result') {
-      setTableVoterSlots([]);
+    if (tableDecisionKey) activateTableDecisionSelection(tableDecisionKey);
+    else deactivateTableDecisionSelection();
+  }, [tableDecisionKey]);
+
+  React.useEffect(() => {
+    if (!tableDecisionSelection.active) {
       setTableLeaveVotesInput?.(null);
+      return;
     }
-  }, [votingStage, activeVotingRoundIndex, setTableLeaveVotesInput]);
+    setTableLeaveVotesInput?.(tableDecisionSelection.selectedVoterSlots.length);
+  }, [tableDecisionSelection.active, tableDecisionSelection.selectedVoterSlots, setTableLeaveVotesInput]);
+
+  React.useEffect(() => {
+    if (!pendingVotingResolution) return;
+    if (phase !== 'day_voting' || votingStage !== 'collecting' || !currentRound) {
+      setPendingVotingResolution(false);
+      return;
+    }
+    const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
+    const collecting = buildCollectingVotingPresentation({
+      eligibleVoterSeats,
+      eligibleVoters: currentRound.eligible_voters,
+      nominatedSeats: currentRound.nominated_seats,
+      currentNomineeIndex: currentVotingNomineeIndex,
+      votesByPlayer,
+    });
+    if (collecting.remaining > 0) return;
+    setPendingVotingResolution(false);
+    handleResolveVoting();
+  }, [
+    pendingVotingResolution,
+    phase,
+    votingStage,
+    currentRound,
+    currentVotingNomineeIndex,
+    votesByPlayer,
+    activePlayers,
+    handleResolveVoting,
+  ]);
 
   React.useEffect(() => {
     if (phase !== 'night') {
@@ -284,7 +328,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     setActiveSpeakerSlot(null);
 
     if (votingStage === 'round_result') {
-      setTableVoterSlots([]);
+      deactivateTableDecisionSelection();
       setTableLeaveVotesInput?.(null);
       setVotingStage?.('collecting');
       return;
@@ -301,15 +345,6 @@ export default function CenterPanel(props: CenterPanelProps) {
         setVotingStage?.('round_result');
       }
     }
-  };
-
-  const toggleTableVoter = (slot: number) => {
-    if (!activePlayers.some((player) => player.slot_num === slot && player.alive)) return;
-    setTableVoterSlots((previous) => {
-      const next = previous.includes(slot) ? previous.filter((value) => value !== slot) : [...previous, slot];
-      setTableLeaveVotesInput?.(next.length);
-      return next;
-    });
   };
 
   const renderNominationChips = () => (
@@ -354,7 +389,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     const eligibleVoterSeats = activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
 
     if (votingStage === 'collecting' || votingStage === 'setup') {
-      const { nominee, eligible, remaining, isLast } = buildCollectingVotingPresentation({
+      const { nominee, eligible, remaining, currentVotes, isLast } = buildCollectingVotingPresentation({
         eligibleVoterSeats,
         eligibleVoters: currentRound.eligible_voters,
         nominatedSeats: currentRound.nominated_seats,
@@ -362,28 +397,35 @@ export default function CenterPanel(props: CenterPanelProps) {
         votesByPlayer,
       });
 
+      const finalizeVoting = () => {
+        if (pendingVotingResolution) return;
+        if (remaining > 0) {
+          setPendingVotingResolution(true);
+          handleInteractiveAutoRemainder();
+          return;
+        }
+        handleResolveVoting();
+      };
+
       return (
         <div className="live-judge-hud__stack">
           <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
           <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
           <div className="live-judge-vote-summary">
-            <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{votes[nominee] || 0}</div></div>
+            <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
           </div>
-          {isLast ? (
-            <div className="live-judge-hud__hint">Оставшиеся голоса автоматически идут в последнюю кандидатуру.</div>
-          ) : (
-            <div className="live-judge-vote-actions">
-              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) - 1)} className="live-judge-action">−1</button>
-              <button type="button" onClick={() => handleAllocateVotes(nominee, (votes[nominee] || 0) + 1)} className="live-judge-action">+1</button>
-            </div>
-          )}
+          <div className="live-judge-hud__hint">
+            {isLast
+              ? 'Нажимайте карточки голосующих. Неотмеченные голоса уйдут сюда только при подведении итога.'
+              : `Нажимайте карточки игроков, голосующих против #${nominee}.`}
+          </div>
           <div className="live-judge-vote-actions">
-            <button type="button" disabled={currentVotingNomineeIndex === 0} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
+            <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
             {isLast ? (
-              <button type="button" onClick={() => { if (remaining > 0) handleInteractiveAutoRemainder(); handleResolveVoting(); }} className="live-judge-action live-judge-action--success">Подвести итог</button>
+              <button type="button" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
             ) : (
-              <button type="button" onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
+              <button type="button" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
             )}
           </div>
         </div>
@@ -451,39 +493,24 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       if (result.outcome === 'requires_table_decision') {
         const eligible = currentRound.eligible_voters ?? eligibleVoterSeats.length;
-        const { majority, entered, hasMajority, sortedSelectedVoterSlots } = buildTableDecisionPresentation({
+        const { majority, entered, hasMajority } = buildTableDecisionPresentation({
           eligible,
-          selectedVoterSlots: tableVoterSlots,
+          selectedVoterSlots: tableDecisionSelection.selectedVoterSlots,
         });
+        const confirmTableDecision = () => {
+          handleConfirmTableDecision?.(entered, result.winners);
+          deactivateTableDecisionSelection();
+        };
         return (
-          <div className="live-judge-hud__stack">
+          <div className="live-judge-hud__stack live-judge-table-decision">
             <div className="live-judge-hud__eyebrow">Поднять / оставить · {result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
             <div className="live-judge-hud__title">Поднять всех?</div>
-            <div className="live-judge-hud__hint">Отметьте игроков, голосующих за «поднять».</div>
-            <div className="live-judge-table-voters">
-              {eligibleVoterSeats.slice().sort((a, b) => a - b).map((slot) => {
-                const selected = tableVoterSlots.includes(slot);
-                const player = activePlayers.find((item) => item.slot_num === slot);
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => toggleTableVoter(slot)}
-                    className={`live-judge-table-voter ${selected ? 'live-judge-table-voter--selected' : ''}`}
-                    title={player?.nickname ? `#${slot} · ${player.nickname}` : `Игрок #${slot}`}
-                  >
-                    #{slot}
-                  </button>
-                );
-              })}
-            </div>
+            <div className="live-judge-hud__hint">Нажимайте карточки игроков, голосующих за «поднять».</div>
             <div className="live-judge-table-decision-count">
               <span>За «поднять»</span>
               <strong>{entered}/{eligible}<small>нужно {majority}</small></strong>
             </div>
-            {entered > 0 && <div className="live-judge-hud__hint">Голосуют: {sortedSelectedVoterSlots.map((slot) => `#${slot}`).join(' · ')}</div>}
-            <button type="button" onClick={() => handleConfirmTableDecision?.(entered, result.winners)} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение</button>
+            <button type="button" onClick={confirmTableDecision} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение</button>
           </div>
         );
       }

@@ -30,19 +30,6 @@ const expectHorizontallyInsideViewport = async (page, locator, label) => {
   expect.soft(box.x + box.width, `${label}: right edge`).toBeLessThanOrEqual(viewport.width + 1);
 };
 
-const expectButtonsInside = async (container, buttons, label) => {
-  const containerBox = await container.boundingBox();
-  expect(containerBox, `${label}: container bounding box`).not.toBeNull();
-  for (let index = 0; index < await buttons.count(); index += 1) {
-    const button = buttons.nth(index);
-    await expect(button, `${label}: button ${index + 1} visible`).toBeVisible();
-    const box = await button.boundingBox();
-    expect(box, `${label}: button ${index + 1} bounding box`).not.toBeNull();
-    expect.soft(box.x, `${label}: button ${index + 1} left`).toBeGreaterThanOrEqual(containerBox.x - 1);
-    expect.soft(box.x + box.width, `${label}: button ${index + 1} right`).toBeLessThanOrEqual(containerBox.x + containerBox.width + 1);
-  }
-};
-
 const attachViewport = async (page, testInfo, name) => {
   const path = testInfo.outputPath(name);
   await page.screenshot({ path, fullPage: false });
@@ -55,6 +42,28 @@ const tableGrid = (page) => page
 
 const seatCard = (page, slot) => tableGrid(page).locator(':scope > div').nth(slot - 1);
 const centerPanel = (page) => page.getByTestId('live-judge-hud');
+
+const expectHudLocked = async (page, label) => {
+  const metrics = await page.evaluate(() => {
+    const hud = document.querySelector('[data-testid="live-judge-hud"]');
+    const hudBody = hud?.querySelector('.live-judge-hud__body');
+    const shell = document.querySelector('.evening-live-engine-shell');
+    return {
+      hudClient: hud?.clientHeight || 0,
+      hudScroll: hud?.scrollHeight || 0,
+      bodyClient: hudBody?.clientHeight || 0,
+      bodyScroll: hudBody?.scrollHeight || 0,
+      shellClient: shell?.clientHeight || 0,
+      shellScroll: shell?.scrollHeight || 0,
+      shellTop: shell?.scrollTop || 0,
+    };
+  });
+
+  expect.soft(metrics.hudScroll, `${label}: HUD must fit`).toBeLessThanOrEqual(metrics.hudClient + 1);
+  expect.soft(metrics.bodyScroll, `${label}: HUD body must fit`).toBeLessThanOrEqual(metrics.bodyClient + 1);
+  expect.soft(metrics.shellScroll, `${label}: board shell must not scroll`).toBeLessThanOrEqual(metrics.shellClient + 1);
+  expect.soft(metrics.shellTop, `${label}: board shell must stay at top`).toBeLessThanOrEqual(1);
+};
 
 const clickOptional = async (locator) => {
   if (await locator.isVisible().catch(() => false)) await locator.click();
@@ -111,6 +120,7 @@ const prepareGame = async (page, testInfo) => {
   await expect(tableGrid(page)).toBeVisible();
   await expectCanonicalJudgeBaseline(page);
   await expectNoHorizontalOverflow(page, 'zero round');
+  await expectHudLocked(page, 'zero round');
   await attachViewport(page, testInfo, '02-zero-round-table.png');
 };
 
@@ -182,10 +192,23 @@ test.describe('Live Game browser stabilization', () => {
     await prepareGame(page, testInfo);
 
     await startSpeech(page, 1);
+    await expectHudLocked(page, 'speech timer');
     await page.getByRole('button', { name: 'Назад', exact: true }).last().click();
     await expect(page.getByRole('button', { name: /Речь #1(?:\s| ·|$)/ }).first()).toBeVisible();
 
     await startSpeech(page, 1);
+    const quickAddFoul = seatCard(page, 1).locator('.live-seat-quick-action--foul');
+    await expect(quickAddFoul).toBeVisible();
+    const foulButtonBefore = await quickAddFoul.boundingBox();
+    expect(foulButtonBefore).not.toBeNull();
+    await quickAddFoul.click();
+    await expect(seatCard(page, 1).locator('.live-seat-quick-action--remove-foul')).toBeVisible();
+    const foulButtonAfter = await quickAddFoul.boundingBox();
+    expect(foulButtonAfter).not.toBeNull();
+    expect.soft(Math.abs(foulButtonAfter.x - foulButtonBefore.x), 'quick +Ф must not shift horizontally').toBeLessThanOrEqual(1);
+    expect.soft(Math.abs(foulButtonAfter.y - foulButtonBefore.y), 'quick +Ф must not shift vertically').toBeLessThanOrEqual(1);
+    await attachViewport(page, testInfo, '03-quick-foul-stable.png');
+
     await nominate(page, 2);
     await finishSpeech(page, 1);
 
@@ -200,14 +223,23 @@ test.describe('Live Game browser stabilization', () => {
 
     await expect(centerPanel(page).getByText('Все речи завершены', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
-    await expect(centerPanel(page).getByText(/Кто против/)).toBeVisible();
+    const votingHud = centerPanel(page);
+    await expect(votingHud.getByText(/Кто против/)).toBeVisible();
+    await expect(votingHud.getByRole('button', { name: '+1' })).toHaveCount(0);
+    await expect(votingHud.getByRole('button', { name: '−1' })).toHaveCount(0);
     await expectNoHorizontalOverflow(page, 'voting');
-    await attachViewport(page, testInfo, '03-voting.png');
+    await expectHudLocked(page, 'voting');
 
     for (const voter of [1, 2, 3, 4, 5, 6]) {
       await seatCard(page, voter).click();
     }
+    await expect(votingHud.locator('.live-judge-stat__value').first()).toHaveText('6');
+    await expect(votingHud.locator('.live-judge-stat__value').nth(1)).toHaveText('4/10');
+    await expect(seatCard(page, 1).getByText('→ #2', { exact: true })).toBeVisible();
+    await attachViewport(page, testInfo, '04-voting-card-selection.png');
+
     await page.getByRole('button', { name: /Следующий/ }).click();
+    await expect(seatCard(page, 7).getByText(/Авто/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
 
     await expect(centerPanel(page).getByText(/Заголосован/)).toBeVisible();
@@ -235,13 +267,13 @@ test.describe('Live Game browser stabilization', () => {
     await seatCard(page, 6).click();
     await expect(page.getByTestId('live-game-night-status')).toHaveText('Шериф · #6: ЧЁРНЫЙ!');
     await expect(seatCard(page, 6).getByText('Шериф', { exact: true })).toBeVisible();
-    await attachViewport(page, testInfo, '04-night-checks.png');
+    await attachViewport(page, testInfo, '05-night-checks.png');
     await clickOptional(page.getByRole('button', { name: /Выключить музыку/ }));
 
     await page.getByRole('button', { name: 'ЛХ первого убитого', exact: true }).click();
     await fillBestMove(page, [2, 6, 8]);
     await expectNoHorizontalOverflow(page, 'night best move');
-    await attachViewport(page, testInfo, '05-night-best-move.png');
+    await attachViewport(page, testInfo, '06-night-best-move.png');
 
     await page.getByRole('button', { name: 'Зафиксировать ночь', exact: true }).click();
     await expect(centerPanel(page).getByText('Последняя речь #1', { exact: true })).toBeVisible();
@@ -249,13 +281,13 @@ test.describe('Live Game browser stabilization', () => {
 
     const deathProtocol = page.getByText('Протокол убитого', { exact: true }).locator('xpath=ancestor::div[contains(@class,"max-w-2xl")][1]');
     await expectHorizontallyInsideViewport(page, deathProtocol, 'death protocol');
-    await attachViewport(page, testInfo, '06-death-protocol.png');
+    await attachViewport(page, testInfo, '07-death-protocol.png');
     await page.getByRole('button', { name: 'Сохранить → день', exact: true }).click();
 
     await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page, 'day 1');
-    await attachViewport(page, testInfo, '07-day-1.png');
+    await attachViewport(page, testInfo, '08-day-1.png');
   });
 
   test('PPK confirmation ends the sandbox game and reaches the save boundary', async ({ page }, testInfo) => {
@@ -266,14 +298,14 @@ test.describe('Live Game browser stabilization', () => {
     await expect(action.getByText('Фолы', { exact: true })).toBeVisible();
     await expect(action.getByText('Малый тех', { exact: true })).toBeVisible();
     await expect(action.getByText('Большой тех', { exact: true })).toBeVisible();
-    await attachViewport(page, testInfo, '08-player-action.png');
+    await attachViewport(page, testInfo, '09-player-action.png');
     const ppkButton = action.getByRole('button', { name: 'ППК', exact: true });
     await expect(ppkButton).toBeVisible();
     await ppkButton.click();
 
     const confirmation = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Зафиксировать ППК' }).first();
     await expectHorizontallyInsideViewport(page, confirmation.locator(':scope > div').first(), 'PPK confirmation');
-    await attachViewport(page, testInfo, '09-ppk-confirmation.png');
+    await attachViewport(page, testInfo, '10-ppk-confirmation.png');
     await confirmation.getByRole('button', { name: 'Подтвердить ППК', exact: true }).click();
 
     await expect(page.getByTestId('e2e-live-game-result')).toHaveText('E2E LIVE GAME COMPLETED');
@@ -296,7 +328,7 @@ test.describe('Live Game browser stabilization', () => {
     await fourthFoulAction.getByRole('button', { name: /Обычный фол/ }).click();
     const fourthFoulConfirm = page.locator('div[class*="z-[126]"]').filter({ hasText: 'Удаление по 4-му фолу' }).first();
     await expect(fourthFoulConfirm).toBeVisible();
-    await attachViewport(page, testInfo, '10-fourth-foul-confirmation.png');
+    await attachViewport(page, testInfo, '11-fourth-foul-confirmation.png');
     await fourthFoulConfirm.getByRole('button', { name: 'Подтвердить 4-й фол', exact: true }).click();
 
     const removedOne = await openPlayerAction(page, 1);
@@ -325,7 +357,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(page.getByText('Ближайшее голосование отменено из-за удаления', { exact: true })).toBeVisible();
     await expect(centerPanel(page).getByText('Ночь 1', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'discipline cancellation night');
-    await attachViewport(page, testInfo, '11-discipline-voting-cancelled.png');
+    await attachViewport(page, testInfo, '12-discipline-voting-cancelled.png');
   });
 
   test('walks a repeated tie through revote speeches and the table decision', async ({ page }, testInfo) => {
@@ -337,7 +369,7 @@ test.describe('Live Game browser stabilization', () => {
     await expect(centerPanel(page)).toContainText('#2 · #3');
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
     await expect(centerPanel(page).getByText(/Речи перед переголосованием · 30 сек/)).toBeVisible();
-    await attachViewport(page, testInfo, '12-revote-speeches.png');
+    await attachViewport(page, testInfo, '13-revote-speeches.png');
 
     await page.getByRole('button', { name: 'Следующий игрок', exact: true }).click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();
@@ -347,17 +379,19 @@ test.describe('Live Game browser stabilization', () => {
     const hud = centerPanel(page);
     await expect(hud.getByText(/Поднять \/ оставить/)).toBeVisible();
     await expect(hud.getByText('Поднять всех?', { exact: true })).toBeVisible();
-    const tableVoterButtons = hud.locator('.live-judge-table-voter');
-    await expect(tableVoterButtons).toHaveCount(10);
-    await expectButtonsInside(hud, tableVoterButtons, 'raise-leave voters');
+    await expect(hud.locator('.live-judge-table-voter')).toHaveCount(0);
+    await expect(hud.getByText(/Нажимайте карточки игроков/)).toBeVisible();
+    await expectHudLocked(page, 'raise-leave decision');
 
     for (const voter of [1, 2, 3, 4, 5, 6]) {
-      await hud.getByRole('button', { name: `#${voter}`, exact: true }).click();
+      await seatCard(page, voter).click();
+      await expect(seatCard(page, voter)).toHaveAttribute('data-table-vote-selected', 'true');
     }
     await expect(hud.locator('.live-judge-table-decision-count strong')).toContainText('6/10');
     await expect(hud.getByText('нужно 6', { exact: true })).toBeVisible();
+    await expect(seatCard(page, 7)).not.toHaveAttribute('data-table-vote-selected', 'true');
     await expectNoHorizontalOverflow(page, 'raise-leave decision');
-    await attachViewport(page, testInfo, '13-table-decision.png');
+    await attachViewport(page, testInfo, '14-table-decision-card-selection.png');
     await page.getByRole('button', { name: 'Зафиксировать решение', exact: true }).click();
 
     await expect(centerPanel(page).getByText('Последняя речь #2', { exact: true })).toBeVisible();
@@ -371,13 +405,14 @@ test.describe('Live Game browser stabilization', () => {
     await page.goto('/e2e/live-game.html?mode=recovery');
     await expect(page.getByText(/Найдена незавершённая игра · 18:00/)).toBeVisible();
     await expectNoHorizontalOverflow(page, 'recovery banner');
-    await attachViewport(page, testInfo, '14-recovery-banner.png');
+    await attachViewport(page, testInfo, '15-recovery-banner.png');
 
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await expect(centerPanel(page).getByText('День 1', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Речь #3/ }).first()).toBeVisible();
     await expect(page.getByText('Прерванная игра восстановлена', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page, 'restored Day 1');
-    await attachViewport(page, testInfo, '15-restored-day-1.png');
+    await expectHudLocked(page, 'restored Day 1');
+    await attachViewport(page, testInfo, '16-restored-day-1.png');
   });
 });

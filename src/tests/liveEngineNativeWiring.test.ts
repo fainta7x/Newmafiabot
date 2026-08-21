@@ -13,9 +13,11 @@ describe('live engine native wiring', () => {
 
   it('keeps voting UI declarative instead of mutating the rendered table DOM', () => {
     const center = read('src/components/LiveGameEngine/CenterPanel.tsx');
+    const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(center).not.toContain('querySelector');
     expect(center).not.toContain('tableVoteSelected');
-    expect(center).toContain('tableVoterSlots');
+    expect(center).toContain('useTableDecisionSelection');
+    expect(seat).toContain('toggleTableDecisionVoter');
   });
 
   it('passes the real post-night stage directly to seat cards for farewell fouls', () => {
@@ -27,11 +29,17 @@ describe('live engine native wiring', () => {
 
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
-    const presentation = read('src/components/LiveGameEngine/seatPresentationModel.ts');
     expect(seat).toContain('canToggleVoteAssignment');
     expect(seat).toContain('buildSeatVoteStatusPresentation');
-    expect(presentation).toContain("`→ #${target}${automatic ? '*' : ''}`");
     expect(seat).toContain('presentation.target === undefined');
     expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
+  });
+
+  it('keeps the selectable table visible while seat cards are the voting input', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain("votingStage === 'collecting' || votingStage === 'table_decision'");
+    expect(engine).toContain("const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode");
+    expect(engine).toContain('disabled={requiresTableSeatVoting}');
+    expect(engine).toContain("effectiveViewMode === 'table' ? renderTable()");
   });
 });

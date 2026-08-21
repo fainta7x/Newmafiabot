@@ -2,7 +2,8 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-08-20  
+**Status date:** 2026-08-21
+
 **Latest release record before this workstream:** PR #123 merged as `bb4edbee0e0dd154a6e4ea7a87f81ef6382a5b13`  
 **Release gate:** GitHub CI run #951 — green before merge  
 **Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
@@ -103,6 +104,8 @@ Current judge workspace includes:
 - foul/technical-foul/removal/PPK presentation;
 - compact event journal with Undo;
 - voting, revote and table-decision readability fixes;
+- ordinary voting and «поднять / оставить» use player seat cards for judge input instead of synthetic center voter controls;
+- mandatory unmarked votes stay visually unassigned until the judge finalizes the last candidate, when the approved last-candidate rule is applied;
 - Don/Sheriff night-check readability;
 - eliminated-player identity preservation;
 - recovery presentation aligned to the main table;

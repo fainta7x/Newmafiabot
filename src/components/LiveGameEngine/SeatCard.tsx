@@ -8,6 +8,10 @@ import {
   getSeatGridPositionClass,
   resolveSeatContainerClass,
 } from "./seatPresentationModel.js";
+import {
+  toggleTableDecisionVoter,
+  useTableDecisionSelection,
+} from "./tableDecisionSelectionStore.js";
 
 interface SeatCardProps {
   slotNum: number;
@@ -90,6 +94,7 @@ export default function SeatCard(props: SeatCardProps) {
     bothLeaveVotes = [],
   } = props;
 
+  const tableDecisionSelection = useTableDecisionSelection();
   const player = activePlayers.find((item) => item.slot_num === slotNum);
   if (!player) return null;
 
@@ -100,6 +105,8 @@ export default function SeatCard(props: SeatCardProps) {
   const isNightDon = phase === "night" && donCheckSlot === slotNum;
   const isNightSheriff = phase === "night" && sheriffCheckSlot === slotNum;
   const showFarewellFouls = !player.alive && phase === "night" && postNightStage === "farewell" && activeSpeakerSlot === slotNum;
+  const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
+  const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -107,7 +114,7 @@ export default function SeatCard(props: SeatCardProps) {
     (firstNightVictim?.best_move_guesses?.includes(slotNum) && (phase === "night" || (phase === "day_speeches" && activeSpeakerSlot === null)))
   );
 
-  const containerBorder = resolveSeatContainerClass({
+  const baseContainerBorder = resolveSeatContainerClass({
     alive: player.alive,
     phase,
     slotNum,
@@ -122,8 +129,19 @@ export default function SeatCard(props: SeatCardProps) {
     shootoutSubPhase,
     bothLeaveVotes,
   });
+  const containerBorder = tableDecisionActive && player.alive
+    ? tableDecisionSelected
+      ? 'border-rose-500 bg-rose-500/10 ring-2 ring-rose-500/30'
+      : 'border-slate-800 bg-slate-900/50 hover:border-slate-600'
+    : baseContainerBorder;
 
   const handleCardClick = () => {
+    if (tableDecisionActive) {
+      if (!player.alive) return;
+      toggleTableDecisionVoter(slotNum);
+      return;
+    }
+
     if (phase === "day_voting" && isInteractiveVoting && activeVoteNominee !== undefined) {
       const assignments = votesByPlayer || {};
       if (!canToggleVoteAssignment(slotNum, activeVoteNominee, assignments)) {
@@ -137,23 +155,29 @@ export default function SeatCard(props: SeatCardProps) {
 
   const renderVoteState = () => {
     if (!isInteractiveVoting || activeVoteNominee === undefined) return null;
-    const lastNominee = nominations[nominations.length - 1];
     const presentation = buildSeatVoteStatusPresentation({
       slotNum,
       activeNomineeSlot: activeVoteNominee,
-      lastNomineeSlot: lastNominee,
       votesByPlayer,
     });
 
-    // An untouched seat already communicates “not voted” by its neutral card.
-    // Only render new information once the vote has a target.
     if (presentation.target === undefined) return null;
 
     const isCurrentTarget = !presentation.hasVotedOther;
     return (
       <div title={presentation.title}>
-        <div className="live-seat-state__label">{presentation.automatic ? 'Авто' : 'Голос'}</div>
+        <div className="live-seat-state__label">Голос</div>
         <div className={`live-seat-state__value ${isCurrentTarget ? 'live-seat-state__value--active' : ''}`}>{presentation.statusText}</div>
+      </div>
+    );
+  };
+
+  const renderTableDecisionState = () => {
+    if (!tableDecisionActive || !tableDecisionSelected) return null;
+    return (
+      <div>
+        <div className="live-seat-state__label">Поднять</div>
+        <div className="live-seat-state__value live-seat-state__value--active">За</div>
       </div>
     );
   };
@@ -180,7 +204,9 @@ export default function SeatCard(props: SeatCardProps) {
     <div
       onClick={handleCardClick}
       data-seat={slotNum}
-      className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && isInteractiveVoting ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
+      data-table-decision={tableDecisionActive ? 'true' : undefined}
+      data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
+      className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {player.alive && phase === "day_speeches" && (
         <div className="live-seat-quickbar">
@@ -232,7 +258,7 @@ export default function SeatCard(props: SeatCardProps) {
             <div className="live-seat-state__value">{getExitLabel(player)}</div>
           </div>
         ) : phase === "day_voting" ? (
-          isInteractiveVoting ? renderVoteState() : null
+          tableDecisionActive ? renderTableDecisionState() : isInteractiveVoting ? renderVoteState() : null
         ) : phase === "day_speeches" ? renderDayState() : renderShootoutState()}
       </div>
 

@@ -57,7 +57,7 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
 
   return (
     <div className="space-y-3">
-      <EveningJourneyBar eveningId={eveningId} onOpenSection={openSection} />
+      {section === 'overview' ? <EveningJourneyBar eveningId={eveningId} onOpenSection={openSection} /> : null}
 
       <div className="sticky top-0 z-30 -mx-1 bg-app-bg/92 px-1 py-1 backdrop-blur-xl sm:top-[60px]">
         <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">

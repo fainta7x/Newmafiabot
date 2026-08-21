@@ -590,8 +590,8 @@ export default function CenterPanel(props: CenterPanelProps) {
       return {
         label: '♫ Включить музыку ночи',
         onClick: () => {
-          const started = requestJudgeNightMusicStart();
-          setZeroNightMusicState(started ? 'playing' : 'stopped');
+          requestJudgeNightMusicStart();
+          setZeroNightMusicState('playing');
         },
       };
     }

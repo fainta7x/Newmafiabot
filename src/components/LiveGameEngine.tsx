@@ -1285,6 +1285,9 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const bestMovePlayerNickname = activeBestMoveSlot === null
     ? ''
     : activePlayers.find((player) => player.slot_num === activeBestMoveSlot)?.nickname || 'Игрок';
+  const requiresTableSeatVoting = phase === 'day_voting' &&
+    (votingStage === 'collecting' || votingStage === 'table_decision');
+  const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode;
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
@@ -1347,11 +1350,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             <div className="flex gap-2">
               <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
               <button type="button" onClick={() => setShowRolesOnTable((value) => !value)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{showRolesOnTable ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{showRolesOnTable ? 'Скрыть роли' : 'Показать роли'}</button>
-              <button type="button" onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{viewMode === 'table' ? 'Список' : 'Стол'}</button>
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
+                disabled={requiresTableSeatVoting}
+                title={requiresTableSeatVoting ? 'Во время голосования используется стол' : undefined}
+                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {requiresTableSeatVoting ? 'Стол для голосования' : viewMode === 'table' ? 'Список' : 'Стол'}
+              </button>
             </div>
           </div>
 
-          {viewMode === 'table' ? renderTable() : (
+          {effectiveViewMode === 'table' ? renderTable() : (
             <div className="space-y-3">
               <CenterPanel {...centerPanelProps()} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

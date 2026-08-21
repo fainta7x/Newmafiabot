@@ -34,4 +34,12 @@ describe('live engine native wiring', () => {
     expect(seat).toContain('presentation.target === undefined');
     expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
   });
+
+  it('keeps the selectable table visible while seat cards are the voting input', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain("votingStage === 'collecting' || votingStage === 'table_decision'");
+    expect(engine).toContain("const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode");
+    expect(engine).toContain('disabled={requiresTableSeatVoting}');
+    expect(engine).toContain("effectiveViewMode === 'table' ? renderTable()");
+  });
 });

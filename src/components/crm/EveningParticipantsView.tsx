@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import { api } from '../../lib/api.ts';
-import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
 import EveningRosterSlotEditor from './EveningRosterSlotEditor.tsx';
@@ -40,13 +39,13 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
       <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Users className="h-5 w-5" /></span>
-          <div><h2 className="text-[17px] font-black text-text-primary">Кого пригласил</h2><p className="mt-1 text-[11px] leading-5 text-text-secondary">Здесь собираются ответы, напоминания и запись на конкретные игры. Фактический приход и оплата находятся в разделе «Сам вечер».</p></div>
+          <div><h2 className="text-[17px] font-black text-text-primary">Кого пригласил</h2><p className="mt-1 text-[11px] leading-5 text-text-secondary">Здесь видно, кто подтвердил участие, кто ещё думает или не ответил, и на какие игры записан каждый игрок. Фактический приход и оплата находятся в разделе «Сам вечер».</p></div>
         </div>
       </section>
 
-      <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={String(evening.title || '')} startsAt={String(evening.starts_at || '')} status={String(evening.status || '')} readonly={evening.status === 'completed' || Boolean(evening.settled_at)} />
-
       <EveningInviteAudienceManager onChanged={refresh} />
+
+      <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3"><strong className="block text-[13px] text-text-primary">Ответы и запись на игры</strong><span className="mt-1 block text-[10px] leading-4 text-text-muted">Фильтры ниже позволяют быстро найти тех, кому нужно написать, и тех, кто уже выбрал игры.</span></section>
 
       <EveningGameRegistrationDashboard eveningId={eveningId} refreshKey={refreshKey} onChanged={refresh} />
 

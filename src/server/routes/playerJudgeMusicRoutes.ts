@@ -38,8 +38,9 @@ const getMusicOwner = async (req: Request, res: Response) => {
     return null;
   }
   const level = normalizeJudgeLevel(player.judge_level);
-  if (level !== 'host' && level !== 'judge') {
-    res.status(403).json({ error: 'Личные игровые плейлисты доступны только ведущим и судьям.' });
+  const isOrganizer = (req as any).userRole === 'ORGANIZER';
+  if (!isOrganizer && level !== 'host' && level !== 'judge') {
+    res.status(403).json({ error: 'Личные игровые плейлисты доступны только ведущим, судьям и организатору.' });
     return null;
   }
   return { id: String(player.id), nickname: String(player.nickname), judge_level: level };

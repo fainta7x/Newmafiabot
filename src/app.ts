@@ -23,6 +23,7 @@ import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 import authRoutes from './server/routes/authRoutes.ts';
 import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
+import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
 import playerSelfRoutes from './server/routes/playerSelfRoutes.ts';
 import playerLiveRoutes from './server/routes/playerLiveRoutes.ts';
 import playerPulseRoutes from './server/routes/playerPulseRoutes.ts';
@@ -131,6 +132,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerJudgingRoutes);
   app.use('/api/player', playerJudgeMusicRoutes);
+  app.use('/api/player', musicLibraryRoutes);
   app.use('/api/player', playerSelfRoutes);
   app.use('/api/player', playerLiveRoutes);
   app.use('/api/player', playerPulseRoutes);

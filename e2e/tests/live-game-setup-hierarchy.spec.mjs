@@ -32,8 +32,9 @@ test.describe('Live Game setup hierarchy', () => {
     await expect(primary).toBeVisible();
     await expect(tablePreview).toBeVisible();
     await expect(music).toBeVisible();
+    await expect(music).toContainText('Музыка выбирается по ходу игры');
+    await expect(music.locator('select')).toHaveCount(0);
     await expect(recording).toBeVisible();
-    await expect(music).not.toHaveAttribute('open', '');
     await expect(recording).not.toHaveAttribute('open', '');
     await expect(recording.getByText('Запись речей', { exact: true })).toBeVisible();
     await expect(recording.getByText('Автозапись без захвата Bluetooth', { exact: true })).toBeHidden();
@@ -55,11 +56,6 @@ test.describe('Live Game setup hierarchy', () => {
 
     await expectNoHorizontalOverflow(page);
     await capture(page, testInfo, 'live-game-setup-hierarchy.png');
-
-    await music.locator('summary').click();
-    await expect(music).toHaveAttribute('open', '');
-    await expect(music.locator('select')).toHaveCount(2);
-    await music.locator('summary').click();
 
     await recording.locator('summary').click();
     await expect(recording).toHaveAttribute('open', '');

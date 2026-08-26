@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
+import PlayerMusicSlots from './PlayerMusicSlots.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
 const gameLevelLabel = (level: string) => {
@@ -48,6 +49,7 @@ export default function PlayerProfileHub({
           </div>
         </section>
 
+        <PlayerMusicSlots />
         <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
       </div>
     </main>

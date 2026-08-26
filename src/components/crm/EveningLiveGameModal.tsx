@@ -7,6 +7,7 @@ import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
+import { MUSIC_EVENING_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
 
 interface EveningLiveGameModalProps {
   game: ClubGameRecord;
@@ -181,6 +182,21 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     liveRecorder.mount();
     return () => liveRecorder.unmount();
   }, [liveRecorder]);
+
+  useLayoutEffect(() => {
+    const eveningId = String(game.evening_id || '').trim();
+    if (typeof window === 'undefined' || !eveningId) return;
+    try {
+      sessionStorage.setItem(MUSIC_EVENING_CONTEXT_KEY, eveningId);
+    } catch {}
+    return () => {
+      try {
+        if (sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) === eveningId) {
+          sessionStorage.removeItem(MUSIC_EVENING_CONTEXT_KEY);
+        }
+      } catch {}
+    };
+  }, [game.evening_id]);
 
   useEffect(() => {
     const originalConfirm = window.confirm;

@@ -142,7 +142,7 @@ export default function JudgeGameMusicController() {
       const entries = localFallbackEntries;
       if (!entries.length) setPickerError('Музыкальная база пока пуста. Добавьте трек в CRM или в слот профиля.');
       if (autoStartLocal) {
-        const localEntry = entries.find((entry) => entry.source_type === 'upload');
+        const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
         if (localEntry) {
           startLocal(localEntry, kind);
           setPickerLoading(false);
@@ -160,7 +160,7 @@ export default function JudgeGameMusicController() {
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
       if (!entries.length) setPickerError('Плейлист вечера пуст. Добавьте музыку в базу ведущего или в профили присутствующих игроков.');
       if (autoStartLocal) {
-        const localEntry = entries.find((entry) => entry.source_type === 'upload');
+        const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
         if (localEntry) {
           startLocal(localEntry, kind);
           return;
@@ -185,7 +185,7 @@ export default function JudgeGameMusicController() {
       }
       const eveningId = resolveEveningId();
       const localTrack = (!eveningId || eveningId === '__test_game__') ? music.tracks[0] : null;
-      if (localTrack) startLocal(localTrack, kind);
+      if (localTrack) startLocal(localPoolEntry(localTrack), kind);
       else void openEveningPicker(kind, true);
     };
     const stop = () => {

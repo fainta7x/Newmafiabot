@@ -52,50 +52,6 @@ jobs:
       - name: Production build
         run: npm run build
 
-  e2e-smoke:
-    name: Playwright smoke
-    needs: web
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Use Node.js 24 LTS
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.18.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            e2e/package-lock.json
-
-      - name: Install application dependencies
-        run: npm ci
-
-      - name: Install Playwright test dependencies
-        working-directory: e2e
-        run: npm ci
-
-      - name: Audit Playwright dependencies
-        working-directory: e2e
-        run: npm audit --audit-level=high
-
-      - name: Verify runner Chrome
-        run: google-chrome --version
-
-      - name: Run mobile smoke test
-        working-directory: e2e
-        run: npm test
-
-      - name: Upload Live Game browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-mobile-evidence
-          path: e2e/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
   bot-syntax:
     name: Python bot syntax
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

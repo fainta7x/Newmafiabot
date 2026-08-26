@@ -155,10 +155,11 @@ During work:
 
 - focused tests first;
 - `npm run project:verify:fast` after a coherent batch when useful;
-- full CI only when the PR is ready;
-- visual PRs require fresh screenshot review in addition to green CI.
+- ordinary PRs use the fast non-browser merge gate;
+- Playwright runs only through the manual workflow when explicitly requested or needed for release verification;
+- visual PRs require fresh screenshot review when browser verification is requested.
 
-CI currently includes:
+The ordinary merge-blocking CI includes:
 
 - handoff integrity (`project:status --check` etc.);
 - production dependency audit;
@@ -168,8 +169,10 @@ CI currently includes:
 - Vitest;
 - production build;
 - Python bot syntax;
-- mobile Playwright;
+- combined production container health;
 - CodeQL and Gitleaks workflows.
+
+Browser verification is preserved in `.github/workflows/playwright-manual.yml` and is not part of the ordinary PR merge gate.
 
 ## Immediate next queue
 

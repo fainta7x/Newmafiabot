@@ -16,8 +16,13 @@ def _is_admin(user_id: int) -> bool:
     return user_id in config.ADMIN_IDS
 
 
+def _public_app_url() -> str:
+    """Return the canonical public WebApp origin used by Telegram buttons."""
+    return str(config.PLAYER_APP_URL or config.BOT_API_BASE_URL or '').rstrip('/')
+
+
 def _crm_url() -> str:
-    return f"{str(config.BOT_API_BASE_URL or '').rstrip('/')}/admin"
+    return f"{_public_app_url()}/admin"
 
 
 async def _send_crm_entry(message: Message) -> None:
@@ -25,9 +30,9 @@ async def _send_crm_entry(message: Message) -> None:
         await message.answer("⛔ Панель организатора доступна только администраторам.")
         return
 
-    base_url = str(config.BOT_API_BASE_URL or '').rstrip('/')
+    base_url = _public_app_url()
     if not base_url or base_url.startswith('http://127.0.0.1'):
-        await message.answer("Не настроен адрес CRM (BOT_API_BASE_URL).")
+        await message.answer("Не настроен публичный адрес приложения (PLAYER_APP_URL).")
         return
 
     keyboard = InlineKeyboardMarkup(

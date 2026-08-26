@@ -88,6 +88,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenAnalytics,
   onOpenTheme,
   onOpenGameEngine,
+  evenings = [],
   onLogout,
 }) => {
   const [subscreen, setSubscreen] = useState<Subscreen>(null);

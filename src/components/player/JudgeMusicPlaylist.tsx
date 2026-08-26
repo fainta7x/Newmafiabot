@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { openExternalMusicUrl } from '../../lib/openExternalMusicUrl.ts';
 
 type UploadTrack = {
   id: string;
@@ -14,7 +15,6 @@ type LinkTrack = {
   source_type: 'yandex';
   source_kind: 'yandex_track' | 'yandex_playlist';
   source_url: string;
-  embed_url: string | null;
 };
 
 const formatBytes = (value: number) => value ? `${(value / 1024 / 1024).toFixed(value >= 1024 * 1024 ? 1 : 2)} МБ` : '0 МБ';
@@ -138,7 +138,7 @@ export default function JudgeMusicPlaylist() {
     <section className="rounded-3xl border border-violet-300/10 bg-gradient-to-b from-violet-300/[0.055] to-white/[0.025] p-4">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Музыкальная база</div>
       <h3 className="mt-2 text-lg font-semibold text-white">База ведущего</h3>
-      <p className="mt-1 text-xs leading-5 text-white/35">Постоянная база CRM: загруженные файлы и ссылки Яндекс Музыки. Личные слоты игрока показаны отдельно и тоже доступны в плейлисте вечера.</p>
+      <p className="mt-1 text-xs leading-5 text-white/35">Постоянная база CRM: загруженные файлы и ссылки Яндекс Музыки. Полный трек по ссылке открывается в самом Яндексе, без скачивания в приложение.</p>
 
       <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
         <div className="text-xs font-semibold text-white/65">Добавить из Яндекс Музыки</div>
@@ -186,13 +186,11 @@ export default function JudgeMusicPlaylist() {
         {links.map((track) => (
           <div key={`yandex:${track.id}`} className="rounded-2xl border border-amber-200/[0.08] bg-black/20 p-3">
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setPreview((current) => current === `yandex:${track.id}` ? null : `yandex:${track.id}`)} className="h-10 w-10 shrink-0 rounded-xl bg-amber-200/[0.08] text-xs text-amber-100">Я</button>
+              <button type="button" onClick={() => openExternalMusicUrl(track.source_url)} aria-label={`Открыть ${track.title} в Яндекс Музыке`} className="h-10 w-10 shrink-0 rounded-xl bg-amber-200/[0.08] text-xs text-amber-100">Я</button>
               <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{track.title}</div><div className="mt-0.5 text-[10px] text-white/30">Яндекс · {track.source_kind === 'yandex_playlist' ? 'плейлист' : 'трек'}</div></div>
-              <a href={track.source_url} target="_blank" rel="noreferrer" className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-xs text-white/55">↗</a>
               <button type="button" onClick={() => void removeLink(track)} className="h-9 w-9 rounded-xl border border-rose-300/10 bg-rose-400/[0.04] text-rose-200/55">×</button>
             </div>
-            {preview === `yandex:${track.id}` && track.embed_url && <iframe title={track.title} src={track.embed_url} className="mt-3 h-[80px] w-full rounded-xl border-0" allow="autoplay" />}
-            {preview === `yandex:${track.id}` && !track.embed_url && <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-[10px] text-white/35">Для этой ссылки доступно открытие в Яндекс Музыке.</div>}
+            <button type="button" onClick={() => openExternalMusicUrl(track.source_url)} className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200/[0.12] px-3 text-[10px] font-semibold text-amber-100">Открыть полный трек в Яндекс Музыке ↗</button>
           </div>
         ))}
 

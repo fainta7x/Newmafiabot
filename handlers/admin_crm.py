@@ -2,6 +2,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
+import bot_menu
 import config
 from handlers.registration import router as registration_router
 
@@ -41,6 +42,18 @@ async def _send_crm_entry(message: Message) -> None:
     )
     await message.answer(
         "Панель организатора 2LA noire. Откроется внутри Telegram.",
+        reply_markup=keyboard,
+    )
+
+
+@router.message(Command("cabinet"), F.chat.type == "private")
+async def open_cabinet_command(message: Message):
+    keyboard = bot_menu.cabinet_inline_keyboard()
+    if not keyboard:
+        await message.answer("⚠️ Адрес личного кабинета пока не настроен в боте.")
+        return
+    await message.answer(
+        "Личный кабинет 2LA Noire. Откроется внутри Telegram.",
         reply_markup=keyboard,
     )
 

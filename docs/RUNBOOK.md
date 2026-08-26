@@ -136,7 +136,49 @@ The checkpoint is not a production synchronization mechanism.
 
 Before destructive data work, explicitly establish target DB, reason, backup/recovery path and user approval.
 
-## 8. Render deployment
+## 8. Combined Amvera deployment
+
+The Amvera target uses one application and one repository (`fainta7x/Newmafiabot`), not separate paid web and bot applications.
+
+Before the first deploy:
+
+1. rotate any Telegram token that has appeared in a public repository;
+2. create one Docker application from this repository;
+3. use a European Amvera region;
+4. select a runtime with at least 1 GB RAM for the combined Node, Python and nginx processes;
+5. create the free HTTPS domain before finalizing `WEBHOOK_URL` and `PLAYER_APP_URL`;
+6. copy existing secret values from the previous runtime rather than generating a second integration identity.
+
+Required runtime variables:
+
+- `NODE_ENV=production`;
+- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` together;
+- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true` (existing non-empty Turso still wins);
+- `SEED_DEMO_DATA=false`;
+- `ORGANIZER_PASSWORD`, `JWT_SECRET`, `BOT_API_SECRET`;
+- rotated `TELEGRAM_BOT_TOKEN`;
+- `USE_WEBHOOK=true`;
+- `WEBHOOK_URL=https://<amvera-domain>`;
+- `BOT_API_BASE_URL=https://<amvera-domain>`;
+- `PLAYER_APP_URL=https://<amvera-domain>`;
+- `BOT_SERVICE_URL=http://127.0.0.1:8081`;
+- current Telegram destination/admin values and current VK/Gemini secrets where configured.
+
+Do not configure `DATABASE_PATH` as production-primary when the Turso pair is present. Do not import a repository checkpoint during an ordinary migration.
+
+After deploy:
+
+1. verify the application deployment log shows `web`, `bot` and `nginx` in running state;
+2. verify public `/api/health`;
+3. verify organizer Telegram health reports the bot service at the internal URL;
+4. verify the Telegram webhook points to `<amvera-domain>/webhook`;
+5. open the Mini App from Telegram and confirm player identity/current evening data;
+6. verify one organizer-only targeted Telegram action, not a mass announcement;
+7. verify recent Turso-backed data markers before retiring the Render services.
+
+Rollback: keep the Render configuration intact until all checks pass. If the new runtime fails, restore the old Telegram webhook URL and stop the Amvera container; never restore or replace Turso data as part of hosting rollback.
+
+## 9. Render deployment
 
 Render is manual; green `main` is not the same as deployed `main`.
 
@@ -158,7 +200,7 @@ After deploy:
 
 Do not perform a mass club announcement as a generic smoke test.
 
-## 9. Telegram runtime verification
+## 10. Telegram runtime verification
 
 Preferred order:
 
@@ -170,7 +212,7 @@ Preferred order:
 
 See `docs/telegram-runtime-health.md`.
 
-## 10. VK runtime verification
+## 11. VK runtime verification
 
 Preferred order:
 
@@ -182,7 +224,7 @@ Preferred order:
 
 See `docs/vk-runtime-health.md`.
 
-## 11. Dependency/security work
+## 12. Dependency/security work
 
 Use read-only diagnostics first:
 
@@ -196,7 +238,7 @@ npm ls <package>
 - never use `npm audit fix --force` blindly;
 - do not repair vulnerabilities from an obsolete branch/tree.
 
-## 12. Legacy cleanup
+## 13. Legacy cleanup
 
 Before deleting a legacy-looking file:
 
@@ -208,7 +250,7 @@ Before deleting a legacy-looking file:
 
 Names are not proof of dead code.
 
-## 13. Documentation responsibility
+## 14. Documentation responsibility
 
 Do not duplicate mutable state.
 
@@ -222,7 +264,7 @@ Do not duplicate mutable state.
 
 When one of these facts changes, update its owner in the same PR when practical.
 
-## 14. End-of-task handoff
+## 15. End-of-task handoff
 
 Report only:
 

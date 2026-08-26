@@ -2,7 +2,7 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-08-21
+**Status date:** 2026-08-26
 
 **Latest release record before this workstream:** PR #123 merged as `bb4edbee0e0dd154a6e4ea7a87f81ef6382a5b13`  
 **Release gate:** GitHub CI run #951 — green before merge  
@@ -34,6 +34,9 @@ If this file contradicts current code, inspect the targeted implementation and u
 - Plan: Free.
 - Deploy: manual.
 - Health endpoint: `/api/health`.
+- The Render Free allowance has been exhausted and the web service is suspended.
+- A replacement single-container deployment is prepared in this repository for Amvera. It runs the Node web/API process and the integrated Python Telegram bot in one paid application; it is not production until the Amvera runtime checks in `docs/RUNBOOK.md` pass.
+- The separate `fainta7x/mafiabot` repository is a legacy bot copy and is not the source selected for the combined deployment.
 
 ### Database — important
 
@@ -170,11 +173,11 @@ CI currently includes:
 
 ## Immediate next queue
 
-1. Manually deploy the accepted current `main` to Render.
-2. Verify `/api/health`, passwordless owner CRM entry and that recent live data/avatars remain present.
-3. Verify the rolling Friday calendar in the player application and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
-4. On the next completed evening, verify the Saturday 19:00 close-out task and the fast close flow against real attendance/payment data.
-5. Continue Live Game cosmetic polish only for concrete issues found in fresh judge/runtime evidence after operational readiness for the next evening is secure.
+1. Deploy the combined web/bot container to Amvera after rotating the Telegram token that was exposed in the legacy public repository.
+2. Copy the existing Turso and integration secrets without importing, resetting or replacing production data.
+3. Verify `/api/health`, `/health` on the internal bot service, Telegram webhook state, Mini App opening, passwordless owner CRM entry and recent live-data markers.
+4. Only after runtime verification, switch Telegram/VK links away from Render and leave the old services stopped.
+5. Verify the rolling Friday calendar and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
 
 ## Mandatory session rule
 

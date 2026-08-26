@@ -173,7 +173,7 @@ export default function PhysicalRoleDeal({
             }}
             className="mt-4 min-h-[52px] w-full rounded-[16px] bg-white px-4 text-[12px] font-semibold text-[#090a0d] active:bg-white/90"
           >
-            {musicDisabled || !musicTrackId ? 'Начать раздачу' : 'Включить музыку и начать раздачу'}
+            {musicDisabled ? 'Начать раздачу' : 'Включить музыку и начать раздачу'}
           </button>
         </section>
       </div>

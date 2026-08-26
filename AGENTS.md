@@ -91,6 +91,18 @@ Before merge:
 - inspect the exact failing job before rerunning;
 - for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots when browser verification is explicitly requested.
 
+
+## Mobile-first Telegram WebApp contract
+
+Mobile Telegram WebApp is the primary release target. Treat desktop as a secondary layout, not the baseline.
+
+- Design and review every new or changed screen first at approximately 390 CSS px wide inside the Telegram WebApp viewport.
+- Check narrow widths, Telegram safe areas, fixed/sticky panels, bottom navigation, scroll containers, and the on-screen keyboard before considering the change complete.
+- Keep important content and judge/CRM actions inside the usable viewport; do not rely on desktop hover, wide tables, or tiny controls.
+- Every fixed overlay must be centered and width-bounded on mobile, respect the bottom safe area, and never clip its actions off-screen.
+- For live-game controls, explicitly verify role distribution, music controls, timer controls, player identities, and the primary next action on a phone-sized screen.
+- A green build or test run is not mobile approval: visual/browser evidence must be inspected when the change affects layout or interaction.
+
 ## 7. Database safety
 
 Production data is more important than repository convenience.

@@ -162,6 +162,8 @@ Do not solve stacking by inventing arbitrary higher z-index values when ownershi
 ## Telegram WebApp contract
 
 - use stable viewport/safe-area values when available;
+- mobile-first is the default: validate the first usable layout at Telegram phone width before desktop polish;
+- check narrow widths, keyboard-open state, bottom safe-area insets and fixed overlays for clipping or unreachable controls;
 - never assume browser `100dvh` equals Telegram usable area;
 - fixed chrome must not cover the active work surface;
 - important player/CRM screens and every Live Game phase require Telegram-like browser evidence;

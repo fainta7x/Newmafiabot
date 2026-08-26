@@ -71,7 +71,7 @@ const localPoolEntry = (track: { id: string; title: string; audio_url: string })
   contributors: [{ player_id: 'organizer', nickname: 'Ведущий', kind: 'organizer' }],
 });
 
-const resolveEveningId = async (): Promise<string> => {
+const resolveEveningId = (): string => {
   try {
     return sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
   } catch {
@@ -134,13 +134,21 @@ export default function JudgeGameMusicController() {
 
   const localFallbackEntries = music.tracks.map(localPoolEntry);
 
-  const openEveningPicker = async (kind: MusicStartKind) => {
+  const openEveningPicker = async (kind: MusicStartKind, autoStartLocal = false) => {
     setPickerLoading(true);
     setPickerError(null);
-    const eveningId = await resolveEveningId();
+    const eveningId = resolveEveningId();
     if (!eveningId) {
       const entries = localFallbackEntries;
       if (!entries.length) setPickerError('Музыкальная база пока пуста. Добавьте трек в CRM или в слот профиля.');
+      if (autoStartLocal) {
+        const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
+        if (localEntry) {
+          startLocal(localEntry, kind);
+          setPickerLoading(false);
+          return;
+        }
+      }
       setPicker({ kind, entries, eveningId: '' });
       setPickerLoading(false);
       return;
@@ -151,6 +159,13 @@ export default function JudgeGameMusicController() {
       if (!response.ok) throw new Error(body?.error || 'Не удалось собрать музыку вечера.');
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
       if (!entries.length) setPickerError('Плейлист вечера пуст. Добавьте музыку в базу ведущего или в профили присутствующих игроков.');
+      if (autoStartLocal) {
+        const localEntry = entries.find((entry: PoolEntry) => entry.source_type === 'upload');
+        if (localEntry) {
+          startLocal(localEntry, kind);
+          return;
+        }
+      }
       setPicker({ kind, entries, eveningId });
     } catch (error: any) {
       setPickerError(error?.message || 'Не удалось загрузить музыку вечера.');
@@ -164,8 +179,14 @@ export default function JudgeGameMusicController() {
     const start = (event: Event) => {
       const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       const kind = detail.kind === 'night' ? 'night' : 'manual';
-      if (detail.trackId) startLocal(detail.trackId, kind);
-      else void openEveningPicker(kind);
+      if (detail.trackId) {
+        startLocal(detail.trackId, kind);
+        return;
+      }
+      const eveningId = resolveEveningId();
+      const localTrack = (!eveningId || eveningId === '__test_game__') ? music.tracks[0] : null;
+      if (localTrack) startLocal(localPoolEntry(localTrack), kind);
+      else void openEveningPicker(kind, true);
     };
     const stop = () => {
       manualRef.current = false;
@@ -228,7 +249,7 @@ export default function JudgeGameMusicController() {
   return (
     <>
       {(picker || pickerLoading) && (
-        <div className="fixed bottom-3 left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
+        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Музыка сейчас</div>
@@ -258,7 +279,7 @@ export default function JudgeGameMusicController() {
       )}
 
       {active && !picker && (
-        <div className="fixed bottom-3 left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] rounded-[22px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
+        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[22px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Сейчас играет</div>

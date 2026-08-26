@@ -308,52 +308,6 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
   }
 });
 
-    const excluded = new Set(exclusionRows.map((row: any) => String(row.entry_key)));
-    const pool: any[] = uploads.map((row: any) => ({
-      key: `upload:${String(row.id)}`,
-      id: String(row.id),
-      title: String(row.title || 'Трек'),
-      source_type: 'upload',
-      audio_url: `/api/player/judge-music/tracks/${encodeURIComponent(String(row.id))}/audio`,
-      source_url: null,
-      embed_url: null,
-      contributors: [{ player_id: actor.id, nickname: actor.nickname, kind: 'organizer' }],
-    }));
-
-    const links = [...organizerLinks.map((row: any) => ({ row, kind: 'organizer' })), ...playerLinks.map((row: any) => ({ row, kind: 'player' }))];
-    const dedup = new Map<string, any>();
-    for (const item of links) {
-      const row: any = item.row;
-      const key = musicEntryKey(String(row.normalized_url));
-      const contributor = { player_id: String(row.owner_player_id), nickname: String(row.nickname || 'Игрок'), kind: item.kind };
-      const current = dedup.get(key);
-      if (current) {
-        if (!current.contributors.some((value: any) => value.player_id === contributor.player_id)) current.contributors.push(contributor);
-        continue;
-      }
-      dedup.set(key, {
-        key,
-        id: String(row.id),
-        title: String(row.title || 'Яндекс Музыка'),
-        source_type: 'yandex',
-        source_kind: row.source_kind,
-        audio_url: null,
-        source_url: row.normalized_url,
-        embed_url: row.embed_url || null,
-        contributors: [contributor],
-      });
-    }
-    pool.push(...dedup.values());
-
-    return res.json({
-      evening: { id: String(evening.id), title: String(evening.title || '') },
-      pool: pool.map((entry) => ({ ...entry, excluded: excluded.has(entry.key) })),
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось собрать плейлист вечера.' });
-  }
-});
-
 router.put('/music-library/evenings/:eveningId/exclusion', async (req, res) => {
   try {
     const actor = await requireLibraryManager(req, res);

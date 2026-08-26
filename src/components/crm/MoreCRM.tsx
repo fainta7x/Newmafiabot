@@ -13,6 +13,7 @@ import {
   FlaskConical,
   Gamepad2,
   LogOut,
+  Music2,
   Palette,
   Send,
 } from 'lucide-react';

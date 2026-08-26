@@ -196,7 +196,7 @@ export default function JudgeMusicPlaylist() {
           </div>
         ))}
 
-        {!uploads.length && !links.length && !playerSlots.some((item) => item.entry) && <div> className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-white/30">Музыкальная база пока пустая.</div>}
+        {!uploads.length && !links.length && !playerSlots.some((item) => item.entry) && <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-white/30">Музыкальная база пока пустая.</div>}
       </div>
     </section>
   );

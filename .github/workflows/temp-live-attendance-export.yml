@@ -1,0 +1,50 @@
+name: Temporary live attendance export
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-live-attendance-export.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify secret exists
+        shell: bash
+        env:
+          BOT_API_SECRET: ${{ secrets.BOT_API_SECRET }}
+        run: |
+          if [ -z "$BOT_API_SECRET" ]; then
+            echo "BOT_API_SECRET is not configured in GitHub Actions" >&2
+            exit 2
+          fi
+
+      - name: Fetch 14 and 21 August attendance
+        shell: bash
+        env:
+          BOT_API_SECRET: ${{ secrets.BOT_API_SECRET }}
+          BASE_URL: https://2la-noire-chagina7x.waw0.amvera.tech
+        run: |
+          mkdir -p live-attendance
+          for date in 2026-08-14 2026-08-21; do
+            curl --fail-with-body --silent --show-error \
+              --retry 3 --retry-delay 2 \
+              -X POST \
+              -H "X-Bot-Token: $BOT_API_SECRET" \
+              "$BASE_URL/__developer-read/evenings/by-date/$date" \
+              | jq '{date, evenings: [.evenings[] | {evening: {id: .evening.id, title: .evening.title, starts_at: .evening.starts_at}, participants: [.participants[] | {player_id, nickname, response_status, registration_status, attendance_status, arrival_status, amount_due, amount_paid}]}]}' \
+              > "live-attendance/$date.json"
+          done
+
+      - name: Upload private export artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-attendance-export
+          path: live-attendance
+          retention-days: 1
+          if-no-files-found: error

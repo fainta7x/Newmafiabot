@@ -49,7 +49,14 @@ test.describe('Organizer CRM secondary tools', () => {
     await expect(page.getByTestId('crm-more-data')).toHaveCount(0);
     await serviceToggle.click();
     await expect(page.getByTestId('crm-more-service-tools')).toBeVisible();
+    await expect(page.getByTestId('crm-more-developer')).toBeVisible();
     await expect(page.getByTestId('crm-more-data')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    const servicePath = testInfo.outputPath('crm-more-service-tools.png');
+    await page.screenshot({ path: servicePath, fullPage: false });
+    await testInfo.attach('crm-more-service-tools.png', { path: servicePath, contentType: 'image/png' });
+
     await serviceToggle.click();
 
     const bottomNav = page.locator('.organizer-bottom-nav');
@@ -72,9 +79,6 @@ test.describe('Organizer CRM secondary tools', () => {
 
     await expectNoHorizontalOverflow(page);
 
-    // Reload before evidence capture so the screenshot represents the initial
-    // human-facing state rather than the scroll position used to inspect the
-    // collapsed maintenance controls above.
     await page.goto('/e2e/crm-more.html');
     await page.evaluate(() => document.fonts.ready);
     await expect(page.getByRole('heading', { name: 'Ещё', exact: true })).toBeVisible();

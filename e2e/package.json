@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:smoke": "playwright test tests/player-shell.spec.mjs tests/live-game.spec.mjs",
+    "test:crm": "playwright test tests/crm-overview.spec.mjs tests/crm-evenings.spec.mjs tests/crm-evening-roster.spec.mjs tests/crm-closeout.spec.mjs tests/crm-players.spec.mjs tests/crm-more.spec.mjs",
+    "test:live-game": "playwright test tests/live-game.spec.mjs tests/live-game-cabinet.spec.mjs tests/live-game-seat-cabinet.spec.mjs tests/live-game-setup-hierarchy.spec.mjs tests/live-game-events-touch-targets.spec.mjs tests/live-game-telegram.spec.mjs tests/live-game-toast-clear-actions.spec.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"

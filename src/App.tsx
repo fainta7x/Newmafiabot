@@ -290,7 +290,11 @@ export default function App() {
     return (
       <>
         <BettingLiveBridge />
-        <OrganizerCRM pathname={pathname} onNavigate={navigatePath} />
+        <OrganizerCRM
+          pathname={pathname}
+          onNavigate={navigatePath}
+          onOpenPlayerMode={() => navigatePath('/player')}
+        />
       </>
     );
   }
@@ -329,6 +333,7 @@ export default function App() {
     <PlayerCabinetShell
       data={rootState.data}
       canOpenAdmin={rootState.canOpenAdmin}
+      onOpenAdmin={() => navigatePath('/admin')}
       initialSection={initialSection}
       initialTarget={initialTarget}
       onSectionChange={syncPlayerPath}

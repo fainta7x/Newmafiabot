@@ -82,8 +82,10 @@ Implemented and connected:
 - other bot admins, judges and hosts do **not** inherit CRM-owner access automatically;
 - a successful organizer-password login can still bind organizer entitlement to another already verified canonical player identity as an explicit fallback/recovery path;
 - Player Cabinet shows the organizer-panel entry only when the resolved session has organizer authority;
+- Player Cabinet and Organizer CRM expose a shared bidirectional mode switch in top chrome; switching context does not log the user out;
 - Today/command center;
 - evenings/calendar/workspace;
+- nested `Ещё` tools have addressable `/admin/more/:tool` routes so browser/Telegram back navigation restores the actual tool rather than only the CRM root;
 - regular Friday evenings are reconciled automatically for the next 35 days without immediately publishing external posts;
 - the upcoming Friday becomes due for Telegram channel/group publication, initial eligible personal Telegram invitations and VK publication every Monday at 19:00 Moscow; retries are idempotent and delayed wake-ups catch up safely;
 - every regular Friday receives a high-priority organizer close-out task due Saturday 19:00 Moscow;

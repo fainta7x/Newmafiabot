@@ -135,6 +135,7 @@ export const appBackTarget = (pathname: string): string | null => {
       return parts[3] ? `/admin/evenings/${encodeURIComponent(safeDecode(parts[2]))}` : '/admin/evenings';
     }
     if (parts[1] === 'players' && parts[2]) return '/admin/players';
+    if (parts[1] === 'more' && parts[2]) return '/admin/more';
     if (parts[1] === 'tasks' || parts[1] === 'analytics') return '/admin/more';
     return '/admin';
   }

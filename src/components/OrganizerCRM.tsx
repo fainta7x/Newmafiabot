@@ -11,6 +11,7 @@ import { AnalyticsCRM } from './crm/AnalyticsCRM.tsx';
 import { ThemeSelectorModal } from './crm/ThemeSelectorModal.tsx';
 import {
   organizerEveningPath,
+  organizerMorePath,
   organizerPlayerPath,
   organizerTabPath,
   parseOrganizerRoute,
@@ -23,11 +24,13 @@ import { useOrganizerCrmSession } from './crm/useOrganizerCrmSession.ts';
 import { initTheme, type ThemeId } from '../lib/theme.ts';
 import { useMobileKeyboardViewport } from '../hooks/useMobileKeyboardViewport.ts';
 import { ORGANIZER_PRIMARY_NAV, type OrganizerPrimaryTab } from '../lib/organizerUx.ts';
+import ProductModeSwitch from './ProductModeSwitch.tsx';
 
 interface OrganizerCRMProps {
   onReturnToGameEngine?: () => void;
   pathname?: string;
   onNavigate?: (path: string, replace?: boolean) => void;
+  onOpenPlayerMode?: () => void;
 }
 
 const moveWindowScroll = (top: number) => {
@@ -35,7 +38,7 @@ const moveWindowScroll = (top: number) => {
   window.requestAnimationFrame(() => window.scrollTo({ top, left: 0, behavior: 'auto' }));
 };
 
-export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine, pathname, onNavigate }) => {
+export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine, pathname, onNavigate, onOpenPlayerMode }) => {
   useMobileKeyboardViewport();
 
   const [localPathname, setLocalPathname] = useState(() => pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '/admin'));
@@ -48,6 +51,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   const [activeEveningId, setActiveEveningId] = useState<string | null>(initialRoute.eveningId);
   const [activeEveningSection, setActiveEveningSection] = useState<EveningSection>(initialRoute.eveningSection);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(initialRoute.playerId);
+  const [activeMoreScreen, setActiveMoreScreen] = useState(initialRoute.moreScreen);
   const [playerReturnContext, setPlayerReturnContext] = useState<OrganizerPlayerReturnContext>(null);
   const [eveningIntent, setEveningIntent] = useState<'add' | 'create' | null>(null);
   const eveningListScrollRef = useRef(0);
@@ -98,6 +102,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActiveEveningId(route.eveningId);
     setActiveEveningSection(route.eveningSection);
     setActivePlayerId(route.playerId);
+    setActiveMoreScreen(route.moreScreen);
   }, [routePathname]);
 
   useEffect(() => {
@@ -115,6 +120,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActiveEveningSection('overview');
     setActivePlayerId(null);
     setActiveTab('overview');
+    setActiveMoreScreen(null);
     navigateAdmin('/admin', true);
   };
 
@@ -199,6 +205,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActiveEveningSection('overview');
     if (tab === 'overview' || tab === 'evenings') setEveningIntent(null);
     setActiveTab(tab);
+    setActiveMoreScreen(null);
     navigateAdmin(organizerTabPath(tab));
     if (leavingEvening) refreshSnapshotAfterEvening();
     if (opensNewRoot) moveWindowScroll(0);
@@ -211,6 +218,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
     setActiveEveningSection('overview');
     setEveningIntent(null);
     setActiveTab(tab);
+    setActiveMoreScreen(null);
     navigateAdmin(organizerTabPath(tab));
     moveWindowScroll(0);
   };
@@ -244,30 +252,33 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
-      <header className="sticky top-0 z-40 hidden min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-4 backdrop-blur-xl sm:flex">
+      <header className="sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-[16px] font-black leading-tight tracking-tight text-text-primary sm:text-[17px]">{screenTitle}</h1>
             <span className="mt-0.5 hidden truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted sm:block">2LA noire · NEWMAFIA</span>
           </div>
-          {isOrganizer ? (
-            <nav className="hidden items-center gap-1 rounded-[13px] border border-border-soft bg-surface-1 p-1 md:flex">
-              {ORGANIZER_PRIMARY_NAV.map((item) => {
-                const Icon = navMeta[item.id].icon;
-                const active = primaryActive === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => switchPrimaryTab(item.id)}
-                    className={`inline-flex min-h-[42px] items-center gap-2 rounded-[10px] px-3 text-[12px] font-bold transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
-                  >
-                    <Icon className="h-4 w-4" /> {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {isOrganizer ? (
+              <nav className="hidden items-center gap-1 rounded-[13px] border border-border-soft bg-surface-1 p-1 md:flex">
+                {ORGANIZER_PRIMARY_NAV.map((item) => {
+                  const Icon = navMeta[item.id].icon;
+                  const active = primaryActive === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => switchPrimaryTab(item.id)}
+                      className={`inline-flex min-h-[42px] items-center gap-2 rounded-[10px] px-3 text-[12px] font-bold transition-colors ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
+                    >
+                      <Icon className="h-4 w-4" /> {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            ) : null}
+            {onOpenPlayerMode ? <ProductModeSwitch activeMode="organizer" onSwitch={onOpenPlayerMode} /> : null}
+          </div>
         </div>
       </header>
 
@@ -365,6 +376,12 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onOpenTheme={() => setShowThemeModal(true)}
                 onOpenGameEngine={onReturnToGameEngine}
                 onLogout={handleLogout}
+                activeScreen={activeMoreScreen}
+                onScreenChange={(screen) => {
+                  setActiveMoreScreen(screen);
+                  navigateAdmin(organizerMorePath(screen), screen === null);
+                  moveWindowScroll(0);
+                }}
               />
             ) : null}
           </div>

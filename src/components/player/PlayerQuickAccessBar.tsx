@@ -1,15 +1,20 @@
 import type { PlayerMeResponse } from '../../types/player.ts';
+import ProductModeSwitch from '../ProductModeSwitch.tsx';
 
 export default function PlayerQuickAccessBar({
   player,
   tokenBalance,
   active,
+  canOpenAdmin = false,
+  onOpenAdmin,
   onOpenWallet,
   onOpenProfile,
 }: {
   player: PlayerMeResponse['player'];
   tokenBalance: number;
   active: 'wallet' | 'profile' | null;
+  canOpenAdmin?: boolean;
+  onOpenAdmin?: () => void;
   onOpenWallet: () => void;
   onOpenProfile: () => void;
 }) {
@@ -25,6 +30,10 @@ export default function PlayerQuickAccessBar({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {canOpenAdmin && onOpenAdmin ? (
+            <ProductModeSwitch activeMode="player" onSwitch={onOpenAdmin} />
+          ) : null}
+
           <button
             data-testid="player-quick-wallet"
             type="button"

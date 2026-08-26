@@ -24,6 +24,7 @@ export type { PlayerCabinetSection } from './playerCabinetNavigation.ts';
 type Props = {
   data: PlayerMeResponse;
   canOpenAdmin?: boolean;
+  onOpenAdmin?: () => void;
   initialSection?: PlayerCabinetSection;
   initialTarget?: string | null;
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
@@ -32,6 +33,7 @@ type Props = {
 export default function PlayerCabinetShell({
   data,
   canOpenAdmin = false,
+  onOpenAdmin,
   initialSection = 'home',
   initialTarget = null,
   onSectionChange,
@@ -69,6 +71,8 @@ export default function PlayerCabinetShell({
         player={player}
         tokenBalance={tokenBalance}
         active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null}
+        canOpenAdmin={canOpenAdmin}
+        onOpenAdmin={onOpenAdmin}
         onOpenWallet={() => open('wallet')}
         onOpenProfile={() => open('profile')}
       />

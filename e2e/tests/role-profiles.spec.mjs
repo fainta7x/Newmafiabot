@@ -58,7 +58,7 @@ test.describe('isolated organizer and player profiles', () => {
     await page.goto('/admin');
     await expect(page.locator('body')).not.toContainText('Не удалось войти');
     await expect(page.locator('body')).not.toContainText('Внутренняя ошибка');
-    await expect(page.getByText('События', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Сегодня', { exact: true }).last()).toBeVisible();
 
     const metrics = await page.evaluate(() => ({
       viewport: window.innerWidth,

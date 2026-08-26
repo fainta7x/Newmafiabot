@@ -38,7 +38,7 @@ RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --include=dev && npm cache clean --force
 
 COPY . .
 COPY --from=web-build /app/dist ./dist

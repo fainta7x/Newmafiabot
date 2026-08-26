@@ -2,7 +2,6 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
@@ -204,6 +203,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     app.use(express.static(distPath));
     app.get('/{*splat}', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   } else if (!isTest || isBrowserE2E) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   }

@@ -379,7 +379,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 activeScreen={activeMoreScreen}
                 onScreenChange={(screen) => {
                   setActiveMoreScreen(screen);
-                  navigateAdmin(organizerMorePath(screen));
+                  navigateAdmin(organizerMorePath(screen), screen === null);
                   moveWindowScroll(0);
                 }}
               />

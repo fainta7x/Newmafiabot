@@ -1,0 +1,57 @@
+name: Temporary all evenings export
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-all-evenings-export.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify read credential exists
+        shell: bash
+        env:
+          DEVELOPER_READ_KEY: ${{ secrets.DEVELOPER_READ_KEY }}
+          BOT_API_SECRET: ${{ secrets.BOT_API_SECRET }}
+        run: |
+          if [ -z "$DEVELOPER_READ_KEY" ] && [ -z "$BOT_API_SECRET" ]; then
+            echo "No read credential configured" >&2
+            exit 2
+          fi
+
+      - name: Fetch all relevant evenings
+        shell: bash
+        env:
+          DEVELOPER_READ_KEY: ${{ secrets.DEVELOPER_READ_KEY }}
+          BOT_API_SECRET: ${{ secrets.BOT_API_SECRET }}
+          BASE_URL: https://2la-noire-chagina7x.waw0.amvera.tech
+        run: |
+          set -euo pipefail
+          mkdir -p all-evenings
+          if [ -n "$DEVELOPER_READ_KEY" ]; then
+            AUTH_HEADER="X-Developer-Read-Key: $DEVELOPER_READ_KEY"
+          else
+            AUTH_HEADER="X-Bot-Token: $BOT_API_SECRET"
+          fi
+          for date in 2026-07-17 2026-07-24 2026-08-07 2026-08-14 2026-08-21; do
+            curl --fail-with-body --silent --show-error \
+              --retry 3 --retry-delay 2 \
+              -X POST \
+              -H "$AUTH_HEADER" \
+              "$BASE_URL/__developer-read/evenings/by-date/$date" \
+              | jq '{date, evenings: [.evenings[] | {evening: {id: .evening.id, title: .evening.title, starts_at: .evening.starts_at, default_price: .evening.default_price, status: .evening.status}, participants: [.participants[] | {player_id, nickname, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid}]}]}' \
+              > "all-evenings/$date.json"
+          done
+
+      - name: Upload private export artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-evenings-export
+          path: all-evenings
+          retention-days: 1
+          if-no-files-found: error

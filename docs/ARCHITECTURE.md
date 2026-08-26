@@ -160,7 +160,28 @@ For the current production contract, Turso is the primary persistent store. Rend
 
 Never restore a checkpoint over a non-empty production/runtime DB during ordinary deploy work.
 
-## 8. Render
+## 8. Production container topology
+
+The repository can run the current web/API and integrated Python Telegram bot in one container:
+
+`public HTTPS -> nginx:8080 -> Node web/API:3000`
+
+`public /webhook and /crm/* -> nginx:8080 -> Python bot service:8081`
+
+Process ownership:
+
+- `deploy/supervisord.conf` keeps Node, Python and nginx alive;
+- `deploy/nginx.conf` owns public routing;
+- `deploy/start-web.sh` assigns the internal Node port and bot-service URL;
+- `deploy/start-bot.sh` assigns the internal bot port and preserves the legacy bot SQLite file under `/data`;
+- `Dockerfile` builds both runtimes;
+- `amvera.yml` declares the public container port and persistent mount.
+
+The Node application still owns canonical production data through Turso. The bot's local `mafia_crm.db` is legacy runtime state and must not replace or seed Turso.
+
+The canonical deployment source is `fainta7x/Newmafiabot` `main`. The separate `fainta7x/mafiabot` repository is not part of this topology.
+
+## 9. Render
 
 Configuration file: `render.yaml`.
 
@@ -176,7 +197,7 @@ Current topology:
 
 A GitHub merge does not prove deployment. See `PROJECT_STATE` for current release/deploy state and `RUNBOOK` for procedure.
 
-## 9. Telegram
+## 10. Telegram
 
 Web-side ownership includes:
 
@@ -191,7 +212,7 @@ Python bot ownership includes root bot modules and `handlers/`.
 
 Runtime diagnostics: `docs/telegram-runtime-health.md`.
 
-## 10. VK
+## 11. VK
 
 Primary web entry:
 
@@ -204,14 +225,14 @@ Runtime diagnostics: `docs/vk-runtime-health.md`.
 
 Inspect Vite transforms before declaring `.vk-direct.*` variants unused.
 
-## 11. Testing / CI
+## 12. Testing / CI
 
 - `src/tests/` — Vitest.
 - `e2e/` — isolated mobile Playwright.
 - `.github/workflows/ci.yml` — authoritative main CI workflow.
 - `src/scripts/projectContext.ts` — read-only project/handoff check used by CI.
 
-## 12. Navigation rule
+## 13. Navigation rule
 
 For a normal task:
 

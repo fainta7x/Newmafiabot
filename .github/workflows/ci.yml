@@ -111,3 +111,14 @@ jobs:
 
       - name: Compile bot sources
         run: python -m compileall -q main.py config.py commands.py bot_menu.py keyboards.py handlers bot_announcement_api.py bot_api.py bot_profile_link_api.py bot_telegram_api.py
+
+  combined-container:
+    name: Combined web and bot container
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build production container
+        run: docker build --tag 2la-noire-combined:ci .

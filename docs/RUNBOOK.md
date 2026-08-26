@@ -28,7 +28,7 @@ For one user message/request:
 
 Preferred sequence:
 
-`fresh green main -> focused branch -> targeted discovery -> focused checks -> coherent PR -> full CI once -> visual/runtime review if relevant -> merge -> verify main`
+`fresh green main -> focused branch -> targeted discovery -> focused checks -> coherent PR -> fast CI -> merge -> verify main`
 
 Single-writer rule:
 
@@ -62,15 +62,27 @@ This is release audit + TypeScript + ESLint, without full Vitest/build/Playwrigh
 
 ### Level C — release verification
 
-When the PR is coherent and ready:
+When the PR is coherent and release verification is explicitly requested:
 
 ```bash
 npm run project:verify
 ```
 
-Then GitHub CI is authoritative for the final gate, including Python and mobile Playwright.
+The ordinary PR merge gate covers the non-browser checks. Playwright is separate and must be started only when browser/release verification is required:
 
-Do not run Level C after every small edit.
+```bash
+npm run test:e2e:smoke
+```
+
+Do not run Level C or Playwright after every small edit.
+
+### Playwright policy
+
+- Ordinary implementation requests must not run or wait for Playwright.
+- Browser tests remain preserved and must not have their assertions weakened.
+- Run `.github/workflows/playwright-manual.yml` from GitHub Actions when the user explicitly asks for browser verification, a visual/live-game change needs it, or a release gate is requested.
+- Select the smallest relevant suite: `smoke`, `crm`, `live-game`, or `all`.
+- Inspect the exact failed job and artifact before deciding whether a retry is appropriate.
 
 ## 5. Full CI failure handling
 

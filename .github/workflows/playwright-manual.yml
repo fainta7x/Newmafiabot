@@ -1,0 +1,71 @@
+name: Playwright manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "E2E suite to run"
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - crm
+          - live-game
+          - all
+
+concurrency:
+  group: playwright-manual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright ${{ inputs.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright test dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Audit Playwright dependencies
+        working-directory: e2e
+        run: npm audit --audit-level=high
+
+      - name: Verify runner Chrome
+        run: google-chrome --version
+
+      - name: Run selected Playwright suite
+        working-directory: e2e
+        run: |
+          case "${{ inputs.suite }}" in
+            smoke) npm run test:smoke ;;
+            crm) npm run test:crm ;;
+            live-game) npm run test:live-game ;;
+            all) npm test ;;
+            *) echo "Unknown suite: ${{ inputs.suite }}" >&2; exit 1 ;;
+          esac
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ inputs.suite }}-evidence
+          path: e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7

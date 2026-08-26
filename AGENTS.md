@@ -73,21 +73,23 @@ For **one user message/request**, create at most **3 pull requests total**.
 
 Default flow:
 
-`fresh green main -> focused branch -> focused checks -> coherent PR -> one full CI -> screenshot/runtime review if relevant -> merge -> verify main`
+`fresh green main -> focused branch -> focused checks -> coherent PR -> fast CI -> merge -> verify main`
 
 During iteration:
 
 - run only directly relevant tests;
 - use `npm run project:affected -- <changed files>` when useful;
 - use `npm run project:verify:fast` after a meaningful batch;
-- avoid full Vitest/build/Playwright after every tiny edit.
+- do not run or wait for Playwright unless the user explicitly requests browser verification, the change is visual/live-game/browser-specific, or this is an explicit release gate.
 
 Before merge:
 
-- full repository CI is authoritative;
+- the required non-browser CI is authoritative for ordinary PRs;
+- Playwright is intentionally outside the ordinary merge gate and must not be run or awaited by default;
+- use the manual Playwright workflow only when the user explicitly requests it, the change needs browser/visual validation, or release verification requires it;
 - never weaken TypeScript/tests to force green;
 - inspect the exact failing job before rerunning;
-- for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots for clipping, overlap, lost identity, bad hierarchy and wrong mobile geometry.
+- for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots when browser verification is explicitly requested.
 
 ## 7. Database safety
 

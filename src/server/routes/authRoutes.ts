@@ -156,6 +156,60 @@ router.post('/login', async (req, res) => {
   return res.status(401).json({ error: 'Неверный пароль организатора' });
 });
 
+const E2E_PROFILE_IDS = {
+  player: 'e2e-player',
+  organizer: 'e2e-organizer',
+} as const;
+
+function e2eProfilesEnabled(): boolean {
+  return process.env.NODE_ENV === 'test'
+    && process.env.PLAYWRIGHT_E2E === '1'
+    && process.env.E2E_TEST_MODE === '1';
+}
+
+router.post('/e2e/profile', async (req, res) => {
+  if (!e2eProfilesEnabled()) return res.status(404).json({ error: 'Not found' });
+
+  const role = String(req.body?.role || '').trim();
+  if (role === 'organizer') {
+    const token = setOrganizerCookie(res);
+    return res.json({
+      profile: 'organizer',
+      role: 'ORGANIZER',
+      displayName: '[TEST] Организатор',
+      token,
+      production_writes: false,
+    });
+  }
+
+  if (role !== 'player') {
+    return res.status(400).json({ error: 'Роль должна быть organizer или player' });
+  }
+
+  const now = new Date().toISOString();
+  const existing = await req.db.get(
+    'SELECT id, nickname, full_name, telegram_username, elo, tokens FROM players WHERE id = ? LIMIT 1',
+    [E2E_PROFILE_IDS.player],
+  );
+  if (!existing) {
+    await req.db.run(
+      `INSERT INTO players
+        (id, nickname, full_name, telegram_username, lifecycle_status, source, elo, tokens, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'normal', 'playwright-e2e', 1200, 100, ?, ?)`,
+      [E2E_PROFILE_IDS.player, '[TEST] Игрок', 'Тестовый игрок', 'e2e_player', now, now],
+    );
+  }
+
+  setPlayerCookie(res, E2E_PROFILE_IDS.player);
+  return res.json({
+    profile: 'player',
+    role: 'PLAYER',
+    displayName: '[TEST] Игрок',
+    playerId: E2E_PROFILE_IDS.player,
+    production_writes: false,
+  });
+});
+
 router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db;
   const identity = await resolveVerifiedPlayerIdentity(db, req);

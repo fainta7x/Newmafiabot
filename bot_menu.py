@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 import config
 
 APP_BUTTON_TEXT = "🎭 Открыть 2LA Noire"
+CABINET_BUTTON_TEXT = "Личный кабинет"
 CLUB_ACCESS_BUTTON_TEXT = "🎟 Доступ в клуб"
 REGULATIONS_BUTTON_TEXT = "📋 РЕГЛАМЕНТ"
 
@@ -21,6 +22,12 @@ def player_app_url(path: str = "/player") -> str | None:
     if base.endswith("/player") and suffix.startswith("/player"):
         base = base[:-len("/player")]
     return f"{base}{suffix}"
+
+
+def cabinet_app_url() -> str | None:
+    """Return the configured WebApp origin without adding a player route."""
+    base = str(config.PLAYER_APP_URL or "").strip().rstrip("/")
+    return base or None
 
 
 def event_app_path(evening_id: str) -> str:
@@ -63,6 +70,15 @@ def app_inline_keyboard(path: str = "/player", text: str = APP_BUTTON_TEXT) -> I
     )
 
 
+def cabinet_inline_keyboard(text: str = CABINET_BUTTON_TEXT) -> InlineKeyboardMarkup | None:
+    url = cabinet_app_url()
+    if not url:
+        return None
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))]]
+    )
+
+
 def event_inline_keyboard(evening_id: str, text: str = "🎯 Выбрать / изменить игры") -> InlineKeyboardMarkup | None:
     return app_inline_keyboard(event_app_path(evening_id), text)
 
@@ -74,5 +90,8 @@ def start_text(first_name: str | None = None) -> str:
         f"{greeting}"
         "Бот теперь работает как спутник клуба: сюда приходят анонсы, напоминания, результаты и важные сообщения.\n\n"
         "В приложении собраны запись на конкретные игры, профиль, рейтинг, история, кошелёк, магазин и ставки.\n\n"
+        "Команды:\n"
+        "/cabinet — Личный кабинет\n"
+        "/crm — CRM организатора\n\n"
         "Открывай клуб кнопкой ниже — бот и приложение используют одну логику и одну клубную базу."
     )

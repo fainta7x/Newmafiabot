@@ -10,6 +10,7 @@ import {
   Coins,
   Database,
   Dice5,
+  FlaskConical,
   Gamepad2,
   LogOut,
   Palette,
@@ -18,6 +19,7 @@ import {
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
 import CommerceAdminCRM from './CommerceAdminCRM.tsx';
 import { DataSettingsCRM } from './DataSettingsCRM.tsx';
+import { DeveloperTestModeCRM } from './DeveloperTestModeCRM.tsx';
 import { TelegramCRM } from './TelegramCRM.tsx';
 import { SystemStatusCard } from './SystemStatusCard.tsx';
 
@@ -29,7 +31,7 @@ interface MoreCRMProps {
   onLogout: () => void | Promise<void>;
 }
 
-type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | null;
+type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | null;
 
 type MenuItem = {
   id: string;
@@ -45,12 +47,14 @@ const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   commerce: 'Оплата и поддержка',
   telegram: 'Telegram',
   system: 'Состояние системы',
+  developer: '[TEST] Тестовый режим',
 };
 
 const menuTone = (id: string) => {
   if (id === 'tasks' || id === 'betting') return 'border-amber-200/10 bg-amber-200/[0.08] text-amber-100';
   if (id === 'analytics' || id === 'telegram') return 'border-sky-200/10 bg-sky-300/[0.08] text-sky-100';
   if (id === 'commerce' || id === 'system') return 'border-emerald-200/10 bg-emerald-300/[0.08] text-emerald-100';
+  if (id === 'developer') return 'border-amber-300/15 bg-amber-300/[0.08] text-amber-100';
   if (id === 'theme') return 'border-violet-200/10 bg-violet-300/[0.08] text-violet-100';
   if (id === 'game') return 'border-[color-mix(in_srgb,var(--ds-accent)_18%,transparent)] bg-[var(--ds-accent-soft)] text-[var(--ds-accent)]';
   return 'border-white/[0.07] bg-white/[0.06] text-white/60';
@@ -107,6 +111,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         {subscreen === 'commerce' ? <CommerceAdminCRM /> : null}
         {subscreen === 'telegram' ? <TelegramCRM /> : null}
         {subscreen === 'system' ? <SystemStatusCard /> : null}
+        {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
       </div>
     );
   }
@@ -126,6 +131,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   ];
 
   const serviceItems: MenuItem[] = [
+    { id: 'developer', label: '[TEST] Тестовый режим', detail: 'Изолированная memory-only сессия и сценарии', icon: FlaskConical, onClick: () => setSubscreen('developer') },
     { id: 'data', label: 'Данные и настройки', detail: 'Ачивки, магазин и экспертная правка', icon: Database, onClick: () => setSubscreen('data') },
     { id: 'system', label: 'Состояние системы', detail: 'Сервисы и техническая диагностика', icon: Activity, onClick: () => setSubscreen('system') },
     { id: 'theme', label: 'Оформление', detail: 'Тема и визуальный режим', icon: Palette, onClick: onOpenTheme },

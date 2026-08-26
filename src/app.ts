@@ -56,6 +56,7 @@ import tasksRoutes from './server/routes/tasksRoutes.ts';
 import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
+import developerTestModeRoutes from './server/routes/developerTestModeRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
@@ -157,6 +158,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/rating', ratingRoutes);
   app.use('/api/rating-periods', ratingPeriodStandingsRoutes);
   app.use('/api/rating-periods', ratingPeriodRoutes);
+  app.use('/api/crm/test-mode', developerTestModeRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/crm', tableScoutingRoutes);
   app.use('/api/public', vkJoinStartRouter);

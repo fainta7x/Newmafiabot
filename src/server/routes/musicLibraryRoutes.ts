@@ -140,6 +140,12 @@ router.get('/music-library/organizer', async (req, res) => {
         [actor.id],
       ),
     ]);
+    const playerSlotRows = await req.db.all(
+      `SELECT * FROM music_link_entries
+         WHERE owner_player_id = ? AND scope = 'player'
+         ORDER BY slot_index ASC`,
+      [actor.id],
+    );
     return res.json({
       links: links.map(linkDto),
       uploads: uploads.map((row: any) => ({
@@ -152,6 +158,10 @@ router.get('/music-library/organizer', async (req, res) => {
         created_at: row.created_at || null,
         audio_url: `/api/player/judge-music/tracks/${encodeURIComponent(String(row.id))}/audio`,
       })),
+      player_slots: [1, 2].map((slot) => {
+        const row = playerSlotRows.find((candidate: any) => Number(candidate.slot_index) === slot);
+        return { slot, entry: row ? linkDto(row) : null };
+      }),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить музыкальную базу.' });
@@ -208,7 +218,10 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
     const actor = await requireLibraryManager(req, res);
     if (!actor) return;
     const eveningId = String(req.params.eveningId);
-    const evening = await req.db.get('SELECT id, title FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+    const isPreview = eveningId === '__test_game__';
+    const evening = isPreview
+      ? { id: '__test_game__', title: 'Тестовая игра' }
+      : await req.db.get('SELECT id, title FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден.' });
 
     const [uploads, organizerLinks, playerLinks, exclusionRows] = await Promise.all([
@@ -221,16 +234,28 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
           WHERE ml.owner_player_id = ? AND ml.scope = 'organizer' ORDER BY ml.sort_order ASC, ml.created_at ASC`,
         [actor.id],
       ),
-      req.db.all(
-        `SELECT ml.*, p.nickname
-           FROM music_link_entries ml
-           JOIN players p ON p.id = ml.owner_player_id
-           JOIN evening_participants ep ON ep.player_id = ml.owner_player_id AND ep.evening_id = ?
-          WHERE ml.scope = 'player' AND ep.attendance_status = 'attended'
-          ORDER BY ep.checked_in_at ASC, ml.slot_index ASC`,
-        [eveningId],
-      ),
-      req.db.all('SELECT entry_key FROM evening_music_exclusions WHERE evening_id = ?', [eveningId]),
+      isPreview
+        ? req.db.all(
+          `SELECT ml.*, p.nickname
+             FROM music_link_entries ml
+             JOIN players p ON p.id = ml.owner_player_id
+            WHERE ml.owner_player_id = ? AND ml.scope = 'player'
+            ORDER BY ml.slot_index ASC`,
+          [actor.id],
+        )
+        : req.db.all(
+          `SELECT ml.*, p.nickname
+             FROM music_link_entries ml
+             JOIN players p ON p.id = ml.owner_player_id
+             LEFT JOIN evening_participants ep ON ep.player_id = ml.owner_player_id AND ep.evening_id = ?
+            WHERE ml.scope = 'player'
+              AND (ml.owner_player_id = ? OR ep.attendance_status = 'attended')
+            ORDER BY CASE WHEN ml.owner_player_id = ? THEN 0 ELSE 1 END, ep.checked_in_at ASC, ml.slot_index ASC`,
+          [eveningId, actor.id, actor.id],
+        ),
+      isPreview
+        ? Promise.resolve([])
+        : req.db.all('SELECT entry_key FROM evening_music_exclusions WHERE evening_id = ?', [eveningId]),
     ]);
 
     const excluded = new Set(exclusionRows.map((row: any) => String(row.entry_key)));
@@ -250,7 +275,11 @@ router.get('/music-library/evenings/:eveningId/pool', async (req, res) => {
     for (const item of links) {
       const row: any = item.row;
       const key = musicEntryKey(String(row.normalized_url));
-      const contributor = { player_id: String(row.owner_player_id), nickname: String(row.nickname || 'Игрок'), kind: item.kind };
+      const contributor = {
+        player_id: String(row.owner_player_id),
+        nickname: String(row.nickname || 'Игрок'),
+        kind: String(row.owner_player_id) === actor.id ? 'organizer' : item.kind,
+      };
       const current = dedup.get(key);
       if (current) {
         if (!current.contributors.some((value: any) => value.player_id === contributor.player_id)) current.contributors.push(contributor);
@@ -287,6 +316,7 @@ router.put('/music-library/evenings/:eveningId/exclusion', async (req, res) => {
     const entryKey = String(req.body?.entry_key || '').trim().slice(0, 800);
     if (!entryKey) return res.status(400).json({ error: 'Не указан трек.' });
     const excluded = req.body?.excluded !== false;
+    if (eveningId === '__test_game__') return res.json({ ok: true, excluded: false });
     if (excluded) {
       await req.db.run(
         `INSERT OR REPLACE INTO evening_music_exclusions (evening_id, entry_key, excluded_by_player_id, created_at) VALUES (?, ?, ?, ?)`,

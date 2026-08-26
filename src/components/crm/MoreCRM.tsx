@@ -13,6 +13,7 @@ import {
   FlaskConical,
   Gamepad2,
   LogOut,
+  Music2,
   Palette,
   Send,
 } from 'lucide-react';
@@ -22,16 +23,19 @@ import { DataSettingsCRM } from './DataSettingsCRM.tsx';
 import { DeveloperTestModeCRM } from './DeveloperTestModeCRM.tsx';
 import { TelegramCRM } from './TelegramCRM.tsx';
 import { SystemStatusCard } from './SystemStatusCard.tsx';
+import { MusicLibraryCRM } from './MusicLibraryCRM.tsx';
+import type { GameEvening } from '../../lib/api.ts';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
   onOpenAnalytics: () => void;
   onOpenTheme: () => void;
   onOpenGameEngine?: () => void;
+  evenings?: GameEvening[];
   onLogout: () => void | Promise<void>;
 }
 
-type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | null;
+type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | null;
 
 type MenuItem = {
   id: string;
@@ -48,6 +52,7 @@ const subscreenTitles: Record<Exclude<Subscreen, null>, string> = {
   telegram: 'Telegram',
   system: 'Состояние системы',
   developer: '[TEST] Тестовый режим',
+  music: 'Музыкальная база',
 };
 
 const menuTone = (id: string) => {
@@ -83,6 +88,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenAnalytics,
   onOpenTheme,
   onOpenGameEngine,
+  evenings = [],
   onLogout,
 }) => {
   const [subscreen, setSubscreen] = useState<Subscreen>(null);
@@ -112,11 +118,13 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         {subscreen === 'telegram' ? <TelegramCRM /> : null}
         {subscreen === 'system' ? <SystemStatusCard /> : null}
         {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
+        {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} /> : null}
       </div>
     );
   }
 
   const workItems: MenuItem[] = [
+    { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист выбранного вечера', icon: Music2, onClick: () => setSubscreen('music') },
     { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'analytics', label: 'Аналитика', detail: 'Посещения, игроки и финансы', icon: BarChart3, onClick: onOpenAnalytics },
     { id: 'telegram', label: 'Telegram', detail: 'Каналы, публикации и общие настройки', icon: Send, onClick: () => setSubscreen('telegram') },

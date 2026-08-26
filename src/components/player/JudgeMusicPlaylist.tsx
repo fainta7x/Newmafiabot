@@ -23,6 +23,7 @@ const cleanFileTitle = (name: string) => name.replace(/\.[a-z0-9]{2,5}$/i, '').t
 export default function JudgeMusicPlaylist() {
   const [uploads, setUploads] = useState<UploadTrack[]>([]);
   const [links, setLinks] = useState<LinkTrack[]>([]);
+  const [playerSlots, setPlayerSlots] = useState<Array<{ slot: number; entry: LinkTrack | null }>>([]);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,7 @@ export default function JudgeMusicPlaylist() {
     if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить музыкальную базу.');
     setUploads(body.uploads || []);
     setLinks(body.links || []);
+    setPlayerSlots(body.player_slots || []);
   };
 
   useEffect(() => {
@@ -134,9 +136,9 @@ export default function JudgeMusicPlaylist() {
 
   return (
     <section className="rounded-3xl border border-violet-300/10 bg-gradient-to-b from-violet-300/[0.055] to-white/[0.025] p-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Музыка игры</div>
-      <h3 className="mt-2 text-lg font-semibold text-white">Музыкальная база</h3>
-      <p className="mt-1 text-xs leading-5 text-white/35">Постоянная база ведущего: загруженные файлы и ссылки Яндекс Музыки. На игру треки заранее выбирать больше не нужно.</p>
+      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">Музыкальная база</div>
+      <h3 className="mt-2 text-lg font-semibold text-white">База ведущего</h3>
+      <p className="mt-1 text-xs leading-5 text-white/35">Постоянная база CRM: загруженные файлы и ссылки Яндекс Музыки. Личные слоты игрока показаны отдельно и тоже доступны в плейлисте вечера.</p>
 
       <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/20 p-3">
         <div className="text-xs font-semibold text-white/65">Добавить из Яндекс Музыки</div>
@@ -152,6 +154,23 @@ export default function JudgeMusicPlaylist() {
       {error && <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-xs text-rose-100/75">{error}</div>}
       {message && <div className="mt-3 rounded-2xl bg-emerald-400/[0.08] px-3 py-3 text-xs text-emerald-100/75">{message}</div>}
 
+      {playerSlots.some((item) => item.entry) && (
+        <div className="mt-4 rounded-2xl border border-sky-200/[0.08] bg-sky-300/[0.04] p-3">
+          <div className="text-xs font-semibold text-sky-100/75">Мои слоты игрока</div>
+          <p className="mt-1 text-[10px] leading-4 text-white/30">Ссылки из профиля не теряются: они входят в пул ведущего для тестовой игры и вечера, где вы ведёте.</p>
+          <div className="mt-2 space-y-1.5">
+            {playerSlots.map((item) => item.entry ? (
+              <div key={item.slot} className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-300/[0.08] text-[10px] text-sky-100/75">{item.slot}</span>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold text-white">{item.entry.title}</div>
+                  <div className="text-[9px] text-white/30">Яндекс · слот игрока</div>
+                </div>
+              </div>
+            ) : null)}
+          </div>
+        </div>
+      )}
       <div className="mt-4 space-y-2">
         {uploads.map((track) => (
           <div key={`upload:${track.id}`} className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
@@ -177,7 +196,7 @@ export default function JudgeMusicPlaylist() {
           </div>
         ))}
 
-        {!uploads.length && !links.length && <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-white/30">Музыкальная база пока пустая.</div>}
+        {!uploads.length && !links.length && !playerSlots.some((item) => item.entry) && <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-white/30">Музыкальная база пока пустая.</div>}
       </div>
     </section>
   );

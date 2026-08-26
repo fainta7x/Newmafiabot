@@ -31,7 +31,7 @@ function requireDeveloperReadAccess(req: Request, res: Response, next: NextFunct
 
 router.use(requireDeveloperReadAccess);
 
-router.get('/evenings', async (req, res) => {
+router.post('/evenings', async (req, res) => {
   try {
     const rows = await req.db.all<any>(
       `SELECT id, title, starts_at, ends_at, venue, status, default_price, settled_at
@@ -44,7 +44,7 @@ router.get('/evenings', async (req, res) => {
   }
 });
 
-router.get('/evenings/:id', async (req, res) => {
+router.post('/evenings/:id', async (req, res) => {
   try {
     const eveningId = String(req.params.id);
     const evening = await req.db.get<any>(
@@ -83,7 +83,7 @@ router.get('/evenings/:id', async (req, res) => {
   }
 });
 
-router.get('/evenings/by-date/:date', async (req, res) => {
+router.post('/evenings/by-date/:date', async (req, res) => {
   try {
     const date = String(req.params.date || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {

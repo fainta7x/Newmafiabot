@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useJudgeGameMusic } from '../hooks/useJudgeGameMusic.ts';
+import { openExternalMusicUrl } from '../lib/openExternalMusicUrl.ts';
 import { recoverInterruptedTestGameSandbox } from '../lib/testGameSandbox.ts';
 
 const START_EVENT = 'judge-game-music-start';
@@ -130,6 +131,7 @@ export default function JudgeGameMusicController() {
     wantedRef.current = false;
     wantedTrackRef.current = undefined;
     storeManualState({ kind });
+    openExternalMusicUrl(entry.source_url || '');
   };
 
   const localFallbackEntries = music.tracks.map(localPoolEntry);
@@ -299,7 +301,14 @@ export default function JudgeGameMusicController() {
             )}
           </div>
           {active.entry.source_type === 'yandex' ? (
-            active.entry.embed_url ? <iframe title={active.entry.title} src={active.entry.embed_url} className="mt-2 h-[80px] w-full rounded-xl border-0" allow="autoplay" /> : <a href={active.entry.source_url || '#'} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">Открыть в Яндекс Музыке ↗</a>
+            <div className="mt-2">
+              <div className="rounded-xl bg-amber-200/[0.08] px-3 py-2 text-[10px] leading-4 text-amber-100/65">
+                Полная версия открывается в Яндекс Музыке. После прослушивания вернитесь сюда кнопкой «Назад».
+              </div>
+              <button type="button" onClick={() => openExternalMusicUrl(active.entry.source_url || '')} data-testid="open-yandex-full-track" className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">
+                Открыть полный трек в Яндекс Музыке ↗
+              </button>
+            </div>
           ) : (
             <div className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[10px] text-white/35">{music.blocked ? 'Браузер заблокировал автозапуск — нажмите «Включить».' : music.playing ? 'Воспроизведение продолжается.' : 'Трек остановлен.'}</div>
           )}

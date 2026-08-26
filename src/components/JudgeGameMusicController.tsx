@@ -55,18 +55,11 @@ const contributorText = (entry: PoolEntry) => {
 };
 
 const resolveEveningId = async (): Promise<string> => {
-  const stored = sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
-  if (stored) return stored;
   try {
-    const response = await fetch('/api/evenings', { credentials: 'include' });
-    if (!response.ok) return '';
-    const rows = await response.json().catch(() => []);
-    if (!Array.isArray(rows)) return '';
-    const active = rows.find((row: any) => row?.status === 'active');
-    const resolved = String(active?.id || '');
-    if (resolved) sessionStorage.setItem(MUSIC_EVENING_CONTEXT_KEY, resolved);
-    return resolved;
-  } catch { return ''; }
+    return sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
+  } catch {
+    return '';
+  }
 };
 
 export default function JudgeGameMusicController() {
@@ -110,10 +103,15 @@ export default function JudgeGameMusicController() {
     setPickerLoading(true);
     setPickerError(null);
     const eveningId = await resolveEveningId();
-    if (!eveningId) {
+    if (!eveningId || eveningId === '__test_game__') {
       setPickerLoading(false);
-      // Test/legacy game without an active evening: preserve the old local-audio fallback.
-      manualRef.current = true; wantedRef.current = true; storeManualState({ kind });
+      // Test/legacy game without a real evening: preserve the local-audio fallback
+      // without ever reading or mutating persistent evening data.
+      manualRef.current = true;
+      manualTrackRef.current = undefined;
+      wantedRef.current = true;
+      wantedTrackRef.current = undefined;
+      storeManualState({ kind });
       void music.start();
       return;
     }

@@ -101,7 +101,7 @@ export default function ClubGameSetupPhase({
         </div>
       </section>
 
-      <section className="rounded-[20px] border border-violet-300/[0.09] bg-violet-300/[0.035] p-3">
+      <section data-testid="club-game-music-settings" className="rounded-[20px] border border-violet-300/[0.09] bg-violet-300/[0.035] p-3">
         <div className="flex items-center gap-2.5">
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-black/20 text-violet-100/55"><Music2 className="h-3.5 w-3.5" /></div>
           <div><div className="text-[11px] font-semibold text-white/68">Музыка выбирается по ходу игры</div><div className="mt-0.5 text-[9px] leading-4 text-white/28">Раздача и ночи используют общий плейлист вечера · заранее выбирать два трека не нужно.</div></div>

@@ -96,6 +96,7 @@ export default defineConfig([
     // These routes deliberately reject/strip ASCII control characters from
     // user-controlled text. The regex control ranges are the intended behavior.
     files: [
+      "src/server/routes/musicLibraryRoutes.ts",
       "src/server/routes/playerJudgeMusicRoutes.ts",
       "src/server/routes/speechRecordingRoutes.ts",
       "src/server/services/playerRegistrationService.ts",

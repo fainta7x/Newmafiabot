@@ -92,6 +92,7 @@ Implemented and connected:
 - player CRM;
 - tasks/analytics;
 - commerce/admin data;
+- persistent organizer music library with uploaded tracks and Yandex links, player-slot inclusion in evening pools, and live role-deal/night controls;
 - Telegram/VK/system diagnostics.
 
 ### Live Game

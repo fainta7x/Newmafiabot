@@ -150,6 +150,9 @@ export default function PlayerProfileSettings({
 
   const canJudgeClubGame = Boolean(judging && judging.player.judge_level !== 'none');
   const canOpenTestGame = canJudgeClubGame || player.club_role === 'organizer';
+  const canManageMusic = player.club_role === 'organizer'
+    || judging?.player.judge_level === 'host'
+    || judging?.player.judge_level === 'judge';
 
   if (launchedGame) {
     return (
@@ -231,7 +234,7 @@ export default function PlayerProfileSettings({
         />
       )}
 
-      {judging && (judging.player.judge_level === 'host' || judging.player.judge_level === 'judge') && <JudgeMusicPlaylist />}
+      {canManageMusic && <JudgeMusicPlaylist />}
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Оформление профиля</div>

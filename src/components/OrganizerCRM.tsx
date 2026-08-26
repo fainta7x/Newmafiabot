@@ -359,6 +359,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             {activeTab === 'analytics' ? <AnalyticsCRM onOpenThemeModal={() => setShowThemeModal(true)} /> : null}
             {activeTab === 'more' ? (
               <MoreCRM
+                evenings={evenings}
                 onOpenTasks={() => openSecondaryTab('tasks')}
                 onOpenAnalytics={() => openSecondaryTab('analytics')}
                 onOpenTheme={() => setShowThemeModal(true)}

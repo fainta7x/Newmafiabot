@@ -16,10 +16,11 @@ type PoolEntry = {
   id: string;
   title: string;
   source_type: 'upload' | 'yandex';
+  source_kind?: 'yandex_track' | 'yandex_playlist';
   audio_url: string | null;
   source_url: string | null;
   embed_url: string | null;
-  excluded: boolean;
+  excluded?: boolean;
   contributors: Array<{ player_id: string; nickname: string; kind: 'organizer' | 'player' }>;
 };
 
@@ -34,7 +35,12 @@ const readStoredManualState = (): StoredManualState | null => {
 };
 
 const storeManualState = (detail: MusicStartDetail) => {
-  try { sessionStorage.setItem(MANUAL_STATE_KEY, JSON.stringify({ kind: detail.kind === 'night' ? 'night' : 'manual', trackId: detail.trackId || undefined })); } catch {}
+  try {
+    sessionStorage.setItem(MANUAL_STATE_KEY, JSON.stringify({
+      kind: detail.kind === 'night' ? 'night' : 'manual',
+      trackId: detail.trackId || undefined,
+    }));
+  } catch {}
 };
 const clearManualState = () => { try { sessionStorage.removeItem(MANUAL_STATE_KEY); } catch {} };
 
@@ -54,6 +60,17 @@ const contributorText = (entry: PoolEntry) => {
   return names.length ? `От ${names.join(', ')}` : 'Игрок вечера';
 };
 
+const localPoolEntry = (track: { id: string; title: string; audio_url: string }): PoolEntry => ({
+  key: `upload:${track.id}`,
+  id: track.id,
+  title: track.title,
+  source_type: 'upload',
+  audio_url: track.audio_url,
+  source_url: null,
+  embed_url: null,
+  contributors: [{ player_id: 'organizer', nickname: 'Ведущий', kind: 'organizer' }],
+});
+
 const resolveEveningId = async (): Promise<string> => {
   try {
     return sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
@@ -71,7 +88,7 @@ export default function JudgeGameMusicController() {
   const [picker, setPicker] = useState<{ kind: MusicStartKind; entries: PoolEntry[]; eveningId: string } | null>(null);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
-  const [external, setExternal] = useState<PoolEntry | null>(null);
+  const [active, setActive] = useState<{ entry: PoolEntry; kind: MusicStartKind } | null>(null);
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
@@ -84,35 +101,48 @@ export default function JudgeGameMusicController() {
     }
   }, []);
 
-  const startLocal = (trackId: string, kind: MusicStartKind) => {
-    setExternal(null); setPicker(null);
-    manualRef.current = true; manualTrackRef.current = trackId;
-    wantedRef.current = true; wantedTrackRef.current = trackId;
-    storeManualState({ trackId, kind });
-    void music.start(trackId);
+  const findLocalEntry = (trackId: string, entries = picker?.entries) => {
+    const fromPool = entries?.find((entry) => entry.source_type === 'upload' && entry.id === trackId);
+    if (fromPool) return fromPool;
+    const track = music.tracks.find((item) => item.id === trackId);
+    return track ? localPoolEntry(track) : null;
+  };
+
+  const startLocal = (entryOrTrackId: PoolEntry | string, kind: MusicStartKind) => {
+    const entry = typeof entryOrTrackId === 'string' ? findLocalEntry(entryOrTrackId) : entryOrTrackId;
+    if (!entry) return;
+    setActive({ entry, kind });
+    setPicker(null);
+    manualRef.current = true;
+    manualTrackRef.current = entry.id;
+    wantedRef.current = true;
+    wantedTrackRef.current = entry.id;
+    storeManualState({ trackId: entry.id, kind });
+    void music.start(entry.id);
   };
 
   const startExternal = (entry: PoolEntry, kind: MusicStartKind) => {
-    music.stop(); setPicker(null); setExternal(entry);
-    manualRef.current = true; manualTrackRef.current = undefined;
-    wantedRef.current = false; wantedTrackRef.current = undefined;
+    music.stop();
+    setPicker(null);
+    setActive({ entry, kind });
+    manualRef.current = true;
+    manualTrackRef.current = undefined;
+    wantedRef.current = false;
+    wantedTrackRef.current = undefined;
     storeManualState({ kind });
   };
+
+  const localFallbackEntries = music.tracks.map(localPoolEntry);
 
   const openEveningPicker = async (kind: MusicStartKind) => {
     setPickerLoading(true);
     setPickerError(null);
     const eveningId = await resolveEveningId();
-    if (!eveningId || eveningId === '__test_game__') {
+    if (!eveningId) {
+      const entries = localFallbackEntries;
+      if (!entries.length) setPickerError('Музыкальная база пока пуста. Добавьте трек в CRM или в слот профиля.');
+      setPicker({ kind, entries, eveningId: '' });
       setPickerLoading(false);
-      // Test/legacy game without a real evening: preserve the local-audio fallback
-      // without ever reading or mutating persistent evening data.
-      manualRef.current = true;
-      manualTrackRef.current = undefined;
-      wantedRef.current = true;
-      wantedTrackRef.current = undefined;
-      storeManualState({ kind });
-      void music.start();
       return;
     }
     try {
@@ -125,7 +155,9 @@ export default function JudgeGameMusicController() {
     } catch (error: any) {
       setPickerError(error?.message || 'Не удалось загрузить музыку вечера.');
       setPicker({ kind, entries: [], eveningId });
-    } finally { setPickerLoading(false); }
+    } finally {
+      setPickerLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -136,35 +168,50 @@ export default function JudgeGameMusicController() {
       else void openEveningPicker(kind);
     };
     const stop = () => {
-      manualRef.current = false; manualTrackRef.current = undefined;
-      wantedRef.current = false; wantedTrackRef.current = undefined;
-      clearManualState(); setPicker(null); setExternal(null); music.stop();
+      manualRef.current = false;
+      manualTrackRef.current = undefined;
+      wantedRef.current = false;
+      wantedTrackRef.current = undefined;
+      clearManualState();
+      setPicker(null);
+      setActive(null);
+      music.stop();
     };
     window.addEventListener(START_EVENT, start);
     window.addEventListener(STOP_EVENT, stop);
-    return () => { window.removeEventListener(START_EVENT, start); window.removeEventListener(STOP_EVENT, stop); };
+    return () => {
+      window.removeEventListener(START_EVENT, start);
+      window.removeEventListener(STOP_EVENT, stop);
+    };
   }, [music.start, music.stop]);
 
   useEffect(() => {
     const sync = () => {
-      if (external) return;
+      if (active?.entry.source_type === 'yandex') return;
       const shouldPlay = manualRef.current && Boolean(manualTrackRef.current);
       const desiredTrack = manualTrackRef.current;
-      wantedRef.current = shouldPlay; wantedTrackRef.current = desiredTrack;
-      if (shouldPlay && music.tracks.length && !music.blocked) void music.start(desiredTrack);
+      wantedRef.current = shouldPlay;
+      wantedTrackRef.current = desiredTrack;
+      if (shouldPlay && music.tracks.length && !music.blocked) {
+        const entry = desiredTrack ? findLocalEntry(desiredTrack) : null;
+        if (entry && !active) setActive({ entry, kind: 'manual' });
+        void music.start(desiredTrack);
+      }
     };
     sync();
     const interval = window.setInterval(sync, 500);
     return () => window.clearInterval(interval);
-  }, [external, music.blocked, music.start, music.tracks.length]);
+  }, [active, music.blocked, music.start, music.tracks.length]);
 
   useEffect(() => () => music.stop(), [music.stop]);
 
   const exclude = async (entry: PoolEntry) => {
-    if (!picker) return;
+    if (!picker || picker.eveningId === '__test_game__') return;
     try {
       await fetch(`/api/player/music-library/evenings/${encodeURIComponent(picker.eveningId)}/exclusion`, {
-        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entry_key: entry.key, excluded: true }),
       });
       setPicker((current) => current ? { ...current, entries: current.entries.filter((item) => item.key !== entry.key) } : current);
@@ -174,7 +221,7 @@ export default function JudgeGameMusicController() {
   const random = () => {
     if (!picker?.entries.length) return;
     const entry = picker.entries[Math.floor(Math.random() * picker.entries.length)];
-    if (entry.source_type === 'upload') startLocal(entry.id, picker.kind);
+    if (entry.source_type === 'upload') startLocal(entry, picker.kind);
     else startExternal(entry, picker.kind);
   };
 
@@ -183,7 +230,10 @@ export default function JudgeGameMusicController() {
       {(picker || pickerLoading) && (
         <div className="fixed bottom-3 left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
-            <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Музыка сейчас</div><div className="mt-1 text-sm font-semibold text-white">{picker?.kind === 'night' ? 'Договорка / ночь' : 'Раздача ролей'}</div></div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Музыка сейчас</div>
+              <div className="mt-1 text-sm font-semibold text-white">{picker?.kind === 'night' ? 'Договорка / ночь' : 'Раздача ролей'}</div>
+            </div>
             <button type="button" onClick={() => setPicker(null)} className="h-9 w-9 rounded-xl border border-white/10 text-white/45">×</button>
           </div>
           {pickerLoading ? <div className="py-5 text-center text-xs text-white/35">Собираем плейлист вечера…</div> : (
@@ -193,11 +243,11 @@ export default function JudgeGameMusicController() {
               <div className="mt-2 max-h-[42vh] space-y-1.5 overflow-y-auto pr-0.5">
                 {picker?.entries.map((entry) => (
                   <div key={entry.key} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 p-2">
-                    <button type="button" onClick={() => entry.source_type === 'upload' ? startLocal(entry.id, picker.kind) : startExternal(entry, picker.kind)} className="min-w-0 flex-1 text-left">
+                    <button type="button" onClick={() => entry.source_type === 'upload' ? startLocal(entry, picker.kind) : startExternal(entry, picker.kind)} className="min-w-0 flex-1 text-left">
                       <div className="truncate text-xs font-semibold text-white">{entry.title}</div>
                       <div className="mt-0.5 truncate text-[9px] text-white/30">{entry.source_type === 'yandex' ? 'Яндекс · ' : 'Файл · '}{contributorText(entry)}</div>
                     </button>
-                    <button type="button" onClick={() => void exclude(entry)} title="Не использовать сегодня" className="h-8 rounded-lg border border-white/10 px-2 text-[9px] text-white/35">убрать</button>
+                    {picker.eveningId !== '__test_game__' && <button type="button" onClick={() => void exclude(entry)} title="Не использовать сегодня" className="h-8 rounded-lg border border-white/10 px-2 text-[9px] text-white/35">убрать</button>}
                   </div>
                 ))}
               </div>
@@ -206,19 +256,33 @@ export default function JudgeGameMusicController() {
           )}
         </div>
       )}
-      {external && (
-        <div className="fixed bottom-3 left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[22px] border border-amber-200/15 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{external.title}</div><div className="text-[9px] text-white/30">Яндекс Музыка · {contributorText(external)}</div></div>
+
+      {active && !picker && (
+        <div className="fixed bottom-3 left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] rounded-[22px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Сейчас играет</div>
+              <div className="mt-1 truncate text-sm font-semibold text-white">{active.entry.title}</div>
+              <div className="mt-0.5 truncate text-[9px] text-white/35">
+                {active.entry.source_type === 'yandex' ? `Яндекс Музыка · ${contributorText(active.entry)}` : `Файл · ${contributorText(active.entry)}`}
+              </div>
+            </div>
             <button type="button" onClick={requestJudgeGameMusicStop} className="h-9 rounded-xl border border-white/10 px-3 text-[10px] text-white/45">Стоп</button>
           </div>
-          {external.embed_url ? <iframe title={external.title} src={external.embed_url} className="mt-2 h-[80px] w-full rounded-xl border-0" allow="autoplay" /> : <a href={external.source_url || '#'} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">Открыть в Яндекс Музыке ↗</a>}
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => void openEveningPicker(active.kind)} className="min-h-10 flex-1 rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Сменить трек</button>
+            {active.entry.source_type === 'upload' && (
+              <button type="button" onClick={() => void music.start(active.entry.id)} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] text-white/55">
+                {music.blocked ? 'Включить' : music.playing ? 'Играет' : 'Продолжить'}
+              </button>
+            )}
+          </div>
+          {active.entry.source_type === 'yandex' ? (
+            active.entry.embed_url ? <iframe title={active.entry.title} src={active.entry.embed_url} className="mt-2 h-[80px] w-full rounded-xl border-0" allow="autoplay" /> : <a href={active.entry.source_url || '#'} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">Открыть в Яндекс Музыке ↗</a>
+          ) : (
+            <div className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[10px] text-white/35">{music.blocked ? 'Браузер заблокировал автозапуск — нажмите «Включить».' : music.playing ? 'Воспроизведение продолжается.' : 'Трек остановлен.'}</div>
+          )}
         </div>
-      )}
-      {!picker && !external && music.blocked && wantedRef.current && music.tracks.length > 0 && (
-        <button type="button" onClick={() => void music.start(wantedTrackRef.current)} className="fixed bottom-24 right-3 z-[190] rounded-2xl border border-violet-300/25 bg-[#17131d]/95 px-4 py-3 text-left shadow-2xl backdrop-blur-xl">
-          <div className="text-xs font-black text-violet-100">♫ Включить музыку</div><div className="mt-0.5 text-[10px] text-violet-100/45">Браузер заблокировал запуск · нажмите один раз</div>
-        </button>
       )}
     </>
   );

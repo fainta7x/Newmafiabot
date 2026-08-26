@@ -108,7 +108,7 @@ GitHub CI remains the authoritative final gate and additionally runs Python synt
 - `src/server/` — Express routes/services/integrations.
 - `src/db/` — database wrapper, Turso adapter, schema/recovery logic.
 - `src/tests/` — Vitest coverage.
-- `e2e/` — isolated browser evidence/smoke tests.
+- `e2e/` — isolated browser evidence/smoke tests. See [`docs/TEST_PROFILES.md`](docs/TEST_PROFILES.md) for deterministic organizer/player fixtures.
 - `docs/` — canonical project guidance plus historical/reference material.
 
 Use `docs/FEATURE_MAP.md` and `docs/ARCHITECTURE.md` instead of guessing from filenames.

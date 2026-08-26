@@ -31,6 +31,8 @@ export default defineConfig({
       NODE_ENV: 'test',
       VITEST: '1',
       PLAYWRIGHT_E2E: '1',
+      // Enables only the isolated role fixtures used by E2E; never set in production.
+      E2E_TEST_MODE: '1',
       HOST: '127.0.0.1',
       PORT: '4173',
       DATABASE_PATH: './temp/playwright-e2e.sqlite',

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createApp } from './src/app.ts';
 import { getDb } from './src/db/index.ts';
+import developerReadRoutes from './src/server/routes/developerReadRoutes.ts';
 
 dotenv.config();
 
@@ -56,6 +57,14 @@ async function startServer() {
   const db = await getDb();
   console.log('[DATABASE] Database initialized.');
   const app = await createApp(db);
+
+  // Read-only technical access for bounded diagnostics/export. This route is
+  // intentionally mounted outside /api after createApp: production SPA/API
+  // catchalls are already installed there. POST avoids the SPA GET catchall.
+  app.use('/__developer-read', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  }, developerReadRoutes);
 
   const HOST = process.env.HOST || '0.0.0.0';
   const parsedPort = Number.parseInt(process.env.PORT || '3000', 10);

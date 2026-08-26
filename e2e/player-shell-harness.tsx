@@ -166,6 +166,8 @@ function Harness() {
         player={player}
         tokenBalance={100}
         active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null}
+        canOpenAdmin
+        onOpenAdmin={() => undefined}
         onOpenWallet={() => setSection('wallet')}
         onOpenProfile={() => setSection('profile')}
       />

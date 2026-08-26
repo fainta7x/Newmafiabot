@@ -4,6 +4,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 
 ## Player shell / navigation
 - Shell/router: `src/components/player/PlayerCabinetShell.tsx`.
+- Unified Player/Organizer mode switch: `src/components/ProductModeSwitch.tsx`; route-level wiring: `src/App.tsx` and `src/components/OrganizerCRM.tsx`.
 - Shared fixed chrome: `src/components/player/PlayerQuickAccessBar.tsx` (top wallet/profile access) and `src/components/player/PlayerBottomNavigation.tsx` (five-item primary navigation).
 - Navigation model: `src/components/player/playerCabinetNavigation.ts`; focused coverage: `src/tests/playerCabinetNavigation.test.ts`.
 - Primary screen hubs: `PlayerHomeDashboard.tsx`, `PlayerGamesHub.tsx`, `PlayerRatingHub.tsx`, `PlayerClubHub.tsx`.
@@ -46,7 +47,7 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 
 ## Organizer CRM
 - Shell: `src/components/OrganizerCRM.tsx`.
-- Routing/path model: `src/components/crm/organizerRouting.ts`; focused coverage: `src/tests/organizerRouting.test.ts`.
+- Routing/path model, including addressable `Ещё` tools: `src/components/crm/organizerRouting.ts`; focused coverage: `src/tests/organizerRouting.test.ts`.
 - Auth + shared overview/evenings/players snapshot + resume refresh: `src/components/crm/useOrganizerCrmSession.ts`; boundary guard: `src/tests/organizerSessionStructure.test.ts`.
 - UI: `src/components/crm/CRMOverview.tsx`, `EveningsList.tsx`, `EveningWorkspace.tsx`, `PlayersCRM.tsx`, `TasksCRM.tsx`, `AnalyticsCRM.tsx`, `MoreCRM.tsx`.
 - API: `crmRoutes.ts`, `tasksRoutes.ts`, `analyticsRoutes.ts`, `adminDataRoutes.ts`.

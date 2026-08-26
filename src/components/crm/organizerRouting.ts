@@ -2,12 +2,14 @@ import type { OrganizerPrimaryTab } from '../../lib/organizerUx.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 export type OrganizerMainTab = OrganizerPrimaryTab | 'tasks' | 'analytics';
+export type OrganizerMoreScreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music';
 
 export type OrganizerRouteState = {
   tab: OrganizerMainTab;
   eveningId: string | null;
   eveningSection: EveningSection;
   playerId: string | null;
+  moreScreen: OrganizerMoreScreen | null;
 };
 
 export type OrganizerPlayerReturnContext = {
@@ -18,6 +20,15 @@ export type OrganizerPlayerReturnContext = {
 } | null;
 
 const EVENING_SECTIONS = new Set<EveningSection>(['overview', 'participants', 'tables', 'games']);
+const MORE_SCREENS = new Set<OrganizerMoreScreen>(['data', 'betting', 'commerce', 'telegram', 'system', 'developer', 'music']);
+
+const rootRoute = (tab: OrganizerMainTab = 'overview'): OrganizerRouteState => ({
+  tab,
+  eveningId: null,
+  eveningSection: 'overview',
+  playerId: null,
+  moreScreen: null,
+});
 
 const safeDecode = (value: string | undefined): string | null => {
   if (!value) return null;
@@ -31,7 +42,7 @@ const safeDecode = (value: string | undefined): string | null => {
 export const parseOrganizerRoute = (pathname: string): OrganizerRouteState => {
   const parts = pathname.split('/').filter(Boolean);
   if (parts[0] !== 'admin') {
-    return { tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null };
+    return rootRoute();
   }
 
   if (parts[1] === 'evenings') {
@@ -39,7 +50,7 @@ export const parseOrganizerRoute = (pathname: string): OrganizerRouteState => {
     const section = EVENING_SECTIONS.has(parts[3] as EveningSection)
       ? parts[3] as EveningSection
       : 'overview';
-    return { tab: 'evenings', eveningId, eveningSection: section, playerId: null };
+    return { ...rootRoute('evenings'), eveningId, eveningSection: section };
   }
 
   if (parts[1] === 'players') {
@@ -48,22 +59,26 @@ export const parseOrganizerRoute = (pathname: string): OrganizerRouteState => {
       eveningId: null,
       eveningSection: 'overview',
       playerId: safeDecode(parts[2]),
+      moreScreen: null,
     };
   }
 
   if (parts[1] === 'tasks') {
-    return { tab: 'tasks', eveningId: null, eveningSection: 'overview', playerId: null };
+    return rootRoute('tasks');
   }
 
   if (parts[1] === 'analytics') {
-    return { tab: 'analytics', eveningId: null, eveningSection: 'overview', playerId: null };
+    return rootRoute('analytics');
   }
 
   if (parts[1] === 'more') {
-    return { tab: 'more', eveningId: null, eveningSection: 'overview', playerId: null };
+    const moreScreen = MORE_SCREENS.has(parts[2] as OrganizerMoreScreen)
+      ? parts[2] as OrganizerMoreScreen
+      : null;
+    return { ...rootRoute('more'), moreScreen };
   }
 
-  return { tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null };
+  return rootRoute();
 };
 
 export const organizerTabPath = (tab: OrganizerMainTab): string => {
@@ -81,6 +96,10 @@ export const organizerEveningPath = (eveningId: string, section: EveningSection 
 };
 
 export const organizerPlayerPath = (playerId: string): string => `/admin/players/${encodeURIComponent(playerId)}`;
+
+export const organizerMorePath = (screen?: OrganizerMoreScreen | null): string => screen
+  ? `/admin/more/${screen}`
+  : '/admin/more';
 
 export const routePathForReturnContext = (context: NonNullable<OrganizerPlayerReturnContext>): string => {
   if (context.tab === 'evenings' && context.eveningId) {

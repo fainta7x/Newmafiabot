@@ -106,6 +106,14 @@ Durable mobile rules:
 - preserving functionality does not require giving every function equal visual weight;
 - do not remove advanced functionality merely to simplify the first mobile screen; move it behind a clear secondary disclosure instead.
 
+## Unified mode navigation
+
+- Player Cabinet and Organizer CRM are modes of one product and use one shared bidirectional switch in the top chrome.
+- An authorized organizer can reach `Управление` from any Player Cabinet section and return to `Кабинет` from any CRM screen.
+- The mode switch is not a sixth Player Cabinet bottom tab and does not replace logout.
+- On mobile the CRM top chrome remains visible, width-bounded and secondary to the active work surface.
+- Labels describe the destination (`Управление` / `Кабинет`); icon-only mode switching is not allowed.
+
 ## Live Game contract
 
 Live Game uses the same product language but optimizes for judge speed.

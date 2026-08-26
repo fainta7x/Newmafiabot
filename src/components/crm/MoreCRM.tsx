@@ -25,6 +25,7 @@ import { TelegramCRM } from './TelegramCRM.tsx';
 import { SystemStatusCard } from './SystemStatusCard.tsx';
 import { MusicLibraryCRM } from './MusicLibraryCRM.tsx';
 import type { GameEvening } from '../../lib/api.ts';
+import type { OrganizerMoreScreen } from './organizerRouting.ts';
 
 interface MoreCRMProps {
   onOpenTasks: () => void;
@@ -33,9 +34,11 @@ interface MoreCRMProps {
   onOpenGameEngine?: () => void;
   evenings?: GameEvening[];
   onLogout: () => void | Promise<void>;
+  activeScreen?: OrganizerMoreScreen | null;
+  onScreenChange?: (screen: OrganizerMoreScreen | null) => void;
 }
 
-type Subscreen = 'data' | 'betting' | 'commerce' | 'telegram' | 'system' | 'developer' | 'music' | null;
+type Subscreen = OrganizerMoreScreen | null;
 
 type MenuItem = {
   id: string;
@@ -90,9 +93,16 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenGameEngine,
   evenings = [],
   onLogout,
+  activeScreen,
+  onScreenChange,
 }) => {
-  const [subscreen, setSubscreen] = useState<Subscreen>(null);
   const [serviceOpen, setServiceOpen] = useState(false);
+  const [localSubscreen, setLocalSubscreen] = useState<Subscreen>(null);
+  const subscreen = activeScreen === undefined ? localSubscreen : activeScreen;
+  const setSubscreen = (screen: Subscreen) => {
+    if (activeScreen === undefined) setLocalSubscreen(screen);
+    onScreenChange?.(screen);
+  };
 
   if (subscreen) {
     return (

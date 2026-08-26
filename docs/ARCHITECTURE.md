@@ -28,6 +28,24 @@ Typical integration flow:
 - `src/lib/api.ts` — main client API facade/shared types.
 - `src/types/` — shared data shapes.
 
+### Unified product shell and entity ownership
+
+Player Cabinet and Organizer CRM are two role-based modes of one product, not independent applications. `src/App.tsx` owns the route-level transition between `/player/*` and `/admin/*`; `src/components/ProductModeSwitch.tsx` is the shared bidirectional mode control. The switch changes working context but does not log the user out or weaken either mode's permission checks.
+
+Each editable product fact must have one canonical owner. A secondary surface may summarize the fact or link to its owner, but must not grow a competing form or separate save model.
+
+| Entity or action | Canonical owner |
+| --- | --- |
+| Player's own identity, avatar and personal preferences | Player profile |
+| Club roster record, access and organizer notes | CRM `Игроки` |
+| Player's personal music slots | Player profile music |
+| Staff music library and event music pool | CRM music center |
+| Live playback, pause and collapse state | Live Game music controller |
+| Player registration/response to an event | Player event view |
+| Event composition, tables, tasks and close-out | CRM event workspace |
+
+When consolidating an existing duplicate, preserve role access first, then replace secondary editors with links or contextual summaries. Do not silently remove host/judge capabilities while moving an organizer-owned screen.
+
 ## 3. Player application
 
 Primary shell:
@@ -71,7 +89,7 @@ Main organizer URLs:
 - `/admin/players` and `/admin/players/:id`;
 - `/admin/tasks`;
 - `/admin/analytics`;
-- `/admin/more`.
+- `/admin/more` and addressable tools under `/admin/more/:tool`.
 
 ## 5. Live Game
 

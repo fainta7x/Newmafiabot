@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   organizerEveningPath,
+  organizerMorePath,
   organizerPlayerPath,
   organizerTabPath,
   parseOrganizerRoute,
@@ -9,11 +10,13 @@ import {
 
 describe('organizer routing model', () => {
   it('parses organizer roots and secondary sections', () => {
-    expect(parseOrganizerRoute('/admin')).toEqual({ tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null });
+    expect(parseOrganizerRoute('/admin')).toEqual({ tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });
     expect(parseOrganizerRoute('/admin/tasks').tab).toBe('tasks');
     expect(parseOrganizerRoute('/admin/analytics').tab).toBe('analytics');
     expect(parseOrganizerRoute('/admin/more').tab).toBe('more');
-    expect(parseOrganizerRoute('/outside')).toEqual({ tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null });
+    expect(parseOrganizerRoute('/admin/more/music').moreScreen).toBe('music');
+    expect(parseOrganizerRoute('/admin/more/not-real').moreScreen).toBeNull();
+    expect(parseOrganizerRoute('/outside')).toEqual({ tab: 'overview', eveningId: null, eveningSection: 'overview', playerId: null, moreScreen: null });
   });
 
   it('decodes evening and player identifiers and validates evening sections', () => {
@@ -22,6 +25,7 @@ describe('organizer routing model', () => {
       eveningId: 'Friday Night',
       eveningSection: 'participants',
       playerId: null,
+      moreScreen: null,
     });
     expect(parseOrganizerRoute('/admin/evenings/abc/not-a-section').eveningSection).toBe('overview');
     expect(parseOrganizerRoute('/admin/players/%D0%A7%D0%B0%D0%B3%D0%B8%D0%BD').playerId).toBe('Чагин');
@@ -31,6 +35,8 @@ describe('organizer routing model', () => {
     expect(organizerTabPath('overview')).toBe('/admin');
     expect(organizerTabPath('tasks')).toBe('/admin/tasks');
     expect(organizerTabPath('more')).toBe('/admin/more');
+    expect(organizerMorePath('music')).toBe('/admin/more/music');
+    expect(organizerMorePath(null)).toBe('/admin/more');
     expect(organizerEveningPath('Friday Night')).toBe('/admin/evenings/Friday%20Night');
     expect(organizerEveningPath('Friday Night', 'games')).toBe('/admin/evenings/Friday%20Night/games');
     expect(organizerPlayerPath('Игрок 1')).toBe('/admin/players/%D0%98%D0%B3%D1%80%D0%BE%D0%BA%201');

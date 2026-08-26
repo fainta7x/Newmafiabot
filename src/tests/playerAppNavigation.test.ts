@@ -20,4 +20,8 @@ describe('player app navigation', () => {
     expect(appBackTarget('/player/career')).toBe('/player/games');
     expect(appBackTarget('/player/elo')).toBe('/player/rating');
   });
+
+  it('returns nested CRM tools to the More hub', () => {
+    expect(appBackTarget('/admin/more/music')).toBe('/admin/more');
+  });
 });

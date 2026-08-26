@@ -102,6 +102,11 @@ test.describe('Canonical player-cabinet visual shell', () => {
     );
     expect(quickHeights).toEqual([40, 40]);
 
+    const modeSwitch = page.getByTestId('product-mode-switch-player');
+    await expectInsideViewport(page, modeSwitch, 'player to organizer switch');
+    await expect(modeSwitch).toContainText('Управление');
+    expect(await modeSwitch.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+
     const card = page.getByTestId('canonical-card');
     const cardTreatment = await card.evaluate((element) => {
       const style = getComputedStyle(element);

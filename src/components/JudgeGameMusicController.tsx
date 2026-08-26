@@ -90,6 +90,7 @@ export default function JudgeGameMusicController() {
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [active, setActive] = useState<{ entry: PoolEntry; kind: MusicStartKind } | null>(null);
+  const [playerCollapsed, setPlayerCollapsed] = useState(true);
 
   useEffect(() => {
     recoverInterruptedTestGameSandbox();
@@ -113,6 +114,7 @@ export default function JudgeGameMusicController() {
     const entry = typeof entryOrTrackId === 'string' ? findLocalEntry(entryOrTrackId) : entryOrTrackId;
     if (!entry) return;
     setActive({ entry, kind });
+    setPlayerCollapsed(true);
     setPicker(null);
     manualRef.current = true;
     manualTrackRef.current = entry.id;
@@ -126,6 +128,7 @@ export default function JudgeGameMusicController() {
     music.stop();
     setPicker(null);
     setActive({ entry, kind });
+    setPlayerCollapsed(true);
     manualRef.current = true;
     manualTrackRef.current = undefined;
     wantedRef.current = false;
@@ -281,36 +284,52 @@ export default function JudgeGameMusicController() {
       )}
 
       {active && !picker && (
-        <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[22px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Сейчас играет</div>
-              <div className="mt-1 truncate text-sm font-semibold text-white">{active.entry.title}</div>
-              <div className="mt-0.5 truncate text-[9px] text-white/35">
+        <div data-testid="judge-music-player" className={`fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-[194] w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[22px] border border-violet-300/20 bg-[#111218]/98 shadow-2xl backdrop-blur-xl ${playerCollapsed ? 'max-w-[390px] p-2' : 'max-w-[390px] p-3'}`}>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPlayerCollapsed((current) => !current)}
+              aria-expanded={!playerCollapsed}
+              aria-label={playerCollapsed ? 'Развернуть музыкальный плеер' : 'Свернуть музыкальный плеер'}
+              data-testid="judge-music-player-toggle"
+              className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-xl px-1 text-left"
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-300/[0.1] text-xs text-violet-100/75">♫</span>
+              <span className="min-w-0">
+                <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-100/45">Сейчас играет</span>
+                <span className="mt-0.5 block truncate text-xs font-semibold text-white">{active.entry.title}</span>
+              </span>
+              <span className="ml-auto shrink-0 text-[10px] text-white/35">{playerCollapsed ? 'развернуть' : 'свернуть'}</span>
+            </button>
+            <button type="button" onClick={requestJudgeGameMusicStop} className="min-h-10 shrink-0 rounded-xl border border-white/10 px-3 text-[10px] text-white/45">Стоп</button>
+          </div>
+
+          {!playerCollapsed && (
+            <>
+              <div className="mt-1 truncate px-1 text-[9px] text-white/35">
                 {active.entry.source_type === 'yandex' ? `Яндекс Музыка · ${contributorText(active.entry)}` : `Файл · ${contributorText(active.entry)}`}
               </div>
-            </div>
-            <button type="button" onClick={requestJudgeGameMusicStop} className="h-9 rounded-xl border border-white/10 px-3 text-[10px] text-white/45">Стоп</button>
-          </div>
-          <div className="mt-2 flex gap-2">
-            <button type="button" onClick={() => void openEveningPicker(active.kind)} className="min-h-10 flex-1 rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Сменить трек</button>
-            {active.entry.source_type === 'upload' && (
-              <button type="button" onClick={() => void music.start(active.entry.id)} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] text-white/55">
-                {music.blocked ? 'Включить' : music.playing ? 'Играет' : 'Продолжить'}
-              </button>
-            )}
-          </div>
-          {active.entry.source_type === 'yandex' ? (
-            <div className="mt-2">
-              <div className="rounded-xl bg-amber-200/[0.08] px-3 py-2 text-[10px] leading-4 text-amber-100/65">
-                Полная версия открывается в Яндекс Музыке. После прослушивания вернитесь сюда кнопкой «Назад».
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => void openEveningPicker(active.kind)} className="min-h-10 flex-1 rounded-xl bg-white px-3 text-[10px] font-semibold text-black">Сменить трек</button>
+                {active.entry.source_type === 'upload' && (
+                  <button type="button" onClick={() => void music.start(active.entry.id)} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] text-white/55">
+                    {music.blocked ? 'Включить' : music.playing ? 'Играет' : 'Продолжить'}
+                  </button>
+                )}
               </div>
-              <button type="button" onClick={() => openExternalMusicUrl(active.entry.source_url || '')} data-testid="open-yandex-full-track" className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">
-                Открыть полный трек в Яндекс Музыке ↗
-              </button>
-            </div>
-          ) : (
-            <div className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[10px] text-white/35">{music.blocked ? 'Браузер заблокировал автозапуск — нажмите «Включить».' : music.playing ? 'Воспроизведение продолжается.' : 'Трек остановлен.'}</div>
+              {active.entry.source_type === 'yandex' ? (
+                <div className="mt-2">
+                  <div className="rounded-xl bg-amber-200/[0.08] px-3 py-2 text-[10px] leading-4 text-amber-100/65">
+                    Полная версия открывается в Яндекс Музыке. После прослушивания вернитесь сюда кнопкой «Назад».
+                  </div>
+                  <button type="button" onClick={() => openExternalMusicUrl(active.entry.source_url || '')} data-testid="open-yandex-full-track" className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">
+                    Открыть полный трек в Яндекс Музыке ↗
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[10px] text-white/35">{music.blocked ? 'Браузер заблокировал автозапуск — нажмите «Включить».' : music.playing ? 'Воспроизведение продолжается.' : 'Трек остановлен.'}</div>
+              )}
+            </>
           )}
         </div>
       )}

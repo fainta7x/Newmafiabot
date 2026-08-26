@@ -41,12 +41,10 @@ const clearManualState = () => { try { sessionStorage.removeItem(MANUAL_STATE_KE
 export const requestJudgeGameMusicStart = (trackId?: string) => window.dispatchEvent(
   new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { trackId, kind: 'manual' } }),
 );
-
 export const requestJudgeNightMusicStart = () => {
   window.dispatchEvent(new CustomEvent<MusicStartDetail>(START_EVENT, { detail: { kind: 'night' } }));
   return true;
 };
-
 export const requestJudgeGameMusicStop = () => window.dispatchEvent(new CustomEvent(STOP_EVENT));
 
 const contributorText = (entry: PoolEntry) => {
@@ -54,6 +52,21 @@ const contributorText = (entry: PoolEntry) => {
   if (organizer) return 'База ведущего';
   const names = entry.contributors.map((item) => item.nickname).filter(Boolean);
   return names.length ? `От ${names.join(', ')}` : 'Игрок вечера';
+};
+
+const resolveEveningId = async (): Promise<string> => {
+  const stored = sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
+  if (stored) return stored;
+  try {
+    const response = await fetch('/api/evenings', { credentials: 'include' });
+    if (!response.ok) return '';
+    const rows = await response.json().catch(() => []);
+    if (!Array.isArray(rows)) return '';
+    const active = rows.find((row: any) => row?.status === 'active');
+    const resolved = String(active?.id || '');
+    if (resolved) sessionStorage.setItem(MUSIC_EVENING_CONTEXT_KEY, resolved);
+    return resolved;
+  } catch { return ''; }
 };
 
 export default function JudgeGameMusicController() {
@@ -79,82 +92,59 @@ export default function JudgeGameMusicController() {
   }, []);
 
   const startLocal = (trackId: string, kind: MusicStartKind) => {
-    setExternal(null);
-    setPicker(null);
-    manualRef.current = true;
-    manualTrackRef.current = trackId;
-    wantedRef.current = true;
-    wantedTrackRef.current = trackId;
+    setExternal(null); setPicker(null);
+    manualRef.current = true; manualTrackRef.current = trackId;
+    wantedRef.current = true; wantedTrackRef.current = trackId;
     storeManualState({ trackId, kind });
     void music.start(trackId);
   };
 
   const startExternal = (entry: PoolEntry, kind: MusicStartKind) => {
-    music.stop();
-    setPicker(null);
-    setExternal(entry);
-    manualRef.current = true;
-    manualTrackRef.current = undefined;
-    wantedRef.current = false;
-    wantedTrackRef.current = undefined;
+    music.stop(); setPicker(null); setExternal(entry);
+    manualRef.current = true; manualTrackRef.current = undefined;
+    wantedRef.current = false; wantedTrackRef.current = undefined;
     storeManualState({ kind });
   };
 
   const openEveningPicker = async (kind: MusicStartKind) => {
-    const eveningId = sessionStorage.getItem(MUSIC_EVENING_CONTEXT_KEY) || '';
+    setPickerLoading(true);
+    setPickerError(null);
+    const eveningId = await resolveEveningId();
     if (!eveningId) {
-      // Test/legacy game without evening context: keep the old reliable local-audio fallback.
-      manualRef.current = true;
-      wantedRef.current = true;
-      storeManualState({ kind });
+      setPickerLoading(false);
+      // Test/legacy game without an active evening: preserve the old local-audio fallback.
+      manualRef.current = true; wantedRef.current = true; storeManualState({ kind });
       void music.start();
       return;
     }
-    setPickerLoading(true);
-    setPickerError(null);
     try {
       const response = await fetch(`/api/player/music-library/evenings/${encodeURIComponent(eveningId)}/pool`, { credentials: 'include' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось собрать музыку вечера.');
       const entries = (body.pool || []).filter((entry: PoolEntry) => !entry.excluded);
-      if (!entries.length) {
-        setPickerError('Плейлист вечера пуст. Добавьте музыку в базу ведущего или в профили присутствующих игроков.');
-      }
+      if (!entries.length) setPickerError('Плейлист вечера пуст. Добавьте музыку в базу ведущего или в профили присутствующих игроков.');
       setPicker({ kind, entries, eveningId });
     } catch (error: any) {
       setPickerError(error?.message || 'Не удалось загрузить музыку вечера.');
       setPicker({ kind, entries: [], eveningId });
-    } finally {
-      setPickerLoading(false);
-    }
+    } finally { setPickerLoading(false); }
   };
 
   useEffect(() => {
     const start = (event: Event) => {
       const detail = (event as CustomEvent<MusicStartDetail>).detail || {};
       const kind = detail.kind === 'night' ? 'night' : 'manual';
-      if (detail.trackId) {
-        startLocal(detail.trackId, kind);
-        return;
-      }
-      void openEveningPicker(kind);
+      if (detail.trackId) startLocal(detail.trackId, kind);
+      else void openEveningPicker(kind);
     };
     const stop = () => {
-      manualRef.current = false;
-      manualTrackRef.current = undefined;
-      wantedRef.current = false;
-      wantedTrackRef.current = undefined;
-      clearManualState();
-      setPicker(null);
-      setExternal(null);
-      music.stop();
+      manualRef.current = false; manualTrackRef.current = undefined;
+      wantedRef.current = false; wantedTrackRef.current = undefined;
+      clearManualState(); setPicker(null); setExternal(null); music.stop();
     };
     window.addEventListener(START_EVENT, start);
     window.addEventListener(STOP_EVENT, stop);
-    return () => {
-      window.removeEventListener(START_EVENT, start);
-      window.removeEventListener(STOP_EVENT, stop);
-    };
+    return () => { window.removeEventListener(START_EVENT, start); window.removeEventListener(STOP_EVENT, stop); };
   }, [music.start, music.stop]);
 
   useEffect(() => {
@@ -162,8 +152,7 @@ export default function JudgeGameMusicController() {
       if (external) return;
       const shouldPlay = manualRef.current && Boolean(manualTrackRef.current);
       const desiredTrack = manualTrackRef.current;
-      wantedRef.current = shouldPlay;
-      wantedTrackRef.current = desiredTrack;
+      wantedRef.current = shouldPlay; wantedTrackRef.current = desiredTrack;
       if (shouldPlay && music.tracks.length && !music.blocked) void music.start(desiredTrack);
     };
     sync();
@@ -177,9 +166,7 @@ export default function JudgeGameMusicController() {
     if (!picker) return;
     try {
       await fetch(`/api/player/music-library/evenings/${encodeURIComponent(picker.eveningId)}/exclusion`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entry_key: entry.key, excluded: true }),
       });
       setPicker((current) => current ? { ...current, entries: current.entries.filter((item) => item.key !== entry.key) } : current);
@@ -198,10 +185,7 @@ export default function JudgeGameMusicController() {
       {(picker || pickerLoading) && (
         <div className="fixed bottom-3 left-1/2 z-[195] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[24px] border border-violet-300/20 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Музыка сейчас</div>
-              <div className="mt-1 text-sm font-semibold text-white">{picker?.kind === 'night' ? 'Договорка / ночь' : 'Раздача ролей'}</div>
-            </div>
+            <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-100/45">Музыка сейчас</div><div className="mt-1 text-sm font-semibold text-white">{picker?.kind === 'night' ? 'Договорка / ночь' : 'Раздача ролей'}</div></div>
             <button type="button" onClick={() => setPicker(null)} className="h-9 w-9 rounded-xl border border-white/10 text-white/45">×</button>
           </div>
           {pickerLoading ? <div className="py-5 text-center text-xs text-white/35">Собираем плейлист вечера…</div> : (
@@ -224,25 +208,18 @@ export default function JudgeGameMusicController() {
           )}
         </div>
       )}
-
       {external && (
         <div className="fixed bottom-3 left-1/2 z-[194] w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 rounded-[22px] border border-amber-200/15 bg-[#111218]/98 p-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{external.title}</div><div className="text-[9px] text-white/30">Яндекс Музыка · {contributorText(external)}</div></div>
             <button type="button" onClick={requestJudgeGameMusicStop} className="h-9 rounded-xl border border-white/10 px-3 text-[10px] text-white/45">Стоп</button>
           </div>
-          {external.embed_url ? (
-            <iframe title={external.title} src={external.embed_url} className="mt-2 h-[80px] w-full rounded-xl border-0" allow="autoplay" />
-          ) : (
-            <a href={external.source_url || '#'} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">Открыть в Яндекс Музыке ↗</a>
-          )}
+          {external.embed_url ? <iframe title={external.title} src={external.embed_url} className="mt-2 h-[80px] w-full rounded-xl border-0" allow="autoplay" /> : <a href={external.source_url || '#'} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center rounded-xl bg-amber-200 text-xs font-semibold text-black">Открыть в Яндекс Музыке ↗</a>}
         </div>
       )}
-
       {!picker && !external && music.blocked && wantedRef.current && music.tracks.length > 0 && (
         <button type="button" onClick={() => void music.start(wantedTrackRef.current)} className="fixed bottom-24 right-3 z-[190] rounded-2xl border border-violet-300/25 bg-[#17131d]/95 px-4 py-3 text-left shadow-2xl backdrop-blur-xl">
-          <div className="text-xs font-black text-violet-100">♫ Включить музыку</div>
-          <div className="mt-0.5 text-[10px] text-violet-100/45">Браузер заблокировал запуск · нажмите один раз</div>
+          <div className="text-xs font-black text-violet-100">♫ Включить музыку</div><div className="mt-0.5 text-[10px] text-violet-100/45">Браузер заблокировал запуск · нажмите один раз</div>
         </button>
       )}
     </>

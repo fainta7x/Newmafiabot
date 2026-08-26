@@ -14,7 +14,8 @@ For every new chat/session that touches the repository:
 6. Read `docs/ARCHITECTURE.md` only when the task spans subsystems or ownership is unclear.
 7. Read `docs/BUSINESS_RULES.md` before changing Mafia/game/product behavior.
 8. Read `docs/RUNBOOK.md` for CI, deployment, database, recovery or integration work.
-9. When a local checkout is available, run `npm run project:status`; use `--check --json` for machine-readable verification.
+9. Before reading any binary/compressed/database/Base64 artifact, read `docs/BINARY_ARTIFACT_SAFETY.md` and use a byte-safe local/materialized path instead of injecting the payload into chat/model context.
+10. When a local checkout is available, run `npm run project:status`; use `--check --json` for machine-readable verification.
 
 Do **not** rebuild project context primarily from old chat history. Old chats and historical roadmaps are secondary evidence only.
 
@@ -104,7 +105,7 @@ Canonical repository checkpoint files:
 - `mafia_crm.checkpoint.sqlite.gz.b64`
 - `mafia_crm.checkpoint.meta.json`
 
-Use only guarded checkpoint commands documented in `docs/RUNBOOK.md`.
+Use only guarded checkpoint commands documented in `docs/RUNBOOK.md`. For read-only inspection of these or any other binary artifacts, also follow `docs/BINARY_ARTIFACT_SAFETY.md`.
 
 ## 8. Documentation maintenance — required
 

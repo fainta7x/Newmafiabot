@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Play, RefreshCw, Settings2 } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
-import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
+import EveningAnnouncementSettings from './EveningAnnouncementSettings.tsx';
 import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 
 interface EveningOverviewViewProps {
@@ -99,13 +99,13 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-text-secondary"><Settings2 className="h-4 w-4" /></span>
             <span className="min-w-0">
               <strong className="block text-[12px] text-text-primary">Настройки анонса и рассылки</strong>
-              <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Telegram, VK, публикация и повторная рассылка. Обычно сюда заходить не нужно.</span>
+              <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Telegram и VK. Обычно сюда заходить не нужно после публикации.</span>
             </span>
           </span>
           {showAnnouncementSettings ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
         </button>
         {showAnnouncementSettings ? <div className="border-t border-border-soft p-3">
-          <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} />
+          <EveningAnnouncementSettings eveningId={eveningId} status={evening.status} readonly={readonly} />
         </div> : null}
       </section>
     </div>

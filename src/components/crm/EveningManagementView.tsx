@@ -4,6 +4,7 @@ import EveningActiveRosterView from './EveningActiveRosterView.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import EveningCloseoutPanel from './EveningCloseoutPanel.tsx';
+import EveningOrganizerAssignment from './EveningOrganizerAssignment.tsx';
 
 interface EveningManagementViewProps {
   eveningId: string;
@@ -63,6 +64,8 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
           </div>
         </div>
       </section>
+
+      <EveningOrganizerAssignment eveningId={eveningId} />
 
       <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5">
         {panes.map((item) => {

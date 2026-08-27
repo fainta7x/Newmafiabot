@@ -173,10 +173,7 @@ export default function OrganizerCommandCenter({
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-success">{snapshot.stats.present}</div><div className="text-[8px] text-text-muted">пришли</div></button>
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'games')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.completed_games}<span className="text-[9px] text-text-muted">/{snapshot.stats.games}</span></div><div className="text-[8px] text-text-muted">игры</div></button>
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className={`text-[18px] font-black ${snapshot.blockers.length ? 'text-warning' : 'text-success'}`}>{snapshot.blockers.reduce((sum, row) => sum + row.count, 0)}</div><div className="text-[8px] text-text-muted">к закрытию</div></button>
-          </div> : <div className="mt-4 grid grid-cols-2 gap-1.5 text-center">
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-2 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">планируют прийти</div></button>
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="rounded-[13px] bg-surface-2 px-2 py-2.5"><div className={`text-[18px] font-black ${communicationAttention.length ? 'text-warning' : 'text-success'}`}>{communicationAttention.length}</div><div className="text-[8px] text-text-muted">по коммуникации</div></button>
-          </div>}
+          </div> : <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="mt-4 w-full rounded-[13px] bg-surface-2 px-3 py-2.5 text-center"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">планируют прийти</div></button>}
         </div>
       </section>
 

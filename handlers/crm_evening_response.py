@@ -2,9 +2,11 @@ from datetime import datetime
 
 import aiohttp
 from aiogram import Bot, F, Router
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
+import bot_menu
 import config
 import database
 from bot_api import submit_evening_response
@@ -15,10 +17,10 @@ from handlers.crm_group_stats import refresh_crm_group_stats
 router = Router()
 
 _STATUS_LABELS = {
-    "going": "Иду",
+    "going": "Буду",
     "late": "Приду позже",
     "thinking": "Пока думаю",
-    "declined": "Не иду",
+    "declined": "Не буду",
 }
 
 
@@ -26,6 +28,14 @@ def _parse_starts_at(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (TypeError, ValueError):
+        return None
+
+
+def _event_url(evening_id: str) -> str | None:
+    markup = bot_menu.event_inline_keyboard(evening_id)
+    try:
+        return markup.inline_keyboard[0][0].url
+    except (AttributeError, IndexError, TypeError):
         return None
 
 
@@ -139,7 +149,7 @@ async def send_crm_evening_self_test(message: Message):
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=crm_evening_response_kb(evening_id),
+        reply_markup=crm_evening_response_kb(evening_id, event_url=_event_url(evening_id)),
     )
 
 
@@ -164,9 +174,15 @@ async def handle_crm_evening_response(callback: CallbackQuery, bot: Bot):
     if result.get("success"):
         await callback.answer(f"✅ {_STATUS_LABELS[response_status]}", show_alert=False)
         try:
-            if callback.message:
+            # A group announcement is shared by everyone, so never paint one person's
+            # selected state onto the group's keyboard. Private invitations can show it.
+            if callback.message and callback.message.chat.type == ChatType.PRIVATE:
                 await callback.message.edit_reply_markup(
-                    reply_markup=crm_evening_response_kb(evening_id, response_status)
+                    reply_markup=crm_evening_response_kb(
+                        evening_id,
+                        response_status,
+                        event_url=_event_url(evening_id),
+                    )
                 )
         except Exception as exc:
             print(f"[CRM RSVP] Response saved, but selected button state was not updated: {exc}")

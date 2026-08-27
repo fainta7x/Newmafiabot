@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GameEvening } from '../../lib/api.ts';
-import JudgeMusicPlaylist from '../player/JudgeMusicPlaylist.tsx';
 
 type PoolEntry = {
   key: string;
@@ -26,7 +25,7 @@ const contributorText = (entry: PoolEntry) => {
   return names.length ? names.join(', ') : 'Игроки вечера';
 };
 
-export function MusicLibraryCRM({ evenings }: { evenings: GameEvening[] }) {
+export function MusicLibraryCRM({ evenings, onOpenLibrary }: { evenings: GameEvening[]; onOpenLibrary: () => void }) {
   const initialEvening = useMemo(
     () => evenings.find((item) => item.status === 'active') || evenings.find((item) => item.status === 'published') || evenings[0] || null,
     [evenings],
@@ -68,10 +67,9 @@ export function MusicLibraryCRM({ evenings }: { evenings: GameEvening[] }) {
       <section className="rounded-3xl border border-violet-300/15 bg-gradient-to-b from-violet-300/[0.07] to-white/[0.025] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/45">CRM · Музыка</div>
         <h2 className="mt-2 text-xl font-semibold text-white">Музыкальная база</h2>
-        <p className="mt-1 text-xs leading-5 text-white/40">Здесь живёт постоянная база ведущего. Ниже можно отдельно посмотреть, какой пул соберётся для выбранного вечера.</p>
+        <p className="mt-1 text-xs leading-5 text-white/40">Постоянная база редактируется в едином разделе «Ведение». Здесь CRM показывает только контекст выбранного вечера.</p>
+        <button type="button" onClick={onOpenLibrary} className="mt-4 min-h-11 w-full rounded-xl bg-violet-100 px-3 text-xs font-semibold text-[#15121b]">Открыть базу ведущего</button>
       </section>
-
-      <JudgeMusicPlaylist />
 
       <section className="rounded-3xl border border-sky-300/15 bg-gradient-to-b from-sky-300/[0.06] to-white/[0.025] p-4">
         <div className="flex items-start justify-between gap-3">

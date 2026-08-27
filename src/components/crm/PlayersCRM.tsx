@@ -35,9 +35,11 @@ import { preparePlayerAvatar } from '../../lib/playerAvatarImage.ts';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
+import PlayerIdentityFields from '../player/PlayerIdentityFields.tsx';
 import { PlayerAccessSettings } from './PlayerAccessSettings.tsx';
 import { PlayerGameCard } from './PlayerGameCard.tsx';
 import { PlayerProfileContent } from './PlayerProfileContent.tsx';
+import PlayerServiceTools from './PlayerServiceTools.tsx';
 
 interface PlayersCRMProps {
   evenings: GameEvening[];
@@ -592,8 +594,13 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
-              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><Award className="h-4 w-4 text-warning" /> Турнирные места и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><Award className="h-4 w-4 text-warning" /> Игровой профиль и награды <ChevronDown className="ml-auto h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /></summary>
               <div className="border-t border-border-soft p-3"><PlayerProfileContent player={playerDetails} /></div>
+            </details>
+
+            <details className="group rounded-[17px] border border-border-soft bg-surface-1">
+              <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-semibold text-text-primary"><ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" /> Финансы и служебные настройки</summary>
+              <div className="border-t border-border-soft p-3"><PlayerServiceTools player={playerDetails} /></div>
             </details>
 
             <details className="group rounded-[17px] border border-border-soft bg-surface-1">
@@ -639,7 +646,27 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
       </MobileSheet>
 
       <MobileSheet open={showEditSheet} onClose={() => setShowEditSheet(false)} title="Редактировать игрока" widthClass="sm:max-w-lg" footer={<button type="button" disabled={editSaving || !editForm.nickname.trim()} onClick={() => void handleSaveEdit()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{editSaving ? 'Сохраняем…' : 'Сохранить'}</button>}>
-        <div className="space-y-3">{editError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{editError}</div> : null}<input value={editForm.nickname} onChange={(e) => setEditForm((v) => ({ ...v, nickname: e.target.value }))} placeholder="Никнейм" className="mobile-field" /><input value={editForm.full_name} onChange={(e) => setEditForm((v) => ({ ...v, full_name: e.target.value }))} placeholder="Имя" className="mobile-field" /><input value={editForm.telegram_username} onChange={(e) => setEditForm((v) => ({ ...v, telegram_username: e.target.value }))} placeholder="Telegram" className="mobile-field" /><input value={editForm.phone} onChange={(e) => setEditForm((v) => ({ ...v, phone: e.target.value }))} placeholder="Телефон" className="mobile-field" /><select value={editForm.contact_status} onChange={(e) => setEditForm((v) => ({ ...v, contact_status: e.target.value as ContactStatus }))} className="mobile-field"><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select><input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm((v) => ({ ...v, do_not_invite_until: e.target.value }))} className="mobile-field" /><input value={editForm.pause_reason} onChange={(e) => setEditForm((v) => ({ ...v, pause_reason: e.target.value }))} placeholder="Причина паузы" className="mobile-field" /><input value={editForm.preferred_format} onChange={(e) => setEditForm((v) => ({ ...v, preferred_format: e.target.value }))} placeholder="Предпочтительный формат" className="mobile-field" /><input value={editForm.referred_by} onChange={(e) => setEditForm((v) => ({ ...v, referred_by: e.target.value }))} placeholder="Кто пригласил" className="mobile-field" /><input value={editForm.source} onChange={(e) => setEditForm((v) => ({ ...v, source: e.target.value }))} placeholder="Источник" className="mobile-field" /><textarea value={editForm.notes} onChange={(e) => setEditForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Заметки" className="mobile-field min-h-[96px] resize-y" /></div>
+        <div className="space-y-5">
+          {editError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{editError}</div> : null}
+          <section className="space-y-3">
+            <div><h3 className="text-[13px] font-bold text-text-primary">Основной профиль</h3><p className="mt-0.5 text-[11px] text-text-muted">Те же личные данные, которые игрок видит в своём кабинете.</p></div>
+            <PlayerIdentityFields
+              value={{ nickname: editForm.nickname, fullName: editForm.full_name, phone: editForm.phone }}
+              onChange={(identity) => setEditForm((value) => ({ ...value, nickname: identity.nickname, full_name: identity.fullName, phone: identity.phone }))}
+            />
+          </section>
+          <section className="space-y-3 border-t border-border-soft pt-4">
+            <div><h3 className="text-[13px] font-bold text-text-primary">Работа клуба</h3><p className="mt-0.5 text-[11px] text-text-muted">Внутренние поля CRM — они не создают отдельный профиль игрока.</p></div>
+            <input value={editForm.telegram_username} onChange={(e) => setEditForm((v) => ({ ...v, telegram_username: e.target.value }))} placeholder="Telegram" className="mobile-field" />
+            <select value={editForm.contact_status} onChange={(e) => setEditForm((v) => ({ ...v, contact_status: e.target.value as ContactStatus }))} className="mobile-field"><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select>
+            <input type="date" value={editForm.do_not_invite_until} onChange={(e) => setEditForm((v) => ({ ...v, do_not_invite_until: e.target.value }))} className="mobile-field" aria-label="Не приглашать до" />
+            <input value={editForm.pause_reason} onChange={(e) => setEditForm((v) => ({ ...v, pause_reason: e.target.value }))} placeholder="Причина паузы" className="mobile-field" />
+            <input value={editForm.preferred_format} onChange={(e) => setEditForm((v) => ({ ...v, preferred_format: e.target.value }))} placeholder="Предпочтительный формат" className="mobile-field" />
+            <input value={editForm.referred_by} onChange={(e) => setEditForm((v) => ({ ...v, referred_by: e.target.value }))} placeholder="Кто пригласил" className="mobile-field" />
+            <input value={editForm.source} onChange={(e) => setEditForm((v) => ({ ...v, source: e.target.value }))} placeholder="Источник" className="mobile-field" />
+            <textarea value={editForm.notes} onChange={(e) => setEditForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Заметки" className="mobile-field min-h-[96px] resize-y" />
+          </section>
+        </div>
       </MobileSheet>
 
       <MobileSheet open={showTaskSheet} onClose={() => setShowTaskSheet(false)} title="Новая задача" widthClass="sm:max-w-md" footer={<button type="button" disabled={!taskTitle.trim() || taskSaving} onClick={() => void handleCreateTask()} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{taskSaving ? 'Создаём…' : 'Создать задачу'}</button>}>

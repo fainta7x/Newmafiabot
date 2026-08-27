@@ -38,7 +38,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     home: '/player',
     events: target ? `/player/events/${encodeURIComponent(target)}` : '/player/events',
     games: '/player/games',
-    conduct: '/player/conduct',
+    conduct: target === 'music' ? '/player/conduct/music' : '/player/conduct',
     rating: '/player/rating',
     ratingperiods: '/player/rating/periods',
     stats: '/player/stats',
@@ -73,7 +73,8 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
 
   const aliases = new Set(['conduct', 'judging', 'host', 'table']);
   if (aliases.has(parts[1] || '')) {
-    return { section: 'conduct', target: null, replayGameKey: null, canonicalPath: '/player/conduct' };
+    const target = parts[1] === 'conduct' && parts[2] === 'music' ? 'music' : null;
+    return { section: 'conduct', target, replayGameKey: null, canonicalPath: playerPathForSection('conduct', target) };
   }
 
   if (parts[1] === 'events') {
@@ -125,6 +126,7 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'stats' || parts[1] === 'career' || parts[1] === 'recaps') return '/player/games';
     if ((parts[1] === 'rating' && parts[2] === 'periods') || parts[1] === 'elo' || parts[1] === 'seasons') return '/player/rating';
+    if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';
     if (parts[1] === 'conduct' || parts[1] === 'judging' || parts[1] === 'host' || parts[1] === 'table') return '/player';
     return '/player';
   }

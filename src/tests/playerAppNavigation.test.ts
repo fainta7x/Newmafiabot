@@ -21,6 +21,14 @@ describe('player app navigation', () => {
     expect(appBackTarget('/player/elo')).toBe('/player/rating');
   });
 
+  it('keeps the staff music library inside the conduct hub', () => {
+    expect(playerPathForSection('conduct', 'music')).toBe('/player/conduct/music');
+    expect(parsePlayerRoute('/player/conduct/music')).toMatchObject({
+      section: 'conduct', target: 'music', canonicalPath: '/player/conduct/music',
+    });
+    expect(appBackTarget('/player/conduct/music')).toBe('/player/conduct');
+  });
+
   it('returns nested CRM tools to the More hub', () => {
     expect(appBackTarget('/admin/more/music')).toBe('/admin/more');
   });

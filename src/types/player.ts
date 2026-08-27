@@ -3,10 +3,13 @@ export type PlayerMeResponse = {
     id: string;
     nickname: string;
     full_name: string | null;
+    phone: string | null;
     telegram_username: string | null;
     elo: number;
     tokens: number;
     game_level: string;
+    club_role: 'guest' | 'member' | 'team' | 'organizer';
+    judge_level: 'none' | 'trainee' | 'host' | 'judge';
     avatar_url: string | null;
   };
   achievements: {

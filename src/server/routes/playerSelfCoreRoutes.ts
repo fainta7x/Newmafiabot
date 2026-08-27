@@ -50,7 +50,7 @@ router.get('/me', async (req, res) => {
   try {
     const db = req.db;
     const player = await db.get(
-      `SELECT id, nickname, full_name, telegram_username, elo, tokens, game_level,
+      `SELECT id, nickname, full_name, phone, telegram_username, elo, tokens, game_level, club_role, judge_level,
               EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = players.id) AS has_db_avatar,
               EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = players.id) AS avatar_suppressed
          FROM players
@@ -79,10 +79,13 @@ router.get('/me', async (req, res) => {
         id: String(player.id),
         nickname: player.nickname,
         full_name: player.full_name ?? null,
+        phone: player.phone ?? null,
         telegram_username: player.telegram_username ?? null,
         elo: Number(player.elo || 0),
         tokens: Number(player.tokens || 0),
         game_level: String(player.game_level || 'club'),
+        club_role: String(player.club_role || 'member'),
+        judge_level: String(player.judge_level || 'none'),
         avatar_url: playerAvatarUrl(String(player.id), player.has_db_avatar, player.avatar_suppressed),
       },
       achievements,

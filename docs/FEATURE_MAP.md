@@ -41,8 +41,11 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Service: `src/server/services/bettingPoolService.ts`.
 
 ## Profile / club / conduct / avatars
-- UI: `PlayerProfileHub.tsx`, `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`, `PlayerConductCenter.tsx`.
-- API: `playerProfileSettingsRoutes.ts`, `playersRoutes.ts`.
+- Profile is self-only: `PlayerProfileHub.tsx`, `PlayerProfileSettings.tsx`, `PlayerIdentityFields.tsx`; canonical read/write is `/api/player/me`.
+- Conduct is the sole staff workspace: `PlayerConductCenter.tsx`; its addressable music library is `/player/conduct/music`.
+- Club discovery: `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`.
+- Organizer player work card: `PlayersCRM.tsx`; access/roles: `PlayerAccessSettings.tsx`; ledger/Elo/manual achievement corrections: `PlayerServiceTools.tsx`.
+- API: `playerSelfCoreRoutes.ts`, `playersRoutes.ts`.
 - Avatars: `src/lib/playerAvatarManifest.ts`, `public/player-avatars/`.
 
 ## Organizer CRM

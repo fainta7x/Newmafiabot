@@ -376,6 +376,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
                 onOpenTheme={() => setShowThemeModal(true)}
                 onOpenGameEngine={onReturnToGameEngine}
                 onLogout={handleLogout}
+                onOpenPlayerMusic={() => navigateAdmin('/player/conduct/music')}
                 activeScreen={activeMoreScreen}
                 onScreenChange={(screen) => {
                   setActiveMoreScreen(screen);

@@ -4,20 +4,26 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 _RESPONSE_BUTTONS = (
-    ("going", "✅ Иду"),
+    ("going", "✅ Буду"),
     ("late", "⏳ Приду позже"),
     ("thinking", "🤔 Пока думаю"),
-    ("declined", "❌ Не иду"),
+    ("declined", "❌ Не буду"),
 )
 
 
-def crm_evening_response_kb(evening_id: str, selected_status: str | None = None) -> InlineKeyboardMarkup:
-    """Canonical CRM-evening response keyboard with persistent selected state."""
+def crm_evening_response_kb(
+    evening_id: str,
+    selected_status: str | None = None,
+    event_url: str | None = None,
+) -> InlineKeyboardMarkup:
+    """Canonical quick RSVP keyboard; exact game selection remains an optional secondary action."""
     builder = InlineKeyboardBuilder()
     for status, label in _RESPONSE_BUTTONS:
         text = f"☑️ {label}" if selected_status == status else label
         builder.button(text=text, callback_data=f"evr:{evening_id}:{status}")
-    builder.adjust(1)
+    if event_url:
+        builder.button(text="🎯 Выбрать конкретные игры", url=event_url)
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
 

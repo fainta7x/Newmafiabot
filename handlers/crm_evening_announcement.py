@@ -2,6 +2,7 @@ import asyncio
 import datetime
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup
 
 import bot_menu
 from bot_announcement_api import (
@@ -17,16 +18,13 @@ from handlers.crm_telegram_publishing import sync_evening_telegram
 from handlers.telegram_evening_copy import private_event_text
 
 
-def _event_url(evening_id: str) -> str | None:
-    markup = bot_menu.event_inline_keyboard(evening_id)
-    try:
-        return markup.inline_keyboard[0][0].url
-    except (AttributeError, IndexError, TypeError):
-        return None
-
-
-def _response_keyboard(evening_id: str):
-    return crm_evening_response_kb(evening_id, event_url=_event_url(evening_id))
+def _response_keyboard(evening_id: str, selected_status: str | None = None) -> InlineKeyboardMarkup:
+    response_markup = crm_evening_response_kb(evening_id, selected_status)
+    app_markup = bot_menu.event_inline_keyboard(evening_id)
+    rows = list(response_markup.inline_keyboard)
+    if app_markup:
+        rows.extend(app_markup.inline_keyboard)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _retry_backend_write(operation, attempts: int = 3) -> dict:

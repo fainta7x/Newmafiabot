@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ListTodo, Table2, UsersRound, WalletCards } from 'lucide-react';
 import EveningActiveRosterView from './EveningActiveRosterView.tsx';
+import EveningStaffCard from './EveningStaffCard.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import EveningCloseoutPanel from './EveningCloseoutPanel.tsx';
@@ -63,6 +64,8 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
           </div>
         </div>
       </section>
+
+      <EveningStaffCard eveningId={eveningId} />
 
       <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5">
         {panes.map((item) => {

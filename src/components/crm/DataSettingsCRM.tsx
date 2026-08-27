@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Award, Coins, Database, History, RefreshCw, ShoppingBag, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Award, Database, History, RefreshCw, ShoppingBag } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 
 type Achievement = {
@@ -27,10 +27,9 @@ type ShopItem = {
   sort_order: number;
 };
 
-type Player = { id: string; nickname: string; elo: number; tokens: number; game_level: string };
 type Change = { id: string; entity_type: string; entity_id: string | null; action: string; note: string | null; created_at: string };
-type Summary = { achievements: Achievement[]; shop_items: ShopItem[]; players: Player[]; changes: Change[] };
-type Tab = 'achievements' | 'shop' | 'players' | 'database' | 'log';
+type Summary = { achievements: Achievement[]; shop_items: ShopItem[]; changes: Change[] };
+type Tab = 'achievements' | 'shop' | 'database' | 'log';
 type TableMeta = { table: string; label: string; columns: Array<{ name: string; type: string; pk: number; editable: boolean }> };
 type TableData = TableMeta & { rows: Array<Record<string, any> & { __pk: string }>; total: number; limit: number; offset: number };
 
@@ -253,11 +252,6 @@ export const DataSettingsCRM: React.FC = () => {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [playerId, setPlayerId] = useState('');
-  const [tokenDelta, setTokenDelta] = useState('');
-  const [reason, setReason] = useState('');
-  const [achievementId, setAchievementId] = useState('');
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [tables, setTables] = useState<TableMeta[]>([]);
   const [tableName, setTableName] = useState('');
   const [tableData, setTableData] = useState<TableData | null>(null);
@@ -268,8 +262,6 @@ export const DataSettingsCRM: React.FC = () => {
     try {
       const body = await apiFetch<Summary>('/api/admin-data/summary');
       setSummary(body);
-      if (!playerId && body.players[0]) setPlayerId(body.players[0].id);
-      if (!achievementId && body.achievements[0]) setAchievementId(body.achievements[0].id);
     } catch (err: any) {
       setError(err?.message || 'Не удалось загрузить данные');
     } finally {
@@ -303,46 +295,11 @@ export const DataSettingsCRM: React.FC = () => {
 
   useEffect(() => { if (tab === 'database' && tableName) void loadTable(tableName); }, [tab, tableName]);
 
-  const selectedPlayer = useMemo(() => summary?.players.find((player) => player.id === playerId) || null, [summary, playerId]);
-
-  const adjustTokens = async () => {
-    if (!playerId || !tokenDelta || !reason.trim()) return;
-    setActionMessage(null);
-    try {
-      await apiFetch(`/api/admin-data/players/${encodeURIComponent(playerId)}/tokens`, {
-        method: 'POST',
-        body: JSON.stringify({ delta: Number(tokenDelta), reason }),
-      });
-      setTokenDelta('');
-      setReason('');
-      setActionMessage('Баланс жетонов изменён');
-      await loadSummary();
-    } catch (err: any) {
-      setActionMessage(err?.message || 'Ошибка');
-    }
-  };
-
-  const changeAchievement = async (state: 'grant' | 'revoke' | 'auto') => {
-    if (!playerId || !achievementId) return;
-    setActionMessage(null);
-    try {
-      await apiFetch(`/api/admin-data/players/${encodeURIComponent(playerId)}/achievements/${encodeURIComponent(achievementId)}`, {
-        method: 'POST',
-        body: JSON.stringify({ state, note: 'Ручная настройка из админки' }),
-      });
-      setActionMessage(state === 'grant' ? 'Ачивка выдана' : state === 'revoke' ? 'Ачивка забрана' : 'Вернули автоматический режим');
-      await loadSummary();
-    } catch (err: any) {
-      setActionMessage(err?.message || 'Ошибка');
-    }
-  };
-
   if (loading) return <div className="flex min-h-[40vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
   const tabs = [
     { id: 'achievements', icon: Award, label: 'Ачивки' },
     { id: 'shop', icon: ShoppingBag, label: 'Магазин' },
-    { id: 'players', icon: Users, label: 'Игроки' },
     { id: 'database', icon: Database, label: 'База' },
     { id: 'log', icon: History, label: 'Журнал' },
   ] as const;
@@ -351,12 +308,12 @@ export const DataSettingsCRM: React.FC = () => {
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div>
         <h2 className="text-[24px] font-black tracking-tight">Данные и настройки</h2>
-        <p className="mt-1 text-[13px] text-text-secondary">Ручное управление каталогами, начислениями и значениями базы. Все изменения журналируются.</p>
+        <p className="mt-1 text-[13px] text-text-secondary">Каталоги и технические данные клуба. Настройки конкретного игрока находятся в его карточке.</p>
       </div>
 
       {error ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
 
-      <div className="grid grid-cols-5 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
+      <div className="grid grid-cols-4 gap-1 rounded-[14px] border border-border-soft bg-surface-1 p-1">
         {tabs.map((item) => {
           const Icon = item.icon;
           return <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center rounded-[10px] px-1 text-[9px] font-bold ${tab === item.id ? 'bg-accent text-white' : 'text-text-muted'}`}><Icon className="mb-1 h-4 w-4" />{item.label}</button>;
@@ -366,31 +323,6 @@ export const DataSettingsCRM: React.FC = () => {
       {tab === 'achievements' ? <div className="space-y-2">{summary?.achievements.map((item) => <AchievementEditor key={item.id} item={item} onSaved={loadSummary} />)}</div> : null}
 
       {tab === 'shop' ? <div className="space-y-2"><ShopCreate onSaved={loadSummary} />{summary?.shop_items.map((item) => <ShopEditor key={item.id} item={item} onSaved={loadSummary} />)}</div> : null}
-
-      {tab === 'players' ? (
-        <div className="space-y-4">
-          <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-            <label className="text-[11px] text-text-muted">Игрок</label>
-            <select className={`${fieldClass} mt-1`} value={playerId} onChange={(e) => setPlayerId(e.target.value)}>{summary?.players.map((player) => <option key={player.id} value={player.id}>{player.nickname} · {player.tokens} 🪙 · Elo {player.elo}</option>)}</select>
-            {selectedPlayer ? <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-[12px] bg-surface-2 p-3"><div className="text-[10px] text-text-muted">Жетоны</div><div className="mt-1 text-[18px] font-black">{selectedPlayer.tokens.toLocaleString('ru-RU')}</div></div><div className="rounded-[12px] bg-surface-2 p-3"><div className="text-[10px] text-text-muted">Elo</div><div className="mt-1 text-[18px] font-black">{selectedPlayer.elo}</div></div></div> : null}
-          </section>
-
-          <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[14px] font-bold"><Coins className="h-4 w-4 text-accent" /> Ручные жетоны</div>
-            <div className="grid gap-2 sm:grid-cols-2"><input className={fieldClass} type="number" value={tokenDelta} onChange={(e) => setTokenDelta(e.target.value)} placeholder="+5000 или -500" /><input className={fieldClass} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина изменения" /></div>
-            <button type="button" onClick={() => void adjustTokens()} className="mt-3 min-h-11 w-full rounded-[12px] bg-accent text-[13px] font-bold text-white">Начислить / списать</button>
-          </section>
-
-          <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-            <div className="mb-3 text-[14px] font-bold">Ручные достижения</div>
-            <select className={fieldClass} value={achievementId} onChange={(e) => setAchievementId(e.target.value)}>{summary?.achievements.map((achievement) => <option key={achievement.id} value={achievement.id}>{achievement.icon} {achievement.name}</option>)}</select>
-            <div className="mt-3 grid grid-cols-3 gap-2"><button type="button" onClick={() => void changeAchievement('grant')} className="min-h-11 rounded-[11px] bg-accent text-[11px] font-bold text-white">Выдать</button><button type="button" onClick={() => void changeAchievement('revoke')} className="min-h-11 rounded-[11px] bg-danger-soft text-[11px] font-bold text-danger">Забрать</button><button type="button" onClick={() => void changeAchievement('auto')} className="min-h-11 rounded-[11px] bg-surface-2 text-[11px] font-bold">Авто</button></div>
-          </section>
-
-          {actionMessage ? <div className="rounded-[12px] bg-surface-2 p-3 text-[12px]">{actionMessage}</div> : null}
-          <p className="text-[11px] leading-5 text-text-muted">Elo, уровень игрока и прочие поля можно исправить во вкладке «База». Баланс жетонов намеренно меняется только через журналируемую операцию выше.</p>
-        </div>
-      ) : null}
 
       {tab === 'database' ? (
         <div className="space-y-3">

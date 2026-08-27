@@ -36,10 +36,10 @@ Each editable product fact must have one canonical owner. A secondary surface ma
 
 | Entity or action | Canonical owner |
 | --- | --- |
-| Player's own identity, avatar and personal preferences | Player profile |
-| Club roster record, access and organizer notes | CRM `Игроки` |
-| Player's personal music slots | Player profile music |
-| Staff music library and event music pool | CRM music center |
+| Player's own identity, avatar and exactly two personal music slots | Player profile |
+| Club roster record, access/roles, organizer notes and service corrections | CRM `Игроки` |
+| Staff music library | Player `Ведение → Музыка` (CRM provides a contextual link) |
+| Event music pool | CRM music center; it is assembled from staff tracks and arrived players, not a second library |
 | Live playback, pause and collapse state | Live Game music controller |
 | Player registration/response to an event | Player event view |
 | Event composition, tables, tasks and close-out | CRM event workspace |
@@ -60,8 +60,8 @@ Primary areas:
 - `PlayerRatingHub.tsx` / `PlayerRatingTable.tsx` — rating;
 - `PlayerClubHub.tsx` — club/directory;
 - `PlayerWalletHub.tsx` — wallet/tokens/economy;
-- `PlayerProfileHub.tsx` — profile/settings;
-- `PlayerConductCenter.tsx` — judging/conduct;
+- `PlayerProfileHub.tsx` — self identity, avatar and player music slots;
+- `PlayerConductCenter.tsx` — judge/host workspace, game launch and staff music library;
 - `PlayerLiveOnlyCenter.tsx` — live-only experience.
 
 Primary player APIs are under `/api/player/*`; inspect `src/app.ts` and `src/server/routes/player*Routes.ts` for exact ownership.
@@ -81,6 +81,8 @@ Main areas:
 - `TasksCRM.tsx`;
 - `AnalyticsCRM.tsx`;
 - `MoreCRM.tsx`.
+
+`PlayersCRM.tsx` is the one organizer-facing player work card. `PlayerAccessSettings.tsx` owns game level, club role and judge authority; `PlayerServiceTools.tsx` owns token/Elo/manual-achievement corrections. `DataSettingsCRM.tsx` owns club-wide catalogs and expert data only, never a competing player editor.
 
 Main organizer URLs:
 

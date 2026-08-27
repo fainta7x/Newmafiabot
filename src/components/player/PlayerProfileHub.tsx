@@ -28,7 +28,7 @@ export default function PlayerProfileHub({
       <div className="mx-auto w-full max-w-[430px] space-y-3">
         <header className="px-1 pb-1 pt-1">
           <h1 className="text-2xl font-semibold">Профиль</h1>
-          <p className="mt-1 text-xs leading-5 text-white/40">Аккаунт, судейство и игровые настройки</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Личные данные, фото и музыка игрока</p>
         </header>
 
         <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-4">
@@ -49,8 +49,8 @@ export default function PlayerProfileHub({
           </div>
         </section>
 
-        <PlayerMusicSlots />
         <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
+        <PlayerMusicSlots />
       </div>
     </main>
   );

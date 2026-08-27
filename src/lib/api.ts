@@ -16,6 +16,9 @@ export interface Player {
   pause_reason?: string | null;
   source?: string | null;
   notes?: string | null;
+  game_level?: 'novice' | 'club' | 'tournament';
+  club_role?: 'guest' | 'member' | 'team' | 'organizer';
+  judge_level?: 'none' | 'trainee' | 'host' | 'judge';
   elo: number;
   tokens: number;
   created_at: string;

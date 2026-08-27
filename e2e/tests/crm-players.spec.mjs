@@ -53,7 +53,7 @@ test.describe('Organizer players mobile workflow', () => {
     await expect(quickActions.getByRole('button', { name: 'Ещё', exact: true })).toHaveCount(0);
 
     const access = page.getByTestId('crm-player-access-summary');
-    await expect(access).toContainText('Игровой статус');
+    await expect(access).toContainText('Доступ и роли');
     await expect(access).toContainText('Игрок клуба');
     await expect(access).toContainText('Участник клуба');
     await expect(access).toContainText('Нет');

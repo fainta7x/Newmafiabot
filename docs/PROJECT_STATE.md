@@ -2,7 +2,7 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-08-26
+**Status date:** 2026-08-27
 
 **Latest release record before this workstream:** PR #123 merged as `bb4edbee0e0dd154a6e4ea7a87f81ef6382a5b13`  
 **Release gate:** GitHub CI run #951 — green before merge  
@@ -71,6 +71,8 @@ Implemented and connected:
 - wallet/tokens/shop/betting/manual accounting;
 - conduct/judging surfaces;
 - speech recording and live-related player flows.
+- Profile is the single self-service identity surface (avatar, personal data and exactly two personal music slots); it uses the canonical `/api/player/me` identity.
+- Conduct is the single host/judge workspace for assigned games, game launch and the persistent staff music library; its music pane has the addressable route `/player/conduct/music`.
 
 ### Organizer CRM
 
@@ -92,6 +94,7 @@ Implemented and connected:
 - close-out is optimized for attendance, walk-ins, payment/debt and games; unpaid attended players may close as debt, and missing/unfinished game statistics may be explicitly waived without blocking the evening forever;
 - participants/tables/games/protocol workflow;
 - player CRM;
+- CRM `Игроки` is the single organizer-facing player work card: it owns access/roles, CRM notes and the rare token/Elo/manual-achievement corrections. `Данные и настройки` retains club-wide catalogs and expert data, not a separate player editor.
 - tasks/analytics;
 - commerce/admin data;
 - persistent organizer music library with uploaded tracks and Yandex links, player-slot inclusion in evening pools, and live role-deal/night controls;

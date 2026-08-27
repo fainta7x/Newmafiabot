@@ -75,7 +75,7 @@ export async function loadPlayerJudgingDashboard(): Promise<PlayerJudgingDashboa
   return body as PlayerJudgingDashboard;
 }
 
-export default function PlayerJudging({ onBack }: { onBack: () => void }) {
+export default function PlayerJudging({ onBack }: { onBack?: () => void }) {
   const [dashboard, setDashboard] = useState<PlayerJudgingDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -274,7 +274,7 @@ export default function PlayerJudging({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="space-y-3">
-      <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/60">← Назад в профиль</button>
+      {onBack ? <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/60">← Назад</button> : null}
 
       {error && <div className="rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm text-rose-100/75">{error}</div>}
 

@@ -34,6 +34,7 @@ interface MoreCRMProps {
   onOpenGameEngine?: () => void;
   evenings?: GameEvening[];
   onLogout: () => void | Promise<void>;
+  onOpenPlayerMusic: () => void;
   activeScreen?: OrganizerMoreScreen | null;
   onScreenChange?: (screen: OrganizerMoreScreen | null) => void;
 }
@@ -93,6 +94,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
   onOpenGameEngine,
   evenings = [],
   onLogout,
+  onOpenPlayerMusic,
   activeScreen,
   onScreenChange,
 }) => {
@@ -128,7 +130,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({
         {subscreen === 'telegram' ? <TelegramCRM /> : null}
         {subscreen === 'system' ? <SystemStatusCard /> : null}
         {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
-        {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} /> : null}
+        {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
       </div>
     );
   }

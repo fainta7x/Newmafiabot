@@ -117,7 +117,11 @@ export default function PlayerCabinetShell({
       ) : section === 'profile' ? (
         <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
-        <PlayerConductCenter data={currentData} onBack={() => open('home')} />
+        <PlayerConductCenter
+          data={currentData}
+          initialPane={initialTarget === 'music' ? 'music' : 'games'}
+          onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)}
+        />
       ) : (
         <PlayerHomeDashboard
           data={currentData}

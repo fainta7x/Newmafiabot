@@ -21,6 +21,7 @@ function Harness() {
           onOpenAnalytics={() => undefined}
           onOpenTheme={() => undefined}
           onOpenGameEngine={() => undefined}
+          onOpenPlayerMusic={() => undefined}
           onLogout={() => undefined}
         />
       </main>

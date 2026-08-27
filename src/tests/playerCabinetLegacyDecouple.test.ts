@@ -19,10 +19,13 @@ describe('player cabinet legacy decoupling', () => {
     expect(games).toContain("next === 'games' || next === 'stats'");
   });
 
-  it('keeps conduct mode wired to the existing judge launcher and assigned-game view', () => {
+  it('keeps conduct mode as the single owner of staff tools', () => {
     const conduct = read('src/components/player/PlayerConductCenter.tsx');
     expect(conduct).toContain('JudgeGameLauncher');
     expect(conduct).toContain('PlayerJudging');
-    expect(conduct).toContain('allowClubGame={false}');
+    expect(conduct).toContain('JudgeMusicPlaylist');
+    const profile = read('src/components/player/PlayerProfileSettings.tsx');
+    expect(profile).not.toContain('JudgeGameLauncher');
+    expect(profile).not.toContain('JudgeMusicPlaylist');
   });
 });

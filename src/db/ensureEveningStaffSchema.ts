@@ -20,6 +20,15 @@ export async function ensureEveningStaffSchema(db: DatabaseWrapper): Promise<voi
        WHERE nickname IN ('Матроскина','Гриня')`,
       [now],
     );
+    await db.run(
+      `UPDATE players
+       SET club_role = 'organizer',
+           game_level = CASE WHEN game_level = 'novice' THEN 'club' ELSE game_level END,
+           judge_level = CASE WHEN judge_level = 'judge' THEN 'judge' ELSE 'host' END,
+           updated_at = ?
+       WHERE nickname = 'Чагин'`,
+      [now],
+    );
   }
 
   await db.run(

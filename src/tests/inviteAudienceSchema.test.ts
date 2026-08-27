@@ -9,6 +9,7 @@ describe('invite audience schema', () => {
     const execSql: string[] = [];
     const db: any = {
       all: async () => [{ name: 'game_level' }],
+      get: async () => null,
       run: async (sql: string) => {
         runSql.push(sql);
         return { changes: 0 };
@@ -37,6 +38,7 @@ describe('invite audience schema', () => {
         const table = sql.match(/PRAGMA table_info\(([^)]+)\)/)?.[1] || '';
         return [...(schema.get(table) || new Set<string>())].map((name) => ({ name }));
       },
+      get: async () => null,
       run: async (sql: string) => {
         runSql.push(sql);
         const alter = sql.match(/ALTER TABLE\s+(\S+)\s+ADD COLUMN\s+(\S+)/i);
@@ -54,6 +56,8 @@ describe('invite audience schema', () => {
     expect(schema.get('evening_participants')?.has('response_status')).toBe(true);
     expect(schema.get('game_evenings')?.has('settled_at')).toBe(true);
     expect(runSql.some((sql) => sql.includes('UPDATE players SET contact_status = CASE'))).toBe(true);
+    expect(runSql.some((sql) => sql.includes("UPDATE players SET game_level = 'club' WHERE game_level = 'novice'"))).toBe(true);
+    expect(runSql.some((sql) => sql.includes("UPDATE players SET lifecycle_status = 'normal' WHERE lifecycle_status = 'newcomer'"))).toBe(true);
   });
 
   it('does not query the legacy games.status column from the CRM overview', () => {

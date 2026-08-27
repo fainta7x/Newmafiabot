@@ -16,6 +16,8 @@ type ParticipantView = {
   subtitle: string;
 };
 
+const MIN_READY_PLAYERS = 11;
+
 const eventDayOrPast = (startsAt: string) => {
   const now = new Date();
   const event = new Date(startsAt);
@@ -35,6 +37,15 @@ const actionWord = (count: number) => {
   if (mod10 === 1) return 'действие';
   if (mod10 >= 2 && mod10 <= 4) return 'действия';
   return 'действий';
+};
+
+const playerWord = (count: number) => {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'игроков';
+  if (mod10 === 1) return 'игрок';
+  if (mod10 >= 2 && mod10 <= 4) return 'игрока';
+  return 'игроков';
 };
 
 const eveningMeta = (evening: GameEvening) => {
@@ -143,6 +154,9 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     [evening, canMarkFacts, readonly],
   );
   const responseCounts = useMemo(() => countEveningResponses(evening?.participants || []), [evening]);
+  const confirmedCount = responseCounts.going + responseCounts.late;
+  const rosterShortfall = Math.max(0, MIN_READY_PLAYERS - confirmedCount);
+  const rosterReady = rosterShortfall === 0;
   const actionViews = useMemo(() => participantViews.filter((item) => item.needsAction), [participantViews]);
   const attendedCount = useMemo(() => participantViews.filter((item) => item.participant.attendance_status === 'attended').length, [participantViews]);
   const attendanceActions = actionViews.filter((item) => item.action === 'attend').length;
@@ -195,6 +209,8 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     { id: 'other', label: 'Остальные', count: participantViews.filter((item) => !item.needsAction && item.participant.attendance_status !== 'attended').length },
   ];
 
+  const needsAttention = actionViews.length > 0 || !rosterReady;
+
   return <section data-testid="evening-roster-workboard" className="space-y-2.5">
     <div className="rounded-[17px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-center gap-2.5">
@@ -207,7 +223,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
         <button type="button" aria-label="Обновить состав" disabled={Boolean(busy)} onClick={() => void load()} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-semibold text-text-muted">
-        <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{participantViews.length}</strong> в составе</span>
+        <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{confirmedCount}</strong> идут</span>
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-success">{attendedCount}</strong> здесь</span>
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{responseCounts.late}</strong> позже</span>
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-warning">{responseCounts.thinking}</strong> думают</span>
@@ -216,11 +232,11 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
 
     {error ? <div className="flex gap-2 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[11px] text-danger"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div> : null}
 
-    <div data-testid="evening-roster-action-summary" className={`rounded-[15px] border px-3 py-2.5 ${actionViews.length ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`}>
+    <div data-testid="evening-roster-action-summary" className={`rounded-[15px] border px-3 py-2.5 ${needsAttention ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`}>
       {actionViews.length ? <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-warning">Нужно сделать</div><div className="mt-0.5 text-[13px] font-semibold text-text-primary">{actionViews.length} {actionWord(actionViews.length)}</div><div className="mt-0.5 truncate text-[9px] text-text-muted">Сверху вниз: явка → оплата</div></div>
         <div className="shrink-0 rounded-[11px] bg-surface-1/60 px-2.5 py-1.5 text-[9px] text-text-muted"><strong className="text-text-primary">Явка {attendanceActions}</strong><span className="mx-1 text-border-strong">·</span><strong className="text-text-primary">Оплата {paymentActions}</strong></div>
-      </div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Можно переходить к играм.</div></div></div>}
+      </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено минимум {MIN_READY_PLAYERS} игроков.</div></div></div>}
     </div>
 
     <div className="flex gap-2">

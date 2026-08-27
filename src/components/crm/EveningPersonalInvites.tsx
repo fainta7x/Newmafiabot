@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, MessageCircle, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
 
 type ResponseStatus = 'going' | 'late' | 'thinking' | 'declined' | 'unanswered';
-type Filter = 'all' | ResponseStatus;
+type Filter = 'all' | 'unanswered';
 
 type AudiencePlayer = {
   id: string;
@@ -32,7 +32,6 @@ const STATUS_LABELS: Record<ResponseStatus, string> = {
 };
 
 const STATUS_ORDER: ResponseStatus[] = ['unanswered', 'going', 'late', 'thinking', 'declined'];
-const ANSWERED_STATUSES: ResponseStatus[] = ['going', 'late', 'thinking', 'declined'];
 
 const chatUrlFor = (row: Row) => {
   const username = String(row.telegramUsername || '').replace(/^@/, '').trim();
@@ -101,16 +100,9 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
 
   useEffect(() => { void load(); }, [eveningId]);
 
-  const counts = useMemo(() => STATUS_ORDER.reduce<Record<ResponseStatus, number>>((acc, status) => {
-    acc[status] = rows.filter((row) => row.responseStatus === status).length;
-    return acc;
-  }, { going: 0, late: 0, thinking: 0, declined: 0, unanswered: 0 }), [rows]);
-
-  const answeredCount = rows.length - counts.unanswered;
-  const visibleRows = useMemo(
-    () => filter === 'all' ? rows : rows.filter((row) => row.responseStatus === filter),
-    [filter, rows],
-  );
+  const unansweredRows = useMemo(() => rows.filter((row) => row.responseStatus === 'unanswered'), [rows]);
+  const answeredRows = useMemo(() => rows.filter((row) => row.responseStatus !== 'unanswered'), [rows]);
+  const visibleRows = filter === 'all' ? rows : unansweredRows;
 
   const setStatus = async (row: Row, status: ResponseStatus) => {
     if (savingId || readonly || row.responseStatus === status) return;
@@ -172,7 +164,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px] font-black text-text-primary">Личные приглашения</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Сначала разберись с теми, кто ещё не ответил. Уже полученные ответы можно не держать перед глазами.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Сначала те, кто ещё не ответил. Готовые ответы спрятаны и не мешают работе.</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading || Boolean(savingId)} className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -180,32 +172,25 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setFilter('unanswered')} className={`min-h-[52px] rounded-[12px] px-3 text-left ${filter === 'unanswered' ? 'bg-warning-soft ring-1 ring-warning/30' : 'bg-surface-2'}`}><strong className="block text-[16px] text-warning">{counts.unanswered}</strong><span className="text-[10px] text-text-muted">Ждём ответа</span></button>
-        <button type="button" onClick={() => setFilter('all')} className={`min-h-[52px] rounded-[12px] px-3 text-left ${filter === 'all' ? 'bg-accent-soft ring-1 ring-accent/30' : 'bg-surface-2'}`}><strong className="block text-[16px] text-text-primary">{rows.length}</strong><span className="text-[10px] text-text-muted">Все игроки</span></button>
+        <button type="button" onClick={() => setFilter('unanswered')} className={`min-h-[56px] rounded-[12px] px-3 text-left ${filter === 'unanswered' ? 'bg-warning-soft ring-1 ring-warning/30' : 'bg-surface-2'}`}><strong className="block text-[18px] text-warning">{unansweredRows.length}</strong><span className="text-[10px] text-text-muted">Ждём ответа</span></button>
+        <button type="button" onClick={() => setFilter('all')} className={`min-h-[56px] rounded-[12px] px-3 text-left ${filter === 'all' ? 'bg-accent-soft ring-1 ring-accent/30' : 'bg-surface-2'}`}><strong className="block text-[18px] text-text-primary">{rows.length}</strong><span className="text-[10px] text-text-muted">Все</span></button>
       </div>
 
       {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
       {readonly ? <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Вечер завершён — ответы доступны только для просмотра.</div> : null}
       {loading ? <div className="py-7 text-center text-[11px] text-text-muted">Загружаю игроков…</div> : null}
 
-      {!loading && filter !== 'all' ? <div className="mt-3">
+      {!loading ? <div className="mt-3">
         {visibleRows.length ? renderRows(visibleRows) : <div className="rounded-[12px] bg-success-soft px-3 py-5 text-center text-[11px] text-success">Все уже ответили.</div>}
 
-        <button type="button" onClick={() => setShowAnswered((value) => !value)} className="mt-3 flex min-h-[46px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">
-          <span><strong className="block text-[11px] text-text-primary">Уже ответили · {answeredCount}</strong><span className="text-[9px] text-text-muted">Скрыто, пока не понадобится</span></span>
-          {showAnswered ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
-        </button>
-        {showAnswered ? <div className="mt-2">{renderRows(rows.filter((row) => ANSWERED_STATUSES.includes(row.responseStatus)))}</div> : null}
+        {filter === 'unanswered' && answeredRows.length ? <>
+          <button type="button" onClick={() => setShowAnswered((value) => !value)} className="mt-3 flex min-h-[48px] w-full items-center justify-between rounded-[12px] bg-surface-2 px-3 text-left">
+            <span><strong className="block text-[11px] text-text-primary">Уже ответили · {answeredRows.length}</strong><span className="text-[9px] text-text-muted">Скрыто, пока не понадобится</span></span>
+            {showAnswered ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
+          </button>
+          {showAnswered ? <div className="mt-2">{renderRows(answeredRows)}</div> : null}
+        </> : null}
       </div> : null}
-
-      {!loading && filter === 'all' ? <div className="mt-3">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {ANSWERED_STATUSES.map((status) => <button key={status} type="button" onClick={() => setFilter(status)} className="min-h-[44px] rounded-[11px] bg-surface-2 px-2 text-[10px] font-bold text-text-secondary">{STATUS_LABELS[status]} · {counts[status]}</button>)}
-        </div>
-        <div className="mt-2">{renderRows(rows)}</div>
-      </div> : null}
-
-      {!loading && filter !== 'all' && filter !== 'unanswered' ? <div className="mt-3">{visibleRows.length ? renderRows(visibleRows) : <div className="rounded-[12px] bg-surface-2 px-3 py-5 text-center text-[11px] text-text-muted">В этой группе сейчас никого.</div>}</div> : null}
     </section>
   );
 }

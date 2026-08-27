@@ -181,7 +181,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/players', playersRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
-  app.use('/api/games', requireOrganizerAuth, (_req, res) => {
+  app.post('/api/games', requireOrganizerAuth, (_req, res) => {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });
   app.use('/api/games', organizerBettingRoutes);

@@ -12,11 +12,12 @@ type JudgingWithEvenings = PlayerJudgingDashboard & { available_evenings?: Judge
 
 type Props = {
   data: PlayerMeResponse;
+  canOpenAdmin?: boolean;
   initialPane?: ConductPane;
   onPaneChange?: (pane: ConductPane) => void;
 };
 
-export default function PlayerConductCenter({ data, initialPane = 'games', onPaneChange }: Props) {
+export default function PlayerConductCenter({ data, canOpenAdmin = false, initialPane = 'games', onPaneChange }: Props) {
   const [pane, setPane] = useState<ConductPane>(initialPane);
   const [judging, setJudging] = useState<JudgingWithEvenings | null>(null);
   const [launchedGame, setLaunchedGame] = useState<ClubGameRecord | null>(null);
@@ -30,7 +31,7 @@ export default function PlayerConductCenter({ data, initialPane = 'games', onPan
     return () => { cancelled = true; };
   }, []);
 
-  const isOrganizer = data.player.club_role === 'organizer';
+  const isOrganizer = canOpenAdmin || data.player.club_role === 'organizer';
   const judgeLevel = judging?.player.judge_level || data.player.judge_level || 'none';
   const canJudgeClubGame = judgeLevel !== 'none';
   const canOpenTestGame = canJudgeClubGame || isOrganizer;

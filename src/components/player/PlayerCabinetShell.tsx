@@ -119,6 +119,7 @@ export default function PlayerCabinetShell({
       ) : section === 'conduct' ? (
         <PlayerConductCenter
           data={currentData}
+          canOpenAdmin={canOpenAdmin}
           initialPane={initialTarget === 'music' ? 'music' : 'games'}
           onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)}
         />

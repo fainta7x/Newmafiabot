@@ -10,6 +10,7 @@ describe('player cabinet legacy decoupling', () => {
     expect(shell).not.toContain('PlayerCabinetShellLegacy');
     expect(shell).toContain("import PlayerConductCenter from './PlayerConductCenter.tsx'");
     expect(shell).toContain("section === 'conduct'");
+    expect(shell).toContain('canOpenAdmin={canOpenAdmin}');
   });
 
   it('keeps the games hub independent from PlayerCabinetShellLegacy', () => {

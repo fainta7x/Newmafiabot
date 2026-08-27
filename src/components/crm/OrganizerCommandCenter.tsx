@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, ArrowRight, Calendar, Check, CheckCircle2, CircleDollarSign,
-  Clock3, Gamepad2, MessageCircle, RefreshCw, UserCheck,
+  AlertTriangle, ArrowRight, Calendar, CheckCircle2,
+  Gamepad2, MessageCircle, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
-import { buildTodayActionQueue, type TodayActionItem } from '../../lib/organizerUx.ts';
-import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
 import type { EveningSection } from './EveningWorkspace.tsx';
 
 type OpsPlayer = {
@@ -85,14 +83,13 @@ const rotationReasonLabel = (reason?: OpsPlayer['rotation_reason']) => {
 };
 
 export default function OrganizerCommandCenter({
-  overview, onOpenEvening, onOpenEveningSection, onOpenPlayer, onNavigateTab,
-  onCreateEvening, onCompleteTask, onRefresh,
+  onOpenEvening, onOpenEveningSection, onOpenPlayer,
+  onCreateEvening, onRefresh,
 }: Props) {
   const [data, setData] = useState<CommandCenterResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [clubAccessConfirm, setClubAccessConfirm] = useState<TodayActionItem | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -119,24 +116,13 @@ export default function OrganizerCommandCenter({
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [load]);
 
-  const queue = useMemo(() => buildTodayActionQueue(overview).filter((item) => !item.kind.startsWith('evening_')), [overview]);
-  const priorityQueue = queue.slice(0, 6);
   const snapshot = data?.snapshot || null;
+  const communicationAttention = snapshot?.attention.communication || [];
+  const attendanceAttention = snapshot?.mode === 'active' ? snapshot.stats.pending_attendance : 0;
+  const hasOperationalAttention = communicationAttention.length > 0 || attendanceAttention > 0;
 
   const refreshAll = async () => {
     await Promise.all([load(true), onRefresh?.()]);
-  };
-
-  const completeTask = async (taskId: string) => {
-    if (busy) return;
-    setBusy(`task:${taskId}`);
-    try {
-      if (onCompleteTask) await onCompleteTask(taskId);
-      else await api.completeTask(taskId);
-      await refreshAll();
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось завершить задачу');
-    } finally { setBusy(null); }
   };
 
   const markPaid = async (participant: { id?: string; participant_id?: string; amount_due: number }) => {
@@ -151,44 +137,13 @@ export default function OrganizerCommandCenter({
     } finally { setBusy(null); }
   };
 
-  const runQueueAction = async (item: TodayActionItem) => {
-    if (item.kind === 'newcomer_followup' || item.kind === 'lapsed_player') {
-      if (item.playerId) onOpenPlayer(item.playerId);
-      return;
-    }
-    if (item.kind === 'club_access_review') {
-      setClubAccessConfirm(item);
-      return;
-    }
-    if (item.kind === 'unpaid') {
-      await markPaid({ id: item.payload.id, amount_due: Number(item.payload.amount_due || 0) });
-      return;
-    }
-    if (['overdue_task', 'today_task', 'undated_task'].includes(item.kind)) {
-      await completeTask(item.payload.id);
-    }
-  };
-
-  const confirmClubAccess = async () => {
-    const item = clubAccessConfirm;
-    if (!item?.playerId || busy) return;
-    setBusy(item.key);
-    try {
-      await api.updatePlayer(item.playerId, { game_level: 'club' } as any);
-      setClubAccessConfirm(null);
-      await refreshAll();
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось изменить уровень игрока');
-    } finally { setBusy(null); }
-  };
-
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
   return <div className="mx-auto w-full max-w-3xl space-y-3.5 sm:space-y-4">
     <div data-testid="crm-today-header" className="flex items-center justify-between gap-3 px-0.5">
       <div className="min-w-0">
         <h2 className="text-[21px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2>
-        <p className="mt-0.5 text-[11px] leading-4 text-text-muted sm:text-[12px] sm:text-text-secondary">Сначала — то, что требует решения сейчас.</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-text-muted sm:text-[12px] sm:text-text-secondary">Только то, что действительно нужно сделать сейчас.</p>
       </div>
       <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className="h-4 w-4" /></button>
     </div>
@@ -213,12 +168,15 @@ export default function OrganizerCommandCenter({
             <button type="button" onClick={() => onOpenEvening(snapshot.evening.id)} className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary"><ArrowRight className="h-4 w-4" /></button>
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-1.5 text-center">
+          {snapshot.mode === 'active' ? <div className="mt-4 grid grid-cols-4 gap-1.5 text-center">
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">ожидаем</div></button>
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-success">{snapshot.stats.present}</div><div className="text-[8px] text-text-muted">пришли</div></button>
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'games')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.completed_games}<span className="text-[9px] text-text-muted">/{snapshot.stats.games}</span></div><div className="text-[8px] text-text-muted">игры</div></button>
             <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className={`text-[18px] font-black ${snapshot.blockers.length ? 'text-warning' : 'text-success'}`}>{snapshot.blockers.reduce((sum, row) => sum + row.count, 0)}</div><div className="text-[8px] text-text-muted">к закрытию</div></button>
-          </div>
+          </div> : <div className="mt-4 grid grid-cols-2 gap-1.5 text-center">
+            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-2 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">планируют прийти</div></button>
+            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="rounded-[13px] bg-surface-2 px-2 py-2.5"><div className={`text-[18px] font-black ${communicationAttention.length ? 'text-warning' : 'text-success'}`}>{communicationAttention.length}</div><div className="text-[8px] text-text-muted">по коммуникации</div></button>
+          </div>}
         </div>
       </section>
 
@@ -237,16 +195,13 @@ export default function OrganizerCommandCenter({
         </div> : <div className="mt-3 rounded-[15px] border border-warning/20 bg-warning-soft p-3"><div className="text-[11px] font-black text-text-primary">Сейчас в клубе {snapshot.stats.present} из 10 нужных игроков</div><div className="mt-1 text-[9px] leading-4 text-text-secondary">Отметь приход остальных участников, когда они появятся.</div><button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="mt-3 min-h-10 w-full rounded-[11px] bg-warning text-[10px] font-black text-white">К явке</button></div>}
       </section> : null}
 
-      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-warning">Требует внимания</div><h3 className="mt-0.5 text-[15px] font-black text-text-primary">{snapshot.mode === 'active' ? 'Не потерять во время вечера' : 'Подготовить до старта'}</h3></div><AlertTriangle className="h-5 w-5 text-warning" /></div>
+      {hasOperationalAttention ? <section className="rounded-[20px] border border-warning/20 bg-surface-1 p-4">
+        <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-warning">Сейчас требует внимания</div><h3 className="mt-0.5 text-[15px] font-black text-text-primary">{snapshot.mode === 'active' ? 'Только оперативные действия' : 'До старта вечера'}</h3></div><AlertTriangle className="h-5 w-5 text-warning" /></div>
         <div className="mt-3 space-y-2">
-          {snapshot.attention.communication.length ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><MessageCircle className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Коммуникация · {snapshot.attention.communication.length}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{snapshot.attention.communication.slice(0, 4).map((item) => `${item.nickname}: ${communicationLabel(item.status)}`).join(' · ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
-          {snapshot.stats.pending_attendance ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><UserCheck className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Явка · не отмечено {snapshot.stats.pending_attendance}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{snapshot.roster.pending_attendance.slice(0, 6).map((item) => item.nickname).join(', ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
-          {snapshot.stats.unpaid_count ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><CircleDollarSign className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Оплаты · {snapshot.stats.unpaid_count}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">Осталось {formatMoney(snapshot.stats.unpaid_amount)} · {snapshot.roster.unpaid.slice(0, 5).map((item) => item.nickname).join(', ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
-          {snapshot.attention.tasks.length ? <div className="rounded-[13px] bg-surface-2 p-3"><div className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-accent" /><strong className="text-[10px] text-text-primary">Задачи вечера · {snapshot.attention.tasks.length}</strong></div><div className="mt-2 space-y-1.5">{snapshot.attention.tasks.slice(0, 4).map((task: any) => <div key={task.id} className="flex items-center gap-2 rounded-[10px] bg-surface-1 px-2.5 py-2"><span className="min-w-0 flex-1"><strong className="block truncate text-[9px] text-text-primary">{task.title}</strong>{task.player_nickname ? <span className="text-[7px] text-text-muted">{task.player_nickname}</span> : null}</span><button type="button" disabled={Boolean(busy)} onClick={() => void completeTask(task.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-success-soft text-success disabled:opacity-40"><Check className="h-3.5 w-3.5" /></button></div>)}</div></div> : null}
-          {!snapshot.attention.communication.length && !snapshot.stats.pending_attendance && !snapshot.stats.unpaid_count && !snapshot.attention.tasks.length ? <div className="flex items-center gap-3 rounded-[13px] bg-success-soft p-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-success" /><div><strong className="block text-[10px] text-text-primary">Ничего срочного</strong><span className="text-[8px] text-text-muted">По текущему вечеру нет незакрытых оперативных действий.</span></div></div> : null}
+          {communicationAttention.length ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><MessageCircle className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Коммуникация · {communicationAttention.length}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{communicationAttention.slice(0, 4).map((item) => `${item.nickname}: ${communicationLabel(item.status)}`).join(' · ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
+          {attendanceAttention ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><UserCheck className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Явка · не отмечено {attendanceAttention}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{snapshot.roster.pending_attendance.slice(0, 6).map((item) => item.nickname).join(', ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
         </div>
-      </section>
+      </section> : null}
 
       {snapshot.mode === 'active' ? <section className={`rounded-[20px] border p-4 ${snapshot.stats.ready_to_close ? 'border-success/30 bg-success-soft' : 'border-border-soft bg-surface-1'}`}>
         <div className="flex items-center gap-3"><CheckCircle2 className={`h-5 w-5 shrink-0 ${snapshot.stats.ready_to_close ? 'text-success' : 'text-text-muted'}`} /><div className="min-w-0 flex-1"><strong className="block text-[11px] text-text-primary">Финиш вечера</strong><span className="text-[8px] leading-4 text-text-muted">{snapshot.stats.ready_to_close ? 'Явка заполнена и созданные игры завершены. Можно делать финальную проверку и закрывать вечер.' : snapshot.blockers.map((item) => `${item.label}: ${item.count}`).join(' · ')}</span></div><button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="min-h-9 shrink-0 rounded-[10px] bg-accent px-2.5 text-[9px] font-black text-white">К итогу</button></div>
@@ -254,23 +209,8 @@ export default function OrganizerCommandCenter({
     </>}
 
     {data?.wrapup ? <section className="rounded-[20px] border border-warning/20 bg-warning-soft/40 p-4">
-      <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div className="min-w-0 flex-1"><div className="text-[9px] font-black uppercase tracking-[0.12em] text-warning">После прошлого вечера</div><h3 className="mt-0.5 truncate text-[13px] font-black text-text-primary">{data.wrapup.evening.title}</h3><p className="mt-1 text-[8px] text-text-muted">{data.wrapup.unpaid.length ? `Не закрыты оплаты: ${data.wrapup.unpaid.length}. ` : ''}{data.wrapup.tasks.length ? `Открытые задачи: ${data.wrapup.tasks.length}.` : ''}</p></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
+      <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div className="min-w-0 flex-1"><div className="text-[9px] font-black uppercase tracking-[0.12em] text-warning">После прошлого вечера</div><h3 className="mt-0.5 truncate text-[13px] font-black text-text-primary">{data.wrapup.evening.title}</h3><p className="mt-1 text-[8px] text-text-muted">{data.wrapup.unpaid.length ? `Не закрыты оплаты: ${data.wrapup.unpaid.length}.` : 'По оплатам всё закрыто.'}</p></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
       {data.wrapup.unpaid.length ? <div className="mt-3 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex items-center gap-2 rounded-[10px] bg-surface-1 px-2.5 py-2"><span className="min-w-0 flex-1"><strong className="block truncate text-[9px] text-text-primary">{row.nickname}</strong><span className="text-[7px] text-text-muted">осталось {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-8 rounded-[9px] bg-success-soft px-2 text-[8px] font-black text-success disabled:opacity-40">Оплачено</button></div>)}</div> : null}
     </section> : null}
-
-    <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-      <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-text-muted">Клуб вне вечера</div><h3 className="mt-0.5 text-[14px] font-black text-text-primary">Следующие действия</h3></div>{queue.length > priorityQueue.length ? <button type="button" onClick={() => onNavigateTab('tasks')} className="text-[9px] font-black text-accent">Все задачи</button> : null}</div>
-      {priorityQueue.length ? <div className="mt-3 space-y-1.5">{priorityQueue.map((item) => <div key={item.key} className="flex items-center gap-2 rounded-[12px] bg-surface-2 px-3 py-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[10px] text-text-primary">{item.title}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{item.reason}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void runQueueAction(item)} className="min-h-8 shrink-0 rounded-[9px] bg-surface-1 px-2 text-[8px] font-black text-accent disabled:opacity-40">{item.actionLabel}</button></div>)}</div> : <div className="mt-3 flex items-center gap-3 rounded-[13px] bg-success-soft p-3"><CheckCircle2 className="h-5 w-5 text-success" /><div><strong className="block text-[10px] text-text-primary">Очередь чистая</strong><span className="text-[8px] text-text-muted">Нет просроченных задач, долгов или обязательных follow-up.</span></div></div>}
-    </section>
-
-    <ConfirmDialog
-      open={Boolean(clubAccessConfirm)}
-      title={`Допустить «${clubAccessConfirm?.payload?.nickname || clubAccessConfirm?.title || 'игрока'}» в основной клуб?`}
-      description="После этого MafiaBot сможет выдать игроку закрытую ссылку основного клуба. Турнирный доступ это не открывает."
-      confirmLabel="Допустить"
-      busy={Boolean(clubAccessConfirm && busy === clubAccessConfirm.key)}
-      onCancel={() => !busy && setClubAccessConfirm(null)}
-      onConfirm={confirmClubAccess}
-    />
   </div>;
 }

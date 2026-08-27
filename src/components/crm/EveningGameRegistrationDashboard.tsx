@@ -58,7 +58,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('unknown');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingSlotIds, setEditingSlotIds] = useState<string[]>([]);
 
@@ -140,7 +140,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
 
   const visibleRows = useMemo(() => filter === 'all' ? rows : rows.filter((row) => row.state === filter), [filter, rows]);
 
-  const setStatus = async (row: Row, status: 'going' | 'thinking' | 'declined') => {
+  const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined') => {
     if (savingId || readonly) return;
     setSavingId(row.playerId);
     setError('');
@@ -148,9 +148,6 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
       if (row.participant) {
         await api.updateParticipant(row.participant.id, { response_status: status } as any);
       } else {
-        // A legacy organizer insert with status "going" intentionally means "whole evening"
-        // and auto-selects every open game. Create an unanswered participant first, then
-        // patch the known attendance decision so "Будет" can stay separate from slot choice.
         const created = await api.addParticipant(eveningId, {
           player_id: row.playerId,
           table_id: null,
@@ -223,73 +220,65 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const editTotal = maxEveningPrice > 0 ? Math.min(editRawTotal, maxEveningPrice) : editRawTotal;
 
   const filterItems: Array<{ id: Filter; label: string; count: number }> = [
-    { id: 'all', label: 'Все', count: rows.length },
     { id: 'unknown', label: 'Нет информации', count: counts.unknown },
-    { id: 'coming', label: 'Будут без игр', count: counts.coming },
+    { id: 'coming', label: 'Будут', count: counts.coming },
     { id: 'thinking', label: 'Думают', count: counts.thinking },
     { id: 'games', label: 'Игры выбраны', count: counts.games },
     { id: 'declined', label: 'Не будут', count: counts.declined },
+    { id: 'all', label: 'Все', count: rows.length },
   ];
 
   return (
     <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <strong className="block text-[13px] text-text-primary">Запись на игры</strong>
-          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">В рассылке этого вечера: {audienceCount}. Здесь видно, по кому уже всё понятно, а кого ещё нужно уточнить.</span>
+          <strong className="block text-[13px] text-text-primary">Ответы и игры</strong>
+          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">В рассылке: {audienceCount}. По умолчанию показываем только тех, по кому ещё нет решения.</span>
         </div>
-        <button type="button" disabled={loading} onClick={() => void load()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
+        <button type="button" disabled={loading} onClick={() => void load()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40" aria-label="Обновить">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <button type="button" onClick={() => setFilter('games')} className="rounded-[11px] bg-surface-2 p-2 text-left"><span className="block text-[18px] font-bold text-text-primary">{counts.games}</span><span className="text-[9px] text-text-muted">Игры выбраны</span></button>
-        <button type="button" onClick={() => setFilter('coming')} className="rounded-[11px] bg-surface-2 p-2 text-left"><span className="block text-[18px] font-bold text-text-primary">{counts.coming}</span><span className="text-[9px] text-text-muted">Будут, без игр</span></button>
-        <button type="button" onClick={() => setFilter('thinking')} className="rounded-[11px] bg-surface-2 p-2 text-left"><span className="block text-[18px] font-bold text-text-primary">{counts.thinking}</span><span className="text-[9px] text-text-muted">Думают</span></button>
-        <button type="button" onClick={() => setFilter('declined')} className="rounded-[11px] bg-surface-2 p-2 text-left"><span className="block text-[18px] font-bold text-text-primary">{counts.declined}</span><span className="text-[9px] text-text-muted">Не будут</span></button>
-        <button type="button" onClick={() => setFilter('unknown')} className="col-span-2 rounded-[11px] border border-accent/30 bg-accent-soft p-2 text-left sm:col-span-1"><span className="block text-[18px] font-bold text-text-primary">{counts.unknown}</span><span className="text-[9px] text-text-muted">Нет информации</span></button>
-      </div>
-
-      <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
-        {filterItems.map((item) => <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-[9px] font-bold ${filter === item.id ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary'}`}>{item.label} · {item.count}</button>)}
+        {filterItems.map((item) => <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`min-h-[50px] rounded-[11px] px-3 text-left ${filter === item.id ? 'bg-accent text-white' : item.id === 'unknown' && item.count ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-secondary'}`}><span className="block text-[16px] font-bold">{item.count}</span><span className={`text-[10px] ${filter === item.id ? 'text-white/80' : 'text-text-muted'}`}>{item.label}</span></button>)}
       </div>
 
       {error ? <div className="mt-3 rounded-[11px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
       {readonly ? <div className="mt-3 rounded-[11px] bg-surface-2 px-3 py-2 text-[10px] text-text-muted">Вечер завершён — запись доступна только для просмотра.</div> : null}
       {loading ? <p className="py-5 text-center text-[11px] text-text-secondary">Загружаю запись…</p> : null}
 
-      {!loading ? <div className="mt-2 space-y-1.5">
+      {!loading ? <div className="mt-3 space-y-2">
         {visibleRows.map((row) => {
           const busy = savingId === row.playerId;
           const editing = editingPlayerId === row.playerId;
           const slotText = row.slots.length
             ? row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')
             : STATE_LABELS[row.state];
-          return <div key={row.playerId} className="rounded-[11px] bg-surface-2 px-3 py-2.5">
+          return <div key={row.playerId} className="rounded-[13px] bg-surface-2 p-3">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <strong className="block truncate text-[11px] text-text-primary">{row.nickname}</strong>
-                <span className="mt-0.5 block text-[9px] leading-4 text-text-muted">{row.slots.length ? `Игры: ${slotText}` : slotText}</span>
+                <strong className="block truncate text-[12px] text-text-primary">{row.nickname}</strong>
+                <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">{row.slots.length ? `Игры: ${slotText}` : slotText}</span>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <button type="button" disabled={busy} onClick={() => openSlotEditor(row)} className={`flex min-h-[32px] items-center gap-1 rounded-[8px] px-2 text-[9px] font-bold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>
-                  Игры {editing ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-                {row.state !== 'games' && !editing ? <>
-                  <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'going')} className={`min-h-[32px] rounded-[8px] px-2 text-[9px] font-bold disabled:opacity-40 ${row.state === 'coming' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Будет</button>
-                  <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'thinking')} className={`min-h-[32px] rounded-[8px] px-2 text-[9px] font-bold disabled:opacity-40 ${row.state === 'thinking' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Думает</button>
-                  <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'declined')} className={`min-h-[32px] rounded-[8px] px-2 text-[9px] font-bold disabled:opacity-40 ${row.state === 'declined' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Не будет</button>
-                </> : null}
-              </div>
+              <button type="button" disabled={busy} onClick={() => openSlotEditor(row)} className={`flex min-h-[44px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[10px] font-bold disabled:opacity-40 ${editing ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>
+                Игры {editing ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
             </div>
 
-            {editing ? <div className="mt-2 border-t border-border-soft pt-2">
-              <div className="mb-2 flex items-center justify-between gap-2 text-[9px] text-text-muted">
-                <span>Выбери точные игры</span>
+            {!editing ? <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'going')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.responseStatus === 'going' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Будет</button>
+              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'late')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.responseStatus === 'late' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Позже</button>
+              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'thinking')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.state === 'thinking' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Думает</button>
+              <button type="button" disabled={busy || readonly} onClick={() => void setStatus(row, 'declined')} className={`min-h-[44px] rounded-[10px] px-2 text-[10px] font-bold disabled:opacity-40 ${row.state === 'declined' ? 'bg-accent text-white' : 'bg-surface-1 text-text-secondary'}`}>Не будет</button>
+            </div> : null}
+
+            {editing ? <div className="mt-3 border-t border-border-soft pt-3">
+              <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
+                <span>Точные игры</span>
                 <span>{editingSlotIds.length} игр · {editTotal} ₽</span>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {allSlots.map((slot) => {
                   const selected = editingSlotIds.includes(slot.id);
                   return <button
@@ -297,16 +286,16 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
                     type="button"
                     disabled={busy || readonly}
                     onClick={() => toggleEditingSlot(slot.id)}
-                    className={`min-h-[44px] rounded-[9px] border px-2 text-left disabled:opacity-40 ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
+                    className={`min-h-[54px] rounded-[11px] border px-3 text-left disabled:opacity-40 ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
                   >
-                    <strong className="block text-[10px]">Игра {slot.slot_number} · {slotTime(slot.starts_at)}</strong>
-                    <span className="mt-0.5 block text-[8px] text-text-muted">{Number(slot.price || 0)} ₽ {selected ? '· ✓' : ''}</span>
+                    <strong className="block text-[11px]">Игра {slot.slot_number}</strong>
+                    <span className="mt-0.5 block text-[9px] text-text-muted">{slotTime(slot.starts_at)} · {Number(slot.price || 0)} ₽ {selected ? '· ✓' : ''}</span>
                   </button>;
                 })}
               </div>
-              <div className="mt-2 flex gap-2">
-                <button type="button" disabled={busy} onClick={() => { setEditingPlayerId(null); setEditingSlotIds([]); }} className="min-h-[38px] flex-1 rounded-[9px] border border-border-soft bg-surface-1 px-3 text-[10px] font-bold text-text-secondary disabled:opacity-40">Отмена</button>
-                <button type="button" disabled={busy || readonly} onClick={() => void saveInlineSlots(row)} className="min-h-[38px] flex-[1.4] rounded-[9px] bg-accent px-3 text-[10px] font-bold text-white disabled:opacity-40">{busy ? 'Сохраняю…' : editingSlotIds.length ? 'Сохранить игры' : 'Снять со всех игр'}</button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" disabled={busy} onClick={() => { setEditingPlayerId(null); setEditingSlotIds([]); }} className="min-h-[44px] rounded-[10px] border border-border-soft bg-surface-1 px-3 text-[10px] font-bold text-text-secondary disabled:opacity-40">Отмена</button>
+                <button type="button" disabled={busy || readonly} onClick={() => void saveInlineSlots(row)} className="min-h-[44px] rounded-[10px] bg-accent px-3 text-[10px] font-bold text-white disabled:opacity-40">{busy ? 'Сохраняю…' : editingSlotIds.length ? 'Сохранить игры' : 'Снять со всех игр'}</button>
               </div>
             </div> : null}
           </div>;

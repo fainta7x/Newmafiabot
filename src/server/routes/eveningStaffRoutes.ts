@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { getDb } from '../../db/index.ts';
+import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 
 const router = Router();
 
-async function loadStaff(db: any, eveningId: string) {
+async function loadStaff(db: DatabaseWrapper, eveningId: string) {
   await ensureClubOperationsSchema(db);
   const evening = await db.get<any>('SELECT id, title, status FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) return null;

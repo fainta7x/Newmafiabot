@@ -6,6 +6,7 @@ import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
+import { ensureEveningStaffSchema } from './db/ensureEveningStaffSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
@@ -46,6 +47,7 @@ import commerceAdminRoutes from './server/routes/commerceAdminRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
+import eveningStaffRoutes from './server/routes/eveningStaffRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
 import eloSeedAdminRoutes from './server/routes/eloSeedAdminRoutes.ts';
 import playersRoutes from './server/routes/playersRoutes.ts';
@@ -105,6 +107,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
+  await ensureEveningStaffSchema(db);
   await ensureJudgeMusicSchema(db);
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);
@@ -169,6 +172,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
+  app.use('/api/evenings', eveningStaffRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);
   app.use('/api/evening-participants', participantRoutes);
@@ -177,7 +181,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/players', playersRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/analytics', analyticsRoutes);
-  app.post('/api/games', requireOrganizerAuth, (_req, res) => {
+  app.use('/api/games', requireOrganizerAuth, (_req, res) => {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });
   app.use('/api/games', organizerBettingRoutes);

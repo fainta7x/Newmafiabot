@@ -57,6 +57,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const [readonly, setReadonly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<Filter>('unknown');
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -141,27 +142,58 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
   const visibleRows = useMemo(() => filter === 'all' ? rows : rows.filter((row) => row.state === filter), [filter, rows]);
 
   const setStatus = async (row: Row, status: 'going' | 'late' | 'thinking' | 'declined') => {
-    if (savingId || readonly) return;
-    setSavingId(row.playerId);
+    if (savingStatusIds.has(row.playerId) || readonly) return;
+
+    const previousResponseStatus = row.responseStatus;
+    const previousState = row.state;
+    const previousParticipant = row.participant;
+    const optimisticState = stateFor(status, row.slots);
+
     setError('');
+    setSavingStatusIds((current) => {
+      const next = new Set(current);
+      next.add(row.playerId);
+      return next;
+    });
+    setRows((current) => current.map((item) => item.playerId === row.playerId
+      ? { ...item, responseStatus: status, state: optimisticState }
+      : item));
+
     try {
+      let createdParticipant: EveningParticipant | null = null;
       if (row.participant) {
         await api.updateParticipant(row.participant.id, { response_status: status } as any);
       } else {
-        const created = await api.addParticipant(eveningId, {
+        createdParticipant = await api.addParticipant(eveningId, {
           player_id: row.playerId,
           table_id: null,
           registration_status: 'unanswered' as any,
           amount_due: 0,
         });
-        await api.updateParticipant(created.id, { response_status: status } as any);
+        await api.updateParticipant(createdParticipant.id, { response_status: status } as any);
       }
-      await load(true);
-      onChanged?.();
+
+      if (createdParticipant) {
+        setRows((current) => current.map((item) => item.playerId === row.playerId
+          ? { ...item, participant: createdParticipant }
+          : item));
+      }
     } catch (err: any) {
-      setError(err?.message || 'Не удалось сохранить решение игрока');
+      setRows((current) => current.map((item) => item.playerId === row.playerId
+        ? {
+          ...item,
+          participant: previousParticipant,
+          responseStatus: previousResponseStatus,
+          state: previousState,
+        }
+        : item));
+      setError(err?.message || `Не удалось сохранить решение игрока ${row.nickname}`);
     } finally {
-      setSavingId(null);
+      setSavingStatusIds((current) => {
+        const next = new Set(current);
+        next.delete(row.playerId);
+        return next;
+      });
     }
   };
 
@@ -250,7 +282,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
 
       {!loading ? <div className="mt-3 space-y-2">
         {visibleRows.map((row) => {
-          const busy = savingId === row.playerId;
+          const busy = savingId === row.playerId || savingStatusIds.has(row.playerId);
           const editing = editingPlayerId === row.playerId;
           const slotText = row.slots.length
             ? row.slots.map((slot) => `${slot.slot_number} (${slotTime(slot.starts_at)})`).join(' · ')

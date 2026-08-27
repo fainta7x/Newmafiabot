@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { AlertCircle, Archive, CheckCircle2, FileText, Gamepad2, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening } from '../../lib/api';
 import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord } from '../../lib/clubGamesApi';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -9,10 +9,9 @@ import { EveningGameCreateSheet } from './EveningGameCreateSheet';
 
 interface EveningGamesViewProps {
   eveningId: string;
-  onBack: () => void;
 }
 
-export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, onBack }) => {
+export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId }) => {
   const [evening, setEvening] = useState<(GameEvening & { participants?: EveningParticipant[]; tables?: EveningTable[] }) | null>(null);
   const [games, setGames] = useState<ClubGameRecord[]>([]);
   const [archivedGames, setArchivedGames] = useState<ClubGameRecord[]>([]);
@@ -121,10 +120,10 @@ export const EveningGamesView: React.FC<EveningGamesViewProps> = ({ eveningId, o
   return (
     <div className="space-y-4">
       <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <button onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary"><ArrowLeft className="h-5 w-5" /></button>
-            <div className="min-w-0"><div className="flex items-center gap-2"><Gamepad2 className="h-5 w-5 shrink-0 text-accent" /><h2 className="truncate text-[18px] font-black text-text-primary">Игры · {evening.title}</h2></div><p className="mt-1 text-[11px] text-text-secondary">{new Date(evening.starts_at).toLocaleDateString('ru-RU')}{evening.venue ? ` · ${evening.venue}` : ''}</p></div>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-accent-soft text-accent"><Gamepad2 className="h-5 w-5" /></span>
+            <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-[18px] font-black text-text-primary">Игры вечера</h2></div><p className="mt-1 text-[11px] text-text-secondary">Создай игру и сразу выбери: провести её в движке или внести готовый результат.</p></div>
           </div>
           <button type="button" onClick={() => setShowCreate(true)} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] bg-accent px-4 text-[12px] font-black text-white"><Plus className="h-4 w-4" />Новая игра</button>
         </div>

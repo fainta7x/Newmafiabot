@@ -119,14 +119,14 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
       <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><h3 className="text-[14px] font-black text-text-primary">Что сейчас происходит</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">В этом разделе только сам вечер и его публикации. Ответы игроков и фактический приход находятся в соседних разделах.</p></div>
+          <div><h3 className="text-[14px] font-black text-text-primary">Вечер в одном взгляде</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">Анонс — здесь. Ответы, действия на входе и игры открываются ниже по смыслу, а не через отдельные настройки.</p></div>
           <MegaphoneIcon />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button type="button" onClick={() => onOpenSection('participants')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Users className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.expected}</strong><span className="text-[10px] text-text-muted">подтвердили участие</span></button>
-          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CheckCircle2 className="h-4 w-4 text-success" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.attended}</strong><span className="text-[10px] text-text-muted">отмечены на месте</span></button>
-          <button type="button" onClick={() => onOpenSection('games')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Gamepad2 className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.completedGames}<span className="text-[11px] text-text-muted">/{stats.games}</span></strong><span className="text-[10px] text-text-muted">игр завершено</span></button>
-          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CircleDollarSign className="h-4 w-4 text-success" /><strong className="mt-2 block text-[16px] text-text-primary">{money(stats.paid)}</strong><span className="text-[10px] text-text-muted">оплачено из {money(stats.due)}</span></button>
+          <button type="button" onClick={() => onOpenSection('participants')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Users className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.expected}</strong><span className="text-[10px] text-text-muted">идут · открыть ответы</span></button>
+          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CheckCircle2 className="h-4 w-4 text-success" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.attended}</strong><span className="text-[10px] text-text-muted">пришли · отметить вход</span></button>
+          <button type="button" onClick={() => onOpenSection('games')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Gamepad2 className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.completedGames}<span className="text-[11px] text-text-muted">/{stats.games}</span></strong><span className="text-[10px] text-text-muted">игр готово · открыть игры</span></button>
+          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CircleDollarSign className="h-4 w-4 text-success" /><strong className="mt-2 block text-[16px] text-text-primary">{money(stats.paid)}</strong><span className="text-[10px] text-text-muted">получено из {money(stats.due)}</span></button>
         </div>
       </section>
 

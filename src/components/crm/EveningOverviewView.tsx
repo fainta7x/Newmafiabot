@@ -105,7 +105,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
           {showAnnouncementSettings ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
         </button>
         {showAnnouncementSettings ? <div className="border-t border-border-soft p-3">
-          <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} settingsOnly />
+          <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} />
         </div> : null}
       </section>
     </div>

@@ -13,6 +13,7 @@ from bot_telegram_api import (
     save_evening_telegram_publication,
     save_public_router_message_id,
 )
+from crm_evening_keyboard import crm_evening_response_kb
 from handlers.telegram_evening_copy import closed_event_text, format_start, thematic_event_text
 
 
@@ -27,10 +28,8 @@ async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
         return None
 
 
-def _event_link_keyboard(url: str | None, text: str = "🎯 Выбрать / изменить игры") -> InlineKeyboardMarkup | None:
-    if not url:
-        return None
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
+def _event_link_keyboard(evening_id: str, url: str | None) -> InlineKeyboardMarkup:
+    return crm_evening_response_kb(evening_id, event_url=url)
 
 
 async def _edit_message(
@@ -184,7 +183,7 @@ async def sync_evening_telegram(
         results.append({"destination_id": destination_id, "action": "closed", "success": ok})
 
     event_url = await _bot_url(bot, f"event_{evening_id}")
-    event_keyboard = _event_link_keyboard(event_url)
+    event_keyboard = _event_link_keyboard(evening_id, event_url)
 
     for destination_id in desired:
         destination = destinations.get(destination_id) or {}
@@ -284,7 +283,7 @@ async def sync_public_router(bot: Bot) -> dict:
             club_evening,
         ),
         "",
-        "Для записи открой нужный вечер и отметь конкретные игры, на которые придёшь.",
+        "Для точного выбора игр открой нужный вечер. Быстрый ответ на клубный анонс можно дать прямо в Telegram.",
         "Доступ в основной клуб — после подтверждения организатора.",
     ]
     text = "\n".join(lines)

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ListTodo, Table2, UsersRound, WalletCards } from 'lucide-react';
+import { CircleDollarSign, ListTodo, Table2, UsersRound, WalletCards } from 'lucide-react';
 import EveningActiveRosterView from './EveningActiveRosterView.tsx';
 import EveningStaffCard from './EveningStaffCard.tsx';
+import EveningPaymentsPanel from './EveningPaymentsPanel.tsx';
 import { EveningTablesView } from './EveningTablesView.tsx';
 import EveningOrganizerTasksPanel from './EveningOrganizerTasksPanel.tsx';
 import EveningCloseoutPanel from './EveningCloseoutPanel.tsx';
@@ -15,11 +16,12 @@ interface EveningManagementViewProps {
   initialPane?: OperationsPane;
 }
 
-type OperationsPane = 'work' | 'roster' | 'tasks' | 'tables' | 'closeout';
+type OperationsPane = 'work' | 'roster' | 'payments' | 'tasks' | 'tables' | 'closeout';
 type VisiblePane = Exclude<OperationsPane, 'work'>;
 
 const panes: Array<{ id: VisiblePane; label: string; icon: React.ReactNode }> = [
   { id: 'roster', label: 'Состав', icon: <UsersRound className="h-4 w-4" /> },
+  { id: 'payments', label: 'Оплата', icon: <CircleDollarSign className="h-4 w-4" /> },
   { id: 'tasks', label: 'Задачи', icon: <ListTodo className="h-4 w-4" /> },
   { id: 'tables', label: 'Столы', icon: <Table2 className="h-4 w-4" /> },
   { id: 'closeout', label: 'Закрыть', icon: <WalletCards className="h-4 w-4" /> },
@@ -57,6 +59,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
             <div className="flex items-baseline gap-2"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-accent">Сам вечер</span><h2 className="truncate text-[15px] font-black text-text-primary">{current.label}</h2></div>
             <p className="mt-0.5 truncate text-[10px] text-text-secondary">
               {pane === 'roster' ? 'Только подтверждённые участники и фактическая явка.' : null}
+              {pane === 'payments' ? 'Кто оплатил и кто должен — доступно и после закрытия.' : null}
               {pane === 'tasks' ? 'Задачи организатора для этого вечера.' : null}
               {pane === 'tables' ? 'Настройки стола; игроков выбираешь в конкретной игре.' : null}
               {pane === 'closeout' ? 'Финальная сверка явки, денег и игр.' : null}
@@ -67,7 +70,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
 
       <EveningStaffCard eveningId={eveningId} />
 
-      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5">
+      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
         {panes.map((item) => {
           const active = item.id === pane;
           return <button
@@ -89,6 +92,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
         onOpenPlayerCard={onOpenPlayerCard}
       /> : null}
 
+      {pane === 'payments' ? <EveningPaymentsPanel eveningId={eveningId} /> : null}
       {pane === 'tasks' ? <EveningOrganizerTasksPanel eveningId={eveningId} /> : null}
       {pane === 'tables' ? <EveningTablesView eveningId={eveningId} onBack={() => setPane('roster')} /> : null}
       {pane === 'closeout' ? <EveningCloseoutPanel eveningId={eveningId} /> : null}

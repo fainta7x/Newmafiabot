@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowDownUp, ArrowLeft, CheckCircle2, MoreHorizontal, Search, Trash2, UserPlus } from 'lucide-react';
+import { AlertCircle, ArrowDownUp, ArrowLeft, CheckCircle2, MoreHorizontal, Search, Trash2 } from 'lucide-react';
 import { api, type EveningParticipant, type EveningTable, type GameEvening, type Player } from '../../lib/api.ts';
 import { EVENING_RESPONSE_LABELS, countEveningResponses, getEveningResponse, getEveningResponseLabel, isAttendingResponse, type EveningResponseStatus } from '../../lib/eveningResponse.ts';
 import { ConfirmDialog } from '../ui/ConfirmDialog.tsx';
@@ -14,7 +14,7 @@ interface EveningParticipantsViewProps {
   onInitialAddHandled?: () => void;
 }
 type EveningData = GameEvening & { tables: EveningTable[]; participants: EveningParticipant[] };
-type RosterFilter = 'all' | EveningResponseStatus;
+type RosterFilter = 'all' | 'attention' | EveningResponseStatus;
 type SortMode = 'response' | 'name' | 'payment' | 'attendance';
 type AddMode = 'players' | 'guest';
 type RosterParticipant = EveningParticipant & { response_status?: EveningResponseStatus; audience_only?: boolean };
@@ -54,7 +54,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<RosterFilter>('all');
+  const [filter, setFilter] = useState<RosterFilter>('attention');
   const [sortMode, setSortMode] = useState<SortMode>('response');
   const [search, setSearch] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -153,7 +153,8 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     const query = search.trim().toLocaleLowerCase('ru-RU');
     const filtered = rosterParticipants.filter((participant) => {
       const response = getEveningResponse(participant);
-      if (filter !== 'all' && response !== filter) return false;
+      if (filter === 'attention' && !['unanswered', 'declined', 'thinking'].includes(response)) return false;
+      if (filter !== 'all' && filter !== 'attention' && response !== filter) return false;
       return !query || participant.nickname.toLocaleLowerCase('ru-RU').includes(query) || (participant.phone || '').includes(query);
     });
 
@@ -254,7 +255,9 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[13px] text-danger">{loadError || 'Не удалось загрузить вечер'}<button type="button" onClick={() => void load()} className="ml-2 font-bold underline">Повторить</button></div>;
 
   const eventDayOrPast = isEventDayOrPast(evening.starts_at);
+  const attentionCount = responseCounts.unanswered + responseCounts.declined + responseCounts.thinking;
   const filterItems: Array<{ id: RosterFilter; label: string; count: number }> = [
+    { id: 'attention', label: 'Нужны действия', count: attentionCount },
     { id: 'all', label: 'Все', count: rosterParticipants.length },
     { id: 'going', label: 'Идут', count: responseCounts.going },
     { id: 'late', label: 'Позже', count: responseCounts.late },
@@ -281,7 +284,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         <span className="rounded-full bg-surface-2 px-2.5 py-1 text-text-muted">{responseCounts.declined} не идут</span>
         {responseCounts.unanswered ? <span className="rounded-full bg-surface-2 px-2.5 py-1 text-text-muted">{responseCounts.unanswered} без ответа</span> : null}
       </div>
-      {!isReadonly ? <button type="button" onClick={() => { setAddMode('players'); setAddError(null); setShowAdd(true); }} className="mt-3 inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-[11px] bg-accent px-4 text-[12px] font-bold text-white sm:w-auto"><UserPlus className="h-4 w-4" /> Добавить на вечер</button> : null}
+      {!isReadonly ? <p className="mt-3 rounded-[11px] bg-surface-2 px-3 py-2 text-[11px] text-text-secondary">{attentionCount ? `Сейчас требуют внимания: ${attentionCount}. Остальные ответы — только в сводке.` : 'По ответам всё закрыто.'}</p> : null}
     </section>
 
     <section className="space-y-2.5">
@@ -290,7 +293,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
         <label className="relative"><ArrowDownUp className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" /><select aria-label="Сортировка состава" value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="mobile-field pl-8 pr-2 text-[11px]"><option value="response">По ответу</option><option value="name">По имени</option><option value="payment">Долги сверху</option><option value="attendance">Явка сверху</option></select></label>
       </div>
       <div className="grid grid-cols-3 gap-1.5">{filterItems.map((item) => <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`min-h-[40px] rounded-[10px] border px-1.5 text-[10px] font-semibold leading-tight ${filter === item.id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label} {item.count}</button>)}</div>
-      <div className="flex items-center justify-between px-1 text-[10px] text-text-muted"><span>Показано {visibleParticipants.length} из {rosterParticipants.length}</span><span>{filter === 'all' ? 'Все ответы' : EVENING_RESPONSE_LABELS[filter]}</span></div>
+      <div className="flex items-center justify-between px-1 text-[10px] text-text-muted"><span>Показано {visibleParticipants.length} из {rosterParticipants.length}</span><span>{filter === 'attention' ? 'Нужны действия' : filter === 'all' ? 'Все ответы' : EVENING_RESPONSE_LABELS[filter]}</span></div>
 
       {visibleParticipants.length ? <div className="overflow-hidden rounded-[15px] border border-border-soft bg-surface-1">{visibleParticipants.map((participant, index) => {
         const response = getEveningResponse(participant);
@@ -307,6 +310,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
                 {audienceOnly ? <span className="mt-0.5 block truncate text-[10px] text-text-muted">Анонс доставлен · ждём ответ</span> : eventDayOrPast ? <span className="mt-0.5 block truncate text-[10px] text-text-muted">{attendanceLabel(participant)} · {paymentLabel(participant)}</span> : null}
               </span>
             </button>
+            {audienceOnly || ['unanswered', 'declined', 'thinking'].includes(response) ? (participant.telegram_username ? <a href={`https://t.me/${String(participant.telegram_username).replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] shrink-0 items-center rounded-[10px] bg-accent px-2.5 text-[11px] font-bold text-white">Написать</a> : null) : null}
             {canMarkAttendance ? <button type="button" disabled={Boolean(busyAction)} onClick={() => void markAttended(participant)} className="min-h-[40px] shrink-0 rounded-[10px] bg-accent px-2.5 text-[11px] font-bold text-white disabled:opacity-50">{rowBusy ? '…' : 'Пришёл'}</button> : canMarkPaid ? <button type="button" disabled={Boolean(busyAction)} onClick={() => void markPaid(participant)} className="min-h-[40px] shrink-0 rounded-[10px] border border-border-soft bg-surface-2 px-2.5 text-[11px] font-bold text-text-primary disabled:opacity-50">{rowBusy ? '…' : 'Оплачено'}</button> : null}
             {!audienceOnly && !isReadonly ? <button type="button" aria-label={`Действия ${participant.nickname}`} onClick={() => { setActiveParticipant(participant); setPaymentAmount(Number(participant.amount_paid || 0)); setParticipantError(null); }} className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-border-soft bg-surface-2 text-text-secondary"><MoreHorizontal className="h-4 w-4" /></button> : null}
           </div>

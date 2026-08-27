@@ -12,14 +12,14 @@ export const CLUB_ROLES: Array<{ value: ClubRole; label: string; hint: string }>
   { value: 'guest', label: 'Гость', hint: 'Не входит в постоянный состав клуба' },
   { value: 'member', label: 'Участник клуба', hint: 'Постоянный участник клуба' },
   { value: 'team', label: 'Команда клуба', hint: 'Входит в команду 2LA noire' },
-  { value: 'organizer', label: 'Организатор', hint: 'Организационная роль в клубе' },
+  { value: 'organizer', label: 'Организатор', hint: 'Организует вечера · без оплаты за игры' },
 ];
 
 export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: string }> = [
   { value: 'none', label: 'Нет', hint: 'Без полномочий ведущего' },
   { value: 'trainee', label: 'Стажёр', hint: 'Стажировка на ведение игр' },
-  { value: 'host', label: 'Ведущий', hint: 'Может вести клубные игры' },
-  { value: 'judge', label: 'Судья', hint: 'Полные судейские полномочия' },
+  { value: 'host', label: 'Ведущий', hint: 'Ведёт клубные игры · без оплаты за игры' },
+  { value: 'judge', label: 'Судья', hint: 'Полные судейские полномочия · без оплаты за игры' },
 ];
 
 export const normalizeGameLevel = (value: unknown): GameLevel => value === 'novice' || value === 'tournament' ? value : 'club';

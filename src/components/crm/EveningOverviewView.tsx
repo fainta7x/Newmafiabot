@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDollarSign, Gamepad2, Play, RefreshCw, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Play, RefreshCw, Settings2 } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
-import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import EveningAnnouncementPanel from './EveningAnnouncementPanel.tsx';
+import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 
 interface EveningOverviewViewProps {
   eveningId: string;
@@ -23,19 +23,11 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
-const lifecycleStages = [
-  { id: 'draft', label: 'Создан' },
-  { id: 'published', label: 'Опубликован' },
-  { id: 'active', label: 'Идёт' },
-  { id: 'completed', label: 'Завершён' },
-] as const;
-
-const money = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
-
-export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack, onOpenSection }) => {
+export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showAnnouncementSettings, setShowAnnouncementSettings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -52,17 +44,6 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   };
 
   useEffect(() => { void load(); }, [eveningId]);
-
-  const stats = useMemo(() => {
-    const participants = evening?.participants || [];
-    const expected = participants.filter((item) => ['going', 'late'].includes(getEveningResponse(item)));
-    const attended = participants.filter((item) => item.attendance_status === 'attended');
-    const paid = participants.reduce((sum, item) => sum + Number(item.amount_paid || 0), 0);
-    const due = participants.reduce((sum, item) => sum + Number(item.amount_due || 0), 0);
-    const games = evening?.games || [];
-    const completedGames = games.filter((game) => game.status === 'completed' || game.protocol_status === 'completed' || Boolean(game.winner_team && game.winner_team !== 'draft')).length;
-    return { expected: expected.length, attended: attended.length, paid, due, games: games.length, completedGames };
-  }, [evening]);
 
   const updateStatus = async (status: 'published' | 'active') => {
     if (busy) return;
@@ -84,10 +65,9 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[13px] text-danger">{error || 'Вечер не найден'}</div>;
 
   const readonly = evening.status === 'completed' || Boolean(evening.settled_at);
-  const stageIndex = evening.status === 'cancelled' ? -1 : Math.max(0, lifecycleStages.findIndex((stage) => stage.id === evening.status));
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3.5 pb-4">
       <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
         <button type="button" onClick={onBack} className="mb-3 text-[11px] font-bold text-text-muted">← К событиям</button>
         <div className="flex items-start justify-between gap-3">
@@ -98,43 +78,38 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
           <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold ${evening.status === 'active' ? 'bg-success-soft text-success' : evening.status === 'completed' ? 'bg-surface-2 text-text-secondary' : evening.status === 'cancelled' ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-primary'}`}>{statusLabel[evening.status] || evening.status}</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-4 gap-1.5">
-          {lifecycleStages.map((stage, index) => {
-            const done = stageIndex >= 0 && index < stageIndex;
-            const current = stageIndex === index;
-            return <div key={stage.id} className="min-w-0 text-center">
-              <div className={`mx-auto grid h-7 w-7 place-items-center rounded-full text-[10px] font-black ${done ? 'bg-success text-white' : current ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted'}`}>{done ? '✓' : index + 1}</div>
-              <div className={`mt-1 truncate text-[9px] font-semibold ${current ? 'text-text-primary' : 'text-text-muted'}`}>{stage.label}</div>
-            </div>;
-          })}
-        </div>
-
-        {!readonly && evening.status !== 'cancelled' ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
-          {evening.status === 'published' ? <button disabled={busy} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
+        {!readonly && evening.status !== 'cancelled' ? <div className="mt-4">
+          {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
+          {evening.status === 'published' ? <button disabled={busy} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
         </div> : null}
         {message ? <p className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
       </section>
 
-      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div><h3 className="text-[14px] font-black text-text-primary">Что сейчас происходит</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">В этом разделе только сам вечер и его публикации. Ответы игроков и фактический приход находятся в соседних разделах.</p></div>
-          <MegaphoneIcon />
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button type="button" onClick={() => onOpenSection('participants')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Users className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.expected}</strong><span className="text-[10px] text-text-muted">подтвердили участие</span></button>
-          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CheckCircle2 className="h-4 w-4 text-success" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.attended}</strong><span className="text-[10px] text-text-muted">отмечены на месте</span></button>
-          <button type="button" onClick={() => onOpenSection('games')} className="rounded-[14px] bg-surface-2 p-3 text-left"><Gamepad2 className="h-4 w-4 text-accent" /><strong className="mt-2 block text-[20px] text-text-primary">{stats.completedGames}<span className="text-[11px] text-text-muted">/{stats.games}</span></strong><span className="text-[10px] text-text-muted">игр завершено</span></button>
-          <button type="button" onClick={() => onOpenSection('management')} className="rounded-[14px] bg-surface-2 p-3 text-left"><CircleDollarSign className="h-4 w-4 text-success" /><strong className="mt-2 block text-[16px] text-text-primary">{money(stats.paid)}</strong><span className="text-[10px] text-text-muted">оплачено из {money(stats.due)}</span></button>
-        </div>
-      </section>
+      <EveningPersonalInvites eveningId={eveningId} />
 
-      <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} />
+      <section className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
+        <button
+          type="button"
+          onClick={() => setShowAnnouncementSettings((value) => !value)}
+          aria-expanded={showAnnouncementSettings}
+          className="flex min-h-[54px] w-full items-center justify-between gap-3 px-3.5 text-left"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-text-secondary"><Settings2 className="h-4 w-4" /></span>
+            <span className="min-w-0">
+              <strong className="block text-[12px] text-text-primary">Настройки анонса и рассылки</strong>
+              <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">Telegram, VK, публикация и повторная рассылка. Обычно сюда заходить не нужно.</span>
+            </span>
+          </span>
+          {showAnnouncementSettings ? <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />}
+        </button>
+        {showAnnouncementSettings ? <div className="border-t border-border-soft p-3">
+          <EveningAnnouncementPanel eveningId={eveningId} eveningTitle={evening.title} startsAt={evening.starts_at} status={evening.status} readonly={readonly} settingsOnly />
+        </div> : null}
+      </section>
     </div>
   );
 };
-
-const MegaphoneIcon = () => <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent" aria-hidden="true">📣</span>;
 
 export default EveningOverviewView;

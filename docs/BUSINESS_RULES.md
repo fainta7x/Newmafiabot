@@ -111,6 +111,10 @@ Do not collapse these into one generic “out” status when the distinction is 
 
 ## Evening registration
 
+### Current club focus
+
+The current operating default is the established main club and its regular CASUAL evenings. Existing players belong to the club path, not the novice path. NOVICE and TOURNAMENT remain supported, separate product contours; do not expose their extra workflow in the default regular-evening workspace.
+
 Approved response model for an announced evening includes:
 
 - **Иду**

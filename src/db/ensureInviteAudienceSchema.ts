@@ -19,6 +19,7 @@ async function ensureColumn(
 }
 
 export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<void> {
+  await db.run('CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
   // Existing Turso databases skip the local initializeDatabase() migration path. Keep the
   // organizer-critical compatibility columns present here as wrapper-safe, idempotent ALTERs.
   await ensureColumn(db, 'players', 'game_level', "TEXT NOT NULL DEFAULT 'club'");
@@ -36,6 +37,15 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
   await db.run(
     "UPDATE players SET club_role = 'member' WHERE club_role IS NULL OR club_role = '' OR club_role NOT IN ('guest','member','team','organizer')",
   );
+
+  // One explicit product transition: the existing club roster is no longer a novice
+  // cohort. Keep future CRM-created players on the novice path via the trigger below.
+  const clubRosterMigration = await db.get<{ id: string }>('SELECT id FROM app_data_migrations WHERE id = ?', ['2026-08-main-club-roster']);
+  if (!clubRosterMigration) {
+    await db.run("UPDATE players SET game_level = 'club' WHERE game_level = 'novice'");
+    await db.run("UPDATE players SET lifecycle_status = 'normal' WHERE lifecycle_status = 'newcomer'");
+    await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', ['2026-08-main-club-roster', new Date().toISOString()]);
+  }
 
   const playerColumns = await tableColumns(db, 'players');
   if (playerColumns.has('contact_status') && playerColumns.has('lifecycle_status')) {

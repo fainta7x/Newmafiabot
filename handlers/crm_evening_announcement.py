@@ -111,8 +111,9 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
     payload = recipients_result.get("data") or {}
     evening = payload.get("evening") or recruitment.get("evening") or {}
     recipients = payload.get("recipients") or []
+    underfilled_slots = recruitment.get("underfilled_slots") or []
     response_keyboard = _response_keyboard(evening_id)
-    reminder_text = recruitment_private_text(evening, int(recruitment.get("needed_players") or 0))
+    reminder_text = recruitment_private_text(evening, underfilled_slots)
 
     sent = failed = state_failures = 0
     failed_players = []
@@ -168,5 +169,5 @@ async def send_crm_evening_reminders(bot: Bot, evening_id: str) -> dict:
         "failed": failed,
         "delivery_state_failures": state_failures,
         "failed_players": failed_players,
-        "needed_players": int(recruitment.get("needed_players") or 0),
+        "underfilled_slots": underfilled_slots,
     }

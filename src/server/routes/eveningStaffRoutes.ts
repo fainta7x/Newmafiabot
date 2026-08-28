@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import { requireOrganizerAuth } from '../auth.ts';
+import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
 const router = Router();
 
@@ -178,11 +179,13 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
 router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const payments = await loadPayments(db, String(req.params.id));
+    const eveningId = String(req.params.id);
+    await reconcileRegularEveningPayments(db, eveningId);
+    const payments = await loadPayments(db, eveningId);
     if (!payments) return res.status(404).json({ error: 'Вечер не найден' });
     return res.json(payments);
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
   }
 });
 
@@ -194,6 +197,7 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const paid = req.body?.paid;
     if (typeof paid !== 'boolean') return res.status(400).json({ error: 'Передай paid=true или paid=false' });
 
+    await reconcileRegularEveningPayments(db, eveningId);
     const evening = await db.get<any>(
       'SELECT id, title, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
       [eveningId],
@@ -274,7 +278,7 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const payments = await loadPayments(db, eveningId);
     return res.json(payments);
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось изменить оплату игрока' });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось изменить оплату игрока' });
   }
 });
 

@@ -49,30 +49,51 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
       ON evening_slot_registrations(participant_id);
   `);
 
+  // This view is the single SQL source of truth for planned slot pricing.
+  // CASUAL and legacy STANDARD evenings are 100 ₽ per selected game, capped at 400 ₽.
+  // Competitive/novice formats keep the uncapped sum configured on their slots.
+  await db.run('DROP VIEW IF EXISTS evening_participant_slot_pricing');
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_insert_amount
+    CREATE VIEW evening_participant_slot_pricing AS
+    SELECT ep.id AS participant_id,
+           CASE
+             WHEN UPPER(COALESCE(e.format, '')) NOT IN ('NOVICE', 'RATING', 'TOURNAMENT')
+               THEN MIN(400, COALESCE(SUM(s.price_rub), 0))
+             ELSE COALESCE(SUM(s.price_rub), 0)
+           END AS canonical_due
+      FROM evening_participants ep
+      JOIN game_evenings e ON e.id = ep.evening_id
+      LEFT JOIN evening_slot_registrations r ON r.participant_id = ep.id
+      LEFT JOIN evening_game_slots s ON s.id = r.slot_id
+     GROUP BY ep.id, e.format
+  `);
+
+  // Replace old trigger bodies on every schema initialization. CREATE TRIGGER IF NOT
+  // EXISTS would otherwise leave the pre-fix uncapped production triggers in place.
+  await db.run('DROP TRIGGER IF EXISTS trg_evening_slot_registration_insert_amount');
+  await db.run('DROP TRIGGER IF EXISTS trg_evening_slot_registration_delete_amount');
+  await db.run('DROP TRIGGER IF EXISTS trg_evening_slot_price_update_amount');
+  await db.run('DROP TRIGGER IF EXISTS trg_evening_manual_participant_whole_evening_slots');
+
+  await db.run(`
+    CREATE TRIGGER trg_evening_slot_registration_insert_amount
     AFTER INSERT ON evening_slot_registrations
     BEGIN
       UPDATE evening_participants
-         SET amount_due = (
-               SELECT COALESCE(SUM(s.price_rub), 0)
-                 FROM evening_slot_registrations r
-                 JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = NEW.participant_id
-             ),
+         SET amount_due = COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = NEW.participant_id
+             ), 0),
              payment_status = CASE
-               WHEN (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = NEW.participant_id
-               ) = 0 THEN 'waived'
-               WHEN COALESCE(amount_paid, 0) >= (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = NEW.participant_id
-               ) THEN 'paid'
+               WHEN COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = NEW.participant_id
+               ), 0) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = NEW.participant_id
+               ), 0) THEN 'paid'
+               WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
                ELSE 'unpaid'
              END,
              updated_at = CURRENT_TIMESTAMP
@@ -81,29 +102,24 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
   `);
 
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_delete_amount
+    CREATE TRIGGER trg_evening_slot_registration_delete_amount
     AFTER DELETE ON evening_slot_registrations
     BEGIN
       UPDATE evening_participants
-         SET amount_due = (
-               SELECT COALESCE(SUM(s.price_rub), 0)
-                 FROM evening_slot_registrations r
-                 JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = OLD.participant_id
-             ),
+         SET amount_due = COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = OLD.participant_id
+             ), 0),
              payment_status = CASE
-               WHEN (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = OLD.participant_id
-               ) = 0 THEN 'waived'
-               WHEN COALESCE(amount_paid, 0) >= (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = OLD.participant_id
-               ) THEN 'paid'
+               WHEN COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = OLD.participant_id
+               ), 0) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = OLD.participant_id
+               ), 0) THEN 'paid'
+               WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
                ELSE 'unpaid'
              END,
              updated_at = CURRENT_TIMESTAMP
@@ -112,29 +128,24 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
   `);
 
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_price_update_amount
+    CREATE TRIGGER trg_evening_slot_price_update_amount
     AFTER UPDATE OF price_rub ON evening_game_slots
     BEGIN
       UPDATE evening_participants
-         SET amount_due = (
-               SELECT COALESCE(SUM(s.price_rub), 0)
-                 FROM evening_slot_registrations r
-                 JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = evening_participants.id
-             ),
+         SET amount_due = COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = evening_participants.id
+             ), 0),
              payment_status = CASE
-               WHEN (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = evening_participants.id
-               ) = 0 THEN 'waived'
-               WHEN COALESCE(amount_paid, 0) >= (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = evening_participants.id
-               ) THEN 'paid'
+               WHEN COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = evening_participants.id
+               ), 0) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = evening_participants.id
+               ), 0) THEN 'paid'
+               WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
                ELSE 'unpaid'
              END,
              updated_at = CURRENT_TIMESTAMP
@@ -148,9 +159,9 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
 
   // Compatibility for the old organizer button "Добавить на вечер". The new
   // canonical flow selects exact games, but a legacy manual "Иду" still means
-  // the whole evening. Exact slot editing can then narrow that selection.
+  // the whole evening. Slot triggers above now apply the same capped formula.
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_manual_participant_whole_evening_slots
+    CREATE TRIGGER trg_evening_manual_participant_whole_evening_slots
     AFTER INSERT ON evening_participants
     WHEN NEW.response_status IN ('going', 'late')
       AND EXISTS (
@@ -168,37 +179,19 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
        WHERE s.evening_id = NEW.evening_id AND s.status = 'open';
 
       UPDATE evening_participants
-         SET amount_due = CASE
-               WHEN (SELECT format FROM game_evenings WHERE id = NEW.evening_id) IN ('CASUAL', 'STANDARD')
-                 THEN MIN(400, (
-                   SELECT COALESCE(SUM(s.price_rub), 0)
-                     FROM evening_slot_registrations r
-                     JOIN evening_game_slots s ON s.id = r.slot_id
-                    WHERE r.participant_id = NEW.id
-                 ))
-               ELSE (
-                 SELECT COALESCE(SUM(s.price_rub), 0)
-                   FROM evening_slot_registrations r
-                   JOIN evening_game_slots s ON s.id = r.slot_id
-                  WHERE r.participant_id = NEW.id
-               )
-             END,
+         SET amount_due = COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = NEW.id
+             ), 0),
              payment_status = CASE
-               WHEN COALESCE(amount_paid, 0) >= CASE
-                 WHEN (SELECT format FROM game_evenings WHERE id = NEW.evening_id) IN ('CASUAL', 'STANDARD')
-                   THEN MIN(400, (
-                     SELECT COALESCE(SUM(s.price_rub), 0)
-                       FROM evening_slot_registrations r
-                       JOIN evening_game_slots s ON s.id = r.slot_id
-                      WHERE r.participant_id = NEW.id
-                   ))
-                 ELSE (
-                   SELECT COALESCE(SUM(s.price_rub), 0)
-                     FROM evening_slot_registrations r
-                     JOIN evening_game_slots s ON s.id = r.slot_id
-                    WHERE r.participant_id = NEW.id
-                 )
-               END THEN 'paid'
+               WHEN COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = NEW.id
+               ), 0) = 0 THEN 'waived'
+               WHEN COALESCE(amount_paid, 0) >= COALESCE((
+                 SELECT canonical_due FROM evening_participant_slot_pricing
+                  WHERE participant_id = NEW.id
+               ), 0) THEN 'paid'
                WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
                ELSE 'unpaid'
              END,
@@ -207,33 +200,33 @@ async function initializeEveningSlotsSchema(db: DatabaseWrapper): Promise<void> 
     END
   `);
 
-  // Reconcile existing slot registrations once per live DB connection. This used
-  // to run on every slot read, turning a simple workspace open into a remote write.
+  // Repair stale planned charges for open evenings only. Closed regular evenings are
+  // priced from actual completed games by eveningPaymentPricingService; slot selection
+  // must never overwrite that historical fact on application startup.
   await db.run(`
     UPDATE evening_participants
-       SET amount_due = (
-             SELECT COALESCE(SUM(s.price_rub), 0)
-               FROM evening_slot_registrations r
-               JOIN evening_game_slots s ON s.id = r.slot_id
-              WHERE r.participant_id = evening_participants.id
-           ),
+       SET amount_due = COALESCE((
+             SELECT canonical_due FROM evening_participant_slot_pricing
+              WHERE participant_id = evening_participants.id
+           ), 0),
            payment_status = CASE
-             WHEN (
-               SELECT COALESCE(SUM(s.price_rub), 0)
-                 FROM evening_slot_registrations r
-                 JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = evening_participants.id
-             ) = 0 THEN 'waived'
-             WHEN COALESCE(amount_paid, 0) >= (
-               SELECT COALESCE(SUM(s.price_rub), 0)
-                 FROM evening_slot_registrations r
-                 JOIN evening_game_slots s ON s.id = r.slot_id
-                WHERE r.participant_id = evening_participants.id
-             ) THEN 'paid'
+             WHEN COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = evening_participants.id
+             ), 0) = 0 THEN 'waived'
+             WHEN COALESCE(amount_paid, 0) >= COALESCE((
+               SELECT canonical_due FROM evening_participant_slot_pricing
+                WHERE participant_id = evening_participants.id
+             ), 0) THEN 'paid'
+             WHEN COALESCE(amount_paid, 0) > 0 THEN 'partial'
              ELSE 'unpaid'
            END,
            updated_at = CURRENT_TIMESTAMP
      WHERE id IN (SELECT DISTINCT participant_id FROM evening_slot_registrations)
+       AND evening_id IN (
+         SELECT id FROM game_evenings
+          WHERE status != 'completed' AND settled_at IS NULL
+       )
   `);
 }
 

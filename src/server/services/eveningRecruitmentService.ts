@@ -36,6 +36,19 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
       WHERE ep.evening_id = ?`,
     [eveningId],
   );
+  const confirmedSlotRows = await db.all<any>(
+    `SELECT r.slot_id, COUNT(DISTINCT r.participant_id) AS count
+       FROM evening_slot_registrations r
+       JOIN evening_game_slots s ON s.id = r.slot_id
+       JOIN evening_participants ep ON ep.id = r.participant_id
+      WHERE s.evening_id = ?
+        AND COALESCE(ep.response_status, ep.registration_status, '') IN ('going', 'late')
+      GROUP BY r.slot_id`,
+    [eveningId],
+  );
+  const confirmedBySlot = new Map<string, number>(
+    confirmedSlotRows.map((row: any) => [String(row.slot_id), Math.max(0, Number(row.count || 0))]),
+  );
 
   const confirmed = participants.filter((row: any) => {
     const status = String(row.response_status || row.registration_status || '').trim();
@@ -49,7 +62,10 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
 
   const slots: EveningRecruitmentSlot[] = (slotPlan.slots || []).map((slot: any) => {
     const target = Math.max(1, Number(slot.target_players || 11));
-    const registered = Math.max(0, Number(slot.registered_count || (slot.participants || []).length || 0));
+    // A stale selection must not occupy a recruitment seat after the player switches
+    // to "thinking" or "declined". Exact registrations stay in history, while the
+    // current RSVP status decides whether that registration counts toward readiness.
+    const registered = confirmedBySlot.get(String(slot.id)) || 0;
     const needed = Math.max(0, target - registered);
     return {
       id: String(slot.id),

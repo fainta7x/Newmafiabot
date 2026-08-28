@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { resolveVkJoinSession } from './vkJoinAuthService.ts';
 import { loadVkJoinCounts, loadVkJoinParticipants } from './vkJoinRegistrationService.ts';
 import { getPendingVkIdentityClaim } from './vkIdentityClaimService.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 export async function getVkJoinIdentity(db: DatabaseWrapper, vkSessionToken: unknown, playerSessionId?: string | null) {
   const vkSession = await resolveVkJoinSession(db, vkSessionToken);
@@ -16,7 +17,7 @@ export async function getVkJoinState(db: DatabaseWrapper, eveningId: string, vkS
     ? await getPendingVkIdentityClaim(db, vkSession.vk_user_id, eveningId)
     : null;
   const participant = player
-    ? await db.get<any>('SELECT response_status FROM evening_participants WHERE evening_id=? AND player_id=? LIMIT 1', [eveningId, player.id])
+    ? await db.get<any>('SELECT response_status,registration_status,arrival_status FROM evening_participants WHERE evening_id=? AND player_id=? LIMIT 1', [eveningId, player.id])
     : null;
   const [counts, participants] = await Promise.all([
     loadVkJoinCounts(db, eveningId),
@@ -29,7 +30,7 @@ export async function getVkJoinState(db: DatabaseWrapper, eveningId: string, vkS
     needs_nickname: Boolean(vkSession && !player),
     link_pending: Boolean(pendingClaim),
     link_player_nickname: pendingClaim?.nickname || null,
-    response_status: String(participant?.response_status || 'unanswered'),
+    response_status: getEveningResponse(participant),
     counts,
     participants,
   };

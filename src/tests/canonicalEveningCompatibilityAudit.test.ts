@@ -54,7 +54,11 @@ describe('canonical evening compatibility audit', () => {
       'src/server/services/eveningCloseoutService.ts',
       'src/server/routes/playerPaymentRoutes.ts',
       'src/server/routes/playerJudgingRoutes.ts',
+      'src/server/routes/playerSelfCoreRoutes.ts',
+      'src/server/routes/playerEveningJourneyRoutes.ts',
       'src/server/routes/gamesRoutes.ts',
+      'src/server/services/vkJoinStateGetRouter.ts',
+      'src/server/services/vkJoinIdentityService.ts',
       'src/components/crm/EveningCloseoutPanel.tsx',
       'src/components/crm/EveningGameRegistrationDashboard.tsx',
       'src/components/crm/EveningPersonalInvites.tsx',
@@ -62,6 +66,9 @@ describe('canonical evening compatibility audit', () => {
     for (const file of guardedFiles) {
       const source = fs.readFileSync(file, 'utf8');
       expect(source, file).not.toMatch(/response_status\s*\|\|\s*[^\n]*registration_status/);
+      if (file.startsWith('src/server/')) {
+        expect(source, file).not.toMatch(/(?:String\()?[^\n]*\.response_status\s*\|\|\s*['"]unanswered['"]/);
+      }
     }
     expect(fs.readFileSync('src/lib/api.ts', 'utf8')).toContain('response_status: responseStatus');
   });

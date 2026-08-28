@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
 
@@ -70,7 +71,7 @@ router.get('/evening-journey', async (req, res) => {
         `, [active.id]),
         db.get(`SELECT COUNT(*) AS total FROM evening_participants WHERE evening_id = ? AND attendance_status = 'attended'`, [active.id]),
         db.get(`
-          SELECT id, response_status, attendance_status
+          SELECT id, response_status, registration_status, arrival_status, attendance_status
             FROM evening_participants
            WHERE evening_id = ? AND player_id = ?
            LIMIT 1
@@ -118,7 +119,7 @@ router.get('/evening-journey', async (req, res) => {
       const blackWins = completed.filter((game: any) => game.winner_team === 'black').length;
       const latestSelfGame = completed.slice().reverse().find((game: any) => game.self_played) || null;
       const attendanceStatus = String(participant?.attendance_status || 'pending');
-      const responseStatus = String(participant?.response_status || 'unanswered');
+      const responseStatus = getEveningResponse(participant);
       const selfState = selfSeat
         ? 'playing'
         : attendanceStatus === 'attended'
@@ -170,7 +171,7 @@ router.get('/evening-journey', async (req, res) => {
 
     const upcomingRows = await db.all(`
       SELECT e.id, e.title, e.starts_at, e.venue, e.format, e.default_price,
-             ep.response_status, ep.attendance_status,
+             ep.response_status, ep.registration_status, ep.arrival_status, ep.attendance_status,
              (SELECT COUNT(*) FROM evening_participants x WHERE x.evening_id = e.id AND x.response_status IN ('going','late')) AS attending_count,
              (SELECT COUNT(*) FROM evening_participants x WHERE x.evening_id = e.id AND x.response_status = 'thinking') AS thinking_count
         FROM game_evenings e
@@ -192,7 +193,7 @@ router.get('/evening-journey', async (req, res) => {
             venue: upcoming.venue || null, format: String(upcoming.format || 'CASUAL'), default_price: upcoming.default_price == null ? null : Number(upcoming.default_price),
           },
           participation: {
-            response_status: String(upcoming.response_status || 'unanswered'),
+            response_status: getEveningResponse(upcoming),
             attendance_status: String(upcoming.attendance_status || 'pending'),
           },
           attending_count: Number(upcoming.attending_count || 0),

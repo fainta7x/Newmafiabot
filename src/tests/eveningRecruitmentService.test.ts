@@ -25,7 +25,7 @@ describe('evening recruitment state', () => {
     try { db.sqlite.close(); } catch {}
   });
 
-  const addPlayer = async (index: number, response = 'going') => {
+  const addPlayer = async (index: number) => {
     const playerId = `recruit-player-${index}`;
     const participantId = `recruit-participant-${index}`;
     await db.run(
@@ -33,11 +33,14 @@ describe('evening recruitment state', () => {
        VALUES (?,?, 'normal','test',1000,0,?,?)`,
       [playerId, `Player ${index}`, now, now],
     );
+    // Insert as thinking so the legacy "whole evening" INSERT trigger does not
+    // pre-register this test participant in every slot. Exact slot selection is
+    // the canonical modern flow; response status is finalized afterwards.
     await db.run(
       `INSERT INTO evening_participants
        (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
-       VALUES (?, 'recruit-evening', ?, ?, ?, 'pending','unknown','unpaid',0,0,?,?)`,
-      [participantId, playerId, response, response, now, now],
+       VALUES (?, 'recruit-evening', ?, 'thinking', 'thinking', 'pending','unknown','unpaid',0,0,?,?)`,
+      [participantId, playerId, now, now],
     );
     return participantId;
   };
@@ -52,14 +55,25 @@ describe('evening recruitment state', () => {
     );
   };
 
+  const setResponse = async (participantId: string, response: 'going' | 'thinking') => {
+    await db.run(
+      `UPDATE evening_participants
+          SET response_status = ?, registration_status = ?, updated_at = ?
+        WHERE id = ?`,
+      [response, response, now, participantId],
+    );
+  };
+
   it('reports shortages independently for every game instead of total evening attendance', async () => {
     const participants: string[] = [];
-    for (let i = 1; i <= 12; i += 1) participants.push(await addPlayer(i, i === 12 ? 'thinking' : 'going'));
+    for (let i = 1; i <= 12; i += 1) participants.push(await addPlayer(i));
 
     for (const participant of participants.slice(0, 8)) await register(participant, 1);
     for (const participant of participants.slice(0, 10)) await register(participant, 2);
     for (const participant of participants.slice(0, 11)) await register(participant, 3);
     for (const participant of participants.slice(0, 10)) await register(participant, 4);
+    for (const participant of participants.slice(0, 11)) await setResponse(participant, 'going');
+    await setResponse(participants[11], 'thinking');
 
     const state = await loadEveningRecruitmentState(db, 'recruit-evening');
     expect(state).toMatchObject({
@@ -89,9 +103,11 @@ describe('evening recruitment state', () => {
     for (const slot of slots) {
       for (const participant of participants) await register(participant, Number(slot.slot_number));
     }
+    for (const participant of participants) await setResponse(participant, 'going');
 
     const state = await loadEveningRecruitmentState(db, 'recruit-evening');
     expect(state).toMatchObject({
+      confirmed_players: 11,
       total_slots: 4,
       ready_slots: 4,
       underfilled_slot_count: 0,

@@ -15,7 +15,11 @@ export const createRuntimeHealthRoutes = (fetcher?: RuntimeFetch, cacheTtlMs = 3
       if (!cached || cached.expiresAt <= now) {
         inFlight ||= checkRuntimeReadiness(req.db as DatabaseWrapper, fetcher)
           .then((health) => {
-            cached = { expiresAt: Date.now() + cacheTtlMs, health };
+            // Healthy checks may be cached briefly to reduce dependency traffic, but
+            // degraded checks must expire before the external monitor's 5s retry so
+            // a transient outage can genuinely recover on the next attempt.
+            const ttl = health.status === 'ok' ? cacheTtlMs : Math.min(cacheTtlMs, 1_000);
+            cached = { expiresAt: Date.now() + ttl, health };
             return health;
           })
           .finally(() => { inFlight = null; });

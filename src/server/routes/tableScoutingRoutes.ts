@@ -34,6 +34,10 @@ const participantView = (row: any, playCount = 0) => ({
   play_count: playCount,
 });
 
+export const needsCurrentCommunicationAttention = (player: any) => (
+  Boolean(player?.eligible_now) && player?.attention_status !== 'answered'
+);
+
 router.get('/command-center', async (req, res) => {
   try {
     const db = req.db;
@@ -117,7 +121,7 @@ router.get('/command-center', async (req, res) => {
       }));
 
       const communicationAttention = (announcement?.players || [])
-        .filter((player: any) => player.attention_status !== 'answered')
+        .filter(needsCurrentCommunicationAttention)
         .sort((a: any, b: any) => {
           const rank: Record<string, number> = { failed: 0, not_sent: 1, unanswered: 2 };
           return (rank[a.attention_status] ?? 9) - (rank[b.attention_status] ?? 9) || a.nickname.localeCompare(b.nickname, 'ru');

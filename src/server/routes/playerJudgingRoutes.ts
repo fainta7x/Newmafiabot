@@ -6,7 +6,7 @@ import {
   requiredJudgeLevelForEveningFormat,
   type JudgeLevel,
 } from '../../db/ensureJudgeAuthoritySchema.ts';
-import { getEveningAttendanceFact } from '../../lib/eveningResponse.ts';
+import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
 
 const router = Router();
 
@@ -137,7 +137,7 @@ const loadAvailableEvenings = async (db: any, judgeLevel: JudgeLevel) => {
         id: String(participant.id),
         player_id: String(participant.player_id),
         nickname: String(participant.nickname || 'Игрок'),
-        response_status: participant.response_status || participant.registration_status || 'unanswered',
+        response_status: getEveningResponse(participant),
         attendance_fact: getEveningAttendanceFact(participant),
         table_id: participant.table_id ?? null,
         avatar_updated_at: participant.avatar_updated_at ?? null,

@@ -35,11 +35,14 @@ export const normalizeEveningResponse = (
   legacyArrivalStatus?: unknown,
 ): EveningResponseStatus => normalizeCanonicalEveningResponse(responseStatus, legacyArrivalStatus);
 
-export const getEveningResponse = (participant: any): EveningResponseStatus =>
-  normalizeEveningResponse(
-    participant?.response_status ?? participant?.registration_status,
-    participant?.arrival_status,
-  );
+export const getEveningResponse = (participant: any): EveningResponseStatus => {
+  const current = normalizeEveningResponse(participant?.response_status, participant?.arrival_status);
+  const legacy = normalizeEveningResponse(participant?.registration_status, participant?.arrival_status);
+  // Pre-cutover rows received the response_status default "unanswered" even when
+  // registration_status still held the real answer. Current writes keep both fields
+  // synchronized, so only this mismatched historical shape needs a read fallback.
+  return current === 'unanswered' && legacy !== 'unanswered' ? legacy : current;
+};
 
 export const getEveningResponseLabel = (
   participantOrStatus: any,

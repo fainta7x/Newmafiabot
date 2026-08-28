@@ -544,7 +544,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
               <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">Следующее</div>
               {bookingEvening && booking ? (
                 <div className="mt-1.5 flex items-center gap-3">
-                  <div className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-text-primary">{bookingEvening.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking.registration_status, booking.arrival_status)}</span></div>
+                  <div className="min-w-0 flex-1"><strong className="block text-[13px] font-semibold text-text-primary">{bookingEvening.title}</strong><span className="mt-0.5 block text-[11px] text-text-secondary">{fmtDate(bookingEvening.starts_at, true)} · {getEveningResponseLabel(booking)}</span></div>
                   <button type="button" onClick={() => onOpenEvening(bookingEvening.id)} className="min-h-[44px] shrink-0 rounded-[12px] bg-white px-3 text-[11px] font-semibold text-[#090a0d]">Открыть</button>
                 </div>
               ) : nextTask ? (

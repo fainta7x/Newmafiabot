@@ -5,6 +5,7 @@ import path from 'path';
 import { DatabaseWrapper, getDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
+import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
@@ -109,6 +110,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
   await ensureClubOperationsSchema(db);
+  await ensureCanonicalEveningParticipantState(db);
   await ensureJudgeMusicSchema(db);
   await ensureEloSeedSchema(db);
   await ensurePlayerShopSchema(db);

@@ -7,6 +7,7 @@ import { requireOrganizerAuth } from '../auth.ts';
 import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { createPreviewCheckpoint } from '../../db/previewDatabaseCheckpoint.ts';
 import { getRepositoryPlayerAvatarAsset, resolveRepositoryPlayerAvatarPath } from '../../lib/playerAvatarManifest.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
@@ -191,13 +192,14 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
     }
 
     // Evening Attendance History
-    const eveningHistory = await db.all(`
+    const eveningHistoryRows = await db.all(`
       SELECT ep.*, e.title as evening_title, e.starts_at as evening_date, e.format as evening_format, e.status as evening_status
       FROM evening_participants ep
       JOIN game_evenings e ON ep.evening_id = e.id
       WHERE ep.player_id = ?
       ORDER BY e.starts_at DESC
     `, [String(req.params.id)]);
+    const eveningHistory = eveningHistoryRows.map((row: any) => ({ ...row, response_status: getEveningResponse(row) }));
 
     // Tasks associated with player
     const tasks = await db.all(`
@@ -227,7 +229,7 @@ router.get('/:id', requireOrganizerAuth, async (req, res) => {
       (h: any) => h.attendance_status === 'attended' && h.evening_status === 'completed'
     );
     const cancelledEvenings = eveningHistory.filter(
-      (h: any) => h.registration_status === 'cancelled' || h.registration_status === 'declined'
+      (h: any) => h.response_status === 'declined'
     );
     const noShowEvenings = eveningHistory.filter(
       (h: any) => h.attendance_status === 'no_show' && h.evening_status === 'completed'
@@ -403,7 +405,7 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
         success: true,
         alreadyParticipant: true,
         participant,
-        registration_status: participant.registration_status,
+        response_status: getEveningResponse(participant),
         telegramLink,
         message: 'Игрок уже добавлен на этот вечер',
       });
@@ -411,8 +413,8 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
 
     const partId = crypto.randomUUID();
     await db.run(
-      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'invited', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
+      `INSERT INTO evening_participants (id, evening_id, player_id, table_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)`,
       [partId, evening_id, String(req.params.id), selectedTable ? selectedTable.id : null, paymentStatus, price, nowIso, nowIso, nowIso]
     );
     participant = await db.get('SELECT * FROM evening_participants WHERE id = ?', [partId]);

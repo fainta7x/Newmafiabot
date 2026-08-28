@@ -140,7 +140,7 @@ export default function EveningRosterSlotEditor({ eveningId, onChanged }: { even
           nickname: guestName,
           phone: guestPhone.trim() || undefined,
           table_id: null,
-          registration_status: 'unanswered',
+          response_status: 'unanswered',
           amount_due: 0,
         } as any);
         targetPlayerId = String(participant.player_id);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type RegistrationState = 'games' | 'coming' | 'thinking' | 'declined' | 'unknown';
 type Filter = 'all' | RegistrationState;
@@ -101,7 +102,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         const participant = participantByPlayer.get(playerId) || null;
         const audience = audienceByPlayer.get(playerId);
         const playerSlots = (slotByPlayer.get(playerId) || []).sort((a, b) => a.slot_number - b.slot_number);
-        const responseStatus = String((participant as any)?.response_status || (participant as any)?.registration_status || audience?.response_status || 'unanswered');
+        const responseStatus = participant ? getEveningResponse(participant) : String(audience?.response_status || 'unanswered');
         return {
           playerId,
           nickname: String(participant?.nickname || audience?.nickname || 'Игрок'),
@@ -167,7 +168,7 @@ export default function EveningGameRegistrationDashboard({ eveningId, refreshKey
         createdParticipant = await api.addParticipant(eveningId, {
           player_id: row.playerId,
           table_id: null,
-          registration_status: 'unanswered' as any,
+          response_status: 'unanswered',
           amount_due: 0,
         });
         await api.updateParticipant(createdParticipant.id, { response_status: status } as any);

@@ -3,7 +3,7 @@ import {
   EVENING_ATTENDANCE_FACTS,
   EVENING_RESPONSE_STATUSES,
   getEveningAttendanceFact,
-  normalizeEveningResponse,
+  getEveningResponse,
   type EveningAttendanceFact,
   type EveningResponseStatus,
 } from '../../lib/eveningResponse.ts';
@@ -36,7 +36,7 @@ export const serializeEveningParticipant = <T extends Record<string, any>>(row: 
   attendance_fact: EveningAttendanceFact;
 } => ({
   ...row,
-  response_status: normalizeEveningResponse(row.response_status ?? row.registration_status),
+  response_status: getEveningResponse(row),
   attendance_fact: getEveningAttendanceFact(row),
 });
 

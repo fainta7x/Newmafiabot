@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type Participant = {
   id: string;
@@ -42,7 +43,7 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 };
 
 const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).toLocaleString('ru-RU')} ₽`;
-const expectedResponse = (participant: Participant) => ['going', 'late'].includes(String(participant.response_status || participant.registration_status || ''));
+const expectedResponse = (participant: Participant) => ['going', 'late'].includes(getEveningResponse(participant));
 
 export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningId }) => {
   const [state, setState] = useState<CloseoutState | null>(null);

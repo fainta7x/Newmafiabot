@@ -45,15 +45,20 @@ export async function runClubGamePostSaveTasks(
   const warnings: string[] = [];
   let eloReady = true;
 
-  if (input.eveningId && (input.previousStatus === 'completed' || input.status === 'completed')) {
+  if (input.previousStatus === 'completed' || input.status === 'completed') {
     try {
-      await (dependencies.reconcilePayments || reconcileRegularEveningPayments)(db, input.eveningId);
+      let eveningId = String(input.eveningId || '').trim();
+      if (!eveningId) {
+        const game = await db.get('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [input.gameId]);
+        eveningId = String(game?.evening_id || '').trim();
+      }
+      if (eveningId) {
+        await (dependencies.reconcilePayments || reconcileRegularEveningPayments)(db, eveningId);
+      }
     } catch (error) {
       warnings.push(`Оплата: ${errorMessage(error)}`);
     }
-  }
 
-  if (input.previousStatus === 'completed' || input.status === 'completed') {
     try {
       await dependencies.rebuildElo(db);
     } catch (error) {

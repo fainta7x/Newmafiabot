@@ -2,11 +2,14 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-08-27
+**Status date:** 2026-08-28
 
-**Latest release record before this workstream:** PR #123 merged as `bb4edbee0e0dd154a6e4ea7a87f81ef6382a5b13`  
-**Release gate:** GitHub CI run #951 — green before merge  
-**Deploy mode:** Render manual deploy (`autoDeployTrigger: off`)  
+**Latest release record:** PR #186 merged as `30126aaf013285ea8688cecaf4f4dcc6d6cdf483`
+
+**Release gate:** PR #186 checks passed before merge
+
+**Deploy mode:** Amvera combined Docker application; deployment/runtime verification remains separate from Git merge
+
 **Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
@@ -28,14 +31,11 @@ If this file contradicts current code, inspect the targeted implementation and u
 
 ### Hosting
 
-- Render service: `2la-noire-web-staging`.
-- Branch: `main`.
-- Region: Frankfurt.
-- Plan: Free.
-- Deploy: manual.
-- Health endpoint: `/api/health`.
-- The Render Free allowance has been exhausted and the web service is suspended.
-- A replacement single-container deployment is prepared in this repository for Amvera. It runs the Node web/API process and the integrated Python Telegram bot in one paid application; it is not production until the Amvera runtime checks in `docs/RUNBOOK.md` pass.
+- Canonical production target: one Amvera Docker application built from `main`.
+- Public origin: `https://2la-noire-chagina7x.waw0.amvera.tech`.
+- The container runs nginx, Node web/API and the integrated Python Telegram bot under Supervisor.
+- `/api/health` is shallow liveness; `/api/health/runtime` is the safe deep Turso/bot/Telegram check after the monitoring release is deployed.
+- Legacy Render service `2la-noire-web-staging` is suspended/retained only as historical configuration, not the canonical combined runtime.
 - The separate `fainta7x/mafiabot` repository is a legacy bot copy and is not the source selected for the combined deployment.
 
 ### Database — important
@@ -133,6 +133,7 @@ Connected:
 - announcement/bot APIs;
 - synchronization/outbox paths;
 - organizer non-destructive runtime diagnostics;
+- public non-destructive aggregated runtime diagnostics and an independent five-minute GitHub Actions monitor that can notify trusted Telegram recipients on outage/recovery transitions after repository secrets are configured;
 - existing 30-minute public-router refresh is also the heartbeat that reconciles the rolling Friday calendar and due weekly announcement; the reconciler is safe to rerun.
 
 A green CI run does not prove live bot token/webhook/service health. Verify after deploy when relevant.
@@ -182,10 +183,10 @@ Browser verification is preserved in `.github/workflows/playwright-manual.yml` a
 
 ## Immediate next queue
 
-1. Deploy the combined web/bot container to Amvera after rotating the Telegram token that was exposed in the legacy public repository.
-2. Copy the existing Turso and integration secrets without importing, resetting or replacing production data.
-3. Verify `/api/health`, `/health` on the internal bot service, Telegram webhook state, Mini App opening, passwordless owner CRM entry and recent live-data markers.
-4. Only after runtime verification, switch Telegram/VK links away from Render and leave the old services stopped.
+1. Deploy the latest intended `main` to the combined Amvera application without importing, resetting or replacing Turso data.
+2. Verify `/api/health`, `/api/health/runtime`, Telegram webhook state, Mini App opening, passwordless owner CRM entry and recent live-data markers.
+3. Configure the Amvera shallow startup/liveness probe and native failure email from `docs/RUNBOOK.md`.
+4. Configure the GitHub Actions monitoring bot secrets, send the manual test notification and confirm the five-minute workflow is armed.
 5. Verify the rolling Friday calendar and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
 
 ## Mandatory session rule

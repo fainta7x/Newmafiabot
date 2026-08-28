@@ -1,6 +1,6 @@
 const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
 
-type RuntimeFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+export type RuntimeFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 type ProbeResult<T> = {
   ok: boolean;
@@ -19,7 +19,9 @@ export type TelegramRuntimeHealth = {
     username: string | null;
     webhook_configured: boolean;
     webhook_matches_bot_service: boolean;
+    webhook_delivery_healthy: boolean;
     pending_update_count: number | null;
+    last_error_date: number | null;
     last_error_message: string | null;
     error: string | null;
   };
@@ -31,6 +33,12 @@ export type TelegramRuntimeHealth = {
 };
 
 const normalizeBaseUrl = (value: unknown) => String(value || '').trim().replace(/\/+$/, '');
+
+const expectedWebhookUrl = (botServiceUrl: string) => {
+  const publicBaseUrl = normalizeBaseUrl(process.env.WEBHOOK_URL || botServiceUrl);
+  if (!publicBaseUrl) return '';
+  return publicBaseUrl.endsWith('/webhook') ? publicBaseUrl : `${publicBaseUrl}/webhook`;
+};
 
 const safeJson = async <T>(response: Response): Promise<T | null> => {
   try {
@@ -72,11 +80,12 @@ const probeText = async (fetcher: RuntimeFetch, url: string): Promise<ProbeResul
 export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch): Promise<TelegramRuntimeHealth> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
   const botServiceUrl = normalizeBaseUrl(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL);
-  const botService = botServiceUrl
-    ? await probeText(fetcher, `${botServiceUrl}/health`)
-    : { ok: false, status: null, data: null, error: 'BOT_SERVICE_URL is not configured' };
+  const botServicePromise = botServiceUrl
+    ? probeText(fetcher, `${botServiceUrl}/health`)
+    : Promise.resolve({ ok: false, status: null, data: null, error: 'BOT_SERVICE_URL is not configured' });
 
   if (!token) {
+    const botService = await botServicePromise;
     return {
       ok: false,
       checked_at: new Date().toISOString(),
@@ -87,7 +96,9 @@ export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch):
         username: null,
         webhook_configured: false,
         webhook_matches_bot_service: false,
+        webhook_delivery_healthy: false,
         pending_update_count: null,
+        last_error_date: null,
         last_error_message: null,
         error: 'TELEGRAM_BOT_TOKEN is not configured',
       },
@@ -100,7 +111,8 @@ export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch):
   }
 
   const apiBase = `https://api.telegram.org/bot${token}`;
-  const [meProbe, webhookProbe] = await Promise.all([
+  const [botService, meProbe, webhookProbe] = await Promise.all([
+    botServicePromise,
     probeJson<any>(fetcher, `${apiBase}/getMe`),
     probeJson<any>(fetcher, `${apiBase}/getWebhookInfo`),
   ]);
@@ -108,12 +120,19 @@ export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch):
   const me = meProbe.data?.ok ? meProbe.data.result : null;
   const webhook = webhookProbe.data?.ok ? webhookProbe.data.result : null;
   const actualWebhookUrl = String(webhook?.url || '').trim().replace(/\/+$/, '');
-  const expectedWebhookUrl = botServiceUrl ? `${botServiceUrl}/webhook` : '';
-  const webhookMatches = Boolean(actualWebhookUrl && expectedWebhookUrl && actualWebhookUrl === expectedWebhookUrl);
+  const configuredWebhookUrl = expectedWebhookUrl(botServiceUrl);
+  const webhookMatches = Boolean(actualWebhookUrl && configuredWebhookUrl && actualWebhookUrl === configuredWebhookUrl);
   const telegramReachable = meProbe.ok && Boolean(me) && webhookProbe.ok && Boolean(webhook);
+  const pendingUpdateCount = webhook?.pending_update_count == null ? null : Number(webhook.pending_update_count);
+  const lastErrorDate = webhook?.last_error_date == null ? null : Number(webhook.last_error_date);
+  const hasActiveDeliveryError = Boolean(
+    pendingUpdateCount
+    && lastErrorDate != null,
+  );
+  const webhookDeliveryHealthy = telegramReachable && !hasActiveDeliveryError;
 
   return {
-    ok: telegramReachable && webhookMatches && botService.ok,
+    ok: telegramReachable && webhookMatches && webhookDeliveryHealthy && botService.ok,
     checked_at: new Date().toISOString(),
     telegram: {
       configured: true,
@@ -122,7 +141,9 @@ export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch):
       username: me?.username ? String(me.username) : null,
       webhook_configured: Boolean(actualWebhookUrl),
       webhook_matches_bot_service: webhookMatches,
-      pending_update_count: webhook?.pending_update_count == null ? null : Number(webhook.pending_update_count),
+      webhook_delivery_healthy: webhookDeliveryHealthy,
+      pending_update_count: pendingUpdateCount,
+      last_error_date: lastErrorDate,
       last_error_message: webhook?.last_error_message ? String(webhook.last_error_message) : null,
       error: meProbe.error || webhookProbe.error,
     },

@@ -96,6 +96,12 @@ Fast first-hop map for known features. For fuzzy terms use `npm run project:find
 - Runtime docs: `docs/telegram-runtime-health.md`, `docs/telegram-webapp-integration.md`.
 - Green CI does not prove live token/webhook/deployed SHA.
 
+## Runtime health / outage alerts
+- Shallow liveness: `/api/health` in `src/app.ts`.
+- Safe deep endpoint: `src/server/routes/runtimeHealthRoutes.ts` → `src/server/services/runtimeReadinessService.ts` → Turso + `telegramRuntimeHealthService.ts`.
+- Independent monitor: `.github/workflows/runtime-monitor.yml` → `scripts/runtimeMonitor.mjs`; transition behavior and setup: `docs/telegram-runtime-health.md`.
+- Amvera probe and operator procedure: `docs/RUNBOOK.md`. Never use the deep endpoint for Kubernetes liveness/readiness.
+
 ## VK
 - `src/server/routes/integrationRoutes.ts`.
 - Services: `vkJoinStartRouter.ts`, `vkJoinRegistrationCallbackRouter.ts`, `vkJoinRespondRouter.ts`, `vkJoinStateRouter.ts`, `vkDirectIntegrationRouter.ts`, `vkRuntimeHealthService.ts`.

@@ -14,9 +14,11 @@ const fakeResponse = (status: number, body: unknown, asText = false) => ({
 describe('Telegram runtime health probe', () => {
   const originalToken = process.env.TELEGRAM_BOT_TOKEN;
   const originalBotServiceUrl = process.env.BOT_SERVICE_URL;
+  const originalWebhookUrl = process.env.WEBHOOK_URL;
 
   beforeEach(() => {
-    process.env.BOT_SERVICE_URL = 'https://bot.example.com';
+    process.env.BOT_SERVICE_URL = 'http://127.0.0.1:8081';
+    process.env.WEBHOOK_URL = 'https://club.example.com';
   });
 
   afterEach(() => {
@@ -25,6 +27,8 @@ describe('Telegram runtime health probe', () => {
     else process.env.TELEGRAM_BOT_TOKEN = originalToken;
     if (originalBotServiceUrl === undefined) delete process.env.BOT_SERVICE_URL;
     else process.env.BOT_SERVICE_URL = originalBotServiceUrl;
+    if (originalWebhookUrl === undefined) delete process.env.WEBHOOK_URL;
+    else process.env.WEBHOOK_URL = originalWebhookUrl;
   });
 
   it('reports a missing Telegram token without sending anything', async () => {
@@ -38,17 +42,17 @@ describe('Telegram runtime health probe', () => {
     expect(result.telegram.error).toContain('TELEGRAM_BOT_TOKEN');
     expect(result.bot_service.reachable).toBe(true);
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(String(fetcher.mock.calls[0][0])).toBe('https://bot.example.com/health');
+    expect(String(fetcher.mock.calls[0][0])).toBe('http://127.0.0.1:8081/health');
   });
 
   it('passes when bot service, Telegram API and webhook are aligned', async () => {
     process.env.TELEGRAM_BOT_TOKEN = '123:super-secret-token';
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url === 'https://bot.example.com/health') return fakeResponse(200, 'OK', true);
+      if (url === 'http://127.0.0.1:8081/health') return fakeResponse(200, 'OK', true);
       if (url.endsWith('/getMe')) return fakeResponse(200, { ok: true, result: { id: 123, username: 'club_bot' } });
       if (url.endsWith('/getWebhookInfo')) {
-        return fakeResponse(200, { ok: true, result: { url: 'https://bot.example.com/webhook', pending_update_count: 0 } });
+        return fakeResponse(200, { ok: true, result: { url: 'https://club.example.com/webhook', pending_update_count: 0 } });
       }
       return fakeResponse(404, { error: 'unexpected URL' });
     });
@@ -60,6 +64,7 @@ describe('Telegram runtime health probe', () => {
     expect(result.telegram.username).toBe('club_bot');
     expect(result.telegram.webhook_configured).toBe(true);
     expect(result.telegram.webhook_matches_bot_service).toBe(true);
+    expect(result.telegram.webhook_delivery_healthy).toBe(true);
     expect(result.bot_service.reachable).toBe(true);
     expect(JSON.stringify(result)).not.toContain('super-secret-token');
   });
@@ -68,7 +73,7 @@ describe('Telegram runtime health probe', () => {
     process.env.TELEGRAM_BOT_TOKEN = '123:secret';
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url === 'https://bot.example.com/health') return fakeResponse(200, 'OK', true);
+      if (url === 'http://127.0.0.1:8081/health') return fakeResponse(200, 'OK', true);
       if (url.endsWith('/getMe')) return fakeResponse(200, { ok: true, result: { id: 123, username: 'club_bot' } });
       return fakeResponse(200, { ok: true, result: { url: 'https://old-bot.example.com/webhook', pending_update_count: 2 } });
     });
@@ -85,7 +90,7 @@ describe('Telegram runtime health probe', () => {
     process.env.TELEGRAM_BOT_TOKEN = '123:secret';
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url === 'https://bot.example.com/health') return fakeResponse(200, 'OK', true);
+      if (url === 'http://127.0.0.1:8081/health') return fakeResponse(200, 'OK', true);
       return fakeResponse(401, { ok: false, description: 'Unauthorized' });
     });
 
@@ -95,5 +100,54 @@ describe('Telegram runtime health probe', () => {
     expect(result.telegram.reachable).toBe(false);
     expect(result.telegram.error).toBe('Unauthorized');
     expect(JSON.stringify(result)).not.toContain('123:secret');
+  });
+
+  it('fails while Telegram has a recent delivery error and queued updates', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = '123:secret';
+    const recentErrorDate = Math.floor(Date.now() / 1000) - 60;
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:8081/health') return fakeResponse(200, 'OK', true);
+      if (url.endsWith('/getMe')) return fakeResponse(200, { ok: true, result: { id: 123, username: 'club_bot' } });
+      return fakeResponse(200, {
+        ok: true,
+        result: {
+          url: 'https://club.example.com/webhook',
+          pending_update_count: 3,
+          last_error_date: recentErrorDate,
+          last_error_message: 'Webhook returned 502',
+        },
+      });
+    });
+
+    const result = await checkTelegramRuntimeHealth(fetcher);
+
+    expect(result.ok).toBe(false);
+    expect(result.telegram.webhook_matches_bot_service).toBe(true);
+    expect(result.telegram.webhook_delivery_healthy).toBe(false);
+    expect(result.telegram.last_error_date).toBe(recentErrorDate);
+  });
+
+  it('does not keep a recovered webhook unhealthy because of a stale Telegram error', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = '123:secret';
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:8081/health') return fakeResponse(200, 'OK', true);
+      if (url.endsWith('/getMe')) return fakeResponse(200, { ok: true, result: { id: 123, username: 'club_bot' } });
+      return fakeResponse(200, {
+        ok: true,
+        result: {
+          url: 'https://club.example.com/webhook',
+          pending_update_count: 0,
+          last_error_date: Math.floor(Date.now() / 1000) - 60,
+          last_error_message: 'Recovered delivery error',
+        },
+      });
+    });
+
+    const result = await checkTelegramRuntimeHealth(fetcher);
+
+    expect(result.ok).toBe(true);
+    expect(result.telegram.webhook_delivery_healthy).toBe(true);
   });
 });

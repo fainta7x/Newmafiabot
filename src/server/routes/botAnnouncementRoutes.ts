@@ -6,6 +6,7 @@ import {
   recordInitialAnnouncementAttempt,
   recordReminderAttempt,
 } from '../services/eveningAnnouncementTrackingService.ts';
+import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
 
 const router = Router();
 router.use(botServiceAuth);
@@ -122,6 +123,16 @@ const requireOpenEvening = async (db: any, eveningId: string): Promise<OpenEveni
   }
   return { evening };
 };
+
+router.get('/evenings/:eveningId/recruitment-state', async (req, res) => {
+  try {
+    const state = await loadEveningRecruitmentState(req.db, req.params.eveningId);
+    if (!state) return res.status(404).json({ error: 'Вечер не найден' });
+    res.json(state);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || 'Не удалось посчитать недобор вечера' });
+  }
+});
 
 router.get('/evenings/:eveningId/announcement-recipients', async (req, res) => {
   try {

@@ -76,6 +76,73 @@ describe('closed evening payment compatibility', () => {
     expect(Number(transaction?.amount || 0)).toBe(100);
   });
 
+  it('accumulates into an existing payment adjustment instead of violating its unique source constraint', async () => {
+    const app = await createApp(db);
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+
+    await db.run(
+      `INSERT INTO game_evenings
+       (id,title,starts_at,timezone,format,status,capacity,default_price,settled_at,created_at,updated_at)
+       VALUES ('repeat-evening','21 августа',?,'Europe/Moscow','CASUAL','completed',20,100,?,?,?)`,
+      [now, now, now, now],
+    );
+    await db.run(
+      `INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at)
+       VALUES ('repeat-player','Повтор','normal','test',1000,0,?,?)`,
+      [now, now],
+    );
+    await db.run(
+      `INSERT INTO evening_participants
+       (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+       VALUES ('repeat-participant','repeat-evening','repeat-player','going','going','attended','on_time','unpaid',100,50,?,?)`,
+      [now, now],
+    );
+
+    const protocol = {
+      version: 1,
+      kind: 'club_evening_protocol',
+      protocol: { game_id: '1', status: 'completed', winner_team: 'red' },
+      player_results: [{ participant_id: 'repeat-participant', player_id: 'repeat-player', seat_number: 1 }],
+    };
+    await db.run(
+      `INSERT INTO games
+       (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+       VALUES ('repeat-evening',1,?,'red','Победа красных',?,?,?)`,
+      [now, JSON.stringify(protocol), JSON.stringify([{ participant_id: 'repeat-participant', player_id: 'repeat-player' }]), now],
+    );
+    await db.run(
+      `INSERT INTO financial_transactions
+       (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at)
+       VALUES ('repeat-debt','debt_created',100,'Неоплата за вечер','legacy','repeat-player','repeat-evening','evening_settle','repeat-participant',?)`,
+      [now],
+    );
+    await db.run(
+      `INSERT INTO financial_transactions
+       (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at)
+       VALUES ('repeat-paid','debt_paid',50,'Погашение долга за вечер','partial','repeat-player','repeat-evening','evening_payment_adjustment','repeat-participant',?)`,
+      [now],
+    );
+
+    const response = await request(app)
+      .patch('/api/evening-participants/repeat-participant')
+      .set('Cookie', cookie)
+      .send({ amount_paid: 100, payment_status: 'paid' });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.payment_status).toBe('paid');
+    expect(Number(response.body.amount_paid)).toBe(100);
+
+    const adjustment = await db.get<any>(`
+      SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount
+        FROM financial_transactions
+       WHERE source_type = 'evening_payment_adjustment'
+         AND source_id = 'repeat-participant'
+         AND type = 'debt_paid'
+    `);
+    expect(Number(adjustment?.count || 0)).toBe(1);
+    expect(Number(adjustment?.amount || 0)).toBe(100);
+  });
+
   it('still rejects non-payment edits on a closed evening', async () => {
     const app = await createApp(db);
     const cookie = `organizer_token=${generateOrganizerToken()}`;

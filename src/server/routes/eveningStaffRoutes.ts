@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
@@ -279,6 +280,66 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     return res.json(payments);
   } catch (error: any) {
     return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось изменить оплату игрока' });
+  }
+});
+
+// The legacy evening routes still accept a per-evening default price. For a
+// regular club evening that value is only a planning artifact, never the bill.
+// These guards run before eveningsRoutes and prevent that legacy default from
+// being copied into participant debt while the canonical played-game pricing
+// service remains the single source of truth.
+router.post('/:id/participants', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL') {
+      req.body = { ...(req.body || {}), amount_due: 0, amount_paid: 0 };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL') {
+      req.body = { ...(req.body || {}), amount_due: 0 };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL' && Array.isArray(req.body?.updates)) {
+      req.body = {
+        ...req.body,
+        updates: req.body.updates.map((update: any) => {
+          const { amount_due: _ignoredLegacyAmountDue, ...rest } = update || {};
+          return rest;
+        }),
+      };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.post('/:id/settle', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    await reconcileRegularEveningPayments(db, String(req.params.id));
+    return next();
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось пересчитать стоимость вечера' });
   }
 });
 

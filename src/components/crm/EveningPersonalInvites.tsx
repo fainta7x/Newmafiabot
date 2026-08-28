@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, MessageCircle, RefreshCw } from 'lucide-react';
 import { api, type EveningParticipant } from '../../lib/api.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type ResponseStatus = 'going' | 'late' | 'thinking' | 'declined' | 'unanswered';
 type Filter = 'all' | 'unanswered';
@@ -70,12 +71,9 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
       const nextRows = Array.from(candidateIds).map((playerId): Row => {
         const participant = participantByPlayer.get(playerId) || null;
         const audience = audienceByPlayer.get(playerId);
-        const responseStatus = String(
-          (participant as any)?.response_status
-          || (participant as any)?.registration_status
-          || audience?.response_status
-          || 'unanswered',
-        ) as ResponseStatus;
+        const responseStatus = (participant
+          ? getEveningResponse(participant)
+          : String(audience?.response_status || 'unanswered')) as ResponseStatus;
         return {
           playerId,
           nickname: String(participant?.nickname || audience?.nickname || 'Игрок'),
@@ -115,7 +113,7 @@ export default function EveningPersonalInvites({ eveningId }: { eveningId: strin
         const created = await api.addParticipant(eveningId, {
           player_id: row.playerId,
           table_id: null,
-          registration_status: 'unanswered' as any,
+          response_status: 'unanswered',
           amount_due: 0,
         });
         await api.updateParticipant(created.id, { response_status: status } as any);

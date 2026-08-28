@@ -3,7 +3,7 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
-import { getEveningAttendanceFact } from '../../lib/eveningResponse.ts';
+import { getEveningAttendanceFact, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { requiredJudgeLevelForEveningFormat } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { setParticipantAttendance } from '../services/eveningParticipantState.ts';
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
@@ -82,7 +82,7 @@ const markJudgeSelectedPlayersPresent = async (db: any, eveningId: string, seats
   const rows = await loadEveningGameSeatRows(db, eveningId, seats);
   for (const row of rows) {
     if (['attended_on_time', 'attended_late'].includes(getEveningAttendanceFact(row))) continue;
-    const fact = String(row.response_status || row.registration_status || '') === 'late'
+    const fact = getEveningResponse(row) === 'late'
       ? 'attended_late'
       : 'attended_on_time';
     await setParticipantAttendance(db, String(row.participant_id), fact);

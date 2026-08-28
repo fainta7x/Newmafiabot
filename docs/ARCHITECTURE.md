@@ -44,6 +44,12 @@ Each editable product fact must have one canonical owner. A secondary surface ma
 | Player registration/response to an event | Player event view |
 | Event composition, tables, tasks and close-out | CRM event workspace |
 
+### Evening participant state compatibility
+
+`response_status` is the canonical planned RSVP. `registration_status` remains persisted only as a synchronized compatibility column for historical data and old clients. Active readers must use `getEveningResponse()` rather than reading either column directly; current writers use `setParticipantResponse()` or send `response_status` through the API. Startup runs the narrow idempotent `ensureCanonicalEveningParticipantState()` repair for pre-cutover rows where the default `unanswered` masked a meaningful legacy answer.
+
+Physical attendance remains the persisted `attendance_status + arrival_status` pair and is projected through `getEveningAttendanceFact()`. Payment state remains `amount_due + amount_paid + payment_status`; closed-evening mutations go through `setClosedEveningParticipantPaid()` so CRM surfaces cannot create competing ledger behavior.
+
 When consolidating an existing duplicate, preserve role access first, then replace secondary editors with links or contextual summaries. Do not silently remove host/judge capabilities while moving an organizer-owned screen.
 
 ## 3. Player application

@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
 const RESPONSE_GOING = new Set(['going', 'late']);
@@ -37,35 +38,39 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
     [eveningId],
   );
   const confirmedSlotRows = await db.all<any>(
-    `SELECT r.slot_id, COUNT(DISTINCT r.participant_id) AS count
+    `SELECT r.slot_id, r.participant_id, ep.response_status, ep.registration_status, ep.arrival_status
        FROM evening_slot_registrations r
        JOIN evening_game_slots s ON s.id = r.slot_id
        JOIN evening_participants ep ON ep.id = r.participant_id
       WHERE s.evening_id = ?
-        AND COALESCE(ep.response_status, ep.registration_status, '') IN ('going', 'late')
-      GROUP BY r.slot_id`,
+      `,
     [eveningId],
   );
-  const confirmedBySlot = new Map<string, number>(
-    confirmedSlotRows.map((row: any) => [String(row.slot_id), Math.max(0, Number(row.count || 0))]),
-  );
+  const confirmedBySlot = new Map<string, Set<string>>();
+  for (const row of confirmedSlotRows) {
+    if (!RESPONSE_GOING.has(getEveningResponse(row))) continue;
+    const slotId = String(row.slot_id);
+    const registered = confirmedBySlot.get(slotId) || new Set<string>();
+    registered.add(String(row.participant_id));
+    confirmedBySlot.set(slotId, registered);
+  }
 
   const confirmed = participants.filter((row: any) => {
-    const status = String(row.response_status || row.registration_status || '').trim();
+    const status = getEveningResponse(row);
     return RESPONSE_GOING.has(status);
   });
   const unanswered = participants.filter((row: any) => {
-    const status = String(row.response_status || row.registration_status || '').trim();
-    return !status || status === 'unanswered' || status === 'invited';
+    const status = getEveningResponse(row);
+    return status === 'unanswered';
   });
-  const thinking = participants.filter((row: any) => String(row.response_status || row.registration_status || '') === 'thinking');
+  const thinking = participants.filter((row: any) => getEveningResponse(row) === 'thinking');
 
   const slots: EveningRecruitmentSlot[] = (slotPlan.slots || []).map((slot: any) => {
     const target = Math.max(1, Number(slot.target_players || 11));
     // A stale selection must not occupy a recruitment seat after the player switches
     // to "thinking" or "declined". Exact registrations stay in history, while the
     // current RSVP status decides whether that registration counts toward readiness.
-    const registered = confirmedBySlot.get(String(slot.id)) || 0;
+    const registered = confirmedBySlot.get(String(slot.id))?.size || 0;
     const needed = Math.max(0, target - registered);
     return {
       id: String(slot.id),

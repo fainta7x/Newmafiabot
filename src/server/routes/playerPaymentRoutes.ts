@@ -15,7 +15,7 @@ const requirePlayerId = (req: any, res: any): string | null => {
 };
 
 const isPaymentExpected = (row: any): boolean =>
-  String(row.attendance_status || '') === 'attended' || isAttendingResponse(row.registration_status);
+  String(row.attendance_status || '') === 'attended' || isAttendingResponse(row);
 
 const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: unknown) => {
   if (amountDue <= 0) return 'waived';
@@ -75,7 +75,7 @@ router.get('/payments', async (req, res) => {
 
     const [rows, tokenPackages, campaigns, intents] = await Promise.all([
       db.all<any>(`
-        SELECT ep.id AS participant_id, ep.evening_id, ep.registration_status, ep.payment_status,
+        SELECT ep.id AS participant_id, ep.evening_id, ep.response_status, ep.registration_status, ep.payment_status,
                ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
                e.title, e.starts_at, e.venue, e.status AS evening_status
           FROM evening_participants ep
@@ -199,7 +199,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
 
     const result = await db.transaction(async (tx) => {
       const participant = await tx.get<any>(`
-        SELECT ep.id, ep.player_id, ep.registration_status, ep.attendance_status,
+        SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status, ep.attendance_status,
                ep.amount_due, ep.amount_paid, ep.payment_status,
                e.id AS evening_id, e.title, e.status AS evening_status
           FROM evening_participants ep

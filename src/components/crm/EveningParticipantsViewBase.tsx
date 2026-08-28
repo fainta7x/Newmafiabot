@@ -230,7 +230,7 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
     if (!guestNickname.trim() || adding || !evening) return;
     setAdding(true); setAddError(null);
     try {
-      await api.addParticipant(eveningId, { nickname: guestNickname.trim(), phone: guestPhone.trim() || undefined, table_id: null, registration_status: 'going', amount_due: evening.default_price });
+      await api.addParticipant(eveningId, { nickname: guestNickname.trim(), phone: guestPhone.trim() || undefined, table_id: null, response_status: 'going', amount_due: evening.default_price });
       setGuestNickname(''); setGuestPhone(''); setShowAdd(false); await load(true);
     } catch (err: any) { setAddError(err?.message || 'Не удалось добавить гостя'); } finally { setAdding(false); }
   };

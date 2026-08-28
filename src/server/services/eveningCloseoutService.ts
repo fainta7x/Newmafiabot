@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from './eveningParticipantState.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 
@@ -93,12 +94,12 @@ export async function loadEveningCloseout(db: DatabaseWrapper, eveningId: string
   );
 
   const pendingExpected = participants.filter((item) =>
-    ['going', 'late'].includes(String(item.response_status || item.registration_status || ''))
+    ['going', 'late'].includes(getEveningResponse(item))
     && String(item.attendance_status) === 'pending');
   const attended = participants.filter((item) => String(item.attendance_status) === 'attended');
   const noShow = participants.filter((item) => String(item.attendance_status) === 'no_show');
   const unplannedAttended = attended.filter((item) =>
-    !['going', 'late'].includes(String(item.response_status || item.registration_status || '')));
+    !['going', 'late'].includes(getEveningResponse(item)));
   const outstanding = attended
     .map((item) => ({
       ...item,

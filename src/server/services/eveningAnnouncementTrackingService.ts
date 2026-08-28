@@ -1,5 +1,6 @@
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 type Db = DatabaseWrapper;
 
@@ -21,7 +22,7 @@ const isCurrentlyEligible = (player: any, evening: any, nowMs = Date.now()) => {
 };
 
 const responseStatus = (row: any) => {
-  const status = String(row.response_status || row.registration_status || '').trim();
+  const status = getEveningResponse(row);
   return RESPONSE_STATUSES.has(status) ? status : 'unanswered';
 };
 

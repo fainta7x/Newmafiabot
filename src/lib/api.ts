@@ -745,10 +745,10 @@ export const api = {
     }),
 
   // Participants
-  bulkAddParticipants: (eveningId: string, playerIds: string[], tableId?: string | null, registrationStatus: string = 'registered', amountDue?: number) =>
+  bulkAddParticipants: (eveningId: string, playerIds: string[], tableId?: string | null, responseStatus: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered' = 'unanswered', amountDue?: number) =>
     request<{ success: boolean; addedCount: number; waitlistCount: number; skippedCount: number; participants: EveningParticipant[] }>(
       `/api/evenings/${eveningId}/participants/bulk`,
-      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, table_id: tableId, registration_status: registrationStatus, amount_due: amountDue }) }
+      { method: 'POST', body: JSON.stringify({ player_ids: playerIds, table_id: tableId, response_status: responseStatus, amount_due: amountDue }) }
     ),
   bulkUpdateParticipants: (eveningId: string, updates: Partial<EveningParticipant>[]) =>
     request<{ success: boolean; participants: EveningParticipant[] }>(
@@ -757,7 +757,7 @@ export const api = {
     ),
   addParticipant: (
     eveningId: string,
-    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
+    data: { player_id?: string; nickname?: string; phone?: string; table_id?: string | null; response_status?: 'going' | 'late' | 'thinking' | 'declined' | 'unanswered'; registration_status?: 'invited' | 'registered' | 'confirmed' | 'waitlist' | 'cancelled' | 'going' | 'late' | 'thinking' | 'declined'; amount_due?: number; amount_paid?: number; force_over_capacity?: boolean }
   ) =>
     request<EveningParticipant>(`/api/evenings/${eveningId}/participants`, {
       method: 'POST',

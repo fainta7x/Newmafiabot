@@ -131,7 +131,7 @@ export default function EveningActiveRosterView({
         nickname: guestNickname.trim(),
         phone: guestPhone.trim() || undefined,
         table_id: null,
-        registration_status: 'going',
+        response_status: 'going',
         amount_due: evening.default_price,
       });
       setGuestNickname('');

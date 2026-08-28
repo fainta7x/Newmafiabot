@@ -8,6 +8,8 @@ import {
   loadAnnouncementOverview,
   loadReminderRecipients,
 } from '../services/eveningAnnouncementTrackingService.ts';
+import { loadEveningRecruitmentState } from '../services/eveningRecruitmentService.ts';
+import { requestBotEveningRecruitment } from '../services/botTelegramSyncService.ts';
 import {
   drainTelegramSyncOutbox,
   enqueueTelegramAnnouncement,
@@ -20,9 +22,6 @@ const router = Router();
 router.use(eveningSlotRoutes);
 router.use(eveningCloseoutRoutes);
 
-// This router is mounted before the evening CRUD router. Database triggers record the
-// sync intent transactionally; this middleware only nudges the durable outbox immediately
-// after a successful response so normal updates still feel instant.
 router.use((req: any, res: any, next) => {
   const oneId = req.path.match(/^\/([^/]+)$/);
   const settle = req.path.match(/^\/([^/]+)\/settle$/);
@@ -66,6 +65,16 @@ router.get('/:id/announcement-overview', requireOrganizerAuth, async (req, res) 
     return res.json(overview);
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить состояние рассылки' });
+  }
+});
+
+router.get('/:id/recruitment-state', requireOrganizerAuth, async (req, res) => {
+  try {
+    const state = await loadEveningRecruitmentState(req.db, String(req.params.id));
+    if (!state) return res.status(404).json({ error: 'Игровой вечер не найден' });
+    return res.json(state);
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось посчитать недобор вечера' });
   }
 });
 
@@ -117,18 +126,31 @@ router.post('/:id/announce', requireOrganizerAuth, async (req, res) => {
 router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db;
-    const availability = await loadActionableEvening(db, String(req.params.id));
+    const eveningId = String(req.params.id);
+    const availability = await loadActionableEvening(db, eveningId);
     if (!availability.evening) return res.status(availability.status).json({ error: availability.error });
 
-    await enqueueTelegramEveningSync(db, String(req.params.id));
-    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
-    const queued = Boolean(await db.get(
-      'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
-      [`evening:${String(req.params.id)}`],
-    ));
-    return res.json({ success: true, queued, drain });
+    const state = await loadEveningRecruitmentState(db, eveningId);
+    if (!state) return res.status(404).json({ error: 'Игровой вечер не найден' });
+    if (state.needed_players <= 0) {
+      return res.status(409).json({ error: 'Состав уже набран — добор не нужен' });
+    }
+
+    const delivery = await requestBotEveningRecruitment(eveningId);
+    if (!delivery.success) {
+      return res.status(delivery.status || 502).json({
+        error: delivery.error || 'Не удалось отправить добирающий анонс в Telegram',
+      });
+    }
+
+    return res.json({
+      success: true,
+      needed_players: state.needed_players,
+      sent: Number(delivery.data?.sent || 0),
+      results: delivery.data?.results || [],
+    });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось поставить групповую публикацию в очередь' });
+    return res.status(500).json({ error: error?.message || 'Не удалось отправить добирающий анонс' });
   }
 });
 

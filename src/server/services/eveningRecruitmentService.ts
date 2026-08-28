@@ -26,16 +26,16 @@ export async function loadEveningRecruitmentState(db: DatabaseWrapper, eveningId
   );
   if (!evening) return null;
 
-  const [participants, slotPlan] = await Promise.all([
-    db.all<any>(
-      `SELECT ep.player_id, ep.response_status, ep.registration_status, p.nickname
-         FROM evening_participants ep
-         JOIN players p ON p.id = ep.player_id
-        WHERE ep.evening_id = ?`,
-      [eveningId],
-    ),
-    loadEveningSlotPlan(db, eveningId),
-  ]);
+  // Slot initialization may write for a legacy evening. Complete it before the read-only
+  // recruitment aggregation so SQLite and Turso follow the same deterministic path.
+  const slotPlan = await loadEveningSlotPlan(db, eveningId);
+  const participants = await db.all<any>(
+    `SELECT ep.player_id, ep.response_status, ep.registration_status, p.nickname
+       FROM evening_participants ep
+       JOIN players p ON p.id = ep.player_id
+      WHERE ep.evening_id = ?`,
+    [eveningId],
+  );
 
   const confirmed = participants.filter((row: any) => {
     const status = String(row.response_status || row.registration_status || '').trim();

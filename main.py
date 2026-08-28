@@ -28,6 +28,7 @@ from handlers import shop
 from handlers import start_profile
 from handlers import telegram_admin_tools
 from handlers.crm_evening_announcement import send_crm_evening_announcement, send_crm_evening_reminders
+from handlers.crm_recruitment_publishing import send_crm_evening_recruitment
 from handlers.crm_telegram_publishing import (
     sync_evening_telegram,
     sync_public_router,
@@ -48,7 +49,7 @@ class MyLoggerMiddleware(BaseMiddleware):
             user = event.callback_query.from_user
             print(
                 f"🔘 КНОПКА | {user.full_name} (@{user.username}) "
-                f"| Нажал: {event.callback_query.data}"
+                f"| ID: {user.id} | Нажал: {event.callback_query.data}"
             )
         return await handler(event, data)
 
@@ -104,7 +105,7 @@ def _announcement_result_response(result: dict):
         return web.json_response(result, status=409)
     if result.get("error") in {"not_found", "evening_unavailable", "destination_not_found"}:
         return web.json_response(result, status=404)
-    if result.get("error") in {"chat_id_missing", "invalid"}:
+    if result.get("error") in {"chat_id_missing", "invalid", "already_full"}:
         return web.json_response(result, status=400)
     return web.json_response(result, status=502)
 
@@ -118,7 +119,7 @@ async def handle_crm_group_announcement_request(request: web.Request):
     evening_id = str(request.match_info.get("evening_id") or "").strip()
     if not evening_id:
         return web.json_response({"error": "evening_id_required"}, status=400)
-    return _announcement_result_response(await sync_evening_telegram(bot, evening_id))
+    return _announcement_result_response(await send_crm_evening_recruitment(bot, evening_id))
 
 
 async def handle_crm_evening_announcement_request(request: web.Request):
@@ -215,7 +216,6 @@ def setup_handlers():
         admin_crm.router,
         telegram_admin_tools.router,
         admin.router,
-        # Canonical registration must see /start before the legacy profile router.
         registration.router,
         start_profile.router,
         profile.router,
@@ -245,7 +245,6 @@ def setup_handlers():
 
 
 async def daily_backup_task():
-    """Фоновая задача для ежедневного бэкапа в 3:00"""
     global bot
     while True:
         now = datetime.datetime.now()
@@ -276,7 +275,6 @@ async def daily_backup_task():
 
 
 async def public_router_refresh_task():
-    """Keep the public entry message current even when no organizer action happens."""
     global bot
     await asyncio.sleep(20)
     while True:

@@ -49,9 +49,12 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
 
   const playerColumns = await tableColumns(db, 'players');
   if (playerColumns.has('contact_status') && playerColumns.has('lifecycle_status')) {
-    await db.run(
-      "UPDATE players SET contact_status = CASE WHEN lifecycle_status='blocked' THEN 'blocked' WHEN lifecycle_status='paused' THEN 'paused' ELSE 'normal' END WHERE contact_status IS NULL OR contact_status=''",
-    );
+    const contactMigration = await db.get<{ id: string }>('SELECT id FROM app_data_migrations WHERE id = ?', ['2026-08-canonical-contact-status']);
+    if (!contactMigration) {
+      await db.run("UPDATE players SET contact_status = lifecycle_status WHERE lifecycle_status IN ('blocked','paused') AND COALESCE(contact_status,'normal')='normal'");
+      await db.run("UPDATE players SET contact_status = 'normal' WHERE contact_status IS NULL OR contact_status='' OR contact_status NOT IN ('normal','paused','blocked')");
+      await db.run('INSERT INTO app_data_migrations (id, applied_at) VALUES (?, ?)', ['2026-08-canonical-contact-status', new Date().toISOString()]);
+    }
   }
 
   // Turso's exec compatibility splits scripts on semicolons. CREATE TRIGGER must be sent

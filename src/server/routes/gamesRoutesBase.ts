@@ -1,8 +1,6 @@
 import { Router } from 'express';
-import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
-import { createGameSchema } from '../validation.ts';
 import { evaluateAchievementsForPlayers } from '../services/playerAchievementsService.ts';
 import { JudgeAssignmentError, resolveJudgeAssignment } from '../services/judgeAssignmentService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
@@ -426,93 +424,6 @@ router.delete('/:gameId/evening-draft', requireOrganizerAuth, async (req, res) =
     res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message || 'Не удалось удалить игру' });
-  }
-});
-
-// Legacy POST /api/games - preserved for compatibility with the old game workflow.
-// IMPORTANT: EveningGamesView does not use this endpoint because it updates ELO/tokens.
-router.post('/', requireOrganizerAuth, async (req, res) => {
-  try {
-    const data = createGameSchema.parse(req.body);
-    const db = req.db || (await getDb());
-    const now = new Date().toISOString();
-
-    let createdGame: any = null;
-
-    await db.exec('BEGIN TRANSACTION');
-    try {
-      await db.run(
-        `INSERT INTO games (evening_id, global_game_number, game_date, winner_team, winner_label, judge_name, protocol_text, slots_json, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          data.evening_id || null,
-          data.global_game_number,
-          data.game_date,
-          data.winner_team,
-          data.winner_label,
-          data.judge_name,
-          data.protocol_text || '',
-          JSON.stringify(data.slots),
-          now,
-        ]
-      );
-
-      createdGame = await db.get(
-        'SELECT * FROM games WHERE global_game_number = ? ORDER BY id DESC LIMIT 1',
-        [data.global_game_number]
-      );
-
-      const isRedWin =
-        data.winner_team.toLowerCase().includes('красн') ||
-        data.winner_team.toLowerCase().includes('мирн') ||
-        data.winner_team.toLowerCase().includes('red');
-
-      for (const slot of data.slots) {
-        let player = null;
-        if (slot.player_id) player = await db.get('SELECT * FROM players WHERE id = ?', [slot.player_id]);
-        if (!player && slot.nickname) player = await db.get('SELECT * FROM players WHERE nickname = ?', [slot.nickname]);
-
-        if (!player && slot.nickname) {
-          const playerId = crypto.randomUUID();
-          await db.run(
-            `INSERT INTO players (id, nickname, lifecycle_status, source, elo, tokens, created_at, updated_at)
-             VALUES (?, ?, 'newcomer', 'game_protocol', 1000, 0, ?, ?)`,
-            [playerId, slot.nickname, now, now]
-          );
-          player = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
-        }
-
-        if (player) {
-          const isRedRole = slot.role === 'Мирный' || slot.role === 'Шериф';
-          let eloDelta = 0;
-
-          if (isRedWin) {
-            if (isRedRole) eloDelta = 15;
-            else eloDelta = -10;
-          } else {
-            if (!isRedRole) eloDelta = 20;
-            else eloDelta = -15;
-          }
-
-          await db.run(
-            'UPDATE players SET elo = ?, updated_at = ? WHERE id = ?',
-            [Math.max(100, (player.elo || 1000) + eloDelta), now, player.id]
-          );
-        }
-      }
-
-      await db.exec('COMMIT');
-    } catch (err: any) {
-      try { await db.exec('ROLLBACK'); } catch {}
-      throw err;
-    }
-
-    res.status(201).json({ ...createdGame, slots: safeJsonParse(createdGame?.slots_json, []) });
-  } catch (err: any) {
-    if (err.errors) {
-      return res.status(400).json({ error: 'Ошибка валидации протокола игры', details: err.errors });
-    }
-    res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
 

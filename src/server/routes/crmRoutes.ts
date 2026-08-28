@@ -81,7 +81,7 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
       LIMIT 10
     `);
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE p.lifecycle_status!='blocked' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
+    const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE COALESCE(p.contact_status,'normal')='normal' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
 
     // The dashboard itself is a payment read surface. Reconcile each still-unpaid
     // completed regular evening before exposing debts, so legacy/stale 600 ₽ rows

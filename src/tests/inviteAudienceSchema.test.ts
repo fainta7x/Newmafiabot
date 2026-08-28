@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
+import { createDatabaseConnection } from '../db/index.ts';
 
 describe('invite audience schema', () => {
   it('creates the CRM novice trigger with run() instead of exec() for Turso compatibility', async () => {
@@ -55,7 +56,7 @@ describe('invite audience schema', () => {
     expect(schema.get('evening_participants')?.has('table_id')).toBe(true);
     expect(schema.get('evening_participants')?.has('response_status')).toBe(true);
     expect(schema.get('game_evenings')?.has('settled_at')).toBe(true);
-    expect(runSql.some((sql) => sql.includes('UPDATE players SET contact_status = CASE'))).toBe(true);
+    expect(runSql.some((sql) => sql.includes('UPDATE players SET contact_status = lifecycle_status'))).toBe(true);
     expect(runSql.some((sql) => sql.includes("UPDATE players SET game_level = 'club' WHERE game_level = 'novice'"))).toBe(true);
     expect(runSql.some((sql) => sql.includes("UPDATE players SET lifecycle_status = 'normal' WHERE lifecycle_status = 'newcomer'"))).toBe(true);
   });
@@ -64,5 +65,24 @@ describe('invite audience schema', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/crmRoutes.ts'), 'utf8');
     expect(source).not.toContain("status='completed' OR winner_team IS NOT NULL");
     expect(source).toContain('SUM(CASE WHEN winner_team IS NOT NULL THEN 1 ELSE 0 END) AS completed');
+  });
+
+  it('moves legacy blocked/paused states into the canonical contact status once', async () => {
+    const db = await createDatabaseConnection(':memory:');
+    await ensureInviteAudienceSchema(db);
+    await db.run("DELETE FROM app_data_migrations WHERE id = '2026-08-canonical-contact-status'");
+    await db.run(
+      `INSERT INTO players (id, nickname, lifecycle_status, contact_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      ['legacy-blocked', 'Legacy blocked', 'blocked', 'normal', new Date().toISOString(), new Date().toISOString()],
+    );
+
+    await ensureInviteAudienceSchema(db);
+    expect((await db.get<{ contact_status: string }>('SELECT contact_status FROM players WHERE id = ?', ['legacy-blocked']))?.contact_status).toBe('blocked');
+
+    await db.run("UPDATE players SET contact_status = 'normal' WHERE id = 'legacy-blocked'");
+    await ensureInviteAudienceSchema(db);
+    expect((await db.get<{ contact_status: string }>('SELECT contact_status FROM players WHERE id = ?', ['legacy-blocked']))?.contact_status).toBe('normal');
+    db.sqlite.close();
   });
 });

@@ -12,11 +12,11 @@ import {
 } from './telegramSyncOutboxService.ts';
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
+import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HORIZON_DAYS = 35;
 const STALE_RUN_MS = 30 * 60 * 1000;
-const DEFAULT_PUBLIC_APP_URL = 'https://2la-noire-web-staging.onrender.com';
 
 const MONTHS_RU = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
@@ -46,9 +46,6 @@ const defaultDelivery: DeliveryAdapters = {
   },
 };
 
-const publicAppBaseUrl = () => String(
-  process.env.PUBLIC_APP_URL || process.env.RENDER_EXTERNAL_URL || DEFAULT_PUBLIC_APP_URL,
-).trim().replace(/\/+$/, '');
 
 const civilDate = (now: Date) => {
   const shifted = new Date(now.getTime() + 3 * 60 * 60 * 1000);
@@ -200,7 +197,7 @@ export async function runDueWeeklyAnnouncements(
 
   const now = options.now || new Date();
   const nowMs = now.getTime();
-  const baseUrl = String(options.baseUrl || publicAppBaseUrl()).replace(/\/+$/, '');
+  const baseUrl = String(options.baseUrl || getPublicAppBaseUrl()).replace(/\/+$/, '');
   const delivery: DeliveryAdapters = { ...defaultDelivery, ...(options.delivery || {}) };
   const rows = await db.all<any>(`
     SELECT id, title, starts_at, status, settled_at

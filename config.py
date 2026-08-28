@@ -25,8 +25,9 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
 BOT_API_BASE_URL = os.getenv('BOT_API_BASE_URL', 'http://127.0.0.1:3000')
 BOT_API_SECRET = os.getenv('BOT_API_SECRET', '')
 
-# Player Mini App origin. On production bot services BOT_API_BASE_URL already points
-# to the web application, so it is a safe fallback when it uses HTTPS.
-PLAYER_APP_URL = os.getenv('PLAYER_APP_URL', '').strip().rstrip('/')
-if not PLAYER_APP_URL and BOT_API_BASE_URL.lower().startswith('https://'):
-    PLAYER_APP_URL = BOT_API_BASE_URL.rstrip('/')
+# Player Mini App origin must stay public even in the combined container where
+# BOT_API_BASE_URL is the internal Node address.
+CANONICAL_PLAYER_APP_URL = 'https://2la-noire-chagina7x.waw0.amvera.tech'
+PLAYER_APP_URL = (os.getenv('PLAYER_APP_URL', '').strip() or WEBHOOK_URL.strip() or CANONICAL_PLAYER_APP_URL).rstrip('/')
+if PLAYER_APP_URL.endswith('/webhook'):
+    PLAYER_APP_URL = PLAYER_APP_URL[:-len('/webhook')]

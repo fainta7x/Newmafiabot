@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { getDb } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
-import { createPlayerSchema, updatePlayerSchema } from '../validation.ts';
+import { updatePlayerSchema } from '../validation.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { calculateEngagementStage } from '../../lib/playerUtils.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -486,52 +486,6 @@ router.post('/:id/invite', requireOrganizerAuth, async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });
-  }
-});
-
-// POST /api/players - Create new player (Auth required)
-router.post('/', requireOrganizerAuth, async (req, res) => {
-  try {
-    const data = createPlayerSchema.parse(req.body);
-    const db = req.db || (await getDb());
-
-    // Check unique nickname
-    const existingNick = await db.get('SELECT id FROM players WHERE nickname = ?', [data.nickname]);
-    if (existingNick) {
-      return res.status(400).json({ error: 'Игрок с таким никнеймом уже существует' });
-    }
-
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    const normalizedTg = data.telegram_username ? data.telegram_username.replace('@', '').trim() || null : null;
-    const contactStatus = data.contact_status || (data.lifecycle_status === 'blocked' ? 'blocked' : data.lifecycle_status === 'paused' ? 'paused' : 'normal');
-
-    await db.run(
-      `INSERT INTO players (id, telegram_user_id, nickname, full_name, telegram_username, phone, contact_status, lifecycle_status, source, notes, elo, tokens, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        data.telegram_user_id || null,
-        data.nickname,
-        data.full_name || null,
-        normalizedTg,
-        data.phone || null,
-        contactStatus,
-        contactStatus,
-        data.source || 'crm_manual',
-        data.notes || null,
-        data.elo,
-        data.tokens,
-        now,
-        now,
-      ]
-    );
-
-    const created = await db.get('SELECT * FROM players WHERE id = ?', [id]);
-    res.status(201).json(created);
-  } catch (err: any) {
-    res.status(400).json({ error: 'Validation error', details: err.errors || err.message });
   }
 });
 

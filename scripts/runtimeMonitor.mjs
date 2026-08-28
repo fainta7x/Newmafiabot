@@ -131,8 +131,9 @@ const sendTelegram = async (token, chatIds, text, fetcher = fetch) => {
     }
   }
 
-  if (delivered === 0) throw new Error(`Telegram notification failed (${failures.join('; ')})`);
-  if (failures.length > 0) console.warn(`[monitor] Partial Telegram delivery: ${failures.join('; ')}`);
+  if (failures.length > 0) {
+    throw new Error(`Telegram notification incomplete: delivered ${delivered}/${chatIds.length} (${failures.join('; ')})`);
+  }
 };
 
 const githubRequest = async (path, options = {}) => {
@@ -229,7 +230,7 @@ export async function main() {
       chatIds,
       `✅ 2LA Noire: тестовые уведомления мониторинга подключены.\nАдрес: ${baseUrl}`,
     );
-    console.log('[monitor] Test notification delivered.');
+    console.log('[monitor] Test notification delivered to all recipients.');
     return;
   }
 

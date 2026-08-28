@@ -1,7 +1,7 @@
-const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
+import { getBotServiceBaseUrl } from '../runtimeConfig.ts';
 
 const botServiceConfig = () => ({
-  baseUrl: String(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL).trim().replace(/\/+$/, ''),
+  baseUrl: getBotServiceBaseUrl(),
   secret: String(process.env.BOT_API_SECRET || '').trim(),
 });
 

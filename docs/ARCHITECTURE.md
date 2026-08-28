@@ -50,6 +50,8 @@ Each editable product fact must have one canonical owner. A secondary surface ma
 
 Physical attendance remains the persisted `attendance_status + arrival_status` pair and is projected through `getEveningAttendanceFact()`. Payment state remains `amount_due + amount_paid + payment_status`; closed-evening mutations go through `setClosedEveningParticipantPaid()` so CRM surfaces cannot create competing ledger behavior.
 
+`contact_status` is the canonical operational contact state (`normal`, `paused`, `blocked`). `lifecycle_status` remains a synchronized compatibility field for historical rows and older clients. A one-time startup migration copies meaningful legacy `paused`/`blocked` values that were previously hidden by the newer column's `normal` default; active automation and CRM filters read `contact_status`.
+
 When consolidating an existing duplicate, preserve role access first, then replace secondary editors with links or contextual summaries. Do not silently remove host/judge capabilities while moving an organizer-owned screen.
 
 ## 3. Player application
@@ -152,6 +154,8 @@ Browser evidence:
 - `POST /api/games` is intentionally retired with HTTP 410. Do not resurrect it.
 - Create/manage games through evening/tournament protocol workflow.
 
+Player creation is likewise owned by `playerTokensRoutes.ts`: it creates the player and journals any non-zero initial token balance as one operation. Do not add a second `POST /api/players` implementation to the base player router.
+
 ### Tournaments
 
 Mounted under `/api/tournaments` for tournament workflow, protocols, judge authority, awards, results, publication and token settlement.
@@ -206,6 +210,8 @@ Process ownership:
 The Node application still owns canonical production data through Turso. The bot's local `mafia_crm.db` is legacy runtime state and must not replace or seed Turso.
 
 The canonical deployment source is `fainta7x/Newmafiabot` `main`. The separate `fainta7x/mafiabot` repository is not part of this topology.
+
+Runtime URL defaults are centralized in `src/server/runtimeConfig.ts`: the combined container reaches the Python bot through `http://127.0.0.1:8081`, while public links and expected Telegram webhook URLs use the current Amvera origin. Retired Render origins must not be used as active fallbacks.
 
 Health ownership is deliberately split:
 

@@ -51,7 +51,7 @@ export async function runCrmAutomations(db: DatabaseWrapper, now: Date = new Dat
     JOIN evening_participants ep ON ep.player_id = p.id
     JOIN game_evenings ge ON ge.id = ep.evening_id
     WHERE ep.attendance_status = 'attended' AND ge.status = 'completed'
-      AND p.lifecycle_status != 'blocked'
+      AND COALESCE(p.contact_status, 'normal') = 'normal'
     GROUP BY p.id
     HAVING MAX(ge.starts_at) < ?
       AND NOT EXISTS (

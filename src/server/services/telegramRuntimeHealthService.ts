@@ -1,4 +1,4 @@
-const DEFAULT_BOT_SERVICE_URL = 'https://mafiabot-0vcb.onrender.com';
+import { getBotServiceBaseUrl, getPublicAppBaseUrl } from '../runtimeConfig.ts';
 
 export type RuntimeFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -34,8 +34,8 @@ export type TelegramRuntimeHealth = {
 
 const normalizeBaseUrl = (value: unknown) => String(value || '').trim().replace(/\/+$/, '');
 
-const expectedWebhookUrl = (botServiceUrl: string) => {
-  const publicBaseUrl = normalizeBaseUrl(process.env.WEBHOOK_URL || botServiceUrl);
+const expectedWebhookUrl = () => {
+  const publicBaseUrl = normalizeBaseUrl(process.env.WEBHOOK_URL || getPublicAppBaseUrl());
   if (!publicBaseUrl) return '';
   return publicBaseUrl.endsWith('/webhook') ? publicBaseUrl : `${publicBaseUrl}/webhook`;
 };
@@ -79,7 +79,7 @@ const probeText = async (fetcher: RuntimeFetch, url: string): Promise<ProbeResul
 
 export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch): Promise<TelegramRuntimeHealth> {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  const botServiceUrl = normalizeBaseUrl(process.env.BOT_SERVICE_URL || DEFAULT_BOT_SERVICE_URL);
+  const botServiceUrl = getBotServiceBaseUrl();
   const botServicePromise = botServiceUrl
     ? probeText(fetcher, `${botServiceUrl}/health`)
     : Promise.resolve({ ok: false, status: null, data: null, error: 'BOT_SERVICE_URL is not configured' });
@@ -120,7 +120,7 @@ export async function checkTelegramRuntimeHealth(fetcher: RuntimeFetch = fetch):
   const me = meProbe.data?.ok ? meProbe.data.result : null;
   const webhook = webhookProbe.data?.ok ? webhookProbe.data.result : null;
   const actualWebhookUrl = String(webhook?.url || '').trim().replace(/\/+$/, '');
-  const configuredWebhookUrl = expectedWebhookUrl(botServiceUrl);
+  const configuredWebhookUrl = expectedWebhookUrl();
   const webhookMatches = Boolean(actualWebhookUrl && configuredWebhookUrl && actualWebhookUrl === configuredWebhookUrl);
   const telegramReachable = meProbe.ok && Boolean(me) && webhookProbe.ok && Boolean(webhook);
   const pendingUpdateCount = webhook?.pending_update_count == null ? null : Number(webhook.pending_update_count);

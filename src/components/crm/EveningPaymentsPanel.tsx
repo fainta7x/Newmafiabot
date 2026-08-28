@@ -27,7 +27,7 @@ const money = (value: number) => `${Math.max(0, Math.round(Number(value || 0))).
 
 export default function EveningPaymentsPanel({ eveningId }: { eveningId: string }) {
   const [data, setData] = useState<PaymentPayload | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,14 +47,15 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
 
   useEffect(() => {
     setLoading(true);
+    setBusyIds(new Set());
     void load();
   }, [eveningId]);
 
   const setPaid = async (participant: PaymentParticipant, paid: boolean) => {
-    if (busyId) return;
-    setBusyId(participant.id);
+    if (busyIds.has(participant.id)) return;
+    const previousParticipant = participant;
+    setBusyIds((current) => new Set(current).add(participant.id));
     setError(null);
-    const previous = data;
     setData((current) => current ? {
       ...current,
       participants: current.participants.map((item) => item.id === participant.id ? {
@@ -73,12 +74,23 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось изменить оплату');
-      setData(body as PaymentPayload);
+      // The row is already in the requested state. Do not replace the whole payload
+      // with the server response: that used to make each tap visually reload the list
+      // and prevented an organizer from marking several people in quick succession.
     } catch (saveError: any) {
-      setData(previous);
+      setData((current) => current ? {
+        ...current,
+        participants: current.participants.map((item) => (
+          item.id === participant.id ? previousParticipant : item
+        )),
+      } : current);
       setError(saveError?.message || 'Не удалось изменить оплату');
     } finally {
-      setBusyId(null);
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(participant.id);
+        return next;
+      });
     }
   };
 
@@ -103,7 +115,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
             {data?.evening.closed ? 'Вечер закрыт · оплаты всё равно можно исправлять' : 'Отмечай оплату одним нажатием'}
           </div>
         </div>
-        <button type="button" onClick={() => void load()} disabled={Boolean(busyId)} className="grid h-9 w-9 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить оплаты">
+        <button type="button" onClick={() => void load()} disabled={busyIds.size > 0} className="grid h-9 w-9 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить оплаты">
           <RefreshCw className="h-4 w-4" />
         </button>
       </div>
@@ -123,7 +135,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
               const due = Number(participant.amount_due || 0);
               const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
               const waived = participant.payment_status === 'waived' || due === 0;
-              const busy = busyId === participant.id;
+              const busy = busyIds.has(participant.id);
 
               return (
                 <div key={participant.id} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">

@@ -35,6 +35,7 @@ describe('canonical evening settlement', () => {
     gameNumber: number,
     status: 'draft' | 'completed',
     archived = false,
+    players: Array<{ participantId: string; playerId: string }> = [],
   ) => {
     const payload = {
       version: 1,
@@ -44,12 +45,21 @@ describe('canonical evening settlement', () => {
         status,
         winner_team: status === 'completed' ? 'red' : null,
       },
-      player_results: [],
+      player_results: players.map((player, index) => ({
+        participant_id: player.participantId,
+        player_id: player.playerId,
+        seat_number: index + 1,
+      })),
     };
+    const slots = players.map((player, index) => ({
+      participant_id: player.participantId,
+      player_id: player.playerId,
+      seat_number: index + 1,
+    }));
     await db.run(
       `INSERT INTO games
        (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at,archived_at)
-       VALUES (?,?,?,?,?,?, '[]', ?, ?)`,
+       VALUES (?,?,?,?,?,?,?,?,?)`,
       [
         eveningId,
         gameNumber,
@@ -57,6 +67,7 @@ describe('canonical evening settlement', () => {
         status === 'completed' ? 'Красные' : 'draft',
         status === 'completed' ? 'Победа Красные' : 'Черновик',
         JSON.stringify(payload),
+        JSON.stringify(slots),
         now,
         archived ? now : null,
       ],
@@ -107,8 +118,6 @@ describe('canonical evening settlement', () => {
   it('settles completed games, ignores archived drafts, writes payments once and queues Telegram final sync', async () => {
     const eveningId = 'settle-complete';
     await insertEvening(eveningId);
-    await insertGame(eveningId, 502, 'completed');
-    await insertGame(eveningId, 503, 'draft', true);
 
     await db.run(
       `INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at)
@@ -121,6 +130,12 @@ describe('canonical evening settlement', () => {
        VALUES ('ep-paid',?,'p-paid','going','going','attended','on_time','partial',400,250,?,?)`,
       [eveningId, now, now],
     );
+
+    const played = [{ participantId: 'ep-paid', playerId: 'p-paid' }];
+    for (const gameNumber of [502, 503, 504, 505]) {
+      await insertGame(eveningId, gameNumber, 'completed', false, played);
+    }
+    await insertGame(eveningId, 506, 'draft', true, played);
 
     const beforeSync = await db.get<any>(
       "SELECT version FROM telegram_sync_outbox WHERE sync_key=?",

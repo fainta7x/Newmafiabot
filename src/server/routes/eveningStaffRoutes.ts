@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
+import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
 const router = Router();
 
@@ -178,11 +180,13 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
 router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const payments = await loadPayments(db, String(req.params.id));
+    const eveningId = String(req.params.id);
+    await reconcileRegularEveningPayments(db, eveningId);
+    const payments = await loadPayments(db, eveningId);
     if (!payments) return res.status(404).json({ error: 'Вечер не найден' });
     return res.json(payments);
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось загрузить оплаты вечера' });
   }
 });
 
@@ -194,6 +198,7 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const paid = req.body?.paid;
     if (typeof paid !== 'boolean') return res.status(400).json({ error: 'Передай paid=true или paid=false' });
 
+    await reconcileRegularEveningPayments(db, eveningId);
     const evening = await db.get<any>(
       'SELECT id, title, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
       [eveningId],
@@ -274,7 +279,67 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const payments = await loadPayments(db, eveningId);
     return res.json(payments);
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось изменить оплату игрока' });
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось изменить оплату игрока' });
+  }
+});
+
+// The legacy evening routes still accept a per-evening default price. For a
+// regular club evening that value is only a planning artifact, never the bill.
+// These guards run before eveningsRoutes and prevent that legacy default from
+// being copied into participant debt while the canonical played-game pricing
+// service remains the single source of truth.
+router.post('/:id/participants', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL') {
+      req.body = { ...(req.body || {}), amount_due: 0, amount_paid: 0 };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.post('/:id/participants/bulk', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL') {
+      req.body = { ...(req.body || {}), amount_due: 0 };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.patch('/:id/participants/bulk', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    const evening = await db.get<any>('SELECT format FROM game_evenings WHERE id = ? LIMIT 1', [String(req.params.id)]);
+    if (evening && normalizeEveningFormat(evening.format) === 'CASUAL' && Array.isArray(req.body?.updates)) {
+      req.body = {
+        ...req.body,
+        updates: req.body.updates.map((update: any) => {
+          const { amount_due: _ignoredLegacyAmountDue, ...rest } = update || {};
+          return rest;
+        }),
+      };
+    }
+    return next();
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось проверить тариф вечера' });
+  }
+});
+
+router.post('/:id/settle', requireOrganizerAuth, async (req, res, next) => {
+  try {
+    const db = req.db || (await getDb());
+    await reconcileRegularEveningPayments(db, String(req.params.id));
+    return next();
+  } catch (error: any) {
+    return res.status(error?.statusCode || 500).json({ error: error?.message || 'Не удалось пересчитать стоимость вечера' });
   }
 });
 

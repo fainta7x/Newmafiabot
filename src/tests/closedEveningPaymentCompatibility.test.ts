@@ -143,6 +143,73 @@ describe('closed evening payment compatibility', () => {
     expect(Number(adjustment?.amount || 0)).toBe(100);
   });
 
+  it('uses the same idempotent ledger path from the evening payments panel', async () => {
+    const app = await createApp(db);
+    const cookie = `organizer_token=${generateOrganizerToken()}`;
+
+    await db.run(
+      `INSERT INTO game_evenings
+       (id,title,starts_at,timezone,format,status,capacity,default_price,settled_at,created_at,updated_at)
+       VALUES ('panel-evening','21 августа',?,'Europe/Moscow','CASUAL','completed',20,100,?,?,?)`,
+      [now, now, now, now],
+    );
+    await db.run(
+      `INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at)
+       VALUES ('panel-player','Игрок панели','normal','test',1000,0,?,?)`,
+      [now, now],
+    );
+    await db.run(
+      `INSERT INTO evening_participants
+       (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+       VALUES ('panel-participant','panel-evening','panel-player','going','going','attended','on_time','unpaid',100,50,?,?)`,
+      [now, now],
+    );
+
+    const protocol = {
+      version: 1,
+      kind: 'club_evening_protocol',
+      protocol: { game_id: '1', status: 'completed', winner_team: 'red' },
+      player_results: [{ participant_id: 'panel-participant', player_id: 'panel-player', seat_number: 1 }],
+    };
+    await db.run(
+      `INSERT INTO games
+       (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+       VALUES ('panel-evening',1,?,'red','Победа красных',?,?,?)`,
+      [now, JSON.stringify(protocol), JSON.stringify([{ participant_id: 'panel-participant', player_id: 'panel-player' }]), now],
+    );
+    await db.run(
+      `INSERT INTO financial_transactions
+       (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at)
+       VALUES ('panel-debt','debt_created',100,'Неоплата за вечер','legacy','panel-player','panel-evening','evening_settle','panel-participant',?)`,
+      [now],
+    );
+    await db.run(
+      `INSERT INTO financial_transactions
+       (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at)
+       VALUES ('panel-paid','debt_paid',50,'Погашение долга за вечер','partial','panel-player','panel-evening','evening_payment_adjustment','panel-participant',?)`,
+      [now],
+    );
+
+    const response = await request(app)
+      .patch('/api/evenings/panel-evening/payments/panel-participant')
+      .set('Cookie', cookie)
+      .send({ paid: true });
+
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const participant = response.body.participants.find((item: any) => item.id === 'panel-participant');
+    expect(participant).toMatchObject({ payment_status: 'paid', amount_paid: 100 });
+
+    const adjustment = await db.get<any>(`
+      SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount
+        FROM financial_transactions
+       WHERE source_type = 'evening_payment_adjustment'
+         AND source_id = 'panel-participant'
+         AND type = 'debt_paid'
+    `);
+    expect(Number(adjustment?.count || 0)).toBe(1);
+    expect(Number(adjustment?.amount || 0)).toBe(100);
+  });
+
   it('still rejects non-payment edits on a closed evening', async () => {
     const app = await createApp(db);
     const cookie = `organizer_token=${generateOrganizerToken()}`;

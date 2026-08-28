@@ -171,45 +171,57 @@ def private_event_text(evening: dict, *, reminder: bool = False) -> str:
 def _needed_players_text(needed: int) -> str:
     needed = max(0, int(needed or 0))
     if needed == 1:
-        return "не хватает всего одного игрока"
+        return "нужен ещё 1 игрок"
     if 2 <= needed <= 4:
-        return f"не хватает всего {needed} игроков"
-    return f"не хватает {needed} игроков"
+        return f"нужно ещё {needed} игрока"
+    return f"нужно ещё {needed} игроков"
 
 
-def recruitment_private_text(evening: dict, needed_players: int) -> str:
+def _recruitment_slot_lines(slots: list[dict], timezone_name: object = _DEFAULT_TIMEZONE) -> list[str]:
+    lines: list[str] = []
+    for slot in sorted(slots or [], key=lambda item: int(item.get("slot_number") or 0)):
+        needed = max(0, int(slot.get("needed_players") or 0))
+        if needed <= 0:
+            continue
+        number = int(slot.get("slot_number") or 0)
+        time = _format_time(slot.get("starts_at"), timezone_name)
+        registered = max(0, int(slot.get("registered_players") or 0))
+        target = max(1, int(slot.get("target_players") or 11))
+        lines.append(f"• {time} · игра {number}: {_needed_players_text(needed)} ({registered}/{target})")
+    return lines
+
+
+def recruitment_private_text(evening: dict, underfilled_slots: list[dict]) -> str:
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    slot_lines = _recruitment_slot_lines(underfilled_slots, timezone_name)
     try:
         start = _local_datetime(evening.get("starts_at"), timezone_name)
         now = datetime.now(start.tzinfo)
         when = "сегодня" if start.date() == now.date() else f"{start.day} {_MONTHS_RU[start.month - 1]}"
-        time = start.strftime("%H:%M")
     except (TypeError, ValueError):
-        when = "на ближайший вечер"
-        time = ""
-    time_part = f" в {time}" if time else ""
+        when = "на ближайшем вечере"
+    shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
         "Привет! 👋\n\n"
-        f"Ты ещё не ответил по игре {when}{time_part}. Нам {_needed_players_text(needed_players)} до полного стола.\n\n"
-        "Получится прийти? Отметь ответ кнопкой ниже 👇"
+        f"На играх {when} пока есть недобор:\n{shortages}\n\n"
+        "Если можешь присоединиться — выбери подходящие игры кнопкой ниже 👇"
     )
 
 
-def recruitment_group_text(evening: dict, needed_players: int) -> str:
+def recruitment_group_text(evening: dict, underfilled_slots: list[dict]) -> str:
     timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    slot_lines = _recruitment_slot_lines(underfilled_slots, timezone_name)
     try:
         start = _local_datetime(evening.get("starts_at"), timezone_name)
         now = datetime.now(start.tzinfo)
         when = "сегодня" if start.date() == now.date() else f"{start.day} {_MONTHS_RU[start.month - 1]}"
-        time = start.strftime("%H:%M")
     except (TypeError, ValueError):
-        when = "на ближайший вечер"
-        time = ""
-    time_part = f" в {time}" if time else ""
+        when = "на ближайшем вечере"
+    shortages = "\n".join(slot_lines) if slot_lines else "• есть свободные места на игры вечера"
     return (
         "Ребята, всем привет! 👋\n\n"
-        f"На игру {when}{time_part} нам {_needed_players_text(needed_players)} до полного стола. "
-        "Если собирались — записывайтесь, пожалуйста, чтобы мы понимали состав 🙌"
+        f"На играх {when} пока не везде собран полный состав:\n{shortages}\n\n"
+        "Если можете присоединиться к этим играм — записывайтесь, пожалуйста 🙌"
     )
 
 

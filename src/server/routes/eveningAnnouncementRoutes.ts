@@ -74,7 +74,7 @@ router.get('/:id/recruitment-state', requireOrganizerAuth, async (req, res) => {
     if (!state) return res.status(404).json({ error: 'Игровой вечер не найден' });
     return res.json(state);
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось посчитать недобор вечера' });
+    return res.status(500).json({ error: error?.message || 'Не удалось посчитать недобор по играм' });
   }
 });
 
@@ -132,8 +132,8 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
 
     const state = await loadEveningRecruitmentState(db, eveningId);
     if (!state) return res.status(404).json({ error: 'Игровой вечер не найден' });
-    if (state.needed_players <= 0) {
-      return res.status(409).json({ error: 'Состав уже набран — добор не нужен' });
+    if (!state.underfilled_slots.length) {
+      return res.status(409).json({ error: 'Все игры уже набраны — добор не нужен' });
     }
 
     const delivery = await requestBotEveningRecruitment(eveningId);
@@ -145,7 +145,7 @@ router.post('/:id/announce-group', requireOrganizerAuth, async (req, res) => {
 
     return res.json({
       success: true,
-      needed_players: state.needed_players,
+      underfilled_slots: state.underfilled_slots,
       sent: Number(delivery.data?.sent || 0),
       results: delivery.data?.results || [],
     });

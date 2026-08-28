@@ -181,16 +181,56 @@ Do not configure `DATABASE_PATH` as production-primary when the Turso pair is pr
 After deploy:
 
 1. verify the application deployment log shows `web`, `bot` and `nginx` in running state;
-2. verify public `/api/health`;
-3. verify organizer Telegram health reports the bot service at the internal URL;
-4. verify the Telegram webhook points to `<amvera-domain>/webhook`;
-5. open the Mini App from Telegram and confirm player identity/current evening data;
-6. verify one organizer-only targeted Telegram action, not a mass announcement;
-7. verify recent Turso-backed data markers before retiring the Render services.
+2. verify public `/api/health` returns HTTP 200 with `status=ok`;
+3. verify public `/api/health/runtime` returns HTTP 200 with all three checks set to `ok`;
+4. verify organizer Telegram health reports the bot service at the internal URL and compares the webhook with public `WEBHOOK_URL`;
+5. verify the Telegram webhook points to `<amvera-domain>/webhook`;
+6. open the Mini App from Telegram and confirm player identity/current evening data;
+7. verify one organizer-only targeted Telegram action, not a mass announcement;
+8. verify recent Turso-backed data markers before retiring the Render services.
+
+### Amvera restart and email alerts
+
+In the application's Kubernetes probes form, use a shallow startup/liveness probe only:
+
+```yaml
+startupProbe:
+  httpGet:
+    path: /api/health
+    port: 8080
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 8080
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+```
+
+Amvera injects this native Kubernetes YAML into the deployment. An invalid probe can prevent the project from starting, so paste it exactly and verify the next deployment log. Do not point liveness/readiness at `/api/health/runtime`: external Turso or Telegram degradation must not take the whole web application out of service.
+
+In the same application Settings, enable failure notifications to the account email and set a reasonable daily maximum/minimum interval. Amvera sends these only after its own healthy/error timing conditions; they are a backup to the external Telegram monitor, not a replacement.
+
+### Independent GitHub → Telegram alerts
+
+1. create a separate monitoring bot in BotFather and press **Start** in that bot from every recipient account;
+2. GitHub repository → Settings → Secrets and variables → Actions → Secrets → add `TELEGRAM_MONITOR_BOT_TOKEN`;
+3. add `TELEGRAM_MONITOR_CHAT_IDS` with trusted numeric IDs separated by commas; reuse intended IDs from the current production `ADMIN_IDS` value rather than printing them in logs;
+4. only if the public domain changes, add Actions variable `RUNTIME_MONITOR_BASE_URL` with the new HTTPS origin;
+5. GitHub → Actions → Production runtime monitor → Run workflow → enable the test-notification input;
+6. confirm all recipients receive the test and the workflow is green;
+7. leave the five-minute schedule enabled. It creates one public GitHub incident issue per outage and closes it automatically on recovery.
+
+The monitor uses a standard GitHub-hosted runner and is independent of the Amvera container. The repository is public, so this standard-runner usage is free under the current GitHub Actions billing model. Scheduled workflows can be delayed by GitHub and can be disabled after long repository inactivity; Amvera email remains the secondary channel.
+
+See `docs/telegram-runtime-health.md` for endpoint contracts and alert transition behavior.
 
 Rollback: keep the Render configuration intact until all checks pass. If the new runtime fails, restore the old Telegram webhook URL and stop the Amvera container; never restore or replace Turso data as part of hosting rollback.
 
-## 9. Render deployment
+## 9. Legacy Render deployment
 
 Render is manual; green `main` is not the same as deployed `main`.
 
@@ -217,10 +257,11 @@ Do not perform a mass club announcement as a generic smoke test.
 Preferred order:
 
 1. latest intended main deployed;
-2. organizer Telegram health check;
-3. verify token/API/webhook/bot-service status;
-4. if send testing is necessary, use one known target;
-5. verify app/outbox response state.
+2. public deep runtime health check;
+3. organizer Telegram health check;
+4. verify token/API/webhook/bot-service status;
+5. if send testing is necessary, use one known target;
+6. verify app/outbox response state.
 
 See `docs/telegram-runtime-health.md`.
 

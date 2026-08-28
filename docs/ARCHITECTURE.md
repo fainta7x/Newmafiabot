@@ -201,11 +201,20 @@ The Node application still owns canonical production data through Turso. The bot
 
 The canonical deployment source is `fainta7x/Newmafiabot` `main`. The separate `fainta7x/mafiabot` repository is not part of this topology.
 
-## 9. Render
+Health ownership is deliberately split:
+
+- `GET /api/health` in `src/app.ts` is shallow Node liveness and is the only Kubernetes startup/liveness probe target;
+- `GET /api/health/runtime` in `runtimeHealthRoutes.ts` aggregates a read-only Turso query with `telegramRuntimeHealthService.ts` checks for the internal Python bot and Telegram webhook;
+- `.github/workflows/runtime-monitor.yml` runs outside Amvera every five minutes and sends Telegram alerts on outage/recovery transitions through `scripts/runtimeMonitor.mjs`;
+- Supervisor restarts individual container processes, while Amvera can restart the container when public Node liveness fails.
+
+The deep endpoint is intentionally not Kubernetes readiness/liveness. Telegram or Turso degradation must remain observable without forcing the otherwise reachable player site into a restart/removal loop.
+
+## 9. Legacy Render configuration
 
 Configuration file: `render.yaml`.
 
-Current topology:
+Retained legacy topology:
 
 - one Node web service;
 - branch `main`;
@@ -215,7 +224,7 @@ Current topology:
 - `/api/health` health check;
 - production secrets supplied by Render, including Turso credentials.
 
-A GitHub merge does not prove deployment. See `PROJECT_STATE` for current release/deploy state and `RUNBOOK` for procedure.
+Render is not the canonical combined-container target. A GitHub merge still does not prove an Amvera deployment or runtime verification; see `PROJECT_STATE` and `RUNBOOK`.
 
 ## 10. Telegram
 

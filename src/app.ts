@@ -76,6 +76,7 @@ import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
+import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
 import vkJoinStartRouter from './server/services/vkJoinStartRouter.ts';
 import vkJoinRegistrationCallbackRouter from './server/services/vkJoinRegistrationCallbackRouter.ts';
@@ -129,6 +130,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }
   try { await reconcileAllPlayerAchievements(db); } catch (error) { console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error); }
   app.use((req, _res, next) => { req.db = db; next(); });
+
+  app.use('/api/health', runtimeHealthRoutes);
 
   app.use(parseUserSession);
 

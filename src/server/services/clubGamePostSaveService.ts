@@ -46,17 +46,17 @@ export async function runClubGamePostSaveTasks(
   let eloReady = true;
 
   if (input.previousStatus === 'completed' || input.status === 'completed') {
-    try {
-      let eveningId = String(input.eveningId || '').trim();
-      if (!eveningId) {
-        const game = await db.get('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [input.gameId]);
-        eveningId = String(game?.evening_id || '').trim();
+    if (dependencies.reconcilePayments) {
+      try {
+        let eveningId = String(input.eveningId || '').trim();
+        if (!eveningId) {
+          const game = await db.get('SELECT evening_id FROM games WHERE id = ? LIMIT 1', [input.gameId]);
+          eveningId = String(game?.evening_id || '').trim();
+        }
+        if (eveningId) await dependencies.reconcilePayments(db, eveningId);
+      } catch (error) {
+        warnings.push(`Оплата: ${errorMessage(error)}`);
       }
-      if (eveningId) {
-        await (dependencies.reconcilePayments || reconcileRegularEveningPayments)(db, eveningId);
-      }
-    } catch (error) {
-      warnings.push(`Оплата: ${errorMessage(error)}`);
     }
 
     try {

@@ -3,6 +3,7 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
 const router = Router();
 function getMoscowDateStr(value: string | null | undefined): string | null {
@@ -81,6 +82,28 @@ router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, 
     `);
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE p.lifecycle_status!='blocked' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
+
+    // The dashboard itself is a payment read surface. Reconcile each still-unpaid
+    // completed regular evening before exposing debts, so legacy/stale 600 ₽ rows
+    // cannot survive here just because the organizer did not open the payment tab.
+    const regularEveningsWithDebt = await db.all<any>(`
+      SELECT DISTINCT ge.id
+        FROM game_evenings ge
+        JOIN evening_participants ep ON ep.evening_id = ge.id
+       WHERE (ge.status = 'completed' OR ge.settled_at IS NOT NULL)
+         AND UPPER(COALESCE(ge.format, '')) NOT IN ('NOVICE', 'RATING', 'TOURNAMENT')
+         AND ep.attendance_status = 'attended'
+         AND ep.payment_status != 'waived'
+         AND ep.amount_due > ep.amount_paid
+    `);
+    for (const evening of regularEveningsWithDebt) {
+      try {
+        await reconcileRegularEveningPayments(db, String(evening.id));
+      } catch (error) {
+        console.warn('[CRM] Could not reconcile closed evening pricing:', evening.id, error);
+      }
+    }
+
     const unpaidParticipants = await db.all<any>(`SELECT ep.*,p.nickname,p.phone,p.telegram_username,ge.title AS evening_title,ge.starts_at AS evening_date FROM evening_participants ep JOIN players p ON p.id=ep.player_id JOIN game_evenings ge ON ge.id=ep.evening_id WHERE (ge.status='completed' OR ge.settled_at IS NOT NULL) AND ep.attendance_status='attended' AND ep.payment_status!='waived' AND ep.amount_due>ep.amount_paid ORDER BY ge.starts_at DESC`);
     const totalUnpaidAmount = unpaidParticipants.reduce((sum: number, p: any) => sum + Number(p.amount_due || 0) - Number(p.amount_paid || 0), 0);
     return res.json({

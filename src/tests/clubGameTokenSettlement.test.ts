@@ -251,7 +251,7 @@ describe('canonical club-game token settlement routes', () => {
       judge_name:'Legacy', protocol_text:'legacy',
       slots: Array.from({length:10},(_,idx)=>({slot:idx+1,player_id:`p-${idx+1}`,nickname:`P${idx+1}`,role:idx<7?'Мирный':'Мафия'})),
     });
-    expect([201, 410]).toContain(legacy.status);
+    expect(legacy.status).toBe(410);
     expect(Number((await db.get<any>("SELECT COUNT(*) AS n FROM token_ledger WHERE reason_type IN ('club_game_player','club_game_judge')")).n)).toBe(0);
     for (let i=1;i<=10;i++) expect(Number((await db.get<any>('SELECT tokens FROM players WHERE id=?',[`p-${i}`])).tokens)).toBe(0);
   });

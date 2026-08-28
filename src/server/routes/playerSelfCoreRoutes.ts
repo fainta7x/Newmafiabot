@@ -6,6 +6,7 @@ import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSch
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { loadPlayerGameProfile } from '../services/playerProfileService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { getEveningResponse } from '../../lib/eveningResponse.ts';
 
 const router = Router();
 const EVENING_RESPONSE_STATUSES = new Set(['going', 'late', 'thinking', 'declined']);
@@ -303,13 +304,16 @@ router.get('/evenings', async (req, res) => {
 
     const evenings = rows
       .filter((evening: any) => playerLevelAllowsEveningFormat(player.game_level, evening.format))
-      .map((evening: any) => ({
-        ...evening,
-        response_status: evening.response_status || 'unanswered',
-        registration_status: evening.registration_status || 'unanswered',
-        attending_count: Number(evening.attending_count || 0),
-        thinking_count: Number(evening.thinking_count || 0),
-      }));
+      .map((evening: any) => {
+        const responseStatus = getEveningResponse(evening);
+        return {
+          ...evening,
+          response_status: responseStatus,
+          registration_status: responseStatus,
+          attending_count: Number(evening.attending_count || 0),
+          thinking_count: Number(evening.thinking_count || 0),
+        };
+      });
 
     return res.json({
       player_id: String(player.id),

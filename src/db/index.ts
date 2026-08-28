@@ -181,9 +181,6 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
 
   try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS player_achievements (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,achievement_id TEXT NOT NULL,earned_at TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'evaluator',legacy_user_id TEXT,created_at TEXT NOT NULL,UNIQUE(player_id,achievement_id));CREATE INDEX IF NOT EXISTS idx_player_achievements_player ON player_achievements(player_id);`); }
   catch (e) { console.error('Failed to initialize player_achievements:', e); }
-  try { dbWrapper.sqlite.exec(`UPDATE players SET contact_status = CASE WHEN lifecycle_status='blocked' THEN 'blocked' WHEN lifecycle_status='paused' THEN 'paused' ELSE 'normal' END WHERE contact_status IS NULL OR contact_status='' OR contact_status='normal';`); }
-  catch (e) { console.error('Failed to migrate contact_status:', e); }
-
   // Migration 0008 builds canonical nomination objects that depend on this table.
   // Create the empty table first for new/in-memory databases; existing databases are untouched.
   try { dbWrapper.sqlite.exec(`CREATE TABLE IF NOT EXISTS tournament_final_resolutions (id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,type TEXT NOT NULL,category TEXT,participant_ids_json TEXT NOT NULL,ordered_participant_ids_json TEXT,winner_participant_id TEXT,resolution_method TEXT NOT NULL,comment TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);`); }

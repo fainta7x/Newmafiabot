@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
-import { createDatabaseConnection } from '../db/index.ts';
+import { createDatabaseConnection, initializeDatabase } from '../db/index.ts';
 
 describe('invite audience schema', () => {
   it('creates the CRM novice trigger with run() instead of exec() for Turso compatibility', async () => {
@@ -83,6 +83,20 @@ describe('invite audience schema', () => {
     await db.run("UPDATE players SET contact_status = 'normal' WHERE id = 'legacy-blocked'");
     await ensureInviteAudienceSchema(db);
     expect((await db.get<{ contact_status: string }>('SELECT contact_status FROM players WHERE id = ?', ['legacy-blocked']))?.contact_status).toBe('normal');
+    db.sqlite.close();
+  });
+
+  it('does not replay the legacy contact-status copy during every local database startup', async () => {
+    const db = createDatabaseConnection(':memory:');
+    await db.run(
+      `INSERT INTO players (id, nickname, lifecycle_status, contact_status, created_at, updated_at)
+       VALUES (?, ?, 'blocked', 'normal', ?, ?)`,
+      ['manual-normal', 'Manual normal', new Date().toISOString(), new Date().toISOString()],
+    );
+
+    initializeDatabase(db);
+
+    expect((await db.get<{ contact_status: string }>('SELECT contact_status FROM players WHERE id = ?', ['manual-normal']))?.contact_status).toBe('normal');
     db.sqlite.close();
   });
 });

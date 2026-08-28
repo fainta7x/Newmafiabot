@@ -1,4 +1,5 @@
 import { rebuildCanonicalEloRatings } from './eloRatingService.ts';
+import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { evaluateAchievementsForPlayers } from './playerAchievementsService.ts';
 
 type ClubGameStatus = 'draft' | 'completed';
@@ -6,10 +7,12 @@ type ClubGameStatus = 'draft' | 'completed';
 type ClubGamePostSaveDependencies = {
   rebuildElo: typeof rebuildCanonicalEloRatings;
   evaluateAchievements: typeof evaluateAchievementsForPlayers;
+  reconcilePayments?: typeof reconcileRegularEveningPayments;
 };
 
 export interface ClubGamePostSaveInput {
   gameId: number;
+  eveningId?: string | null;
   previousStatus: ClubGameStatus;
   status: ClubGameStatus;
   playerIds: Iterable<string>;
@@ -23,17 +26,16 @@ export interface ClubGamePostSaveResult {
 const defaultDependencies: ClubGamePostSaveDependencies = {
   rebuildElo: rebuildCanonicalEloRatings,
   evaluateAchievements: evaluateAchievementsForPlayers,
+  reconcilePayments: reconcileRegularEveningPayments,
 };
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 /**
  * Protocol + token settlement are the authoritative game save and are committed
- * before this function runs. Elo and achievements are derived data: a failure
- * here must never turn an already committed game into a failed final save on
- * the client. Both derived systems are naturally self-healing on later rebuild
- * or profile evaluation, so we report warnings and keep the canonical save
- * acknowledged.
+ * before this function runs. Elo, achievements and evening pricing are derived
+ * from that canonical save. A failure here must never turn an already committed
+ * game into a failed final save on the client; later reconciliation heals it.
  */
 export async function runClubGamePostSaveTasks(
   db: any,
@@ -42,6 +44,14 @@ export async function runClubGamePostSaveTasks(
 ): Promise<ClubGamePostSaveResult> {
   const warnings: string[] = [];
   let eloReady = true;
+
+  if (input.eveningId && (input.previousStatus === 'completed' || input.status === 'completed')) {
+    try {
+      await (dependencies.reconcilePayments || reconcileRegularEveningPayments)(db, input.eveningId);
+    } catch (error) {
+      warnings.push(`Оплата: ${errorMessage(error)}`);
+    }
+  }
 
   if (input.previousStatus === 'completed' || input.status === 'completed') {
     try {

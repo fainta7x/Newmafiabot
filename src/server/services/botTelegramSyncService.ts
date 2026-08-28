@@ -44,6 +44,9 @@ export const requestBotEveningAnnouncement = async (eveningId: string) =>
 export const requestBotEveningReminders = async (eveningId: string) =>
   postToBot(`/crm/evenings/${encodeURIComponent(eveningId)}/remind-unanswered`);
 
+export const requestBotEveningRecruitment = async (eveningId: string) =>
+  postToBot(`/crm/evenings/${encodeURIComponent(eveningId)}/announce-group`);
+
 export const requestBotPublicRouterSync = async () =>
   postToBot('/crm/telegram/sync-public');
 

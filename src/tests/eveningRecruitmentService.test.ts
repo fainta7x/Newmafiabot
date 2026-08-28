@@ -72,6 +72,9 @@ describe('evening recruitment state', () => {
     for (const participant of participants.slice(0, 10)) await register(participant, 2);
     for (const participant of participants.slice(0, 11)) await register(participant, 3);
     for (const participant of participants.slice(0, 10)) await register(participant, 4);
+    // Player 12 previously selected game 3 but is now only thinking. Their stale
+    // registration must not increase the ready-player count for that slot.
+    await register(participants[11], 3);
     for (const participant of participants.slice(0, 11)) await setResponse(participant, 'going');
     await setResponse(participants[11], 'thinking');
 
@@ -95,6 +98,7 @@ describe('evening recruitment state', () => {
       { slot: 2, registered: 10, target: 11, needed: 1 },
       { slot: 4, registered: 10, target: 11, needed: 1 },
     ]);
+    expect(state?.slots.find((slot) => slot.slot_number === 3)?.registered_players).toBe(11);
   });
 
   it('marks the evening recruited only when every active game reaches its own target', async () => {

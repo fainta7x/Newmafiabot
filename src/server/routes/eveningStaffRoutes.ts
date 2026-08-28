@@ -1,9 +1,9 @@
-import crypto from 'crypto';
 import { Router } from 'express';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { ensureClubOperationsSchema } from '../../db/ensureClubOperationsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth } from '../auth.ts';
+import { setClosedEveningParticipantPaid } from '../services/closedEveningPaymentService.ts';
 import { reconcileRegularEveningPayments } from '../services/eveningPaymentPricingService.ts';
 
 const router = Router();
@@ -101,37 +101,6 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
   };
 }
 
-async function addFinancialAdjustment(
-  db: DatabaseWrapper,
-  input: {
-    type: 'income' | 'debt_created' | 'debt_paid';
-    amount: number;
-    eveningId: string;
-    playerId: string;
-    participantId: string;
-    eveningTitle: string;
-    description: string;
-  },
-) {
-  if (!input.amount) return;
-  await db.run(`
-    INSERT INTO financial_transactions (
-      id, type, amount, category, description, player_id, evening_id,
-      source_type, source_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'evening_payment_adjustment', ?, ?)
-  `, [
-    crypto.randomUUID(),
-    input.type,
-    input.amount,
-    input.type === 'debt_paid' ? 'Погашение долга за вечер' : input.type === 'debt_created' ? 'Корректировка долга за вечер' : 'Корректировка оплаты за вечер',
-    input.description,
-    input.playerId,
-    input.eveningId,
-    input.participantId,
-    new Date().toISOString(),
-  ]);
-}
-
 router.get('/:id/staff', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
@@ -223,52 +192,7 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     const now = new Date().toISOString();
 
     if (closed) {
-      const totals = await db.get<any>(`
-        SELECT
-          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
-          COALESCE(SUM(CASE WHEN type = 'debt_created' THEN amount ELSE 0 END), 0) AS debt_created,
-          COALESCE(SUM(CASE WHEN type = 'debt_paid' THEN amount ELSE 0 END), 0) AS debt_paid
-        FROM financial_transactions
-        WHERE evening_id = ? AND player_id = ? AND source_id = ?
-      `, [eveningId, participant.player_id, participantId]);
-      const income = Number(totals?.income || 0);
-      const debtCreated = Number(totals?.debt_created || 0);
-      const debtPaid = Number(totals?.debt_paid || 0);
-      const financialPaid = Math.max(0, Math.min(due, income + debtPaid));
-      const outstandingDebt = Math.max(0, Math.min(due, debtCreated - debtPaid));
-
-      await db.transaction(async (tx) => {
-        if (paid) {
-          const amount = Math.max(0, Math.min(due, outstandingDebt || (due - financialPaid)));
-          await addFinancialAdjustment(tx, {
-            type: 'debt_paid', amount, eveningId, playerId: participant.player_id, participantId,
-            eveningTitle: evening.title,
-            description: `Оплата долга за вечер ${evening.title}: ${participant.nickname}`,
-          });
-          await tx.run(
-            "UPDATE evening_participants SET amount_paid = ?, payment_status = 'paid', updated_at = ? WHERE id = ?",
-            [due, now, participantId],
-          );
-        } else {
-          const amount = financialPaid;
-          if (amount > 0) {
-            await addFinancialAdjustment(tx, {
-              type: 'income', amount: -amount, eveningId, playerId: participant.player_id, participantId,
-              eveningTitle: evening.title,
-              description: `Отмена подтверждения оплаты за вечер ${evening.title}: ${participant.nickname}`,
-            });
-            await addFinancialAdjustment(tx, {
-              type: 'debt_created', amount, eveningId, playerId: participant.player_id, participantId,
-              eveningTitle: evening.title,
-              description: `Возврат долга после отмены оплаты за вечер ${evening.title}: ${participant.nickname}`,
-            });
-          }
-          await tx.run(
-            "UPDATE evening_participants SET amount_paid = 0, payment_status = 'unpaid', updated_at = ? WHERE id = ?",
-            [now, participantId],
-          );
-        }
-      });
+      await setClosedEveningParticipantPaid(db, participantId, paid);
     } else {
       await db.run(
         'UPDATE evening_participants SET amount_paid = ?, payment_status = ?, updated_at = ? WHERE id = ?',

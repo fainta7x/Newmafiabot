@@ -58,7 +58,7 @@ describe('closed evening payment compatibility', () => {
     );
 
     const response = await request(app)
-      .patch('/api/participants/wrapup-participant')
+      .patch('/api/evening-participants/wrapup-participant')
       .set('Cookie', cookie)
       .send({ amount_paid: 100, payment_status: 'paid' });
 
@@ -99,7 +99,7 @@ describe('closed evening payment compatibility', () => {
     );
 
     const response = await request(app)
-      .patch('/api/participants/locked-participant')
+      .patch('/api/evening-participants/locked-participant')
       .set('Cookie', cookie)
       .send({ notes: 'should stay locked' });
 

@@ -13,7 +13,7 @@ async def _event_keyboard(bot: Bot, evening_id: str) -> InlineKeyboardMarkup | N
             return None
         return InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
-                text="Записаться на вечер",
+                text="Выбрать игры",
                 url=f"https://t.me/{me.username}?start=event_{evening_id}",
             )
         ]])
@@ -26,9 +26,9 @@ async def send_crm_evening_recruitment(bot: Bot, evening_id: str) -> dict:
     if not state_result.get("success"):
         return {"success": False, "error": state_result.get("error") or "recruitment_state_unavailable"}
     state = state_result.get("data") or {}
-    needed = int(state.get("needed_players") or 0)
-    if needed <= 0:
-        return {"success": False, "error": "already_full", "needed_players": 0}
+    underfilled_slots = state.get("underfilled_slots") or []
+    if not underfilled_slots:
+        return {"success": False, "error": "already_full", "underfilled_slots": []}
     if not state.get("can_recruit"):
         return {"success": False, "error": "closed"}
 
@@ -40,7 +40,7 @@ async def send_crm_evening_recruitment(bot: Bot, evening_id: str) -> dict:
     destinations = {str(item.get("id")): item for item in (plan.get("destinations") or [])}
     desired = {str(item) for item in (plan.get("desired_destination_ids") or [])}
     desired.discard("public")
-    text = recruitment_group_text(evening, needed)
+    text = recruitment_group_text(evening, underfilled_slots)
     keyboard = await _event_keyboard(bot, evening_id)
 
     results = []
@@ -71,7 +71,7 @@ async def send_crm_evening_recruitment(bot: Bot, evening_id: str) -> dict:
         "success": not failures and bool(sent),
         "error": None if not failures and sent else "partial_delivery" if sent else "destination_unavailable",
         "evening_id": evening_id,
-        "needed_players": needed,
+        "underfilled_slots": underfilled_slots,
         "sent": len(sent),
         "results": results,
     }

@@ -51,6 +51,10 @@ async def get_evening_announcement_state(evening_id: str) -> dict[str, Any]:
     return await _request("GET", f"/api/bot/evenings/{evening_id}/announcement-state")
 
 
+async def get_evening_recruitment_state(evening_id: str) -> dict[str, Any]:
+    return await _request("GET", f"/api/bot/evenings/{evening_id}/recruitment-state")
+
+
 async def save_evening_announcement_state(evening_id: str, **fields: Any) -> dict[str, Any]:
     if not fields:
         return {"success": False, "error": "invalid"}

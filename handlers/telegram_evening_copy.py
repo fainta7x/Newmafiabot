@@ -168,6 +168,51 @@ def private_event_text(evening: dict, *, reminder: bool = False) -> str:
     )
 
 
+def _needed_players_text(needed: int) -> str:
+    needed = max(0, int(needed or 0))
+    if needed == 1:
+        return "не хватает всего одного игрока"
+    if 2 <= needed <= 4:
+        return f"не хватает всего {needed} игроков"
+    return f"не хватает {needed} игроков"
+
+
+def recruitment_private_text(evening: dict, needed_players: int) -> str:
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    try:
+        start = _local_datetime(evening.get("starts_at"), timezone_name)
+        now = datetime.now(start.tzinfo)
+        when = "сегодня" if start.date() == now.date() else f"{start.day} {_MONTHS_RU[start.month - 1]}"
+        time = start.strftime("%H:%M")
+    except (TypeError, ValueError):
+        when = "на ближайший вечер"
+        time = ""
+    time_part = f" в {time}" if time else ""
+    return (
+        "Привет! 👋\n\n"
+        f"Ты ещё не ответил по игре {when}{time_part}. Нам {_needed_players_text(needed_players)} до полного стола.\n\n"
+        "Получится прийти? Отметь ответ кнопкой ниже 👇"
+    )
+
+
+def recruitment_group_text(evening: dict, needed_players: int) -> str:
+    timezone_name = evening.get("timezone") or _DEFAULT_TIMEZONE
+    try:
+        start = _local_datetime(evening.get("starts_at"), timezone_name)
+        now = datetime.now(start.tzinfo)
+        when = "сегодня" if start.date() == now.date() else f"{start.day} {_MONTHS_RU[start.month - 1]}"
+        time = start.strftime("%H:%M")
+    except (TypeError, ValueError):
+        when = "на ближайший вечер"
+        time = ""
+    time_part = f" в {time}" if time else ""
+    return (
+        "Ребята, всем привет! 👋\n\n"
+        f"На игру {when}{time_part} нам {_needed_players_text(needed_players)} до полного стола. "
+        "Если собирались — записывайтесь, пожалуйста, чтобы мы понимали состав 🙌"
+    )
+
+
 def thematic_event_text(evening: dict, slots: list[dict] | None = None) -> str:
     canonical_format = str(evening.get("canonical_format") or evening.get("format") or "CASUAL").upper()
     label = escape(_FORMAT_LABELS.get(canonical_format, "Игровой вечер"))

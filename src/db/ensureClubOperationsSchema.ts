@@ -17,17 +17,24 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   if (ensuredDatabases.has(db as object)) return;
 
   await ensurePlayerAccessColumns(db);
-  await db.exec(`
+
+  // Keep every DDL statement separate. The Turso HTTP adapter cannot safely split
+  // CREATE TRIGGER ... BEGIN ... END bodies when they are bundled into db.exec().
+  await db.run(`
     CREATE TABLE IF NOT EXISTS evening_staff_assignments (
       evening_id TEXT PRIMARY KEY REFERENCES game_evenings(id) ON DELETE CASCADE,
       organizer_player_id TEXT REFERENCES players(id) ON DELETE SET NULL,
       assigned_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
-    );
+    )
+  `);
 
+  await db.run(`
     CREATE INDEX IF NOT EXISTS idx_evening_staff_organizer
-      ON evening_staff_assignments(organizer_player_id);
+      ON evening_staff_assignments(organizer_player_id)
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_organizer_participant_fee_insert
     AFTER INSERT ON evening_participants
     WHEN EXISTS (
@@ -40,8 +47,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
              amount_paid = 0,
              payment_status = 'waived'
        WHERE id = NEW.id;
-    END;
+    END
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_organizer_participant_fee_update
     AFTER UPDATE OF player_id, amount_due, amount_paid, payment_status ON evening_participants
     WHEN EXISTS (
@@ -54,8 +63,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
              amount_paid = 0,
              payment_status = 'waived'
        WHERE id = NEW.id;
-    END;
+    END
+  `);
 
+  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_player_becomes_organizer_fee_waiver
     AFTER UPDATE OF club_role ON players
     WHEN NEW.club_role = 'organizer' AND COALESCE(OLD.club_role, '') != 'organizer'
@@ -69,7 +80,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
            SELECT id FROM game_evenings
             WHERE status != 'completed' AND settled_at IS NULL
          );
-    END;
+    END
   `);
 
   const now = new Date().toISOString();

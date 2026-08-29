@@ -25,7 +25,7 @@ describe('stage 3.2 live game scenario', () => {
     expect(getSingularZeroRoundElimination(0, [6, 7])).toBeNull();
   });
 
-  it('supports 4+ revotes and waits for two identical divisions before table decision', () => {
+  it('supports repeated revotes while giving speeches once per disputed set', () => {
     const main = round({
       nominated_seats: [1, 2, 3, 4, 5],
       vote_counts: { 1: 2, 2: 2, 3: 2, 4: 2, 5: 2 },
@@ -38,23 +38,20 @@ describe('stage 3.2 live game scenario', () => {
     second.vote_counts = { 1: 3, 2: 3, 3: 3, 4: 1, 5: 0 };
     const r2 = determineVotingResult(second);
     expect(r2.outcome).toBe('needs_revote');
+    expect(r2.winners).toEqual([1, 2, 3]);
 
     const third = createNextRevoteRound(second, r2.winners);
     third.round_number = 3;
     third.vote_counts = { 1: 5, 2: 5, 3: 0 };
     const r3 = determineVotingResult(third);
     expect(r3.outcome).toBe('needs_revote');
+    expect(r3.winners).toEqual([1, 2]);
 
     const fourth = createNextRevoteRound(third, r3.winners);
     fourth.round_number = 4;
     fourth.vote_counts = { 1: 5, 2: 5 };
     const r4 = determineVotingResult(fourth);
-    expect(r4.outcome).toBe('needs_revote');
-
-    const fifth = createNextRevoteRound(fourth, r4.winners);
-    fifth.round_number = 5;
-    fifth.vote_counts = { 1: 5, 2: 5 };
-    expect(determineVotingResult(fifth).outcome).toBe('requires_table_decision');
+    expect(r4.outcome).toBe('requires_table_decision');
   });
 
   it('sends a repeated seven-way tie at seven alive directly to night with nobody eliminated', () => {

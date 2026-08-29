@@ -10,7 +10,7 @@ import {
 } from '../shared/tournamentVoting';
 
 describe('Tournament Voting Logic Tests', () => {
-  test('1. Scenario: 2/2/2/2/2 -> 3/3/3/1/0 -> 5/5/0 -> 5/5 -> 5/5', () => {
+  test('1. Scenario: 2/2/2/2/2 -> 3/3/3/1/0 -> 5/5/0 -> 5/5', () => {
     const round1: VotingRound = {
       round_number: 1,
       day_number: 1,
@@ -45,16 +45,8 @@ describe('Tournament Voting Logic Tests', () => {
     expect(round4.nominated_seats).toEqual([1, 2]);
     round4.vote_counts = { 1: 5, 2: 5 };
     const res4 = determineVotingResult(round4);
-    // Parent division was 5/5/0 among three candidates, so this is the first 5/5 among exactly two.
-    expect(res4.outcome).toBe('needs_revote');
+    expect(res4.outcome).toBe('requires_table_decision');
     expect(res4.winners).toEqual([1, 2]);
-
-    const round5 = createNextRevoteRound(round4, res4.winners);
-    round5.round_number = 5;
-    round5.vote_counts = { 1: 5, 2: 5 };
-    const res5 = determineVotingResult(round5);
-    expect(res5.outcome).toBe('requires_table_decision');
-    expect(res5.winners).toEqual([1, 2]);
   });
 
   test('2. Repeated tie among 2 candidates requires table decision', () => {
@@ -155,7 +147,7 @@ describe('Tournament Voting Logic Tests', () => {
     expect(synced[0].outcome).toBe('pending');
   });
 
-  test('9. Changed 4/4/2 -> 5/5 requires one more identical 5/5', () => {
+  test('9. Changed 4/4/2 -> 5/5 goes straight to table decision for unchanged #1/#2 set', () => {
     const parent: VotingRound = {
       round_number: 1,
       day_number: 2,
@@ -171,12 +163,7 @@ describe('Tournament Voting Logic Tests', () => {
     const firstFiveFive = createNextRevoteRound(parent, parentResult.winners);
     firstFiveFive.round_number = 2;
     firstFiveFive.vote_counts = { 1: 5, 2: 5 };
-    expect(determineVotingResult(firstFiveFive).outcome).toBe('needs_revote');
-
-    const secondFiveFive = createNextRevoteRound(firstFiveFive, [1, 2]);
-    secondFiveFive.round_number = 3;
-    secondFiveFive.vote_counts = { 1: 5, 2: 5 };
-    expect(determineVotingResult(secondFiveFive).outcome).toBe('requires_table_decision');
+    expect(determineVotingResult(firstFiveFive).outcome).toBe('requires_table_decision');
   });
 
   describe('validateVotingHierarchy tests', () => {

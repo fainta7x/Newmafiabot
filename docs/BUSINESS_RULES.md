@@ -59,12 +59,15 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 - Revotes are **phases of one voting process**, not separate unrelated votes.
 - **3, 4 or more revotes are valid** when the game state requires them.
 - Never hard-limit the workflow to one or two revotes merely for UI convenience.
+- Players in a disputed candidate set receive their **30-second speeches once for that set** before its first revote.
+- If the same disputed candidate set remains tied on that revote, do **not** repeat the 30-second speeches.
+- If the disputed set changes, the new set receives one 30-second speech cycle before its next revote.
 
 ### “Raise / leave” decision
 
-- The special “raise / leave” step is allowed **only after two identical splits in a row**.
-- Example: `5/5`, then again `5/5`.
-- It must not appear after only one tied split.
+- The special “raise / leave” step is allowed when the **same disputed candidate set remains tied in two consecutive voting rounds**; the exact vote counts do not need to match.
+- After that repeated tie, go directly to “raise / leave” without a second 30-second speech cycle.
+- It must not appear after only one tied split for a newly formed disputed set.
 - It must not allow raising **more than 50% of alive players**.
 
 ### Mandatory voting

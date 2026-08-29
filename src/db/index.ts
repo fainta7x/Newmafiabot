@@ -12,6 +12,8 @@ import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayer
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
 import { applyMillourtDuplicateMergeMigration } from './mergeMillourtDuplicateMigration.ts';
 import { applyFandorinAug28GameIdentityMigration } from './fixFandorinAug28GameIdentityMigration.ts';
+import { ensureJudgeAuthoritySchema } from './ensureJudgeAuthoritySchema.ts';
+import { ensureClubOperationsSchema } from './ensureClubOperationsSchema.ts';
 import { createTursoHttpDatabase } from './tursoHttpDatabase.ts';
 
 export interface DatabaseWrapper {
@@ -146,6 +148,11 @@ export async function getDb(): Promise<DatabaseWrapper> {
       // if an unexpected historical reference prevents the merge; leave a clear server log instead.
       console.error('[DATA] Millourt duplicate cleanup failed:', error);
     }
+    // The historical game repair depends on both judge_level and club_role because it
+    // re-runs canonical evening pricing after swapping the player identity. Ensure the
+    // same operational schema that createApp uses exists before the one-off migration.
+    await ensureJudgeAuthoritySchema(defaultDbInstance);
+    await ensureClubOperationsSchema(defaultDbInstance);
     try {
       await applyFandorinAug28GameIdentityMigration(defaultDbInstance);
     } catch (error) {

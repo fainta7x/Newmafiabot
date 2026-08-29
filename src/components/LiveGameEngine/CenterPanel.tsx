@@ -388,14 +388,14 @@ export default function CenterPanel(props: CenterPanelProps) {
     );
   };
 
-  const renderVotingOrder = (seats: number[]) => (
+  const renderVotingOrder = (seats: number[], activeIndex: number | null = null) => (
     <div className="live-judge-voting-order" aria-label={`Очередность голосования: ${seats.map((seat) => `номер ${seat}`).join(', ')}`}>
       <div className="live-judge-voting-order__label">Очередность голосования</div>
       <div className="live-judge-voting-order__list">
         {seats.map((seat, index) => (
           <span
             key={`${seat}-${index}`}
-            className={`live-judge-voting-order__seat ${index === currentVotingNomineeIndex ? 'live-judge-voting-order__seat--current' : ''}`}
+            className={`live-judge-voting-order__seat ${index === activeIndex ? 'live-judge-voting-order__seat--current' : ''}`}
           >
             {index + 1}. #{seat}
           </span>
@@ -432,7 +432,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
           <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
-          {renderVotingOrder(currentRound.nominated_seats)}
+          {renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)}
           <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
           <div className="live-judge-vote-summary">
             <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
@@ -473,7 +473,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
           <div className="live-judge-hud__eyebrow">Речи перед переголосованием · 30 сек</div>
-          {renderVotingOrder(participants)}
+          {renderVotingOrder(participants, revoteSpeakerIndex)}
           {renderTimer()}
           <button type="button" onClick={advanceSpeech} className="live-judge-action live-judge-action--primary">
             {isLastSpeaker ? 'К переголосованию' : 'Следующий игрок'}

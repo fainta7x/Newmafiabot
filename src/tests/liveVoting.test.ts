@@ -117,18 +117,14 @@ describe('live voting parity helpers', () => {
     expect(third.nominated_seats).toEqual([1,2]);
   });
 
-  it('requires another 5/5 after a narrowed 5/5/0 before table decision', () => {
+  it('goes to table decision when the narrowed two-player set ties on its first revote', () => {
     const first = round({ nominated_seats: [1,2,3], vote_counts: {1:5,2:5,3:0} });
     const firstResult = determineVotingResult(first);
     expect(firstResult.winners).toEqual([1,2]);
     const second = createNextRevoteRound(first, firstResult.winners);
     second.round_number = 2;
     second.vote_counts = {1:5,2:5};
-    expect(determineVotingResult(second).outcome).toBe('needs_revote');
-    const third = createNextRevoteRound(second, [1,2]);
-    third.round_number = 3;
-    third.vote_counts = {1:5,2:5};
-    expect(determineVotingResult(third).outcome).toBe('requires_table_decision');
+    expect(determineVotingResult(second).outcome).toBe('requires_table_decision');
   });
 
   it('allows table decision when tied candidates are exactly half the voters', () => {

@@ -169,7 +169,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
       : null,
   );
   const [livePhase, setLivePhase] = useState('setup');
-  const [rolesHidden, setRolesHidden] = useState(false);
+  const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(

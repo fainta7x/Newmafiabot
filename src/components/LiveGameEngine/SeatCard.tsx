@@ -104,13 +104,14 @@ export default function SeatCard(props: SeatCardProps) {
   const isSpeaking = activeSpeakerSlot === slotNum;
   const isNominated = nominations.includes(slotNum);
   const activeVoteNominee = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : undefined;
-  const isNightShot = phase === "night" && shotPlayerSlot === slotNum;
-  const isNightDon = phase === "night" && donCheckSlot === slotNum;
-  const isNightSheriff = phase === "night" && sheriffCheckSlot === slotNum;
+  const isNightShot = phase === "night" && nightSubPhase === "shooting" && shotPlayerSlot === slotNum;
+  const isNightDon = phase === "night" && nightSubPhase === "don" && donCheckSlot === slotNum;
+  const isNightSheriff = phase === "night" && nightSubPhase === "sheriff" && sheriffCheckSlot === slotNum;
   const showFarewellFouls = !player.alive && activeSpeakerSlot === slotNum && (
     (phase === "night" && postNightStage === "farewell") ||
     (phase === "day_voting" && votingSubPhase === "resolved")
   );
+  const showSplitSpeechFouls = player.alive && phase === "day_voting" && votingSubPhase === "revote_speeches";
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
   const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;
@@ -221,6 +222,27 @@ export default function SeatCard(props: SeatCardProps) {
     return null;
   };
 
+  const renderRegularFoulControls = () => (
+    <div className="live-seat-quickbar__group">
+      {regularFouls > 0 && (
+        <button
+          type="button"
+          onClick={(event) => handleQuickRegularFoul(event, "down")}
+          className="live-seat-quick-action live-seat-quick-action--remove-foul"
+          title="Снять обычный фол"
+        >−Ф</button>
+      )}
+      {regularFouls < 4 && (
+        <button
+          type="button"
+          onClick={(event) => handleQuickRegularFoul(event, "up")}
+          className="live-seat-quick-action live-seat-quick-action--foul"
+          title="Добавить обычный фол"
+        >+Ф</button>
+      )}
+    </div>
+  );
+
   return (
     <div
       onClick={handleCardClick}
@@ -243,24 +265,13 @@ export default function SeatCard(props: SeatCardProps) {
           >
             <ListPlus /><span>{isNominated ? 'Снять' : 'Выставить'}</span>
           </button>
-          <div className="live-seat-quickbar__group">
-            {regularFouls > 0 && (
-              <button
-                type="button"
-                onClick={(event) => handleQuickRegularFoul(event, "down")}
-                className="live-seat-quick-action live-seat-quick-action--remove-foul"
-                title="Снять обычный фол"
-              >−Ф</button>
-            )}
-            {regularFouls < 4 && (
-              <button
-                type="button"
-                onClick={(event) => handleQuickRegularFoul(event, "up")}
-                className="live-seat-quick-action live-seat-quick-action--foul"
-                title="Добавить обычный фол"
-              >+Ф</button>
-            )}
-          </div>
+          {renderRegularFoulControls()}
+        </div>
+      )}
+
+      {showSplitSpeechFouls && (
+        <div className="live-seat-quickbar">
+          {renderRegularFoulControls()}
         </div>
       )}
 

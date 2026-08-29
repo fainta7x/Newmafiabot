@@ -69,7 +69,7 @@ describe('Fandorin Aug 28 game identity repair', () => {
     expect(result.gamesChanged).toEqual([1]);
 
     const fandorinParticipant = await db.get<any>(`SELECT * FROM evening_participants WHERE evening_id='evening-28' AND player_id='fandorin'`);
-    expect(fandorinParticipant).toMatchObject({ response_status: 'going', registration_status: 'going', attendance_status: 'attended' });
+    expect(fandorinParticipant).toMatchObject({ response_status: 'unanswered', registration_status: 'unanswered', attendance_status: 'attended' });
 
     const game = await db.get<any>('SELECT protocol_text,slots_json FROM games WHERE id=1');
     const repairedProtocol = JSON.parse(game.protocol_text);
@@ -94,6 +94,28 @@ describe('Fandorin Aug 28 game identity repair', () => {
     expect((await db.all<any>(`SELECT id FROM evening_participants WHERE evening_id='evening-28' AND player_id='fandorin'`))).toHaveLength(1);
   });
 
+  it('preserves an existing planned response and only records factual attendance', async () => {
+    db = createDatabaseConnection(':memory:');
+    await initializeOperationsSchema(db);
+
+    const now = '2026-08-29T12:00:00.000Z';
+    await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('chagin','Чагин',?,?)`, [now, now]);
+    await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('fandorin','Фандорин',?,?)`, [now, now]);
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+                  VALUES ('evening-28','Игровой вечер — 28 августа','2026-08-28T20:00:00+03:00','CASUAL','completed',400,?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+                  VALUES ('chagin-part','evening-28','chagin','going','going','attended','on_time','waived',0,0,?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+                  VALUES ('fandorin-part','evening-28','fandorin','thinking','thinking','pending','unknown','unpaid',0,0,?,?)`, [now, now]);
+    await db.run(`INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+                  VALUES (1,'evening-28',1,'2026-08-28T21:00:00+03:00','draft','Черновик',?,?,?)`,
+      [JSON.stringify(makeProtocol('chagin-part')), JSON.stringify(makeSlots('chagin-part')), now]);
+
+    await applyFandorinAug28GameIdentityMigration(db);
+    const participant = await db.get<any>(`SELECT response_status,registration_status,attendance_status FROM evening_participants WHERE id='fandorin-part'`);
+    expect(participant).toEqual({ response_status: 'thinking', registration_status: 'thinking', attendance_status: 'attended' });
+  });
+
   it('aborts before any write when more than one Aug 28 evening contains the target identities', async () => {
     db = createDatabaseConnection(':memory:');
     await initializeOperationsSchema(db);
@@ -116,7 +138,7 @@ describe('Fandorin Aug 28 game identity repair', () => {
                   VALUES (2,'evening-b',2,'2026-08-28T23:00:00+03:00','draft','Черновик',?,?,?)`,
       [JSON.stringify(makeProtocol('part-b')), JSON.stringify(makeSlots('part-b')), now]);
 
-    await expect(applyFandorinAug28GameIdentityMigration(db)).rejects.toThrow('expected exactly one relevant');
+    await expect(applyFandorinAug28GameIdentityMigration(db)).rejects.toThrow('Expected exactly one relevant');
 
     for (const gameId of [1, 2]) {
       const game = await db.get<any>('SELECT protocol_text FROM games WHERE id=?', [gameId]);

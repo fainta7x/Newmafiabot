@@ -62,11 +62,13 @@ const ensureFandorinParticipant = async (
     [eveningId, fandorinId],
   );
   if (existing?.id) {
+    // The corrected game proves factual attendance only. Preserve whatever the player
+    // actually answered before the evening (going/late/thinking/declined/unanswered).
     await db.run(
       `UPDATE evening_participants
-          SET registration_status='going', response_status='going', attendance_status='attended', updated_at=?
+          SET attendance_status='attended', checked_in_at=COALESCE(checked_in_at, ?), updated_at=?
         WHERE id=?`,
-      [new Date().toISOString(), existing.id],
+      [new Date().toISOString(), new Date().toISOString(), existing.id],
     );
     return String(existing.id);
   }
@@ -79,7 +81,7 @@ const ensureFandorinParticipant = async (
       registration_status, response_status, attendance_status, arrival_status,
       payment_status, amount_due, amount_paid,
       registered_at, checked_in_at, created_at, updated_at
-    ) VALUES (?, ?, ?, NULL, 'going', 'going', 'attended', 'unknown', 'unpaid', 0, 0, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, NULL, 'unanswered', 'unanswered', 'attended', 'unknown', 'unpaid', 0, 0, ?, ?, ?, ?)`,
     [id, eveningId, fandorinId, now, now, now, now],
   );
   return id;

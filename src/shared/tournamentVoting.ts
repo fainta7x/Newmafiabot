@@ -99,17 +99,6 @@ export function calculateVoteRemainder(
 const sameSeatOrder = (left: number[], right: number[]) =>
   left.length === right.length && left.every((seat, index) => Number(seat) === Number(right[index]));
 
-const sameVoteDivision = (
-  nominatedSeats: number[],
-  currentCounts: Record<number | string, number>,
-  parentSeats?: number[],
-  parentCounts?: Record<number, number>,
-) => {
-  if (!parentSeats || !parentCounts || !sameSeatOrder(parentSeats, nominatedSeats)) return false;
-  return nominatedSeats.every((seat) =>
-    Number(currentCounts[seat] ?? currentCounts[String(seat)] ?? 0) === Number(parentCounts[seat] ?? 0));
-};
-
 /**
  * Determine the outcome of a voting round.
  */
@@ -173,35 +162,24 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
     };
   }
 
-  // A table decision is legal only after two identical divisions in a row.
-  // New rounds carry the immediate parent snapshot. Legacy stored rounds without
-  // that snapshot keep the historical behavior for backwards compatibility.
-  const hasParentSnapshot = Array.isArray(round.parent_nominated_seats) && !!round.parent_vote_counts;
-  const allCurrentCandidatesAreTied = winners.length === nominatedSeats.length;
-  const repeatedExactly = hasParentSnapshot
-    ? allCurrentCandidatesAreTied && sameVoteDivision(
-        nominatedSeats,
-        voteCounts,
-        round.parent_nominated_seats,
-        round.parent_vote_counts,
-      )
-    : allCurrentCandidatesAreTied;
+  // Once a disputed candidate set has received its 30-second speeches and remains
+  // tied on the next vote, do not repeat the speeches. The exact vote numbers may
+  // change; the deciding fact is whether the disputed candidate set changed.
+  const sameDisputedComposition = winners.length === nominatedSeats.length
+    && sameSeatOrder(nominatedSeats, winners);
 
-  if (!repeatedExactly) {
-    const changedComposition = winners.length !== nominatedSeats.length;
+  if (!sameDisputedComposition) {
     return {
       outcome: 'needs_revote',
       resolvedOutcome: 'tie_revote',
       winners,
       maxVotes,
-      description: changedComposition
-        ? `Ничья на переголосовании между меньшим составом лидеров: игроки #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется следующее переголосование.`
-        : `Ничья сохранилась, но деление ещё не повторилось дважды подряд. Требуется следующее переголосование между игроками #${winners.join(', #')}.`,
+      description: `Ничья на переголосовании между новым составом лидеров: игроки #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется следующее переголосование.`,
       eliminatedSeats: []
     };
   }
 
-  // Repeated identical tie among the exact same composition
+  // The same disputed candidate set tied again -> raise / leave decision.
   const isAllowedDecision = winners.length <= (eligibleVoters / 2);
 
   if (!isAllowedDecision) {
@@ -224,7 +202,7 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
       resolvedOutcome: undefined,
       winners,
       maxVotes,
-      description: `Одинаковое деление повторилось дважды подряд. Требуется решение стола за уход всех спорных игроков (#${winners.join(', #')}).`,
+      description: `Тот же состав спорных игроков остался в ничьей после переголосования. Требуется решение стола за уход всех спорных игроков (#${winners.join(', #')}).`,
       eliminatedSeats: []
     };
   }

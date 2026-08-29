@@ -71,6 +71,10 @@ import {
   toggleNightShotTarget,
 } from "./LiveGameEngine/nightTargetModel.js";
 import {
+  getSpeechExtensionAvailability,
+  exchangeTwoFoulsForSpeech,
+} from "./LiveGameEngine/speechExtensionModel.js";
+import {
   BestMoveSource,
   LiveProtocolMarkers,
   clearBestMove,
@@ -559,6 +563,38 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleFoulChange = (slot: number, direction: "up" | "down") => {
     if (direction === 'up') addRegularFoulFromMenu(slot);
     else removeRegularFoul(slot);
+  };
+
+  const getCurrentSpeechExtensionAvailability = () => {
+    const current = activeSpeakerSlot === null ? null : discipline.players[String(activeSpeakerSlot)];
+    return getSpeechExtensionAvailability({
+      phase,
+      roundNumber,
+      votingStage,
+      postNightStage,
+      activeSpeakerSlot,
+      votingFarewellActive: votingFarewellQueue.length > 0,
+      regularFouls: current?.regularFouls ?? 99,
+      isRemoved: Boolean(current?.isRemoved),
+      hasPendingDisciplineAction: Boolean(current?.pendingAction),
+    });
+  };
+
+  const handleExchangeFoulsForSpeech = () => {
+    if (activeSpeakerSlot === null) return;
+    const availability = getCurrentSpeechExtensionAvailability();
+    if (!availability.allowed) return showToast(availability.reason, 'warning');
+
+    const next = exchangeTwoFoulsForSpeech(discipline, String(activeSpeakerSlot));
+    if (next === discipline) return showToast('Обмен сейчас недоступен', 'warning');
+
+    saveSnapshot();
+    setDiscipline(next);
+    syncDisciplinePlayer(next, activeSpeakerSlot);
+    setTimerMax((value) => value + 30);
+    setTimeLeft((value) => value + 30);
+    setIsTimerRunning(true);
+    showToast(`#${activeSpeakerSlot}: +30 секунд за 2 обычных фола`, 'success');
   };
 
   const eliminatePlayer = (slot: number, reason: string, exitReason: NonNullable<ActivePlayerState['exit_reason']>) => {
@@ -1326,6 +1362,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const requiresTableSeatVoting = phase === 'day_voting' &&
     (votingStage === 'collecting' || votingStage === 'table_decision');
   const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode;
+  const speechExtensionAvailability = getCurrentSpeechExtensionAvailability();
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-2 sm:px-4 pb-32 sm:pb-24 select-none">
@@ -1404,6 +1441,16 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                data-testid="live-speech-extension"
+                disabled={!speechExtensionAvailability.allowed}
+                title={speechExtensionAvailability.allowed ? 'Добавить 30 секунд текущей речи ценой двух обычных фолов' : speechExtensionAvailability.reason}
+                onClick={handleExchangeFoulsForSpeech}
+                className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-700 text-amber-200 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                +30с за 2 фола
+              </button>
               <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
               <button type="button" onClick={toggleRolesOnTable} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{rolesAreVisible ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{rolesAreVisible ? 'Скрыть роли' : 'Показать роли'}</button>
               <button

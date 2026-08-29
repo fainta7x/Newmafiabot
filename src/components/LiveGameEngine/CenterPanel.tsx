@@ -162,6 +162,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const timerDeadlineRef = React.useRef<number | null>(null);
   const timerIdentityRef = React.useRef('');
   const bestMoveDeadlineRef = React.useRef<number | null>(null);
+  const deathProtocolBufferedRef = React.useRef(false);
   const tableDecisionSelection = useTableDecisionSelection();
 
   const activeSpeaker = activePlayers.find((player) => player.slot_num === activeSpeakerSlot);
@@ -238,6 +239,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   }, [phase, roundNumber]);
 
   React.useEffect(() => {
+    if (!isDeathProtocolTimer) deathProtocolBufferedRef.current = false;
     const identity = buildTimerIdentity(phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax);
     if (!isTimerRunning) {
       timerDeadlineRef.current = null;
@@ -246,9 +248,11 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
 
     if (timerDeadlineRef.current === null || timerIdentityRef.current !== identity) {
-      const initialSeconds = isDeathProtocolTimer
+      const shouldApplyDeathProtocolBuffer = isDeathProtocolTimer && !deathProtocolBufferedRef.current;
+      const initialSeconds = shouldApplyDeathProtocolBuffer
         ? Math.max(timeLeft, DEATH_PROTOCOL_SECONDS)
         : timeLeft;
+      if (shouldApplyDeathProtocolBuffer) deathProtocolBufferedRef.current = true;
       timerDeadlineRef.current = createTimerDeadline(Date.now(), initialSeconds);
       timerIdentityRef.current = identity;
       if (initialSeconds !== timeLeft) setTimeLeft(initialSeconds);

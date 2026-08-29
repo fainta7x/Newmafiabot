@@ -841,10 +841,10 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleGoToRevoteSpeeches = (winners: number[]) => {
     if (!winners.length) return;
-    saveSnapshot();
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? { ...round, outcome: 'tie_revote' } : round));
     setVotingStage('revote_speeches');
     setRevoteSpeakerIndex(0);
+    // handleStartTimer owns the single history boundary for entering the speech cycle.
     handleStartTimer(winners[0], 30);
   };
 
@@ -1083,7 +1083,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       if (!zeroNightSubPhase) return { label: 'Договорка · 75с', onClick: () => handleStartZeroNightTimer('agreement') };
       if (zeroNightSubPhase === 'agreement') return { label: 'Вызов шерифа · 10с', onClick: () => handleStartZeroNightTimer('sheriff') };
       if (zeroNightSubPhase === 'sheriff') return { label: 'Посадка · 40с', onClick: () => handleStartZeroNightTimer('seating') };
-      return { label: 'Разбудить город', onClick: () => { setZeroNightMusicState('pending'); setPhase('day_speeches'); setCustomTimerLabel(null); setIsTimerRunning(false); } };
+      return { label: 'Разбудить город', onClick: () => { saveSnapshot(); setZeroNightMusicState('pending'); setPhase('day_speeches'); setCustomTimerLabel(null); setIsTimerRunning(false); } };
     }
     if (phase === 'day_speeches') {
       if (activeSpeakerSlot) return { label: `Завершить речь #${activeSpeakerSlot}`, onClick: () => markPlayerSpoken(activeSpeakerSlot) };

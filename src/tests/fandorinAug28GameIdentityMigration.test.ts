@@ -11,6 +11,11 @@ afterEach(() => {
 describe('Fandorin Aug 28 game identity repair', () => {
   it('replaces only Chagin game identity while preserving seat result data and is idempotent', async () => {
     db = createDatabaseConnection(':memory:');
+    // Production initializes these player operations columns before pricing reconciliation.
+    // Keep the focused in-memory fixture aligned with that canonical runtime schema.
+    await db.exec(`ALTER TABLE players ADD COLUMN club_role TEXT NOT NULL DEFAULT 'guest';`);
+    await db.exec(`ALTER TABLE players ADD COLUMN judge_level TEXT NOT NULL DEFAULT 'none';`);
+
     const now = '2026-08-29T12:00:00.000Z';
     await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('chagin','Чагин',?,?)`, [now, now]);
     await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('fandorin','Фандорин',?,?)`, [now, now]);

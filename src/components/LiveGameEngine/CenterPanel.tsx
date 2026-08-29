@@ -8,6 +8,7 @@ import type { ZeroNightMusicState } from "./engineStateModel.js";
 import "../crm/liveGameEveningBugfixes.css";
 import {
   BEST_MOVE_SECONDS,
+  DEATH_PROTOCOL_SECONDS,
   buildTimerIdentity,
   createTimerDeadline,
   getRemainingTimerSeconds,
@@ -102,6 +103,7 @@ const normalizeJudgeCopy = (value: string): string => value
   .replace(/^Прощальная речь/, 'Последняя речь')
   .replace(/^Прощальная /, 'Последняя речь ')
   .replace(/^Завершить прощальные$/, 'Завершить последние речи')
+  .replace(/^Протокол убитого · 15с$/, `Протокол убитого · ${DEATH_PROTOCOL_SECONDS}с`)
   .replace(/^К дневным речам$/, 'Открыть день');
 
 export default function CenterPanel(props: CenterPanelProps) {
@@ -167,7 +169,10 @@ export default function CenterPanel(props: CenterPanelProps) {
   const mafiaPlayers = activePlayers.filter((player) => player.role === 'Мафия');
   const currentRound = votingRounds[activeVotingRoundIndex];
   const currentVotingResult = currentRound ? determineVotingResult(currentRound) : null;
-  const effectiveTimerMax = resolveTimerDuration(phase, votingStage, timerMax);
+  const isDeathProtocolTimer = phase === 'night' && Boolean(customTimerLabel?.startsWith('Протокол убитого'));
+  const effectiveTimerMax = isDeathProtocolTimer
+    ? DEATH_PROTOCOL_SECONDS
+    : resolveTimerDuration(phase, votingStage, timerMax);
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
   const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
@@ -241,8 +246,12 @@ export default function CenterPanel(props: CenterPanelProps) {
     }
 
     if (timerDeadlineRef.current === null || timerIdentityRef.current !== identity) {
-      timerDeadlineRef.current = createTimerDeadline(Date.now(), timeLeft);
+      const initialSeconds = isDeathProtocolTimer
+        ? Math.max(timeLeft, DEATH_PROTOCOL_SECONDS)
+        : timeLeft;
+      timerDeadlineRef.current = createTimerDeadline(Date.now(), initialSeconds);
       timerIdentityRef.current = identity;
+      if (initialSeconds !== timeLeft) setTimeLeft(initialSeconds);
     }
 
     const syncFromDeadline = () => {
@@ -262,7 +271,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', syncFromDeadline);
     };
-  }, [isTimerRunning, phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax, setIsTimerRunning, setTimeLeft, timeLeft]);
+  }, [isTimerRunning, phase, votingStage, activeSpeakerSlot, customTimerLabel, effectiveTimerMax, isDeathProtocolTimer, setIsTimerRunning, setTimeLeft, timeLeft]);
 
   React.useEffect(() => {
     if (!isFirstKilledBestMove) {
@@ -693,7 +702,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       {bestMoveTimeLeft !== null && typeof document !== 'undefined' && createPortal(
         <div className="fixed left-1/2 top-3 z-[145] -translate-x-1/2 rounded-2xl border border-amber-400/50 bg-slate-950/95 px-5 py-2 text-center shadow-2xl backdrop-blur-xl">
-          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300">ЛХ · 20 секунд</div>
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300">ЛХ · {BEST_MOVE_SECONDS} секунд</div>
           <div className={`font-mono text-3xl font-black ${bestMoveTimeLeft <= 5 ? 'text-rose-400' : 'text-white'}`}>{bestMoveTimeLeft}с</div>
         </div>,
         document.body,

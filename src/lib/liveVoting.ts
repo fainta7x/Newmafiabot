@@ -58,16 +58,17 @@ export function isVoteDecidedFromAssignments(
 }
 
 /**
- * A voter may correct their choice while the same candidate is being counted,
- * but cannot move an already-cast vote directly to a later candidate.
+ * A judge must always be able to correct a live ballot. Clicking a voter while
+ * another nominee is active moves that voter to the active nominee; clicking
+ * the same nominee again removes the assignment. Never lock a voter to an
+ * earlier accidental choice.
  */
 export function canToggleVoteAssignment(
-  voterSlot: number,
-  nominee: number,
-  votesByPlayer: Record<number, number>
+  _voterSlot: number,
+  _nominee: number,
+  _votesByPlayer: Record<number, number>
 ): boolean {
-  const existing = votesByPlayer[voterSlot];
-  return existing === undefined || existing === nominee;
+  return true;
 }
 
 export function liveRoundToTournamentDay(roundNumber: number): number {

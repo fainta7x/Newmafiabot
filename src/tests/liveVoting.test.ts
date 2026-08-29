@@ -80,10 +80,10 @@ describe('live voting parity helpers', () => {
     expect(isVoteDecidedFromAssignments([2,5], {1:2,2:2,3:2,4:2,5:2,6:2}, [1,2,3,4,5,6,7,8,9,10])).toBe(false);
   });
 
-  it('does not let an already-cast vote jump directly to a later candidate', () => {
+  it('allows an already-cast vote to move directly to the active candidate', () => {
     expect(canToggleVoteAssignment(1, 2, {})).toBe(true);
     expect(canToggleVoteAssignment(1, 2, { 1: 2 })).toBe(true);
-    expect(canToggleVoteAssignment(1, 5, { 1: 2 })).toBe(false);
+    expect(canToggleVoteAssignment(1, 5, { 1: 2 })).toBe(true);
   });
 
   it('unique leader resolves to one elimination', () => {

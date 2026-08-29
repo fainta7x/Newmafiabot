@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { api, type GameEvening, type PlayerDetails } from '../../lib/api.ts';
-import { getSortedFutureEvenings } from '../../lib/dateUtils.ts';
+import { getSortedAddableEvenings } from '../../lib/dateUtils.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 
 type QuickAddContextValue = {
@@ -38,14 +38,14 @@ export function PlayerEveningQuickAddProvider({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const futureEvenings = useMemo(() => getSortedFutureEvenings(evenings), [evenings]);
+  const addableEvenings = useMemo(() => getSortedAddableEvenings(evenings), [evenings]);
   const existingEveningIds = useMemo(() => new Set((player?.futureBookings || []).map((item) => item.evening_id)), [player]);
-  const selectedEvening = futureEvenings.find((item) => item.id === selectedEveningId) || null;
+  const selectedEvening = addableEvenings.find((item) => item.id === selectedEveningId) || null;
   const alreadyBooked = Boolean(selectedEvening && existingEveningIds.has(selectedEvening.id));
 
   const openForPlayer = (nextPlayer: PlayerDetails) => {
     const booked = new Set((nextPlayer.futureBookings || []).map((item) => item.evening_id));
-    const firstAvailable = futureEvenings.find((item) => !booked.has(item.id)) || futureEvenings[0] || null;
+    const firstAvailable = addableEvenings.find((item) => !booked.has(item.id)) || addableEvenings[0] || null;
     setPlayer(nextPlayer);
     setSelectedEveningId(firstAvailable?.id || '');
     setError(null);
@@ -110,14 +110,14 @@ export function PlayerEveningQuickAddProvider({
       >
         <div className="space-y-3">
           {error ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{error}</div> : null}
-          {futureEvenings.length ? (
+          {addableEvenings.length ? (
             <>
               <label className="block">
                 <span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Вечер</span>
                 <select value={selectedEveningId} onChange={(event) => setSelectedEveningId(event.target.value)} className="mobile-field">
-                  {futureEvenings.map((evening) => (
+                  {addableEvenings.map((evening) => (
                     <option key={evening.id} value={evening.id}>
-                      {evening.title} · {formatWhen(evening.starts_at)}{existingEveningIds.has(evening.id) ? ' · уже записан' : ''}
+                      {evening.title} · {formatWhen(evening.starts_at)}{evening.status === 'active' ? ' · идёт сейчас' : ''}{existingEveningIds.has(evening.id) ? ' · уже записан' : ''}
                     </option>
                   ))}
                 </select>
@@ -131,7 +131,7 @@ export function PlayerEveningQuickAddProvider({
               ) : null}
             </>
           ) : (
-            <div className="rounded-[15px] border border-border-soft bg-surface-2 p-4 text-[12px] leading-5 text-text-secondary">Будущих игровых вечеров пока нет. Сначала создай или опубликуй ближайший вечер в «Событиях».</div>
+            <div className="rounded-[15px] border border-border-soft bg-surface-2 p-4 text-[12px] leading-5 text-text-secondary">Нет незавершённого текущего или ближайшего вечера. Сначала создай либо открой игровой вечер в «Событиях».</div>
           )}
         </div>
       </MobileSheet>

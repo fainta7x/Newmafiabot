@@ -6,7 +6,7 @@ export interface VotingRound {
   day_number?: number;
   eligible_voters?: number | null;
   parent_round_number?: number | null;
-  /** Snapshot of the immediate parent division. New live rounds use it to distinguish a changed tie from an identical repeated tie. */
+  /** Snapshot of the immediate parent split (leaders), used to detect whether the same split repeated. */
   parent_nominated_seats?: number[];
   parent_vote_counts?: Record<number, number>;
   outcome?: 'pending' | 'single_eliminated' | 'tie_revote' | 'all_tied_eliminated' | 'no_elimination';
@@ -99,17 +99,6 @@ export function calculateVoteRemainder(
 const sameSeatOrder = (left: number[], right: number[]) =>
   left.length === right.length && left.every((seat, index) => Number(seat) === Number(right[index]));
 
-const sameVoteDivision = (
-  nominatedSeats: number[],
-  currentCounts: Record<number | string, number>,
-  parentSeats?: number[],
-  parentCounts?: Record<number, number>,
-) => {
-  if (!parentSeats || !parentCounts || !sameSeatOrder(parentSeats, nominatedSeats)) return false;
-  return nominatedSeats.every((seat) =>
-    Number(currentCounts[seat] ?? currentCounts[String(seat)] ?? 0) === Number(parentCounts[seat] ?? 0));
-};
-
 /**
  * Determine the outcome of a voting round.
  */
@@ -173,18 +162,14 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
     };
   }
 
-  // A table decision is legal only after two identical divisions in a row.
-  // New rounds carry the immediate parent snapshot. Legacy stored rounds without
-  // that snapshot keep the historical behavior for backwards compatibility.
-  const hasParentSnapshot = Array.isArray(round.parent_nominated_seats) && !!round.parent_vote_counts;
+  // A table decision is legal after the same split composition appears twice in a row.
+  // Vote totals may change; what matters is that the same tied players remain in the split.
+  // New rounds carry the immediate parent split. Legacy stored rounds without that snapshot
+  // keep the historical behavior for backwards compatibility.
+  const hasParentSnapshot = Array.isArray(round.parent_nominated_seats);
   const allCurrentCandidatesAreTied = winners.length === nominatedSeats.length;
   const repeatedExactly = hasParentSnapshot
-    ? allCurrentCandidatesAreTied && sameVoteDivision(
-        nominatedSeats,
-        voteCounts,
-        round.parent_nominated_seats,
-        round.parent_vote_counts,
-      )
+    ? allCurrentCandidatesAreTied && sameSeatOrder(round.parent_nominated_seats || [], nominatedSeats)
     : allCurrentCandidatesAreTied;
 
   if (!repeatedExactly) {
@@ -196,12 +181,12 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
       maxVotes,
       description: changedComposition
         ? `Ничья на переголосовании между меньшим составом лидеров: игроки #${winners.join(', #')} (${maxVotes} голосов у каждого). Требуется следующее переголосование.`
-        : `Ничья сохранилась, но деление ещё не повторилось дважды подряд. Требуется следующее переголосование между игроками #${winners.join(', #')}.`,
+        : `Состав распила изменился. Требуется следующее переголосование между игроками #${winners.join(', #')}.`,
       eliminatedSeats: []
     };
   }
 
-  // Repeated identical tie among the exact same composition
+  // Repeated identical split composition
   const isAllowedDecision = winners.length <= (eligibleVoters / 2);
 
   if (!isAllowedDecision) {
@@ -224,7 +209,7 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
       resolvedOutcome: undefined,
       winners,
       maxVotes,
-      description: `Одинаковое деление повторилось дважды подряд. Требуется решение стола за уход всех спорных игроков (#${winners.join(', #')}).`,
+      description: `Одинаковый состав распила повторился дважды подряд. Требуется решение стола за уход всех спорных игроков (#${winners.join(', #')}).`,
       eliminatedSeats: []
     };
   }
@@ -248,7 +233,7 @@ export function determineVotingResult(round: Partial<VotingRound>): VotingResult
  * Create a new revote round from parent round.
  */
 export function createNextRevoteRound(parentRound: VotingRound, winners: number[]): VotingRound {
-  const parentVoteCounts = parentRound.nominated_seats.reduce<Record<number, number>>((acc, seat) => {
+  const parentVoteCounts = winners.reduce<Record<number, number>>((acc, seat) => {
     acc[seat] = Number(parentRound.vote_counts[seat] ?? 0);
     return acc;
   }, {});
@@ -264,7 +249,7 @@ export function createNextRevoteRound(parentRound: VotingRound, winners: number[
     day_number: parentRound.day_number ?? 0,
     eligible_voters: parentRound.eligible_voters ?? 10,
     parent_round_number: parentRound.round_number,
-    parent_nominated_seats: [...parentRound.nominated_seats],
+    parent_nominated_seats: [...winners],
     parent_vote_counts: parentVoteCounts,
     outcome: 'pending',
     eliminated_seats: [],
@@ -435,7 +420,7 @@ export function cleanAndSyncVotes(votesList: VotingRound[]): VotingRound[] {
     }
   }
 
-  // Propagate day_number, eligible_voters and the immediate parent division to children.
+  // Propagate day_number, eligible_voters and the immediate parent split to children.
   const parentRoundMap = new Map<number, VotingRound>();
   current.forEach(r => {
     if (r.round_number !== undefined) {
@@ -453,12 +438,16 @@ export function cleanAndSyncVotes(votesList: VotingRound[]): VotingRound[] {
     if (r.is_revote && r.parent_round_number !== undefined && r.parent_round_number !== null) {
       const parent = parentRoundMap.get(r.parent_round_number);
       if (parent) {
+        const parentLeaders = getLeadersAndMaxVotes(parent.nominated_seats, parent.vote_counts).leaders;
         return {
           ...r,
           day_number: parent.day_number ?? 0,
           eligible_voters: parent.eligible_voters ?? 10,
-          parent_nominated_seats: [...parent.nominated_seats],
-          parent_vote_counts: { ...parent.vote_counts },
+          parent_nominated_seats: [...parentLeaders],
+          parent_vote_counts: parentLeaders.reduce<Record<number, number>>((acc, seat) => {
+            acc[seat] = Number(parent.vote_counts[seat] ?? 0);
+            return acc;
+          }, {}),
         };
       }
     }

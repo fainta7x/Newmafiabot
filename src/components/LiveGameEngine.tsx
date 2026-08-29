@@ -1011,9 +1011,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player) return;
     if (isFarewellSpeechActive()) {
-      // During a farewell speech, the vote is already resolved. Keep the player
-      // management sheet available for every seat, but use its farewell mode so
-      // nomination and other game-flow actions stay unavailable.
       setActionPlayerSlot(slot);
       return;
     }
@@ -1029,9 +1026,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleInteractiveVoteToggle(slot);
       return;
     }
-    if (phase === 'day_speeches') {
-      setActionPlayerSlot(slot);
-    }
+    setActionPlayerSlot(slot);
   };
 
   const getNextStepInfo = () => {
@@ -1330,12 +1325,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         onConfirm={confirmPendingDisciplineAction}
       />
       <PlayerActionOverlay
-        player={phase === 'day_speeches' || farewellActionOpen ? actionPlayer : null}
-        mode={farewellActionOpen ? 'farewell' : 'standard'}
+        player={actionPlayer}
+        mode={farewellActionOpen && actionPlayer?.alive === false ? 'farewell' : 'standard'}
         disciplinePlayer={actionDiscipline}
         activeSpeakerSlot={activeSpeakerSlot}
-        nominations={nominations}
-        nominationBlockedBySpeaker={nominationBlockedBySpeaker}
+        nominations={phase === 'day_speeches' ? nominations : []}
+        nominationBlockedBySpeaker={phase !== 'day_speeches' || nominationBlockedBySpeaker}
         onClose={() => setActionPlayerSlot(null)}
         onAddRegularFoul={addRegularFoulFromMenu}
         onRemoveRegularFoul={removeRegularFoul}
@@ -1380,7 +1375,24 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         <div className="space-y-4">
           <div className="flex flex-wrap justify-between gap-2 items-center bg-slate-900/60 p-3 border border-slate-800 rounded-2xl">
             <span className="text-[10px] text-slate-300 font-black uppercase flex items-center gap-1.5"><Shield className="w-4 h-4 text-rose-500" />Панель судейства</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <select
+                data-testid="live-player-actions-selector"
+                aria-label="Действия игрока"
+                value=""
+                onChange={(event) => {
+                  const slot = Number(event.target.value);
+                  if (slot) setActionPlayerSlot(slot);
+                }}
+                className="max-w-[150px] px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 text-[10px] font-bold"
+              >
+                <option value="">Действия игрока</option>
+                {activePlayers.map((player) => (
+                  <option key={player.slot_num} value={player.slot_num}>
+                    #{player.slot_num} {player.nickname || `Игрок ${player.slot_num}`}
+                  </option>
+                ))}
+              </select>
               <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
               <button type="button" onClick={toggleRolesOnTable} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{rolesAreVisible ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{rolesAreVisible ? 'Скрыть роли' : 'Показать роли'}</button>
               <button
@@ -1399,7 +1411,20 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
             <div className="space-y-3">
               <CenterPanel {...centerPanelProps()} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {activePlayers.map((p) => <div key={p.slot_num} className={`p-3 rounded-xl border ${p.alive ? 'bg-slate-900/50 border-slate-800' : 'bg-rose-950/20 border-rose-950 opacity-70'}`}><div className="flex justify-between items-center"><strong className="text-sm text-white">#{p.slot_num} {p.nickname}</strong><span className="text-[10px] text-slate-500">{p.alive ? 'Жив' : p.eliminated_phase}</span></div>{!p.alive && <button type="button" onClick={() => restorePlayer(p.slot_num)} className="mt-2 px-2 py-1 rounded-lg bg-emerald-950 border border-emerald-700 text-emerald-300 text-[9px] font-bold">Вернуть за стол</button>}</div>)}
+                {activePlayers.map((p) => (
+                  <button
+                    key={p.slot_num}
+                    type="button"
+                    onClick={() => setActionPlayerSlot(p.slot_num)}
+                    className={`p-3 rounded-xl border text-left ${p.alive ? 'bg-slate-900/50 border-slate-800' : 'bg-rose-950/20 border-rose-950 opacity-70'}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <strong className="text-sm text-white">#{p.slot_num} {p.nickname}</strong>
+                      <span className="text-[10px] text-slate-500">{p.alive ? 'Жив' : p.eliminated_phase}</span>
+                    </div>
+                    <div className="mt-2 text-[9px] font-bold text-slate-500">Открыть действия игрока</div>
+                  </button>
+                ))}
               </div>
             </div>
           )}

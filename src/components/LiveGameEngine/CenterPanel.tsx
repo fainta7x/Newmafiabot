@@ -5,6 +5,7 @@ import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 import type { ZeroNightMusicState } from "./engineStateModel.js";
+import "../crm/liveGameEveningBugfixes.css";
 import {
   BEST_MOVE_SECONDS,
   buildTimerIdentity,
@@ -387,6 +388,22 @@ export default function CenterPanel(props: CenterPanelProps) {
     );
   };
 
+  const renderVotingOrder = (seats: number[]) => (
+    <div className="live-judge-voting-order" aria-label={`Очередность голосования: ${seats.map((seat) => `номер ${seat}`).join(', ')}`}>
+      <div className="live-judge-voting-order__label">Очередность голосования</div>
+      <div className="live-judge-voting-order__list">
+        {seats.map((seat, index) => (
+          <span
+            key={`${seat}-${index}`}
+            className={`live-judge-voting-order__seat ${index === currentVotingNomineeIndex ? 'live-judge-voting-order__seat--current' : ''}`}
+          >
+            {index + 1}. #{seat}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderVoting = () => {
     if (!currentRound) return <div className="live-judge-hud__hint">Подготовка голосования…</div>;
 
@@ -413,8 +430,9 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
 
       return (
-        <div className="live-judge-hud__stack">
+        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
           <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
+          {renderVotingOrder(currentRound.nominated_seats)}
           <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
           <div className="live-judge-vote-summary">
             <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
@@ -453,8 +471,9 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
 
       return (
-        <div className="live-judge-hud__stack">
+        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
           <div className="live-judge-hud__eyebrow">Речи перед переголосованием · 30 сек</div>
+          {renderVotingOrder(participants)}
           {renderTimer()}
           <button type="button" onClick={advanceSpeech} className="live-judge-action live-judge-action--primary">
             {isLastSpeaker ? 'К переголосованию' : 'Следующий игрок'}
@@ -476,9 +495,10 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       if (result.outcome === 'needs_revote') {
         return (
-          <div className="live-judge-hud__stack">
+          <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
             <div className="live-judge-hud__eyebrow">Переголосование</div>
             <div className="live-judge-hud__title">{result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
+            {renderVotingOrder(result.winners)}
             <div className="live-judge-hud__hint">Перед переголосованием каждый из этих игроков получает 30 секунд.</div>
             <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">Речи по 30 секунд</button>
           </div>

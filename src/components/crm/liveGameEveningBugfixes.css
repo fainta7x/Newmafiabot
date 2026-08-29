@@ -1,0 +1,85 @@
+/* Live evening fixes from real-table feedback. Keep this layer visual-only. */
+
+/* The judge needs to spot players who are NOT nominated yet. Make the action
+   to nominate prominent and deliberately quiet the already-nominated remove state. */
+.evening-live-engine-shell .live-seat-quick-action--nomination {
+  border-color: rgba(251, 113, 133, 0.46) !important;
+  background: rgba(225, 52, 88, 0.18) !important;
+  color: #ffe0e7 !important;
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.08) !important;
+}
+
+.evening-live-engine-shell .live-seat-quick-action--nomination-active {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow: none !important;
+}
+
+/* Voting can contain many nominees. The center becomes an internally scrollable
+   work area rather than clipping the tail of the candidate list. */
+.live-judge-hud__stack--voting-scroll {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-right: 2px;
+}
+
+.live-judge-voting-order {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  background: rgba(5, 7, 11, 0.52);
+}
+
+.live-judge-voting-order__label {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8px;
+  line-height: 1.1;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.live-judge-voting-order__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.live-judge-voting-order__seat {
+  display: inline-flex;
+  min-width: 30px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.live-judge-voting-order__seat--current {
+  border-color: rgba(251, 113, 133, 0.52);
+  background: rgba(225, 52, 88, 0.17);
+  color: #ffe0e7;
+}
+
+@media (max-width: 767px) {
+  .live-judge-voting-order {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .live-judge-voting-order__seat {
+    min-width: 27px;
+    height: 25px;
+    font-size: 9px;
+  }
+}

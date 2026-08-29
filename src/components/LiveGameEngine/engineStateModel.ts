@@ -26,6 +26,7 @@ export type LiveSnapshot = {
   nominationsMap: Record<number, number>;
   phase: Phase;
   roundNumber: number;
+  dayStarterSlot?: number;
   nightSubPhase: NightSubPhase;
   postNightStage: PostNightStage;
   protocolMarkers: LiveProtocolMarkers;
@@ -109,6 +110,7 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => ({
 
 export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSnapshot => ({
   ...snapshot,
+  dayStarterSlot: snapshot.dayStarterSlot ?? (((snapshot.roundNumber - 1) % 10) + 1),
   nominationsMap: snapshot.nominationsMap || {},
   postNightStage: snapshot.postNightStage || 'none',
   protocolMarkers: snapshot.protocolMarkers || createEmptyLiveProtocolMarkers(),

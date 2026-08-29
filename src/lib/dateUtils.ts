@@ -45,3 +45,29 @@ export function getSortedFutureEvenings<T extends { starts_at: string; status?: 
     })
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 }
+
+/**
+ * Manual organizer add is intentionally a little wider than public registration.
+ * During a live evening the start time is already in the past, but walk-ins still
+ * need to be attachable to the current roster. Keep active evenings regardless of
+ * start time and retain other unfinished evenings for an 18-hour live-event window.
+ */
+export function getSortedAddableEvenings<T extends { starts_at: string; status?: string }>(
+  evenings: T[],
+  nowMsInput?: number,
+): T[] {
+  const referenceMs = nowMsInput ?? Date.now();
+  const liveWindowStart = referenceMs - 18 * 60 * 60 * 1000;
+  return (evenings || [])
+    .filter((e) => {
+      if (e.status === 'cancelled' || e.status === 'completed') return false;
+      const startsAt = new Date(e.starts_at).getTime();
+      if (!Number.isFinite(startsAt)) return false;
+      return e.status === 'active' || startsAt >= liveWindowStart;
+    })
+    .sort((a, b) => {
+      const aActive = a.status === 'active' ? 0 : 1;
+      const bActive = b.status === 'active' ? 0 : 1;
+      return aActive - bActive || new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+    });
+}

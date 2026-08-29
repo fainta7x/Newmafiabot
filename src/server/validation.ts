@@ -24,26 +24,31 @@ const canonicalResponseFromLegacy = (value: unknown): z.infer<typeof eveningResp
   return parsed.success ? parsed.data : undefined;
 };
 
+const normalizeParticipantResponse = <T extends { response_status?: z.infer<typeof eveningResponseStatusSchema>; registration_status?: z.infer<typeof legacyRegistrationStatusSchema> }>(data: T) => {
+  const responseStatus = data.response_status ?? canonicalResponseFromLegacy(data.registration_status) ?? 'unanswered';
+  return {
+    ...data,
+    response_status: responseStatus,
+    // The database still keeps the legacy registration_status column for compatibility.
+    // Manual-add routes read this field, so always mirror the canonical RSVP value into it.
+    registration_status: data.registration_status ?? responseStatus,
+  };
+};
+
 export const bulkAddParticipantsSchema = z.object({
   player_ids: z.array(z.string().min(1, 'Некорректный ID игрока')).min(1, 'Выберите хотя бы одного игрока'),
   table_id: z.string().nullable().optional(),
   response_status: eveningResponseStatusSchema.optional(),
   registration_status: legacyRegistrationStatusSchema.optional(),
   amount_due: z.number().int().min(0).optional(),
-}).transform((data) => ({
-  ...data,
-  response_status: data.response_status ?? canonicalResponseFromLegacy(data.registration_status),
-}));
+}).transform(normalizeParticipantResponse);
 
 export const addSingleParticipantSchema = z.object({
   player_id: z.string().min(1).optional(), nickname: z.string().optional(), phone: z.string().optional(),
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),
   registration_status: legacyRegistrationStatusSchema.optional(), amount_due: z.number().int().min(0).optional(),
   amount_paid: z.number().int().min(0).default(0), notes: z.string().nullable().optional(),
-}).transform((data) => ({
-  ...data,
-  response_status: data.response_status ?? canonicalResponseFromLegacy(data.registration_status),
-}));
+}).transform(normalizeParticipantResponse);
 
 export const updateParticipantSchema = z.object({
   table_id: z.string().nullable().optional(), response_status: eveningResponseStatusSchema.optional(),

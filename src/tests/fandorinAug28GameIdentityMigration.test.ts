@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts';
+import { ensureClubOperationsSchema } from '../db/ensureClubOperationsSchema.ts';
 import { applyFandorinAug28GameIdentityMigration } from '../db/fixFandorinAug28GameIdentityMigration.ts';
 
 let db: DatabaseWrapper | null = null;
@@ -8,13 +10,46 @@ afterEach(() => {
   db = null;
 });
 
+const initializeOperationsSchema = async (database: DatabaseWrapper) => {
+  await ensureJudgeAuthoritySchema(database);
+  await ensureClubOperationsSchema(database);
+};
+
+const makeProtocol = (participantId: string, playerId = 'chagin', displayName = 'Чагин') => ({
+  version: 1,
+  kind: 'club_evening_protocol',
+  protocol: {
+    game_id: '1',
+    status: 'draft',
+    winner_team: null,
+    first_killed_participant_id: participantId,
+    best_move_participant_id: participantId,
+    best_moves: [{ source: 'first_killed', participant_id: participantId, seat_numbers: [2, 3, 4] }],
+  },
+  player_results: [{
+    participant_id: participantId,
+    player_id: playerId,
+    seat_number: 6,
+    display_name: displayName,
+    role: 'Мирный',
+    regular_fouls: 2,
+    judge_bonus: 0.3,
+  }],
+});
+
+const makeSlots = (participantId: string, playerId = 'chagin', nickname = 'Чагин') => ([{
+  slot_num: 6,
+  participant_id: participantId,
+  player_id: playerId,
+  nickname,
+  role: 'Мирный',
+  fouls: 2,
+}]);
+
 describe('Fandorin Aug 28 game identity repair', () => {
   it('replaces only Chagin game identity while preserving seat result data and is idempotent', async () => {
     db = createDatabaseConnection(':memory:');
-    // Production initializes these player operations columns before pricing reconciliation.
-    // Keep the focused in-memory fixture aligned with that canonical runtime schema.
-    await db.exec(`ALTER TABLE players ADD COLUMN club_role TEXT NOT NULL DEFAULT 'guest';`);
-    await db.exec(`ALTER TABLE players ADD COLUMN judge_level TEXT NOT NULL DEFAULT 'none';`);
+    await initializeOperationsSchema(db);
 
     const now = '2026-08-29T12:00:00.000Z';
     await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('chagin','Чагин',?,?)`, [now, now]);
@@ -25,31 +60,9 @@ describe('Fandorin Aug 28 game identity repair', () => {
                     id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at
                   ) VALUES ('chagin-part','evening-28','chagin','going','going','attended','on_time','waived',0,0,?,?)`, [now, now]);
 
-    const protocol = {
-      version: 1,
-      kind: 'club_evening_protocol',
-      protocol: {
-        game_id: '1',
-        status: 'draft',
-        winner_team: null,
-        first_killed_participant_id: 'chagin-part',
-        best_move_participant_id: 'chagin-part',
-        best_moves: [{ source: 'first_killed', participant_id: 'chagin-part', seat_numbers: [2, 3, 4] }],
-      },
-      player_results: [{
-        participant_id: 'chagin-part',
-        player_id: 'chagin',
-        seat_number: 6,
-        display_name: 'Чагин',
-        role: 'Мирный',
-        regular_fouls: 2,
-        judge_bonus: 0.3,
-      }],
-    };
-    const slots = [{ slot_num: 6, participant_id: 'chagin-part', player_id: 'chagin', nickname: 'Чагин', role: 'Мирный', fouls: 2 }];
     await db.run(`INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
                   VALUES (1,'evening-28',1,'2026-08-28T21:00:00+03:00','draft','Черновик',?,?,?)`,
-      [JSON.stringify(protocol), JSON.stringify(slots), now]);
+      [JSON.stringify(makeProtocol('chagin-part')), JSON.stringify(makeSlots('chagin-part')), now]);
 
     const result = await applyFandorinAug28GameIdentityMigration(db);
     expect(result.applied).toBe(true);
@@ -79,5 +92,36 @@ describe('Fandorin Aug 28 game identity repair', () => {
     const second = await applyFandorinAug28GameIdentityMigration(db);
     expect(second.applied).toBe(false);
     expect((await db.all<any>(`SELECT id FROM evening_participants WHERE evening_id='evening-28' AND player_id='fandorin'`))).toHaveLength(1);
+  });
+
+  it('aborts before any write when more than one Aug 28 evening contains the target identities', async () => {
+    db = createDatabaseConnection(':memory:');
+    await initializeOperationsSchema(db);
+
+    const now = '2026-08-29T12:00:00.000Z';
+    await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('chagin','Чагин',?,?)`, [now, now]);
+    await db.run(`INSERT INTO players (id,nickname,created_at,updated_at) VALUES ('fandorin','Фандорин',?,?)`, [now, now]);
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+                  VALUES ('evening-a','A','2026-08-28T20:00:00+03:00','CASUAL','completed',400,?,?)`, [now, now]);
+    await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+                  VALUES ('evening-b','B','2026-08-28T22:00:00+03:00','CASUAL','completed',400,?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+                  VALUES ('part-a','evening-a','chagin','going','going','attended','on_time','waived',0,0,?,?)`, [now, now]);
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+                  VALUES ('part-b','evening-b','chagin','going','going','attended','on_time','waived',0,0,?,?)`, [now, now]);
+    await db.run(`INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+                  VALUES (1,'evening-a',1,'2026-08-28T21:00:00+03:00','draft','Черновик',?,?,?)`,
+      [JSON.stringify(makeProtocol('part-a')), JSON.stringify(makeSlots('part-a')), now]);
+    await db.run(`INSERT INTO games (id,evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
+                  VALUES (2,'evening-b',2,'2026-08-28T23:00:00+03:00','draft','Черновик',?,?,?)`,
+      [JSON.stringify(makeProtocol('part-b')), JSON.stringify(makeSlots('part-b')), now]);
+
+    await expect(applyFandorinAug28GameIdentityMigration(db)).rejects.toThrow('expected exactly one relevant');
+
+    for (const gameId of [1, 2]) {
+      const game = await db.get<any>('SELECT protocol_text FROM games WHERE id=?', [gameId]);
+      expect(JSON.parse(game.protocol_text).player_results[0].player_id).toBe('chagin');
+    }
+    expect(await db.get<any>(`SELECT id FROM evening_participants WHERE player_id='fandorin' LIMIT 1`)).toBeNull();
   });
 });

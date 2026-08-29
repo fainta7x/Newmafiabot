@@ -3,7 +3,8 @@ import type { Phase } from './types.js';
 export type LiveGameVotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
 
 export const REVOTE_SPEECH_SECONDS = 30;
-export const BEST_MOVE_SECONDS = 20;
+export const BEST_MOVE_SECONDS = 25;
+export const DEATH_PROTOCOL_SECONDS = 20;
 
 export const resolveTimerDuration = (
   phase: Phase,

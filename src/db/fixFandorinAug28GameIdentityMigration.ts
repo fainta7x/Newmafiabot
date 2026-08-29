@@ -129,7 +129,12 @@ export async function applyFandorinAug28GameIdentityMigration(db: DatabaseWrappe
       const fandorinAlreadyInGame = results.some((result: any) => String(result?.player_id || '') === String(fandorin.id));
 
       if (!chaginResults.length) {
-        if (fandorinAlreadyInGame) gamesToReconcile.add(Number(game.id));
+        if (fandorinAlreadyInGame) {
+          // A previous process may have updated the game but stopped before settlement/history.
+          // Re-run all dependent reconciliation for that evening rather than treating it as finished.
+          gamesToReconcile.add(Number(game.id));
+          eveningsTouched.add(String(evening.id));
+        }
         continue;
       }
       if (fandorinAlreadyInGame) {

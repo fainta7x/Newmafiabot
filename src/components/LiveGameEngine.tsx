@@ -947,6 +947,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       return;
     }
 
+    saveSnapshot();
     let nextMarkers = protocolMarkers;
     if (nextMarkers.firstKilledSlot === null) {
       nextMarkers = registerFirstKilled(nextMarkers, target.slot_num);
@@ -1396,6 +1397,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         pendingSeats={pendingBestMoveSeats}
         onToggleSeat={handleToggleBestMoveSeat}
         onReset={() => setPendingBestMoveSeats([])}
+        onBack={handleUndoAction}
         onConfirm={handleConfirmBestMoveProtocol}
       />
       <LiveGameToast toast={toast} />

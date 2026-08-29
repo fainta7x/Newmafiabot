@@ -60,6 +60,7 @@ import {
 } from "./LiveGameEngine/setupState.js";
 import {
   getNextDaySpeaker,
+  getNextDayStarterSlot,
   markDaySpeakerSpoken,
 } from "./LiveGameEngine/daySpeechModel.js";
 import {
@@ -84,6 +85,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [judgeId, setJudgeId] = useState(initialJudgeId);
   const [phase, setPhase] = useState<Phase>("setup");
   const [roundNumber, setRoundNumber] = useState(1);
+  const [dayStarterSlot, setDayStarterSlot] = useState(1);
   const [nightSubPhase, setNightSubPhase] = useState<NightSubPhase>("intro");
   const [postNightStage, setPostNightStage] = useState<PostNightStage>('none');
   const [activePlayers, setActivePlayers] = useState<ActivePlayerState[]>(
@@ -190,6 +192,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     nominationsMap,
     phase,
     roundNumber,
+    dayStarterSlot,
     nightSubPhase,
     postNightStage,
     protocolMarkers,
@@ -231,6 +234,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setNominationsMap(restored.nominationsMap);
     setPhase(restored.phase);
     setRoundNumber(restored.roundNumber);
+    setDayStarterSlot(restored.dayStarterSlot ?? 1);
     setNightSubPhase(restored.nightSubPhase);
     setPostNightStage(restored.postNightStage);
     setProtocolMarkers(restored.protocolMarkers);
@@ -294,7 +298,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     };
     try { localStorage.setItem("mafia_live_session", JSON.stringify(data)); } catch {}
   }, [
-    activePlayers, nominations, nominationsMap, phase, roundNumber, nightSubPhase, postNightStage, protocolMarkers,
+    activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
@@ -390,7 +394,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(true);
   };
 
-  const nextSpeaker = getNextDaySpeaker(activePlayers, roundNumber);
+  const nextSpeaker = getNextDaySpeaker(activePlayers, dayStarterSlot);
 
   const markPlayerSpoken = (slot: number) => {
     saveSnapshot();
@@ -399,7 +403,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(false);
   };
 
-  const handleStartNextSpeaker = () => { if (nextSpeaker) handleStartTimer(nextSpeaker.slot_num, 60); };
+  const handleStartNextSpeaker = () => {
+    if (!nextSpeaker) return;
+    const isFirstSpeechOfDay = activePlayers.every((player) => !player.has_spoken_this_round);
+    if (isFirstSpeechOfDay && dayStarterSlot !== nextSpeaker.slot_num) setDayStarterSlot(nextSpeaker.slot_num);
+    handleStartTimer(nextSpeaker.slot_num, 60);
+  };
 
   const handleAutoFillSetupPlayers = () => {
     setActivePlayers((previous) => autoFillSetupPlayers(previous, players));
@@ -937,6 +946,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const finishNightToDay = () => {
     saveSnapshot();
+    const nextStarter = getNextDayStarterSlot(activePlayers, dayStarterSlot);
+    if (nextStarter !== null) setDayStarterSlot(nextStarter);
     setRoundNumber((value) => value + 1);
     setPhase('day_speeches');
     setNightSubPhase('intro');

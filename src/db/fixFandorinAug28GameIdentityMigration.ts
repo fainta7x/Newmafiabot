@@ -85,6 +85,21 @@ const ensureFandorinParticipant = async (
   return id;
 };
 
+interface InspectedGame {
+  row: any;
+  protocol: any;
+  slots: any[];
+  results: any[];
+  chaginResults: any[];
+  fandorinAlreadyInGame: boolean;
+}
+
+interface InspectedEvening {
+  evening: any;
+  games: InspectedGame[];
+  relevant: boolean;
+}
+
 export interface FandorinAug28RepairResult {
   applied: boolean;
   gamesChanged: number[];
@@ -107,81 +122,107 @@ export async function applyFandorinAug28GameIdentityMigration(db: DatabaseWrappe
   const fandorin = await findUniquePlayer(db, FANDORIN_ALIASES, 'Fandorin');
   if (String(chagin.id) === String(fandorin.id)) throw new Error('[DATA] Chagin and Fandorin resolve to the same player');
 
-  const evenings = (await db.all<any>('SELECT id, starts_at FROM game_evenings ORDER BY starts_at ASC'))
+  const dateEvenings = (await db.all<any>('SELECT id, starts_at FROM game_evenings ORDER BY starts_at ASC'))
     .filter((evening) => moscowDate(evening.starts_at) === TARGET_DATE);
-  if (!evenings.length) throw new Error(`[DATA] No game evening found for ${TARGET_DATE}`);
+  if (!dateEvenings.length) throw new Error(`[DATA] No game evening found for ${TARGET_DATE}`);
+
+  // Discover the exact historical evening before writing anything. There may be copied,
+  // test or duplicate evenings on the same calendar date; only an evening whose structured
+  // game results contain Chagin/Fandorin is a repair candidate.
+  const inspectedEvenings: InspectedEvening[] = [];
+  for (const evening of dateEvenings) {
+    const rows = await db.all<any>(
+      'SELECT id, protocol_text, slots_json FROM games WHERE evening_id=? AND archived_at IS NULL ORDER BY global_game_number ASC, id ASC',
+      [evening.id],
+    );
+    const games = rows.map((row): InspectedGame => {
+      const protocol = safeJsonParse<any>(row.protocol_text, null);
+      const slots = safeJsonParse<any[]>(row.slots_json, []);
+      const results = Array.isArray(protocol?.player_results) ? protocol.player_results : [];
+      const chaginResults = results.filter((result: any) => String(result?.player_id || '') === String(chagin.id));
+      const fandorinAlreadyInGame = results.some((result: any) => String(result?.player_id || '') === String(fandorin.id));
+      return { row, protocol, slots, results, chaginResults, fandorinAlreadyInGame };
+    });
+    inspectedEvenings.push({
+      evening,
+      games,
+      relevant: games.some((game) => game.chaginResults.length > 0 || game.fandorinAlreadyInGame),
+    });
+  }
+
+  const relevantEvenings = inspectedEvenings.filter((item) => item.relevant);
+  if (relevantEvenings.length !== 1) {
+    throw new Error(`[DATA] Expected exactly one relevant ${TARGET_DATE} evening containing Chagin/Fandorin games, found ${relevantEvenings.length}`);
+  }
+
+  const target = relevantEvenings[0];
+
+  // Validate every affected game before the first mutation. If the historical shape is
+  // ambiguous, leave the entire evening untouched rather than partially guessing.
+  for (const game of target.games) {
+    if (game.chaginResults.length && game.fandorinAlreadyInGame) {
+      throw new Error(`[DATA] Game ${game.row.id} already contains both Chagin and Fandorin; automatic replacement aborted`);
+    }
+    if (game.chaginResults.length > 1) {
+      throw new Error(`[DATA] Game ${game.row.id} contains Chagin ${game.chaginResults.length} times; automatic replacement aborted`);
+    }
+    if (game.chaginResults.length === 1 && !String(game.chaginResults[0]?.participant_id || '')) {
+      throw new Error(`[DATA] Game ${game.row.id} Chagin result has no participant_id`);
+    }
+  }
 
   const gamesChanged: number[] = [];
   const eveningsTouched = new Set<string>();
   const gamesToReconcile = new Set<number>();
+  const eveningId = String(target.evening.id);
 
-  for (const evening of evenings) {
-    const games = await db.all<any>(
-      'SELECT id, protocol_text, slots_json FROM games WHERE evening_id=? AND archived_at IS NULL ORDER BY global_game_number ASC, id ASC',
-      [evening.id],
-    );
-
-    for (const game of games) {
-      const protocol = safeJsonParse<any>(game.protocol_text, null);
-      const slots = safeJsonParse<any[]>(game.slots_json, []);
-      const results = Array.isArray(protocol?.player_results) ? protocol.player_results : [];
-      const chaginResults = results.filter((result: any) => String(result?.player_id || '') === String(chagin.id));
-      const fandorinAlreadyInGame = results.some((result: any) => String(result?.player_id || '') === String(fandorin.id));
-
-      if (!chaginResults.length) {
-        if (fandorinAlreadyInGame) {
-          // A previous process may have updated the game but stopped before settlement/history.
-          // Re-run all dependent reconciliation for that evening rather than treating it as finished.
-          gamesToReconcile.add(Number(game.id));
-          eveningsTouched.add(String(evening.id));
-        }
-        continue;
+  for (const game of target.games) {
+    if (!game.chaginResults.length) {
+      if (game.fandorinAlreadyInGame) {
+        // A previous process may have updated the game but stopped before settlement/history.
+        // Re-run all dependent reconciliation for that evening rather than treating it as finished.
+        gamesToReconcile.add(Number(game.row.id));
+        eveningsTouched.add(eveningId);
       }
-      if (fandorinAlreadyInGame) {
-        throw new Error(`[DATA] Game ${game.id} already contains both Chagin and Fandorin; automatic replacement aborted`);
-      }
-      if (chaginResults.length !== 1) {
-        throw new Error(`[DATA] Game ${game.id} contains Chagin ${chaginResults.length} times; automatic replacement aborted`);
-      }
+      continue;
+    }
 
-      const oldParticipantId = String(chaginResults[0]?.participant_id || '');
-      if (!oldParticipantId) throw new Error(`[DATA] Game ${game.id} Chagin result has no participant_id`);
-      const fandorinParticipantId = await ensureFandorinParticipant(db, String(evening.id), String(fandorin.id));
+    const oldParticipantId = String(game.chaginResults[0].participant_id);
+    const fandorinParticipantId = await ensureFandorinParticipant(db, eveningId, String(fandorin.id));
 
-      let nextProtocol = replaceExactStringDeep(protocol, oldParticipantId, fandorinParticipantId);
-      nextProtocol = {
-        ...nextProtocol,
-        player_results: (nextProtocol.player_results || []).map((result: any) =>
-          String(result?.player_id || '') === String(chagin.id)
-            ? {
-                ...result,
-                participant_id: fandorinParticipantId,
-                player_id: String(fandorin.id),
-                display_name: String(fandorin.nickname),
-              }
-            : result,
-        ),
-      };
-
-      const nextSlots = (Array.isArray(slots) ? slots : []).map((slot: any) =>
-        String(slot?.player_id || '') === String(chagin.id)
+    let nextProtocol = replaceExactStringDeep(game.protocol, oldParticipantId, fandorinParticipantId);
+    nextProtocol = {
+      ...nextProtocol,
+      player_results: (nextProtocol.player_results || []).map((result: any) =>
+        String(result?.player_id || '') === String(chagin.id)
           ? {
-              ...slot,
+              ...result,
               participant_id: fandorinParticipantId,
               player_id: String(fandorin.id),
-              nickname: String(fandorin.nickname),
+              display_name: String(fandorin.nickname),
             }
-          : slot,
-      );
+          : result,
+      ),
+    };
 
-      await db.run(
-        'UPDATE games SET protocol_text=?, slots_json=? WHERE id=?',
-        [JSON.stringify(nextProtocol), JSON.stringify(nextSlots), game.id],
-      );
-      gamesChanged.push(Number(game.id));
-      gamesToReconcile.add(Number(game.id));
-      eveningsTouched.add(String(evening.id));
-    }
+    const nextSlots = game.slots.map((slot: any) =>
+      String(slot?.player_id || '') === String(chagin.id)
+        ? {
+            ...slot,
+            participant_id: fandorinParticipantId,
+            player_id: String(fandorin.id),
+            nickname: String(fandorin.nickname),
+          }
+        : slot,
+    );
+
+    await db.run(
+      'UPDATE games SET protocol_text=?, slots_json=? WHERE id=?',
+      [JSON.stringify(nextProtocol), JSON.stringify(nextSlots), game.row.id],
+    );
+    gamesChanged.push(Number(game.row.id));
+    gamesToReconcile.add(Number(game.row.id));
+    eveningsTouched.add(eveningId);
   }
 
   if (!gamesChanged.length && !gamesToReconcile.size) {
@@ -191,8 +232,8 @@ export async function applyFandorinAug28GameIdentityMigration(db: DatabaseWrappe
   for (const gameId of [...gamesToReconcile]) {
     await reconcileClubGameTokenSettlement(db, gameId, { activateIfUntracked: false, context: 'correction' });
   }
-  for (const eveningId of [...eveningsTouched]) {
-    await reconcileRegularEveningPayments(db, eveningId);
+  for (const touchedEveningId of [...eveningsTouched]) {
+    await reconcileRegularEveningPayments(db, touchedEveningId);
   }
   await rebuildCanonicalEloRatings(db);
 
@@ -207,6 +248,7 @@ export async function applyFandorinAug28GameIdentityMigration(db: DatabaseWrappe
         target_date: TARGET_DATE,
         chagin_player_id: chagin.id,
         fandorin_player_id: fandorin.id,
+        target_evening_id: eveningId,
         games_changed: gamesChanged,
         evenings_touched: [...eveningsTouched],
       }),

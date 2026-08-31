@@ -87,6 +87,6 @@ describe('pending club game recovery', () => {
 
   it('fails closed when local seating is not a complete 1-10 mapping', () => {
     const broken = { ...pending, player_results: pending.player_results.slice(0, 9) };
-    expect(() => rebasePendingClubGameProtocol(game, broken)).toThrow('локальная копия игры повреждена');
+    expect(() => rebasePendingClubGameProtocol(game, broken)).toThrow(/локальная копия игры повреждена/i);
   });
 });

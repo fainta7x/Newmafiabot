@@ -35,7 +35,7 @@ export default function EveningActiveRosterView({
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [showAdd, setShowAdd] = useState(initialAddOpen);
   const [addMode, setAddMode] = useState<AddMode>('players');
   const [addSearch, setAddSearch] = useState('');
@@ -89,9 +89,14 @@ export default function EveningActiveRosterView({
   }, [addSearch, allPlayers, existingPlayerIds]);
 
   const markAttended = async (participant: EveningParticipant) => {
-    if (busyId || participant.attendance_status === 'attended') return;
-    setBusyId(participant.id);
+    if (busyIds.has(participant.id) || participant.attendance_status === 'attended') return;
+    setBusyIds((current) => new Set(current).add(participant.id));
     setError('');
+    const optimistic = { ...participant, attendance_status: 'attended' } as EveningParticipant;
+    setEvening((current) => current ? {
+      ...current,
+      participants: current.participants.map((item) => item.id === participant.id ? optimistic : item),
+    } : current);
     try {
       const updated = await api.updateParticipant(participant.id, { attendance_status: 'attended' });
       setEvening((current) => current ? {
@@ -99,9 +104,17 @@ export default function EveningActiveRosterView({
         participants: current.participants.map((item) => item.id === updated.id ? updated : item),
       } : current);
     } catch (err: any) {
+      setEvening((current) => current ? {
+        ...current,
+        participants: current.participants.map((item) => item.id === participant.id ? participant : item),
+      } : current);
       setError(err?.message || 'Не удалось отметить игрока');
     } finally {
-      setBusyId(null);
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(participant.id);
+        return next;
+      });
     }
   };
 
@@ -156,7 +169,7 @@ export default function EveningActiveRosterView({
           <h3 className="text-[15px] font-black text-text-primary">Участники вечера</h3>
           <p className="mt-1 text-[10px] leading-4 text-text-muted">Только те, кто подтвердил участие или уже пришёл. Думающие, отказавшиеся и неответившие остаются на этапе «Ответы».</p>
         </div>
-        <button type="button" onClick={() => void load()} disabled={loading} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40">
+        <button type="button" onClick={() => void load()} disabled={loading || busyIds.size > 0} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -176,6 +189,7 @@ export default function EveningActiveRosterView({
     <div className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
       {participants.map((participant, index) => {
         const arrived = participant.attendance_status === 'attended';
+        const rowBusy = busyIds.has(participant.id);
         return <div key={participant.id} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[62px] items-center gap-2.5 px-3 py-2`}>
           <button type="button" onClick={() => onOpenPlayerCard?.(participant.player_id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
@@ -184,7 +198,7 @@ export default function EveningActiveRosterView({
               <span className={`mt-0.5 block text-[9px] ${arrived ? 'text-success' : 'text-text-muted'}`}>{responseLabel(participant)}</span>
             </span>
           </button>
-          {!arrived ? <button type="button" disabled={Boolean(busyId)} onClick={() => void markAttended(participant)} className="min-h-[42px] shrink-0 rounded-[10px] bg-success-soft px-3 text-[10px] font-bold text-success disabled:opacity-40">{busyId === participant.id ? '…' : 'Пришёл'}</button> : <span className="shrink-0 rounded-full bg-success-soft px-2.5 py-1 text-[9px] font-bold text-success">На месте</span>}
+          {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[42px] shrink-0 rounded-[10px] bg-success-soft px-3 text-[10px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : <span className="shrink-0 rounded-full bg-success-soft px-2.5 py-1 text-[9px] font-bold text-success">На месте</span>}
         </div>;
       })}
       {!participants.length ? <div className="p-6 text-center text-[11px] text-text-muted">Пока нет подтверждённых участников. Добавь игрока вручную или дождись ответа.</div> : null}

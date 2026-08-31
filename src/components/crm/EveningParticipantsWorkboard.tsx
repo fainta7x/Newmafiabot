@@ -127,7 +127,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<WorkFilter>('action');
   const [activeParticipant, setActiveParticipant] = useState<EveningParticipant | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -179,25 +179,40 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     });
   }, [filter, participantViews, search]);
 
-  const patch = async (participant: EveningParticipant, data: Partial<EveningParticipant>, action: string) => {
-    if (busy || readonly) return;
-    setBusy(`${action}:${participant.id}`);
+  const replaceParticipant = (updated: EveningParticipant) => {
+    setEvening((current) => current ? {
+      ...current,
+      participants: current.participants.map((item) => item.id === updated.id ? updated : item),
+    } : current);
+    setActiveParticipant((current) => current?.id === updated.id ? updated : current);
+  };
+
+  const patch = async (participant: EveningParticipant, data: Partial<EveningParticipant>) => {
+    if (busyIds.has(participant.id) || readonly) return;
+    const optimistic = { ...participant, ...data } as EveningParticipant;
+    setBusyIds((current) => new Set(current).add(participant.id));
     setError(null);
+    replaceParticipant(optimistic);
     try {
-      await api.updateParticipant(participant.id, data);
-      await load(true);
+      const updated = await api.updateParticipant(participant.id, data);
+      replaceParticipant(updated);
       onChanged?.();
     } catch (err: any) {
+      replaceParticipant(participant);
       setError(err?.message || 'Не удалось обновить игрока');
     } finally {
-      setBusy(null);
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(participant.id);
+        return next;
+      });
     }
   };
 
-  const markAttended = (participant: EveningParticipant) => patch(participant, { attendance_status: 'attended' }, 'attend');
-  const markNoShow = (participant: EveningParticipant) => patch(participant, { attendance_status: 'no_show' }, 'no-show');
-  const markPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: Number(participant.amount_due || 0), payment_status: 'paid' }, 'pay');
-  const undoPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: 0, payment_status: 'unpaid' }, 'unpay');
+  const markAttended = (participant: EveningParticipant) => patch(participant, { attendance_status: 'attended' });
+  const markNoShow = (participant: EveningParticipant) => patch(participant, { attendance_status: 'no_show' });
+  const markPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: Number(participant.amount_due || 0), payment_status: 'paid' });
+  const undoPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: 0, payment_status: 'unpaid' });
 
   if (loading && !evening) return <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center text-[12px] text-text-muted">Загрузка состава…</div>;
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[12px] text-danger">{error || 'Не удалось загрузить вечер'}<button type="button" onClick={() => void load()} className="ml-2 font-bold underline">Повторить</button></div>;
@@ -220,7 +235,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           <h2 className="mt-0.5 truncate text-[14px] font-semibold text-text-primary">{evening.title}</h2>
           <p className="mt-0.5 truncate text-[9px] text-text-muted">{eveningMeta(evening)}</p>
         </div>
-        <button type="button" aria-label="Обновить состав" disabled={Boolean(busy)} onClick={() => void load()} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
+        <button type="button" aria-label="Обновить состав" disabled={busyIds.size > 0} onClick={() => void load()} className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-2 text-text-secondary disabled:opacity-40"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-semibold text-text-muted">
         <span className="rounded-full bg-black/20 px-2 py-1"><strong className="text-text-primary">{confirmedCount}</strong> идут</span>
@@ -251,7 +266,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     {visibleViews.length ? <div data-testid="evening-roster-list" className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">
       {visibleViews.map((item, index) => {
         const participant = item.participant;
-        const rowBusy = Boolean(busy?.endsWith(`:${participant.id}`));
+        const rowBusy = busyIds.has(participant.id);
         return <div key={participant.id} data-testid={`evening-roster-row-${participant.id}`} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[62px] items-center gap-2 px-2.5 py-2`}>
           <button type="button" onClick={() => setActiveParticipant(participant)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
@@ -260,7 +275,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
               <span className={`mt-0.5 block truncate text-[9px] ${item.needsAction ? 'text-warning' : 'text-text-muted'}`}>{item.subtitle}</span>
             </span>
           </button>
-          {item.action === 'attend' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={Boolean(busy)} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-white px-3 text-[10px] font-semibold text-[#090a0d] disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : item.action === 'pay' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={Boolean(busy)} onClick={() => void markPaid(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-success-soft px-3 text-[10px] font-semibold text-success disabled:opacity-40">{rowBusy ? '…' : `Принять ${money(debt(participant))}`}</button> : <button type="button" aria-label={`Открыть ${participant.nickname}`} onClick={() => setActiveParticipant(participant)} className="grid h-11 w-9 shrink-0 place-items-center text-text-muted"><ChevronRight className="h-4 w-4" /></button>}
+          {item.action === 'attend' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-white px-3 text-[10px] font-semibold text-[#090a0d] disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : item.action === 'pay' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markPaid(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-success-soft px-3 text-[10px] font-semibold text-success disabled:opacity-40">{rowBusy ? '…' : `Принять ${money(debt(participant))}`}</button> : <button type="button" aria-label={`Открыть ${participant.nickname}`} onClick={() => setActiveParticipant(participant)} className="grid h-11 w-9 shrink-0 place-items-center text-text-muted"><ChevronRight className="h-4 w-4" /></button>}
         </div>;
       })}
     </div> : <div className="rounded-[17px] border border-dashed border-border-soft bg-surface-1 p-6 text-center text-[11px] text-text-muted">{filter === 'action' && !actionViews.length ? 'Все обязательные действия по составу выполнены.' : 'По этому фильтру никого нет.'}</div>}
@@ -273,13 +288,13 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           <div className="mt-1 text-[10px] text-text-muted">Ответ: {EVENING_RESPONSE_LABELS[getEveningResponse(activeParticipant)]}{Number(activeParticipant.amount_due || 0) > 0 ? ` · к оплате ${money(activeParticipant.amount_due)}` : ''}</div>
         </div>
 
-        {!readonly && canMarkFacts && activeParticipant.attendance_status === 'pending' ? <div className="grid grid-cols-2 gap-2"><button type="button" disabled={Boolean(busy)} onClick={() => void markAttended(activeParticipant)} className="min-h-[48px] rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] disabled:opacity-40">Пришёл</button><button type="button" disabled={Boolean(busy)} onClick={() => void markNoShow(activeParticipant)} className="min-h-[48px] rounded-[13px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger disabled:opacity-40">Не пришёл</button></div> : null}
+        {!readonly && canMarkFacts && activeParticipant.attendance_status === 'pending' ? <div className="grid grid-cols-2 gap-2"><button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markAttended(activeParticipant)} className="min-h-[48px] rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] disabled:opacity-40">Пришёл</button><button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markNoShow(activeParticipant)} className="min-h-[48px] rounded-[13px] border border-danger/20 bg-danger-soft px-3 text-[11px] font-semibold text-danger disabled:opacity-40">Не пришёл</button></div> : null}
 
-        {!readonly && activeParticipant.attendance_status === 'no_show' && canMarkFacts ? <button type="button" disabled={Boolean(busy)} onClick={() => void markAttended(activeParticipant)} className="min-h-[48px] w-full rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] disabled:opacity-40">Всё-таки пришёл</button> : null}
+        {!readonly && activeParticipant.attendance_status === 'no_show' && canMarkFacts ? <button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markAttended(activeParticipant)} className="min-h-[48px] w-full rounded-[13px] bg-white px-3 text-[11px] font-semibold text-[#090a0d] disabled:opacity-40">Всё-таки пришёл</button> : null}
 
-        {!readonly && activeParticipant.attendance_status === 'attended' && !paymentComplete(activeParticipant) && debt(activeParticipant) > 0 ? <button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(activeParticipant)} className="min-h-[48px] w-full rounded-[13px] bg-success-soft px-3 text-[11px] font-semibold text-success disabled:opacity-40">Принять {money(debt(activeParticipant))}</button> : null}
+        {!readonly && activeParticipant.attendance_status === 'attended' && !paymentComplete(activeParticipant) && debt(activeParticipant) > 0 ? <button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void markPaid(activeParticipant)} className="min-h-[48px] w-full rounded-[13px] bg-success-soft px-3 text-[11px] font-semibold text-success disabled:opacity-40">Принять {money(debt(activeParticipant))}</button> : null}
 
-        {!readonly && activeParticipant.attendance_status === 'attended' && activeParticipant.payment_status === 'paid' && Number(activeParticipant.amount_paid || 0) > 0 ? <button type="button" disabled={Boolean(busy)} onClick={() => void undoPaid(activeParticipant)} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[10px] font-semibold text-text-secondary disabled:opacity-40">Снять отметку об оплате</button> : null}
+        {!readonly && activeParticipant.attendance_status === 'attended' && activeParticipant.payment_status === 'paid' && Number(activeParticipant.amount_paid || 0) > 0 ? <button type="button" disabled={busyIds.has(activeParticipant.id)} onClick={() => void undoPaid(activeParticipant)} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[10px] font-semibold text-text-secondary disabled:opacity-40">Снять отметку об оплате</button> : null}
 
         {activeParticipant.attendance_status === 'attended' && activeParticipant.payment_status === 'partial' ? <div className="rounded-[13px] bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">Частичная оплата сохранена: {money(activeParticipant.amount_paid)} из {money(activeParticipant.amount_due)}. Точную сумму можно изменить в «Полном составе».</div> : null}
 

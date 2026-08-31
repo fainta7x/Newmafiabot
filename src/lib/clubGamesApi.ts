@@ -188,6 +188,10 @@ const shouldRetryFinalSave = (error: unknown) => {
   return !(error instanceof DOMException && error.name === 'AbortError');
 };
 
+const isRosterIdentityConflict = (error: unknown) => error instanceof ClubGameRequestError
+  && error.status === 400
+  && /состав|замен/i.test(error.message);
+
 const wait = (milliseconds: number) => milliseconds > 0
   ? new Promise<void>((resolve) => {
       setTimeout(resolve, milliseconds);
@@ -213,6 +217,7 @@ const saveProtocolWithRetry = async (gameId: number, payload: ProtocolSavePayloa
 
 const loadCurrentGameForRecovery = async (gameId: number): Promise<ClubGameRecord> => {
   const games = await request<ClubGameRecord[]>('/api/games');
+  if (!Array.isArray(games)) throw new Error('Сервер вернул некорректный список игр для восстановления');
   const game = games.find((candidate) => Number(candidate.id) === Number(gameId));
   if (!game) throw new Error('Игра для восстановления не найдена на сервере');
   if (!game.club_protocol) throw new Error('У игры отсутствует серверный клубный протокол');
@@ -242,12 +247,26 @@ export const clubGamesApi = {
   retryPendingProtocolSave: async (gameId: number) => {
     const pending = getPendingClubGameProtocolSave(gameId);
     if (!pending) return null;
-    const currentGame = await loadCurrentGameForRecovery(gameId);
-    const payload = rebasePendingClubGameProtocol(currentGame, pending.payload);
-    // Persist the rebased version before the network write. If this attempt is
-    // interrupted too, the next retry no longer carries obsolete identities.
-    persistPendingProtocolSave(gameId, payload);
-    const result = await saveProtocolWithRetry(gameId, payload);
+
+    let result: ClubGameRecord;
+    try {
+      // Preserve the established fast path: most failed final saves only need
+      // the exact same PUT resent after connectivity recovers.
+      result = await saveProtocolWithRetry(gameId, pending.payload);
+    } catch (error) {
+      if (!isRosterIdentityConflict(error)) throw error;
+
+      // A canonical identity repair can make a previously valid browser outbox
+      // stale. Only for that specific immutable-roster conflict, reload the
+      // current server game and move gameplay data onto its identities by seat.
+      const currentGame = await loadCurrentGameForRecovery(gameId);
+      const rebasedPayload = rebasePendingClubGameProtocol(currentGame, pending.payload);
+      // Persist before the second write so another interruption cannot leave
+      // the browser holding obsolete participant identities again.
+      persistPendingProtocolSave(gameId, rebasedPayload);
+      result = await saveProtocolWithRetry(gameId, rebasedPayload);
+    }
+
     clearPendingClubGameProtocolSave(gameId);
     clearStoredDeathProtocols();
     return result;

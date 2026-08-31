@@ -168,14 +168,18 @@ export const getRecoverablePendingClubGame = (game: ClubGameRecord): ClubGameRec
   const pending = getPendingClubGameProtocolSave(game.id);
   if (!pending) return game;
   const payload = rebasePendingClubGameProtocol(game, pending.payload);
-  const status = payload.protocol.status === 'completed' ? 'completed' : 'draft';
+  const editableProtocol = {
+    ...payload.protocol,
+    status: 'draft' as const,
+    completed_at: null,
+  };
   return {
     ...game,
-    status,
+    status: 'draft',
     club_protocol: {
       version: 1,
       kind: 'club_evening_protocol',
-      protocol: payload.protocol,
+      protocol: editableProtocol,
       player_results: payload.player_results,
     },
   };

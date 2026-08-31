@@ -26,7 +26,7 @@ export interface ClubGameRecord {
   archived_at?: string | null;
 }
 
-type ProtocolSavePayload = {
+export type ProtocolSavePayload = {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
 };
@@ -98,6 +98,89 @@ export const clearPendingClubGameProtocolSave = (gameId: number) => {
   try { localStorage.removeItem(clubGamePendingProtocolKey(gameId)); } catch {}
 };
 
+const replaceExactStringsDeep = (value: any, replacements: Map<string, string>): any => {
+  if (typeof value === 'string') return replacements.get(value) ?? value;
+  if (Array.isArray(value)) return value.map((item) => replaceExactStringsDeep(item, replacements));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceExactStringsDeep(item, replacements)]));
+  }
+  return value;
+};
+
+/**
+ * Rebase a recoverable browser outbox payload onto the server's current immutable
+ * seat identities. This is needed when a canonical data repair changes a
+ * participant/player identity after the browser already stored the finished game.
+ * Gameplay data follows seats; identity fields always stay server-owned.
+ */
+export const rebasePendingClubGameProtocol = (
+  game: ClubGameRecord,
+  payload: ProtocolSavePayload,
+): ProtocolSavePayload => {
+  const canonicalResults = game.club_protocol?.player_results;
+  const pendingResults = payload?.player_results;
+  if (!Array.isArray(canonicalResults) || canonicalResults.length !== 10) {
+    throw new Error('Серверный состав игры повреждён: ожидается 10 игроков');
+  }
+  if (!Array.isArray(pendingResults) || pendingResults.length !== 10) {
+    throw new Error('Локальная копия игры повреждена: ожидается 10 игроков');
+  }
+
+  const canonicalBySeat = new Map(canonicalResults.map((result) => [Number(result.seat_number), result]));
+  const pendingBySeat = new Map(pendingResults.map((result) => [Number(result.seat_number), result]));
+  const expectedSeats = Array.from({ length: 10 }, (_, index) => index + 1);
+  if (canonicalBySeat.size !== 10 || pendingBySeat.size !== 10 || expectedSeats.some((seat) => !canonicalBySeat.has(seat) || !pendingBySeat.has(seat))) {
+    throw new Error('Нельзя восстановить игру: места 1–10 в локальной и серверной копии не совпадают');
+  }
+
+  const participantReplacements = new Map<string, string>();
+  for (const seat of expectedSeats) {
+    const canonical = canonicalBySeat.get(seat)!;
+    const pending = pendingBySeat.get(seat)!;
+    const oldParticipantId = String(pending.participant_id || '').trim();
+    const currentParticipantId = String(canonical.participant_id || '').trim();
+    if (!oldParticipantId || !currentParticipantId) {
+      throw new Error(`Нельзя восстановить игру: у места #${seat} отсутствует участник`);
+    }
+    if (oldParticipantId !== currentParticipantId) participantReplacements.set(oldParticipantId, currentParticipantId);
+  }
+
+  const protocol = replaceExactStringsDeep(payload.protocol, participantReplacements) as TournamentGameProtocolData;
+  protocol.game_id = String(game.id);
+
+  const playerResults = expectedSeats.map((seat) => {
+    const canonical = canonicalBySeat.get(seat)!;
+    const pending = pendingBySeat.get(seat)!;
+    return {
+      ...canonical,
+      ...pending,
+      participant_id: canonical.participant_id,
+      player_id: canonical.player_id,
+      seat_number: canonical.seat_number,
+      display_name: canonical.display_name,
+    } as PlayerResultData;
+  });
+
+  return { protocol, player_results: playerResults };
+};
+
+export const getRecoverablePendingClubGame = (game: ClubGameRecord): ClubGameRecord => {
+  const pending = getPendingClubGameProtocolSave(game.id);
+  if (!pending) return game;
+  const payload = rebasePendingClubGameProtocol(game, pending.payload);
+  const status = payload.protocol.status === 'completed' ? 'completed' : 'draft';
+  return {
+    ...game,
+    status,
+    club_protocol: {
+      version: 1,
+      kind: 'club_evening_protocol',
+      protocol: payload.protocol,
+      player_results: payload.player_results,
+    },
+  };
+};
+
 const shouldRetryFinalSave = (error: unknown) => {
   if (error instanceof ClubGameRequestError) {
     return error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
@@ -128,6 +211,14 @@ const saveProtocolWithRetry = async (gameId: number, payload: ProtocolSavePayloa
   throw lastError instanceof Error ? lastError : new Error('Не удалось сохранить результат проведённой игры');
 };
 
+const loadCurrentGameForRecovery = async (gameId: number): Promise<ClubGameRecord> => {
+  const games = await request<ClubGameRecord[]>('/api/games');
+  const game = games.find((candidate) => Number(candidate.id) === Number(gameId));
+  if (!game) throw new Error('Игра для восстановления не найдена на сервере');
+  if (!game.club_protocol) throw new Error('У игры отсутствует серверный клубный протокол');
+  return game;
+};
+
 export const clubGamesApi = {
   list: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}`),
   listArchived: (eveningId: string) => request<ClubGameRecord[]>(`/api/games?evening_id=${encodeURIComponent(eveningId)}&archived=1`),
@@ -151,7 +242,12 @@ export const clubGamesApi = {
   retryPendingProtocolSave: async (gameId: number) => {
     const pending = getPendingClubGameProtocolSave(gameId);
     if (!pending) return null;
-    const result = await saveProtocolWithRetry(gameId, pending.payload);
+    const currentGame = await loadCurrentGameForRecovery(gameId);
+    const payload = rebasePendingClubGameProtocol(currentGame, pending.payload);
+    // Persist the rebased version before the network write. If this attempt is
+    // interrupted too, the next retry no longer carries obsolete identities.
+    persistPendingProtocolSave(gameId, payload);
+    const result = await saveProtocolWithRetry(gameId, payload);
     clearPendingClubGameProtocolSave(gameId);
     clearStoredDeathProtocols();
     return result;

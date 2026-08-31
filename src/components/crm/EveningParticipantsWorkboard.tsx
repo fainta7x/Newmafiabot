@@ -187,7 +187,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     setActiveParticipant((current) => current?.id === updated.id ? updated : current);
   };
 
-  const patch = async (participant: EveningParticipant, data: Partial<EveningParticipant>, action: string) => {
+  const patch = async (participant: EveningParticipant, data: Partial<EveningParticipant>) => {
     if (busyIds.has(participant.id) || readonly) return;
     const optimistic = { ...participant, ...data } as EveningParticipant;
     setBusyIds((current) => new Set(current).add(participant.id));
@@ -209,10 +209,10 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     }
   };
 
-  const markAttended = (participant: EveningParticipant) => patch(participant, { attendance_status: 'attended' }, 'attend');
-  const markNoShow = (participant: EveningParticipant) => patch(participant, { attendance_status: 'no_show' }, 'no-show');
-  const markPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: Number(participant.amount_due || 0), payment_status: 'paid' }, 'pay');
-  const undoPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: 0, payment_status: 'unpaid' }, 'unpay');
+  const markAttended = (participant: EveningParticipant) => patch(participant, { attendance_status: 'attended' });
+  const markNoShow = (participant: EveningParticipant) => patch(participant, { attendance_status: 'no_show' });
+  const markPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: Number(participant.amount_due || 0), payment_status: 'paid' });
+  const undoPaid = (participant: EveningParticipant) => patch(participant, { amount_paid: 0, payment_status: 'unpaid' });
 
   if (loading && !evening) return <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center text-[12px] text-text-muted">Загрузка состава…</div>;
   if (!evening) return <div className="rounded-[18px] border border-danger/30 bg-danger-soft p-4 text-[12px] text-danger">{error || 'Не удалось загрузить вечер'}<button type="button" onClick={() => void load()} className="ml-2 font-bold underline">Повторить</button></div>;

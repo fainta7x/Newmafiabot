@@ -57,6 +57,13 @@ const addLedgerAdjustment = async (
       id, type, amount, category, description, player_id, evening_id,
       source_type, source_id, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'evening_pricing_reconcile', ?, ?)
+    ON CONFLICT(source_type, source_id, type) DO UPDATE SET
+      amount = financial_transactions.amount + excluded.amount,
+      category = excluded.category,
+      description = excluded.description,
+      player_id = excluded.player_id,
+      evening_id = excluded.evening_id,
+      created_at = excluded.created_at
   `, [
     crypto.randomUUID(), input.type, input.amount, category, input.description,
     input.playerId, input.eveningId, input.participantId, new Date().toISOString(),

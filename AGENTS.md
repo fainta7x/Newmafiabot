@@ -19,6 +19,8 @@ For every new chat/session that touches the repository:
 
 Do **not** rebuild project context primarily from old chat history. Old chats and historical roadmaps are secondary evidence only.
 
+When the user asks “what remains / what should we do next”, do **not** answer from remembered backlog alone. Reconcile `PROJECT_STATE` with current `main` first. An old open PR, old roadmap item or old chat task is **not** unfinished work merely because it is still visible; confirm that the requested behavior is actually absent from current code before proposing it.
+
 ## 2. Source-of-truth precedence
 
 Use this order when sources disagree:
@@ -31,7 +33,7 @@ Use this order when sources disagree:
 6. `docs/FEATURE_MAP.md` / `docs/ERROR_PLAYBOOK.md` — navigation aids;
 7. merged PR/commit history — recent transitions;
 8. historical roadmap/release notes — history only;
-9. old chats — never override newer Git state.
+9. old chats and stale open PR descriptions — never override newer Git state.
 
 If docs contradict current code, do a **targeted reconciliation**, update the stale doc in the same workstream, and do not continue with two competing interpretations.
 
@@ -53,6 +55,7 @@ Other docs should link to the owner instead of restating mutable facts.
 - Perform one targeted discovery pass, then keep a compact file map.
 - Prefer `FEATURE_MAP/ERROR_PLAYBOOK -> exact source files -> focused tests`.
 - Never infer that `legacy`, `old`, `V2`, `Base`, etc. means unused; confirm imports/mounts/build transforms.
+- Never infer that an old/open PR is still needed; compare its intended behavior with current `main` first.
 - Preserve newer user/AI Studio changes. A working branch has one writer by default.
 - If a branch head moves unexpectedly, stop and reconcile before writing again.
 - Never delegate implementation back to AI Studio when repository access is available.
@@ -90,7 +93,6 @@ Before merge:
 - never weaken TypeScript/tests to force green;
 - inspect the exact failing job before rerunning;
 - for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots when browser verification is explicitly requested.
-
 
 ## Mobile-first Telegram WebApp contract
 
@@ -135,6 +137,8 @@ In the same PR when practical:
 - update `FEATURE_MAP` only when first-hop ownership changes.
 
 Do not maintain detailed chronological completed-work lists in multiple docs. Git history is the history.
+
+When a previously planned feature becomes implemented, remove or reclassify the stale backlog entry in `PROJECT_STATE` in the same workstream. Do not leave “to build” instructions for a subsystem that already exists.
 
 ## 9. End-of-task handoff
 

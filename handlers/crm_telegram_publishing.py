@@ -14,7 +14,7 @@ from bot_telegram_api import (
     save_public_router_message_id,
 )
 from crm_evening_keyboard import crm_evening_response_kb
-from handlers.telegram_evening_copy import closed_event_text, format_start, thematic_event_text
+from handlers.telegram_evening_copy import format_start, thematic_event_text
 
 
 async def _bot_url(bot: Bot, start: str | None = None) -> str | None:
@@ -162,25 +162,13 @@ async def sync_evening_telegram(
         public_removed = await _cleanup_public_event_post(bot, public_publication)
         results.append({"destination_id": "public", "action": "removed_event_post", "success": public_removed})
 
-    for destination_id, publication in publications.items():
-        if destination_id == "public":
+    # A routed event post is also the chat history of who was gathering for that evening.
+    # Once the evening leaves a destination (completed/cancelled or routing changed), freeze
+    # the existing Telegram message instead of replacing its text with "Запись закрыта".
+    for destination_id in publications:
+        if destination_id == "public" or destination_id in desired:
             continue
-        if destination_id in desired:
-            continue
-        status = str(evening.get("status") or "")
-        text = closed_event_text(
-            evening,
-            cancelled=status == "cancelled",
-            obsolete=status in {"published", "active"},
-        )
-        ok = await _edit_message(
-            bot,
-            publication.get("chat_id"),
-            int(publication.get("message_id")),
-            text,
-            None,
-        )
-        results.append({"destination_id": destination_id, "action": "closed", "success": ok})
+        results.append({"destination_id": destination_id, "action": "archived", "success": True})
 
     event_url = await _bot_url(bot, f"event_{evening_id}")
     event_keyboard = _event_link_keyboard(evening_id, event_url)

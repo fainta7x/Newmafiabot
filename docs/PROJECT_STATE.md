@@ -2,30 +2,28 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-08-28
+**Status date:** 2026-09-02
 
-**Latest release record:** PR #186 merged as `30126aaf013285ea8688cecaf4f4dcc6d6cdf483`
+**Latest release record:** PR #216 merged after a full green CI gate; it fixes repeated closed-evening payment reconciliation that could fail on `financial_transactions(source_type, source_id, type)` uniqueness.
 
-**Release gate:** PR #186 checks passed before merge
+**Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
-**Deploy mode:** Amvera combined Docker application; deployment/runtime verification remains separate from Git merge
-
-**Live deployment:** must be verified separately after manual deploy; Git merge/CI does not prove deployed SHA
+**Live deployment:** the user started a new Amvera deploy after PR #216, but runtime verification of that exact release is not yet recorded here. Do not claim the latest `main` is live until the public runtime is checked.
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
-## Current source-of-truth model
+## Source-of-truth model
 
 - Code/current SHA: latest remote `main`.
-- Current product/deploy/storage state: this file.
+- Current product/deploy/storage state and current queue: this file.
 - Work procedure: `AGENTS.md` + `docs/RUNBOOK.md`.
 - Runtime topology: `docs/ARCHITECTURE.md`.
 - Feature routing: `docs/FEATURE_MAP.md`.
 - Game/product rules: `docs/BUSINESS_RULES.md`.
 - Visual contract: `docs/DESIGN_SYSTEM.md`.
-- Old roadmaps/release notes: historical only.
+- Old roadmaps, old chats and old open PR descriptions: historical evidence only.
 
-If this file contradicts current code, inspect the targeted implementation and update this file rather than keeping both interpretations alive.
+**Important:** an old open PR is not automatically unfinished product work. Before treating any old PR as backlog, compare it with current `main`. Several historical/stacked PRs remain open even though their functionality has since been implemented or superseded.
 
 ## Production/runtime
 
@@ -34,94 +32,136 @@ If this file contradicts current code, inspect the targeted implementation and u
 - Canonical production target: one Amvera Docker application built from `main`.
 - Public origin: `https://2la-noire-chagina7x.waw0.amvera.tech`.
 - The container runs nginx, Node web/API and the integrated Python Telegram bot under Supervisor.
-- `/api/health` is shallow liveness; `/api/health/runtime` is the safe deep Turso/bot/Telegram check after the monitoring release is deployed.
-- Legacy Render service `2la-noire-web-staging` is suspended/retained only as historical configuration, not the canonical combined runtime.
-- The separate `fainta7x/mafiabot` repository is a legacy bot copy and is not the source selected for the combined deployment.
+- `/api/health` is shallow liveness.
+- `/api/health/runtime` is the safe deep Turso/bot/Telegram check.
+- Legacy Render is retained only as historical/fallback configuration, not the canonical deployment target.
+- The separate `fainta7x/mafiabot` repository is legacy and is not the source selected for the combined deployment.
 
-### Database — important
+### Database — critical
 
-The DB wrapper in `src/db/index.ts` owns backend selection.
+`src/db/index.ts` owns backend selection.
 
-**Current production-primary path:** remote **Turso** when both secrets are configured:
+**Production-primary:** remote Turso whenever both are configured:
 
 - `TURSO_DATABASE_URL`
 - `TURSO_AUTH_TOKEN`
 
-When those two values exist, the application uses Turso and does not use local `DATABASE_PATH` as the primary data store. Existing non-empty Turso data wins over repository checkpoint data.
+Existing non-empty Turso data always wins over repository checkpoint/bootstrap data.
 
-**Fallback/local path:** `DATABASE_PATH`. On the current Free Render blueprint this is `/tmp/2la-noire-web-staging/mafia_crm.sqlite`. `/tmp` is not the production source of truth when Turso is configured.
+`DATABASE_PATH` is fallback/local storage. The Python bot may still keep legacy local state under `/data`, but that must never replace or seed canonical Turso data.
 
-**Checkpoint:** `mafia_crm.checkpoint.sqlite.gz.b64` + metadata are bootstrap/recovery artifacts. They are never normal production synchronization and must never overwrite a non-empty runtime database.
+Repository checkpoint files are bootstrap/recovery artifacts only:
 
-Production persistence through previous Render deploys, including post-2026-08-09 games/avatar changes, is consistent with the Turso production path introduced on 2026-08-11 and subsequently made CRM/event/token compatible.
+- `mafia_crm.checkpoint.sqlite.gz.b64`
+- `mafia_crm.checkpoint.meta.json`
 
-## Current application state
+Never reset/import/restore production Turso as a normal bug fix or deploy step.
+
+## Current product state
 
 ### Player application
 
 Implemented and connected:
 
-- authentication/session;
-- canonical Player Cabinet shell and dashboard;
-- events/calendar/registration;
-- rolling regular-Friday calendar keeps registration available roughly 35 days ahead;
+- Telegram/session authentication and canonical Player Cabinet shell;
+- events/calendar/registration and multi-game slot planning;
 - games/history/statistics/career/replay;
 - rating/Elo/rating periods;
-- club/player profiles and avatar support;
+- club/player profiles and avatars;
 - wallet/tokens/shop/betting/manual accounting;
-- conduct/judging surfaces;
-- speech recording and live-related player flows.
-- Profile is the single self-service identity surface (avatar, personal data and exactly two personal music slots); it uses the canonical `/api/player/me` identity.
-- Conduct is the single host/judge workspace for assigned games, game launch and the persistent staff music library; its music pane has the addressable route `/player/conduct/music`.
+- judging/conduct surfaces and speech recording;
+- exactly two personal music slots in the player profile;
+- staff/judge music library and playlist;
+- judge game launcher and in-game music controller.
+
+### Player ↔ Organizer navigation
+
+This is **already implemented** and must not be presented as future work.
+
+- Player Cabinet and Organizer CRM are two modes of one application.
+- `src/App.tsx` owns route-level transitions between `/player/*` and `/admin/*`.
+- `src/components/ProductModeSwitch.tsx` provides the bidirectional switch.
+- Switching modes does not log the user out and does not bypass permissions.
+
+### Music system
+
+This is **already implemented** and must not be presented as an unfinished “build music database/player” project.
+
+Implemented surfaces include:
+
+- player personal music slots;
+- persistent staff/judge music library;
+- `JudgeMusicPlaylist`;
+- `JudgeGameMusicController` during conducted games;
+- event/live music pool behavior.
+
+Future music work should start from a concrete missing behavior or UX request, not from an assumption that the music subsystem does not exist.
 
 ### Organizer CRM
 
 Implemented and connected:
 
-- organizer auth;
-- organizer entitlement belongs to a **server-verified canonical player identity** (`player_id`), never to a client-supplied Telegram/VK ID, username or screen name;
-- the canonical club-owner player profile is the sole built-in CRM owner and can establish organizer access directly after Telegram or linked VK proves that same player profile — no organizer password is required for that owner account;
-- other bot admins, judges and hosts do **not** inherit CRM-owner access automatically;
-- a successful organizer-password login can still bind organizer entitlement to another already verified canonical player identity as an explicit fallback/recovery path;
-- Player Cabinet shows the organizer-panel entry only when the resolved session has organizer authority;
-- Player Cabinet and Organizer CRM expose a shared bidirectional mode switch in top chrome; switching context does not log the user out;
+- organizer auth/entitlement tied to canonical player identity;
 - Today/command center;
 - evenings/calendar/workspace;
-- nested `Ещё` tools have addressable `/admin/more/:tool` routes so browser/Telegram back navigation restores the actual tool rather than only the CRM root;
-- regular Friday evenings are reconciled automatically for the next 35 days without immediately publishing external posts;
-- the upcoming Friday becomes due for Telegram channel/group publication, initial eligible personal Telegram invitations and VK publication every Monday at 19:00 Moscow; retries are idempotent and delayed wake-ups catch up safely;
-- every regular Friday receives a high-priority organizer close-out task due Saturday 19:00 Moscow;
-- close-out is optimized for attendance, walk-ins, payment/debt and games; unpaid attended players may close as debt, and missing/unfinished game statistics may be explicitly waived without blocking the evening forever;
-- participants/tables/games/protocol workflow;
-- player CRM;
-- CRM `Игроки` is the single organizer-facing player work card: it owns access/roles, CRM notes and the rare token/Elo/manual-achievement corrections. `Данные и настройки` retains club-wide catalogs and expert data, not a separate player editor.
-- tasks/analytics;
+- announcements, responses and game-slot planning;
+- participants, walk-ins, attendance and payments;
+- tables/games/protocol workflow;
+- player CRM, tasks and analytics;
 - commerce/admin data;
-- persistent organizer music library with uploaded tracks and Yandex links, player-slot inclusion in evening pools, and live role-deal/night controls;
-- Telegram/VK/system diagnostics.
+- Telegram/VK/system diagnostics;
+- music administration/context links.
+
+Recent reliability/UX work includes:
+
+- quick attendance/payment row actions update in place instead of refreshing the whole workspace;
+- active in-progress evenings accept existing database players who arrived without prior registration;
+- closed-evening payment edits remain available through the canonical payment service;
+- repeated payment/pricing reconciliation is idempotent and must not create duplicate financial ledger rows;
+- closeout distinguishes planned response from factual attendance.
+
+A broader CRM UX redesign is **deferred by current user preference**. Do not start it automatically just because old PR #174 or old roadmap text mentions it.
+
+### Evening / Telegram response flow
+
+Current approved behavior:
+
+- `Буду` / `Иду` selects all current game slots automatically;
+- `Приду позже` records late intent without inventing exact game choices;
+- `Пока думаю` records thinking without exact game choices;
+- `Не буду` clears game-slot selections;
+- manual game-slot selection uses the canonical save route and is expected to persist;
+- closed/past Telegram announcement history is preserved instead of overwriting the old message with only “registration closed”.
+
+### Games and protocol recovery
+
+Implemented:
+
+- completed games can be opened in explicit correction mode where supported;
+- pending/failed final game saves are recoverable;
+- a stale local pending save is rebased onto the current server roster by seat so old local player IDs cannot silently replace the canonical roster;
+- a pending game exposes protocol editing instead of trapping the organizer behind only “retry save”.
 
 ### Live Game
 
-The canonical Player Cabinet visual language has been rolled through the Live Game release chain merged in PR #118.
+The real club launcher currently provides:
 
-Current judge workspace includes:
+- roles hidden by default with manual reveal;
+- phase-aware day/night/voting flow;
+- voting order and long-candidate scrolling;
+- editable vote assignment: a voter can be moved directly between candidates, and undo restores an editable voting state;
+- repeated split/revote speeches only once per unchanged disputed set;
+- player actions and fouls available throughout active play where appropriate;
+- night shot/Don/Sheriff markers scoped to their actual subphase;
+- consistent Undo snapshots across voting, zero round and best-move/protocol overlays;
+- actual day-starter rotation based on the previous **actual** starter, skipping absent/dead seats;
+- `+30с за 2 фола` during an eligible current speech after zero round;
+- protocol/best-move announcement buffers increased by five seconds;
+- local session recovery.
 
-- canonical dark shell and center HUD;
-- phase-aware day/night/voting hierarchy;
-- 10 distinct seat identities;
-- quick nominations/fouls and contextual player action sheet;
-- foul/technical-foul/removal/PPK presentation;
-- compact event journal with Undo;
-- voting, revote and table-decision readability fixes;
-- ordinary voting and «поднять / оставить» use player seat cards for judge input instead of synthetic center voter controls;
-- mandatory unmarked votes stay visually unassigned until the judge finalizes the last candidate, when the approved last-candidate rule is applied;
-- Don/Sheriff night-check readability;
-- eliminated-player identity preservation;
-- recovery presentation aligned to the main table;
-- death protocol aligned to the cabinet visual language;
-- setup and physical role distribution aligned to the same judge-first cabinet hierarchy, with the start action prioritized and music/speech recording kept as secondary controls.
+Known low-priority technical tail: a bare `LiveGameEngine` render without the normal controlled `rolesHidden` prop still has an internal visible-role fallback. The real club launcher passes the controlled hidden state, so this is cleanup rather than a current club blocker.
 
-Approved Mafia mechanics remain governed by `docs/BUSINESS_RULES.md`; the design migration must not reinterpret them.
+Approved game behavior remains governed by `docs/BUSINESS_RULES.md`.
 
 ## Integrations
 
@@ -129,14 +169,16 @@ Approved Mafia mechanics remain governed by `docs/BUSINESS_RULES.md`; the design
 
 Connected:
 
-- Telegram WebApp/player entry;
-- announcement/bot APIs;
+- Mini App/player entry;
+- announcement APIs and Python bot bridge;
+- response/game-slot synchronization;
+- preservation of historical announcement messages after an evening closes;
 - synchronization/outbox paths;
-- organizer non-destructive runtime diagnostics;
-- public non-destructive aggregated runtime diagnostics and an independent five-minute GitHub Actions monitor that can notify trusted Telegram recipients on outage/recovery transitions after repository secrets are configured;
-- existing 30-minute public-router refresh is also the heartbeat that reconciles the rolling Friday calendar and due weekly announcement; the reconciler is safe to rerun.
+- organizer runtime diagnostics;
+- independent GitHub Actions runtime monitor with Telegram outage/recovery notifications when secrets are configured;
+- weekly Friday calendar/announcement reconciliation.
 
-A green CI run does not prove live bot token/webhook/service health. Verify after deploy when relevant.
+Green CI does not prove live bot token/webhook/deployed SHA.
 
 ### VK
 
@@ -145,30 +187,56 @@ Connected:
 - OAuth/callback/join/direct paths;
 - organizer runtime diagnostics;
 - public join/live endpoints;
-- direct Friday-evening publication is part of the same Monday weekly announcement reconciliation.
+- Friday publication through the weekly announcement reconciliation.
 
-Live credentials/callback state must be checked at runtime when the requested flow depends on them.
+Runtime credentials and callback state must be checked when a requested flow depends on them.
 
-## Intentionally incomplete / paused
+## Recent real-world validation
+
+The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues, which have since received targeted fixes (instant row actions, walk-in player add, pending game recovery and payment reconciliation).
+
+This real-world success is useful evidence, but it is not a substitute for targeted regression tests or runtime verification after a new deploy.
+
+## Intentionally incomplete / deferred
 
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.
-- Multi-city/multi-club expansion is not a current product priority.
-- Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested product work.
+- Multi-city/multi-club expansion is not a current priority.
+- Broad CRM UX redesign is deferred until the user asks to resume it.
+- Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.
 - Live Game CSS consolidation is technical debt, not a release requirement.
+- Bare-engine role-visibility fallback cleanup is low priority because the canonical club launcher already starts hidden.
+
+## Current backlog rule
+
+Do **not** reconstruct backlog from old chat summaries or old open PR descriptions.
+
+For a fresh planning request:
+
+1. read this file and latest remote `main`;
+2. review the last 5–10 merged commits;
+3. inspect currently open PRs only as candidates, not as truth;
+4. remove anything already implemented in current code;
+5. present only genuinely missing, deferred or newly requested work.
+
+As of this snapshot, these items are explicitly **not** backlog:
+
+- “connect Player Cabinet and CRM” — done;
+- “build the music database/player” — done;
+- “make Live Game basically usable” — done; future work must name a concrete remaining issue.
+
+## Immediate next queue
+
+1. Finish/verify deployment of the latest intended `main` on Amvera after PR #216.
+2. Verify `/api/health` and `/api/health/runtime` and then the exact user-reported payment flow on the deployed build.
+3. If planning new work, derive a **fresh backlog from current main**, not from the August roadmap.
+4. Evaluate dependency PR #214 separately; it is maintenance, not product backlog.
+5. Resume CRM UX redesign only when the user explicitly chooses it.
 
 ## Verification model
 
-During work:
+Ordinary PR merge gate:
 
-- focused tests first;
-- `npm run project:verify:fast` after a coherent batch when useful;
-- ordinary PRs use the fast non-browser merge gate;
-- Playwright runs only through the manual workflow when explicitly requested or needed for release verification;
-- visual PRs require fresh screenshot review when browser verification is requested.
-
-The ordinary merge-blocking CI includes:
-
-- handoff integrity (`project:status --check` etc.);
+- project handoff integrity;
 - production dependency audit;
 - release data-safety audit;
 - TypeScript;
@@ -176,19 +244,12 @@ The ordinary merge-blocking CI includes:
 - Vitest;
 - production build;
 - Python bot syntax;
-- combined production container health;
-- CodeQL and Gitleaks workflows.
+- combined production container;
+- CodeQL;
+- Gitleaks.
 
-Browser verification is preserved in `.github/workflows/playwright-manual.yml` and is not part of the ordinary PR merge gate.
-
-## Immediate next queue
-
-1. Deploy the latest intended `main` to the combined Amvera application without importing, resetting or replacing Turso data.
-2. Verify `/api/health`, `/api/health/runtime`, Telegram webhook state, Mini App opening, passwordless owner CRM entry and recent live-data markers.
-3. Configure the Amvera shallow startup/liveness probe and native failure email from `docs/RUNBOOK.md`.
-4. Configure the GitHub Actions monitoring bot secrets, send the manual test notification and confirm the five-minute workflow is armed.
-5. Verify the rolling Friday calendar and the next due Telegram/VK weekly announcement state without sending duplicate smoke announcements.
+Playwright/browser verification is separate and should be used when visual/browser behavior requires it.
 
 ## Mandatory session rule
 
-One user message/request may create at most **3 PRs**. See `AGENTS.md` and `docs/RUNBOOK.md` for the full rule.
+One user message/request may create at most **3 PRs**. See `AGENTS.md` and `docs/RUNBOOK.md`.

@@ -14,7 +14,21 @@ When a future conversation introduces a new explicit rule, update this document 
 
 ### Ordinary fouls
 
-- The **3rd foul** gives the player a **30-second speech penalty**.
+- The **3rd foul** gives the player a **30-second speech penalty on the next applicable speech**.
+
+### Two fouls for +30 seconds of the current speech
+
+After the zero round, the active speaker may exchange **two ordinary fouls for +30 seconds on the current speech**.
+
+Approved constraints:
+
+- the exchange is unavailable on the zero round;
+- it is available only during an actual current player speech, including ordinary day speech, revote/split speech and farewell speech;
+- the player must start the exchange with **0 or 1 ordinary foul**;
+- `0 -> 2` grants +30 seconds to the current speech and does not create a third-foul penalty;
+- `1 -> 3` grants +30 seconds to the current speech **and** preserves the normal third-foul 30-second penalty for the next applicable speech;
+- at 2+ ordinary fouls the exchange is forbidden, so this action must never be used to trigger a fourth-foul removal;
+- the two-foul exchange is an explicit judge action, not an automatic timer extension.
 
 ### Technical fouls
 
@@ -39,6 +53,28 @@ When a future conversation introduces a new explicit rule, update this document 
 ### Team victory
 
 - Team victory gives **+1** under the approved scoring model.
+
+## Speech order and timing
+
+### Actual starter rotation
+
+The next daytime speech circle starts clockwise from the **actual previous starter**, not from a nominal round-number formula.
+
+- If the previous actual starter was seat 6, the next circle starts searching from seat 7.
+- Dead/absent/unavailable seats are skipped.
+- Rotation wraps from 10 back to 1.
+- Persisted/restored current-game state should retain the actual starter when available; old snapshots that predate this field may use compatibility fallback behavior.
+
+### Protocol / best-move announcement buffer
+
+The judge needs a short spoken-announcement buffer before the player’s usable protocol time starts to feel consumed.
+
+Current approved timer totals include that buffer:
+
+- best move / ЛХ: **25 seconds total**;
+- killed-player protocol: **20 seconds total**.
+
+These totals intentionally include roughly five seconds for the judge to announce that the player has received the right to the best move/protocol.
 
 ## Voting model
 
@@ -75,6 +111,15 @@ These distinctions are fundamental and must remain explicit in UI/state/tests.
 - Voting is mandatory when the rules require a vote.
 - A player who does not vote has their vote assigned to the **last candidate**.
 
+### Judge correction / vote reassignment
+
+During vote collection the judge must be able to correct a misclick without trapping the voter in an old candidate assignment.
+
+- assigning a voter to the current candidate may move that voter directly from a previously selected candidate;
+- pressing the same voter again on the same candidate may remove that assignment;
+- going back from a voting result should restore an **editable** vote distribution, not only a visual phase label;
+- Undo/back must restore the complete voting state needed to continue editing: candidate order, active round/stage, per-voter assignments and remaining eligibility.
+
 ### Decided vote
 
 - Once the result is mathematically **decided**, it cannot be rescued by later votes.
@@ -97,6 +142,10 @@ The conducted-game interface is a judge protocol surface, not a generic game UI.
 - Judge-facing seat numbers `1–10` must remain visually distinct from one another so a number can be identified at a glance; adjacent seats must not collapse to effectively the same color.
 - The center of Live Game should prioritize the current protocol step, information required for that step and the next judge action. Do not duplicate the same voting/seat information in multiple miniature panels when the table itself already carries it.
 - Fouls, technical fouls, nominations/voting state and the current game step must stay quickly readable during play; rare/dangerous actions may stay behind a player action sheet, but routine judge actions should not require hunting through decorative UI.
+- Routine player actions must remain available throughout active play where game context allows them, including during voting/revote speech states; card taps may stay context-sensitive when they are required for a vote/night target, but the judge must still have an explicit player-actions path.
+- Roles in the canonical club launcher start hidden and are revealed manually by the judge.
+- Night shot/Don/Sheriff markers belong only to their active night subphase and must not leak into later best-move/farewell states.
+- “Назад” / Undo must not become a dead end behind full-screen protocol or best-move overlays; entering such a state needs a restorable previous snapshot and an accessible way back.
 
 ## Player status terminology
 
@@ -111,6 +160,9 @@ Do not collapse these into one generic “out” status when the distinction is 
 
 - Organizer/judge correction workflows may edit completed game/tournament protocol data where the application explicitly supports correction mode.
 - Corrections must preserve auditability/business invariants and must not reset unrelated data.
+- A failed/pending final game save must be recoverable without silently changing the canonical server roster.
+- If a stale local protocol references outdated player identities, recovery may rebind gameplay results to the **current canonical server roster by seat**; it must not use the stale local save to replace server player/participant identities.
+- A pending game must remain openable in correction mode rather than trapping the organizer behind only a retry button.
 
 ## Evening registration
 
@@ -129,6 +181,27 @@ The event/announcement model is centered on an evening with linked player contac
 
 Evening restrictions are product-level event restrictions (for example newcomer/rating/tournament type), not an invitation-reservation system by default.
 
+### RSVP and exact game-slot plan
+
+Planned evening response and exact game-slot commitment are related but separate facts.
+
+Approved Telegram/player behavior:
+
+- **Иду / Буду** -> automatically select all current game slots for that evening;
+- **Приду позже** -> record late intent, but do not invent an exact game-slot plan automatically;
+- **Пока думаю** -> record thinking, with no automatic exact game-slot plan;
+- **Не иду / Не буду** -> clear selected game slots;
+- changing away from an automatic “all games” answer must not leave stale automatic slot commitments behind;
+- manual exact game selection must persist through the canonical slot-plan save route.
+
+### Walk-ins
+
+An existing player from the player database may be added to a current in-progress, not-yet-closed evening even if they did not register beforehand.
+
+- A walk-in must not be given a fabricated historical **«Иду»** response.
+- Preserve any real prior response if it exists.
+- Factual attendance and played games may be recorded independently from the planned response.
+
 ## Recurring Friday evenings
 
 The regular club cadence is automatic rather than organizer-maintained by hand.
@@ -141,6 +214,14 @@ The regular club cadence is automatic rather than organizer-maintained by hand.
 - If the service was asleep at the exact due time, the next safe reconciliation should catch up the still-upcoming Friday instead of silently skipping the week.
 - Existing manually created Friday drafts inside the rolling window may be promoted to registration-open/published state rather than duplicated.
 
+## Announcement history
+
+A completed/closed evening is historical club information.
+
+- Closing registration or finishing an evening must **not** destroy the old Telegram announcement/history by replacing the whole previous message with only “registration closed”.
+- Historical announcement content should remain visible in chat after the evening closes.
+- Future UI/automation may add archival status, but it must preserve the useful old message/history.
+
 ## Evening close-out
 
 Closing a club evening should be **fast, flexible and fact-based**, not a rigid admin checklist.
@@ -151,6 +232,8 @@ Closing a club evening should be **fast, flexible and fact-based**, not a rigid 
 - A player who arrived without registration can be added or found quickly during close-out and marked as attended without fabricating a prior «Иду» response. Planned response and factual attendance remain separate facts.
 - Payment does **not** block closing. For an attended player, the recorded paid amount is income and any remaining amount becomes debt at settlement.
 - Before final close/settlement, a manually confirmed payment must remain correctable: an accidental full-payment mark can be removed and returned to unpaid so the organizer is never trapped by one mistaken tap.
+- Quick attendance/payment actions should update the affected row/state in place; a routine single-row mark must not force a full workspace reload that resets filters/scroll/selection.
+- Repeated payment/reconciliation calls must be idempotent with respect to the unique financial transaction source key; retrying a valid action must not fail because an adjustment row already exists.
 - If all game protocols are present and completed, close normally.
 - If games were not entered or unfinished drafts remain, the organizer may explicitly choose **«закрыть без полной игровой статистики»**. Unfinished drafts must be excluded from active statistics rather than silently treated as completed games.
 - Closing the evening completes its organizer close-out task.

@@ -93,7 +93,7 @@ export default function PlayerEventSlotDetail({
     setSaved(false);
     try {
       const response = await fetch(`/api/player/evenings/${encodeURIComponent(event.id)}/slots`, {
-        method: 'POST',
+        method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slot_ids: draft }),

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { botServiceAuth } from '../botServiceAuth.ts';
 import { loadPlayerAchievementProfile } from '../services/playerAchievementsService.ts';
 import { setParticipantResponse } from '../services/eveningParticipantState.ts';
+import { loadEveningSlotPlan, replacePlayerSlotSelection } from '../services/eveningSlotPlanningService.ts';
 import {
   findPlayersByNickname,
   getPlayerByTelegramId,
@@ -226,7 +227,21 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     );
     if (!participant) return res.status(500).json({ error: 'Не удалось создать участника вечера' });
 
-    await setParticipantResponse(db, String(participant.id), responseStatus as any);
+    // Telegram quick RSVP owns the coarse commitment, while exact game selection
+    // remains available in the Mini App. "Буду" means the whole evening; the other
+    // quick answers intentionally clear an earlier automatic whole-evening choice.
+    if (responseStatus === 'going') {
+      const plan = await loadEveningSlotPlan(db, String(evening.id), String(player.id));
+      await replacePlayerSlotSelection(
+        db,
+        String(evening.id),
+        String(player.id),
+        plan.slots.map((slot) => slot.id),
+      );
+    } else {
+      await replacePlayerSlotSelection(db, String(evening.id), String(player.id), []);
+      await setParticipantResponse(db, String(participant.id), responseStatus as any);
+    }
 
     res.json({
       success: true,

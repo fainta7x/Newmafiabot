@@ -99,6 +99,8 @@ export default function SeatCard(props: SeatCardProps) {
   const regularFouls = Number(player.fouls || 0);
   const minorTechFouls = Number(player.minor_tech_fouls || 0);
   const majorTechFouls = Number(player.major_tech_fouls || 0);
+  const aliveCount = activePlayers.filter((item) => item.alive).length;
+  const isGuessingDay = phase === "day_speeches" && (aliveCount === 3 || aliveCount === 4);
   const isSpeaking = activeSpeakerSlot === slotNum;
   const isNominated = nominations.includes(slotNum);
   const activeVoteNominee = phase === "day_voting" ? nominations[currentVotingNomineeIndex] : undefined;
@@ -203,7 +205,7 @@ export default function SeatCard(props: SeatCardProps) {
     if (isSpeaking) {
       return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
     }
-    if (player.has_foul_penalty || regularFouls === 3) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
+    if (player.has_foul_penalty && !isGuessingDay) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
     // The nomination is already visible in the compact action chip and in the
     // centre panel. Do not duplicate it in the middle of the card: on mobile it
     // covers the avatar and makes the table harder to scan.

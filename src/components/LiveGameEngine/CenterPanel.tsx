@@ -343,10 +343,10 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const handleVotingBack = () => {
     if (!currentRound || !currentVotingResult) return;
-    setIsTimerRunning(false);
-    setActiveSpeakerSlot(null);
 
     if (votingStage === 'round_result') {
+      setIsTimerRunning(false);
+      setActiveSpeakerSlot(null);
       deactivateTableDecisionSelection();
       setTableLeaveVotesInput?.(null);
       setVotingStage?.('collecting');
@@ -356,12 +356,16 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (votingStage === 'revote_speeches') {
       const participants = currentVotingResult.winners;
       if (revoteSpeakerIndex > 0) {
+        setIsTimerRunning(false);
+        setActiveSpeakerSlot(null);
         const previousIndex = revoteSpeakerIndex - 1;
         const previousSpeaker = participants[previousIndex];
         setRevoteSpeakerIndex?.(previousIndex);
         if (previousSpeaker) handleStartTimer(previousSpeaker, 30);
       } else {
-        setVotingStage?.('round_result');
+        const undo = getPrevStepAction();
+        if (undo) undo.onClick();
+        else setVotingStage?.('round_result');
       }
     }
   };

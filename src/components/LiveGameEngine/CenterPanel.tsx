@@ -75,6 +75,7 @@ interface CenterPanelProps {
   setTableLeaveVotesInput?: React.Dispatch<React.SetStateAction<number | null>>;
   handleConfirmSingleElimination?: (slotNum: number) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
+  handleBackFromRevoteSpeeches?: () => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
@@ -150,6 +151,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     setTableLeaveVotesInput,
     handleConfirmSingleElimination,
     handleGoToRevoteSpeeches,
+    handleBackFromRevoteSpeeches,
     handleLaunchNextRevote,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
@@ -343,10 +345,10 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const handleVotingBack = () => {
     if (!currentRound || !currentVotingResult) return;
-    setIsTimerRunning(false);
-    setActiveSpeakerSlot(null);
 
     if (votingStage === 'round_result') {
+      setIsTimerRunning(false);
+      setActiveSpeakerSlot(null);
       deactivateTableDecisionSelection();
       setTableLeaveVotesInput?.(null);
       setVotingStage?.('collecting');
@@ -356,11 +358,17 @@ export default function CenterPanel(props: CenterPanelProps) {
     if (votingStage === 'revote_speeches') {
       const participants = currentVotingResult.winners;
       if (revoteSpeakerIndex > 0) {
+        setIsTimerRunning(false);
+        setActiveSpeakerSlot(null);
         const previousIndex = revoteSpeakerIndex - 1;
         const previousSpeaker = participants[previousIndex];
         setRevoteSpeakerIndex?.(previousIndex);
         if (previousSpeaker) handleStartTimer(previousSpeaker, 30);
+      } else if (handleBackFromRevoteSpeeches) {
+        handleBackFromRevoteSpeeches();
       } else {
+        setIsTimerRunning(false);
+        setActiveSpeakerSlot(null);
         setVotingStage?.('round_result');
       }
     }

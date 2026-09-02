@@ -279,6 +279,27 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast("Последнее действие отменено", "info");
   };
 
+  const handleBackFromRevoteSpeeches = () => {
+    for (let index = historyStack.length - 1; index >= 0; index -= 1) {
+      const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
+      if (
+        snapshot.phase === 'day_voting' &&
+        snapshot.votingStage === 'round_result' &&
+        snapshot.activeVotingRoundIndex === activeVotingRoundIndex
+      ) {
+        restoreSnapshot(snapshot);
+        setHistoryStack((previous) => previous.slice(0, index));
+        showToast("Возврат к итогу голосования", "info");
+        return;
+      }
+    }
+
+    setIsTimerRunning(false);
+    setActiveSpeakerSlot(null);
+    setVotingStage('round_result');
+    showToast("Возврат к итогу голосования без истории действий", "warning");
+  };
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem("mafia_live_session");
@@ -1347,6 +1368,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setTableLeaveVotesInput,
       handleConfirmSingleElimination,
       handleGoToRevoteSpeeches,
+      handleBackFromRevoteSpeeches,
       handleLaunchNextRevote,
       handleConfirmAutoNoElimination,
       handleConfirmTableDecision,

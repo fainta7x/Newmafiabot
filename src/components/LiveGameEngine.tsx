@@ -363,21 +363,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleAdjustTime = (amount: number) => setTimeLeft((value) => Math.max(0, value + amount));
 
-  const startPlayerSpeechTimer = (slot: number, duration = 60, label: string | null = null) => {
-    const consumed = consumeNextSpeech(discipline, String(slot));
-    const actual = consumed.duration ?? duration;
-    if (consumed.newState !== discipline) {
-      setDiscipline(consumed.newState);
-      syncDisciplinePlayer(consumed.newState, slot);
-    }
-
-    setActiveSpeakerSlot(slot);
-    setCustomTimerLabel(label);
-    setTimerMax(actual);
-    setTimeLeft(actual);
-    setIsTimerRunning(true);
-  };
-
   const handleStartTimer = (slot: number, duration = 60) => {
     const player = activePlayers.find((p) => p.slot_num === slot);
     if (!player?.alive) return;
@@ -387,7 +372,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
 
     saveSnapshot();
-    startPlayerSpeechTimer(slot, duration);
+    const aliveCount = activePlayers.filter((p) => p.alive).length;
+    const isGuessingDaySpeech = phase === 'day_speeches' && (aliveCount === 3 || aliveCount === 4);
+    const consumed = isGuessingDaySpeech
+      ? { duration: null, newState: discipline }
+      : consumeNextSpeech(discipline, String(slot));
+    const actual = isGuessingDaySpeech ? 60 : (consumed.duration ?? duration);
+    if (consumed.newState !== discipline) {
+      setDiscipline(consumed.newState);
+      syncDisciplinePlayer(consumed.newState, slot);
+    }
+
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(null);
+    setTimerMax(actual);
+    setTimeLeft(actual);
+    setIsTimerRunning(true);
   };
 
   const handleStartZeroNightTimer = (sub: "agreement" | "sheriff" | "seating") => {
@@ -792,7 +792,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingFarewellQueue(queue);
     setVotingFarewellIndex(index);
     setVotingStage('resolved');
-    startPlayerSpeechTimer(slot, 60, `Прощальная речь #${slot}`);
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(`Прощальная речь #${slot}`);
+    setTimerMax(60);
+    setTimeLeft(60);
+    setIsTimerRunning(true);
   };
 
   const advanceVotingFarewell = () => {
@@ -1002,7 +1006,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const startFarewellSpeech = (slot: number) => {
     setPostNightStage('farewell');
-    startPlayerSpeechTimer(slot, 60, `Прощальная речь #${slot}`);
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(`Прощальная речь #${slot}`);
+    setTimerMax(60);
+    setTimeLeft(60);
+    setIsTimerRunning(true);
   };
 
   const startDeathProtocol = () => {

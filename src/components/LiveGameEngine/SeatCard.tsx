@@ -44,8 +44,6 @@ interface SeatCardProps {
   handleFoulChange: (slotNum: number, dir: "up" | "down") => void;
   onRequestDirectRemoval: (slotNum: number) => void;
   markPlayerSpoken: (slotNum: number) => void;
-  setBestMovePlayerSlot: (slot: number | null) => void;
-  setBestMoveGuesses: (guesses: number[]) => void;
   nightSubPhase: string;
   roundNumber: number;
   getSeatColor: (slotNum: number) => string;

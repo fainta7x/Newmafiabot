@@ -53,6 +53,15 @@ describe('live engine native wiring', () => {
     expect(farewellLabels).toHaveLength(2);
   });
 
+  it('consumes a pending third-foul penalty for every active revote speaker', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain("phase !== 'day_voting' || votingStage !== 'revote_speeches'");
+    expect(engine).toContain('const consumed = consumeNextSpeech(discipline, String(activeSpeakerSlot));');
+    expect(engine).toContain('syncDisciplinePlayer(consumed.newState, activeSpeakerSlot);');
+    expect(engine).toContain('[phase, votingStage, revoteSpeakerIndex, activeSpeakerSlot, discipline]');
+    expect(engine).toContain('handleStartTimer(winners[0], 30);');
+  });
+
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');

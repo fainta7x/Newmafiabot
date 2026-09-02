@@ -361,6 +361,14 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }));
   };
 
+  useEffect(() => {
+    if (phase !== 'day_voting' || votingStage !== 'revote_speeches' || activeSpeakerSlot === null) return;
+    const consumed = consumeNextSpeech(discipline, String(activeSpeakerSlot));
+    if (consumed.newState === discipline) return;
+    setDiscipline(consumed.newState);
+    syncDisciplinePlayer(consumed.newState, activeSpeakerSlot);
+  }, [phase, votingStage, revoteSpeakerIndex, activeSpeakerSlot, discipline]);
+
   const handleAdjustTime = (amount: number) => setTimeLeft((value) => Math.max(0, value + amount));
 
   const handleStartTimer = (slot: number, duration = 60) => {

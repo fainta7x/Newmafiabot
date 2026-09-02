@@ -140,7 +140,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [historyStack, setHistoryStack] = useState<LiveSnapshot[]>([]);
   const [restorableSession, setRestorableSession] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "list">("table");
-  const [showRolesOnTable, setShowRolesOnTable] = useState(true);
+  const [showRolesOnTable, setShowRolesOnTable] = useState(false);
   const rolesAreVisible = rolesHidden === undefined ? showRolesOnTable : !rolesHidden;
   const toggleRolesOnTable = () => {
     const nextVisible = !rolesAreVisible;

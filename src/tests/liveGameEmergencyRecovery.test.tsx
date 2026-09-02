@@ -162,4 +162,43 @@ describe('live game emergency recovery', () => {
     fireEvent.click(resumeMusic);
     expect(await screen.findByRole('button', { name: /Вызов шерифа · 10с/i })).toBeTruthy();
   });
+
+  it('restores undo history so Back exits a recovered best-move overlay', async () => {
+    const beforeBestMove = {
+      ...recoverySnapshot(),
+      nightSubPhase: 'sheriff',
+      postNightStage: 'none',
+      activeSpeakerSlot: null,
+      customTimerLabel: 'Проверка Шерифа',
+      timeLeft: 15,
+      timerMax: 15,
+      shotPlayerSlot: 1,
+      activeBestMoveSource: null,
+      activeBestMoveSlot: null,
+      pendingBestMoveSeats: [],
+    };
+    localStorage.setItem('mafia_live_session', JSON.stringify({
+      ...beforeBestMove,
+      nightSubPhase: 'best_move',
+      customTimerLabel: null,
+      activeBestMoveSource: 'first_killed',
+      activeBestMoveSlot: 1,
+      historyStack: [beforeBestMove],
+    }));
+
+    render(
+      <LiveGameEngine
+        players={[]}
+        initialJudgeId={777}
+        onGameFinished={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    fireEvent.click(await screen.findByRole('button', { name: '← Назад' }));
+
+    expect(await screen.findByText('Проверка Шерифа · выберите номер')).toBeTruthy();
+    expect(screen.queryByText(/Лучший ход/i)).toBeNull();
+  });
 });

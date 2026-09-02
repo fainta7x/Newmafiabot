@@ -1230,7 +1230,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const legacyBestMoveGuesses: number[] = [];
-  const deprecatedNoop = () => {};
 
   const renderTable = () => (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 max-w-7xl mx-auto w-full px-1 py-1">
@@ -1267,8 +1266,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           handleFoulChange={handleFoulChange}
           onRequestDirectRemoval={directRemoveFromMenu}
           markPlayerSpoken={markPlayerSpoken}
-          setBestMovePlayerSlot={deprecatedNoop}
-          setBestMoveGuesses={deprecatedNoop}
           nightSubPhase={nightSubPhase}
           roundNumber={roundNumber}
           getSeatColor={getSeatColor}

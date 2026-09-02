@@ -164,8 +164,12 @@ describe('live game emergency recovery', () => {
   });
 
   it('restores undo history so Back exits a recovered best-move overlay', async () => {
+    const nonTerminalPlayers = players.map((player) => player.slot_num === 3
+      ? { ...player, alive: true, eliminated_phase: '', exit_reason: 'alive' }
+      : player);
     const beforeBestMove = {
       ...recoverySnapshot(),
+      activePlayers: nonTerminalPlayers,
       nightSubPhase: 'sheriff',
       postNightStage: 'none',
       activeSpeakerSlot: null,

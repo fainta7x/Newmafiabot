@@ -75,6 +75,7 @@ interface CenterPanelProps {
   setTableLeaveVotesInput?: React.Dispatch<React.SetStateAction<number | null>>;
   handleConfirmSingleElimination?: (slotNum: number) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
+  handleBackFromRevoteSpeeches?: () => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
   handleConfirmAutoNoElimination?: () => void;
   handleConfirmTableDecision?: (votesCount: number, winners: number[]) => void;
@@ -150,6 +151,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     setTableLeaveVotesInput,
     handleConfirmSingleElimination,
     handleGoToRevoteSpeeches,
+    handleBackFromRevoteSpeeches,
     handleLaunchNextRevote,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
@@ -362,10 +364,12 @@ export default function CenterPanel(props: CenterPanelProps) {
         const previousSpeaker = participants[previousIndex];
         setRevoteSpeakerIndex?.(previousIndex);
         if (previousSpeaker) handleStartTimer(previousSpeaker, 30);
+      } else if (handleBackFromRevoteSpeeches) {
+        handleBackFromRevoteSpeeches();
       } else {
-        const undo = getPrevStepAction();
-        if (undo) undo.onClick();
-        else setVotingStage?.('round_result');
+        setIsTimerRunning(false);
+        setActiveSpeakerSlot(null);
+        setVotingStage?.('round_result');
       }
     }
   };

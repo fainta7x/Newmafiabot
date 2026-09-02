@@ -43,6 +43,15 @@ describe('live engine native wiring', () => {
     expect(seat).not.toContain('setBestMoveGuesses:');
   });
 
+  it('routes ordinary, revote, and both farewell speeches through the same third-foul penalty consumer', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain('const startPlayerSpeechTimer =');
+    expect(engine).toContain('const consumed = consumeNextSpeech(discipline, String(slot));');
+    expect(engine).toContain('startPlayerSpeechTimer(slot, duration);');
+    const farewellStarts = engine.match(/startPlayerSpeechTimer\(slot, 60, `Прощальная речь #\$\{slot\}`\);/g) || [];
+    expect(farewellStarts).toHaveLength(2);
+  });
+
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');

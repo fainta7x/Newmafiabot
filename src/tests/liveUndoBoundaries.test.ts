@@ -43,7 +43,20 @@ describe('live-game undo boundaries', () => {
     expect(block).toContain('saveSnapshot();');
   });
 
-  it('uses that snapshot when backing out of the first revote speech', () => {
+  it('restores the revote-entry boundary even after newer history actions', () => {
+    const restoreBlock = sliceFunction(
+      'const handleBackFromRevoteSpeeches = () => {',
+      'useEffect(() => {\n    try {'
+    );
+    expect(restoreBlock).toContain("snapshot.votingStage === 'round_result'");
+    expect(restoreBlock).toContain('snapshot.activeVotingRoundIndex === activeVotingRoundIndex');
+    expect(restoreBlock).toContain('restoreSnapshot(snapshot);');
+    expect(restoreBlock).toContain('previous.slice(0, index)');
+    expect(restoreBlock).toContain('setIsTimerRunning(false);');
+    expect(restoreBlock).toContain('setActiveSpeakerSlot(null);');
+  });
+
+  it('uses the targeted revote restore from the first split speech', () => {
     const start = centerSource.indexOf('const handleVotingBack = () => {');
     const end = centerSource.indexOf('const renderNominationChips', start);
     expect(start).toBeGreaterThanOrEqual(0);
@@ -51,8 +64,8 @@ describe('live-game undo boundaries', () => {
     const block = centerSource.slice(start, end);
 
     expect(block).toContain("if (votingStage === 'revote_speeches')");
-    expect(block).toContain('const undo = getPrevStepAction();');
-    expect(block).toContain('if (undo) undo.onClick();');
-    expect(block).not.toContain("else {\n        setVotingStage?.('round_result');");
+    expect(block).toContain('handleBackFromRevoteSpeeches();');
+    expect(block).toContain('setIsTimerRunning(false);');
+    expect(block).toContain('setActiveSpeakerSlot(null);');
   });
 });

@@ -319,6 +319,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       donCheckResult,
       sheriffCheckSlot,
       sheriffCheckResult,
+      historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),
       savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     };
     try { localStorage.setItem("mafia_live_session", JSON.stringify(data)); } catch {}
@@ -328,7 +329,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
-    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex,
+    zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,
   ]);
 
   const handleRestoreSession = () => {
@@ -339,6 +340,12 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       : restored;
     if (restored.phase === 'zero_night') requestJudgeGameMusicStop();
     restoreSnapshot(recoverySnapshot);
+    const restoredHistory = Array.isArray(restorableSession.historyStack)
+      ? restorableSession.historyStack
+          .slice(-20)
+          .map((snapshot: LiveSnapshot) => normalizeLiveSnapshotForRestore(snapshot))
+      : [];
+    setHistoryStack(restoredHistory);
     setNightLogs(restorableSession.nightLogs || []);
     setShotPlayerSlot(restorableSession.shotPlayerSlot ?? null);
     setDonCheckSlot(restorableSession.donCheckSlot ?? null);

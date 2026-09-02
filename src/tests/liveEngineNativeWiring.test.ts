@@ -62,6 +62,14 @@ describe('live engine native wiring', () => {
     expect(engine).toContain('handleStartTimer(winners[0], 30);');
   });
 
+  it('shows the 30-second seat warning only while the penalty is pending and applicable', () => {
+    const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
+    expect(seat).toContain('const aliveCount = activePlayers.filter((item) => item.alive).length;');
+    expect(seat).toContain('const isGuessingDay = phase === "day_speeches" && (aliveCount === 3 || aliveCount === 4);');
+    expect(seat).toContain('if (player.has_foul_penalty && !isGuessingDay)');
+    expect(seat).not.toContain('player.has_foul_penalty || regularFouls === 3');
+  });
+
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');

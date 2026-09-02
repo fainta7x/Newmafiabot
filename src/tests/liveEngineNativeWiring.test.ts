@@ -33,6 +33,16 @@ describe('live engine native wiring', () => {
     expect(engine).toContain('rolesHidden === undefined ? showRolesOnTable : !rolesHidden');
   });
 
+  it('does not keep retired best-move setter shims on seat cards', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
+    expect(engine).not.toContain('deprecatedNoop');
+    expect(engine).not.toContain('setBestMovePlayerSlot=');
+    expect(engine).not.toContain('setBestMoveGuesses=');
+    expect(seat).not.toContain('setBestMovePlayerSlot:');
+    expect(seat).not.toContain('setBestMoveGuesses:');
+  });
+
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');

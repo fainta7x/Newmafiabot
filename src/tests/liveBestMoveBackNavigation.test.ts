@@ -24,6 +24,14 @@ describe('live best move back navigation', () => {
     expect(engineSource).toContain('restoreSnapshot(snapshot);');
   });
 
+  it('persists bounded undo history so blocking overlays stay reversible after recovery', () => {
+    expect(engineSource).toContain('historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),');
+    expect(engineSource).toContain('zeroNightSubPhase, zeroNightMusicState, votingFarewellQueue, votingFarewellIndex, historyStack,');
+    expect(engineSource).toContain('Array.isArray(restorableSession.historyStack)');
+    expect(engineSource).toContain('.map((snapshot: LiveSnapshot) => normalizeLiveSnapshotForRestore(snapshot))');
+    expect(engineSource).toContain('setHistoryStack(restoredHistory);');
+  });
+
   it('already snapshots the killed-player protocol transition so its normal Back can restore farewell', () => {
     const start = engineSource.indexOf('const startDeathProtocol = () => {');
     const end = engineSource.indexOf('const handleResolveNight', start);

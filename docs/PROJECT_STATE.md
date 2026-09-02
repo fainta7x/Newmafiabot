@@ -4,11 +4,11 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Status date:** 2026-09-02
 
-**Latest release record:** PR #216 merged after a full green CI gate; it fixes repeated closed-evening payment reconciliation that could fail on `financial_transactions(source_type, source_id, type)` uniqueness.
+**Latest release record:** PR #214 merged after its exact head passed CI, CodeQL and Gitleaks. It applies the current safe minor/patch dependency batch and includes the `nanoid` 3.3.18 security fix that superseded old PR #51.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
-**Live deployment:** the user started a new Amvera deploy after PR #216, but runtime verification of that exact release is not yet recorded here. Do not claim the latest `main` is live until the public runtime is checked.
+**Live deployment:** runtime verification of the latest `main` is not yet recorded here. Do not claim the latest `main` is live until the public runtime is checked.
 
 The **actual current main SHA belongs to Git**, not this document. Always read it from remote `main` / `npm run project:status`; do not add a mutable “Current main” field here.
 
@@ -21,9 +21,9 @@ The **actual current main SHA belongs to Git**, not this document. Always read i
 - Feature routing: `docs/FEATURE_MAP.md`.
 - Game/product rules: `docs/BUSINESS_RULES.md`.
 - Visual contract: `docs/DESIGN_SYSTEM.md`.
-- Old roadmaps, old chats and old open PR descriptions: historical evidence only.
+- Old roadmaps, old chats and old PR descriptions: historical evidence only.
 
-**Important:** an old open PR is not automatically unfinished product work. Before treating any old PR as backlog, compare it with current `main`. Several historical/stacked PRs remain open even though their functionality has since been implemented or superseded.
+**Important:** the open PR list is clean as of this snapshot. Old closed PR descriptions are not backlog; always compare historical work with current `main` before treating it as unfinished product work.
 
 ## Production/runtime
 
@@ -208,7 +208,7 @@ This real-world success is useful evidence, but it is not a substitute for targe
 
 ## Current backlog rule
 
-Do **not** reconstruct backlog from old chat summaries or old open PR descriptions.
+Do **not** reconstruct backlog from old chat summaries or old PR descriptions.
 
 For a fresh planning request:
 
@@ -226,10 +226,10 @@ As of this snapshot, these items are explicitly **not** backlog:
 
 ## Immediate next queue
 
-1. Finish/verify deployment of the latest intended `main` on Amvera after PR #216.
-2. Verify `/api/health` and `/api/health/runtime` and then the exact user-reported payment flow on the deployed build.
+1. Verify deployment of the latest intended `main` on Amvera after the current GitHub maintenance pass.
+2. Verify `/api/health` and `/api/health/runtime` and then any exact user-reported production flow that depends on the deployed build.
 3. If planning new work, derive a **fresh backlog from current main**, not from the August roadmap.
-4. Evaluate dependency PR #214 separately; it is maintenance, not product backlog.
+4. Keep routine dependency maintenance separate from product backlog; PR #214 is already merged.
 5. Resume CRM UX redesign only when the user explicitly chooses it.
 
 ## Verification model

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync('src/components/LiveGameEngine.tsx', 'utf8');
+const centerSource = readFileSync('src/components/LiveGameEngine/CenterPanel.tsx', 'utf8');
 
 const sliceFunction = (startMarker: string, endMarker: string) => {
   const start = source.indexOf(startMarker);
@@ -40,5 +41,18 @@ describe('live-game undo boundaries', () => {
     );
 
     expect(block).toContain('saveSnapshot();');
+  });
+
+  it('uses that snapshot when backing out of the first revote speech', () => {
+    const start = centerSource.indexOf('const handleVotingBack = () => {');
+    const end = centerSource.indexOf('const renderNominationChips', start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const block = centerSource.slice(start, end);
+
+    expect(block).toContain("if (votingStage === 'revote_speeches')");
+    expect(block).toContain('const undo = getPrevStepAction();');
+    expect(block).toContain('if (undo) undo.onClick();');
+    expect(block).not.toContain("else {\n        setVotingStage?.('round_result');");
   });
 });

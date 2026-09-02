@@ -43,13 +43,14 @@ describe('live engine native wiring', () => {
     expect(seat).not.toContain('setBestMoveGuesses:');
   });
 
-  it('routes ordinary, revote, and both farewell speeches through the same third-foul penalty consumer', () => {
+  it('limits the third-foul 30-second penalty to live speeches and keeps guessing/farewell speeches at 60 seconds', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
-    expect(engine).toContain('const startPlayerSpeechTimer =');
-    expect(engine).toContain('const consumed = consumeNextSpeech(discipline, String(slot));');
-    expect(engine).toContain('startPlayerSpeechTimer(slot, duration);');
-    const farewellStarts = engine.match(/startPlayerSpeechTimer\(slot, 60, `Прощальная речь #\$\{slot\}`\);/g) || [];
-    expect(farewellStarts).toHaveLength(2);
+    expect(engine).not.toContain('const startPlayerSpeechTimer =');
+    expect(engine).toContain("const isGuessingDaySpeech = phase === 'day_speeches' && (aliveCount === 3 || aliveCount === 4);");
+    expect(engine).toContain('const consumed = isGuessingDaySpeech');
+    expect(engine).toContain('const actual = isGuessingDaySpeech ? 60 : (consumed.duration ?? duration);');
+    const farewellLabels = engine.match(/setCustomTimerLabel\(`Прощальная речь #\$\{slot\}`\);/g) || [];
+    expect(farewellLabels).toHaveLength(2);
   });
 
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {

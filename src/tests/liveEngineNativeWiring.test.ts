@@ -27,6 +27,12 @@ describe('live engine native wiring', () => {
     expect(seat).toContain('postNightStage === "farewell"');
   });
 
+  it('hides roles by default when the engine is rendered without controlled role visibility', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain('const [showRolesOnTable, setShowRolesOnTable] = useState(false);');
+    expect(engine).toContain('rolesHidden === undefined ? showRolesOnTable : !rolesHidden');
+  });
+
   it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
     expect(seat).toContain('canToggleVoteAssignment');

@@ -279,6 +279,45 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     showToast("Последнее действие отменено", "info");
   };
 
+  const handleAdvanceRevoteSpeaker = (slot: number, nextIndex: number) => {
+    saveSnapshot();
+    setRevoteSpeakerIndex(nextIndex);
+    setActiveSpeakerSlot(slot);
+    setCustomTimerLabel(null);
+    setTimerMax(30);
+    setTimeLeft(30);
+    setIsTimerRunning(true);
+  };
+
+  const handleBackWithinRevoteSpeeches = (previousSlot: number, previousIndex: number) => {
+    for (let index = historyStack.length - 1; index >= 0; index -= 1) {
+      const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
+      if (
+        snapshot.phase === 'day_voting' &&
+        snapshot.votingStage === 'revote_speeches' &&
+        snapshot.activeVotingRoundIndex === activeVotingRoundIndex &&
+        snapshot.revoteSpeakerIndex === previousIndex &&
+        snapshot.activeSpeakerSlot === previousSlot
+      ) {
+        restoreSnapshot(snapshot);
+        setHistoryStack((previous) => previous.slice(0, index));
+        setTimerMax(30);
+        setTimeLeft(30);
+        setIsTimerRunning(true);
+        showToast(`Возврат к речи #${previousSlot}`, "info");
+        return;
+      }
+    }
+
+    setRevoteSpeakerIndex(previousIndex);
+    setActiveSpeakerSlot(previousSlot);
+    setCustomTimerLabel(null);
+    setTimerMax(30);
+    setTimeLeft(30);
+    setIsTimerRunning(true);
+    showToast(`Возврат к речи #${previousSlot} без истории действий`, "warning");
+  };
+
   const handleBackFromRevoteSpeeches = () => {
     for (let index = historyStack.length - 1; index >= 0; index -= 1) {
       const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
@@ -1375,6 +1414,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setTableLeaveVotesInput,
       handleConfirmSingleElimination,
       handleGoToRevoteSpeeches,
+      handleAdvanceRevoteSpeaker,
+      handleBackWithinRevoteSpeeches,
       handleBackFromRevoteSpeeches,
       handleLaunchNextRevote,
       handleConfirmAutoNoElimination,

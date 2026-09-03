@@ -68,4 +68,48 @@ describe('live-game undo boundaries', () => {
     expect(block).toContain('setIsTimerRunning(false);');
     expect(block).toContain('setActiveSpeakerSlot(null);');
   });
+
+  it('creates a dedicated history boundary before advancing to each later revote speaker', () => {
+    const block = sliceFunction(
+      'const handleAdvanceRevoteSpeaker = (slot: number, nextIndex: number) => {',
+      'const handleBackWithinRevoteSpeeches = (previousSlot: number, previousIndex: number) => {'
+    );
+
+    expect(block).toContain('saveSnapshot();');
+    expect(block).toContain('setRevoteSpeakerIndex(nextIndex);');
+    expect(block).toContain('setActiveSpeakerSlot(slot);');
+    expect(block).toContain('setTimerMax(30);');
+    expect(block).toContain('setTimeLeft(30);');
+    expect(block).toContain('setIsTimerRunning(true);');
+  });
+
+  it('restores the exact previous revote speaker boundary after later speaker actions', () => {
+    const block = sliceFunction(
+      'const handleBackWithinRevoteSpeeches = (previousSlot: number, previousIndex: number) => {',
+      'const handleBackFromRevoteSpeeches = () => {'
+    );
+
+    expect(block).toContain("snapshot.votingStage === 'revote_speeches'");
+    expect(block).toContain('snapshot.activeVotingRoundIndex === activeVotingRoundIndex');
+    expect(block).toContain('snapshot.revoteSpeakerIndex === previousIndex');
+    expect(block).toContain('snapshot.activeSpeakerSlot === previousSlot');
+    expect(block).toContain('restoreSnapshot(snapshot);');
+    expect(block).toContain('previous.slice(0, index)');
+    expect(block).toContain('setTimerMax(30);');
+    expect(block).toContain('setTimeLeft(30);');
+    expect(block).toContain('setIsTimerRunning(true);');
+  });
+
+  it('delegates later revote next/back transitions to engine-owned snapshot handlers', () => {
+    const start = centerSource.indexOf('const handleVotingBack = () => {');
+    const end = centerSource.indexOf('const renderNominationChips', start);
+    const backBlock = centerSource.slice(start, end);
+    const votingStart = centerSource.indexOf("if (votingStage === 'revote_speeches')", end);
+    const votingEnd = centerSource.indexOf("if (votingStage === 'table_decision')", votingStart);
+    const revoteBlock = centerSource.slice(votingStart, votingEnd);
+
+    expect(backBlock).toContain('handleBackWithinRevoteSpeeches(previousSpeaker, previousIndex);');
+    expect(revoteBlock).toContain('handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);');
+    expect(revoteBlock).not.toContain('setRevoteSpeakerIndex?.((index) => index + 1);');
+  });
 });

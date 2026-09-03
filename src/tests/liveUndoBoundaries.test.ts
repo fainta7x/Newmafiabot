@@ -108,8 +108,8 @@ describe('live-game undo boundaries', () => {
     const votingEnd = centerSource.indexOf("if (votingStage === 'table_decision')", votingStart);
     const revoteBlock = centerSource.slice(votingStart, votingEnd);
 
-    expect(backBlock).toContain('handleBackWithinRevoteSpeeches?.(previousSpeaker, previousIndex);');
-    expect(revoteBlock).toContain('handleAdvanceRevoteSpeaker?.(next, revoteSpeakerIndex + 1);');
+    expect(backBlock).toContain('handleBackWithinRevoteSpeeches(previousSpeaker, previousIndex);');
+    expect(revoteBlock).toContain('handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);');
     expect(revoteBlock).not.toContain('setRevoteSpeakerIndex?.((index) => index + 1);');
   });
 });

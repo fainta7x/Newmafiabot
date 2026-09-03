@@ -75,6 +75,8 @@ interface CenterPanelProps {
   setTableLeaveVotesInput?: React.Dispatch<React.SetStateAction<number | null>>;
   handleConfirmSingleElimination?: (slotNum: number) => void;
   handleGoToRevoteSpeeches?: (winners: number[]) => void;
+  handleAdvanceRevoteSpeaker?: (slot: number, nextIndex: number) => void;
+  handleBackWithinRevoteSpeeches?: (previousSlot: number, previousIndex: number) => void;
   handleBackFromRevoteSpeeches?: () => void;
   handleLaunchNextRevote?: (winners: number[]) => void;
   handleConfirmAutoNoElimination?: () => void;
@@ -151,6 +153,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     setTableLeaveVotesInput,
     handleConfirmSingleElimination,
     handleGoToRevoteSpeeches,
+    handleAdvanceRevoteSpeaker,
+    handleBackWithinRevoteSpeeches,
     handleBackFromRevoteSpeeches,
     handleLaunchNextRevote,
     handleConfirmAutoNoElimination,
@@ -362,8 +366,13 @@ export default function CenterPanel(props: CenterPanelProps) {
         setActiveSpeakerSlot(null);
         const previousIndex = revoteSpeakerIndex - 1;
         const previousSpeaker = participants[previousIndex];
-        setRevoteSpeakerIndex?.(previousIndex);
-        if (previousSpeaker) handleStartTimer(previousSpeaker, 30);
+        if (previousSpeaker) {
+          if (handleBackWithinRevoteSpeeches) handleBackWithinRevoteSpeeches(previousSpeaker, previousIndex);
+          else {
+            setRevoteSpeakerIndex?.(previousIndex);
+            handleStartTimer(previousSpeaker, 30);
+          }
+        }
       } else if (handleBackFromRevoteSpeeches) {
         handleBackFromRevoteSpeeches();
       } else {
@@ -487,8 +496,11 @@ export default function CenterPanel(props: CenterPanelProps) {
           return;
         }
         const next = participants[revoteSpeakerIndex + 1];
-        setRevoteSpeakerIndex?.((index) => index + 1);
-        handleStartTimer(next, 30);
+        if (handleAdvanceRevoteSpeaker) handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);
+        else {
+          setRevoteSpeakerIndex?.(revoteSpeakerIndex + 1);
+          handleStartTimer(next, 30);
+        }
       };
 
       return (

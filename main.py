@@ -35,6 +35,7 @@ from handlers.crm_telegram_publishing import (
     test_telegram_destination,
 )
 from handlers.crm_tournament_publishing import sync_tournament_telegram
+from organizer_notifications import organizer_notification_task
 
 
 class MyLoggerMiddleware(BaseMiddleware):
@@ -308,8 +309,10 @@ async def start_webhook():
 
     asyncio.create_task(daily_backup_task())
     asyncio.create_task(public_router_refresh_task())
+    asyncio.create_task(organizer_notification_task(bot))
     logger.info("✅ Задача ежедневного бэкапа запущена")
     logger.info("✅ Автообновление публичного Telegram-маршрутизатора запущено")
+    logger.info("✅ CRM-уведомления организатора запущены")
 
     app = web.Application()
     app.router.add_post("/webhook", handle_webhook)
@@ -357,7 +360,9 @@ async def start_polling():
     logger.info("✅ БД инициализирована")
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(public_router_refresh_task())
+    asyncio.create_task(organizer_notification_task(bot))
 
+    logger.info("✅ CRM-уведомления организатора запущены")
     logger.info("🚀 Бот запущен в режиме polling (локально)")
     await dp.start_polling(bot)
 

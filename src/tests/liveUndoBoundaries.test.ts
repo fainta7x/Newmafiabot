@@ -135,4 +135,18 @@ describe('live-game undo boundaries', () => {
     expect(resolveBlock).toContain('applyNightToDayTransition();');
     expect(resolveBlock).not.toContain('finishNightToDay();');
   });
+
+  it('does not pollute undo history when night seats are clicked outside target selection', () => {
+    const block = sliceFunction(
+      'const handleSeatClick = (slot: number) => {',
+      'const getNextStepInfo = () => {'
+    );
+    const shootingStart = block.indexOf("if (nightSubPhase === 'shooting') {");
+
+    expect(shootingStart).toBeGreaterThanOrEqual(0);
+    expect(block.slice(0, shootingStart)).not.toContain('saveSnapshot();');
+    expect(block).toContain("if (nightSubPhase === 'shooting') {\n        saveSnapshot();");
+    expect(block).toContain("if (nightSubPhase === 'don') {\n        if (donCheckSlot === slot) return;\n        saveSnapshot();");
+    expect(block).toContain("if (nightSubPhase === 'sheriff') {\n        if (sheriffCheckSlot === slot) return;\n        saveSnapshot();");
+  });
 });

@@ -1,9 +1,11 @@
-import type { Player } from './api.ts';
-
 export type PlayerActivitySegment = 'lead' | 'active' | 'loyal' | 'inactive';
 
-type ActivityPlayer = Pick<Player, 'engagement_stage' | 'attendance_count' | 'days_since_last_visit' | 'nickname'> & {
+type ActivityPlayer = {
   id?: string;
+  nickname?: string | null;
+  engagement_stage?: string | null;
+  attendance_count?: number | null;
+  days_since_last_visit?: number | null;
 };
 
 export const getPlayerActivitySegment = (player: ActivityPlayer): PlayerActivitySegment => {

@@ -1,0 +1,13 @@
+/* Urgent Telegram host recovery guard for an already-running Live Game. */
+@media (max-width: 767px) {
+  body:has(.evening-live-engine-shell)
+    .fixed.inset-0.z-\[95\]:has(> .evening-live-engine-shell) {
+    --live-stable-height: max(var(--tg-viewport-stable-height, 0px), 100dvh) !important;
+    inset: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+}

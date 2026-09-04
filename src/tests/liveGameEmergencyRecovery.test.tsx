@@ -56,6 +56,7 @@ const recoverySnapshot = () => ({
   activeBestMoveSource: null,
   activeBestMoveSlot: null,
   pendingBestMoveSeats: [],
+  bestMoveDeadlineMs: null,
   votingRounds: [],
   activeVotingRoundIndex: 0,
   votesByPlayer: {},
@@ -70,6 +71,7 @@ const recoverySnapshot = () => ({
   timerMax: 15,
   isTimerRunning: false,
   zeroNightSubPhase: null,
+  zeroNightMusicState: 'pending',
   shotPlayerSlot: 3,
   donCheckSlot: null,
   donCheckResult: null,
@@ -84,6 +86,29 @@ const recoverySnapshot = () => ({
   savedAt: '17:35',
 });
 
+const farewellSnapshot = () => ({
+  ...recoverySnapshot(),
+  postNightStage: 'farewell',
+  customTimerLabel: 'Прощальная речь #3',
+  timeLeft: 60,
+  timerMax: 60,
+  isTimerRunning: false,
+});
+
+const renderRecovered = (snapshot: any, onGameFinished = vi.fn(), onPhaseChange = vi.fn()) => {
+  localStorage.setItem('mafia_live_session', JSON.stringify(snapshot));
+  render(
+    <LiveGameEngine
+      players={[]}
+      initialJudgeId={777}
+      onGameFinished={onGameFinished}
+      onCancel={vi.fn()}
+      onPhaseChange={onPhaseChange}
+    />,
+  );
+  return { onGameFinished, onPhaseChange };
+};
+
 describe('live game emergency recovery', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -92,19 +117,7 @@ describe('live game emergency recovery', () => {
   afterEach(() => cleanup());
 
   it('restores an interrupted game to its saved phase and blocks a double finish click', async () => {
-    localStorage.setItem('mafia_live_session', JSON.stringify(recoverySnapshot()));
-    const onGameFinished = vi.fn();
-    const onPhaseChange = vi.fn();
-
-    render(
-      <LiveGameEngine
-        players={[]}
-        initialJudgeId={777}
-        onGameFinished={onGameFinished}
-        onCancel={vi.fn()}
-        onPhaseChange={onPhaseChange}
-      />,
-    );
+    const { onGameFinished, onPhaseChange } = renderRecovered(recoverySnapshot());
 
     const restoreButton = await screen.findByRole('button', { name: 'Восстановить' });
     fireEvent.click(restoreButton);
@@ -119,6 +132,69 @@ describe('live game emergency recovery', () => {
 
     expect(onGameFinished).toHaveBeenCalledTimes(1);
     expect(onGameFinished.mock.calls[0][0].winning_team).toBe('Чёрные');
+    expect(localStorage.getItem('mafia_live_session')).toBeNull();
+  });
+
+  it('does not auto-finish a recovered winning game before the last speech and death protocol', async () => {
+    const { onGameFinished } = renderRecovered(farewellSnapshot());
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    expect(onGameFinished).not.toHaveBeenCalled();
+    expect(await screen.findByText('Последняя речь #3')).toBeTruthy();
+    expect(screen.getByText('60с')).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Протокол убитого · 20с/i }));
+    expect(onGameFinished).not.toHaveBeenCalled();
+    expect(await screen.findByText('Протокол убитого #3')).toBeTruthy();
+    expect(await screen.findByText('20с')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Завершить игру' })).toBeTruthy();
+  });
+
+  it('restores the farewell snapshot when undoing a recovered death protocol', async () => {
+    renderRecovered({
+      ...recoverySnapshot(),
+      historyStack: [farewellSnapshot()],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Назад' }));
+
+    expect(await screen.findByText('Последняя речь #3')).toBeTruthy();
+    expect(screen.getByText('60с')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Завершить игру' })).toBeNull();
+  });
+
+  it('continues a recovered non-winning death protocol into the next day', async () => {
+    const nonWinningPlayers = players.map((player) => player.slot_num === 4
+      ? { ...player, alive: true, eliminated_phase: '', exit_reason: 'alive' }
+      : player);
+    const { onGameFinished, onPhaseChange } = renderRecovered({
+      ...recoverySnapshot(),
+      activePlayers: nonWinningPlayers,
+      discipline: createInitialGameDiscipline(
+        nonWinningPlayers.map((player) => ({ id: String(player.slot_num), team: player.team === 'Чёрные' ? 'black' : 'red' })),
+      ),
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    expect(onGameFinished).not.toHaveBeenCalled();
+    const openDay = await screen.findByRole('button', { name: 'Открыть день' });
+    fireEvent.click(openDay);
+
+    await waitFor(() => expect(onPhaseChange).toHaveBeenCalledWith('day_speeches'));
+    expect(onGameFinished).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy 15-second death-protocol recovery compatible with the canonical 20-second display', async () => {
+    renderRecovered({
+      ...recoverySnapshot(),
+      isTimerRunning: true,
+      timeLeft: 15,
+      timerMax: 15,
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    expect(await screen.findByText('20с')).toBeTruthy();
   });
 
   it('requires an explicit music resume before continuing a restored zero night', async () => {
@@ -128,7 +204,7 @@ describe('live game emergency recovery', () => {
       eliminated_phase: '',
       exit_reason: 'alive',
     }));
-    localStorage.setItem('mafia_live_session', JSON.stringify({
+    renderRecovered({
       ...recoverySnapshot(),
       activePlayers: zeroNightPlayers,
       phase: 'zero_night',
@@ -143,16 +219,7 @@ describe('live game emergency recovery', () => {
       zeroNightMusicState: 'playing',
       shotPlayerSlot: null,
       nightLogs: [],
-    }));
-
-    render(
-      <LiveGameEngine
-        players={[]}
-        initialJudgeId={777}
-        onGameFinished={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    );
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
 
@@ -181,28 +248,41 @@ describe('live game emergency recovery', () => {
       activeBestMoveSlot: null,
       pendingBestMoveSeats: [],
     };
-    localStorage.setItem('mafia_live_session', JSON.stringify({
+    renderRecovered({
       ...beforeBestMove,
       nightSubPhase: 'best_move',
       customTimerLabel: null,
       activeBestMoveSource: 'first_killed',
       activeBestMoveSlot: 1,
       historyStack: [beforeBestMove],
-    }));
-
-    render(
-      <LiveGameEngine
-        players={[]}
-        initialJudgeId={777}
-        onGameFinished={vi.fn()}
-        onCancel={vi.fn()}
-      />,
-    );
+    });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
     fireEvent.click(await screen.findByRole('button', { name: '← Назад' }));
 
     expect(await screen.findByText('Проверка Шерифа · выберите номер')).toBeTruthy();
     expect(screen.queryByText(/Лучший ход/i)).toBeNull();
+  });
+
+  it('reconstructs a recovered first-killed best-move marker instead of auto-finishing a winning game', async () => {
+    const snapshot = {
+      ...recoverySnapshot(),
+      nightSubPhase: 'best_move',
+      postNightStage: 'none',
+      customTimerLabel: null,
+      activeSpeakerSlot: null,
+      activeBestMoveSource: null,
+      activeBestMoveSlot: null,
+      bestMoveDeadlineMs: Date.now() + 20_000,
+      protocolMarkers: {
+        ...recoverySnapshot().protocolMarkers,
+        firstKilledSlot: 3,
+      },
+    };
+    const { onGameFinished } = renderRecovered(snapshot);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    expect(onGameFinished).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Лучший ход/i)).toBeTruthy();
   });
 });

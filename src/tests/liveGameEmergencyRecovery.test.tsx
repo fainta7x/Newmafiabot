@@ -283,6 +283,7 @@ describe('live game emergency recovery', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
     expect(onGameFinished).not.toHaveBeenCalled();
-    expect(await screen.findByText(/Лучший ход/i)).toBeTruthy();
+    expect(await screen.findByTestId('live-best-move-sheet')).toBeTruthy();
+    expect(screen.getByText('Протокол ЛХ')).toBeTruthy();
   });
 });

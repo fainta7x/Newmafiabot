@@ -188,6 +188,20 @@ Before changing voting/fouls/removals/PPK/speech timing/zero round/game completi
 
 Current canonical launcher passes controlled hidden-role state. A bare direct `LiveGameEngine` fallback still starts internal role visibility as visible; treat this as low-priority cleanup, not evidence that the real club launcher exposes roles.
 
+### OBS broadcast relay
+
+The broadcast path is deliberately separate from final protocol persistence:
+
+`phone Live Game/localStorage -> authenticated /api/games/:id/broadcast-state -> in-memory Node relay -> secret /api/public/broadcast/:token -> /broadcast/:token -> OBS Browser Source`
+
+- `src/lib/liveBroadcast.ts` owns the audience-safe state contract and removes judge-only history/check/note detail.
+- `src/components/crm/EveningLiveGameModal.tsx` publishes changed snapshots plus a heartbeat while the game is active.
+- `src/server/services/liveBroadcastService.ts` owns the stable HMAC token, payload canonicalization and the single transient main channel.
+- `src/server/routes/liveBroadcastRoutes.ts` owns authorized config/publish routes and secret read/avatar routes.
+- `src/components/public/LiveBroadcastOverlay.tsx` owns the transparent 1920×1080 OBS HUD.
+
+The phone/local scoped session remains authoritative for in-progress recovery. The relay does not write timer ticks or temporary game state to Turso. Database game/seat identity is used only to canonicalize the published display. The ordinary `/live` route stays role-safe and is not a substitute for the secret broadcast route.
+
 ## 11. Server route ownership
 
 ### Organizer/club

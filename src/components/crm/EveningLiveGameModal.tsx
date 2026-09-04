@@ -1,10 +1,11 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Copy, ExternalLink, Eye, EyeOff, MonitorUp, X } from 'lucide-react';
 import LiveGameEngine from '../LiveGameEngine';
 import { PlayerAvatar } from '../ui/PlayerAvatar';
 import type { GameSlot, Player as LegacyPlayer } from '../../types';
 import type { PlayerResultData, TournamentGameProtocolData } from '../../lib/api';
-import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord } from '../../lib/clubGamesApi';
+import { clubGamesApi, getPendingClubGameProtocolSave, type ClubGameRecord, type LiveBroadcastConfig } from '../../lib/clubGamesApi';
+import { buildLiveBroadcastState } from '../../lib/liveBroadcast';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from '../../lib/liveDeathProtocol';
 import { ClubLiveSessionRecorder } from '../../lib/liveClubSession';
 import { MUSIC_EVENING_CONTEXT_KEY } from '../JudgeGameMusicController.tsx';
@@ -171,12 +172,23 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
   const [livePhase, setLivePhase] = useState('setup');
   const [rolesHidden, setRolesHidden] = useState(true);
   const [liveAlive, setLiveAlive] = useState<Record<number, boolean>>({});
+  const [broadcastSetupOpen, setBroadcastSetupOpen] = useState(false);
+  const [broadcastConfig, setBroadcastConfig] = useState<LiveBroadcastConfig | null>(null);
+  const [broadcastConfigLoading, setBroadcastConfigLoading] = useState(false);
+  const [broadcastConfigError, setBroadcastConfigError] = useState<string | null>(null);
+  const [broadcastCopied, setBroadcastCopied] = useState(false);
+  const [broadcastConnection, setBroadcastConnection] = useState<'idle' | 'connecting' | 'live' | 'offline'>('idle');
+  const broadcastConnectionRef = useRef(broadcastConnection);
   const legacyPlayers = useMemo(() => buildLegacyPlayers(game), [game]);
   const livePlayers = useMemo(
     () => (game.club_protocol?.player_results || []).slice().sort((a, b) => a.seat_number - b.seat_number),
     [game],
   );
   const liveRecorder = useMemo(() => new ClubLiveSessionRecorder(game.id), [game.id]);
+
+  useEffect(() => {
+    broadcastConnectionRef.current = broadcastConnection;
+  }, [broadcastConnection]);
 
   useLayoutEffect(() => {
     liveRecorder.mount();
@@ -244,6 +256,86 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     return () => window.clearInterval(intervalId);
   }, [livePhase]);
 
+  useEffect(() => {
+    if (livePhase === 'setup') {
+      setBroadcastConnection('idle');
+      return;
+    }
+
+    let disposed = false;
+    let inFlight = false;
+    let lastSentSignature = '';
+    let lastSuccessfulAt = 0;
+    const metadata = {
+      gameId: game.id,
+      globalGameNumber: game.global_game_number,
+      tableName: game.table_name || null,
+      players: (game.club_protocol?.player_results || []).map((player) => ({
+        seat: player.seat_number,
+        playerId: player.player_id,
+        nickname: player.display_name,
+      })),
+    };
+
+    const syncBroadcast = async () => {
+      if (disposed || inFlight) return;
+      try {
+        const raw = localStorage.getItem('mafia_live_session');
+        if (!raw) return;
+        const state = buildLiveBroadcastState(JSON.parse(raw), metadata);
+        if (!state) return;
+        const signature = JSON.stringify(state);
+        const now = Date.now();
+        if (signature === lastSentSignature && now - lastSuccessfulAt < 5_000) return;
+
+        inFlight = true;
+        if (broadcastConnectionRef.current === 'idle') setBroadcastConnection('connecting');
+        await clubGamesApi.publishBroadcastState(game.id, state);
+        if (disposed) return;
+        lastSentSignature = signature;
+        lastSuccessfulAt = Date.now();
+        setBroadcastConnection('live');
+      } catch {
+        if (!disposed) setBroadcastConnection('offline');
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void syncBroadcast();
+    const intervalId = window.setInterval(() => void syncBroadcast(), 350);
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+    };
+  }, [game, livePhase]);
+
+  const openBroadcastSetup = async () => {
+    setBroadcastSetupOpen(true);
+    setBroadcastCopied(false);
+    if (broadcastConfig || broadcastConfigLoading) return;
+    setBroadcastConfigLoading(true);
+    setBroadcastConfigError(null);
+    try {
+      setBroadcastConfig(await clubGamesApi.getBroadcastConfig(game.id));
+    } catch (error: any) {
+      setBroadcastConfigError(error?.message || 'Не удалось получить ссылку для OBS');
+    } finally {
+      setBroadcastConfigLoading(false);
+    }
+  };
+
+  const copyBroadcastUrl = async () => {
+    if (!broadcastConfig?.overlay_url) return;
+    try {
+      await navigator.clipboard.writeText(broadcastConfig.overlay_url);
+      setBroadcastCopied(true);
+      window.setTimeout(() => setBroadcastCopied(false), 1800);
+    } catch {
+      setBroadcastConfigError('Не удалось скопировать ссылку. Выдели её вручную.');
+    }
+  };
+
   const finishConfirmedSave = (updated: ClubGameRecord) => {
     liveRecorder.finish();
     clearStoredDeathProtocols();
@@ -280,6 +372,15 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            onClick={() => void openBroadcastSetup()}
+            className={`relative w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${broadcastConnection === 'live' ? 'border-emerald-700 bg-emerald-950/70 text-emerald-300' : broadcastConnection === 'offline' ? 'border-rose-800 bg-rose-950/70 text-rose-300' : 'border-slate-800 bg-slate-900 text-slate-400'}`}
+            title="OBS-трансляция"
+          >
+            <MonitorUp className="w-4 h-4" />
+            {broadcastConnection === 'live' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+          </button>
+          <button
+            type="button"
             onClick={() => setRolesHidden((value) => !value)}
             className={`w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl border flex items-center justify-center shrink-0 ${rolesHidden ? 'bg-amber-950/70 border-amber-700 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
             title={rolesHidden ? 'Показать роли' : 'Скрыть роли'}
@@ -296,6 +397,78 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
           </button>
         </div>
       </div>
+
+      {broadcastSetupOpen && (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/88 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111319] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/70">OBS Browser Source</div>
+                <div className="mt-1 text-xl font-semibold text-white">Трансляционный экран</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBroadcastSetupOpen(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/55"
+                aria-label="Закрыть настройки OBS"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-white/55">
+              Добавь эту ссылку в OBS один раз как «Источник браузера». Размер: 1920 × 1080, фон прозрачный. Во всех следующих играх ссылка останется той же.
+            </p>
+
+            {broadcastConfigLoading && (
+              <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 px-4 py-4 text-sm text-white/45">Готовим защищённую ссылку…</div>
+            )}
+
+            {broadcastConfig && (
+              <>
+                <div className="mt-4 break-all rounded-2xl border border-white/10 bg-black/25 px-4 py-3 font-mono text-xs leading-5 text-white/70">
+                  {broadcastConfig.overlay_url}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void copyBroadcastUrl()}
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-black"
+                  >
+                    <Copy className="h-4 w-4" />
+                    {broadcastCopied ? 'Скопировано' : 'Скопировать'}
+                  </button>
+                  <a
+                    href={broadcastConfig.overlay_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-sm font-semibold text-white/75"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Предпросмотр
+                  </a>
+                </div>
+              </>
+            )}
+
+            {broadcastConfigError && (
+              <div className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-400/[0.08] px-4 py-3 text-sm leading-5 text-rose-100/80">
+                {broadcastConfigError}
+              </div>
+            )}
+
+            <div className="mt-4 rounded-2xl border border-emerald-300/10 bg-emerald-300/[0.04] px-4 py-3 text-xs leading-5 text-emerald-50/55">
+              {livePhase === 'setup'
+                ? 'Передача начнётся автоматически после запуска игры.'
+                : broadcastConnection === 'live'
+                  ? 'Телефон передаёт актуальное состояние в OBS.'
+                  : broadcastConnection === 'offline'
+                    ? 'Нет связи с сервером. Игра на телефоне продолжается; OBS догонит состояние после восстановления интернета.'
+                    : 'Подключаем телефон к трансляции…'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {saving && (
         <div className="fixed inset-0 z-[130] bg-slate-950/90 flex items-center justify-center text-sm font-black text-white">

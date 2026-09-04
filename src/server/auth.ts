@@ -129,8 +129,14 @@ async function canUseAssignedJudgeRoute(req: AuthenticatedRequest): Promise<bool
     return true;
   }
 
-  const clubMatch = path.match(/^\/api\/games\/(\d+)\/evening-protocol\/?$/);
-  if (clubMatch && req.method === 'PUT') {
+  const clubMatch = path.match(/^\/api\/games\/(\d+)\/(evening-protocol|broadcast-config|broadcast-state)\/?$/);
+  const clubAction = clubMatch?.[2];
+  const clubMethodAllowed = (
+    (clubAction === 'evening-protocol' && req.method === 'PUT')
+    || (clubAction === 'broadcast-config' && req.method === 'GET')
+    || (clubAction === 'broadcast-state' && req.method === 'PUT')
+  );
+  if (clubMatch && clubMethodAllowed) {
     const game = await db.get(`
       SELECT g.judge_player_id, g.archived_at, g.protocol_text, e.format AS evening_format
         FROM games g

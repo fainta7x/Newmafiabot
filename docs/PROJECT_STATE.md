@@ -2,9 +2,9 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-02
+**Status date:** 2026-09-04
 
-**Latest release record:** PR #214 merged after its exact head passed CI, CodeQL and Gitleaks. It applies the current safe minor/patch dependency batch and includes the `nanoid` 3.3.18 security fix that superseded old PR #51.
+**Latest release record:** the current Git baseline includes organizer/player operations through PR #237. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -159,11 +159,25 @@ The real club launcher currently provides:
 - protocol/best-move announcement buffers increased by five seconds;
 - local session recovery.
 
+The club launcher also publishes a dedicated OBS Browser Source overlay:
+
+- one stable secret URL for the main broadcast channel;
+- a transparent 1920×1080 HUD with the current game number, ten player identities, roles and alive/out status;
+- ordered nominations, with the nominating seat where available;
+- voter-to-candidate assignments only after the judge fixes the voting result; partial collection is never shown;
+- transient server relay only: the phone remains the recoverable Live Game source and timer ticks are not written to Turso.
+
 Known low-priority technical tail: a bare `LiveGameEngine` render without the normal controlled `rolesHidden` prop still has an internal visible-role fallback. The real club launcher passes the controlled hidden state, so this is cleanup rather than a current club blocker.
 
 Approved game behavior remains governed by `docs/BUSINESS_RULES.md`.
 
 ## Integrations
+
+### OBS / Twitch broadcast
+
+Connected through the Live Game modal and `/broadcast/<secret>` Browser Source route. The secret URL is returned only to an authorized organizer or the assigned judge. The public `/live` screen remains a separate safe view and must not receive roles, checks or unfinished voting detail.
+
+The current relay is intentionally one main in-memory broadcast channel for one streamed table. A Node restart or phone connection loss leaves the last frame visible; the phone heartbeat republishes the current local snapshot after connectivity returns.
 
 ### Telegram
 
@@ -226,10 +240,10 @@ As of this snapshot, these items are explicitly **not** backlog:
 
 ## Immediate next queue
 
-1. Verify deployment of the latest intended `main` on Amvera after the current GitHub maintenance pass.
-2. Verify `/api/health` and `/api/health/runtime` and then any exact user-reported production flow that depends on the deployed build.
-3. If planning new work, derive a **fresh backlog from current main**, not from the August roadmap.
-4. Keep routine dependency maintenance separate from product backlog; PR #214 is already merged.
+1. Verify deployment of the latest intended `main` on Amvera.
+2. Verify `/api/health`, `/api/health/runtime` and the OBS path `phone Live Game -> relay -> Browser Source` without exposing the secret URL in public logs/screenshots.
+3. Configure OBS Browser Source at 1920×1080 and inspect a real setup/day/vote/night sequence before the first public stream.
+4. If planning new work, derive a **fresh backlog from current main**, not from the August roadmap.
 5. Resume CRM UX redesign only when the user explicitly chooses it.
 
 ## Verification model

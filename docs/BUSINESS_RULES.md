@@ -177,6 +177,19 @@ Automatic final statuses should use the approved semantics:
 
 Do not collapse these into one generic “out” status when the distinction is visible to players, results or protocol history.
 
+## Broadcast overlay visibility
+
+The OBS/Twitch overlay is a spectator surface linked to the conducted Live Game, not a second judge protocol.
+
+- The secret OBS overlay may show all assigned roles and alive/out status; the ordinary public `/live` page must remain role-safe.
+- The current game number must be visible. When available, show both the game’s global club number and its order within the current evening.
+- Nominations must preserve their actual order of выставление. A nomination remains distinct from a vote.
+- While the judge is collecting/correcting ballots, the overlay may show the candidate set but must not show partial counts or individual choices.
+- Only after the judge fixes the round result may the overlay show totals and the exact voter-to-candidate mapping.
+- Each revote is shown as the active round with its own candidate set and fixed result; do not merge several revotes into one invented vote.
+- Loss of broadcast connectivity must not block Live Game on the phone. The overlay may freeze on the last confirmed frame and catch up after reconnection.
+- Judge-only notes, Don/Sheriff check results, Undo history and other closed workflow state are not part of the audience payload.
+
 ## Corrections and completed games
 
 - Organizer/judge correction workflows may edit completed game/tournament protocol data where the application explicitly supports correction mode.

@@ -141,6 +141,15 @@ When seat states compete for the same central status area, the judge-critical st
 
 Do not hide judge-critical copy with ellipsis just to fit a test.
 
+### OBS spectator overlay
+
+- Canonical canvas is transparent `1920×1080`; its central area remains available for the camera composition.
+- Ten player identities stay in a stable bottom row on a 16:9 broadcast, with role and out-state readable at streaming scale.
+- Killed, voted and removed states remain visually distinct without deleting the player identity.
+- Current phase/game number/timer form the top chrome; nominations and fixed voting detail occupy compact secondary panels.
+- Partial voting input is intentionally invisible to spectators. The fixed result must make both totals and voter seats readable.
+- Connection loss uses a restrained warning and preserves the last frame instead of replacing the broadcast with an error screen.
+
 ### Setup / physical role distribution
 
 The pre-game setup is part of the judge workflow, not a separate settings screen.

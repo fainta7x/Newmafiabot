@@ -64,6 +64,7 @@ import developerTestModeRoutes from './server/routes/developerTestModeRoutes.ts'
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
+import { liveBroadcastGameRoutes, liveBroadcastPublicRoutes } from './server/routes/liveBroadcastRoutes.ts';
 import flexibleTournamentResultsRoutes from './server/routes/flexibleTournamentResultsRoutes.ts';
 import judgeAuthorityAdminRoutes from './server/routes/judgeAuthorityAdminRoutes.ts';
 import tournamentTelegramRoutes from './server/routes/tournamentTelegramRoutes.ts';
@@ -175,6 +176,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', vkJoinStartRouter);
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);
+  app.use('/api/public', liveBroadcastPublicRoutes);
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
@@ -191,6 +193,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     res.status(410).json({ error: 'Legacy game creation route retired; use the evening/tournament protocol workflow' });
   });
   app.use('/api/games', organizerBettingRoutes);
+  app.use('/api/games', liveBroadcastGameRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/tournaments', tournamentTelegramRoutes);
   app.use('/api/tournaments', judgeAuthorityAdminRoutes);

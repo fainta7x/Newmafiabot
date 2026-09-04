@@ -15,13 +15,14 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
     expect(modal).toContain("if (document.visibilityState === 'visible')");
   });
 
-  it('keeps the Live Game modal pinned to the actual Telegram viewport after resume', () => {
+  it('does not let a stale Telegram stable-height collapse the active Live Game surface', () => {
     const modal = read('src/components/crm/EveningLiveGameModal.tsx');
     expect(modal).toContain('evening-live-fullscreen');
 
-    const css = read('src/components/crm/eveningLiveMobilePolish.css');
+    const css = read('src/components/crm/liveGameTelegram.css');
     expect(css).toContain('.evening-live-fullscreen');
     expect(css).toContain('100dvh');
+    expect(css).not.toContain('--live-stable-height: var(--tg-viewport-stable-height, 100dvh);');
   });
 
   it('uses a compact top broadcast chrome so the camera remains the dominant 1920x1080 surface', () => {

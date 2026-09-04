@@ -46,7 +46,11 @@ const loadCanonicalBroadcastGame = async (
 
   const protocol = parseProtocol(row.protocol_text);
   const results = Array.isArray(protocol?.player_results) ? protocol.player_results : [];
-  if (protocol?.kind !== 'club_evening_protocol' || results.length !== 10) return null;
+  if (
+    protocol?.kind !== 'club_evening_protocol'
+    || protocol?.protocol?.status === 'completed'
+    || results.length !== 10
+  ) return null;
 
   const players = results
     .map((player: any) => ({

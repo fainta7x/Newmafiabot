@@ -34,8 +34,8 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
     const css = read('src/components/public/liveBroadcastCompact.css');
     const main = read('src/main.tsx');
 
-    expect(css).toContain('--broadcast-header-height: 72px');
-    expect(css).toContain('--broadcast-info-top: 92px');
+    expect(css).toContain('--broadcast-header-height: 56px');
+    expect(css).toContain('--broadcast-info-top: 70px');
     expect(css).toContain('min-height: var(--broadcast-header-height)');
     expect(main).toContain('liveBroadcastCompact.css');
   });

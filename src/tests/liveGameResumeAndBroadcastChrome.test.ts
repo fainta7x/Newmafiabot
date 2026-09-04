@@ -12,6 +12,8 @@ describe('urgent Live Game mobile resume and OBS broadcast chrome', () => {
     expect(bridge).toContain('requestTelegramLiveFullscreen');
     expect(bridge).toContain("document.addEventListener('visibilitychange'");
     expect(bridge).toContain("window.addEventListener('pageshow'");
+    expect(bridge).toContain("webApp?.onEvent?.('viewportChanged'");
+    expect(bridge).toContain("webApp?.offEvent?.('viewportChanged'");
     expect(bridge).toContain('webApp?.expand?.()');
     expect(bridge).toContain("if (document.visibilityState === 'visible')");
     expect(bridge).toContain("document.querySelector('.evening-live-engine-shell')");

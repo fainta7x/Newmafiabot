@@ -36,20 +36,26 @@ describe('CRM player activity segmentation', () => {
     expect(sorted.map((item) => item.id)).toEqual(['loyal', 'loyal-old', 'returning']);
   });
 
-  it('defaults Players CRM to active clients and exposes loyalty / archive quick filters', () => {
-    const source = read('src/components/crm/PlayersCRM.tsx');
+  it('defaults the players hub to active clients and exposes loyalty / archive quick filters', () => {
+    const source = read('src/components/crm/PlayersActivityCRM.tsx');
+    const hub = read('src/components/crm/PlayersHubCRM.tsx');
     expect(source).toContain("type QuickFilter = 'active' | 'loyal' | 'attention' | 'lapsed' | 'all'");
     expect(source).toContain("useState<QuickFilter>('active')");
     expect(source).toContain("{ id: 'active', label: 'Активные' }");
     expect(source).toContain("{ id: 'loyal', label: 'Лояльные' }");
     expect(source).toContain("{ id: 'all', label: 'Вся база' }");
-    expect(source).toContain("params.activity_segment = 'active'");
-    expect(source).toContain("params.activity_segment = 'loyal'");
+    expect(source).toContain("api.getPlayers(buildParams('newcomer'))");
+    expect(source).toContain("api.getPlayers(buildParams('returning'))");
+    expect(source).toContain("api.getPlayers(buildParams('regular'))");
+    expect(hub).toContain('<PlayersActivityCRM');
   });
 
-  it('keeps detailed lifecycle filters in the sheet but removes the confusing subtitle and protects it from bottom navigation overlap', () => {
-    const playersSource = read('src/components/crm/PlayersCRM.tsx');
+  it('keeps detailed lifecycle filters in the sheet and protects mobile sheets from bottom navigation overlap', () => {
+    const playersSource = read('src/components/crm/PlayersActivityCRM.tsx');
     const sheetSource = read('src/components/ui/MobileSheet.tsx');
+    expect(playersSource).toContain('<option value="newcomer">Новичок</option>');
+    expect(playersSource).toContain('<option value="returning">Вернувшийся</option>');
+    expect(playersSource).toContain('<option value="regular">Постоянный</option>');
     expect(playersSource).not.toContain('Точные сегменты сохранены, но не занимают основной экран.');
     expect(sheetSource).toContain('pb-[max(1rem,env(safe-area-inset-bottom))]');
   });

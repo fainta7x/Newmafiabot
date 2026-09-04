@@ -1060,8 +1060,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setIsTimerRunning(true);
   };
 
-  const finishNightToDay = () => {
-    saveSnapshot();
+  const applyNightToDayTransition = () => {
     const nextStarter = getNextDayStarterSlot(activePlayers, dayStarterSlot);
     if (nextStarter !== null) setDayStarterSlot(nextStarter);
     setRoundNumber((value) => value + 1);
@@ -1077,6 +1076,11 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setDonCheckResult(null);
     setSheriffCheckSlot(null);
     setSheriffCheckResult(null);
+  };
+
+  const finishNightToDay = () => {
+    saveSnapshot();
+    applyNightToDayTransition();
   };
 
   const startFarewellSpeech = (slot: number) => {
@@ -1126,7 +1130,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       startFarewellSpeech(killedSlot);
       return;
     }
-    finishNightToDay();
+    applyNightToDayTransition();
   };
 
   const isFarewellSpeechActive = () => activeSpeakerSlot !== null && (

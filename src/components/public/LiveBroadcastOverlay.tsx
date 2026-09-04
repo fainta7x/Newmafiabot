@@ -209,6 +209,7 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
             <article
               key={player.seat}
               className={`live-broadcast-player ${role.className} ${player.alive ? 'is-alive' : 'is-out'} ${state.currentSpeakerSeat === player.seat ? 'is-speaking' : ''} ${order ? 'is-nominated' : ''} ${isVoteCandidate ? 'is-vote-candidate' : ''}`}
+              style={player.alive ? undefined : { opacity: 1, filter: 'none' }}
             >
               <div className="live-broadcast-seat-number">{player.seat}</div>
               {order ? <div className="live-broadcast-nomination-order">{order}</div> : null}
@@ -226,7 +227,10 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
                 </div>
               )}
               {!player.alive && (
-                <div className={`live-broadcast-player-status is-${player.statusKind}`}>
+                <div
+                  className={`live-broadcast-player-status is-${player.statusKind}`}
+                  style={{ background: 'rgba(7, 8, 11, .94)' }}
+                >
                   <PlayerStatusIcon player={player} />
                   <span>{player.status}</span>
                 </div>

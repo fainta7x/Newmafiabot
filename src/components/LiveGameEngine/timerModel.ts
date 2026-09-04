@@ -28,6 +28,12 @@ export const createTimerDeadline = (nowMs: number, durationSeconds: number): num
   nowMs + Math.max(0, durationSeconds) * 1000
 );
 
+export const resolvePersistedTimerDeadline = (
+  persistedDeadlineMs: number | null,
+  nowMs: number,
+  durationSeconds: number,
+): number => persistedDeadlineMs ?? createTimerDeadline(nowMs, durationSeconds);
+
 export const getRemainingTimerSeconds = (deadlineMs: number, nowMs: number): number => (
   Math.max(0, Math.ceil((deadlineMs - nowMs) / 1000))
 );

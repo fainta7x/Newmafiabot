@@ -46,6 +46,8 @@ const baseProps = () => ({
   handleResolveVoting: vi.fn(),
   nightSubPhase: 'intro' as const,
   shotPlayerSlot: null,
+  bestMoveDeadlineMs: null,
+  setBestMoveDeadlineMs: vi.fn(),
   getPrevStepAction: () => null,
   getNextStepInfo: () => null,
 });

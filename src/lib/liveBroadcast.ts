@@ -1,4 +1,5 @@
 import { buildLiveGameStateView, parseLiveGameSnapshot } from './liveGameState';
+import { determineVotingResult, type VotingRound } from '../shared/tournamentVoting';
 
 export const LIVE_BROADCAST_VERSION = 1 as const;
 
@@ -29,6 +30,7 @@ export type LiveBroadcastVote = {
   roundNumber: number;
   isRevote: boolean;
   candidates: number[];
+  highlightedCandidates: number[];
   published: boolean;
   counts: Record<number, number>;
   assignments: Record<number, number>;
@@ -173,6 +175,11 @@ export const buildLiveBroadcastState = (
     .filter((seat: number | null): seat is number => seat !== null);
   const published = snapshot.phase === 'day_voting' && resultIsPublished(snapshot.votingStage);
   const allowedCandidates = new Set<number>(candidates);
+  const resolvedCandidates = published && activeRound
+    ? determineVotingResult(activeRound as VotingRound).winners
+        .map(toSeat)
+        .filter((seat: number | null): seat is number => seat !== null && allowedCandidates.has(seat))
+    : [];
   const rawCounts = asObject(activeRound?.vote_counts) || {};
   const counts: Record<number, number> = {};
   if (published) {
@@ -186,6 +193,7 @@ export const buildLiveBroadcastState = (
         roundNumber: Math.max(1, Number(activeRound.round_number || activeRoundIndex + 1)),
         isRevote: Boolean(activeRound.is_revote),
         candidates,
+        highlightedCandidates: resolvedCandidates.length ? resolvedCandidates : candidates,
         published,
         counts,
         assignments: published ? recordSeats(snapshot.votesByPlayer, allowedCandidates) : {},

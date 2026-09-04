@@ -53,6 +53,7 @@ const fixedVote = {
       roundNumber: 1,
       isRevote: false,
       candidates: [3, 7, 9],
+      highlightedCandidates: [3, 7, 9],
       published: true,
       counts: { 3: 3, 7: 3, 9: 4 },
       assignments: { 1: 3, 2: 3, 3: 3, 4: 7, 5: 7, 6: 7, 7: 9, 8: 9, 9: 9, 10: 9 },

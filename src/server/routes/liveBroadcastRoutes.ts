@@ -125,6 +125,9 @@ publicRouter.get('/broadcast/:token/avatar/:playerId', async (req: Authenticated
   try {
     const db = req.db || (await getDb());
     const playerId = String(req.params.playerId || '');
+    const broadcastPlayer = readLiveBroadcastEnvelope().state?.players
+      .some((player) => player.playerId === playerId);
+    if (!broadcastPlayer) return res.status(404).end();
     const avatar = await db.get<any>(
       'SELECT mime_type, image_data FROM player_avatars WHERE player_id = ? LIMIT 1',
       [playerId],

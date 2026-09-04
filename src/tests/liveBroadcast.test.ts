@@ -100,6 +100,24 @@ describe('live broadcast audience state', () => {
     expect(state.vote?.assignments).toEqual(source.votesByPlayer);
   });
 
+  it('highlights only the candidates advancing from a fixed split', () => {
+    const source: any = snapshot();
+    source.phase = 'day_voting';
+    source.votingStage = 'round_result';
+    source.votingRounds = [{
+      round_number: 1,
+      nominated_seats: [7, 3, 9],
+      vote_counts: { 7: 4, 3: 4, 9: 2 },
+      eligible_voters: 10,
+      outcome: 'pending',
+    }];
+    source.votesByPlayer = { 1: 7, 2: 7, 3: 7, 4: 7, 5: 3, 6: 3, 7: 3, 8: 3, 9: 9, 10: 9 };
+
+    const state = buildLiveBroadcastState(source, metadata)!;
+    expect(state.vote?.candidates).toEqual([7, 3, 9]);
+    expect(state.vote?.highlightedCandidates).toEqual([7, 3]);
+  });
+
   it('keeps roles visible while distinguishing killed, voted and removed players', () => {
     const source: any = snapshot();
     source.activePlayers[1] = { ...source.activePlayers[1], alive: false, exit_reason: 'killed', role: 'Мафия' };

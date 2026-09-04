@@ -266,6 +266,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
     let inFlight = false;
     let lastSentSignature = '';
     let lastSuccessfulAt = 0;
+    let retryAfter = 0;
     const metadata = {
       gameId: game.id,
       globalGameNumber: game.global_game_number,
@@ -279,6 +280,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
 
     const syncBroadcast = async () => {
       if (disposed || inFlight) return;
+      if (Date.now() < retryAfter) return;
       try {
         const raw = localStorage.getItem('mafia_live_session');
         if (!raw) return;
@@ -294,8 +296,10 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
         if (disposed) return;
         lastSentSignature = signature;
         lastSuccessfulAt = Date.now();
+        retryAfter = 0;
         setBroadcastConnection('live');
       } catch {
+        retryAfter = Date.now() + 2_000;
         if (!disposed) setBroadcastConnection('offline');
       } finally {
         inFlight = false;

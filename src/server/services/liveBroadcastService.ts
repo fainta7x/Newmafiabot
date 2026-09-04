@@ -144,11 +144,18 @@ export const normalizeLiveBroadcastState = (
       ? source.vote.candidates.map(toSeat).filter((seat: number | null): seat is number => seat !== null).slice(0, 10)
       : [];
     const targets = new Set<number>(candidates);
+    const submittedHighlights = Array.isArray(source.vote.highlightedCandidates)
+      ? source.vote.highlightedCandidates
+          .map(toSeat)
+          .filter((seat: number | null): seat is number => seat !== null && targets.has(seat))
+      : [];
+    const highlightedCandidates = [...new Set(submittedHighlights)];
     const published = source.vote.published === true;
     vote = {
       roundNumber: Math.max(1, finiteInteger(source.vote.roundNumber, 1)),
       isRevote: Boolean(source.vote.isRevote),
       candidates,
+      highlightedCandidates: highlightedCandidates.length ? highlightedCandidates : candidates,
       published,
       counts: published ? sanitizeSeatRecord(source.vote.counts, targets, 'count') : {},
       assignments: published ? sanitizeSeatRecord(source.vote.assignments, targets, 'seat') : {},

@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db';
 import { buildLiveBroadcastState } from '../lib/liveBroadcast';
-import { generateOrganizerToken } from '../server/auth';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth';
 import { resetLiveBroadcastForTests } from '../server/services/liveBroadcastService';
 
 describe('live broadcast routes', () => {
@@ -27,6 +27,19 @@ describe('live broadcast routes', () => {
     db = createDatabaseConnection(':memory:');
     app = await createApp(db);
     cookie = `organizer_token=${generateOrganizerToken()}`;
+
+    for (const player of canonicalPlayers) {
+      await db.run(
+        `INSERT INTO players (id, nickname, contact_status, lifecycle_status, judge_level, elo, tokens, created_at, updated_at)
+         VALUES (?, ?, 'normal', 'normal', 'none', 1000, 0, ?, ?)`,
+        [player.player_id, player.display_name, now, now],
+      );
+    }
+    await db.run(
+      `INSERT INTO players (id, nickname, contact_status, lifecycle_status, judge_level, elo, tokens, created_at, updated_at)
+       VALUES ('outside-broadcast', 'Не в эфире', 'normal', 'normal', 'none', 1000, 0, ?, ?)`,
+      [now, now],
+    );
 
     await db.run(
       `INSERT INTO game_evenings
@@ -138,5 +151,52 @@ describe('live broadcast routes', () => {
 
     const invalidToken = await request(app).get('/api/public/broadcast/not-the-token');
     expect(invalidToken.status).toBe(404);
+  });
+
+  it('allows the assigned qualified judge to configure and publish only their active game', async () => {
+    await db.run("UPDATE players SET judge_level = 'host' WHERE id = 'player-1'");
+    await db.run("UPDATE games SET judge_player_id = 'player-1' WHERE id = ?", [gameId]);
+    const judgeCookie = `player_token=${generatePlayerSessionToken('player-1')}`;
+
+    await request(app)
+      .get(`/api/games/${gameId}/broadcast-config`)
+      .set('Cookie', judgeCookie)
+      .expect(200);
+    await request(app)
+      .put(`/api/games/${gameId}/broadcast-state`)
+      .set('Cookie', judgeCookie)
+      .send({ state: audienceState() })
+      .expect(202);
+
+    await request(app)
+      .get(`/api/games/${gameId}/broadcast-config`)
+      .set('Cookie', `player_token=${generatePlayerSessionToken('player-2')}`)
+      .expect(401);
+  });
+
+  it('serves avatars only for players present in the current broadcast frame', async () => {
+    const image = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    for (const playerId of ['player-1', 'outside-broadcast']) {
+      await db.run(
+        `INSERT INTO player_avatars (player_id, mime_type, image_data, byte_size, width, height, updated_at)
+         VALUES (?, 'image/jpeg', ?, ?, 1, 1, ?)`,
+        [playerId, image, image.length, now],
+      );
+    }
+
+    const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
+    const token = String(config.body.overlay_path).split('/').pop()!;
+    await request(app)
+      .put(`/api/games/${gameId}/broadcast-state`)
+      .set('Cookie', cookie)
+      .send({ state: audienceState() })
+      .expect(202);
+
+    const currentPlayer = await request(app).get(`/api/public/broadcast/${token}/avatar/player-1`);
+    expect(currentPlayer.status).toBe(200);
+    expect(currentPlayer.headers['content-type']).toContain('image/jpeg');
+    await request(app)
+      .get(`/api/public/broadcast/${token}/avatar/outside-broadcast`)
+      .expect(404);
   });
 });

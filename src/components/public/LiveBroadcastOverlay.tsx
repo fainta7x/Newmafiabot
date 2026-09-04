@@ -94,7 +94,10 @@ export default function LiveBroadcastOverlay({ token }: LiveBroadcastOverlayProp
   const nominationOrder = useMemo(() => new Map(
     (state?.nominations || []).map((nomination) => [nomination.seat, nomination.order]),
   ), [state?.nominations]);
-  const voteCandidates = useMemo(() => new Set(state?.vote?.candidates || []), [state?.vote?.candidates]);
+  const voteCandidates = useMemo(
+    () => new Set(state?.vote?.highlightedCandidates || state?.vote?.candidates || []),
+    [state?.vote?.candidates, state?.vote?.highlightedCandidates],
+  );
 
   if (!state) {
     return (

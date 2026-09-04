@@ -33,6 +33,7 @@ export type LiveSnapshot = {
   activeBestMoveSource: BestMoveSource | null;
   activeBestMoveSlot: number | null;
   pendingBestMoveSeats: number[];
+  bestMoveDeadlineMs: number | null;
   votingRounds: VotingRound[];
   activeVotingRoundIndex: number;
   votesByPlayer: Record<number, number>;
@@ -117,6 +118,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
   activeBestMoveSource: snapshot.activeBestMoveSource || null,
   activeBestMoveSlot: snapshot.activeBestMoveSlot ?? null,
   pendingBestMoveSeats: snapshot.pendingBestMoveSeats || [],
+  bestMoveDeadlineMs: snapshot.bestMoveDeadlineMs ?? null,
   votingRounds: snapshot.votingRounds || [],
   activeVotingRoundIndex: snapshot.activeVotingRoundIndex || 0,
   votesByPlayer: snapshot.votesByPlayer || {},

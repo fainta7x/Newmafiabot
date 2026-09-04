@@ -118,6 +118,18 @@ describe('live broadcast routes', () => {
     expect(second.body.overlay_path).toBe(first.body.overlay_path);
   });
 
+  it('rejects completed games even for an organizer', async () => {
+    await request(app)
+      .get('/api/games/1/broadcast-config')
+      .set('Cookie', cookie)
+      .expect(404);
+    await request(app)
+      .put('/api/games/1/broadcast-state')
+      .set('Cookie', cookie)
+      .send({ state: audienceState() })
+      .expect(404);
+  });
+
   it('publishes transient state and replaces identity and numbering from the database', async () => {
     const config = await request(app).get(`/api/games/${gameId}/broadcast-config`).set('Cookie', cookie);
     const token = String(config.body.overlay_path).split('/').pop()!;

@@ -19,11 +19,19 @@ export const requestTelegramLiveFullscreen = () => {
  */
 export default function LiveGameResumeBridge() {
   useEffect(() => {
+    let activePreviously = hasActiveLiveGame();
+
     const restoreIfVisible = () => {
       if (document.visibilityState === 'visible') requestTelegramLiveFullscreen();
     };
 
-    const observer = new MutationObserver(() => restoreIfVisible());
+    const observer = new MutationObserver(() => {
+      const activeNow = hasActiveLiveGame();
+      if (activeNow && !activePreviously && document.visibilityState === 'visible') {
+        requestTelegramLiveFullscreen();
+      }
+      activePreviously = activeNow;
+    });
     observer.observe(document.body, { childList: true, subtree: true });
 
     restoreIfVisible();

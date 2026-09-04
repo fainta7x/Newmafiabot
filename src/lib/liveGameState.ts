@@ -52,11 +52,12 @@ const toSeat = (value: unknown): number | null => {
 };
 
 const phaseTitle = (phase: string, round: number): string => {
+  const dayTitle = round <= 1 ? 'Нулевой круг' : `День ${round - 1}`;
   if (phase === 'setup') return 'Подготовка';
   if (phase === 'zero_night') return 'Нулевая ночь';
-  if (phase === 'day_speeches') return `День ${round} · речи`;
-  if (phase === 'day_voting') return `День ${round} · голосование`;
-  if (phase === 'shootout') return `День ${round} · переголосование`;
+  if (phase === 'day_speeches') return `${dayTitle} · речи`;
+  if (phase === 'day_voting') return `${dayTitle} · голосование`;
+  if (phase === 'shootout') return `${dayTitle} · переголосование`;
   if (phase === 'night') return `Ночь ${round}`;
   return 'Игра в процессе';
 };

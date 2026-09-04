@@ -193,6 +193,7 @@ Required runtime contract includes:
 - `WEBHOOK_URL=https://<amvera-domain>`;
 - `BOT_API_BASE_URL=https://<amvera-domain>`;
 - `PLAYER_APP_URL=https://<amvera-domain>`;
+- optional `LIVE_BROADCAST_SECRET=<stable-random-secret>` for an OBS URL that survives `JWT_SECRET` rotation; without it the OBS token is derived from `JWT_SECRET`;
 - `BOT_SERVICE_URL=http://127.0.0.1:8081`;
 - configured Telegram destination/admin and VK/Gemini secrets where used.
 
@@ -208,6 +209,15 @@ Do not configure local SQLite as production-primary while the Turso pair is pres
 6. open the Mini App and confirm current player/evening data when relevant;
 7. verify one or two recent Turso-backed data markers;
 8. run a **targeted behavior check for the bug just fixed** (for example payment mark/unmark after a payment release), not a generic destructive smoke test.
+
+For an OBS broadcast release, additionally:
+
+1. open an active draft game as the organizer/assigned judge and copy the OBS URL from the monitor button;
+2. keep the URL private because it exposes spectator roles and state;
+3. configure OBS Browser Source once at `1920×1080` with the transparent page background;
+4. verify nominations appear in order, partial ballot collection stays hidden and the complete voter map appears only after the judge fixes the result;
+5. briefly interrupt the phone network and confirm Live Game continues locally, the overlay keeps its last frame and catches up after reconnection;
+6. remember that one main relay channel supports one streamed table at a time.
 
 Only after these checks may a release be called **runtime verified**.
 

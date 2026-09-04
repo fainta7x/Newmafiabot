@@ -174,6 +174,17 @@ Recent invariants to preserve:
 
 Browser evidence: `e2e/live-game.html`, `e2e/live-game-harness.tsx`, `e2e/tests/live-game.spec.mjs`.
 
+### OBS / Twitch Live Game overlay
+
+- Audience-state contract: `src/lib/liveBroadcast.ts`.
+- Phone publisher and one-time OBS link UI: `src/components/crm/EveningLiveGameModal.tsx` and `src/lib/clubGamesApi.ts`.
+- Token/transient relay: `src/server/services/liveBroadcastService.ts`.
+- API: `src/server/routes/liveBroadcastRoutes.ts`, mounted under authorized `/api/games/*` and secret `/api/public/broadcast/*` paths.
+- Browser Source UI: `src/components/public/LiveBroadcastOverlay.tsx` + `liveBroadcastOverlay.css`, route `/broadcast/:token` in `src/App.tsx`.
+- Focused coverage: `src/tests/liveBroadcast.test.ts`, `src/tests/liveBroadcastRoutes.test.ts`, `e2e/tests/live-broadcast.spec.mjs`.
+
+Current contract: one stable secret main-channel URL, one streamed game at a time, roles/statuses and ordered nominations visible, and voter assignments withheld until the judge fixes the round result. This relay is transient and must not become a second in-progress game database.
+
 Read `docs/BUSINESS_RULES.md` before changing game behavior.
 
 ## Tournaments / protocols / awards / results

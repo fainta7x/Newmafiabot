@@ -1,5 +1,6 @@
 import type { PlayerResultData, TournamentGameProtocolData } from './api';
 import { applyStoredDeathProtocolsToResults, clearStoredDeathProtocols } from './liveDeathProtocol';
+import type { LiveBroadcastState } from './liveBroadcast';
 
 export interface ClubGameProtocolEnvelope {
   version: 1;
@@ -29,6 +30,14 @@ export interface ClubGameRecord {
 export type ProtocolSavePayload = {
   protocol: TournamentGameProtocolData;
   player_results: PlayerResultData[];
+};
+
+export type LiveBroadcastConfig = {
+  overlay_url: string;
+  overlay_path: string;
+  width: 1920;
+  height: 1080;
+  game_id: number;
 };
 
 type PendingProtocolSave = {
@@ -237,6 +246,11 @@ export const clubGamesApi = {
     judge_player_id?: string | null;
     seats: Array<{ participant_id: string; seat_number: number; role?: string | null }>;
   }) => request<ClubGameRecord>(`/api/games/evening/${encodeURIComponent(eveningId)}`, { method: 'POST', body: JSON.stringify(data) }),
+  getBroadcastConfig: (gameId: number) => request<LiveBroadcastConfig>(`/api/games/${gameId}/broadcast-config`),
+  publishBroadcastState: (gameId: number, state: LiveBroadcastState) => request<{ ok: true; received_at: string }>(
+    `/api/games/${gameId}/broadcast-state`,
+    { method: 'PUT', body: JSON.stringify({ state }) },
+  ),
   saveProtocol: async (gameId: number, data: ProtocolSavePayload) => {
     // The final protocol is a recoverable client-side outbox item until the
     // server confirms the PUT. This protects a completed game from a dropped

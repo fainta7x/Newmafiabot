@@ -58,13 +58,20 @@ const baseSnapshot = () => ({
 });
 
 describe('current live game state', () => {
+  it('uses the approved zero-round label for the first daytime cycle', () => {
+    const snapshot = baseSnapshot();
+    snapshot.roundNumber = 1;
+
+    expect(buildLiveGameStateView(snapshot)?.phaseTitle).toBe('Нулевой круг · речи');
+  });
+
   it('summarizes the current speech and discipline warning', () => {
     const snapshot = baseSnapshot();
     snapshot.discipline.players['3'].regularFouls = 3;
     snapshot.discipline.players['3'].has30SecPenalty = true;
 
     const view = buildLiveGameStateView(snapshot)!;
-    expect(view.phaseTitle).toBe('День 2 · речи');
+    expect(view.phaseTitle).toBe('День 1 · речи');
     expect(view.phaseDetail).toBe('Сейчас говорит #2');
     expect(view.nextStep).toBe('Завершить речь #2');
     expect(view.timerText).toBe('38с · идёт');
@@ -87,7 +94,7 @@ describe('current live game state', () => {
     snapshot.votesByPlayer = { 1: 4, 2: 4, 3: 7 };
 
     const view = buildLiveGameStateView(snapshot)!;
-    expect(view.phaseTitle).toBe('День 2 · голосование');
+    expect(view.phaseTitle).toBe('День 1 · голосование');
     expect(view.votingStage).toBe('Сбор голосов');
     expect(view.votingRound).toBe(2);
     expect(view.nominations).toEqual([4, 7]);

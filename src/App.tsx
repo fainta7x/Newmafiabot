@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import BettingLiveBridge from "./components/BettingLiveBridge.tsx";
 import OrganizerCRM from "./components/OrganizerCRM.tsx";
 import BigScreenLive from "./components/public/BigScreenLive.tsx";
+import LiveBroadcastOverlay from "./components/public/LiveBroadcastOverlay.tsx";
 import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
@@ -204,7 +205,8 @@ export default function App() {
   const isJoinRoute = isRoutePrefix(pathname, '/join');
   const isTournamentResultsRoute = isRoutePrefix(pathname, '/tournaments/results');
   const isLiveRoute = isRoutePrefix(pathname, '/live');
-  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute;
+  const isBroadcastRoute = isRoutePrefix(pathname, '/broadcast');
+  const isPublicRoute = isJoinRoute || isTournamentResultsRoute || isLiveRoute || isBroadcastRoute;
   const isAdminRoute = isRoutePrefix(pathname, '/admin');
   const telegramInitData = getTelegramInitData();
   const isPlayerContext = isRoutePrefix(pathname, '/player') || (pathname === '/' && Boolean(telegramInitData));
@@ -284,6 +286,11 @@ export default function App() {
 
   if (isLiveRoute) {
     return <BigScreenLive />;
+  }
+
+  if (isBroadcastRoute) {
+    const parts = pathname.split('/').filter(Boolean);
+    return <LiveBroadcastOverlay token={parts[1] || ''} />;
   }
 
   if (isAdminRoute || !isPlayerContext) {

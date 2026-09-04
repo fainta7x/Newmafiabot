@@ -75,6 +75,7 @@ import tournamentAwardsRoutes from './server/routes/tournamentAwardsRoutes.ts';
 import botRoutes from './server/routes/botRoutes.ts';
 import botAnnouncementRoutes from './server/routes/botAnnouncementRoutes.ts';
 import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
+import botOrganizerAlertsRoutes from './server/routes/botOrganizerAlertsRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
 import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
@@ -202,6 +203,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/bot', botRoutes);
   app.use('/api/bot', botAnnouncementRoutes);
   app.use('/api/bot', botTelegramRoutes);
+  app.use('/api/bot', botOrganizerAlertsRoutes);
 
   app.use('/api/{*splat}', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
   app.use('/api/{*splat}', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

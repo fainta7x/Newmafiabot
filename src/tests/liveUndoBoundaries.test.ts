@@ -112,4 +112,27 @@ describe('live-game undo boundaries', () => {
     expect(revoteBlock).toContain('handleAdvanceRevoteSpeaker(next, revoteSpeakerIndex + 1);');
     expect(revoteBlock).not.toContain('setRevoteSpeakerIndex?.((index) => index + 1);');
   });
+
+  it('uses a single undo boundary when a missed night goes straight to the next day', () => {
+    const transitionBlock = sliceFunction(
+      'const applyNightToDayTransition = () => {',
+      'const finishNightToDay = () => {'
+    );
+    expect(transitionBlock).not.toContain('saveSnapshot();');
+
+    const finishBlock = sliceFunction(
+      'const finishNightToDay = () => {',
+      'const startFarewellSpeech = (slot: number) => {'
+    );
+    expect(finishBlock).toContain('saveSnapshot();');
+    expect(finishBlock).toContain('applyNightToDayTransition();');
+
+    const resolveBlock = sliceFunction(
+      'const handleResolveNight = () => {',
+      'const isFarewellSpeechActive = () =>'
+    );
+    expect(resolveBlock).toContain('saveSnapshot();');
+    expect(resolveBlock).toContain('applyNightToDayTransition();');
+    expect(resolveBlock).not.toContain('finishNightToDay();');
+  });
 });

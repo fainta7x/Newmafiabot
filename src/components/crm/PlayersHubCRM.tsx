@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { GameEvening } from '../../lib/api.ts';
 import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import { PlayerEveningQuickAddProvider } from './PlayerEveningQuickAdd.tsx';
-import { PlayersCRM } from './PlayersCRM.tsx';
+import { PlayersActivityCRM } from './PlayersActivityCRM.tsx';
 import { RatingPeriodsCRM } from './RatingPeriodsCRM.tsx';
 
 type PlayerHubTab = 'profiles' | 'rating';
@@ -38,7 +38,7 @@ export const PlayersHubCRM: React.FC<PlayersHubCRMProps> = ({
 
       {tab === 'profiles' ? (
         <PlayerEveningQuickAddProvider evenings={evenings} onOpenEvening={onOpenEvening} onCrmChanged={onCrmChanged}>
-          <PlayersCRM
+          <PlayersActivityCRM
             evenings={evenings}
             onOpenEvening={onOpenEvening}
             selectedPlayerId={selectedPlayerId}

@@ -33,7 +33,7 @@ export type LiveSnapshot = {
   activeBestMoveSource: BestMoveSource | null;
   activeBestMoveSlot: number | null;
   pendingBestMoveSeats: number[];
-  bestMoveDeadlineMs?: number | null;
+  bestMoveDeadlineMs: number | null;
   votingRounds: VotingRound[];
   activeVotingRoundIndex: number;
   votesByPlayer: Record<number, number>;

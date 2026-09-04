@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx";
 import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtocolOverlay.tsx";
+import LiveGameResumeBridge from "./components/crm/LiveGameResumeBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
 import "./styles/design-system.css";
@@ -15,6 +16,8 @@ import "./components/crm/liveGameNightReadability.css";
 import "./components/crm/liveGameRecoveryPolish.css";
 import "./components/crm/liveGameDeathProtocolCabinet.css";
 import "./components/crm/liveGameTelegram.css";
+import "./components/crm/liveGameUrgentResume.css";
+import "./components/public/liveBroadcastCompact.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -22,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <App />
       <JudgeGameMusicController />
       <EveningDeathProtocolBridge />
+      <LiveGameResumeBridge />
     </AppErrorBoundary>
   </React.StrictMode>
 );

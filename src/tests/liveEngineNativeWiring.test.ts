@@ -70,12 +70,14 @@ describe('live engine native wiring', () => {
     expect(seat).not.toContain('player.has_foul_penalty || regularFouls === 3');
   });
 
-  it('renders exact voter-to-nominee state and prevents moving a cast vote forward', () => {
+  it('renders exact voter-to-nominee state while allowing direct vote reassignment', () => {
     const seat = read('src/components/LiveGameEngine/SeatCard.tsx');
+    const voting = read('src/lib/liveVoting.ts');
     expect(seat).toContain('canToggleVoteAssignment');
     expect(seat).toContain('buildSeatVoteStatusPresentation');
     expect(seat).toContain('presentation.target === undefined');
-    expect(seat).toContain('Вернитесь к этой кандидатуре, чтобы снять голос.');
+    expect(voting).toContain('export function canToggleVoteAssignment(');
+    expect(voting).toMatch(/canToggleVoteAssignment\([\s\S]*?\): boolean \{\s*return true;\s*\}/);
   });
 
   it('keeps the selectable table visible while seat cards are the voting input', () => {

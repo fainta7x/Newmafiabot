@@ -15,6 +15,11 @@ When a future conversation introduces a new explicit rule, update this document 
 ### Ordinary fouls
 
 - The **3rd foul** gives the player a **30-second speech penalty on the next applicable speech**.
+- An applicable speech is the player’s nearest own live speech while they are alive; the penalty is one-shot and is consumed only once.
+- A killed player’s last/farewell speech remains the full **60 seconds** and does **not** consume a pending third-foul penalty.
+- A player eliminated by voting also keeps the full **60-second** last/farewell speech and does **not** consume a pending third-foul penalty.
+- On a guessing day with **3 or 4 alive players**, ordinary day speeches remain **60 seconds**; a pending third-foul penalty is not consumed there.
+- A revote/split speech is already fixed at **30 seconds** by the voting rule and **is applicable** to the third-foul penalty: a pending penalty is consumed on that speech even though its visible duration remains 30 seconds.
 
 ### Two fouls for +30 seconds of the current speech
 
@@ -75,6 +80,22 @@ Current approved timer totals include that buffer:
 - killed-player protocol: **20 seconds total**.
 
 These totals intentionally include roughly five seconds for the judge to announce that the player has received the right to the best move/protocol.
+
+The first-killed best-move timer is recovery-safe: its absolute deadline is part of the persisted live-game state. Reloading/remounting must continue from the same deadline; an already expired deadline remains expired rather than granting a new 25 seconds.
+
+### Mandatory final-night chain
+
+When a night kill creates mandatory end-of-night actions, the game must complete them in protocol order rather than auto-finishing as soon as the winning team becomes mathematically known:
+
+1. first-killed best move / ЛХ when applicable;
+2. killed player’s **60-second** last speech;
+3. killed-player protocol with the approved **20-second total**;
+4. only then either open the next day or explicitly finish the game if a winner has been determined.
+
+- Automatic winner detection must not skip an active best move, voting farewell, night farewell or killed-player protocol.
+- Undo/back from a mandatory final action must restore the preceding complete snapshot, including timer/speaker state, rather than only changing a visible phase label.
+- Interrupted-session recovery must restore the mandatory final action that was in progress; a reload must not silently bypass it.
+- Final game completion is handed off once to the club protocol save path. If the server save fails, the recoverable local final protocol may be retried without replaying the game.
 
 ## Voting model
 

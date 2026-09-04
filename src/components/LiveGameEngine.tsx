@@ -103,6 +103,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [activeBestMoveSource, setActiveBestMoveSource] = useState<BestMoveSource | null>(null);
   const [activeBestMoveSlot, setActiveBestMoveSlot] = useState<number | null>(null);
   const [pendingBestMoveSeats, setPendingBestMoveSeats] = useState<number[]>([]);
+  const [bestMoveDeadlineMs, setBestMoveDeadlineMs] = useState<number | null>(null);
 
   const [toast, setToast] = useState<{ message: string; type: "error" | "warning" | "success" | "info" } | null>(null);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -203,6 +204,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     activeBestMoveSource,
     activeBestMoveSlot,
     pendingBestMoveSeats,
+    bestMoveDeadlineMs,
     votingRounds,
     activeVotingRoundIndex,
     votesByPlayer,
@@ -245,6 +247,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setActiveBestMoveSource(restored.activeBestMoveSource);
     setActiveBestMoveSlot(restored.activeBestMoveSlot);
     setPendingBestMoveSeats(restored.pendingBestMoveSeats);
+    setBestMoveDeadlineMs(restored.bestMoveDeadlineMs);
     setVotingRounds(restored.votingRounds);
     setActiveVotingRoundIndex(restored.activeVotingRoundIndex);
     setVotesByPlayer(restored.votesByPlayer);
@@ -364,7 +367,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     try { localStorage.setItem("mafia_live_session", JSON.stringify(data)); } catch {}
   }, [
     activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers,
-    activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, votingRounds, activeVotingRoundIndex,
+    activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
     votesByPlayer, votes, votingStage, revoteSpeakerIndex, tableLeaveVotesInput, currentVotingNomineeIndex, nightLogs,
     shotPlayerSlot, donCheckSlot, donCheckResult, sheriffCheckSlot, sheriffCheckResult,
     activeSpeakerSlot, customTimerLabel, timeLeft, timerMax, isTimerRunning, discipline,
@@ -711,6 +714,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       setActiveBestMoveSource(null);
       setActiveBestMoveSlot(null);
       setPendingBestMoveSeats([]);
+      setBestMoveDeadlineMs(null);
     }
     setActionPlayerSlot(null);
   };
@@ -999,6 +1003,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPhase('night');
     setNightSubPhase('intro');
     setPostNightStage('none');
+    setBestMoveDeadlineMs(null);
     setShotPlayerSlot(null);
     setDonCheckSlot(null);
     setDonCheckResult(null);
@@ -1020,6 +1025,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleStartFirstKilledBestMove = () => {
     const target = getNightTarget();
     if (!target || !targetCanGiveFirstKilledBestMove()) {
+      setBestMoveDeadlineMs(null);
       setNightSubPhase('morning');
       setCustomTimerLabel(null);
       setIsTimerRunning(false);
@@ -1034,6 +1040,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
 
     setActivePlayers((previous) => previous.map((p) => p.slot_num === target.slot_num ? { ...p, is_pu: true } : p));
+    setBestMoveDeadlineMs(null);
     setNightSubPhase('best_move');
     setCustomTimerLabel(null);
     setIsTimerRunning(false);
@@ -1046,6 +1053,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const handleAdvanceNightSubPhase = (sub: NightSubPhase) => {
     saveSnapshot();
     setNightSubPhase(sub);
+    if (sub !== 'best_move') setBestMoveDeadlineMs(null);
     const labels: Partial<Record<NightSubPhase, string>> = {
       intro: 'Запуск ночи', shooting: 'Стрельба мафии', don: 'Проверка Дона', sheriff: 'Проверка Шерифа', morning: 'Итоги ночи',
     };
@@ -1067,6 +1075,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setPhase('day_speeches');
     setNightSubPhase('intro');
     setPostNightStage('none');
+    setBestMoveDeadlineMs(null);
     setCustomTimerLabel(null);
     setActiveSpeakerSlot(null);
     setActionPlayerSlot(null);
@@ -1084,6 +1093,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const startFarewellSpeech = (slot: number) => {
+    setBestMoveDeadlineMs(null);
     setPostNightStage('farewell');
     setActiveSpeakerSlot(slot);
     setCustomTimerLabel(`Прощальная речь #${slot}`);
@@ -1321,6 +1331,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     if (source === 'zero_round_voted' && votingFarewellQueue.length > 0) {
       beginVotingFarewell(votingFarewellQueue, 0);
     } else if (phase === 'night' && nightSubPhase === 'best_move' && source === 'first_killed') {
+      setBestMoveDeadlineMs(null);
       setNightSubPhase('morning');
       setCustomTimerLabel(null);
       setIsTimerRunning(false);
@@ -1416,6 +1427,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       handleResolveVoting,
       nightSubPhase,
       shotPlayerSlot,
+      bestMoveDeadlineMs,
+      setBestMoveDeadlineMs,
       getPrevStepAction,
       getNextStepInfo,
       onCancel,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BEST_MOVE_SECONDS,
+  DEATH_PROTOCOL_SECONDS,
   REVOTE_SPEECH_SECONDS,
   buildTimerIdentity,
   createTimerDeadline,
@@ -17,6 +18,11 @@ describe('Live Game timer model', () => {
   it('preserves requested duration outside revote speeches', () => {
     expect(resolveTimerDuration('day_speeches', 'setup', 60)).toBe(60);
     expect(resolveTimerDuration('night', 'resolved', BEST_MOVE_SECONDS)).toBe(BEST_MOVE_SECONDS);
+  });
+
+  it('keeps the approved announcement-buffer totals for best move and killed-player protocol', () => {
+    expect(BEST_MOVE_SECONDS).toBe(25);
+    expect(DEATH_PROTOCOL_SECONDS).toBe(20);
   });
 
   it('builds a stable identity from the same timer inputs', () => {

@@ -30,7 +30,7 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   children,
   footer,
   widthClass = 'sm:max-w-2xl',
-  bodyClassName = 'px-4 py-4',
+  bodyClassName = 'px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]',
 }) => {
   const reactId = useId();
   const sheetId = `mobile-sheet-${reactId}`;
@@ -87,7 +87,7 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
           </header>
         )}
         footer={footer ? (
-          <footer className="shrink-0 border-t border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+          <footer className="shrink-0 border-t border-[var(--ds-border)] bg-[var(--ds-surface)] px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {footer}
           </footer>
         ) : undefined}

@@ -1147,10 +1147,25 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     }
     if (phase === 'night') {
       if (postNightStage !== 'none' || !player.alive) return;
-      saveSnapshot();
-      if (nightSubPhase === 'shooting') setShotPlayerSlot((value) => toggleNightShotTarget(value, slot));
-      else if (nightSubPhase === 'don') { setDonCheckSlot(slot); setDonCheckResult(getDonCheckResult(player)); }
-      else if (nightSubPhase === 'sheriff') { setSheriffCheckSlot(slot); setSheriffCheckResult(getSheriffCheckResult(player)); }
+      if (nightSubPhase === 'shooting') {
+        saveSnapshot();
+        setShotPlayerSlot((value) => toggleNightShotTarget(value, slot));
+        return;
+      }
+      if (nightSubPhase === 'don') {
+        if (donCheckSlot === slot) return;
+        saveSnapshot();
+        setDonCheckSlot(slot);
+        setDonCheckResult(getDonCheckResult(player));
+        return;
+      }
+      if (nightSubPhase === 'sheriff') {
+        if (sheriffCheckSlot === slot) return;
+        saveSnapshot();
+        setSheriffCheckSlot(slot);
+        setSheriffCheckResult(getSheriffCheckResult(player));
+        return;
+      }
       return;
     }
     if (phase === 'day_voting' && votingStage === 'collecting') {

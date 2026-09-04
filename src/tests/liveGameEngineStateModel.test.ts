@@ -24,6 +24,7 @@ const createSnapshot = (): LiveSnapshot => ({
   activeBestMoveSource: 'first_killed',
   activeBestMoveSlot: 1,
   pendingBestMoveSeats: [3, 5],
+  bestMoveDeadlineMs: 123456,
   votingRounds: [{
     round_number: 1,
     nominated_seats: [3, 7],
@@ -165,6 +166,7 @@ describe('Live Game engine state model', () => {
       activeBestMoveSource: undefined,
       activeBestMoveSlot: 0,
       pendingBestMoveSeats: undefined,
+      bestMoveDeadlineMs: undefined,
       votingRounds: undefined,
       activeVotingRoundIndex: undefined,
       votesByPlayer: undefined,
@@ -199,6 +201,7 @@ describe('Live Game engine state model', () => {
     expect(restored.activeBestMoveSource).toBeNull();
     expect(restored.activeBestMoveSlot).toBe(0);
     expect(restored.pendingBestMoveSeats).toEqual([]);
+    expect(restored.bestMoveDeadlineMs).toBeNull();
     expect(restored.votingRounds).toEqual([]);
     expect(restored.activeVotingRoundIndex).toBe(0);
     expect(restored.votesByPlayer).toEqual({});

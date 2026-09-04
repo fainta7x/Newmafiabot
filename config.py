@@ -11,6 +11,11 @@ ADMIN_IDS_RAW = os.getenv('ADMIN_IDS', '806709593,595795530,1576242455')
 ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(',') if x.strip().isdigit()]
 
 BACKUP_ADMIN_ID = int(os.getenv('BACKUP_ADMIN_ID', '1576242455'))
+ORGANIZER_NOTIFICATION_IDS_RAW = os.getenv('ORGANIZER_NOTIFICATION_IDS', str(BACKUP_ADMIN_ID))
+ORGANIZER_NOTIFICATION_IDS = [
+    int(x.strip()) for x in ORGANIZER_NOTIFICATION_IDS_RAW.split(',') if x.strip().lstrip('-').isdigit()
+]
+ORGANIZER_NOTIFICATION_INTERVAL_MINUTES = int(os.getenv('ORGANIZER_NOTIFICATION_INTERVAL_MINUTES', '30'))
 PHONE = os.getenv('ORGANIZER_PHONE', '')
 BANK = os.getenv('ORGANIZER_BANK', 'Сбербанк')
 

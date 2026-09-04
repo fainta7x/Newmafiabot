@@ -12,6 +12,7 @@ import {
   buildTimerIdentity,
   createTimerDeadline,
   getRemainingTimerSeconds,
+  resolvePersistedTimerDeadline,
   resolveTimerDuration,
 } from "./timerModel.js";
 import {
@@ -57,6 +58,8 @@ interface CenterPanelProps {
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
   shotPlayerSlot: number | null;
+  bestMoveDeadlineMs: number | null;
+  setBestMoveDeadlineMs: React.Dispatch<React.SetStateAction<number | null>>;
   getPrevStepAction: () => { label: string; onClick: () => void } | null;
   getNextStepInfo: () => { label: string; onClick: () => void } | null;
   addLogEntry?: (logText: string) => void;
@@ -139,6 +142,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
+    bestMoveDeadlineMs,
+    setBestMoveDeadlineMs,
     getPrevStepAction,
     getNextStepInfo,
     onCancel,
@@ -290,9 +295,10 @@ export default function CenterPanel(props: CenterPanelProps) {
       return;
     }
 
-    const deadline = createTimerDeadline(Date.now(), BEST_MOVE_SECONDS);
+    const deadline = resolvePersistedTimerDeadline(bestMoveDeadlineMs, Date.now(), BEST_MOVE_SECONDS);
+    if (bestMoveDeadlineMs === null) setBestMoveDeadlineMs(deadline);
     bestMoveDeadlineRef.current = deadline;
-    setBestMoveTimeLeft(BEST_MOVE_SECONDS);
+    setBestMoveTimeLeft(getRemainingTimerSeconds(deadline, Date.now()));
     const sync = () => {
       const currentDeadline = bestMoveDeadlineRef.current;
       if (currentDeadline === null) return;
@@ -310,7 +316,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       window.removeEventListener('focus', sync);
       bestMoveDeadlineRef.current = null;
     };
-  }, [isFirstKilledBestMove, roundNumber]);
+  }, [isFirstKilledBestMove, bestMoveDeadlineMs, setBestMoveDeadlineMs]);
 
   const adjustTimer = (amount: number) => {
     if (isTimerRunning && timerDeadlineRef.current !== null) timerDeadlineRef.current += amount * 1000;

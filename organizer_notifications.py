@@ -9,14 +9,17 @@ from zoneinfo import ZoneInfo
 from aiogram import Bot
 
 import config
-from bot_announcement_api import get_evening_recruitment_state, get_organizer_operations
+from bot_announcement_api import (
+    get_evening_recruitment_state,
+    get_evening_reminder_recipients,
+    get_organizer_operations,
+)
 from bot_api import get_evening_participants, get_open_evenings
 
 logger = logging.getLogger(__name__)
 MOSCOW = ZoneInfo("Europe/Moscow")
 
-_LAST_DIGEST_HASH: str | None = None
-_LAST_SENT_AT: dt.datetime | None = None
+_DELIVERY_STATE: dict[int, tuple[str, dt.datetime]] = {}
 
 
 def _parse_dt(value: Any) -> dt.datetime | None:
@@ -98,7 +101,7 @@ def build_organizer_digest(
         participants = detail.get("participants") if isinstance(detail.get("participants"), list) else []
         attending = [p for p in participants if str(p.get("response_status") or "") in {"going", "late"}]
         thinking = [p for p in participants if str(p.get("response_status") or "") == "thinking"]
-        unanswered = [p for p in participants if str(p.get("response_status") or "") in {"", "unanswered"}]
+        participant_unanswered = [p for p in participants if str(p.get("response_status") or "") in {"", "unanswered"}]
         unresolved_attendance = [p for p in attending if str(p.get("attendance_status") or "pending") == "pending"]
         unpaid = []
         for participant in attending:
@@ -108,6 +111,8 @@ def build_organizer_digest(
                 unpaid.append({**participant, "remaining": due - paid})
 
         recruitment = recruitment_by_evening.get(evening_id) or {}
+        reminder_recipients = recruitment.get("unanswered_recipients")
+        unanswered = reminder_recipients if isinstance(reminder_recipients, list) else participant_unanswered
         underfilled_slots = recruitment.get("underfilled_slots") if isinstance(recruitment.get("underfilled_slots"), list) else []
         capacity = max(0, int(evening.get("capacity") or 10))
         attending_count = len(attending) if participants else int(evening.get("attending_count") or 0)
@@ -171,41 +176,46 @@ async def collect_organizer_digest() -> str | None:
         evening_id = str(evening.get("id") or "")
         if not evening_id:
             continue
-        participant_result, recruitment_result = await asyncio.gather(
+        participant_result, recruitment_result, reminder_result = await asyncio.gather(
             get_evening_participants(evening_id),
             get_evening_recruitment_state(evening_id),
+            get_evening_reminder_recipients(evening_id),
         )
         if participant_result.get("success"):
             details[evening_id] = participant_result.get("data") or {}
-        if recruitment_result.get("success"):
-            recruitment[evening_id] = recruitment_result.get("data") or {}
+        recruitment_payload = recruitment_result.get("data") if recruitment_result.get("success") else {}
+        recruitment_payload = dict(recruitment_payload or {})
+        if reminder_result.get("success"):
+            reminder_payload = reminder_result.get("data") or {}
+            recipients = reminder_payload.get("recipients")
+            if isinstance(recipients, list):
+                recruitment_payload["unanswered_recipients"] = recipients
+        recruitment[evening_id] = recruitment_payload
 
     return build_organizer_digest(evenings, details, recruitment, operations)
 
 
 async def send_organizer_digest_if_needed(bot: Bot, *, force: bool = False) -> bool:
-    global _LAST_DIGEST_HASH, _LAST_SENT_AT
     digest = await collect_organizer_digest()
     if not digest:
         return False
 
     digest_hash = hashlib.sha256(digest.encode("utf-8")).hexdigest()
     now = dt.datetime.now(MOSCOW)
-    repeat_due = _LAST_SENT_AT is None or (now - _LAST_SENT_AT) >= dt.timedelta(hours=6)
-    if not force and digest_hash == _LAST_DIGEST_HASH and not repeat_due:
-        return False
-
-    sent = False
+    sent_any = False
     for chat_id in config.ORGANIZER_NOTIFICATION_IDS:
+        previous = _DELIVERY_STATE.get(chat_id)
+        repeat_due = previous is None or (now - previous[1]) >= dt.timedelta(hours=6)
+        changed = previous is None or previous[0] != digest_hash
+        if not force and not changed and not repeat_due:
+            continue
         try:
             await bot.send_message(chat_id, digest, parse_mode="HTML")
-            sent = True
+            _DELIVERY_STATE[chat_id] = (digest_hash, now)
+            sent_any = True
         except Exception as exc:
             logger.warning("Не удалось отправить CRM-уведомление организатору %s: %s", chat_id, exc)
-    if sent:
-        _LAST_DIGEST_HASH = digest_hash
-        _LAST_SENT_AT = now
-    return sent
+    return sent_any
 
 
 async def organizer_notification_task(bot: Bot) -> None:

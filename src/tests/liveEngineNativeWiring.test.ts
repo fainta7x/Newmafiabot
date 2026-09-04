@@ -85,4 +85,42 @@ describe('live engine native wiring', () => {
     expect(engine).toContain('disabled={requiresTableSeatVoting}');
     expect(engine).toContain("effectiveViewMode === 'table' ? renderTable()");
   });
+
+  it('keeps first-killed best move before night resolution and returns to the night result after confirmation', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain("if (targetCanGiveFirstKilledBestMove()) return { label: 'ЛХ первого убитого', onClick: handleStartFirstKilledBestMove };");
+    expect(engine).toContain("setNightSubPhase('best_move');");
+    expect(engine).toContain("openBestMoveProtocol('first_killed', target.slot_num, savedSeats);");
+    expect(engine).toContain("phase === 'night' && nightSubPhase === 'best_move' && source === 'first_killed'");
+    expect(engine).toContain("setNightSubPhase('morning');");
+  });
+
+  it('forces a killed player through farewell and death protocol before day transition or game finish', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain('if (killedSlot !== null) {');
+    expect(engine).toContain('startFarewellSpeech(killedSlot);');
+    expect(engine).toContain("if (postNightStage === 'farewell') return { label: 'Протокол убитого · 15с', onClick: startDeathProtocol };");
+    expect(engine).toContain("if (postNightStage === 'death_protocol') {");
+    expect(engine).toContain("return { label: 'Завершить игру', onClick: () => handleEndGameWithWinner(winnerAfterNight) };");
+    expect(engine).toContain("return { label: 'К дневным речам', onClick: finishNightToDay };");
+  });
+
+  it('defers automatic winner completion while mandatory final actions are active', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain('const requiredFinalActionInProgress =');
+    expect(engine).toContain('activeBestMoveSource !== null ||');
+    expect(engine).toContain('votingFarewellQueue.length > 0 ||');
+    expect(engine).toContain("postNightStage !== 'none';");
+    expect(engine).toContain('if (requiredFinalActionInProgress) return;');
+  });
+
+  it('restores the complete night-finalization state needed by Undo and interrupted-game recovery', () => {
+    const engine = read('src/components/LiveGameEngine.tsx');
+    expect(engine).toContain('setPostNightStage(restored.postNightStage);');
+    expect(engine).toContain('setActiveBestMoveSource(restored.activeBestMoveSource);');
+    expect(engine).toContain('setActiveBestMoveSlot(restored.activeBestMoveSlot);');
+    expect(engine).toContain('setPendingBestMoveSeats(restored.pendingBestMoveSeats);');
+    expect(engine).toContain('setShotPlayerSlot(restored.shotPlayerSlot);');
+    expect(engine).toContain('setNightLogs(restored.nightLogs);');
+  });
 });

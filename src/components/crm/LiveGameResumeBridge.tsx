@@ -20,6 +20,7 @@ export const requestTelegramLiveFullscreen = () => {
 export default function LiveGameResumeBridge() {
   useEffect(() => {
     let activePreviously = hasActiveLiveGame();
+    const webApp = (window as any).Telegram?.WebApp;
 
     const restoreIfVisible = () => {
       if (document.visibilityState === 'visible') requestTelegramLiveFullscreen();
@@ -37,11 +38,13 @@ export default function LiveGameResumeBridge() {
     restoreIfVisible();
     document.addEventListener('visibilitychange', restoreIfVisible);
     window.addEventListener('pageshow', restoreIfVisible);
+    try { webApp?.onEvent?.('viewportChanged', restoreIfVisible); } catch {}
 
     return () => {
       observer.disconnect();
       document.removeEventListener('visibilitychange', restoreIfVisible);
       window.removeEventListener('pageshow', restoreIfVisible);
+      try { webApp?.offEvent?.('viewportChanged', restoreIfVisible); } catch {}
     };
   }, []);
 

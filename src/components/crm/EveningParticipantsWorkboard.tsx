@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, RefreshCw, Search, UserPlus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, RefreshCw, Search, UserPlus, X } from 'lucide-react';
 import { api, type EveningParticipant, type GameEvening } from '../../lib/api.ts';
 import { EVENING_RESPONSE_LABELS, countEveningResponses, getEveningResponse, isAttendingResponse } from '../../lib/eveningResponse.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
 type EveningData = GameEvening & { participants: EveningParticipant[] };
-type WorkFilter = 'action' | 'here' | 'all' | 'other';
+type WorkFilter = 'action' | 'here' | 'all' | 'other' | 'attend' | 'pay';
 type QuickAction = 'attend' | 'pay' | null;
 
 type ParticipantView = {
@@ -166,12 +166,20 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     if (!loading && filter === 'action' && actionViews.length === 0) setFilter('all');
   }, [actionViews.length, filter, loading]);
 
+  const searching = Boolean(search.trim());
+  const selectFilter = (next: WorkFilter) => {
+    setSearch('');
+    setFilter(next);
+  };
+
   const visibleViews = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
     return participantViews.filter((item) => {
       const participant = item.participant;
       const matchesSearch = !query || participant.nickname.toLocaleLowerCase('ru-RU').includes(query);
-      if (!matchesSearch) return false;
+      // Search the entire evening, including paid players outside the action queue.
+      if (query) return matchesSearch;
+      if (filter === 'attend' || filter === 'pay') return item.action === filter;
       if (filter === 'action') return item.needsAction;
       if (filter === 'here') return participant.attendance_status === 'attended';
       if (filter === 'other') return !item.needsAction && participant.attendance_status !== 'attended';
@@ -248,20 +256,28 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
     {error ? <div className="flex gap-2 rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[11px] text-danger"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div> : null}
 
     <div data-testid="evening-roster-action-summary" className={`rounded-[15px] border px-3 py-2.5 ${needsAttention ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`}>
-      {actionViews.length ? <div className="flex items-center gap-3">
+      {actionViews.length || filter === 'attend' || filter === 'pay' ? <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1"><div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-warning">Нужно сделать</div><div className="mt-0.5 text-[13px] font-semibold text-text-primary">{actionViews.length} {actionWord(actionViews.length)}</div><div className="mt-0.5 truncate text-[9px] text-text-muted">Сверху вниз: явка → оплата</div></div>
-        <div className="shrink-0 rounded-[11px] bg-surface-1/60 px-2.5 py-1.5 text-[9px] text-text-muted"><strong className="text-text-primary">Явка {attendanceActions}</strong><span className="mx-1 text-border-strong">·</span><strong className="text-text-primary">Оплата {paymentActions}</strong></div>
+        <div className="flex shrink-0 gap-1">
+          {([{ id: 'attend', label: 'Явка', count: attendanceActions }, { id: 'pay', label: 'Оплата', count: paymentActions }] as const).map((item) => (
+            <button key={item.id} type="button" aria-pressed={!searching && filter === item.id} onClick={() => selectFilter(item.id)} className={`min-h-[44px] rounded-[11px] border px-2 text-[10px] font-semibold ${!searching && filter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-transparent bg-surface-1/60 text-text-secondary'}`}>
+              {item.label} {item.count}
+            </button>
+          ))}
+        </div>
       </div> : !rosterReady ? <div className="flex items-center gap-2.5"><AlertCircle className="h-4 w-4 shrink-0 text-warning" /><div><div className="text-[12px] font-semibold text-text-primary">Состав ещё не готов</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено {confirmedCount} из {MIN_READY_PLAYERS}. Нужен ещё {rosterShortfall} {playerWord(rosterShortfall)}.</div></div></div> : <div className="flex items-center gap-2.5"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" /><div><div className="text-[12px] font-semibold text-text-primary">По составу всё готово</div><div className="mt-0.5 text-[9px] text-text-muted">Подтверждено минимум {MIN_READY_PLAYERS} игроков.</div></div></div>}
     </div>
 
     <div className="flex gap-2">
-      <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-10" /></div>
+      <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input aria-label="Найти игрока в составе вечера" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти игрока" className="mobile-field pl-10 pr-11" />{search ? <button type="button" aria-label="Очистить поиск" onClick={() => setSearch('')} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-text-secondary"><X className="h-4 w-4" /></button> : null}</div>
       <button data-testid="evening-roster-add-player" type="button" onClick={onAddPlayer} aria-label="Добавить игрока или изменить состав" className="grid h-[44px] w-[48px] shrink-0 place-items-center rounded-[12px] bg-white text-[#090a0d]"><UserPlus className="h-4 w-4" /></button>
     </div>
 
     <div className="grid grid-cols-4 gap-1.5">
-      {filters.map((item) => <button key={item.id} data-testid={`evening-roster-filter-${item.id}`} type="button" onClick={() => setFilter(item.id)} className={`min-h-[44px] min-w-0 rounded-[12px] border px-1 text-[9px] font-semibold ${filter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}><span className="block truncate">{item.label}</span><span className="mt-0.5 block text-[10px] font-bold">{item.count}</span></button>)}
+      {filters.map((item) => <button key={item.id} data-testid={`evening-roster-filter-${item.id}`} type="button" aria-pressed={!searching && filter === item.id} onClick={() => selectFilter(item.id)} className={`min-h-[44px] min-w-0 rounded-[12px] border px-1 text-[9px] font-semibold ${!searching && filter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}><span className="block truncate">{item.label}</span><span className="mt-0.5 block text-[10px] font-bold">{item.count}</span></button>)}
     </div>
+
+    {searching ? <p role="status" className="text-[11px] text-text-secondary">Поиск по всему составу · найдено {visibleViews.length}</p> : null}
 
     {visibleViews.length ? <div data-testid="evening-roster-list" className="overflow-hidden rounded-[17px] border border-border-soft bg-surface-1">
       {visibleViews.map((item, index) => {
@@ -278,7 +294,7 @@ export default function EveningParticipantsWorkboard({ eveningId, onBack, onAddP
           {item.action === 'attend' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-white px-3 text-[10px] font-semibold text-[#090a0d] disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : item.action === 'pay' ? <button data-testid={`evening-roster-action-${participant.id}`} type="button" disabled={rowBusy} onClick={() => void markPaid(participant)} className="min-h-[44px] shrink-0 rounded-[11px] bg-success-soft px-3 text-[10px] font-semibold text-success disabled:opacity-40">{rowBusy ? '…' : `Принять ${money(debt(participant))}`}</button> : <button type="button" aria-label={`Открыть ${participant.nickname}`} onClick={() => setActiveParticipant(participant)} className="grid h-11 w-9 shrink-0 place-items-center text-text-muted"><ChevronRight className="h-4 w-4" /></button>}
         </div>;
       })}
-    </div> : <div className="rounded-[17px] border border-dashed border-border-soft bg-surface-1 p-6 text-center text-[11px] text-text-muted">{filter === 'action' && !actionViews.length ? 'Все обязательные действия по составу выполнены.' : 'По этому фильтру никого нет.'}</div>}
+    </div> : <div className="rounded-[17px] border border-dashed border-border-soft bg-surface-1 p-6 text-center text-[11px] text-text-muted">{searching ? 'Игрок не найден в составе этого вечера.' : filter === 'attend' ? 'Явка отмечена у всех ожидаемых игроков.' : filter === 'pay' ? 'У пришедших игроков нет ожидающих оплат.' : filter === 'action' && !actionViews.length ? 'Все обязательные действия по составу выполнены.' : 'По этому фильтру никого нет.'}</div>}
 
     <MobileSheet open={Boolean(activeParticipant)} onClose={() => setActiveParticipant(null)} title={activeParticipant ? <div className="flex min-w-0 items-center gap-2.5"><PlayerAvatar playerId={activeParticipant.player_id} nickname={activeParticipant.nickname} size="sm" /><span className="truncate text-[15px] font-semibold text-text-primary">{activeParticipant.nickname}</span></div> : 'Игрок'} subtitle={activeParticipant ? EVENING_RESPONSE_LABELS[getEveningResponse(activeParticipant)] : undefined} widthClass="sm:max-w-lg">
       {activeParticipant ? <div data-testid="evening-roster-player-sheet" className="space-y-3">

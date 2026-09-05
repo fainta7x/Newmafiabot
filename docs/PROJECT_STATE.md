@@ -115,6 +115,7 @@ Implemented and connected:
 Recent reliability/UX work includes:
 
 - quick attendance/payment row actions update in place instead of refreshing the whole workspace;
+- attendance/payment counters open focused queues; roster search covers the entire evening and clearing it restores the selected queue;
 - active in-progress evenings accept existing database players who arrived without prior registration;
 - closed-evening payment edits remain available through the canonical payment service;
 - repeated payment/pricing reconciliation is idempotent and must not create duplicate financial ledger rows;

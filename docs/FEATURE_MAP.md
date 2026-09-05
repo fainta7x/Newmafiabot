@@ -168,7 +168,7 @@ Recent invariants to preserve:
 - actual next day starter rotates from the actual previous starter and skips unavailable seats;
 - night shot/check markers do not leak past their subphase;
 - canonical club launcher hides roles by default;
-- routine player actions remain available during active phases;
+- routine player actions remain available during active phases, including direct removal/PPK for players already outside the table and PPK after removal;
 - protocol/best-move overlays have a usable Back path;
 - `+30с за 2 фола` follows `docs/BUSINESS_RULES.md`.
 

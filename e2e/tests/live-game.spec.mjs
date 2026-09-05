@@ -263,6 +263,8 @@ test.describe('Live Game browser stabilization', () => {
     await expect(centerPanel(page).getByText('Последняя речь #2', { exact: true })).toBeVisible();
     const farewellAction = await openPlayerAction(page, 2);
     await expect(farewellAction.getByRole('button', { name: '+ Обычный фол', exact: true })).toBeVisible();
+    await expect(farewellAction.getByRole('button', { name: 'Удалить', exact: true })).toBeVisible();
+    await expect(farewellAction.getByRole('button', { name: 'ППК', exact: true })).toBeVisible();
     await expect(farewellAction.getByRole('button', { name: 'Выставить', exact: true })).toHaveCount(0);
     await farewellAction.getByRole('button', { name: '×', exact: true }).click();
     await page.getByRole('button', { name: 'Завершить последние речи', exact: true }).click();
@@ -303,6 +305,10 @@ test.describe('Live Game browser stabilization', () => {
 
     await page.getByRole('button', { name: 'Зафиксировать ночь', exact: true }).click();
     await expect(centerPanel(page).getByText('Последняя речь #1', { exact: true })).toBeVisible();
+    const killedFarewellAction = await openPlayerAction(page, 1);
+    await expect(killedFarewellAction.getByRole('button', { name: 'Удалить', exact: true })).toBeVisible();
+    await expect(killedFarewellAction.getByRole('button', { name: 'ППК', exact: true })).toBeVisible();
+    await killedFarewellAction.getByRole('button', { name: '×', exact: true }).click();
     await page.getByRole('button', { name: /Протокол убитого · 15с/ }).click();
 
     const deathProtocol = page.getByText('Протокол убитого', { exact: true }).locator('xpath=ancestor::div[contains(@class,"max-w-2xl")][1]');
@@ -360,6 +366,8 @@ test.describe('Live Game browser stabilization', () => {
 
     const removedOne = await openPlayerAction(page, 1);
     await expect(removedOne.getByRole('button', { name: 'Вернуть за стол', exact: true })).toBeVisible();
+    await expect(removedOne.getByRole('button', { name: 'ППК', exact: true })).toBeVisible();
+    await expect(removedOne.getByRole('button', { name: 'Удалить', exact: true })).toHaveCount(0);
     await removedOne.getByRole('button', { name: '×', exact: true }).click();
 
     let techAction = await openPlayerAction(page, 2);
@@ -373,6 +381,8 @@ test.describe('Live Game browser stabilization', () => {
 
     const removedTwo = await openPlayerAction(page, 2);
     await expect(removedTwo.getByRole('button', { name: 'Вернуть за стол', exact: true })).toBeVisible();
+    await expect(removedTwo.getByRole('button', { name: 'ППК', exact: true })).toBeVisible();
+    await expect(removedTwo.getByRole('button', { name: 'Удалить', exact: true })).toHaveCount(0);
     await removedTwo.getByRole('button', { name: '×', exact: true }).click();
 
     for (let slot = 3; slot <= 10; slot += 1) {

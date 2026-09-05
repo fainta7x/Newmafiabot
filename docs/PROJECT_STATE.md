@@ -148,10 +148,10 @@ The real club launcher currently provides:
 
 - roles hidden by default with manual reveal;
 - phase-aware day/night/voting flow;
-- voting order and long-candidate scrolling;
+- voting order fitted into the fixed mobile center cell without nested scrolling;
 - editable vote assignment: a voter can be moved directly between candidates, and undo restores an editable voting state;
 - repeated split/revote speeches only once per unchanged disputed set;
-- player actions and fouls available throughout active play where appropriate;
+- player actions and fouls available throughout active play where appropriate, including direct removal/PPK after a player leaves the table and PPK after removal;
 - night shot/Don/Sheriff markers scoped to their actual subphase;
 - consistent Undo snapshots across voting, zero round and best-move/protocol overlays;
 - actual day-starter rotation based on the previous **actual** starter, skipping absent/dead seats;

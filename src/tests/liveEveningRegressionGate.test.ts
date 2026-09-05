@@ -29,9 +29,10 @@ describe('real-table live evening regression gate', () => {
     expect(centerSource).toContain('renderVotingOrder(result.winners)');
   });
 
-  it('keeps long voting queues scrollable and nomination priority inverted for judge scanning', () => {
+  it('keeps voting in the fixed center cell and nomination priority inverted for judge scanning', () => {
     expect(liveCss).toContain('.live-judge-hud__stack--voting-scroll');
-    expect(liveCss).toContain('overflow-y: auto;');
+    expect(liveCss).toMatch(/\.live-judge-hud__stack--voting-scroll\s*\{[\s\S]*?overflow: hidden;/);
+    expect(liveCss).toContain('.live-judge-hud__stack--revote-speech');
     expect(liveCss).toContain('.live-seat-quick-action--nomination {');
     expect(liveCss).toContain('.live-seat-quick-action--nomination-active {');
     expect(liveCss).toContain('color: #ffe0e7 !important;');

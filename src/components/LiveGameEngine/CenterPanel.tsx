@@ -100,6 +100,7 @@ interface CenterPanelProps {
   setBothLeaveVotes?: React.Dispatch<React.SetStateAction<number[]>>;
   bestMoveGuesses?: number[];
   getSeatColor?: (player: ActivePlayerState) => string;
+  onOpenPlayerActions?: (slot: number) => void;
 }
 
 const normalizeJudgeCopy = (value: string): string => value
@@ -164,6 +165,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     handleLaunchNextRevote,
     handleConfirmAutoNoElimination,
     handleConfirmTableDecision,
+    onOpenPlayerActions,
   } = props;
 
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
@@ -510,7 +512,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
 
       return (
-        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
+        <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--revote-speech">
           <div className="live-judge-hud__eyebrow">Речи перед переголосованием · 30 сек</div>
           {renderVotingOrder(participants, revoteSpeakerIndex)}
           {renderTimer()}
@@ -691,6 +693,9 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const prevStep = getPrevStepAction();
   const showFooterAction = phase !== 'day_voting' || votingStage === 'resolved';
+  const showFooterSummary = phase !== 'day_voting';
+  const showFooter = showFooterSummary || (showFooterAction && Boolean(prevStep || nextStep));
+  const showPlayerActions = (phase === 'day_speeches' || phase === 'day_voting') && Boolean(onOpenPlayerActions);
   const footerSingle = !(prevStep && nextStep);
 
   return (
@@ -699,6 +704,25 @@ export default function CenterPanel(props: CenterPanelProps) {
         <div className="live-judge-hud__header">
           <span className="live-judge-hud__phase">{phaseLabel}</span>
           <div className="live-judge-hud__header-actions">
+            {showPlayerActions && (
+              <select
+                data-testid="live-player-actions-center-selector"
+                aria-label="Быстрые действия игрока"
+                value=""
+                onChange={(event) => {
+                  const slot = Number(event.target.value);
+                  if (slot) onOpenPlayerActions?.(slot);
+                }}
+                className="live-judge-hud__player-actions"
+              >
+                <option value="">Игрок</option>
+                {activePlayers.map((player) => (
+                  <option key={player.slot_num} value={player.slot_num}>
+                    #{player.slot_num} {player.nickname || `Игрок ${player.slot_num}`}
+                  </option>
+                ))}
+              </select>
+            )}
             {canUseVotingBack && (
               <button type="button" onClick={handleVotingBack} className="live-judge-hud__header-button"><ArrowLeft /><span>Назад</span></button>
             )}
@@ -716,18 +740,22 @@ export default function CenterPanel(props: CenterPanelProps) {
               : renderIdleBody()}
         </div>
 
-        <div className="live-judge-hud__footer">
-          <div className="live-judge-hud__summary">
-            <span>Выставлены: {nominations.length ? nominations.map((seat) => `#${seat}`).join(' · ') : '—'}</span>
-            <span>Живых: {activePlayers.filter((player) => player.alive).length}/10</span>
+        {showFooter && (
+          <div className="live-judge-hud__footer">
+            {showFooterSummary && (
+              <div className="live-judge-hud__summary">
+                <span>Выставлены: {nominations.length ? nominations.map((seat) => `#${seat}`).join(' · ') : '—'}</span>
+                <span>Живых: {activePlayers.filter((player) => player.alive).length}/10</span>
+              </div>
+            )}
+            {showFooterAction && (prevStep || nextStep) && (
+              <div className={`live-judge-hud__footer-actions ${footerSingle ? 'live-judge-hud__footer-actions--single' : ''}`}>
+                {prevStep && <button type="button" onClick={prevStep.onClick} className="live-judge-hud__secondary"><ArrowLeft />Назад</button>}
+                {nextStep && <button type="button" onClick={nextStep.onClick} className="live-judge-hud__primary">{nextStep.label}<ArrowRight /></button>}
+              </div>
+            )}
           </div>
-          {showFooterAction && (prevStep || nextStep) && (
-            <div className={`live-judge-hud__footer-actions ${footerSingle ? 'live-judge-hud__footer-actions--single' : ''}`}>
-              {prevStep && <button type="button" onClick={prevStep.onClick} className="live-judge-hud__secondary"><ArrowLeft />Назад</button>}
-              {nextStep && <button type="button" onClick={nextStep.onClick} className="live-judge-hud__primary">{nextStep.label}<ArrowRight /></button>}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {bestMoveTimeLeft !== null && typeof document !== 'undefined' && createPortal(

@@ -16,15 +16,24 @@
   box-shadow: none !important;
 }
 
-/* Voting can contain many nominees. The center becomes an internally scrollable
-   work area rather than clipping the tail of the candidate list. */
+/* The center is a fixed protocol cell. Voting must stay fully visible instead
+   of becoming a second, easy-to-miss scroll area inside the table. */
 .live-judge-hud__stack--voting-scroll {
   min-height: 0;
   max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  padding-right: 2px;
+  overflow: hidden;
+}
+
+.live-judge-hud__player-actions {
+  width: 72px;
+  min-height: 28px;
+  padding: 0 18px 0 7px;
+  border: 1px solid var(--live-stage-line);
+  border-radius: 8px;
+  background: var(--ds-inset);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 8px;
+  font-weight: 700;
 }
 
 .live-judge-voting-order {
@@ -73,13 +82,54 @@
 
 @media (max-width: 767px) {
   .live-judge-voting-order {
-    padding: 6px;
-    gap: 5px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    padding: 3px 4px;
+    gap: 4px;
+    border-radius: 8px;
+  }
+
+  .live-judge-voting-order__label {
+    max-width: 42px;
+    font-size: 0;
+  }
+
+  .live-judge-voting-order__label::after {
+    content: "Очередь";
+    font-size: 7px;
+    letter-spacing: 0.05em;
+  }
+
+  .live-judge-voting-order__list {
+    gap: 3px;
   }
 
   .live-judge-voting-order__seat {
-    min-width: 27px;
-    height: 25px;
-    font-size: 9px;
+    min-width: 23px;
+    height: 21px;
+    padding-inline: 3px;
+    border-radius: 6px;
+    font-size: 8px;
+  }
+
+  .live-judge-hud__player-actions {
+    width: 54px;
+    min-height: 24px;
+    padding-left: 5px;
+    padding-right: 14px;
+    border-radius: 7px;
+  }
+
+  .live-judge-hud__stack--revote-speech {
+    gap: 3px !important;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-hud__eyebrow {
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-action {
+    min-height: 28px;
   }
 }

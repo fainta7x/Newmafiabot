@@ -15,7 +15,7 @@ await build({
 const csp = "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'";
 for (const file of pages) {
   const target = path.join(output, file);
-  const html = await readFile(target, 'utf8');
+  const html = (await readFile(target, 'utf8')).replace(/<link\b[^>]*href=["']https?:\/\/[^>]*>/gi, '');
   await writeFile(target, html.replace('<head>', '<head>\n<meta http-equiv="Content-Security-Policy" content="' + csp + '">'));
 }
 await writeFile(path.join(output, 'index.html'), '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=preview/index.html"><a href="preview/index.html">Открыть предпросмотр</a>');

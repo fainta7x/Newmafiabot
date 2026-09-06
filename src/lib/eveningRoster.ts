@@ -1,9 +1,11 @@
 import type { EveningParticipant } from './api';
-import { getEveningAttendanceFact } from './eveningResponse';
+import { getEveningAttendanceFact, getEveningResponse } from './eveningResponse';
 
 export const isEveningGameEligible = (participant: EveningParticipant): boolean => {
   const fact = getEveningAttendanceFact(participant);
-  return fact === 'attended_on_time' || fact === 'attended_late';
+  if (fact === 'attended_on_time' || fact === 'attended_late') return true;
+  const response = getEveningResponse(participant);
+  return response === 'going' || response === 'late';
 };
 
 const attendanceRank = (participant: EveningParticipant): number => {

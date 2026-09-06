@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx";
-import { EveningDeathProtocolBridge } from "./components/crm/EveningDeathProtocolOverlay.tsx";
+import ScopedEveningDeathProtocolBridge from "./components/crm/ScopedEveningDeathProtocolBridge.tsx";
 import LiveGameResumeBridge from "./components/crm/LiveGameResumeBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import "./index.css";
@@ -24,7 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AppErrorBoundary>
       <App />
       <JudgeGameMusicController />
-      <EveningDeathProtocolBridge />
+      <ScopedEveningDeathProtocolBridge />
       <LiveGameResumeBridge />
     </AppErrorBoundary>
   </React.StrictMode>

@@ -115,7 +115,7 @@ Implemented and connected:
 Recent reliability/UX work includes:
 
 - quick attendance/payment row actions update in place instead of refreshing the whole workspace;
-- attendance/payment counters open focused queues; roster search covers the entire evening and clearing it restores the selected queue;
+- mounted roster/payment lists provide search and counter filters; clearing search restores the selected filter; staff assignment stays in a collapsed section.
 - active in-progress evenings accept existing database players who arrived without prior registration;
 - closed-evening payment edits remain available through the canonical payment service;
 - repeated payment/pricing reconciliation is idempotent and must not create duplicate financial ledger rows;
@@ -268,3 +268,7 @@ Playwright/browser verification is separate and should be used when visual/brows
 ## Mandatory session rule
 
 One user message/request may create at most **3 PRs**. See `AGENTS.md` and `docs/RUNBOOK.md`.
+
+### CRM browser follow-up (2026-09-05)
+
+PR #243 was retargeted from the unused EveningParticipantsWorkboard to the mounted EveningActiveRosterView / EveningPaymentsPanel. Fresh mobile verification is pending. Earlier CRM run 33977594668: 3 passes and 4 failures (obsolete roster navigation, overview label, player-list expectation, and a closeout disabled-button failure with unconfirmed cause). The updated roster test covers current navigation and filters; the other full-suite failures remain separate follow-up work.

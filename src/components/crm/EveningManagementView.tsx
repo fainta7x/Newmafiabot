@@ -68,7 +68,10 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
         </div>
       </section>
 
-      <EveningStaffCard eveningId={eveningId} />
+      <details className="rounded-[12px] border border-border-soft bg-surface-1">
+        <summary className="min-h-[44px] cursor-pointer px-3 py-3 text-[11px] font-semibold text-text-secondary">Команда вечера</summary>
+        <EveningStaffCard eveningId={eveningId} />
+      </details>
 
       <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
         {panes.map((item) => {

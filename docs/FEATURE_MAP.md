@@ -67,9 +67,11 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 
 Primary organizer surfaces:
 
-- `src/components/crm/EveningParticipantsWorkboard.tsx` — quick attendance/payment actions;
+- `src/components/crm/EveningActiveRosterView.tsx` — mounted confirmed/arrived roster and quick attendance;
 - `src/components/crm/EveningCloseoutPanel.tsx` — closeout reconciliation;
-- `src/components/crm/EveningPaymentsPanel.tsx` — dedicated payment view when used by the workspace.
+- `src/components/crm/EveningPaymentsPanel.tsx` — mounted payment view, including closed-evening edits.
+
+The shared EveningListControls provides list search and filters. EveningManagementView owns the roster/payment mounts and collapsed staff assignment. EveningParticipantsWorkboard is unmounted legacy code.
 
 Server ownership:
 

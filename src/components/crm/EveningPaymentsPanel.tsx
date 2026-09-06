@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, RefreshCw, XCircle } from 'lucide-react';
 
+import EveningListControls from './EveningListControls.tsx';
+
 type PaymentParticipant = {
   id: string;
   player_id: string;
@@ -30,6 +32,8 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
   const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
 
   const load = async () => {
     setError(null);
@@ -101,6 +105,15 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
     return { total: payable.length, paid: paid.length, unpaid: Math.max(0, payable.length - paid.length) };
   }, [data]);
 
+  const visibleParticipants = (data?.participants || []).filter((item) => {
+    const query = search.trim().toLocaleLowerCase('ru-RU');
+    if (query) return item.nickname.toLocaleLowerCase('ru-RU').includes(query);
+    if (filter === 'all') return true;
+    const payable = Number(item.amount_due || 0) > 0 && item.payment_status !== 'waived';
+    const paid = item.payment_status === 'paid' || Number(item.amount_paid || 0) >= Number(item.amount_due || 0);
+    return payable && (filter === 'paid' ? paid : !paid);
+  });
+
   if (loading && !data) return null;
 
   return (
@@ -115,7 +128,7 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
             {data?.evening.closed ? 'Вечер закрыт · оплаты всё равно можно исправлять' : 'Отмечай оплату одним нажатием'}
           </div>
         </div>
-        <button type="button" onClick={() => void load()} disabled={busyIds.size > 0} className="grid h-9 w-9 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить оплаты">
+        <button type="button" onClick={() => void load()} disabled={busyIds.size > 0} className="grid h-11 w-11 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить оплаты">
           <RefreshCw className="h-4 w-4" />
         </button>
       </div>
@@ -124,21 +137,19 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
 
       {data?.participants.length ? (
         <>
-          <div className="mt-3 grid grid-cols-3 gap-1.5">
-            <div className="rounded-[10px] bg-surface-2 px-2 py-2 text-center"><div className="text-[13px] font-black text-text-primary">{summary.total}</div><div className="text-[8px] text-text-muted">к оплате</div></div>
-            <div className="rounded-[10px] bg-success-soft px-2 py-2 text-center"><div className="text-[13px] font-black text-success">{summary.paid}</div><div className="text-[8px] text-success">оплатили</div></div>
-            <div className="rounded-[10px] bg-danger-soft px-2 py-2 text-center"><div className="text-[13px] font-black text-danger">{summary.unpaid}</div><div className="text-[8px] text-danger">не оплатили</div></div>
-          </div>
+          <div className="mt-3"><EveningListControls search={search} onSearch={setSearch} filter={filter} onFilter={setFilter}
+            searchLabel="Найти игрока в оплатах"
+            filters={[{ id: 'all', label: 'Все', count: data.participants.length }, { id: 'paid', label: 'Оплатили', count: summary.paid }, { id: 'unpaid', label: 'Не оплатили', count: summary.unpaid }]} /></div>
 
           <div className="mt-2.5 space-y-1.5">
-            {data.participants.map((participant) => {
+            {visibleParticipants.map((participant) => {
               const due = Number(participant.amount_due || 0);
               const paid = participant.payment_status === 'paid' || (due > 0 && Number(participant.amount_paid || 0) >= due);
               const waived = participant.payment_status === 'waived' || due === 0;
               const busy = busyIds.has(participant.id);
 
               return (
-                <div key={participant.id} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
+                <div key={participant.id} data-testid={`evening-payment-row-${participant.id}`} className="flex min-h-[48px] items-center gap-2 rounded-[12px] bg-surface-2 px-2.5 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] font-bold text-text-primary">{participant.nickname}</div>
                     <div className={`mt-0.5 text-[9px] ${waived ? 'text-text-muted' : paid ? 'text-success' : 'text-danger'}`}>
@@ -149,17 +160,18 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                   {waived ? (
                     <span className="shrink-0 rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[9px] font-bold text-text-muted">0 ₽</span>
                   ) : paid ? (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[9px] font-black text-success disabled:opacity-40">
+                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[9px] font-black text-success disabled:opacity-40">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Оплатил
                     </button>
                   ) : (
-                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[9px] font-black text-danger disabled:opacity-40">
+                    <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[9px] font-black text-danger disabled:opacity-40">
                       <XCircle className="h-3.5 w-3.5" /> Не оплатил
                     </button>
                   )}
                 </div>
               );
             })}
+            {!visibleParticipants.length ? <p role="status" className="p-3 text-center text-[11px] text-text-muted">{search.trim() ? 'Игрок не найден в списке оплат.' : filter === 'unpaid' ? 'Все оплаты отмечены.' : 'Отмеченных оплат пока нет.'}</p> : null}
           </div>
         </>
       ) : (

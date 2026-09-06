@@ -5,6 +5,8 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { MobileSheet } from '../ui/MobileSheet.tsx';
 import { PlayerAvatar } from '../ui/PlayerAvatar.tsx';
 
+import EveningListControls from './EveningListControls.tsx';
+
 type EveningData = GameEvening & { participants: EveningParticipant[] };
 type AddMode = 'players' | 'guest';
 
@@ -43,6 +45,8 @@ export default function EveningActiveRosterView({
   const [guestNickname, setGuestNickname] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'expected' | 'arrived'>('all');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -73,7 +77,13 @@ export default function EveningActiveRosterView({
     [evening],
   );
   const arrivedCount = participants.filter((participant) => participant.attendance_status === 'attended').length;
-  const lateCount = participants.filter((participant) => participant.attendance_status !== 'attended' && getEveningResponse(participant) === 'late').length;
+  const visibleParticipants = participants.filter((participant) => {
+    const query = search.trim().toLocaleLowerCase('ru-RU');
+    if (query) return participant.nickname.toLocaleLowerCase('ru-RU').includes(query);
+    if (filter === 'arrived') return participant.attendance_status === 'attended';
+    if (filter === 'expected') return participant.attendance_status !== 'attended';
+    return true;
+  });
   const existingPlayerIds = useMemo(
     () => new Set((evening?.participants || []).map((participant) => String(participant.player_id))),
     [evening],
@@ -162,7 +172,7 @@ export default function EveningActiveRosterView({
     return <div className="rounded-[16px] border border-border-soft bg-surface-1 py-12 text-center text-[12px] text-text-muted">Загрузка состава…</div>;
   }
 
-  return <section className="space-y-3">
+  return <section data-testid="evening-active-roster" className="space-y-3">
     <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -173,11 +183,7 @@ export default function EveningActiveRosterView({
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-[11px] bg-surface-2 px-2 py-2"><strong className="block text-[17px] text-text-primary">{participants.length}</strong><span className="text-[9px] text-text-muted">подтвердили</span></div>
-        <div className="rounded-[11px] bg-success-soft px-2 py-2"><strong className="block text-[17px] text-success">{arrivedCount}</strong><span className="text-[9px] text-text-muted">пришли</span></div>
-        <div className="rounded-[11px] bg-surface-2 px-2 py-2"><strong className="block text-[17px] text-text-primary">{lateCount}</strong><span className="text-[9px] text-text-muted">позже</span></div>
-      </div>
+
     </div>
 
     {error ? <div className="rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
@@ -186,11 +192,15 @@ export default function EveningActiveRosterView({
       <Plus className="h-4 w-4" /> Добавить игрока на вечер
     </button>
 
+    <EveningListControls search={search} onSearch={setSearch} filter={filter} onFilter={setFilter}
+      searchLabel="Найти участника вечера"
+      filters={[{ id: 'all', label: 'Все', count: participants.length }, { id: 'expected', label: 'Ожидаем', count: participants.length - arrivedCount }, { id: 'arrived', label: 'Пришли', count: arrivedCount }]} />
+
     <div className="overflow-hidden rounded-[16px] border border-border-soft bg-surface-1">
-      {participants.map((participant, index) => {
+      {visibleParticipants.map((participant, index) => {
         const arrived = participant.attendance_status === 'attended';
         const rowBusy = busyIds.has(participant.id);
-        return <div key={participant.id} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[62px] items-center gap-2.5 px-3 py-2`}>
+        return <div key={participant.id} data-testid={`evening-active-row-${participant.id}`} className={`${index ? 'border-t border-border-soft' : ''} flex min-h-[62px] items-center gap-2.5 px-3 py-2`}>
           <button type="button" onClick={() => onOpenPlayerCard?.(participant.player_id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
@@ -198,10 +208,10 @@ export default function EveningActiveRosterView({
               <span className={`mt-0.5 block text-[9px] ${arrived ? 'text-success' : 'text-text-muted'}`}>{responseLabel(participant)}</span>
             </span>
           </button>
-          {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[42px] shrink-0 rounded-[10px] bg-success-soft px-3 text-[10px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : <span className="shrink-0 rounded-full bg-success-soft px-2.5 py-1 text-[9px] font-bold text-success">На месте</span>}
+          {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[10px] bg-success-soft px-3 text-[10px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : <span className="shrink-0 rounded-full bg-success-soft px-2.5 py-1 text-[9px] font-bold text-success">На месте</span>}
         </div>;
       })}
-      {!participants.length ? <div className="p-6 text-center text-[11px] text-text-muted">Пока нет подтверждённых участников. Добавь игрока вручную или дождись ответа.</div> : null}
+      {!visibleParticipants.length ? <div className="p-6 text-center text-[11px] text-text-muted">{search.trim() ? 'Участник не найден в составе вечера.' : !participants.length ? 'Пока нет подтверждённых участников. Добавь игрока вручную или дождись ответа.' : filter === 'expected' ? 'Все участники уже пришли.' : 'Приход ещё не отмечен.'}</div> : null}
     </div>
 
     <MobileSheet

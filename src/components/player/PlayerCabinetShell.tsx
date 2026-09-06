@@ -85,11 +85,9 @@ export default function PlayerCabinetShell({
       {section === 'home' ? (
         <PlayerHomeDashboard
           data={currentData}
-          canOpenAdmin={canOpenAdmin}
           onOpenEvents={(eventId) => open('events', eventId || null)}
           onOpenGames={() => open('games')}
           onOpenRating={() => open('rating')}
-          onOpenConduct={() => open('conduct')}
         />
       ) : section === 'events' ? (
         <PlayerEventsCalendar
@@ -126,11 +124,9 @@ export default function PlayerCabinetShell({
       ) : (
         <PlayerHomeDashboard
           data={currentData}
-          canOpenAdmin={canOpenAdmin}
           onOpenEvents={(eventId) => open('events', eventId || null)}
           onOpenGames={() => open('games')}
           onOpenRating={() => open('rating')}
-          onOpenConduct={() => open('conduct')}
         />
       )}
 

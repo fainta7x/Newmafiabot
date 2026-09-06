@@ -12,7 +12,7 @@ test('preview switches real screens and mobile dimensions without external reque
   await expect(page.locator('#app')).toHaveCSS('width', '360px');
   await page.getByLabel('Экран').selectOption('live-game');
   await expect(frame.locator('#root')).not.toBeEmpty();
-  await page.getByLabel('Экран').selectOption('player-shell');
+  await page.getByLabel('Экран').selectOption('player-cabinet');
   await expect(frame.locator('#root')).not.toBeEmpty();
   await page.getByLabel('Экран').selectOption('crm-evening-roster');
   await expect(frame.getByTestId('evening-active-roster')).toBeVisible();

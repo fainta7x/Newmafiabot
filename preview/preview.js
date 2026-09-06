@@ -6,7 +6,14 @@ const params = new URLSearchParams(location.search);
 if (allowedScreens.has(params.get('screen'))) screen.value = params.get('screen');
 function openScreen() {
   switch (screen.value) {
+    case 'live-voting': frame.src = '../e2e/live-game.html?mode=audit'; break;
     case 'live-game': frame.src = '../e2e/live-game.html'; break;
+    case 'player-cabinet': frame.src = '../e2e/player-cabinet.html'; break;
+    case 'crm-overview': frame.src = '../e2e/crm-overview.html'; break;
+    case 'crm-evenings': frame.src = '../e2e/crm-evenings.html'; break;
+    case 'crm-players': frame.src = '../e2e/crm-players.html'; break;
+    case 'crm-more': frame.src = '../e2e/crm-more.html'; break;
+    case 'crm-closeout': frame.src = '../e2e/crm-closeout.html'; break;
     case 'player-shell': frame.src = '../e2e/player-shell.html'; break;
     default: frame.src = '../e2e/crm-evening-roster.html';
   }

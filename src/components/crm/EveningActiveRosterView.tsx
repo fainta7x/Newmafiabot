@@ -173,24 +173,16 @@ export default function EveningActiveRosterView({
   }
 
   return <section data-testid="evening-active-roster" className="space-y-3">
-    <div className="rounded-[16px] border border-border-soft bg-surface-1 p-3">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-black text-text-primary">Участники вечера</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Только те, кто подтвердил участие или уже пришёл. Думающие, отказавшиеся и неответившие остаются на этапе «Ответы».</p>
-        </div>
-        <button type="button" onClick={() => void load()} disabled={loading || busyIds.size > 0} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
+    <div className="flex items-center gap-2">
+      <h3 className="min-w-0 flex-1 text-[15px] font-semibold text-text-primary">Участники вечера</h3>
+      <button type="button" onClick={() => setShowAdd(true)} aria-label="Добавить игрока на вечер" className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-black">
+        <Plus className="h-4 w-4" /> Добавить
+      </button>
+      <button type="button" onClick={() => void load()} disabled={loading || busyIds.size > 0} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary disabled:opacity-40">
+        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      </button>
     </div>
-
-    {error ? <div className="rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</div> : null}
-
-    <button type="button" onClick={() => setShowAdd(true)} className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[13px] bg-accent px-4 text-[12px] font-black text-white">
-      <Plus className="h-4 w-4" /> Добавить игрока на вечер
-    </button>
+    {error ? <div role="alert" className="rounded-[12px] bg-danger-soft px-3 py-2 text-[12px] text-danger">{error}</div> : null}
 
     <EveningListControls search={search} onSearch={setSearch} filter={filter} onFilter={setFilter}
       searchLabel="Найти участника вечера"

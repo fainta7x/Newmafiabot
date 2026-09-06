@@ -547,6 +547,7 @@ export const EveningLiveGameModal: React.FC<EveningLiveGameModalProps> = ({ game
                   forceStoredLookup
                   className="evening-live-player-avatar"
                 />
+                <span className="evening-live-identity-name" title={player.display_name}>{player.display_name}</span>
               </div>
             ))}
           </div>

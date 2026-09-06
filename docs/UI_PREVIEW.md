@@ -8,7 +8,7 @@ Run from the repository root:
 
     node scripts/buildUiPreview.mjs
 
-Output: temp/ui-preview. The allowlisted pages are evening roster/payments, Live Game and Player Cabinet. The gallery supports phone sizes 390×713 and 360×640, plus a desktop frame. Reload resets the page fixtures. revision.json records the source commit and dirty state. CSP restricts requests to the preview's own origin. Runtime uploads, database checkpoints and production avatars are not copied.
+Output: temp/ui-preview. The allowlisted pages include evening roster/payments, CRM today/events/players/more/closeout, Live Game and Player Cabinet. Player Cabinet uses its actual shell with fixture-backed home/history; other API flows may show an unprepared-scenario error. The pre-vote entry seeds a recovery-engine state: press Restore to continue. The gallery supports phone sizes 390×713 and 360×640, plus a desktop frame. Reload resets the page fixtures. revision.json records the source commit and dirty state. CSP restricts requests to the preview's own origin. Runtime uploads, database checkpoints and production avatars are not copied.
 
 ## Automatic checks
 

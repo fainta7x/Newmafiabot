@@ -88,7 +88,7 @@ During iteration:
 Before merge:
 
 - the required non-browser CI is authoritative for ordinary PRs;
-- Playwright is intentionally outside the ordinary merge gate and must not be run or awaited by default;
+- Broad Playwright suites remain outside the ordinary merge gate. The user-approved UI preview workflow automatically runs focused static mobile checks on relevant PR updates, including drafts; see docs/UI_PREVIEW.md.
 - use the manual Playwright workflow only when the user explicitly requests it, the change needs browser/visual validation, or release verification requires it;
 - never weaken TypeScript/tests to force green;
 - inspect the exact failing job before rerunning;

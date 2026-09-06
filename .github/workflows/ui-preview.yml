@@ -1,0 +1,57 @@
+name: UI preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/**'
+      - 'e2e/**'
+      - 'preview/**'
+      - 'scripts/buildUiPreview.mjs'
+      - 'vite.config.ts'
+      - 'package*.json'
+      - '.github/workflows/ui-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Mobile preview and screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: e2e
+      - name: Build isolated preview (no database or secrets)
+        run: node scripts/buildUiPreview.mjs
+      - name: Check mobile screens
+        run: npx playwright test --config playwright-preview.config.mjs
+        working-directory: e2e
+      - name: Save web preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-preview-site
+          path: temp/ui-preview
+          retention-days: 14
+      - name: Save mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-preview-evidence
+          path: e2e/preview-results
+          retention-days: 14

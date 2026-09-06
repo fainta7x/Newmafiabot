@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2LA Noire — предпросмотр</title>
+<link rel="stylesheet" href="./preview.css">
+</head>
+<body>
+<header>
+<strong>2LA Noire · тестовая копия</strong>
+<label>Экран <select id="screen"><option value="crm-evening-roster">Вечер: состав и оплаты</option><option value="live-game">Проведение игры</option><option value="player-shell">Кабинет игрока</option></select></label>
+<label>Размер <select id="size"><option value="390,713">Телефон · 390 × 713</option><option value="360,640">Узкий телефон · 360 × 640</option><option value="1280,800">Компьютер · 1280 × 800</option></select></label>
+<button id="reload">Сбросить тестовые действия</button>
+<span id="revision"></span>
+</header>
+<main><iframe title="Тестовый экран приложения" id="app" src="../e2e/crm-evening-roster.html"></iframe></main>
+<script type="module" src="./preview.js"></script>
+</body>
+</html>

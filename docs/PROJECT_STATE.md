@@ -272,3 +272,5 @@ One user message/request may create at most **3 PRs**. See `AGENTS.md` and `docs
 ### CRM browser follow-up (2026-09-05)
 
 PR #243 was retargeted from the unused EveningParticipantsWorkboard to the mounted EveningActiveRosterView / EveningPaymentsPanel. Fresh mobile verification is pending. Earlier CRM run 33977594668: 3 passes and 4 failures (obsolete roster navigation, overview label, player-list expectation, and a closeout disabled-button failure with unconfirmed cause). The updated roster test covers current navigation and filters; the other full-suite failures remain separate follow-up work.
+
+The user approved automatic UI preview checks and an owner-private web snapshot on 2026-09-06. Implementation and runtime verification are in PR #243; docs/UI_PREVIEW.md owns the repeatable procedure.

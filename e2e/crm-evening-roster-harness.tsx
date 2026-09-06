@@ -65,9 +65,23 @@ api.updateParticipant = async (participantId: string, data: any) => {
 };
 api.getPlayers = async () => [] as any;
 
-globalThis.fetch = async (input: RequestInfo | URL) => {
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(raw, window.location.origin);
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  if (url.pathname.endsWith('/staff')) return json({ organizer: null, organizers: [], judges: [], game_judges: [] });
+  if (url.pathname.includes('/payments/') && init?.method === 'PATCH') {
+    const participant = participants.find((item) => item.id === url.pathname.split('/').pop());
+    if (!participant) return new Response('{}', { status: 404 });
+    const { paid } = JSON.parse(String(init.body));
+    participant.payment_status = paid ? 'paid' : 'unpaid';
+    participant.amount_paid = paid ? participant.amount_due : 0;
+    return json({ success: true });
+  }
+  if (url.pathname.endsWith('/payments')) return json({
+    evening: { id: 'evening-active', title: 'Пятничный клубный вечер', status: 'active', closed: false },
+    participants: participants.filter((item) => item.attendance_status === 'attended'),
+  });
   if (url.pathname.endsWith('/slots')) {
     return new Response(JSON.stringify({ slots: [], registrations: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }

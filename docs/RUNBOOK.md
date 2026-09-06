@@ -348,3 +348,7 @@ Always distinguish:
 - **green main**;
 - **deployed main**;
 - **runtime verified**.
+
+## Automatic UI preview
+
+The user-approved UI preview workflow automatically builds isolated pages and mobile evidence for relevant PR updates, including drafts. Follow [UI_PREVIEW](UI_PREVIEW.md) for artifacts, private publishing and the supported agent-browser path. It needs no manual workflow dispatch. Broad manual Playwright suites retain their separate release role.

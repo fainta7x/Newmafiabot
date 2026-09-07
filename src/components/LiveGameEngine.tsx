@@ -719,6 +719,30 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setActionPlayerSlot(null);
   };
 
+  const sameVoteAssignments = (left: Record<number, number>, right: Record<number, number>) => {
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+    return Array.from(keys).every((key) => left[Number(key)] === right[Number(key)]);
+  };
+
+  const findLastVoteHistoryIndex = () => {
+    const currentRound = votingRounds[activeVotingRoundIndex];
+    if (phase !== 'day_voting' || votingStage !== 'collecting' || !currentRound) return -1;
+
+    for (let index = historyStack.length - 1; index >= 0; index -= 1) {
+      const snapshot = normalizeLiveSnapshotForRestore(historyStack[index]);
+      const snapshotRound = snapshot.votingRounds[snapshot.activeVotingRoundIndex];
+      const sameRound = snapshot.phase === 'day_voting'
+        && snapshot.votingStage === 'collecting'
+        && snapshot.roundNumber === roundNumber
+        && snapshot.activeVotingRoundIndex === activeVotingRoundIndex
+        && snapshotRound?.round_number === currentRound.round_number
+        && snapshotRound?.nominated_seats.join(',') === currentRound.nominated_seats.join(',');
+      if (!sameRound) continue;
+      if (!sameVoteAssignments(snapshot.votesByPlayer, votesByPlayer)) return index;
+    }
+    return -1;
+  };
+
   const updateCurrentRoundVotes = (assignments: Record<number, number>) => {
     const current = votingRounds[activeVotingRoundIndex];
     if (!current) return;
@@ -729,6 +753,54 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       ? { ...round, vote_counts: explicitCounts }
       : round));
   };
+
+  const handleUndoLastVote = () => {
+    const historyIndex = findLastVoteHistoryIndex();
+    if (historyIndex < 0) return showToast('Нет голосов для отмены', 'warning');
+
+    const sourceSnapshot = normalizeLiveSnapshotForRestore(historyStack[historyIndex]);
+    const restoredAssignments = { ...sourceSnapshot.votesByPlayer };
+    setVotesByPlayer(restoredAssignments);
+    updateCurrentRoundVotes(restoredAssignments);
+
+    // Keep unrelated history entries (for example a foul applied after the vote),
+    // but rewrite their vote slice so a later generic Undo cannot resurrect this vote.
+    setHistoryStack((previous) => previous.reduce<LiveSnapshot[]>((next, item, index) => {
+      if (index === historyIndex) return next;
+      if (index < historyIndex) {
+        next.push(item);
+        return next;
+      }
+
+      const snapshot = normalizeLiveSnapshotForRestore(item);
+      const snapshotRound = snapshot.votingRounds[snapshot.activeVotingRoundIndex];
+      const currentRound = votingRounds[activeVotingRoundIndex];
+      const sameRound = snapshot.phase === 'day_voting'
+        && snapshot.roundNumber === roundNumber
+        && snapshot.activeVotingRoundIndex === activeVotingRoundIndex
+        && snapshotRound?.round_number === currentRound?.round_number
+        && snapshotRound?.nominated_seats.join(',') === currentRound?.nominated_seats.join(',');
+      if (!sameRound || !snapshotRound) {
+        next.push(item);
+        return next;
+      }
+
+      const eligibleSeats = snapshot.activePlayers.filter((player) => player.alive).map((player) => player.slot_num);
+      const restoredCounts = getExplicitVoteCounts(snapshotRound.nominated_seats, restoredAssignments, eligibleSeats);
+      next.push(cloneLiveSnapshot({
+        ...snapshot,
+        votesByPlayer: { ...restoredAssignments },
+        votes: restoredCounts,
+        votingRounds: snapshot.votingRounds.map((round, roundIndex) => roundIndex === activeVotingRoundIndex
+          ? { ...round, vote_counts: restoredCounts }
+          : round),
+      }));
+      return next;
+    }, []));
+    showToast('Последний голос отменён', 'info');
+  };
+
+  const canUndoLastVote = findLastVoteHistoryIndex() >= 0;
 
   const handleFinalizeVote = () => {
     const current = votingRounds[activeVotingRoundIndex];
@@ -1423,6 +1495,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       currentVotingNomineeIndex,
       selectVotingNomineeIndex,
       handleInteractiveAutoRemainder: handleFinalizeVote,
+      canUndoLastVote,
+      handleUndoLastVote,
       handleAllocateVotes,
       handleResolveVoting,
       nightSubPhase,

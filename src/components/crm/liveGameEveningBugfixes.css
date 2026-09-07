@@ -80,6 +80,41 @@
   color: #ffe0e7;
 }
 
+.live-judge-vote-summary.live-judge-vote-summary--with-undo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.live-judge-vote-undo {
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.live-judge-vote-undo:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
+.live-judge-vote-undo__value {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.live-judge-vote-undo__value svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
 @media (max-width: 767px) {
   .live-judge-voting-order {
     grid-template-columns: auto minmax(0, 1fr);
@@ -158,6 +193,17 @@
 
   .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary {
     gap: 3px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-vote-undo__value {
+    gap: 2px;
+    margin-top: 1px;
+    font-size: 7px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-vote-undo__value svg {
+    width: 8px;
+    height: 8px;
   }
 
   .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat {

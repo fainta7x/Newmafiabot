@@ -37,18 +37,24 @@ describe('PlayersActivityCRM filter source switching', () => {
     await waitFor(() => expect(api.getPlayers).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
-    const activitySelect = screen.getByDisplayValue('По быстрому сегменту') as HTMLSelectElement;
+    const activitySelect = screen.getByRole('combobox', { name: 'Активность' }) as HTMLSelectElement;
     fireEvent.change(activitySelect, { target: { value: 'newcomer' } });
 
     await waitFor(() => expect(api.getPlayers).toHaveBeenCalledWith({ lifecycle_status: 'newcomer' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Фильтры игроков' })).toBeNull());
     expect(screen.getByRole('button', { name: 'Активные' }).getAttribute('aria-pressed')).toBe('false');
 
     vi.mocked(api.getPlayers).mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Лояльные' }));
 
     await waitFor(() => expect(api.getPlayers).toHaveBeenCalledWith({ lifecycle_status: 'regular' }));
-    expect(activitySelect.value).toBe('');
     expect(screen.getByRole('button', { name: 'Лояльные' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/самые постоянные/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
+    const resetActivitySelect = screen.getByRole('combobox', { name: 'Активность' }) as HTMLSelectElement;
+    expect(resetActivitySelect.value).toBe('');
   });
 });

@@ -9,6 +9,7 @@ import {
   type BestMoveSource,
   type LiveProtocolMarkers,
 } from '../../lib/gameProtocolCore.js';
+import { getTableDecisionSelectionSnapshot } from './tableDecisionSelectionStore.js';
 import type { ActivePlayerState, NightSubPhase, Phase } from './types.js';
 
 export type VotingStage = 'setup' | 'collecting' | 'round_result' | 'revote_speeches' | 'table_decision' | 'resolved';
@@ -97,21 +98,49 @@ export const createInitialLiveDiscipline = (): GameDiscipline => createInitialGa
   Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), team: 'red' as const })),
 );
 
-export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => ({
-  ...snapshot,
-  activePlayers: jsonClone(snapshot.activePlayers),
-  nominations: [...snapshot.nominations],
-  nominationsMap: { ...snapshot.nominationsMap },
-  protocolMarkers: jsonClone(snapshot.protocolMarkers),
-  pendingBestMoveSeats: [...snapshot.pendingBestMoveSeats],
-  votingRounds: jsonClone(snapshot.votingRounds),
-  votesByPlayer: { ...snapshot.votesByPlayer },
-  votes: { ...snapshot.votes },
-  tableDecisionSelectedVoterSlots: [...(snapshot.tableDecisionSelectedVoterSlots || [])],
-  nightLogs: jsonClone(snapshot.nightLogs),
-  votingFarewellQueue: [...snapshot.votingFarewellQueue],
-  discipline: jsonClone(snapshot.discipline),
-});
+const getSnapshotTableDecisionSelection = (snapshot: LiveSnapshot) => {
+  if (
+    snapshot.tableDecisionSelectionKey !== undefined
+    || snapshot.tableDecisionSelectedVoterSlots !== undefined
+  ) {
+    return {
+      key: snapshot.tableDecisionSelectionKey ?? null,
+      selectedVoterSlots: [...(snapshot.tableDecisionSelectedVoterSlots || [])],
+    };
+  }
+
+  const currentRound = snapshot.votingRounds?.[snapshot.activeVotingRoundIndex];
+  const expectedKey = snapshot.phase === 'day_voting'
+    && snapshot.votingStage === 'round_result'
+    && currentRound
+    ? `${snapshot.activeVotingRoundIndex}:${currentRound.round_number}:${currentRound.nominated_seats.join('-')}`
+    : null;
+  const liveSelection = getTableDecisionSelectionSnapshot();
+  if (!expectedKey || liveSelection.key !== expectedKey) {
+    return { key: null, selectedVoterSlots: [] as number[] };
+  }
+  return liveSelection;
+};
+
+export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
+  const tableDecisionSelection = getSnapshotTableDecisionSelection(snapshot);
+  return {
+    ...snapshot,
+    activePlayers: jsonClone(snapshot.activePlayers),
+    nominations: [...snapshot.nominations],
+    nominationsMap: { ...snapshot.nominationsMap },
+    protocolMarkers: jsonClone(snapshot.protocolMarkers),
+    pendingBestMoveSeats: [...snapshot.pendingBestMoveSeats],
+    votingRounds: jsonClone(snapshot.votingRounds),
+    votesByPlayer: { ...snapshot.votesByPlayer },
+    votes: { ...snapshot.votes },
+    tableDecisionSelectionKey: tableDecisionSelection.key,
+    tableDecisionSelectedVoterSlots: [...tableDecisionSelection.selectedVoterSlots],
+    nightLogs: jsonClone(snapshot.nightLogs),
+    votingFarewellQueue: [...snapshot.votingFarewellQueue],
+    discipline: jsonClone(snapshot.discipline),
+  };
+};
 
 const isRecoveredFirstKilledBestMove = (snapshot: LiveSnapshot): boolean => (
   snapshot.phase === 'night' && snapshot.nightSubPhase === 'best_move'

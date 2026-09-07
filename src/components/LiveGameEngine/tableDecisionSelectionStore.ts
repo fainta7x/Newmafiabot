@@ -6,6 +6,11 @@ type TableDecisionSelectionState = {
   selectedVoterSlots: number[];
 };
 
+export type TableDecisionSelectionSnapshot = {
+  key: string | null;
+  selectedVoterSlots: number[];
+};
+
 let state: TableDecisionSelectionState = {
   active: false,
   key: null,
@@ -43,6 +48,28 @@ export const toggleTableDecisionVoter = (slot: number) => {
       ? state.selectedVoterSlots.filter((value) => value !== slot)
       : [...state.selectedVoterSlots, slot],
   });
+};
+
+export const getTableDecisionSelectionSnapshot = (): TableDecisionSelectionSnapshot => ({
+  key: state.active ? state.key : null,
+  selectedVoterSlots: state.active ? [...state.selectedVoterSlots] : [],
+});
+
+export const restoreTableDecisionSelection = (
+  key: string | null,
+  selectedVoterSlots: number[] = [],
+) => {
+  if (!key) {
+    deactivateTableDecisionSelection();
+    return;
+  }
+
+  const uniqueSlots = Array.from(new Set(
+    selectedVoterSlots
+      .map((slot) => Number(slot))
+      .filter((slot) => Number.isInteger(slot) && slot >= 1 && slot <= 10),
+  ));
+  publish({ active: true, key, selectedVoterSlots: uniqueSlots });
 };
 
 export const useTableDecisionSelection = (): TableDecisionSelectionState => useSyncExternalStore(

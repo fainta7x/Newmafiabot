@@ -95,7 +95,7 @@ const formatLabels: Record<PeriodEvening['format'], string> = {
 const points = (value: number) => Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
 export const RatingPeriodsCRM: React.FC = () => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [periods, setPeriods] = useState<RatingPeriod[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [evenings, setEvenings] = useState<PeriodEvening[]>([]);

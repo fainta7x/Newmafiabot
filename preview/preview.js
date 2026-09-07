@@ -9,6 +9,7 @@ function openScreen() {
     case 'live-voting': frame.src = '../e2e/live-game.html?mode=audit'; break;
     case 'live-game': frame.src = '../e2e/live-game.html'; break;
     case 'player-cabinet': frame.src = '../e2e/player-cabinet.html'; break;
+    case 'player-cabinet-live': frame.src = '../e2e/player-cabinet.html?scenario=live'; break;
     case 'crm-overview': frame.src = '../e2e/crm-overview.html'; break;
     case 'crm-evenings': frame.src = '../e2e/crm-evenings.html'; break;
     case 'crm-players': frame.src = '../e2e/crm-players.html'; break;

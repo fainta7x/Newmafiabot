@@ -41,6 +41,9 @@ export type LiveSnapshot = {
   votingStage: VotingStage;
   revoteSpeakerIndex: number;
   tableLeaveVotesInput: number | null;
+  /** Exact raised-hand selection for the raise/leave table decision. Optional for legacy recovery snapshots. */
+  tableDecisionSelectionKey?: string | null;
+  tableDecisionSelectedVoterSlots?: number[];
   currentVotingNomineeIndex: number;
   activeSpeakerSlot: number | null;
   customTimerLabel: string | null;
@@ -104,6 +107,7 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => ({
   votingRounds: jsonClone(snapshot.votingRounds),
   votesByPlayer: { ...snapshot.votesByPlayer },
   votes: { ...snapshot.votes },
+  tableDecisionSelectedVoterSlots: [...(snapshot.tableDecisionSelectedVoterSlots || [])],
   nightLogs: jsonClone(snapshot.nightLogs),
   votingFarewellQueue: [...snapshot.votingFarewellQueue],
   discipline: jsonClone(snapshot.discipline),
@@ -138,6 +142,8 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     votingStage: snapshot.votingStage || 'setup',
     revoteSpeakerIndex: snapshot.revoteSpeakerIndex || 0,
     tableLeaveVotesInput: snapshot.tableLeaveVotesInput ?? null,
+    tableDecisionSelectionKey: snapshot.tableDecisionSelectionKey ?? null,
+    tableDecisionSelectedVoterSlots: snapshot.tableDecisionSelectedVoterSlots || [],
     currentVotingNomineeIndex: snapshot.currentVotingNomineeIndex || 0,
     activeSpeakerSlot: snapshot.activeSpeakerSlot ?? null,
     customTimerLabel: snapshot.customTimerLabel ?? null,

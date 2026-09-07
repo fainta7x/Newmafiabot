@@ -224,5 +224,5 @@ This real-world success is useful evidence, but it is not a substitute for targe
 
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.
 - Multi-city/multi-club expansion is not a current priority.
-- Draft PR #246 remains separate scoped work for manual club players/guests and historical lineup repair; do not silently fold it into unrelated UX changes.
+- Manual guests can be added while forming a game without fabricating an RSVP. Completed-game seat identity corrections are explicit organizer actions that preserve gameplay by seat and rerun dependent calculations; no date/nickname-based historical rewrite is allowed.
 - Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.

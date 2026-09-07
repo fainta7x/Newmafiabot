@@ -293,4 +293,9 @@ export const clubGamesApi = {
   restoreArchived: (gameId: number) => request<ClubGameRecord>(`/api/games/${gameId}/archive/restore`, { method: 'POST' }),
   deleteArchived: (gameId: number) => request<{ success: boolean }>(`/api/games/${gameId}/archive`, { method: 'DELETE' }),
   deleteDraft: (gameId: number) => request<{ success: boolean }>(`/api/games/${gameId}/evening-draft`, { method: 'DELETE' }),
+  repairSeatIdentity: (gameId: number, data: {
+    seat_number: number;
+    replacement_player_id?: string;
+    guest?: { nickname: string; phone?: string };
+  }) => request<ClubGameRecord>(`/api/games/${gameId}/seat-identity`, { method: 'PUT', body: JSON.stringify(data) }),
 };

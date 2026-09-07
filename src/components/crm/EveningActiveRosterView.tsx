@@ -17,10 +17,9 @@ const isActiveEveningParticipant = (participant: EveningParticipant) => {
   return response === 'going' || response === 'late';
 };
 
-const responseLabel = (participant: EveningParticipant) => {
-  if (participant.attendance_status === 'attended') return 'Пришёл';
-  return getEveningResponse(participant) === 'late' ? 'Придёт позже' : 'Идёт';
-};
+const responseLabel = (participant: EveningParticipant) => (
+  getEveningResponse(participant) === 'late' ? 'Придёт позже' : 'Идёт'
+);
 
 export default function EveningActiveRosterView({
   eveningId,
@@ -197,7 +196,7 @@ export default function EveningActiveRosterView({
             <PlayerAvatar playerId={participant.player_id} nickname={participant.nickname} size="xs" />
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[12px] text-text-primary">{participant.nickname}</strong>
-              <span className={`mt-0.5 block text-[9px] ${arrived ? 'text-success' : 'text-text-muted'}`}>{responseLabel(participant)}</span>
+              {!arrived ? <span className="mt-0.5 block text-[9px] text-text-muted">{responseLabel(participant)}</span> : null}
             </span>
           </button>
           {!arrived ? <button type="button" disabled={rowBusy} onClick={() => void markAttended(participant)} className="min-h-[44px] shrink-0 rounded-[10px] bg-success-soft px-3 text-[10px] font-bold text-success disabled:opacity-40">{rowBusy ? '…' : 'Пришёл'}</button> : <span className="shrink-0 rounded-full bg-success-soft px-2.5 py-1 text-[9px] font-bold text-success">На месте</span>}

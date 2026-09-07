@@ -50,7 +50,7 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
 
   return (
     <div className="space-y-3">
-      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-3 gap-1.5">
+      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-5 gap-1">
         {panes.map((item) => {
           const active = item.id === pane;
           return <button
@@ -58,10 +58,10 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
             type="button"
             onClick={() => setPane(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`flex min-h-[46px] items-center justify-center gap-1.5 rounded-[12px] border px-2 text-center transition-colors ${active ? 'border-white/20 bg-white text-black' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
+            className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-[11px] border px-1 text-center transition-colors sm:min-h-[46px] sm:flex-row sm:gap-1.5 sm:px-2 ${active ? 'border-white/20 bg-white text-black' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
           >
             {item.icon}
-            <span className="text-[11px] font-black">{item.label}</span>
+            <span className="max-w-full truncate text-[9px] font-black sm:text-[11px]">{item.label}</span>
           </button>;
         })}
       </nav>

@@ -76,8 +76,11 @@ export default function PlayerCabinetShell({
       />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
-      <div data-testid="player-live-status-slot" className="player-live-status-slot">
-        <PlayerLiveOnlyCenter />
+      <div
+        data-testid="player-live-status-slot"
+        className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}
+      >
+        <PlayerLiveOnlyCenter compact={section !== 'home'} />
       </div>
 
       {section === 'home' ? (

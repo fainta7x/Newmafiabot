@@ -26,6 +26,9 @@ for (const width of [360, 390]) {
 
     for (const destination of ['События', 'Игры', 'Рейтинг', 'Клуб']) {
       await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('button', { name: destination, exact: true }).click();
+      await expect(launcher).toContainText('Текущий вечер');
+      await expect(launcher).not.toContainText('Игра 4 · 3 завершено');
+      expect((await launcher.boundingBox()).height).toBeLessThanOrEqual(42);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`${destination.toLowerCase()}.png`) });
     }

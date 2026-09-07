@@ -115,7 +115,7 @@ const getSnapshotTableDecisionSelection = (snapshot: LiveSnapshot) => {
     && currentRound
     ? `${snapshot.activeVotingRoundIndex}:${currentRound.round_number}:${currentRound.nominated_seats.join('-')}`
     : null;
-  const liveSelection = getTableDecisionSelectionSnapshot();
+  const liveSelection = getTableDecisionSelectionSnapshot(expectedKey);
   if (!expectedKey || liveSelection.key !== expectedKey) {
     return { key: null, selectedVoterSlots: [] as number[] };
   }

@@ -209,7 +209,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${segment === 'loyal' ? 'bg-success-soft text-success' : segment === 'inactive' ? 'bg-warning-soft text-warning' : 'bg-white/[0.07] text-text-secondary'}`}>{playerSegmentLabel(player)}</span></span>
                 {player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}
-                <span className="mt-1 block text-[11px] text-text-muted">{visitText} · визитов ${visits}${taskText}</span>
+                <span className="mt-1 block text-[11px] text-text-muted">{visitText} · визитов {visits}{taskText}</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-text-muted" />
             </button>;

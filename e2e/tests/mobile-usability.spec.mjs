@@ -1,5 +1,23 @@
 import { test, expect } from '@playwright/test';
 
+const expectContainedAction = async (locator, minHeight = 31) => {
+  await expect(locator).toBeInViewport();
+  const fits = await locator.evaluate((el, expectedHeight) => {
+    const r = el.getBoundingClientRect();
+    let parent = el.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY)) {
+        const p = parent.getBoundingClientRect();
+        if (r.bottom > p.bottom + 1 || r.top < p.top - 1) return false;
+      }
+      parent = parent.parentElement;
+    }
+    return r.height >= expectedHeight;
+  }, minHeight);
+  expect(fits).toBe(true);
+};
+
 for (const width of [360, 390]) {
   test(`mobile work surfaces ${width}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 360 ? 640 : 713 });
@@ -19,28 +37,19 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
-    await page.getByRole('button', { name: 'Следующий →', exact: true }).click();
+    const nextCandidate = page.getByRole('button', { name: 'Следующий →', exact: true });
+    await expectContainedAction(nextCandidate, 31);
+    const collectingBodyFits = await page.locator('.live-judge-hud__body').evaluate((el) => el.scrollHeight <= el.clientHeight + 1);
+    expect(collectingBodyFits).toBe(true);
+    await page.screenshot({ path: info.outputPath('voting-collecting.png') });
+    await nextCandidate.click();
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();
     await page.getByRole('combobox', { name: 'Быстрые действия игрока' }).selectOption({ label: '#2 Игрок 2' });
     await page.getByRole('button', { name: '+ Обычный фол', exact: true }).click();
     await expect(page.getByLabel('Фолы 1, малые техфолы 0, большие техфолы 0')).toBeVisible();
     const next = page.getByRole('button', { name: 'Следующий игрок', exact: true });
-    await expect(next).toBeInViewport();
-    const fits = await next.evaluate(el => {
-      const r = el.getBoundingClientRect();
-      let parent = el.parentElement;
-      while (parent) {
-        const style = getComputedStyle(parent);
-        if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY)) {
-          const p = parent.getBoundingClientRect();
-          if (r.bottom > p.bottom + 1 || r.top < p.top - 1) return false;
-        }
-        parent = parent.parentElement;
-      }
-      return r.height >= 31;
-    });
-    expect(fits).toBe(true);
+    await expectContainedAction(next, 31);
     await page.screenshot({ path: info.outputPath('revote-speech.png') });
     await next.click();
     await page.getByRole('button', { name: 'К переголосованию', exact: true }).click();

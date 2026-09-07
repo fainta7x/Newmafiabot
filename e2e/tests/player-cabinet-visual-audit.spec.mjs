@@ -6,6 +6,7 @@ for (const width of [360, 390]) {
     await page.goto('/e2e/player-cabinet.html?scenario=live');
 
     const launcher = page.getByTestId('player-live-launcher');
+    await expect(page.getByTestId('product-mode-switch-player')).toContainText('CRM');
     await expect(launcher).toBeVisible();
     const launcherBox = await launcher.boundingBox();
     expect(launcherBox).not.toBeNull();

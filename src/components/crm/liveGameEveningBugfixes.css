@@ -80,7 +80,7 @@
   color: #ffe0e7;
 }
 
-.live-judge-vote-summary--with-undo {
+.live-judge-vote-summary.live-judge-vote-summary--with-undo {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;

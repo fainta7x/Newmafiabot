@@ -115,7 +115,7 @@ function JourneySteps({ phase }: { phase: 'upcoming' | 'live' | 'recap' }) {
   ))}</div>;
 }
 
-export default function PlayerLiveCenter() {
+export default function PlayerLiveCenter({ compact = false }: { compact?: boolean }) {
   const [journey, setJourney] = useState<EveningJourney | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -200,14 +200,14 @@ export default function PlayerLiveCenter() {
       type="button"
       onClick={() => { setOpen(true); void refresh(true); }}
       aria-label={`Открыть текущий вечер: ${title}`}
-      className={`relative z-10 flex w-full min-w-0 items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-xl ${isLive ? 'border-rose-400/25 bg-[#171318]/95' : isRecap ? 'border-amber-200/20 bg-[#171612]/95' : 'border-white/10 bg-[#15161b]/95'}`}
+      className={`relative z-10 flex w-full min-w-0 items-center rounded-2xl border text-left shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-xl ${compact ? 'min-h-10 gap-2 px-3 py-1.5' : 'gap-2.5 px-3 py-2.5'} ${isLive ? 'border-rose-400/25 bg-[#171318]/95' : isRecap ? 'border-amber-200/20 bg-[#171612]/95' : 'border-white/10 bg-[#15161b]/95'}`}
     >
       <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${isLive ? 'bg-rose-500/15 text-rose-300' : isRecap ? 'bg-amber-200/10 text-amber-100/70' : 'bg-white/[0.07] text-white/55'}`}>
         {isLive ? <><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />Live</> : isRecap ? 'Итог' : 'Вечер'}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[11px] font-semibold text-white sm:text-xs">{title}</span>
-        <span className="mt-0.5 block truncate text-[9px] text-white/38">{compactMeta}</span>
+        <span className="block truncate text-[11px] font-semibold text-white sm:text-xs">{compact ? 'Текущий вечер' : title}</span>
+        {!compact ? <span className="mt-0.5 block truncate text-[9px] text-white/38">{compactMeta}</span> : null}
       </span>
       {journey.phase === 'live' ? <span className="shrink-0 text-sm font-black tabular-nums text-white"><span className="text-rose-300">{journey.score.red}</span><span className="mx-1 text-white/30">:</span><span>{journey.score.black}</span></span> : journey.phase === 'recap' ? <span className="shrink-0 text-sm font-black text-white/70">{journey.recap.score}</span> : <span className="shrink-0 text-lg text-white/25">›</span>}
     </button>

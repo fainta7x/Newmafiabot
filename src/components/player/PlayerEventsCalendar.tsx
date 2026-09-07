@@ -99,7 +99,7 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
     <button type="button" onClick={onOpen} className="w-full rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left active:bg-white/[0.06]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <b className="block truncate text-sm">{event.title}</b>
+          <b className="line-clamp-2 text-sm leading-5">{event.title}</b>
           <div className="mt-1 text-xs text-white/35">{formatEventDate(event.starts_at)}</div>
           {event.venue && <div className="mt-1 truncate text-[10px] text-white/25">📍 {event.venue}</div>}
         </div>
@@ -266,7 +266,7 @@ export default function PlayerEventsCalendar({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Ближайшее</div>
-                    <div className="mt-2 truncate text-lg font-semibold">{nearest.title}</div>
+                    <div className="mt-2 line-clamp-2 text-lg font-semibold leading-6">{nearest.title}</div>
                     <div className="mt-1 text-xs text-white/45">{formatEventDate(nearest.starts_at)}</div>
                     {nearest.venue && <div className="mt-1 truncate text-xs text-white/30">📍 {nearest.venue}</div>}
                   </div>

@@ -137,14 +137,22 @@
   /* Preserve room for the balance and profile on the narrow Telegram viewport.
      The switch remains fully labelled for assistive technology. */
   .player-cabinet-shell [data-testid="product-mode-switch-player"] {
-    width: 2.5rem;
+    width: 2.75rem;
     min-height: 2.5rem;
+    flex-direction: column;
     justify-content: center;
+    gap: 0;
     padding-inline: 0;
   }
 
-  .player-cabinet-shell [data-testid="product-mode-switch-player"] > span {
+  .player-cabinet-shell [data-testid="product-mode-switch-player"] .product-mode-switch__label {
     display: none;
+  }
+
+  .player-cabinet-shell [data-testid="product-mode-switch-player"] .product-mode-switch__mobile-label {
+    display: block;
+    font-size: 7px;
+    line-height: 1;
   }
 
   div:has(> label > input[placeholder="Ник, имя, телефон или Telegram"]) + div > div {

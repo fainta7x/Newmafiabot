@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import PlayerLiveCenter from './PlayerLiveCenter.tsx';
 
-export default function PlayerLiveOnlyCenter() {
+export default function PlayerLiveOnlyCenter({ compact = false }: { compact?: boolean }) {
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
@@ -37,5 +37,5 @@ export default function PlayerLiveOnlyCenter() {
     };
   }, []);
 
-  return isLive ? <PlayerLiveCenter /> : null;
+  return isLive ? <PlayerLiveCenter compact={compact} /> : null;
 }

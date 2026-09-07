@@ -334,6 +334,13 @@ Therefore:
 
 See `AGENTS.md` and `docs/RUNBOOK.md` for the operational safeguards.
 
+## Completed-game lineup corrections
+
+- Only an organizer may replace the identity attached to a seat in a completed, non-archived club game.
+- The correction moves identity references; role, fouls, voting, exit and other gameplay facts remain attached to the seat.
+- Payments, token settlement, rating and achievements must be reconciled for both the previous and replacement player.
+- Historical games must never be rewritten automatically from a date or nickname guess. Every correction is an explicit, confirmed action.
+
 ## Rule-change workflow
 
 When a requested change touches any rule above:

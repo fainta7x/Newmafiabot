@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, type AuthenticatedRequest } from '../auth.ts';
 import baseRouter from './gamesRoutesBase.ts';
@@ -9,6 +10,7 @@ import { setParticipantAttendance } from '../services/eveningParticipantState.ts
 import { canonicalizeClubGameSave } from '../services/clubGameProtocolService.ts';
 import { reconcileClubGameTokenSettlement } from '../services/clubGameTokenSettlementService.ts';
 import { runClubGamePostSaveTasks } from '../services/clubGamePostSaveService.ts';
+import { replaceClubGameSeatIdentity } from '../services/clubGameSeatIdentityRepair.ts';
 
 const router = Router();
 
@@ -308,6 +310,88 @@ router.put('/:gameId/evening-protocol', requireOrganizerAuth, async (req: Authen
   } catch (err: any) {
     const message = err instanceof JudgeAssignmentError ? err.message : (err.message || 'Не удалось сохранить протокол');
     return res.status(400).json({ error: message });
+  }
+});
+
+router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    const seatNumber = Number(req.body?.seat_number);
+    if (!Number.isInteger(gameId) || gameId <= 0) return res.status(400).json({ error: 'Некорректный ID игры' });
+    if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 10) return res.status(400).json({ error: 'Укажите место от 1 до 10' });
+
+    const db = req.db || (await getDb());
+    const existing = await db.get<any>('SELECT * FROM games WHERE id=?', [gameId]);
+    if (!existing) return res.status(404).json({ error: 'Игра не найдена' });
+    if (!existing.evening_id) return res.status(400).json({ error: 'Это не игра обычного вечера' });
+    if (existing.archived_at) return res.status(409).json({ error: 'Сначала восстановите игру из архива' });
+
+    const previous = safeJsonParse<any>(existing.protocol_text, null);
+    if (previous?.protocol?.status !== 'completed') return res.status(409).json({ error: 'Состав можно исправить только у завершённой игры' });
+
+    const explicitPlayerId = String(req.body?.replacement_player_id || '').trim();
+    const guestNickname = String(req.body?.guest?.nickname || '').trim();
+    const guestPhone = String(req.body?.guest?.phone || '').trim();
+    if ((!explicitPlayerId && !guestNickname) || (explicitPlayerId && guestNickname)) {
+      return res.status(400).json({ error: 'Выберите игрока либо создайте гостя' });
+    }
+
+    let repaired: ReturnType<typeof replaceClubGameSeatIdentity> | null = null;
+    await db.transaction(async (tx: DatabaseWrapper) => {
+      let player = explicitPlayerId
+        ? await tx.get<any>('SELECT id,nickname FROM players WHERE id=?', [explicitPlayerId])
+        : null;
+      if (explicitPlayerId && !player) throw new Error('Выбранный игрок не найден');
+      if (!player) {
+        player = await tx.get<any>("SELECT id,nickname FROM players WHERE source='quick_guest' AND nickname=? ORDER BY created_at ASC LIMIT 1", [guestNickname]);
+        if (!player) {
+          const now = new Date().toISOString();
+          player = { id: crypto.randomUUID(), nickname: guestNickname };
+          await tx.run("INSERT INTO players (id,nickname,phone,lifecycle_status,source,created_at,updated_at) VALUES (?,?,?,'normal','quick_guest',?,?)", [player.id, guestNickname, guestPhone || null, now, now]);
+        }
+      }
+
+      let participant = await tx.get<any>('SELECT id FROM evening_participants WHERE evening_id=? AND player_id=? LIMIT 1', [existing.evening_id, player.id]);
+      if (!participant) {
+        const evening = await tx.get<any>('SELECT default_price FROM game_evenings WHERE id=?', [existing.evening_id]);
+        const now = new Date().toISOString();
+        participant = { id: crypto.randomUUID() };
+        const due = Number(evening?.default_price || 0);
+        await tx.run(
+          `INSERT INTO evening_participants (id,evening_id,player_id,table_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,registered_at,checked_in_at,created_at,updated_at)
+           VALUES (?,?,?,NULL,'unanswered','unanswered','attended','on_time',?,?,0,?,?,?,?)`,
+          [participant.id, existing.evening_id, player.id, due === 0 ? 'waived' : 'unpaid', due, now, now, now, now],
+        );
+      } else {
+        await setParticipantAttendance(tx, String(participant.id), 'attended_on_time');
+      }
+
+      repaired = replaceClubGameSeatIdentity(
+        previous,
+        safeJsonParse<any[]>(existing.slots_json, []),
+        seatNumber,
+        { participantId: String(participant.id), playerId: String(player.id), nickname: String(player.nickname) },
+      );
+      await tx.run('UPDATE games SET protocol_text=?, slots_json=? WHERE id=?', [JSON.stringify(repaired.envelope), JSON.stringify(repaired.slots), gameId]);
+      await reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'correction' });
+    });
+
+    if (!repaired) throw new Error('Не удалось исправить состав игры');
+    const completedRepair = repaired as ReturnType<typeof replaceClubGameSeatIdentity>;
+    const playerIds = completedRepair.envelope.player_results.map((item: any) => String(item.player_id || '')).filter(Boolean);
+    if (completedRepair.oldPlayerId) playerIds.push(completedRepair.oldPlayerId);
+    await runClubGamePostSaveTasks(db, {
+      gameId,
+      eveningId: String(existing.evening_id),
+      previousStatus: 'completed',
+      status: 'completed',
+      playerIds,
+      judgePlayerId: existing.judge_player_id || null,
+    });
+    const row = await db.get(`SELECT g.*, et.name AS table_name FROM games g LEFT JOIN evening_tables et ON et.id=g.evening_table_id WHERE g.id=?`, [gameId]);
+    return res.json(normalizeGame(row));
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || 'Не удалось исправить состав игры' });
   }
 });
 

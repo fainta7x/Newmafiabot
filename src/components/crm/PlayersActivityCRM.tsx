@@ -157,6 +157,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
       setNewPhone('');
       setNewTgUsername('');
       setLocalPlayerId(created.id);
+      void loadPlayers();
       onCrmChanged?.();
     } catch (error: any) {
       setAddError(error?.message || 'Не удалось создать игрока');

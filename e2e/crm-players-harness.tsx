@@ -148,7 +148,7 @@ const nav = [
 
 function Harness() {
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
+    <div className="crm-premium relative mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
       <main className="px-3 pb-28 pt-3">
         <PlayersHubCRM
           evenings={[evening]}
@@ -162,7 +162,7 @@ function Harness() {
           const Icon = item.icon;
           const active = item.id === 'players';
           return (
-            <button key={item.id} data-testid={`crm-nav-${item.id}`} type="button" className="relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1">
+            <button key={item.id} data-testid={`crm-nav-${item.id}`} type="button" className={`organizer-bottom-nav__item relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1 ${active ? 'organizer-bottom-nav__item--active' : ''}`}>
               <Icon className={`h-[21px] w-[21px] ${active ? 'text-accent' : 'text-text-muted'}`} />
               <span className={`mt-1 max-w-full truncate text-[11px] leading-none ${active ? 'font-bold text-text-primary' : 'font-medium text-text-muted'}`}>{item.label}</span>
               {active ? <span className="absolute top-1 h-0.5 w-5 rounded-full bg-accent" /> : null}

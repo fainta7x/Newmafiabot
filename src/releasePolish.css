@@ -5,6 +5,87 @@
   box-sizing: border-box;
 }
 
+/* CRM uses the same restrained glass hierarchy as the player cabinet while
+   keeping operational screens compact enough for one-handed use. */
+.crm-premium {
+  background:
+    radial-gradient(circle at 8% -4%, rgba(255, 255, 255, 0.055), transparent 27rem),
+    radial-gradient(circle at 92% 16%, color-mix(in srgb, var(--ds-accent) 8%, transparent), transparent 25rem),
+    var(--ds-background) !important;
+}
+
+.crm-premium-header {
+  background: linear-gradient(180deg, rgba(15, 16, 21, 0.97), rgba(9, 10, 13, 0.91)) !important;
+  border-color: rgba(255, 255, 255, 0.075) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+}
+
+.crm-premium .bg-surface-1 {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.072), rgba(255, 255, 255, 0.034)) !important;
+}
+
+.crm-premium .crm-overview-canonical .bg-surface-1 {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.078), rgba(255, 255, 255, 0.036)) !important;
+}
+
+.crm-premium .bg-surface-2 {
+  background: rgba(0, 0, 0, 0.22) !important;
+}
+
+.crm-premium .border-border-soft {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.crm-premium section[class*="border"],
+.crm-premium details[class*="border"],
+.crm-premium nav[class*="border"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 14px 42px rgba(0, 0, 0, 0.13);
+}
+
+.crm-premium section[class*="bg-white/"],
+.crm-premium div[class*="bg-white/"][class*="rounded"] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(0, 0, 0, 0.04));
+}
+
+.crm-premium button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.crm-premium button:not(:disabled):active {
+  transform: scale(0.975);
+}
+
+.crm-premium button.bg-white,
+.crm-premium button.bg-accent {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.crm-premium button.border-border-soft:not(.bg-accent):not(.bg-white) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025)) !important;
+}
+
+.crm-premium .organizer-bottom-nav {
+  background: rgba(10, 11, 15, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(24px) saturate(1.25);
+}
+
+.crm-premium .organizer-bottom-nav__item--active::before {
+  position: absolute;
+  inset: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  content: "";
+}
+
+.crm-premium .organizer-bottom-nav__item > * {
+  position: relative;
+  z-index: 1;
+}
+
 .player-cabinet-shell,
 .player-cabinet-shell main,
 .player-cabinet-shell section,

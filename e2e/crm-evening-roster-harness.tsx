@@ -92,7 +92,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 };
 
 function Harness() {
-  return <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
+  return <div className="crm-premium mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
     <main className="px-3 py-3">
       <EveningWorkspace
         eveningId="evening-active"

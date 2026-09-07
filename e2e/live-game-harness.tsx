@@ -20,6 +20,7 @@ import '../src/components/crm/liveGameTelegram.css';
 import '../src/components/crm/liveGameRecoveryPolish.css';
 import '../src/components/crm/liveGameDeathProtocolCabinet.css';
 
+const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';
 
 const buildRecoveryPlayers = () => {
@@ -39,7 +40,7 @@ const buildRecoveryPlayers = () => {
       removal_reason: null,
       alive: true,
       nominated_this_round: false,
-      has_spoken_this_round: slot === 2,
+      has_spoken_this_round: AUDIT_MODE || slot === 2,
       mute_this_round: false,
       is_pu: false,
       best_move_guesses: [],
@@ -65,8 +66,8 @@ const seedRecoverySession = () => {
   })));
   localStorage.setItem('mafia_live_session', JSON.stringify({
     activePlayers,
-    nominations: [],
-    nominationsMap: {},
+    nominations: AUDIT_MODE ? [3, 4] : [],
+    nominationsMap: AUDIT_MODE ? { 1: 3, 2: 4 } : {},
     phase: 'day_speeches',
     roundNumber: 2,
     nightSubPhase: 'intro',
@@ -102,7 +103,7 @@ const seedRecoverySession = () => {
   }));
 };
 
-if (RECOVERY_MODE) seedRecoverySession();
+if (RECOVERY_MODE || AUDIT_MODE) seedRecoverySession();
 
 function RecoveryShell({ onResult }: { onResult: (result: 'completed' | 'cancelled') => void }) {
   return (
@@ -128,7 +129,7 @@ function Harness() {
   return (
     <AppErrorBoundary>
       {result === 'running' ? (
-        RECOVERY_MODE ? (
+        RECOVERY_MODE || AUDIT_MODE ? (
           <RecoveryShell onResult={setResult} />
         ) : (
           <JudgeTestGameModal

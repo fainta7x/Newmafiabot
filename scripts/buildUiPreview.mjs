@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const output = path.join(root, 'temp/ui-preview');
-const pages = ['preview/index.html', 'e2e/crm-evening-roster.html', 'e2e/live-game.html', 'e2e/player-shell.html'];
+const pages = ['preview/index.html', 'e2e/crm-evening-roster.html', 'e2e/live-game.html', 'e2e/player-shell.html', 'e2e/player-cabinet.html', 'e2e/crm-overview.html', 'e2e/crm-evenings.html', 'e2e/crm-players.html', 'e2e/crm-more.html', 'e2e/crm-closeout.html'];
 await build({
   configFile: path.join(root, 'vite.config.ts'),
   // Do not copy uploads, checkpoints, avatars or other runtime data.

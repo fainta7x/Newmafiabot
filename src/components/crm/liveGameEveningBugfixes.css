@@ -130,6 +130,7 @@
   }
 
   .live-judge-hud__stack--revote-speech > .live-judge-action {
-    min-height: 28px;
+    min-height: 32px;
+    flex-shrink: 0;
   }
 }

@@ -41,7 +41,7 @@ export default function PlayerGamesHub({
                 type="button"
                 onClick={() => onOpen(tab.id)}
                 aria-current={active ? 'page' : undefined}
-                className={`min-h-10 rounded-xl px-1 text-[11px] font-semibold transition ${active ? 'bg-white text-black' : 'text-white/42 active:bg-white/[0.05]'}`}
+                className={`min-h-11 rounded-xl px-1 text-[12px] font-semibold transition ${active ? 'bg-white text-black' : 'text-white/42 active:bg-white/[0.05]'}`}
               >
                 {tab.label}
               </button>

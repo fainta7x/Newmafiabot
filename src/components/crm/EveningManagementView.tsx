@@ -48,45 +48,28 @@ export const EveningManagementView: React.FC<EveningManagementViewProps> = ({
     setPane(normalizePane(initialPane));
   }, [initialAddOpen, initialPane, eveningId]);
 
-  const current = panes.find((item) => item.id === pane) || panes[0];
-
   return (
-    <div className="space-y-4">
-      <section className="rounded-[16px] border border-border-soft bg-surface-1 px-3 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent"><UsersRound className="h-4 w-4" /></span>
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-accent">Сам вечер</span><h2 className="truncate text-[15px] font-black text-text-primary">{current.label}</h2></div>
-            <p className="mt-0.5 truncate text-[10px] text-text-secondary">
-              {pane === 'roster' ? 'Только подтверждённые участники и фактическая явка.' : null}
-              {pane === 'payments' ? 'Кто оплатил и кто должен — доступно и после закрытия.' : null}
-              {pane === 'tasks' ? 'Задачи организатора для этого вечера.' : null}
-              {pane === 'tables' ? 'Настройки стола; игроков выбираешь в конкретной игре.' : null}
-              {pane === 'closeout' ? 'Финальная сверка явки, денег и игр.' : null}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <details className="rounded-[12px] border border-border-soft bg-surface-1">
-        <summary className="min-h-[44px] cursor-pointer px-3 py-3 text-[11px] font-semibold text-text-secondary">Команда вечера</summary>
-        <EveningStaffCard eveningId={eveningId} />
-      </details>
-
-      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+    <div className="space-y-3">
+      <nav aria-label="Рабочие разделы вечера" className="grid grid-cols-3 gap-1.5">
         {panes.map((item) => {
           const active = item.id === pane;
           return <button
             key={item.id}
             type="button"
             onClick={() => setPane(item.id)}
-            className={`flex min-h-[46px] items-center justify-center gap-1.5 rounded-[12px] border px-2 text-center transition-colors ${active ? 'border-accent bg-accent text-white' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
+            aria-current={active ? 'page' : undefined}
+            className={`flex min-h-[46px] items-center justify-center gap-1.5 rounded-[12px] border px-2 text-center transition-colors ${active ? 'border-white/20 bg-white text-black' : 'border-border-soft bg-surface-1 text-text-secondary'}`}
           >
             {item.icon}
             <span className="text-[11px] font-black">{item.label}</span>
           </button>;
         })}
       </nav>
+
+      <details className="rounded-[12px] border border-border-soft bg-surface-1">
+        <summary className="min-h-[44px] cursor-pointer px-3 py-3 text-[12px] font-semibold text-text-secondary">Команда вечера</summary>
+        <EveningStaffCard eveningId={eveningId} />
+      </details>
 
       {pane === 'roster' ? <EveningActiveRosterView
         eveningId={eveningId}

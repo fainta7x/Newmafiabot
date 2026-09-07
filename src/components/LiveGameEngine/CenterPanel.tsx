@@ -513,7 +513,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll live-judge-hud__stack--revote-speech">
-          <div className="live-judge-hud__eyebrow">Речи перед переголосованием · 30 сек</div>
+          <div className="sr-only">Речи перед переголосованием · 30 сек</div>
           {renderVotingOrder(participants, revoteSpeakerIndex)}
           {renderTimer()}
           <button type="button" onClick={advanceSpeech} className="live-judge-action live-judge-action--primary">

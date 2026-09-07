@@ -18,7 +18,7 @@ for (const width of [360, 390]) {
     await page.goto('/e2e/live-game.html?mode=audit');
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'К голосованию', exact: true }).click();
-    for (let n = 1; n <= 5; n++) await page.getByText(`Игрок ${n}`, { exact: true }).click();
+    for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
     await page.getByRole('button', { name: 'Следующий →', exact: true }).click();
     await page.getByRole('button', { name: 'Подвести итог', exact: true }).click();
     await page.getByRole('button', { name: 'Речи по 30 секунд', exact: true }).click();

@@ -9,7 +9,7 @@ const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
 const COMMAND_CENTER = {
   snapshot: {
-    mode: 'upcoming',
+    mode: 'active',
     evening: {
       id: 'e1',
       title: 'Пятничный клубный вечер',
@@ -21,7 +21,7 @@ const COMMAND_CENTER = {
     stats: {
       expected: 14,
       present: 10,
-      pending_attendance: 4,
+      pending_attendance: 0,
       no_show: 0,
       unpaid_count: 3,
       unpaid_amount: 900,
@@ -32,7 +32,19 @@ const COMMAND_CENTER = {
       ready_to_close: false,
     },
     current_game: null,
-    suggested_lineup: [],
+    suggested_lineup: Array.from({ length: 10 }, (_, index) => ({
+      participant_id: `participant-${index + 1}`,
+      player_id: `player-${index + 1}`,
+      nickname: `Игрок ${index + 1}`,
+      elo: 1500,
+      response_status: 'going',
+      attendance_status: 'attended',
+      payment_status: 'paid',
+      amount_due: 400,
+      amount_paid: 400,
+      play_count: 1,
+      rotation_reason: index < 2 ? 'sat_out' : 'winner',
+    })),
     roster: {
       expected: [],
       present: [],

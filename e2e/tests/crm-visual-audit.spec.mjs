@@ -11,6 +11,8 @@ test('captures the complete premium CRM surface on a phone', async ({ page }, in
   };
 
   await capture('crm-overview', 'crm-today');
+  await expect(page.getByText('Готовим следующую десятку', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Кандидаты на следующую игру', { exact: true })).toHaveCount(0);
   await capture('crm-evenings', 'crm-events');
   await page.getByRole('button', { name: 'Календарь', exact: true }).click();
   await page.screenshot({ path: info.outputPath('crm-events-calendar.png'), fullPage: true });

@@ -280,3 +280,7 @@ The user approved automatic UI preview checks and an owner-private web snapshot 
 The focused audit covers roster/payment navigation, Player Cabinet home/history, and Live Game dealing/day/voting/revote interactions on fixture data. Changes compact CRM chrome, preserve full home event titles, reduce statistics tile padding, enlarge game tabs, restore the missing club-game nickname overlay, and reserve space for the short-speech next action. The preview now mounts PlayerCabinetShell for home/history instead of sample markup and exposes additional existing CRM fixtures plus a seeded pre-vote engine scenario.
 
 Limitations: Player Cabinet API fixtures are incomplete beyond the covered screens; the seeded vote scenario uses the recovery engine shell, while normal dealing uses the club test-game modal. These previews do not certify every profile/payment/integration scenario, the Telegram software keyboard, production data, or the Amvera deployment. See UI_PREVIEW.md and focused CI screenshots for repeatable evidence.
+
+### CRM visual alignment
+
+The organizer shell now shares the player cabinet's restrained glass hierarchy: layered dark background, softly graded cards, subtle depth, calmer borders, tactile buttons and a clearer active state in the mobile navigation. The density of operational screens is preserved. Closeout row actions and refresh are enlarged to practical touch targets. The UI preview captures full-page evidence for Today, Events, evening roster, Players, a player card, More, Closeout and the events calendar.

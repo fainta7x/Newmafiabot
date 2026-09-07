@@ -74,7 +74,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 };
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <main className="min-h-screen bg-app-bg px-3 py-3 text-text-primary">
+  <main className="crm-premium min-h-screen bg-app-bg px-3 py-3 text-text-primary">
     <div className="mx-auto w-full max-w-[430px]">
       <EveningCloseoutPanel eveningId="eve" />
     </div>

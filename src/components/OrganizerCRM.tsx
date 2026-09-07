@@ -251,8 +251,8 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
   } satisfies Record<OrganizerPrimaryTab, { icon: React.ComponentType<{ className?: string }> }>;
 
   return (
-    <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
-      <header className="sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
+    <div className="crm-premium relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col overflow-x-hidden bg-app-bg font-sans text-text-primary transition-colors duration-200">
+      <header className="crm-premium-header sticky top-0 z-40 flex min-h-[60px] shrink-0 items-center border-b border-border-soft bg-app-bg/95 px-3 backdrop-blur-xl sm:px-4">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-[16px] font-black leading-tight tracking-tight text-text-primary sm:text-[17px]">{screenTitle}</h1>
@@ -395,7 +395,7 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
             const Icon = navMeta[item.id].icon;
             const active = primaryActive === item.id;
             return (
-              <button key={item.id} type="button" onClick={() => switchPrimaryTab(item.id)} className="relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1">
+              <button key={item.id} type="button" onClick={() => switchPrimaryTab(item.id)} className={`organizer-bottom-nav__item relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1 ${active ? 'organizer-bottom-nav__item--active' : ''}`}>
                 <Icon className={`h-[21px] w-[21px] ${active ? 'text-accent' : 'text-text-muted'}`} />
                 <span className={`mt-1 max-w-full truncate text-[11px] leading-none ${active ? 'font-bold text-text-primary' : 'font-medium text-text-muted'}`}>{item.label}</span>
                 {active ? <span className="absolute top-1 h-0.5 w-5 rounded-full bg-accent" /> : null}

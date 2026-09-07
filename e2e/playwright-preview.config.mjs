@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['crm-evening-roster.spec.mjs', 'ui-preview.spec.mjs', 'mobile-usability.spec.mjs'],
+  testMatch: ['crm-evening-roster.spec.mjs', 'ui-preview.spec.mjs', 'mobile-usability.spec.mjs', 'crm-visual-audit.spec.mjs'],
   timeout: 30_000,
   expect: { timeout: 8_000 },
   workers: 1,

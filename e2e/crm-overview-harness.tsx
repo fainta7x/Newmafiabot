@@ -62,7 +62,7 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
 };
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <main className="min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 font-sans text-white">
+  <main className="crm-premium min-h-screen bg-[#090a0d] px-3 pb-8 pt-3 font-sans text-white">
     <div className="crm-overview-canonical mx-auto w-full max-w-[430px]">
       <OrganizerCommandCenter
         overview={null}

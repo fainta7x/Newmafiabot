@@ -2,9 +2,9 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-04
+**Status date:** 2026-09-07
 
-**Latest release record:** the current Git baseline includes organizer/player operations through PR #237. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #261. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -23,7 +23,7 @@ The **actual current main SHA belongs to Git**, not this document. Always read i
 - Visual contract: `docs/DESIGN_SYSTEM.md`.
 - Old roadmaps, old chats and old PR descriptions: historical evidence only.
 
-**Important:** the open PR list is clean as of this snapshot. Old closed PR descriptions are not backlog; always compare historical work with current `main` before treating it as unfinished product work.
+**Important:** the known open PR outside current `main` is draft PR #246, which is separate scoped work for manual club players/guests and historical lineup repair. It is not part of the completed UX audit and must not be mixed into unrelated fixes. Old closed PR descriptions are not backlog; always compare historical work with current `main` before treating it as unfinished product work.
 
 ## Production/runtime
 
@@ -74,6 +74,8 @@ Implemented and connected:
 - staff/judge music library and playlist;
 - judge game launcher and in-game music controller.
 
+The mobile Player Cabinet has been audited at narrow phone widths. Current navigation/content density, game history, profile, events, wallet, club and live-evening surfaces are the post-audit baseline; future changes should start from a reproduced issue rather than an assumed pending mobile redesign.
+
 ### Player ↔ Organizer navigation
 
 This is **already implemented** and must not be presented as future work.
@@ -115,13 +117,18 @@ Implemented and connected:
 Recent reliability/UX work includes:
 
 - quick attendance/payment row actions update in place instead of refreshing the whole workspace;
-- mounted roster/payment lists provide search and counter filters; clearing search restores the selected filter; staff assignment stays in a collapsed section.
+- mounted roster/payment lists provide search and counter filters; clearing search restores the selected filter; staff assignment stays in a collapsed section;
 - active in-progress evenings accept existing database players who arrived without prior registration;
 - closed-evening payment edits remain available through the canonical payment service;
 - repeated payment/pricing reconciliation is idempotent and must not create duplicate financial ledger rows;
-- closeout distinguishes planned response from factual attendance.
+- closeout distinguishes planned response from factual attendance;
+- active-evening operations use a compact one-row mobile navigation and avoid duplicate arrived-status text;
+- next-game preparation stays inside the active Evening workspace instead of forcing a navigation detour;
+- Players quick segments and exact activity filters are mutually consistent, expose truthful active state, and use a fixed 3+2 phone grid rather than a horizontal micro-scroll;
+- opening a player profile no longer performs a redundant hidden full-list request, and creating a manual player refreshes the visible Players list immediately;
+- CRM Rating opens directly, automatically selects the current active period when available, and falls back predictably without changing rating calculations.
 
-A broader CRM UX redesign is **deferred by current user preference**. Do not start it automatically just because old PR #174 or old roadmap text mentions it.
+The requested broad CRM/cabinet/Live Game usability audit has been completed in current `main`. Do not resurrect old redesign roadmaps as backlog. Future UX work should start from a newly reproduced issue, new user feedback, or a deliberate new design request.
 
 ### Evening / Telegram response flow
 
@@ -147,18 +154,21 @@ Implemented:
 
 The real club launcher currently provides:
 
-- roles hidden by default with manual reveal;
-- phase-aware day/night/voting flow;
-- voting order fitted into the fixed mobile center cell without nested scrolling;
+- roster confirmation before role dealing;
+- roles hidden by default with manual reveal, including the bare-engine fallback;
+- phase-aware day/night/voting flow with clearer phase-step labels;
+- voting order fitted into the fixed mobile center cell without nested scrolling and a visible voting CTA on narrow phones;
 - editable vote assignment: a voter can be moved directly between candidates, and undo restores an editable voting state;
 - repeated split/revote speeches only once per unchanged disputed set;
+- exact raise/leave table-decision voter selections survive snapshot undo/recovery instead of being reconstructed from aggregate input;
 - player actions and fouls available throughout active play where appropriate, including direct removal/PPK after a player leaves the table and PPK after removal;
 - night shot/Don/Sheriff markers scoped to their actual subphase;
 - consistent Undo snapshots across voting, zero round and best-move/protocol overlays;
 - actual day-starter rotation based on the previous **actual** starter, skipping absent/dead seats;
 - `+30с за 2 фола` during an eligible current speech after zero round;
 - protocol/best-move announcement buffers increased by five seconds;
-- local session recovery.
+- local session recovery;
+- death/protocol work remains inside the Live Game flow rather than forcing a separate navigation context.
 
 The club launcher also publishes a dedicated OBS Browser Source overlay:
 
@@ -167,8 +177,6 @@ The club launcher also publishes a dedicated OBS Browser Source overlay:
 - ordered nominations, with the nominating seat where available;
 - voter-to-candidate assignments only after the judge fixes the voting result; partial collection is never shown;
 - transient server relay only: the phone remains the recoverable Live Game source and timer ticks are not written to Turso.
-
-Known low-priority technical tail: a bare `LiveGameEngine` render without the normal controlled `rolesHidden` prop still has an internal visible-role fallback. The real club launcher passes the controlled hidden state, so this is cleanup rather than a current club blocker.
 
 Approved game behavior remains governed by `docs/BUSINESS_RULES.md`.
 
@@ -208,81 +216,13 @@ Runtime credentials and callback state must be checked when a requested flow dep
 
 ## Recent real-world validation
 
-The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues, which have since received targeted fixes (instant row actions, walk-in player add, pending game recovery and payment reconciliation).
+The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues; the requested follow-up audit has since addressed the confirmed navigation, mobile density, player-list consistency, rating-entry and Live Game recovery/readability issues in focused regression-tested PRs.
 
-This real-world success is useful evidence, but it is not a substitute for targeted regression tests or runtime verification after a new deploy.
+This real-world success is useful evidence, but it is not a substitute for targeted regression tests or runtime verification after a new deploy. The next meaningful validation step is a manual pass against the current merged `main` after deployment.
 
 ## Intentionally incomplete / deferred
 
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.
 - Multi-city/multi-club expansion is not a current priority.
-- Broad CRM UX redesign is deferred until the user asks to resume it.
+- Draft PR #246 remains separate scoped work for manual club players/guests and historical lineup repair; do not silently fold it into unrelated UX changes.
 - Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.
-- Live Game CSS consolidation is technical debt, not a release requirement.
-- Bare-engine role-visibility fallback cleanup is low priority because the canonical club launcher already starts hidden.
-
-## Current backlog rule
-
-Do **not** reconstruct backlog from old chat summaries or old PR descriptions.
-
-For a fresh planning request:
-
-1. read this file and latest remote `main`;
-2. review the last 5–10 merged commits;
-3. inspect currently open PRs only as candidates, not as truth;
-4. remove anything already implemented in current code;
-5. present only genuinely missing, deferred or newly requested work.
-
-As of this snapshot, these items are explicitly **not** backlog:
-
-- “connect Player Cabinet and CRM” — done;
-- “build the music database/player” — done;
-- “make Live Game basically usable” — done; future work must name a concrete remaining issue.
-
-## Immediate next queue
-
-1. Verify deployment of the latest intended `main` on Amvera.
-2. Verify `/api/health`, `/api/health/runtime` and the OBS path `phone Live Game -> relay -> Browser Source` without exposing the secret URL in public logs/screenshots.
-3. Configure OBS Browser Source at 1920×1080 and inspect a real setup/day/vote/night sequence before the first public stream.
-4. If planning new work, derive a **fresh backlog from current main**, not from the August roadmap.
-5. Resume CRM UX redesign only when the user explicitly chooses it.
-
-## Verification model
-
-Ordinary PR merge gate:
-
-- project handoff integrity;
-- production dependency audit;
-- release data-safety audit;
-- TypeScript;
-- ESLint;
-- Vitest;
-- production build;
-- Python bot syntax;
-- combined production container;
-- CodeQL;
-- Gitleaks.
-
-Playwright/browser verification is separate and should be used when visual/browser behavior requires it.
-
-## Mandatory session rule
-
-One user message/request may create at most **3 PRs**. See `AGENTS.md` and `docs/RUNBOOK.md`.
-
-### CRM browser follow-up (2026-09-05)
-
-PR #243 was retargeted from the unused EveningParticipantsWorkboard to the mounted EveningActiveRosterView / EveningPaymentsPanel. Focused mobile preview run 34000750647 passed; its roster/payment/gallery screenshots were inspected on 2026-09-06. Search, filters and payment interactions were also checked in the agent browser. The mobile usability workstream compacts the roster header/navigation so arrival actions and participant rows are visible in the initial phone viewport. Earlier CRM run 33977594668: 3 passes and 4 failures (obsolete roster navigation, overview label, player-list expectation, and a closeout disabled-button failure with unconfirmed cause). The updated roster test covers current navigation and filters; the other full-suite failures remain separate follow-up work.
-
-The user approved automatic UI preview checks and an owner-private web snapshot on 2026-09-06. The snapshot is published at https://mafia-ui-preview.fainta7x.chatgpt.site with fixture-only roster/payments, Live Game and Player Cabinet screens. The agent can use the supervised browser preview independently of the user's phone. GitHub builds screenshots automatically; the hosted snapshot is updated by the agent. Implementation is in PR #243; docs/UI_PREVIEW.md owns the repeatable procedure. This does not verify the production Amvera deployment.
-
-### Mobile usability audit
-
-The focused audit covers roster/payment navigation, Player Cabinet home/history, and Live Game dealing/day/voting/revote interactions on fixture data. Changes compact CRM chrome, preserve full home event titles, reduce statistics tile padding, enlarge game tabs, restore the missing club-game nickname overlay, and reserve space for the short-speech next action. The preview now mounts PlayerCabinetShell for home/history instead of sample markup and exposes additional existing CRM fixtures plus a seeded pre-vote engine scenario.
-
-Limitations: Player Cabinet API fixtures are incomplete beyond the covered screens; the seeded vote scenario uses the recovery engine shell, while normal dealing uses the club test-game modal. These previews do not certify every profile/payment/integration scenario, the Telegram software keyboard, production data, or the Amvera deployment. See UI_PREVIEW.md and focused CI screenshots for repeatable evidence.
-
-### CRM visual alignment
-
-The organizer shell now shares the player cabinet's restrained glass hierarchy: layered dark background, softly graded cards, subtle depth, calmer borders, tactile buttons and a clearer active state in the mobile navigation. The density of operational screens is preserved. Closeout row actions and refresh are enlarged to practical touch targets. The UI preview captures full-page evidence for Today, Events, evening roster, Players, a player card, More, Closeout and the events calendar.
-
-The Today command center intentionally does not render current-game controls or the suggested next lineup. Those actions belong to the selected evening's Games workspace, which is the single place for preparing and conducting club games. Today remains an overview of evenings and organizational attention.

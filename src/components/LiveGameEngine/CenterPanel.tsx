@@ -54,6 +54,8 @@ interface CenterPanelProps {
   votes: Record<number, number>;
   votesByPlayer: Record<number, number>;
   handleInteractiveAutoRemainder: () => void;
+  canUndoLastVote?: boolean;
+  handleUndoLastVote?: () => void;
   handleAllocateVotes: (nominee: number, count: number) => void;
   handleResolveVoting: () => void;
   nightSubPhase: NightSubPhase;
@@ -140,6 +142,8 @@ export default function CenterPanel(props: CenterPanelProps) {
     selectVotingNomineeIndex,
     votesByPlayer,
     handleInteractiveAutoRemainder,
+    canUndoLastVote = false,
+    handleUndoLastVote,
     handleResolveVoting,
     nightSubPhase,
     shotPlayerSlot,
@@ -334,13 +338,27 @@ export default function CenterPanel(props: CenterPanelProps) {
     setIsTimerRunning(true);
   };
 
+  const votingPhaseLabel = (() => {
+    if (phase !== 'day_voting') return null;
+    if (votingStage === 'collecting' || votingStage === 'setup') {
+      const nominee = currentRound?.nominated_seats[currentVotingNomineeIndex];
+      return nominee ? `Голосование · кандидат #${nominee}` : 'Голосование';
+    }
+    if (votingStage === 'revote_speeches') {
+      const speaker = currentVotingResult?.winners[revoteSpeakerIndex] ?? activeSpeakerSlot;
+      return speaker ? `Переголосование · речь #${speaker}` : 'Переголосование · речи';
+    }
+    if (votingStage === 'round_result') return 'Голосование · итог';
+    if (votingStage === 'table_decision') return 'Голосование · решение стола';
+    if (votingStage === 'resolved' && activeSpeakerSlot !== null) return `Последняя речь · #${activeSpeakerSlot}`;
+    return 'Голосование · завершено';
+  })();
+
   const phaseLabel = phase === 'zero_night'
     ? 'Нулевая ночь'
     : phase === 'night'
       ? `Ночь ${roundNumber}`
-      : phase === 'day_voting'
-        ? `Голосование · ${dayLabel}`
-        : dayLabel;
+      : votingPhaseLabel ?? dayLabel;
 
   const nightActionStatus = phase === 'night'
     ? ({
@@ -472,14 +490,25 @@ export default function CenterPanel(props: CenterPanelProps) {
           <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
           {renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)}
           <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
-          <div className="live-judge-vote-summary">
+          <div className="live-judge-vote-summary live-judge-vote-summary--with-undo">
             <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
+            <button
+              type="button"
+              aria-label="Отменить последний голос"
+              title="Отменить последний голос"
+              disabled={!canUndoLastVote || pendingVotingResolution}
+              onClick={() => handleUndoLastVote?.()}
+              className="live-judge-stat live-judge-vote-undo"
+            >
+              <span className="live-judge-stat__label">Отмена</span>
+              <span className="live-judge-vote-undo__value"><RotateCcw />голос</span>
+            </button>
           </div>
           <div className="live-judge-hud__hint">
             {isLast
-              ? 'Нажимайте карточки голосующих. Неотмеченные голоса уйдут сюда только при подведении итога.'
-              : `Нажимайте карточки игроков, голосующих против #${nominee}.`}
+              ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
+              : `Нажмите игроков, голосующих против #${nominee}.`}
           </div>
           <div className="live-judge-vote-actions">
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>

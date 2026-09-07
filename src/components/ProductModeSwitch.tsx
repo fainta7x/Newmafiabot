@@ -26,9 +26,9 @@ export default function ProductModeSwitch({
     >
       <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
       <span className="product-mode-switch__label">{destination}</span>
-      <span className={mobileLabelClassName} aria-hidden="true">
-        {activeMode === 'player' ? 'CRM' : 'Кабинет'}
-      </span>
+      {activeMode === 'player' ? (
+        <span className={mobileLabelClassName} aria-hidden="true">CRM</span>
+      ) : null}
     </button>
   );
 }

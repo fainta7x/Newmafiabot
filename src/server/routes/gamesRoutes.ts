@@ -148,9 +148,11 @@ router.post('/evening/:eveningId', requireOrganizerAuth, async (req: Authenticat
     });
 
     const createdId = await db.transaction(async (tx: DatabaseWrapper) => {
-      if (delegatedJudgeId) {
-        await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
-      }
+      // Choosing the ten seats is an explicit organizer check-in. This keeps the
+      // game picker usable for manually added club members and quick guests while
+      // preserving the canonical rule that a game can contain only people who
+      // are factually present at the evening.
+      await markJudgeSelectedPlayersPresent(tx, eveningId, req.body?.seats || []);
 
       const seats = await validateEveningGameSeats(tx, eveningId, req.body?.seats || []);
       if (judge.judge_player_id && seats.some((seat: any) => String(seat.player_id) === String(judge.judge_player_id))) {

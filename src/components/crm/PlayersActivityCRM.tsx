@@ -170,6 +170,11 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
     onClosePlayerCard?.();
   };
 
+  const handleQuickFilterChange = (filter: QuickFilter) => {
+    setLifecycleStatus('');
+    setActiveQuickFilter(filter);
+  };
+
   return (
     <div className="min-w-0 space-y-3.5 sm:space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -185,7 +190,7 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
         <button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">{activeFilterCount}</span> : null}</button>
       </div>
 
-      <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max min-w-full gap-2">{QUICK_FILTERS.map((item) => <button key={item.id} type="button" onClick={() => setActiveQuickFilter(item.id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${activeQuickFilter === item.id ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>)}</div></div>
+      <div className="-mx-1 overflow-x-auto px-1 pb-1"><div className="flex w-max min-w-full gap-2">{QUICK_FILTERS.map((item) => { const isActive = !lifecycleStatus && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} onClick={() => handleQuickFilterChange(item.id)} className={`min-h-[44px] whitespace-nowrap rounded-full border px-4 text-[12px] font-semibold ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>; })}</div></div>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
 

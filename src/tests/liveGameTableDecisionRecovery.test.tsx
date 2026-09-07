@@ -180,6 +180,29 @@ describe('Live Game table-decision recovery', () => {
     });
   });
 
+  it('restores the exact table-decision selection when generic Undo restores history', async () => {
+    const current = tableDecisionSnapshot();
+    const previous = tableDecisionSnapshot();
+    previous.tableLeaveVotesInput = 2;
+    previous.tableDecisionSelectedVoterSlots = [1, 4];
+    renderRecovered({
+      ...current,
+      historyStack: [previous],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    await waitFor(() => expect(screen.getByText('3/10')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Отмена \(1\)/ }));
+
+    await waitFor(() => {
+      expect(seat(1)?.getAttribute('data-table-vote-selected')).toBe('true');
+      expect(seat(4)?.getAttribute('data-table-vote-selected')).toBe('true');
+      expect(seat(8)?.getAttribute('data-table-vote-selected')).toBeNull();
+      expect(screen.getByText('2/10')).toBeTruthy();
+    });
+  });
+
   it('keeps legacy recovery snapshots safe when exact voter identities are absent', async () => {
     const legacy = tableDecisionSnapshot();
     delete legacy.tableDecisionSelectionKey;

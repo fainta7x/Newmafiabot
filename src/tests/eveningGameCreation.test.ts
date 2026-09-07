@@ -89,7 +89,7 @@ describe('club evening game creation', () => {
     expect(games).toHaveLength(1);
   });
 
-  it('does not activate or create a partial game when one selected player is not marked present', async () => {
+  it('treats the organizer-selected lineup as factual check-in before creating the game', async () => {
     const { eveningId, participants } = await createEveningWithRoster('Game day rejected lineup');
 
     for (const participant of participants.slice(0, 9)) {
@@ -99,6 +99,10 @@ describe('club evening game creation', () => {
         .send({ attendance_fact: 'attended_on_time' });
       expect(response.status).toBe(200);
     }
+    await db.run(
+      "UPDATE evening_participants SET response_status='unanswered', registration_status='unanswered' WHERE id=?",
+      [participants[9].id],
+    );
 
     const gameResponse = await request(app)
       .post(`/api/games/evening/${eveningId}`)
@@ -111,12 +115,14 @@ describe('club evening game creation', () => {
         })),
       });
 
-    expect(gameResponse.status).toBe(400);
-    expect(gameResponse.body.error).toContain('фактически пришедших');
+    expect(gameResponse.status).toBe(201);
     const evening = await db.get<any>('SELECT status FROM game_evenings WHERE id = ?', [eveningId]);
-    expect(evening?.status).toBe('published');
+    expect(evening?.status).toBe('active');
     const games = await db.all<any>('SELECT id FROM games WHERE evening_id = ?', [eveningId]);
-    expect(games).toHaveLength(0);
+    expect(games).toHaveLength(1);
+    const checkedIn = await db.get<any>('SELECT attendance_status, response_status FROM evening_participants WHERE id = ?', [participants[9].id]);
+    expect(checkedIn?.attendance_status).toBe('attended');
+    expect(checkedIn?.response_status).toBe('unanswered');
   });
 
   it('rejects game creation before publication', async () => {

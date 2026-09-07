@@ -236,6 +236,7 @@ An existing player from the player database may be added to a current in-progres
 - A walk-in must not be given a fabricated historical **«Иду»** response.
 - Preserve any real prior response if it exists.
 - Factual attendance and played games may be recorded independently from the planned response.
+- Explicitly placing a participant into one of the ten seats while creating a game is an organizer check-in: the selected participant becomes factually attended inside the same transaction, while their planned response remains unchanged.
 
 ## Recurring Friday evenings
 

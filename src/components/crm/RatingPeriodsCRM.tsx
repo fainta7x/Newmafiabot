@@ -94,6 +94,16 @@ const formatLabels: Record<PeriodEvening['format'], string> = {
 
 const points = (value: number) => Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
+export const pickDefaultRatingPeriodId = (periods: RatingPeriod[], now = Date.now()): string | null => {
+  const current = periods.find((period) => {
+    if (period.status !== 'active') return false;
+    const startsAt = new Date(period.starts_at).getTime();
+    const endsAt = new Date(period.ends_at).getTime();
+    return Number.isFinite(startsAt) && Number.isFinite(endsAt) && startsAt <= now && now <= endsAt;
+  });
+  return current?.id ?? periods.find((period) => period.status === 'active')?.id ?? periods[0]?.id ?? null;
+};
+
 export const RatingPeriodsCRM: React.FC = () => {
   const [expanded, setExpanded] = useState(true);
   const [periods, setPeriods] = useState<RatingPeriod[]>([]);
@@ -119,7 +129,9 @@ export const RatingPeriodsCRM: React.FC = () => {
     try {
       const data = await apiJson<RatingPeriod[]>('/api/rating-periods');
       setPeriods(data);
-      if (selectedId && !data.some((item) => item.id === selectedId)) setSelectedId(null);
+      setSelectedId((currentId) => currentId && data.some((item) => item.id === currentId)
+        ? currentId
+        : pickDefaultRatingPeriodId(data));
     } catch (err: any) {
       setError(err?.message || 'Не удалось загрузить периоды');
     } finally {
@@ -222,7 +234,6 @@ export const RatingPeriodsCRM: React.FC = () => {
     if (!confirm(`Удалить рейтинговый период «${period.title}»? Игры и вечера удалены не будут.`)) return;
     try {
       await apiJson(`/api/rating-periods/${period.id}`, { method: 'DELETE' });
-      if (selectedId === period.id) setSelectedId(null);
       await loadPeriods();
     } catch (err: any) {
       setError(err?.message || 'Не удалось удалить период');

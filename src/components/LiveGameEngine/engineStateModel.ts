@@ -124,7 +124,7 @@ const getSnapshotTableDecisionSelection = (snapshot: LiveSnapshot) => {
 
 export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
   const tableDecisionSelection = getSnapshotTableDecisionSelection(snapshot);
-  return {
+  const cloned: LiveSnapshot = {
     ...snapshot,
     activePlayers: jsonClone(snapshot.activePlayers),
     nominations: [...snapshot.nominations],
@@ -134,12 +134,21 @@ export const cloneLiveSnapshot = (snapshot: LiveSnapshot): LiveSnapshot => {
     votingRounds: jsonClone(snapshot.votingRounds),
     votesByPlayer: { ...snapshot.votesByPlayer },
     votes: { ...snapshot.votes },
-    tableDecisionSelectionKey: tableDecisionSelection.key,
-    tableDecisionSelectedVoterSlots: [...tableDecisionSelection.selectedVoterSlots],
     nightLogs: jsonClone(snapshot.nightLogs),
     votingFarewellQueue: [...snapshot.votingFarewellQueue],
     discipline: jsonClone(snapshot.discipline),
   };
+
+  const shouldPersistTableDecisionSelection = snapshot.tableDecisionSelectionKey !== undefined
+    || snapshot.tableDecisionSelectedVoterSlots !== undefined
+    || tableDecisionSelection.key !== null
+    || tableDecisionSelection.selectedVoterSlots.length > 0;
+  if (shouldPersistTableDecisionSelection) {
+    cloned.tableDecisionSelectionKey = tableDecisionSelection.key;
+    cloned.tableDecisionSelectedVoterSlots = [...tableDecisionSelection.selectedVoterSlots];
+  }
+
+  return cloned;
 };
 
 const isRecoveredFirstKilledBestMove = (snapshot: LiveSnapshot): boolean => (

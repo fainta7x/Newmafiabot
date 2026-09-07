@@ -74,16 +74,8 @@ const communicationLabel = (status: string) => {
   return 'Нет ответа';
 };
 
-const rotationReasonLabel = (reason?: OpsPlayer['rotation_reason']) => {
-  if (reason === 'sat_out') return 'пропустил прошлую';
-  if (reason === 'early_exit') return 'первый убитый / 0 круг';
-  if (reason === 'winner') return 'победившая команда';
-  if (reason === 'loser') return 'проигравшая команда';
-  return 'приоритет ротации';
-};
-
 export default function OrganizerCommandCenter({
-  onOpenEvening, onOpenEveningSection, onOpenPlayer,
+  onOpenEvening, onOpenEveningSection,
   onCreateEvening, onRefresh,
 }: Props) {
   const [data, setData] = useState<CommandCenterResponse | null>(null);
@@ -176,21 +168,6 @@ export default function OrganizerCommandCenter({
           </div> : <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="mt-4 w-full rounded-[13px] bg-surface-2 px-3 py-2.5 text-center"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">планируют прийти</div></button>}
         </div>
       </section>
-
-      {snapshot.mode === 'active' ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-accent">Сейчас</div><h3 className="mt-0.5 text-[15px] font-black text-text-primary">{snapshot.current_game ? `Игра ${snapshot.current_game.local_number} за столом` : snapshot.stats.present >= 10 ? 'Готовим следующую десятку' : 'Собираем игроков'}</h3></div><Gamepad2 className="h-5 w-5 text-accent" /></div>
-
-        {snapshot.current_game ? <div className="mt-3 rounded-[15px] bg-surface-2 p-3">
-          <div className="flex items-start justify-between gap-3"><div><strong className="text-[12px] text-text-primary">Игра {snapshot.current_game.local_number}</strong><div className="mt-0.5 text-[9px] text-text-muted">{snapshot.current_game.table_name || 'Без стола'}{snapshot.current_game.judge_name ? ` · ведущий ${snapshot.current_game.judge_name}` : ''}</div></div><span className="rounded-full bg-accent-soft px-2 py-1 text-[8px] font-black text-accent">В ПРОЦЕССЕ</span></div>
-          <div className="mt-3 grid grid-cols-5 gap-1">{snapshot.current_game.players.map((player) => <div key={player.participant_id || player.seat_number} className="min-w-0 rounded-[9px] bg-surface-1 px-1 py-1.5 text-center"><div className="text-[7px] font-mono text-text-muted">#{player.seat_number}</div><div className="truncate text-[8px] font-bold text-text-primary">{player.nickname}</div></div>)}</div>
-          <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'games')} className="mt-3 min-h-10 w-full rounded-[11px] bg-accent text-[10px] font-black text-white">Продолжить игру</button>
-        </div> : snapshot.suggested_lineup.length >= 10 ? <div className="mt-3 rounded-[15px] bg-surface-2 p-3">
-          <div className="flex items-center justify-between"><div className="text-[10px] font-black text-text-primary">Кандидаты на следующую игру</div><div className="text-[8px] text-text-muted">клубный приоритет</div></div>
-          <div className="mt-2 grid grid-cols-2 gap-1.5">{snapshot.suggested_lineup.map((player, index) => <button key={player.participant_id} type="button" onClick={() => onOpenPlayer(player.player_id)} className="flex min-w-0 items-center gap-2 rounded-[10px] bg-surface-1 px-2 py-2 text-left"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-[8px] bg-accent-soft text-[8px] font-black text-accent">{index + 1}</span><span className="min-w-0 flex-1"><strong className="block truncate text-[9px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[7px] text-text-muted">{rotationReasonLabel(player.rotation_reason)} · игр сегодня: {player.play_count}</span></span></button>)}</div>
-          <p className="mt-2 text-[8px] leading-4 text-text-muted">Ротация: пропустившие прошлую → первый убитый / нулевой круг → победившая команда → проигравшая. Среди проигравших дольше остававшиеся в партии первыми уходят на пропуск. Финальный выбор остаётся у организатора.</p>
-          <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'games')} className="mt-3 min-h-11 w-full rounded-[11px] bg-accent text-[10px] font-black text-white">Создать следующую игру</button>
-        </div> : <div className="mt-3 rounded-[15px] border border-warning/20 bg-warning-soft p-3"><div className="text-[11px] font-black text-text-primary">Сейчас в клубе {snapshot.stats.present} из 10 нужных игроков</div><div className="mt-1 text-[9px] leading-4 text-text-secondary">Отметь приход остальных участников, когда они появятся.</div><button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="mt-3 min-h-10 w-full rounded-[11px] bg-warning text-[10px] font-black text-white">К явке</button></div>}
-      </section> : null}
 
       {hasOperationalAttention ? <section className="rounded-[20px] border border-warning/20 bg-surface-1 p-4">
         <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-warning">Сейчас требует внимания</div><h3 className="mt-0.5 text-[15px] font-black text-text-primary">{snapshot.mode === 'active' ? 'Только оперативные действия' : 'До старта вечера'}</h3></div><AlertTriangle className="h-5 w-5 text-warning" /></div>

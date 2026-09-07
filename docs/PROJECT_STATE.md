@@ -284,3 +284,5 @@ Limitations: Player Cabinet API fixtures are incomplete beyond the covered scree
 ### CRM visual alignment
 
 The organizer shell now shares the player cabinet's restrained glass hierarchy: layered dark background, softly graded cards, subtle depth, calmer borders, tactile buttons and a clearer active state in the mobile navigation. The density of operational screens is preserved. Closeout row actions and refresh are enlarged to practical touch targets. The UI preview captures full-page evidence for Today, Events, evening roster, Players, a player card, More, Closeout and the events calendar.
+
+The Today command center intentionally does not render current-game controls or the suggested next lineup. Those actions belong to the selected evening's Games workspace, which is the single place for preparing and conducting club games. Today remains an overview of evenings and organizational attention.

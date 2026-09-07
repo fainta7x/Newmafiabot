@@ -176,7 +176,10 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
     }
   }, [activeQuickFilter, advancedSegment, contactStatusFilter, debouncedSearch, lifecycleStatus]);
 
-  useEffect(() => { void loadPlayers(); }, [loadPlayers]);
+  useEffect(() => {
+    if (selectedPlayerId) return;
+    void loadPlayers();
+  }, [loadPlayers, selectedPlayerId]);
 
   const initEditForm = (data: PlayerDetails) => {
     setEditForm({
@@ -238,7 +241,11 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
   const refreshPlayer = async () => {
     if (!activePlayerCardId) return;
-    await Promise.all([loadPlayerDetails(activePlayerCardId), loadPlayers()]);
+    if (selectedPlayerId) {
+      await loadPlayerDetails(activePlayerCardId);
+    } else {
+      await Promise.all([loadPlayerDetails(activePlayerCardId), loadPlayers()]);
+    }
     onCrmChanged?.();
   };
 

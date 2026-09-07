@@ -29,9 +29,31 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
+const normalizeSelectedSlots = (selectedVoterSlots: unknown): number[] => {
+  if (!Array.isArray(selectedVoterSlots)) return [];
+  return Array.from(new Set(
+    selectedVoterSlots
+      .map((slot) => Number(slot))
+      .filter((slot) => Number.isInteger(slot) && slot >= 1 && slot <= 10),
+  ));
+};
+
+const readRecoveredSelection = (key: string): number[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem('mafia_live_session');
+    if (!raw) return [];
+    const recovered = JSON.parse(raw);
+    if (recovered?.tableDecisionSelectionKey !== key) return [];
+    return normalizeSelectedSlots(recovered?.tableDecisionSelectedVoterSlots);
+  } catch {
+    return [];
+  }
+};
+
 export const activateTableDecisionSelection = (key: string) => {
   if (state.active && state.key === key) return;
-  publish({ active: true, key, selectedVoterSlots: [] });
+  publish({ active: true, key, selectedVoterSlots: readRecoveredSelection(key) });
 };
 
 export const deactivateTableDecisionSelection = () => {
@@ -63,13 +85,7 @@ export const restoreTableDecisionSelection = (
     deactivateTableDecisionSelection();
     return;
   }
-
-  const uniqueSlots = Array.from(new Set(
-    selectedVoterSlots
-      .map((slot) => Number(slot))
-      .filter((slot) => Number.isInteger(slot) && slot >= 1 && slot <= 10),
-  ));
-  publish({ active: true, key, selectedVoterSlots: uniqueSlots });
+  publish({ active: true, key, selectedVoterSlots: normalizeSelectedSlots(selectedVoterSlots) });
 };
 
 export const useTableDecisionSelection = (): TableDecisionSelectionState => useSyncExternalStore(

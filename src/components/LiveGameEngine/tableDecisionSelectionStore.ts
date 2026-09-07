@@ -38,22 +38,30 @@ const normalizeSelectedSlots = (selectedVoterSlots: unknown): number[] => {
   ));
 };
 
-const readRecoveredSelection = (key: string): number[] => {
-  if (typeof window === 'undefined') return [];
+const readRecoveredSelection = (key: string): { matches: boolean; selectedVoterSlots: number[] } => {
+  if (typeof window === 'undefined') return { matches: false, selectedVoterSlots: [] };
   try {
     const raw = window.localStorage.getItem('mafia_live_session');
-    if (!raw) return [];
+    if (!raw) return { matches: false, selectedVoterSlots: [] };
     const recovered = JSON.parse(raw);
-    if (recovered?.tableDecisionSelectionKey !== key) return [];
-    return normalizeSelectedSlots(recovered?.tableDecisionSelectedVoterSlots);
+    if (recovered?.tableDecisionSelectionKey !== key) return { matches: false, selectedVoterSlots: [] };
+    return {
+      matches: true,
+      selectedVoterSlots: normalizeSelectedSlots(recovered?.tableDecisionSelectedVoterSlots),
+    };
   } catch {
-    return [];
+    return { matches: false, selectedVoterSlots: [] };
   }
 };
 
 export const activateTableDecisionSelection = (key: string) => {
   if (state.active && state.key === key) return;
-  publish({ active: true, key, selectedVoterSlots: readRecoveredSelection(key) });
+  const recovered = readRecoveredSelection(key);
+  publish({
+    active: true,
+    key,
+    selectedVoterSlots: recovered.matches ? recovered.selectedVoterSlots : [],
+  });
 };
 
 export const deactivateTableDecisionSelection = () => {
@@ -72,10 +80,20 @@ export const toggleTableDecisionVoter = (slot: number) => {
   });
 };
 
-export const getTableDecisionSelectionSnapshot = (): TableDecisionSelectionSnapshot => ({
-  key: state.active ? state.key : null,
-  selectedVoterSlots: state.active ? [...state.selectedVoterSlots] : [],
-});
+export const getTableDecisionSelectionSnapshot = (
+  expectedKey: string | null = null,
+): TableDecisionSelectionSnapshot => {
+  if (state.active) {
+    return { key: state.key, selectedVoterSlots: [...state.selectedVoterSlots] };
+  }
+  if (expectedKey) {
+    const recovered = readRecoveredSelection(expectedKey);
+    if (recovered.matches) {
+      return { key: expectedKey, selectedVoterSlots: recovered.selectedVoterSlots };
+    }
+  }
+  return { key: null, selectedVoterSlots: [] };
+};
 
 export const restoreTableDecisionSelection = (
   key: string | null,

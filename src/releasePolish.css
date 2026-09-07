@@ -115,18 +115,12 @@
   max-width: 430px;
   margin-inline: auto;
   padding-inline: 0.75rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.25rem;
 }
 
-.player-live-status-slot > button:first-child {
-  position: relative !important;
-  inset: auto !important;
-  z-index: 1 !important;
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0.5rem 0 0.25rem !important;
-  transform: none !important;
-  translate: none !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important;
+.player-cabinet-shell main {
+  padding-top: 0.75rem !important;
 }
 
 /* Shared mobile-field padding can otherwise win over Tailwind's search-icon
@@ -140,6 +134,19 @@
    one fully visible row than as a horizontally clipped carousel. The unique
    search field anchors this rule to Players CRM without changing other chips. */
 @media (max-width: 430px) {
+  /* Preserve room for the balance and profile on the narrow Telegram viewport.
+     The switch remains fully labelled for assistive technology. */
+  .player-cabinet-shell [data-testid="product-mode-switch-player"] {
+    width: 2.5rem;
+    min-height: 2.5rem;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .player-cabinet-shell [data-testid="product-mode-switch-player"] > span {
+    display: none;
+  }
+
   div:has(> label > input[placeholder="Ник, имя, телефон или Telegram"]) + div > div {
     display: grid !important;
     width: 100% !important;

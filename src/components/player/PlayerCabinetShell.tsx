@@ -65,8 +65,6 @@ export default function PlayerCabinetShell({
       data-testid="player-cabinet-shell"
       className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground"
     >
-      <style>{`.player-events-shell main{padding-top:.75rem!important}`}</style>
-
       <PlayerQuickAccessBar
         player={player}
         tokenBalance={tokenBalance}

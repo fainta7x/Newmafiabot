@@ -120,6 +120,80 @@
     border-radius: 7px;
   }
 
+  /* Collecting votes has to live inside one fixed table cell. Compress only
+     this state and reserve the last row for the phase CTA instead of making
+     the center panel scroll. Revote speeches keep their timer geometry below. */
+  .live-judge-hud__body:has(> .live-judge-hud__stack--voting-scroll > .live-judge-vote-summary) {
+    align-items: stretch;
+    overflow-y: hidden;
+    padding: 3px 5px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) {
+    height: 100%;
+    max-height: 100%;
+    gap: 2px;
+    justify-content: flex-start;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__eyebrow {
+    font-size: 6px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-voting-order {
+    padding: 2px 3px;
+    gap: 3px;
+    border-radius: 7px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__seat {
+    height: 19px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__title {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary {
+    gap: 3px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat {
+    padding: 2px 4px;
+    border-radius: 6px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat__label {
+    font-size: 5.5px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat__value {
+    margin-top: 1px;
+    font-size: 10px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__hint {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 6.5px;
+    line-height: 1.08;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions {
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-top: 1px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions .live-judge-action {
+    min-height: 32px;
+    flex-shrink: 0;
+  }
+
   .live-judge-hud__stack--revote-speech {
     gap: 3px !important;
   }

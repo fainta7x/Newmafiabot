@@ -52,6 +52,10 @@ import {
   normalizeLiveSnapshotForRestore,
 } from "./LiveGameEngine/engineStateModel.js";
 import {
+  getTableDecisionSelectionSnapshot,
+  restoreTableDecisionSelection,
+} from "./LiveGameEngine/tableDecisionSelectionStore.js";
+import {
   autoFillSetupPlayers,
   getSetupStartValidationError,
   selectSetupPlayer,
@@ -191,50 +195,59 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning, isMuted]);
 
-  const takeSnapshot = (): LiveSnapshot => cloneLiveSnapshot({
-    activePlayers,
-    nominations,
-    nominationsMap,
-    phase,
-    roundNumber,
-    dayStarterSlot,
-    nightSubPhase,
-    postNightStage,
-    protocolMarkers,
-    activeBestMoveSource,
-    activeBestMoveSlot,
-    pendingBestMoveSeats,
-    bestMoveDeadlineMs,
-    votingRounds,
-    activeVotingRoundIndex,
-    votesByPlayer,
-    votes,
-    votingStage,
-    revoteSpeakerIndex,
-    tableLeaveVotesInput,
-    currentVotingNomineeIndex,
-    activeSpeakerSlot,
-    customTimerLabel,
-    timeLeft,
-    timerMax,
-    isTimerRunning,
-    zeroNightSubPhase,
-    zeroNightMusicState,
-    shotPlayerSlot,
-    donCheckSlot,
-    donCheckResult,
-    sheriffCheckSlot,
-    sheriffCheckResult,
-    nightLogs,
-    votingFarewellQueue,
-    votingFarewellIndex,
-    discipline,
-  });
+  const takeSnapshot = (): LiveSnapshot => {
+    const tableDecisionSelection = getTableDecisionSelectionSnapshot();
+    return cloneLiveSnapshot({
+      activePlayers,
+      nominations,
+      nominationsMap,
+      phase,
+      roundNumber,
+      dayStarterSlot,
+      nightSubPhase,
+      postNightStage,
+      protocolMarkers,
+      activeBestMoveSource,
+      activeBestMoveSlot,
+      pendingBestMoveSeats,
+      bestMoveDeadlineMs,
+      votingRounds,
+      activeVotingRoundIndex,
+      votesByPlayer,
+      votes,
+      votingStage,
+      revoteSpeakerIndex,
+      tableLeaveVotesInput,
+      tableDecisionSelectionKey: tableDecisionSelection.key,
+      tableDecisionSelectedVoterSlots: tableDecisionSelection.selectedVoterSlots,
+      currentVotingNomineeIndex,
+      activeSpeakerSlot,
+      customTimerLabel,
+      timeLeft,
+      timerMax,
+      isTimerRunning,
+      zeroNightSubPhase,
+      zeroNightMusicState,
+      shotPlayerSlot,
+      donCheckSlot,
+      donCheckResult,
+      sheriffCheckSlot,
+      sheriffCheckResult,
+      nightLogs,
+      votingFarewellQueue,
+      votingFarewellIndex,
+      discipline,
+    });
+  };
 
   const saveSnapshot = () => setHistoryStack((previous) => [...previous.slice(-19), takeSnapshot()]);
 
   const restoreSnapshot = (snapshot: LiveSnapshot) => {
     const restored = normalizeLiveSnapshotForRestore(snapshot);
+    restoreTableDecisionSelection(
+      restored.tableDecisionSelectionKey ?? null,
+      restored.tableDecisionSelectedVoterSlots ?? [],
+    );
     setActivePlayers(restored.activePlayers);
     setNominations(restored.nominations);
     setNominationsMap(restored.nominationsMap);
@@ -763,8 +776,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotesByPlayer(restoredAssignments);
     updateCurrentRoundVotes(restoredAssignments);
 
-    // Keep unrelated history entries (for example a foul applied after the vote),
-    // but rewrite their vote slice so a later generic Undo cannot resurrect this vote.
     setHistoryStack((previous) => previous.reduce<LiveSnapshot[]>((next, item, index) => {
       if (index === historyIndex) return next;
       if (index < historyIndex) {
@@ -999,7 +1010,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setVotingRounds((previous) => previous.map((round, index) => index === activeVotingRoundIndex ? { ...round, outcome: 'tie_revote' } : round));
     setVotingStage('revote_speeches');
     setRevoteSpeakerIndex(0);
-    // handleStartTimer owns the single history boundary for entering the speech cycle.
     handleStartTimer(winners[0], 30);
   };
 

@@ -21,6 +21,7 @@ import {
   setHistoricalPlayerReferrer,
 } from '../services/premiumPlayerConnectionsService.ts';
 import { loadSmartFriendInviteSuggestions } from '../services/smartFriendInviteSuggestionService.ts';
+import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 
 const router = Router();
 
@@ -41,12 +42,8 @@ const requirePlayerViewer = (req: any, res: any): string | null => {
   return null;
 };
 
-const parseVisibility = (value: unknown): Record<string, boolean> => {
-  if (typeof value !== 'string' || !value.trim()) return {};
-  try { return JSON.parse(value); } catch { return {}; }
-};
-
 const canViewPlayer = async (db: any, playerId: string) => {
+  await ensurePlayerProfileVisibilitySchema(db);
   const row = await db.get(`
     SELECT id, COALESCE(contact_status,lifecycle_status,'normal') AS status, profile_visibility_json
       FROM players WHERE id=? LIMIT 1
@@ -57,7 +54,7 @@ const canViewPlayer = async (db: any, playerId: string) => {
 
 const featureVisible = (row: any, viewer: ViewerContext, playerId: string, feature: 'game_statistics' | 'connections') => {
   if (viewer.organizer || viewer.viewerId === playerId) return true;
-  const visibility = parseVisibility(row?.profile_visibility_json);
+  const visibility = parsePlayerProfileVisibility(row?.profile_visibility_json);
   return visibility[feature] !== false;
 };
 

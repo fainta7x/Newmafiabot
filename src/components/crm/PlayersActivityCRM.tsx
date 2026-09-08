@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, ChevronRight, Filter, Plus, Search, UserRound } from 'lucide-react';
+import { AlertCircle, Cake, ChevronRight, Filter, Plus, Search, UserRound } from 'lucide-react';
 import { api, type GameEvening, type Player } from '../../lib/api.ts';
 import { getRussianEngagementStageLabel } from '../../lib/playerUtils.ts';
 import { getPlayerActivitySegment, sortPlayersForActivity } from '../../lib/playerActivitySegments.ts';
@@ -9,45 +9,23 @@ import { PlayersCRM } from './PlayersCRM.tsx';
 
 type QuickFilter = 'active' | 'loyal' | 'attention' | 'lapsed' | 'all';
 type AdvancedSegment = '' | 'never' | 'absent60' | 'open_tasks';
+type ProfileFilter = '' | 'incomplete' | 'missing_avatar' | 'missing_birthday' | 'missing_contact';
+type Completeness = { percentage: number; complete: boolean; missing_fields: string[]; fields: Record<string, { label: string; state: string }> };
+type Birthday = { id: string; nickname: string; days_until: number; birth_day: number; birth_month: number };
 
 const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
-  { id: 'active', label: 'Активные' },
-  { id: 'loyal', label: 'Лояльные' },
-  { id: 'attention', label: 'Внимание' },
-  { id: 'lapsed', label: 'Давно не были' },
-  { id: 'all', label: 'Вся база' },
+  { id: 'active', label: 'Активные' }, { id: 'loyal', label: 'Лояльные' }, { id: 'attention', label: 'Внимание' }, { id: 'lapsed', label: 'Давно не были' }, { id: 'all', label: 'Вся база' },
 ];
 
-interface PlayersActivityCRMProps {
-  evenings: GameEvening[];
-  onOpenEvening: (id: string) => void;
-  selectedPlayerId?: string | null;
-  onClosePlayerCard?: () => void;
-  onCrmChanged?: () => void;
-}
+interface PlayersActivityCRMProps { evenings: GameEvening[]; onOpenEvening: (id: string) => void; selectedPlayerId?: string | null; onClosePlayerCard?: () => void; onCrmChanged?: () => void; }
 
-const uniquePlayers = (groups: Player[][]): Player[] => {
-  const byId = new Map<string, Player>();
-  for (const group of groups) for (const player of group) byId.set(player.id, player);
-  return [...byId.values()];
-};
+const uniquePlayers = (groups: Player[][]): Player[] => { const byId = new Map<string, Player>(); for (const group of groups) for (const player of group) byId.set(player.id, player); return [...byId.values()]; };
+const playerSegmentLabel = (player: Player) => { const segment = getPlayerActivitySegment(player); if (segment === 'loyal') return 'Лояльный'; if (segment === 'active') return getRussianEngagementStageLabel(player.engagement_stage); if (segment === 'inactive') return 'Неактивный'; return 'База'; };
 
-const playerSegmentLabel = (player: Player) => {
-  const segment = getPlayerActivitySegment(player);
-  if (segment === 'loyal') return 'Лояльный';
-  if (segment === 'active') return getRussianEngagementStageLabel(player.engagement_stage);
-  if (segment === 'inactive') return 'Неактивный';
-  return 'База';
-};
-
-export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
-  evenings,
-  onOpenEvening,
-  selectedPlayerId,
-  onClosePlayerCard,
-  onCrmChanged,
-}) => {
+export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings, onOpenEvening, selectedPlayerId, onClosePlayerCard, onCrmChanged }) => {
   const [players, setPlayers] = useState<Player[]>([]);
+  const [profileMap, setProfileMap] = useState<Record<string, Completeness>>({});
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -57,179 +35,118 @@ export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({
   const [contactStatusFilter, setContactStatusFilter] = useState('');
   const [lifecycleStatus, setLifecycleStatus] = useState('');
   const [advancedSegment, setAdvancedSegment] = useState<AdvancedSegment>('');
+  const [profileFilter, setProfileFilter] = useState<ProfileFilter>('');
   const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newNickname, setNewNickname] = useState('');
-  const [newFullName, setNewFullName] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [newTgUsername, setNewTgUsername] = useState('');
-  const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
+  const [newNickname, setNewNickname] = useState(''); const [newFullName, setNewFullName] = useState(''); const [newPhone, setNewPhone] = useState(''); const [newTgUsername, setNewTgUsername] = useState('');
+  const [addSaving, setAddSaving] = useState(false); const [addError, setAddError] = useState<string | null>(null);
   const requestSeq = useRef(0);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
+  useEffect(() => { const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250); return () => window.clearTimeout(timer); }, [search]);
 
   const buildParams = useCallback((stage?: string) => {
     const params: Record<string, string | number | boolean> = {};
     if (debouncedSearch) params.search = debouncedSearch;
     if (contactStatusFilter) params.contact_status = contactStatusFilter;
-    if (stage) params.lifecycle_status = stage;
-    else if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
+    if (stage) params.lifecycle_status = stage; else if (lifecycleStatus) params.lifecycle_status = lifecycleStatus;
     if (advancedSegment === 'never') params.never_attended = true;
     if (advancedSegment === 'absent60') params.inactive_days = 60;
     if (advancedSegment === 'open_tasks') params.has_open_tasks = true;
     return params;
   }, [advancedSegment, contactStatusFilter, debouncedSearch, lifecycleStatus]);
 
+  const loadProfileSummary = useCallback(async () => {
+    try {
+      const [summaryResponse, birthdaysResponse] = await Promise.all([
+        fetch('/api/players/profile-integrity/summary', { credentials: 'include' }),
+        fetch('/api/players/profile-integrity/birthdays?window=30', { credentials: 'include' }),
+      ]);
+      const summaryBody = await summaryResponse.json().catch(() => ({}));
+      const birthdayBody = await birthdaysResponse.json().catch(() => ({}));
+      if (summaryResponse.ok) {
+        const next: Record<string, Completeness> = {};
+        for (const item of Array.isArray(summaryBody?.players) ? summaryBody.players : []) if (item?.id && item?.profile_completeness) next[String(item.id)] = item.profile_completeness;
+        setProfileMap(next);
+      }
+      if (birthdaysResponse.ok) setBirthdays(Array.isArray(birthdayBody?.birthdays) ? birthdayBody.birthdays : []);
+    } catch {}
+  }, []);
+
   const loadPlayers = useCallback(async () => {
-    const requestId = ++requestSeq.current;
-    setLoading(true);
-    setListError(null);
+    const requestId = ++requestSeq.current; setLoading(true); setListError(null);
     try {
       let result: Player[];
-      if (lifecycleStatus) {
-        result = await api.getPlayers(buildParams());
-      } else if (activeQuickFilter === 'active' || activeQuickFilter === 'attention') {
-        result = uniquePlayers(await Promise.all([
-          api.getPlayers(buildParams('newcomer')),
-          api.getPlayers(buildParams('returning')),
-          api.getPlayers(buildParams('regular')),
-        ]));
-      } else if (activeQuickFilter === 'loyal') {
-        result = await api.getPlayers(buildParams('regular'));
-      } else if (activeQuickFilter === 'lapsed') {
-        result = await api.getPlayers(buildParams('inactive'));
-      } else {
-        result = await api.getPlayers(buildParams());
-      }
+      if (lifecycleStatus) result = await api.getPlayers(buildParams());
+      else if (activeQuickFilter === 'active' || activeQuickFilter === 'attention') result = uniquePlayers(await Promise.all([api.getPlayers(buildParams('newcomer')), api.getPlayers(buildParams('returning')), api.getPlayers(buildParams('regular'))]));
+      else if (activeQuickFilter === 'loyal') result = await api.getPlayers(buildParams('regular'));
+      else if (activeQuickFilter === 'lapsed') result = await api.getPlayers(buildParams('inactive'));
+      else result = await api.getPlayers(buildParams());
       if (requestId !== requestSeq.current) return;
-      if (activeQuickFilter === 'attention' && !lifecycleStatus) {
-        result = result.filter((player) =>
-          Number(player.open_tasks_count || 0) > 0 ||
-          player.contact_status !== 'normal' ||
-          Number(player.outstanding_debt || 0) > 0 ||
-          Number(player.attendance_count || 0) === 1 ||
-          (player.days_since_last_visit != null && player.days_since_last_visit >= 30)
-        );
-      }
+      if (activeQuickFilter === 'attention' && !lifecycleStatus) result = result.filter((player) => Number(player.open_tasks_count || 0) > 0 || player.contact_status !== 'normal' || Number(player.outstanding_debt || 0) > 0 || Number(player.attendance_count || 0) === 1 || (player.days_since_last_visit != null && player.days_since_last_visit >= 30));
       setPlayers(sortPlayersForActivity(result));
-    } catch (error: any) {
-      if (requestId !== requestSeq.current) return;
-      setListError(error?.message || 'Не удалось загрузить игроков');
-    } finally {
-      if (requestId === requestSeq.current) setLoading(false);
-    }
-  }, [activeQuickFilter, buildParams, lifecycleStatus]);
+      void loadProfileSummary();
+    } catch (error: any) { if (requestId !== requestSeq.current) return; setListError(error?.message || 'Не удалось загрузить игроков'); }
+    finally { if (requestId === requestSeq.current) setLoading(false); }
+  }, [activeQuickFilter, buildParams, lifecycleStatus, loadProfileSummary]);
 
   useEffect(() => { void loadPlayers(); }, [loadPlayers]);
 
+  const filteredPlayers = useMemo(() => players.filter((player) => {
+    const completion = profileMap[player.id];
+    if (!profileFilter) return true;
+    if (!completion) return false;
+    if (profileFilter === 'incomplete') return !completion.complete;
+    if (profileFilter === 'missing_avatar') return completion.missing_fields.includes('avatar');
+    if (profileFilter === 'missing_birthday') return completion.missing_fields.includes('birthday');
+    if (profileFilter === 'missing_contact') return completion.missing_fields.includes('phone') && completion.missing_fields.includes('telegram');
+    return true;
+  }), [players, profileFilter, profileMap]);
+
   const selectedCardPlayerId = selectedPlayerId || localPlayerId;
-  const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(lifecycleStatus)) + Number(Boolean(advancedSegment));
-  const segmentCaption = useMemo(() => {
-    if (lifecycleStatus) return getRussianEngagementStageLabel(lifecycleStatus);
-    if (activeQuickFilter === 'active') return 'играют сейчас';
-    if (activeQuickFilter === 'loyal') return 'самые постоянные';
-    if (activeQuickFilter === 'attention') return 'нужно внимание';
-    if (activeQuickFilter === 'lapsed') return 'нужно вернуть';
-    return 'вся история';
-  }, [activeQuickFilter, lifecycleStatus]);
+  const activeFilterCount = Number(Boolean(contactStatusFilter)) + Number(Boolean(lifecycleStatus)) + Number(Boolean(advancedSegment)) + Number(Boolean(profileFilter));
+  const segmentCaption = useMemo(() => { if (lifecycleStatus) return getRussianEngagementStageLabel(lifecycleStatus); if (activeQuickFilter === 'active') return 'играют сейчас'; if (activeQuickFilter === 'loyal') return 'самые постоянные'; if (activeQuickFilter === 'attention') return 'нужно внимание'; if (activeQuickFilter === 'lapsed') return 'нужно вернуть'; return 'вся история'; }, [activeQuickFilter, lifecycleStatus]);
 
   const handleCreatePlayer = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!newNickname.trim() || addSaving) return;
-    setAddSaving(true);
-    setAddError(null);
+    event.preventDefault(); if (!newNickname.trim() || addSaving) return; setAddSaving(true); setAddError(null);
     try {
-      const created = await api.createPlayer({
-        nickname: newNickname.trim(),
-        full_name: newFullName.trim() || null,
-        phone: newPhone.trim() || null,
-        telegram_username: newTgUsername.trim().replace('@', '') || null,
-        source: 'manual',
-        contact_status: 'normal',
-      });
-      setShowAddModal(false);
-      setNewNickname('');
-      setNewFullName('');
-      setNewPhone('');
-      setNewTgUsername('');
-      setLocalPlayerId(created.id);
-      void loadPlayers();
-      onCrmChanged?.();
-    } catch (error: any) {
-      setAddError(error?.message || 'Не удалось создать игрока');
-    } finally {
-      setAddSaving(false);
-    }
+      const created = await api.createPlayer({ nickname: newNickname.trim(), full_name: newFullName.trim() || null, phone: newPhone.trim() || null, telegram_username: newTgUsername.trim().replace('@', '') || null, source: 'manual', contact_status: 'normal' });
+      setShowAddModal(false); setNewNickname(''); setNewFullName(''); setNewPhone(''); setNewTgUsername(''); setLocalPlayerId(created.id); void loadPlayers(); onCrmChanged?.();
+    } catch (error: any) { setAddError(error?.message || 'Не удалось создать игрока'); } finally { setAddSaving(false); }
   };
 
-  const handleCardClose = () => {
-    setLocalPlayerId(null);
-    onClosePlayerCard?.();
-  };
-
-  const handleQuickFilterChange = (filter: QuickFilter) => {
-    setLifecycleStatus('');
-    setActiveQuickFilter(filter);
-  };
+  const handleCardClose = () => { setLocalPlayerId(null); onClosePlayerCard?.(); };
+  const handleQuickFilterChange = (filter: QuickFilter) => { setLifecycleStatus(''); setActiveQuickFilter(filter); };
 
   return (
     <div className="min-w-0 space-y-3.5 sm:space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2>
-          <p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : `${players.length} человек · ${segmentCaption}`}</p>
-        </div>
-        <button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button>
-      </div>
+      <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="text-[21px] font-semibold tracking-tight text-text-primary sm:text-[24px]">Игроки</h2><p className="mt-0.5 text-[11px] text-text-muted sm:text-[13px] sm:text-text-secondary">{loading ? 'Загружаем список…' : `${filteredPlayers.length} человек · ${segmentCaption}`}</p></div><button type="button" onClick={() => { setAddError(null); setShowAddModal(true); }} className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[12px] bg-white px-3 text-[12px] font-semibold text-[#090a0d]"><Plus className="h-4 w-4" /> Добавить</button></div>
 
-      <div className="flex gap-2">
-        <label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label>
-        <button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">{activeFilterCount}</span> : null}</button>
-      </div>
+      {birthdays.length ? <section data-testid="crm-upcoming-birthdays" className="rounded-[16px] border border-warning/20 bg-warning-soft p-3"><div className="flex items-center gap-2 text-[12px] font-semibold text-warning"><Cake className="h-4 w-4" /> Ближайшие дни рождения</div><div className="mt-2 flex flex-wrap gap-1.5">{birthdays.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => setLocalPlayerId(item.id)} className="min-h-[36px] rounded-full bg-black/10 px-3 text-[11px] font-semibold text-text-primary">{item.nickname} · {item.days_until === 0 ? 'сегодня' : `${item.days_until} дн.`}</button>)}</div></section> : null}
+
+      <div className="flex gap-2"><label className="relative min-w-0 flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ник, имя, телефон или Telegram" className="mobile-field pl-10" /></label><button type="button" onClick={() => setShowFilters(true)} className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-[13px] border ${activeFilterCount ? 'border-accent bg-accent-soft text-accent' : 'border-border-soft bg-surface-1 text-text-secondary'}`} aria-label="Фильтры"><Filter className="h-5 w-5" />{activeFilterCount ? <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">{activeFilterCount}</span> : null}</button></div>
 
       <div className="grid grid-cols-6 gap-2 sm:flex">{QUICK_FILTERS.map((item, index) => { const isActive = !lifecycleStatus && activeQuickFilter === item.id; return <button key={item.id} type="button" aria-pressed={isActive} onClick={() => handleQuickFilterChange(item.id)} className={`${index < 3 ? 'col-span-2' : 'col-span-3'} min-h-[44px] whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold sm:flex-1 sm:px-3 sm:text-[12px] ${isActive ? 'border-white/16 bg-white/[0.09] text-text-primary' : 'border-border-soft bg-surface-1 text-text-secondary'}`}>{item.label}</button>; })}</div>
 
       {listError ? <div className="rounded-[14px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger"><AlertCircle className="mr-1 inline h-4 w-4" /> {listError}<button type="button" onClick={() => void loadPlayers()} className="ml-2 font-bold underline">Повторить</button></div> : null}
-
-      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : players.length === 0 ? (
-        <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">В этом сегменте игроков нет</p></div>
-      ) : (
+      {loading ? <div className="py-16 text-center text-[13px] text-text-secondary">Загрузка игроков…</div> : filteredPlayers.length === 0 ? <div className="rounded-[18px] border border-border-soft bg-surface-1 py-14 text-center"><UserRound className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 text-[14px] font-semibold text-text-primary">В этом сегменте игроков нет</p></div> : (
         <div data-testid="crm-active-player-list" className="overflow-hidden rounded-[18px] border border-border-soft bg-surface-1">
-          {players.map((player, index) => {
-            const visits = Number(player.attendance_count || 0);
-            const visitText = player.days_since_last_visit == null ? 'Нет визитов' : player.days_since_last_visit === 0 ? 'Был сегодня' : `Был ${player.days_since_last_visit} дн. назад`;
-            const taskText = Number(player.open_tasks_count || 0) > 0 ? ` · задач ${player.open_tasks_count}` : '';
-            const segment = getPlayerActivitySegment(player);
-            return <button key={player.id} type="button" onClick={() => setLocalPlayerId(player.id)} className={`flex min-h-[76px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors active:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}>
-              <PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" />
-              <span className="min-w-0 flex-1">
-                <span className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${segment === 'loyal' ? 'bg-success-soft text-success' : segment === 'inactive' ? 'bg-warning-soft text-warning' : 'bg-white/[0.07] text-text-secondary'}`}>{playerSegmentLabel(player)}</span></span>
-                {player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}
-                <span className="mt-1 block text-[11px] text-text-muted">{visitText} · визитов {visits}{taskText}</span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-text-muted" />
-            </button>;
+          {filteredPlayers.map((player, index) => {
+            const visits = Number(player.attendance_count || 0); const visitText = player.days_since_last_visit == null ? 'Нет визитов' : player.days_since_last_visit === 0 ? 'Был сегодня' : `Был ${player.days_since_last_visit} дн. назад`; const taskText = Number(player.open_tasks_count || 0) > 0 ? ` · задач ${player.open_tasks_count}` : ''; const segment = getPlayerActivitySegment(player); const completion = profileMap[player.id];
+            const missing = completion?.missing_fields.slice(0, 2).map((key) => completion.fields[key]?.label).filter(Boolean).join(', ');
+            return <button key={player.id} type="button" onClick={() => setLocalPlayerId(player.id)} className={`flex min-h-[82px] w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors active:bg-surface-hover ${index ? 'border-t border-border-soft' : ''}`}><PlayerAvatar playerId={player.id} avatarVersion={player.avatar_updated_at} nickname={player.nickname} size="md" /><span className="min-w-0 flex-1"><span className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[14px] font-semibold leading-5 text-text-primary">{player.nickname}</strong><span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${segment === 'loyal' ? 'bg-success-soft text-success' : segment === 'inactive' ? 'bg-warning-soft text-warning' : 'bg-white/[0.07] text-text-secondary'}`}>{playerSegmentLabel(player)}</span>{completion ? <span className={`ml-auto shrink-0 text-[11px] font-bold ${completion.complete ? 'text-success' : 'text-warning'}`}>{completion.percentage}%</span> : null}</span>{player.full_name ? <span className="mt-0.5 block truncate text-[11px] text-text-secondary">{player.full_name}</span> : null}<span className="mt-1 block text-[11px] text-text-muted">{missing ? `Не хватает: ${missing}` : `${visitText} · визитов ${visits}${taskText}`}</span></span><ChevronRight className="h-5 w-5 shrink-0 text-text-muted" /></button>;
           })}
         </div>
       )}
 
-      <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" widthClass="sm:max-w-md">
-        <div className="space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
-          <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Активность</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">По быстрому сегменту</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option><option value="lead">Ещё не играл</option></select></label>
-          <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, label]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{label}</button>)}</div></div>
-          <div className="rounded-[12px] border border-border-soft bg-surface-2 p-3 text-[11px] leading-5 text-text-muted">Активные — игроки с визитом за последние 45 дней. Лояльные — постоянные игроки с 4+ посещениями за этот же актуальный период.</div>
-          <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить точные фильтры</button>
-        </div>
-      </MobileSheet>
+      <MobileSheet open={showFilters} onClose={() => setShowFilters(false)} title="Фильтры игроков" widthClass="sm:max-w-md"><div className="space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Заполненность профиля</span><select value={profileFilter} onChange={(event) => setProfileFilter(event.target.value as ProfileFilter)} className="mobile-field"><option value="">Все профили</option><option value="incomplete">Незаполненные</option><option value="missing_avatar">Без аватара</option><option value="missing_birthday">Без дня рождения</option><option value="missing_contact">Нет контактов</option></select></label>
+        <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Контакт</span><select value={contactStatusFilter} onChange={(event) => setContactStatusFilter(event.target.value)} className="mobile-field"><option value="">Все статусы</option><option value="normal">Можно связываться</option><option value="paused">На паузе</option><option value="blocked">Заблокирован</option></select></label>
+        <label className="block"><span className="mb-1.5 block text-[11px] font-semibold text-text-secondary">Активность</span><select value={lifecycleStatus} onChange={(event) => setLifecycleStatus(event.target.value)} className="mobile-field"><option value="">По быстрому сегменту</option><option value="newcomer">Новичок</option><option value="returning">Вернувшийся</option><option value="regular">Постоянный</option><option value="inactive">Неактивный</option><option value="lead">Ещё не играл</option></select></label>
+        <div><span className="mb-2 block text-[11px] font-semibold text-text-secondary">Дополнительно</span><div className="grid grid-cols-2 gap-2">{([['', 'Без уточнения'], ['never', 'Не приходили'], ['absent60', '60+ дней'], ['open_tasks', 'Есть задачи']] as Array<[AdvancedSegment, string]>).map(([id, label]) => <button key={id || 'all'} type="button" onClick={() => setAdvancedSegment(id)} className={`min-h-[44px] rounded-[11px] border px-3 text-[12px] font-semibold ${advancedSegment === id ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-soft bg-surface-2 text-text-secondary'}`}>{label}</button>)}</div></div>
+        <button type="button" onClick={() => { setContactStatusFilter(''); setLifecycleStatus(''); setAdvancedSegment(''); setProfileFilter(''); }} className="min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 text-[12px] font-bold text-text-secondary">Сбросить точные фильтры</button>
+      </div></MobileSheet>
 
-      <MobileSheet open={showAddModal} onClose={() => setShowAddModal(false)} title="Новый игрок" subtitle="Для начала достаточно никнейма. Остальное можно заполнить позже." widthClass="sm:max-w-md" footer={<button type="submit" form="focused-new-player-form" disabled={!newNickname.trim() || addSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{addSaving ? 'Сохраняем…' : 'Добавить игрока'}</button>}>
-        <form id="focused-new-player-form" onSubmit={handleCreatePlayer} className="space-y-3">{addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}<input value={newNickname} onChange={(event) => setNewNickname(event.target.value)} placeholder="Никнейм *" className="mobile-field" /><input value={newFullName} onChange={(event) => setNewFullName(event.target.value)} placeholder="Имя — необязательно" className="mobile-field" /><input value={newTgUsername} onChange={(event) => setNewTgUsername(event.target.value)} placeholder="Telegram" className="mobile-field" /><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Телефон" className="mobile-field" /></form>
-      </MobileSheet>
+      <MobileSheet open={showAddModal} onClose={() => setShowAddModal(false)} title="Новый игрок" subtitle="Для начала достаточно никнейма. Остальное можно заполнить позже." widthClass="sm:max-w-md" footer={<button type="submit" form="focused-new-player-form" disabled={!newNickname.trim() || addSaving} className="min-h-[48px] w-full rounded-[13px] bg-accent text-[13px] font-bold text-white disabled:opacity-40">{addSaving ? 'Сохраняем…' : 'Добавить игрока'}</button>}><form id="focused-new-player-form" onSubmit={handleCreatePlayer} className="space-y-3">{addError ? <div className="rounded-[13px] border border-danger/30 bg-danger-soft p-3 text-[12px] text-danger">{addError}</div> : null}<input value={newNickname} onChange={(event) => setNewNickname(event.target.value)} placeholder="Никнейм *" className="mobile-field" /><input value={newFullName} onChange={(event) => setNewFullName(event.target.value)} placeholder="Имя — необязательно" className="mobile-field" /><input value={newTgUsername} onChange={(event) => setNewTgUsername(event.target.value)} placeholder="Telegram" className="mobile-field" /><input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Телефон" className="mobile-field" /></form></MobileSheet>
 
       {selectedCardPlayerId ? <div className="hidden" aria-hidden="true"><PlayersCRM evenings={evenings} onOpenEvening={onOpenEvening} selectedPlayerId={selectedCardPlayerId} onClosePlayerCard={handleCardClose} onCrmChanged={() => { void loadPlayers(); onCrmChanged?.(); }} /></div> : null}
     </div>

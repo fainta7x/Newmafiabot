@@ -5,7 +5,21 @@ import path from 'node:path';
 
 const root = process.cwd();
 const output = path.join(root, 'temp/ui-preview');
-const pages = ['preview/index.html', 'e2e/crm-evening-roster.html', 'e2e/live-game.html', 'e2e/player-shell.html', 'e2e/player-cabinet.html', 'e2e/crm-overview.html', 'e2e/crm-evenings.html', 'e2e/crm-players.html', 'e2e/crm-more.html', 'e2e/crm-closeout.html'];
+const pages = [
+  'preview/index.html',
+  'e2e/crm-evening-roster.html',
+  'e2e/live-game.html',
+  'e2e/live-game-overlay.html',
+  'e2e/player-shell.html',
+  'e2e/player-cabinet.html',
+  'e2e/player-profile.html',
+  'e2e/crm-overview.html',
+  'e2e/crm-login.html',
+  'e2e/crm-evenings.html',
+  'e2e/crm-players.html',
+  'e2e/crm-more.html',
+  'e2e/crm-closeout.html',
+];
 const bootstrapSource = 'src/lib/uiPreviewProductionBootstrap.ts';
 const bootstrapPath = path.join(root, bootstrapSource);
 const telegramPreviewPlugin = {

@@ -81,6 +81,16 @@ body {
   box-sizing: border-box;
 }
 
+/* The CRM nav is fixed inside a padded application shell. Bound its interactive
+   grid explicitly because fixed-position layout does not inherit that shell's
+   horizontal content box consistently across WebView engines. */
+.crm-premium .organizer-bottom-nav {
+  left: var(--tg-content-safe-area-left) !important;
+  right: var(--tg-content-safe-area-right) !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* Real production fullscreen layers. Keep the backdrop fullscreen while placing
    interactive content inside Telegram's content-safe rectangle. */
 [data-testid="canonical-player-profile-overlay"],

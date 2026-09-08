@@ -12,6 +12,15 @@ import {
   createVkIdentityClaim,
   peekVkIdentityClaim,
 } from './vkIdentityClaimService.ts';
+import {
+  completeVkPlayerOAuth,
+  confirmVkPlayerIdentityClaim,
+  createVkPlayerIdentityClaim,
+  peekVkPlayerIdentityClaim,
+  peekVkPlayerOAuthState,
+  validateVkPlayerReturnPath,
+} from './vkPlayerAuthService.ts';
+import { setPlayerSessionCookie } from './playerSessionCookie.ts';
 
 const router = Router();
 
@@ -33,12 +42,23 @@ const escapeHtml = (value: unknown) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#039;');
 
-const confirmationPage = (input: { token: string; nickname?: string; title?: string; error?: string }) => {
-  const action = `/api/integrations/vk/link/confirm/${encodeURIComponent(input.token)}`;
+const appendPlayerResult = (returnTo: string, key: string, value: string) => {
+  const safe = validateVkPlayerReturnPath(returnTo);
+  const url = new URL(safe, 'https://2la-noire.local');
+  url.searchParams.set(key, value);
+  return `${url.pathname}${url.search}${url.hash}`;
+};
+
+const confirmationPage = (input: { token: string; nickname?: string; title?: string; error?: string; playerCabinet?: boolean }) => {
+  const action = input.playerCabinet
+    ? `/api/integrations/vk/player/claim/${encodeURIComponent(input.token)}`
+    : `/api/integrations/vk/link/confirm/${encodeURIComponent(input.token)}`;
+  const context = input.playerCabinet
+    ? `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong>?`
+    : `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong> для записи на «${escapeHtml(input.title)}»?`;
   const body = input.error
     ? `<div class="error">${escapeHtml(input.error)}</div>`
-    : `<p>Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong> для записи на «${escapeHtml(input.title)}»?</p>
-       <form method="post" action="${action}"><button type="submit">Подтвердить связь</button></form>`;
+    : `<p>${context}</p><form method="post" action="${action}"><button type="submit">Подтвердить связь</button></form>`;
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2LA Noire · Связать VK</title>
   <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090a0d;color:#fff;font:16px system-ui;padding:24px;box-sizing:border-box}.card{width:min(100%,420px);border:1px solid #ffffff1a;border-radius:24px;background:#ffffff0b;padding:24px;box-sizing:border-box}h1{margin:0 0 12px;font-size:24px}p{color:#ffffffa8;line-height:1.55}button{width:100%;min-height:52px;border:0;border-radius:16px;background:#2688eb;color:#fff;font-weight:700;font-size:15px}.error{color:#fecdd3;line-height:1.55}</style></head><body><main class="card"><h1>Подтверждение профиля</h1>${body}</main></body></html>`;
 };
@@ -46,8 +66,49 @@ const confirmationPage = (input: { token: string; nickname?: string; title?: str
 router.get('/vk/oauth/callback', async (req, res, next) => {
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
-  await ensureVkJoinSchema(db);
   const state = String(req.query?.state || '').trim();
+
+  // Full player-cabinet VK ID flow. It never creates vk_join_session.
+  const playerPending = await peekVkPlayerOAuthState(db, state);
+  if (playerPending) {
+    try {
+      const result = await completeVkPlayerOAuth(db, {
+        code: req.query?.code,
+        deviceId: req.query?.device_id,
+        state,
+      });
+      let playerId = result.playerId;
+      if (!playerId) {
+        const authenticatedPlayerId = getPlayerSessionId(req);
+        if (authenticatedPlayerId) {
+          await linkVkIdentity(db, { vkUserId: result.vkUserId, playerId: authenticatedPlayerId });
+          playerId = authenticatedPlayerId;
+        }
+      }
+      if (!playerId) {
+        try {
+          const registration = await registerVkPlayer(db, result.vkUserId, result.nickname);
+          playerId = registration.playerId;
+        } catch (error: any) {
+          if (error?.code !== 'nickname_taken') throw error;
+          const claim = await createVkPlayerIdentityClaim(db, {
+            vkUserId: result.vkUserId,
+            nickname: result.nickname,
+            returnTo: result.returnTo,
+            baseUrl: baseUrlFor(req),
+          });
+          return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_link_pending', claim.pending ? '1' : '0'));
+        }
+      }
+      setPlayerSessionCookie(res, playerId);
+      return res.redirect(302, result.returnTo);
+    } catch (error: any) {
+      return res.redirect(302, appendPlayerResult(playerPending.return_to, 'vk_error', error?.message || 'VK ID failed'));
+    }
+  }
+
+  // Existing public evening-registration VK flow remains unchanged.
+  await ensureVkJoinSchema(db);
   const pending = await peekVkJoinOAuthState(db, state);
   if (!pending) return next();
 
@@ -57,9 +118,6 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
     const nickname = String(returnUrl.searchParams.get('nickname') || '').trim();
     let playerId = result.player_id;
     if (!playerId) {
-      // If the same browser is already authenticated through Telegram/WebApp,
-      // both identities have just been proven. Link VK to that canonical player
-      // instead of creating a second profile from a typed nickname.
       const authenticatedPlayerId = getPlayerSessionId(req);
       if (authenticatedPlayerId) {
         await linkVkIdentity(db, { vkUserId: result.vk_user_id, playerId: authenticatedPlayerId });
@@ -89,6 +147,36 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
   }
 });
 
+router.get('/vk/player/claim/:token', async (req, res) => {
+  const claim = await peekVkPlayerIdentityClaim(req.db as DatabaseWrapper, req.params.token);
+  res.setHeader('Cache-Control', 'no-store');
+  if (!claim) {
+    return res.status(410).type('html').send(confirmationPage({
+      token: '', playerCabinet: true,
+      error: 'Ссылка подтверждения устарела. Начните вход через VK ещё раз.',
+    }));
+  }
+  return res.type('html').send(confirmationPage({
+    token: req.params.token,
+    nickname: claim.nickname,
+    playerCabinet: true,
+  }));
+});
+
+router.post('/vk/player/claim/:token', async (req, res) => {
+  try {
+    const result = await confirmVkPlayerIdentityClaim(req.db as DatabaseWrapper, req.params.token);
+    setPlayerSessionCookie(res, result.playerId);
+    return res.redirect(303, appendPlayerResult(result.returnTo, 'vk_linked', '1'));
+  } catch (error: any) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(Number(error?.statusCode || 500)).type('html').send(confirmationPage({
+      token: '', playerCabinet: true,
+      error: error?.message || 'Не удалось связать VK с игровым профилем.',
+    }));
+  }
+});
+
 router.get('/vk/link/confirm/:token', async (req, res) => {
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
@@ -102,11 +190,7 @@ router.get('/vk/link/confirm/:token', async (req, res) => {
       error: 'Ссылка подтверждения устарела. Вернитесь к записи через VK и начните привязку ещё раз.',
     }));
   }
-  return res.type('html').send(confirmationPage({
-    token,
-    nickname: claim.nickname,
-    title: claim.title,
-  }));
+  return res.type('html').send(confirmationPage({ token, nickname: claim.nickname, title: claim.title }));
 });
 
 router.post('/vk/link/confirm/:token', async (req, res) => {

@@ -138,6 +138,13 @@ describe('server-side club betting lifecycle', () => {
     expect(placed.idempotent).toBe(false);
     expect(placed.balance).toBe(900);
 
+    const activeDashboard = await getPlayerBettingDashboard(db, 'spectator-red');
+    expect(activeDashboard.active?.game_id).toBe(gameId);
+    expect(activeDashboard.active?.status).toBe('open');
+    expect(activeDashboard.active?.my_bet?.request_id).toBe('request-1');
+    expect(activeDashboard.active?.my_bet?.team).toBe('red');
+    expect(Number(activeDashboard.active?.red_coefficient)).toBeGreaterThanOrEqual(1);
+
     const duplicateRequest = await placePoolBet(db, { gameId, playerId: 'spectator-red', team: 'red', amount: 100, requestId: 'request-1' });
     expect(duplicateRequest.idempotent).toBe(true);
     expect(duplicateRequest.balance).toBe(900);

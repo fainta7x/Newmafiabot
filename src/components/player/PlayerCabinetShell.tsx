@@ -8,6 +8,7 @@ import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerLiveOnlyCenter from './PlayerLiveOnlyCenter.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
+import { PlayerProfileReminder } from './PlayerProfileCompleteness.tsx';
 import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
 import PlayerSmartNotifications, { type PlayerNotificationDestination } from './PlayerSmartNotifications.tsx';
@@ -54,17 +55,11 @@ export default function PlayerCabinetShell({
     onSectionChange?.(next, target);
   };
 
-  const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => {
-    return open(destination as PlayerCabinetSection, target || null);
-  };
-
+  const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
 
   return (
-    <div
-      data-testid="player-cabinet-shell"
-      className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground"
-    >
+    <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
       <PlayerQuickAccessBar
         player={player}
         tokenBalance={tokenBalance}
@@ -76,39 +71,19 @@ export default function PlayerCabinetShell({
       />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
-      <div
-        data-testid="player-live-status-slot"
-        className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}
-      >
+      {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}
+      <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}>
         <PlayerLiveOnlyCenter compact={section !== 'home'} />
       </div>
 
       {section === 'home' ? (
-        <PlayerHomeDashboard
-          data={currentData}
-          onOpenEvents={(eventId) => open('events', eventId || null)}
-          onOpenGames={() => open('games')}
-          onOpenRating={() => open('rating')}
-        />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
       ) : section === 'events' ? (
-        <PlayerEventsCalendar
-          initialEventId={initialTarget}
-          onEventChange={(eventId) => open('events', eventId)}
-        />
+        <PlayerEventsCalendar initialEventId={initialTarget} onEventChange={(eventId) => open('events', eventId)} />
       ) : isPlayerGameSection(section) ? (
-        <PlayerGamesHub
-          data={currentData}
-          canOpenAdmin={canOpenAdmin}
-          section={section as PlayerGamesSection}
-          target={initialTarget}
-          onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)}
-        />
+        <PlayerGamesHub data={currentData} canOpenAdmin={canOpenAdmin} section={section as PlayerGamesSection} target={initialTarget} onOpen={(next, target) => open(next as PlayerCabinetSection, target || null)} />
       ) : isPlayerRatingSection(section) ? (
-        <PlayerRatingHub
-          data={currentData}
-          section={section as PlayerRatingSection}
-          onOpen={(next) => open(next as PlayerCabinetSection)}
-        />
+        <PlayerRatingHub data={currentData} section={section as PlayerRatingSection} onOpen={(next) => open(next as PlayerCabinetSection)} />
       ) : section === 'club' ? (
         <PlayerClubHub data={currentData} />
       ) : section === 'wallet' ? (
@@ -116,19 +91,9 @@ export default function PlayerCabinetShell({
       ) : section === 'profile' ? (
         <PlayerProfileHub data={currentData} onPlayerChange={setPlayer} />
       ) : section === 'conduct' ? (
-        <PlayerConductCenter
-          data={currentData}
-          canOpenAdmin={canOpenAdmin}
-          initialPane={initialTarget === 'music' ? 'music' : 'games'}
-          onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)}
-        />
+        <PlayerConductCenter data={currentData} canOpenAdmin={canOpenAdmin} initialPane={initialTarget === 'music' ? 'music' : 'games'} onPaneChange={(pane) => open('conduct', pane === 'music' ? 'music' : null)} />
       ) : (
-        <PlayerHomeDashboard
-          data={currentData}
-          onOpenEvents={(eventId) => open('events', eventId || null)}
-          onOpenGames={() => open('games')}
-          onOpenRating={() => open('rating')}
-        />
+        <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
       )}
 
       <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />

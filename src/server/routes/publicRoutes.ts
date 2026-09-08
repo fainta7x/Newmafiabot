@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { getDb } from '../../db/index.ts';
 import { getFlexibleTournamentStandings } from '../services/flexibleTournamentStandingsService.ts';
 import { listVerifiedAwards, syncTrustedTournamentAwards } from '../services/playerVerifiedAwardsService.ts';
+import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 import { internalGetNominations } from './tournamentsRoutesBase.ts';
 import avatarRouter from './publicAvatarRoutes.ts';
 
@@ -26,11 +27,27 @@ router.post('/evenings/:id/join', async (req:Request,res:Response) => {
 router.get('/players/:id/profile', async (req:Request, res:Response) => {
   try {
     const db=req.db||(await getDb());
-    const player=await db.get<any>('SELECT id,nickname,full_name,game_level,elo,birth_day,birth_month,birth_year,birthday_visibility FROM players WHERE id=? LIMIT 1',[req.params.id]);
+    await ensurePlayerProfileVisibilitySchema(db);
+    const player=await db.get<any>('SELECT id,nickname,full_name,game_level,elo,birth_day,birth_month,birth_year,profile_visibility_json FROM players WHERE id=? LIMIT 1',[req.params.id]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
+    const visibility=parsePlayerProfileVisibility(player.profile_visibility_json);
     await syncTrustedTournamentAwards(db,String(player.id));
-    const birthday=player.birthday_visibility==='full'&&player.birth_day&&player.birth_month?{day:Number(player.birth_day),month:Number(player.birth_month),year:player.birth_year?Number(player.birth_year):null}:player.birthday_visibility==='day_month'&&player.birth_day&&player.birth_month?{day:Number(player.birth_day),month:Number(player.birth_month),year:null}:null;
-    return res.json({player:{id:String(player.id),nickname:player.nickname,full_name:player.full_name||null,game_level:player.game_level||'club',elo:Number(player.elo||0),birthday},verified_awards:await listVerifiedAwards(db,String(player.id),false)});
+    const birthday=visibility.birthday_day_month&&player.birth_day&&player.birth_month?{
+      day:Number(player.birth_day),
+      month:Number(player.birth_month),
+      year:visibility.birth_year&&player.birth_year?Number(player.birth_year):null,
+    }:null;
+    return res.json({
+      player:{
+        id:String(player.id),
+        nickname:player.nickname,
+        full_name:visibility.real_name?player.full_name||null:null,
+        game_level:player.game_level||'club',
+        elo:visibility.game_statistics?Number(player.elo||0):null,
+        birthday,
+      },
+      verified_awards:await listVerifiedAwards(db,String(player.id),false),
+    });
   } catch(err:any){return res.status(500).json({error:err?.message||'Не удалось загрузить публичный профиль'});}
 });
 

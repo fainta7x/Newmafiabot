@@ -10,50 +10,19 @@ const startsAt = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
 const isoNow = now.toISOString();
 
 const participants = [
-  {
-    id: 'ep-bogdan', evening_id: 'evening-active', player_id: 'bogdan', nickname: 'Богдан', lifecycle_status: 'regular', elo: 1042,
-    registration_status: 'going', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0,
-    created_at: isoNow, updated_at: isoNow,
-  },
-  {
-    id: 'ep-matroskina', evening_id: 'evening-active', player_id: 'matroskina', nickname: 'Матроскина', lifecycle_status: 'regular', elo: 1015,
-    registration_status: 'late', attendance_status: 'attended', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0,
-    created_at: isoNow, updated_at: isoNow,
-  },
-  {
-    id: 'ep-pristan', evening_id: 'evening-active', player_id: 'pristan', nickname: 'Пристань', lifecycle_status: 'regular', elo: 1088,
-    registration_status: 'thinking', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0,
-    created_at: isoNow, updated_at: isoNow,
-  },
-  {
-    id: 'ep-vid', evening_id: 'evening-active', player_id: 'vid', nickname: 'Вид', lifecycle_status: 'regular', elo: 990,
-    registration_status: 'going', attendance_status: 'attended', arrival_status: 'on_time', payment_status: 'paid', amount_due: 400, amount_paid: 400,
-    created_at: isoNow, updated_at: isoNow,
-  },
-  {
-    id: 'ep-guest', evening_id: 'evening-active', player_id: 'guest', nickname: 'Гость', lifecycle_status: 'newcomer', elo: 1000,
-    registration_status: 'declined', attendance_status: 'no_show', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 0, amount_paid: 0,
-    created_at: isoNow, updated_at: isoNow,
-  },
+  { id: 'ep-bogdan', evening_id: 'evening-active', player_id: 'bogdan', nickname: 'Богдан', lifecycle_status: 'regular', elo: 1042, registration_status: 'going', response_status: 'going', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0, created_at: isoNow, updated_at: isoNow },
+  { id: 'ep-matroskina', evening_id: 'evening-active', player_id: 'matroskina', nickname: 'Матроскина', lifecycle_status: 'regular', elo: 1015, registration_status: 'late', response_status: 'late', attendance_status: 'attended', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0, created_at: isoNow, updated_at: isoNow },
+  { id: 'ep-pristan', evening_id: 'evening-active', player_id: 'pristan', nickname: 'Пристань', lifecycle_status: 'regular', elo: 1088, registration_status: 'thinking', response_status: 'thinking', attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 400, amount_paid: 0, created_at: isoNow, updated_at: isoNow },
+  { id: 'ep-vid', evening_id: 'evening-active', player_id: 'vid', nickname: 'Вид', lifecycle_status: 'regular', elo: 990, registration_status: 'going', response_status: 'going', attendance_status: 'attended', arrival_status: 'on_time', payment_status: 'paid', amount_due: 400, amount_paid: 400, created_at: isoNow, updated_at: isoNow },
+  { id: 'ep-guest', evening_id: 'evening-active', player_id: 'guest', nickname: 'Гость', lifecycle_status: 'newcomer', elo: 1000, registration_status: 'declined', response_status: 'declined', attendance_status: 'no_show', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: 0, amount_paid: 0, created_at: isoNow, updated_at: isoNow },
+] as any[];
+
+const players = [
+  { id: 'bogdan', nickname: 'Богдан' }, { id: 'matroskina', nickname: 'Матроскина' }, { id: 'pristan', nickname: 'Пристань' }, { id: 'vid', nickname: 'Вид' }, { id: 'manual', nickname: 'Ручной Игрок С Очень Длинным Ником' },
 ] as any[];
 
 const getEveningFixture = () => ({
-  id: 'evening-active',
-  title: 'Пятничный клубный вечер',
-  starts_at: startsAt,
-  timezone: 'Europe/Moscow',
-  venue: 'Суп с Котом',
-  format: 'CASUAL',
-  status: 'active',
-  capacity: 16,
-  default_price: 400,
-  notes: '',
-  settled_at: null,
-  created_at: isoNow,
-  updated_at: isoNow,
-  tables: [],
-  games: [],
-  participants: participants.map((participant) => ({ ...participant })),
+  id: 'evening-active', title: 'Пятничный клубный вечер', starts_at: startsAt, timezone: 'Europe/Moscow', venue: 'Суп с Котом', format: 'CASUAL', status: 'active', capacity: 16, default_price: 400, notes: '', settled_at: null, created_at: isoNow, updated_at: isoNow, tables: [], games: [], participants: participants.map((participant) => ({ ...participant })),
 }) as any;
 
 api.getEvening = async () => getEveningFixture();
@@ -63,13 +32,26 @@ api.updateParticipant = async (participantId: string, data: any) => {
   Object.assign(participant, data, { updated_at: new Date().toISOString() });
   return { ...participant } as any;
 };
-api.getPlayers = async () => [] as any;
+api.getPlayers = async () => players as any;
 
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const url = new URL(raw, window.location.origin);
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   if (url.pathname.endsWith('/staff')) return json({ organizer: null, organizers: [], judges: [], game_judges: [] });
+  if (url.pathname.endsWith('/participants/bulk') && init?.method === 'POST') {
+    const body = JSON.parse(String(init.body || '{}'));
+    document.body.dataset.bulkParticipantBody = JSON.stringify(body);
+    for (const playerId of body.player_ids || []) {
+      const player = players.find((item) => item.id === playerId);
+      if (!player || participants.some((item) => item.player_id === playerId)) continue;
+      participants.push({
+        id: `ep-${playerId}`, evening_id: 'evening-active', player_id: playerId, nickname: player.nickname, lifecycle_status: 'regular', elo: 1000,
+        registration_status: body.registration_status, response_status: body.response_status, attendance_status: 'pending', arrival_status: 'unknown', payment_status: 'unpaid', amount_due: body.amount_due ?? 400, amount_paid: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+    }
+    return json({ success: true, participants });
+  }
   if (url.pathname.includes('/payments/') && init?.method === 'PATCH') {
     const participant = participants.find((item) => item.id === url.pathname.split('/').pop());
     if (!participant) return new Response('{}', { status: 404 });
@@ -78,30 +60,14 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     participant.amount_paid = paid ? participant.amount_due : 0;
     return json({ success: true });
   }
-  if (url.pathname.endsWith('/payments')) return json({
-    evening: { id: 'evening-active', title: 'Пятничный клубный вечер', status: 'active', closed: false },
-    participants: participants.filter((item) => item.attendance_status === 'attended'),
-  });
-  if (url.pathname.endsWith('/slots')) {
-    return new Response(JSON.stringify({ slots: [], registrations: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
-  if (url.pathname.includes('/avatar')) {
-    return new Response(JSON.stringify({ error: 'No avatar' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-  }
+  if (url.pathname.endsWith('/payments')) return json({ evening: { id: 'evening-active', title: 'Пятничный клубный вечер', status: 'active', closed: false }, participants: participants.filter((item) => item.attendance_status === 'attended') });
+  if (url.pathname.endsWith('/slots')) return json({ slots: [], registrations: [] });
+  if (url.pathname.includes('/avatar')) return new Response(JSON.stringify({ error: 'No avatar' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   return new Response(JSON.stringify({ error: 'E2E route not mocked' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 };
 
 function Harness() {
-  return <div className="crm-premium mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white">
-    <main className="px-3 py-3">
-      <EveningWorkspace
-        eveningId="evening-active"
-        initialSection="management"
-        onBack={() => { document.body.dataset.back = '1'; }}
-        onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }}
-      />
-    </main>
-  </div>;
+  return <div className="crm-premium mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[#090a0d] font-sans text-white"><main className="px-3 py-3"><EveningWorkspace eveningId="evening-active" initialSection="management" onBack={() => { document.body.dataset.back = '1'; }} onOpenPlayerCard={(id) => { document.body.dataset.openPlayer = id; }} /></main></div>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<Harness />);

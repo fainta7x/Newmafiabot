@@ -18,12 +18,12 @@ export type PlayerCabinetSection =
 
 export type PlayerCabinetNavId = 'home' | 'events' | 'games' | 'rating' | 'club';
 
-export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; icon: string; label: string }> = [
-  { id: 'home', icon: '⌂', label: 'Главная' },
-  { id: 'events', icon: '▣', label: 'События' },
-  { id: 'games', icon: '◫', label: 'Игры' },
-  { id: 'rating', icon: '★', label: 'Рейтинг' },
-  { id: 'club', icon: '◆', label: 'Клуб' },
+export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: string }> = [
+  { id: 'home', label: 'Главная' },
+  { id: 'events', label: 'События' },
+  { id: 'games', label: 'Игры' },
+  { id: 'rating', label: 'Рейтинг' },
+  { id: 'club', label: 'Клуб' },
 ];
 
 const GAME_SECTIONS = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);

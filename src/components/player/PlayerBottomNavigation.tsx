@@ -1,9 +1,18 @@
+import { CalendarDays, Gamepad2, House, Trophy, UsersRound, type LucideIcon } from 'lucide-react';
 import {
   PLAYER_CABINET_NAV,
   isPlayerCabinetNavActive,
   type PlayerCabinetNavId,
   type PlayerCabinetSection,
 } from './playerCabinetNavigation.ts';
+
+const NAV_ICONS: Record<PlayerCabinetNavId, LucideIcon> = {
+  home: House,
+  events: CalendarDays,
+  games: Gamepad2,
+  rating: Trophy,
+  club: UsersRound,
+};
 
 export default function PlayerBottomNavigation({
   section,
@@ -21,6 +30,7 @@ export default function PlayerBottomNavigation({
       <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {
           const active = isPlayerCabinetNavActive(item.id, section);
+          const Icon = NAV_ICONS[item.id];
 
           return (
             <button
@@ -34,7 +44,7 @@ export default function PlayerBottomNavigation({
                 active ? 'ds-nav-active text-white' : 'text-white/55 hover:text-white/75'
               }`}
             >
-              <span className="text-base leading-none" aria-hidden="true">{item.icon}</span>
+              <Icon className="size-5 shrink-0" strokeWidth={active ? 2.3 : 2} aria-hidden="true" />
               <span className="mt-1 max-w-full truncate">{item.label}</span>
             </button>
           );

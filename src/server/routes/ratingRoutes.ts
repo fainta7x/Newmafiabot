@@ -27,6 +27,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = req.db as DatabaseWrapper;
     const rows = await db.all<any>(`
+      WITH ranked_players AS (
       SELECT
         p.id,
         p.nickname,
@@ -34,10 +35,30 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         p.game_level,
         p.contact_status,
         EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
-        EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
+        EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed,
+        (
+          SELECT COUNT(DISTINCT g.id)
+            FROM games g,
+                 json_each(CASE WHEN json_valid(g.protocol_text) THEN g.protocol_text ELSE '{}' END, '$.player_results') result
+           WHERE g.archived_at IS NULL
+             AND json_extract(g.protocol_text, '$.protocol.status') = 'completed'
+             AND CAST(json_extract(result.value, '$.player_id') AS TEXT) = CAST(p.id AS TEXT)
+        ) + (
+          SELECT COUNT(DISTINCT tgs.game_id)
+            FROM tournament_participants tp
+            JOIN tournament_game_seats tgs ON tgs.participant_id = tp.id
+            JOIN tournament_games tg ON tg.id = tgs.game_id
+            JOIN tournament_game_protocols tgp ON tgp.game_id = tg.id
+           WHERE tp.player_id = p.id
+             AND tg.status = 'completed'
+             AND tgp.status = 'completed'
+        ) AS games
       FROM players p
       WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
-      ORDER BY COALESCE(p.elo, 1000) DESC, p.nickname COLLATE NOCASE ASC, p.id ASC
+      )
+      SELECT * FROM ranked_players
+       WHERE games > 0
+       ORDER BY COALESCE(elo, 1000) DESC, nickname COLLATE NOCASE ASC, id ASC
     `);
 
     const leaderboard = rows.map((row: any, index: number) => {
@@ -48,6 +69,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         nickname: String(row.nickname || 'Игрок'),
         elo: Math.round(Number(row.elo || 1000)),
         game_level: row.game_level || 'club',
+        games: Number(row.games || 0),
         avatar_url: playerAvatarUrl(playerId, row.has_db_avatar, row.avatar_suppressed),
       };
     });

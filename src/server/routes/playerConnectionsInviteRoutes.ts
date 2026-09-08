@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { buildPlayerConnectionSummary } from '../services/playerConnectionService.ts';
@@ -16,34 +18,6 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return String(playerId);
 };
 
-async function ensureSchema(db: any) {
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS player_referrals (
-      invited_player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
-      inviter_player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-      source TEXT NOT NULL DEFAULT 'organizer',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      CHECK (invited_player_id <> inviter_player_id)
-    )
-  `);
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS player_evening_invites (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
-      inviter_player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-      invited_player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-      status TEXT NOT NULL DEFAULT 'sent',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE (evening_id, inviter_player_id, invited_player_id),
-      CHECK (inviter_player_id <> invited_player_id)
-    )
-  `);
-  await db.run('CREATE INDEX IF NOT EXISTS idx_player_referrals_inviter ON player_referrals(inviter_player_id)');
-  await db.run('CREATE INDEX IF NOT EXISTS idx_player_evening_invites_invited ON player_evening_invites(invited_player_id, created_at DESC)');
-}
-
 router.get('/profiles/:playerId/connections', async (req, res) => {
   const viewerId = requirePlayerId(req, res);
   if (!viewerId) return;
@@ -52,7 +26,7 @@ router.get('/profiles/:playerId/connections', async (req, res) => {
 
   try {
     const db = req.db;
-    await ensureSchema(db);
+    await ensurePlayerConnectionsSchema(db);
     const target = await db.get('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [targetId]);
     if (!target) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -97,7 +71,7 @@ router.put('/profiles/:playerId/referrer', requireOrganizerAuth, async (req, res
   const inviterPlayerId = req.body?.inviter_player_id == null ? '' : String(req.body.inviter_player_id).trim();
   try {
     const db = req.db;
-    await ensureSchema(db);
+    await ensurePlayerConnectionsSchema(db);
     if (!invitedPlayerId) return res.status(400).json({ error: 'playerId is required' });
     if (!inviterPlayerId) {
       await db.run('DELETE FROM player_referrals WHERE invited_player_id = ?', [invitedPlayerId]);
@@ -131,11 +105,11 @@ router.post('/evenings/:eveningId/invite-player', async (req, res) => {
 
   try {
     const db = req.db;
-    await ensureSchema(db);
+    await ensurePlayerConnectionsSchema(db);
     const [evening, inviter, invited, existing, countRow] = await Promise.all([
-      db.get(`SELECT id, title, starts_at, venue, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1`, [eveningId]),
+      db.get(`SELECT id, title, starts_at, venue, format, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1`, [eveningId]),
       db.get('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [inviterId]),
-      db.get('SELECT id, nickname, telegram_user_id FROM players WHERE id = ? LIMIT 1', [invitedPlayerId]),
+      db.get('SELECT id, nickname, telegram_user_id, game_level FROM players WHERE id = ? LIMIT 1', [invitedPlayerId]),
       db.get(`SELECT id, status, created_at FROM player_evening_invites WHERE evening_id = ? AND inviter_player_id = ? AND invited_player_id = ? LIMIT 1`, [eveningId, inviterId, invitedPlayerId]),
       db.get(`SELECT COUNT(*) AS count FROM player_evening_invites WHERE evening_id = ? AND inviter_player_id = ?`, [eveningId, inviterId]),
     ]);
@@ -147,6 +121,9 @@ router.post('/evenings/:eveningId/invite-player', async (req, res) => {
       return res.status(409).json({ error: 'Игровой вечер уже начался или завершён' });
     }
     if (!inviter || !invited) return res.status(404).json({ error: 'Игрок не найден' });
+    if (!playerLevelAllowsEveningFormat(invited.game_level, evening.format)) {
+      return res.status(409).json({ error: 'Этому игроку недоступен формат выбранного вечера' });
+    }
     if (existing) return res.json({ success: true, duplicate: true, invite: existing });
     if (Number(countRow?.count || 0) >= MAX_INVITES_PER_EVENING) {
       return res.status(429).json({ error: `На один вечер можно отправить не более ${MAX_INVITES_PER_EVENING} личных приглашений` });
@@ -162,6 +139,7 @@ router.post('/evenings/:eveningId/invite-player', async (req, res) => {
     if (chatId) {
       const when = new Date(String(evening.starts_at)).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
       const venue = evening.venue ? `\n📍 ${String(evening.venue)}` : '';
+      const baseUrl = String(process.env.PLAYER_APP_URL || '').replace(/\/$/, '');
       await enqueueTelegramMessage(db, {
         messageKey: `player-evening-invite:${eveningId}:${inviterId}:${invitedPlayerId}`,
         category: 'personal',
@@ -170,7 +148,7 @@ router.post('/evenings/:eveningId/invite-player', async (req, res) => {
         playerId: invitedPlayerId,
         chatId,
         text: `🎭 <b>${String(inviter.nickname || 'Игрок')}</b> приглашает тебя на ${String(evening.title || 'игровой вечер')}\n🗓 ${when}${venue}`,
-        replyMarkup: { inline_keyboard: [[{ text: 'Открыть события', web_app: { url: `${String(process.env.PLAYER_APP_URL || '').replace(/\/$/, '')}/player/events?event=${encodeURIComponent(eveningId)}` } }]] },
+        ...(baseUrl ? { replyMarkup: { inline_keyboard: [[{ text: 'Открыть события', web_app: { url: `${baseUrl}/player/events?event=${encodeURIComponent(eveningId)}` } }]] } } : {}),
       });
       kickTelegramMessageOutbox(db);
     }

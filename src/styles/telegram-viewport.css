@@ -69,25 +69,41 @@ body {
 .organizer-bottom-nav,
 [data-testid="player-bottom-nav"] {
   bottom: 0 !important;
+  left: var(--tg-content-safe-area-left) !important;
+  right: var(--tg-content-safe-area-right) !important;
+  width: auto !important;
   padding-bottom: max(8px, var(--tg-content-safe-area-bottom)) !important;
   min-height: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom)) !important;
 }
 
+/* Real production fullscreen layers. Keep the backdrop fullscreen while placing
+   interactive content inside Telegram's content-safe rectangle. */
 [data-testid="canonical-player-profile-overlay"],
-[data-app-overlay="fullscreen"],
-[role="dialog"]:has(> [data-mobile-sheet]),
-.mobile-sheet-viewport {
+.crm-premium > .fixed.inset-0.z-50,
+[data-testid="live-game-engine"] .fixed.inset-0:has(> .live-player-action-sheet),
+[data-testid="live-game-engine"] .fixed.inset-0:has(> [data-testid="live-discipline-confirmation"]),
+[data-testid="live-game-engine"] .fixed.inset-0:has(> [data-testid="live-best-move-sheet"]) {
   max-height: var(--tg-viewport-height) !important;
   min-height: 0;
+  padding-top: var(--tg-content-safe-area-top) !important;
+  padding-right: var(--tg-content-safe-area-right) !important;
+  padding-bottom: var(--tg-content-safe-area-bottom) !important;
+  padding-left: var(--tg-content-safe-area-left) !important;
+  box-sizing: border-box;
 }
 
 [data-testid="canonical-player-profile-overlay"] {
   top: 0;
   height: var(--tg-viewport-height);
-  padding-top: var(--tg-content-safe-area-top);
-  padding-right: var(--tg-content-safe-area-right);
-  padding-bottom: var(--tg-content-safe-area-bottom) !important;
-  padding-left: var(--tg-content-safe-area-left);
+  overscroll-behavior: contain;
+}
+
+.live-player-action-sheet,
+[data-testid="live-discipline-confirmation"],
+[data-testid="live-best-move-sheet"],
+.crm-premium > .fixed.inset-0.z-50 > div {
+  max-height: var(--app-usable-height);
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 

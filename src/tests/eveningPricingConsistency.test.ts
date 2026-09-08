@@ -70,7 +70,7 @@ describe('canonical evening pricing consistency', () => {
     expect(Number(participant?.amount_due)).toBe(400);
   });
 
-  it('repairs a legacy 600 ₽ closed debt before CRM overview exposes it', async () => {
+  it('keeps CRM overview read-only for already stored closed-evening debts', async () => {
     const app = await createApp(db);
     const cookie = `organizer_token=${generateOrganizerToken()}`;
 
@@ -92,43 +92,14 @@ describe('canonical evening pricing consistency', () => {
       [now, now],
     );
 
-    for (let gameNumber = 1; gameNumber <= 6; gameNumber += 1) {
-      const protocol = {
-        version: 1,
-        kind: 'club_evening_protocol',
-        protocol: { game_id: String(gameNumber), status: 'completed', winner_team: 'red' },
-        player_results: [{ participant_id: 'overview-pricing-participant', player_id: 'overview-pricing-player', seat_number: 1 }],
-      };
-      await db.run(
-        `INSERT INTO games
-         (evening_id,global_game_number,game_date,winner_team,winner_label,protocol_text,slots_json,created_at)
-         VALUES ('overview-pricing-evening',?,?,'red','Победа красных',?,?,?)`,
-        [gameNumber, now, JSON.stringify(protocol), JSON.stringify([{ participant_id: 'overview-pricing-participant', player_id: 'overview-pricing-player' }]), now],
-      );
-    }
-    await db.run(
-      `INSERT INTO financial_transactions
-       (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at)
-       VALUES ('overview-legacy-debt','debt_created',600,'Неоплата за вечер','legacy','overview-pricing-player','overview-pricing-evening','evening_settle','overview-pricing-participant',?)`,
-      [now],
-    );
-
+    const before = await db.get<any>('SELECT amount_due,updated_at FROM evening_participants WHERE id=?', ['overview-pricing-participant']);
     const response = await request(app).get('/api/crm/overview').set('Cookie', cookie);
-    expect(response.status, JSON.stringify(response.body)).toBe(200);
-    const row = response.body.actionLists.unpaidParticipants.find((item: any) => item.id === 'overview-pricing-participant');
-    expect(row).toBeTruthy();
-    expect(Number(row.amount_due)).toBe(400);
-    expect(Number(row.amount_paid)).toBe(0);
+    const after = await db.get<any>('SELECT amount_due,updated_at FROM evening_participants WHERE id=?', ['overview-pricing-participant']);
 
-    const totals = await db.get<any>(`
-      SELECT
-        COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) AS income,
-        COALESCE(SUM(CASE WHEN type='debt_created' THEN amount ELSE 0 END),0) AS debt_created,
-        COALESCE(SUM(CASE WHEN type='debt_paid' THEN amount ELSE 0 END),0) AS debt_paid
-        FROM financial_transactions
-       WHERE evening_id='overview-pricing-evening' AND source_id='overview-pricing-participant'
-    `);
-    expect(Number(totals.income) + Number(totals.debt_created)).toBe(400);
-    expect(Number(totals.debt_created) - Number(totals.debt_paid)).toBe(400);
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    expect(response.body.actionLists.unpaidParticipants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'overview-pricing-participant', amount_due: 600 }),
+    ]));
+    expect(after).toEqual(before);
   });
 });

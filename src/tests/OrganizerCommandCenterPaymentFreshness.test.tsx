@@ -70,7 +70,9 @@ describe('OrganizerCommandCenter payment freshness', () => {
     let resolveSlow!: (value: Response) => void;
     const slow = new Promise<Response>((resolve) => { resolveSlow = resolve; });
     let call = 0;
-    const fetchMock = vi.fn(() => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toContain('/api/crm/command-center');
+      expect(init?.cache).toBe('no-store');
       call += 1;
       if (call === 1) return jsonResponse(responseBody({ currentDue: 400 }));
       if (call === 2) return slow;
@@ -90,8 +92,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
-
-    for (const [, init] of fetchMock.mock.calls as Array<[RequestInfo | URL, RequestInit | undefined]>) expect(init?.cache).toBe('no-store');
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
   it('hides old payment amounts immediately on Telegram resume while refreshing in place', async () => {

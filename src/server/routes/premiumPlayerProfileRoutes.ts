@@ -13,13 +13,12 @@ import {
   setPinnedVerifiedAwards,
 } from '../services/premiumPlayerProfileShowcaseService.ts';
 import {
-  createEveningInvitation,
-  getEveningInvitationContext,
   listIncomingEveningInvitations,
-  loadProfileConnections,
   respondToEveningInvitation,
   setHistoricalPlayerReferrer,
 } from '../services/premiumPlayerConnectionsService.ts';
+import { loadEnrichedProfileConnections } from '../services/premiumPlayerConnectionProfileService.ts';
+import { createHardenedEveningInvitation, getHardenedEveningInvitationContext } from '../services/playerInvitationEligibilityService.ts';
 import { loadSmartFriendInviteSuggestions } from '../services/smartFriendInviteSuggestionService.ts';
 import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 
@@ -145,7 +144,7 @@ router.get('/profiles/:playerId/connections', async (req, res) => {
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
     if (!featureVisible(access.row, viewer, playerId, 'connections')) return res.status(403).json({ error: 'Связи скрыты игроком' });
-    return res.json(await loadProfileConnections(req.db, playerId));
+    return res.json(await loadEnrichedProfileConnections(req.db, playerId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить связи игрока' });
   }
@@ -179,7 +178,7 @@ router.get('/profiles/:playerId/invitation-context', async (req, res) => {
   if (!viewerId) return;
   try {
     const recipientPlayerId = String(req.params.playerId);
-    const context = await getEveningInvitationContext(req.db, viewerId, recipientPlayerId);
+    const context = await getHardenedEveningInvitationContext(req.db, viewerId, recipientPlayerId);
     return res.json(context);
   } catch (error: any) {
     return res.status(400).json({ error: error?.message || 'Не удалось проверить приглашение' });
@@ -193,7 +192,7 @@ router.post('/profiles/:playerId/invitations', async (req, res) => {
     const recipientPlayerId = String(req.params.playerId);
     const eveningId = String(req.body?.evening_id || '').trim();
     if (!eveningId) return res.status(400).json({ error: 'Выбери игровой вечер' });
-    const result = await createEveningInvitation(req.db, viewerId, recipientPlayerId, eveningId);
+    const result = await createHardenedEveningInvitation(req.db, viewerId, recipientPlayerId, eveningId);
     return res.status(result.created ? 201 : 200).json(result);
   } catch (error: any) {
     return res.status(400).json({ error: error?.message || 'Не удалось отправить приглашение' });

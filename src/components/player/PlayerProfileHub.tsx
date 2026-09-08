@@ -1,27 +1,20 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
-import PremiumPlayerProfile from './PremiumPlayerProfile.tsx';
-import PremiumProfileConnections from './PremiumProfileConnections.tsx';
-import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
-import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
+import CanonicalPremiumPlayerProfile from './CanonicalPremiumPlayerProfile.tsx';
 import PlayerMusicSlots from './PlayerMusicSlots.tsx';
-import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
-import PlayerVerifiedAwards from './PlayerVerifiedAwards.tsx';
 
 export default function PlayerProfileHub({ data, onPlayerChange }: { data: PlayerMeResponse; onPlayerChange?: (player: PlayerMeResponse['player']) => void }) {
   const [player, setPlayer] = useState(data.player);
   const updatePlayer = (next: PlayerMeResponse['player']) => { setPlayer(next); onPlayerChange?.(next); };
 
-  const ownTools = <>
-    <PremiumProfileShowcase playerId={player.id} isSelf />
-    <SmartFriendInviteSuggestions />
-    <PremiumProfileConnections playerId={player.id} selfPlayerId={player.id} />
-    <PlayerProfileCompletionCard />
-    <PlayerVerifiedAwards />
+  const ownerSettings = <div className="space-y-4">
     <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
-    <PlayerMusicSlots />
-  </>;
+    <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
+      <summary className="cursor-pointer font-semibold">Музыка</summary>
+      <div className="mt-4"><PlayerMusicSlots /></div>
+    </details>
+  </div>;
 
-  return <PremiumPlayerProfile playerId={player.id} mode="self" ownTools={ownTools} />;
+  return <CanonicalPremiumPlayerProfile playerId={player.id} mode="self" selfPlayerId={player.id} ownerSettings={ownerSettings} />;
 }

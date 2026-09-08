@@ -14,10 +14,7 @@ const isActiveEveningParticipant = (participant: EveningParticipant) => {
   if (participant.attendance_status === 'no_show') return false;
   if (participant.attendance_status === 'attended') return true;
   const response = getEveningResponse(participant);
-  return response === 'going'
-    || response === 'late'
-    || participant.registration_status === 'registered'
-    || participant.registration_status === 'confirmed';
+  return response === 'going' || response === 'late' || response === 'unanswered';
 };
 
 const responseLabel = (participant: EveningParticipant) => {
@@ -148,7 +145,7 @@ export default function EveningActiveRosterView({
           player_ids: selectedPlayerIds,
           table_id: null,
           response_status: 'unanswered',
-          registration_status: 'registered',
+          registration_status: 'unanswered',
           amount_due: evening.default_price,
         }),
       });
@@ -175,7 +172,7 @@ export default function EveningActiveRosterView({
         phone: guestPhone.trim() || undefined,
         table_id: null,
         response_status: 'unanswered',
-        registration_status: 'registered',
+        registration_status: 'unanswered',
         amount_due: evening.default_price,
       });
       setGuestNickname('');
@@ -219,6 +216,7 @@ export default function EveningActiveRosterView({
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-[14px] text-text-primary">{participant.nickname}</strong>
               <span className="mt-1 flex flex-wrap gap-1 text-[12px] leading-4">
+                <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">В составе</span>
                 <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-text-secondary">RSVP: {responseLabel(participant)}</span>
                 <span className={`rounded-md px-1.5 py-0.5 ${arrived ? 'bg-success-soft text-success' : 'bg-surface-2 text-text-secondary'}`}>Явка: {arrived ? 'на месте' : 'не отмечена'}</span>
               </span>

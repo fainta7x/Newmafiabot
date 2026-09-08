@@ -55,7 +55,8 @@ export const EveningWorkspace: React.FC<EveningWorkspaceProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => openSection(tab.id)}
-                className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1 rounded-[10px] px-1 text-[10px] font-bold transition-colors sm:text-[12px] ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[10px] px-1 text-[13px] font-semibold leading-tight transition-colors sm:flex-row sm:gap-1.5 sm:text-[14px] ${active ? 'bg-accent text-white' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'}`}
               >
                 {tab.icon}
                 <span className="truncate sm:hidden">{tab.mobileLabel}</span><span className="hidden truncate sm:inline">{tab.label}</span>

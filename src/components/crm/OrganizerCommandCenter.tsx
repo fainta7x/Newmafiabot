@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRight, Calendar, CheckCircle2,
-  Gamepad2, MessageCircle, RefreshCw, UserCheck,
+  AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
+  Gamepad2, ListTodo, MessageCircle, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
@@ -17,7 +17,6 @@ type OpsPlayer = {
   amount_due: number;
   amount_paid: number;
   play_count: number;
-  rotation_reason?: 'sat_out' | 'early_exit' | 'winner' | 'loser';
 };
 
 type CommandCenterResponse = {
@@ -75,8 +74,11 @@ const communicationLabel = (status: string) => {
 };
 
 export default function OrganizerCommandCenter({
-  onOpenEvening, onOpenEveningSection,
-  onCreateEvening, onRefresh,
+  onOpenEvening,
+  onOpenEveningSection,
+  onNavigateTab,
+  onCreateEvening,
+  onRefresh,
 }: Props) {
   const [data, setData] = useState<CommandCenterResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,8 +112,11 @@ export default function OrganizerCommandCenter({
 
   const snapshot = data?.snapshot || null;
   const communicationAttention = snapshot?.attention.communication || [];
+  const unansweredCount = communicationAttention.filter((item) => item.status === 'unanswered').length;
+  const deliveryProblems = communicationAttention.filter((item) => item.status !== 'unanswered');
   const attendanceAttention = snapshot?.mode === 'active' ? snapshot.stats.pending_attendance : 0;
-  const hasOperationalAttention = communicationAttention.length > 0 || attendanceAttention > 0;
+  const unfinishedGames = snapshot?.mode === 'active' ? Math.max(0, snapshot.stats.games - snapshot.stats.completed_games) : 0;
+  const taskCount = snapshot?.stats.open_tasks || snapshot?.attention.tasks.length || 0;
 
   const refreshAll = async () => {
     await Promise.all([load(true), onRefresh?.()]);
@@ -129,62 +134,83 @@ export default function OrganizerCommandCenter({
     } finally { setBusy(null); }
   };
 
+  const actionCards = useMemo(() => {
+    if (!snapshot) return [];
+    const rows: Array<{ id: string; label: string; value: string; detail: string; tone: string; icon: React.ReactNode; action: () => void }> = [];
+    if (unansweredCount > 0) rows.push({
+      id: 'unanswered', label: 'Нет ответа', value: String(unansweredCount), detail: 'приглашений без RSVP', tone: 'text-warning', icon: <MessageCircle className="h-4 w-4" />,
+      action: () => onOpenEveningSection(snapshot.evening.id, 'overview'),
+    });
+    if (snapshot.mode === 'active') rows.push({
+      id: 'present', label: 'Пришли', value: String(snapshot.stats.present), detail: 'фактически на месте', tone: 'text-success', icon: <UserCheck className="h-4 w-4" />,
+      action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
+    });
+    if (snapshot.stats.unpaid_count > 0) rows.push({
+      id: 'unpaid', label: 'Не оплачено', value: String(snapshot.stats.unpaid_count), detail: formatMoney(snapshot.stats.unpaid_amount), tone: 'text-warning', icon: <CircleDollarSign className="h-4 w-4" />,
+      action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
+    });
+    if (unfinishedGames > 0) rows.push({
+      id: 'unfinished', label: 'Игры', value: String(unfinishedGames), detail: 'ещё не завершено', tone: 'text-warning', icon: <Gamepad2 className="h-4 w-4" />,
+      action: () => onOpenEveningSection(snapshot.evening.id, 'games'),
+    });
+    if (taskCount > 0) rows.push({
+      id: 'tasks', label: 'Задачи', value: String(taskCount), detail: 'требуют внимания', tone: 'text-warning', icon: <ListTodo className="h-4 w-4" />,
+      action: () => onNavigateTab('tasks'),
+    });
+    return rows;
+  }, [snapshot, unansweredCount, unfinishedGames, taskCount, onNavigateTab, onOpenEveningSection]);
+
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
-  return <div className="mx-auto w-full max-w-3xl space-y-3.5 sm:space-y-4">
+  return <div className="mx-auto w-full max-w-3xl space-y-3">
     <div data-testid="crm-today-header" className="flex items-center justify-between gap-3 px-0.5">
       <div className="min-w-0">
-        <h2 className="text-[21px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2>
-        <p className="mt-0.5 text-[11px] leading-4 text-text-muted sm:text-[12px] sm:text-text-secondary">Только то, что действительно нужно сделать сейчас.</p>
+        <h2 className="text-[22px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2>
+        <p className="mt-1 text-[13px] leading-5 text-text-secondary">Только текущий вечер и действия, которые требуют внимания.</p>
       </div>
       <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className="h-4 w-4" /></button>
     </div>
 
-    {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger">{error}</div> : null}
+    {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
 
     {!snapshot ? <section className="rounded-[22px] border border-border-soft bg-surface-1 p-5 text-center">
       <Calendar className="mx-auto h-8 w-8 text-text-muted" />
-      <h3 className="mt-3 text-[16px] font-black text-text-primary">Нет активного или ближайшего вечера</h3>
-      <p className="mx-auto mt-1 max-w-sm text-[11px] leading-5 text-text-secondary">Создай следующее событие — пульт автоматически переключится на подготовку.</p>
-      <button type="button" onClick={onCreateEvening} className="mt-4 min-h-11 rounded-[12px] bg-accent px-4 text-[11px] font-black text-white">Создать вечер</button>
+      <h3 className="mt-3 text-[16px] font-bold text-text-primary">Нет активного или ближайшего вечера</h3>
+      <p className="mx-auto mt-1 max-w-sm text-[13px] leading-5 text-text-secondary">Создай следующее событие — оно станет рабочим контекстом этой страницы.</p>
+      <button type="button" onClick={onCreateEvening} className="mt-4 min-h-11 rounded-[12px] bg-accent px-4 text-[14px] font-bold text-white">Создать вечер</button>
     </section> : <>
-      <section className={`overflow-hidden rounded-[22px] border ${snapshot.mode === 'active' ? 'border-success/30 bg-success-soft/20' : 'border-border-soft bg-surface-1'}`}>
-        <div className="p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[14px] ${snapshot.mode === 'active' ? 'bg-success text-white' : 'bg-accent-soft text-accent'}`}>{snapshot.mode === 'active' ? <Gamepad2 className="h-5 w-5" /> : <Calendar className="h-5 w-5" />}</span>
-            <div className="min-w-0 flex-1">
-              <div className={`text-[10px] font-black uppercase tracking-[0.14em] ${snapshot.mode === 'active' ? 'text-success' : 'text-accent'}`}>{snapshot.mode === 'active' ? 'Идёт сейчас' : 'Ближайший вечер'}</div>
-              <h3 className="mt-1 break-words text-[19px] font-black leading-tight text-text-primary">{snapshot.evening.title}</h3>
-              <p className="mt-1 text-[11px] text-text-secondary">{formatDateTime(snapshot.evening.starts_at)}{snapshot.evening.venue ? ` · ${snapshot.evening.venue}` : ''}</p>
-            </div>
-            <button type="button" onClick={() => onOpenEvening(snapshot.evening.id)} className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary"><ArrowRight className="h-4 w-4" /></button>
+      <section className={`rounded-[22px] border p-4 ${snapshot.mode === 'active' ? 'border-success/30 bg-success-soft/20' : 'border-border-soft bg-surface-1'}`}>
+        <div className="flex items-start gap-3">
+          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[13px] ${snapshot.mode === 'active' ? 'bg-success text-white' : 'bg-accent-soft text-accent'}`}>{snapshot.mode === 'active' ? <Gamepad2 className="h-5 w-5" /> : <Calendar className="h-5 w-5" />}</span>
+          <div className="min-w-0 flex-1">
+            <div className={`text-[12px] font-bold uppercase tracking-[0.1em] ${snapshot.mode === 'active' ? 'text-success' : 'text-accent'}`}>{snapshot.mode === 'active' ? 'Идёт сейчас' : 'Ближайший вечер'}</div>
+            <h3 className="mt-1 line-clamp-2 text-[18px] font-bold leading-6 text-text-primary">{snapshot.evening.title}</h3>
+            <p className="mt-1 line-clamp-2 text-[12px] leading-4 text-text-secondary">{formatDateTime(snapshot.evening.starts_at)}{snapshot.evening.venue ? ` · ${snapshot.evening.venue}` : ''}</p>
           </div>
-
-          {snapshot.mode === 'active' ? <div className="mt-4 grid grid-cols-4 gap-1.5 text-center">
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">ожидаем</div></button>
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-success">{snapshot.stats.present}</div><div className="text-[8px] text-text-muted">пришли</div></button>
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'games')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.completed_games}<span className="text-[9px] text-text-muted">/{snapshot.stats.games}</span></div><div className="text-[8px] text-text-muted">игры</div></button>
-            <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="rounded-[13px] bg-surface-2 px-1 py-2.5"><div className={`text-[18px] font-black ${snapshot.blockers.length ? 'text-warning' : 'text-success'}`}>{snapshot.blockers.reduce((sum, row) => sum + row.count, 0)}</div><div className="text-[8px] text-text-muted">к закрытию</div></button>
-          </div> : <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="mt-4 w-full rounded-[13px] bg-surface-2 px-3 py-2.5 text-center"><div className="text-[18px] font-black text-text-primary">{snapshot.stats.expected}</div><div className="text-[8px] text-text-muted">планируют прийти</div></button>}
+          <button type="button" onClick={() => onOpenEvening(snapshot.evening.id)} aria-label="Открыть вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-surface-2 text-text-secondary"><ArrowRight className="h-4 w-4" /></button>
         </div>
       </section>
 
-      {hasOperationalAttention ? <section className="rounded-[20px] border border-warning/20 bg-surface-1 p-4">
-        <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.12em] text-warning">Сейчас требует внимания</div><h3 className="mt-0.5 text-[15px] font-black text-text-primary">{snapshot.mode === 'active' ? 'Только оперативные действия' : 'До старта вечера'}</h3></div><AlertTriangle className="h-5 w-5 text-warning" /></div>
-        <div className="mt-3 space-y-2">
-          {communicationAttention.length ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><MessageCircle className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Коммуникация · {communicationAttention.length}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{communicationAttention.slice(0, 4).map((item) => `${item.nickname}: ${communicationLabel(item.status)}`).join(' · ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
-          {attendanceAttention ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'participants')} className="flex w-full items-center gap-3 rounded-[13px] bg-surface-2 p-3 text-left"><UserCheck className="h-5 w-5 shrink-0 text-warning" /><span className="min-w-0 flex-1"><strong className="block text-[10px] text-text-primary">Явка · не отмечено {attendanceAttention}</strong><span className="mt-0.5 block truncate text-[8px] text-text-muted">{snapshot.roster.pending_attendance.slice(0, 6).map((item) => item.nickname).join(', ')}</span></span><ArrowRight className="h-4 w-4 text-text-muted" /></button> : null}
-        </div>
-      </section> : null}
+      {actionCards.length ? <section aria-label="Действия сегодня" className="grid grid-cols-2 gap-2">
+        {actionCards.map((item) => <button key={item.id} type="button" onClick={item.action} className="min-h-[78px] rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left active:bg-surface-hover">
+          <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${item.tone}`}>{item.icon}{item.label}</div>
+          <div className="mt-1.5 text-[22px] font-bold leading-none text-text-primary">{item.value}</div>
+          <div className="mt-1 text-[12px] leading-4 text-text-secondary">{item.detail}</div>
+        </button>)}
+      </section> : <section className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section>}
 
-      {snapshot.mode === 'active' ? <section className={`rounded-[20px] border p-4 ${snapshot.stats.ready_to_close ? 'border-success/30 bg-success-soft' : 'border-border-soft bg-surface-1'}`}>
-        <div className="flex items-center gap-3"><CheckCircle2 className={`h-5 w-5 shrink-0 ${snapshot.stats.ready_to_close ? 'text-success' : 'text-text-muted'}`} /><div className="min-w-0 flex-1"><strong className="block text-[11px] text-text-primary">Финиш вечера</strong><span className="text-[8px] leading-4 text-text-muted">{snapshot.stats.ready_to_close ? 'Явка заполнена и созданные игры завершены. Можно делать финальную проверку и закрывать вечер.' : snapshot.blockers.map((item) => `${item.label}: ${item.count}`).join(' · ')}</span></div><button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="min-h-9 shrink-0 rounded-[10px] bg-accent px-2.5 text-[9px] font-black text-white">К итогу</button></div>
+      {(deliveryProblems.length > 0 || attendanceAttention > 0) ? <section className="rounded-[18px] border border-warning/20 bg-surface-1 p-3">
+        <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><AlertTriangle className="h-4 w-4" /> Требует уточнения</div>
+        <div className="mt-2 space-y-1.5">
+          {deliveryProblems.length ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'overview')} className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-surface-2 px-3 text-left"><MessageCircle className="h-4 w-4 shrink-0 text-warning" /><span className="min-w-0 flex-1 text-[12px] text-text-secondary">{deliveryProblems.slice(0, 3).map((item) => `${item.nickname}: ${communicationLabel(item.status)}`).join(' · ')}</span><ArrowRight className="h-4 w-4 shrink-0 text-text-muted" /></button> : null}
+          {attendanceAttention ? <button type="button" onClick={() => onOpenEveningSection(snapshot.evening.id, 'management')} className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-surface-2 px-3 text-left"><UserCheck className="h-4 w-4 shrink-0 text-warning" /><span className="min-w-0 flex-1 text-[12px] text-text-secondary">Явка не отмечена: {attendanceAttention}</span><ArrowRight className="h-4 w-4 shrink-0 text-text-muted" /></button> : null}
+        </div>
       </section> : null}
     </>}
 
-    {data?.wrapup ? <section className="rounded-[20px] border border-warning/20 bg-warning-soft/40 p-4">
-      <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-warning" /><div className="min-w-0 flex-1"><div className="text-[9px] font-black uppercase tracking-[0.12em] text-warning">После прошлого вечера</div><h3 className="mt-0.5 truncate text-[13px] font-black text-text-primary">{data.wrapup.evening.title}</h3><p className="mt-1 text-[8px] text-text-muted">{data.wrapup.unpaid.length ? `Не закрыты оплаты: ${data.wrapup.unpaid.length}.` : 'По оплатам всё закрыто.'}</p></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
-      {data.wrapup.unpaid.length ? <div className="mt-3 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex items-center gap-2 rounded-[10px] bg-surface-1 px-2.5 py-2"><span className="min-w-0 flex-1"><strong className="block truncate text-[9px] text-text-primary">{row.nickname}</strong><span className="text-[7px] text-text-muted">осталось {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-8 rounded-[9px] bg-success-soft px-2 text-[8px] font-black text-success disabled:opacity-40">Оплачено</button></div>)}</div> : null}
+    {data?.wrapup?.unpaid.length ? <section className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
+      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">После прошлого вечера</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
+      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">осталось {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
     </section> : null}
   </div>;
 }

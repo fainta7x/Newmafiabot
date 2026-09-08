@@ -20,6 +20,7 @@ import {
   respondToEveningInvitation,
   setHistoricalPlayerReferrer,
 } from '../services/premiumPlayerConnectionsService.ts';
+import { loadSmartFriendInviteSuggestions } from '../services/smartFriendInviteSuggestionService.ts';
 
 const router = Router();
 
@@ -150,6 +151,18 @@ router.get('/profiles/:playerId/connections', async (req, res) => {
     return res.json(await loadProfileConnections(req.db, playerId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить связи игрока' });
+  }
+});
+
+router.get('/friend-invite-suggestions', async (req, res) => {
+  const viewerId = requirePlayerViewer(req, res);
+  if (!viewerId) return;
+  try {
+    const limit = Number(req.query.limit || 4);
+    const suggestions = await loadSmartFriendInviteSuggestions(req.db, viewerId, limit);
+    return res.json({ suggestions });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось подобрать друзей для приглашения' });
   }
 });
 

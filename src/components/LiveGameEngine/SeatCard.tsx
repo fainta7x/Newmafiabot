@@ -56,7 +56,7 @@ interface SeatCardProps {
 }
 
 const getExitLabel = (player: ActivePlayerState): string => {
-  if (player.ppk) return 'ППК';
+  if (player.ppk) return 'Убит';
   if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'Заголосован';
   if (player.removal_reason || player.kick) return 'Удалён';
   return 'Убит';
@@ -116,7 +116,7 @@ export default function SeatCard(props: SeatCardProps) {
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
   const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;
-  const playerStateLabel = player.ppk ? 'ППК' : player.alive ? 'Жив' : getExitLabel(player);
+  const playerStateLabel = player.alive ? 'Жив' : getExitLabel(player);
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -295,10 +295,12 @@ export default function SeatCard(props: SeatCardProps) {
         </div>
       )}
 
+      {player.ppk && (
+        <div className="absolute left-1.5 top-1.5 z-30 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-300" aria-label="ППК">ППК</div>
+      )}
+
       <div className="live-seat-state">
-        {player.ppk ? (
-          <div><div className="live-seat-state__label">Статус</div><div className="live-seat-state__value live-seat-state__value--warning">ППК</div></div>
-        ) : !player.alive ? (
+        {!player.alive ? (
           <div>
             <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
             <div className="live-seat-state__value">{getExitLabel(player)}</div>

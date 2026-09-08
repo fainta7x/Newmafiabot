@@ -11,8 +11,7 @@ const telegramPreviewPlugin = {
   transformIndexHtml() {
     return [{
       tag: 'script',
-      attrs: { type: 'module' },
-      children: `import { initializeTelegramWebAppViewport } from '/src/lib/telegramWebAppViewport.ts';\nimport { initializeCrmPrimaryTitleOwnership } from '/src/lib/crmPrimaryTitleOwnership.ts';\ninitializeTelegramWebAppViewport();\ninitializeCrmPrimaryTitleOwnership();`,
+      attrs: { type: 'module', src: '/src/lib/uiPreviewProductionBootstrap.ts' },
       injectTo: 'head-prepend',
     }];
   },

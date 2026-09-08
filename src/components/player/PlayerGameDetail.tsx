@@ -1,5 +1,6 @@
 import React from 'react';
 import { EVENING_FORMAT_LABELS, normalizeEveningFormat } from '../../lib/eveningFormat.ts';
+import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 export type PlayerGameEloChange = {
   id: string;
@@ -344,17 +345,19 @@ export default function PlayerGameDetail({
                   <div key={`${item.seat_number}:${item.player_id || item.nickname}`} className={`rounded-2xl border p-3 ${isSelf ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-black/20'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-5 shrink-0 text-center text-xs font-semibold text-white/35">{item.seat_number}</div>
-                      {item.avatar_url ? (
-                        <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
-                      ) : (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
-                          {item.nickname.slice(0, 1).toUpperCase()}
+                      <button type="button" disabled={!item.player_id} onClick={() => item.player_id && openCanonicalPlayerProfile(item.player_id)} className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default">
+                        {item.avatar_url ? (
+                          <img src={item.avatar_url} alt={item.nickname} className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10" />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white/65">
+                            {item.nickname.slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div>
+                          <div className="mt-0.5 text-xs text-white/40">{roleLabel(item.role)} · {item.won ? 'победа' : 'поражение'}</div>
                         </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-white">{item.nickname}{isSelf ? ' · вы' : ''}</div>
-                        <div className="mt-0.5 text-xs text-white/40">{roleLabel(item.role)} · {item.won ? 'победа' : 'поражение'}</div>
-                      </div>
+                      </button>
                       <div className="shrink-0 text-right">
                         <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Итого</div>
                         <div className={`text-lg font-semibold ${item.score.total_points > 0 ? 'text-emerald-300' : item.score.total_points < 0 ? 'text-rose-300' : 'text-white/75'}`}>

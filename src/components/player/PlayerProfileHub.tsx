@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import PremiumPlayerProfile from './PremiumPlayerProfile.tsx';
+import PremiumProfileConnections from './PremiumProfileConnections.tsx';
 import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
 import PlayerMusicSlots from './PlayerMusicSlots.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
@@ -13,6 +14,7 @@ export default function PlayerProfileHub({ data, onPlayerChange }: { data: Playe
 
   const ownTools = <>
     <PremiumProfileShowcase playerId={player.id} isSelf />
+    <PremiumProfileConnections playerId={player.id} selfPlayerId={player.id} />
     <PlayerProfileCompletionCard />
     <PlayerVerifiedAwards />
     <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />

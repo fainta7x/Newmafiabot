@@ -12,6 +12,7 @@ import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
+import { ensurePlayerConnectionsSchema } from './db/ensurePlayerConnectionsSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
 import { ensureTelegramDirectMessageSchema } from './db/ensureTelegramDirectMessageSchema.ts';
@@ -121,6 +122,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensurePlayerShopSchema(db);
   await ensureCommerceSchema(db);
   await ensurePlayerBettingSchema(db);
+  await ensurePlayerConnectionsSchema(db);
   await ensureRatingPeriodsSchema(db);
   await ensureTournamentDistanceSchema(db);
   await ensureTournamentGameTokenSchema(db);

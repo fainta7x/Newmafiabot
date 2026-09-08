@@ -23,6 +23,20 @@ type Draft = {
   active: boolean;
 };
 
+type OrganizerNotifications = {
+  configured_recipient_count: number;
+  recipient_source: string;
+  using_backup_fallback: boolean;
+  queue_size: number;
+  latest_success: { message_key: string; sent_at: string; category: string; event_type: string } | null;
+  latest_failure: { message_key: string; last_attempt_at: string | null; last_error: string; category: string; event_type: string } | null;
+};
+
+type RuntimeMonitorInfo = {
+  note?: string;
+  github_secrets_verified?: boolean;
+};
+
 const meta: Record<DestinationId, { eyebrow: string; route: string; topic: boolean }> = {
   public: { eyebrow: 'Вход', route: 'NOVICE + CASUAL · только публичная витрина двух путей', topic: false },
   novice: { eyebrow: 'Новички', route: 'NOVICE → тема «Анонсы игр»', topic: true },
@@ -41,9 +55,17 @@ const request = async (url: string, options?: RequestInit) => {
   return body;
 };
 
+const formatMoment = (value: string | null | undefined) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString('ru-RU') : String(value);
+};
+
 export const TelegramCRM: React.FC = () => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [organizerNotifications, setOrganizerNotifications] = useState<OrganizerNotifications | null>(null);
+  const [runtimeMonitor, setRuntimeMonitor] = useState<RuntimeMonitorInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -55,6 +77,8 @@ export const TelegramCRM: React.FC = () => {
       const body = await request('/api/telegram-settings');
       const rows = (body?.destinations || []) as Destination[];
       setDestinations(rows);
+      setOrganizerNotifications(body?.organizer_notifications || null);
+      setRuntimeMonitor(body?.runtime_monitor || null);
       setDrafts(Object.fromEntries(rows.map((item) => [item.id, {
         chat_id: item.chat_id || '',
         topic_id: item.topic_id ? String(item.topic_id) : '',
@@ -103,6 +127,18 @@ export const TelegramCRM: React.FC = () => {
       setMessage(`Тест отправлен в «${destinations.find((item) => item.id === id)?.name || id}». Проверь Telegram.`);
     } catch (err: any) {
       setError(err?.message || 'Тестовая отправка не удалась');
+    } finally { setBusy(null); }
+  };
+
+  const testOrganizerNotifications = async () => {
+    if (busy) return;
+    setBusy('test-organizer'); setMessage(null); setError(null);
+    try {
+      const result = await request('/api/telegram-settings/actions/test-notification', { method: 'POST' });
+      setMessage(`Тест для организаторов поставлен в очередь: ${Number(result?.queued || 0)} получ.`);
+      await load();
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось поставить тестовое уведомление в очередь');
     } finally { setBusy(null); }
   };
 
@@ -175,6 +211,47 @@ export const TelegramCRM: React.FC = () => {
         >
           <RefreshCw className={`h-4 w-4 ${busy === 'health' ? 'animate-spin' : ''}`} /> Проверить связь без отправки
         </button>
+      </section>
+
+      <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <strong className="text-[14px] text-text-primary">Личные и organizer-уведомления</strong>
+            <p className="mt-1 text-[11px] leading-5 text-text-secondary">
+              Durable outbox хранит состояние доставки и повторяет временные ошибки Telegram без отката основной операции.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-[10px] font-bold text-text-secondary">
+            {organizerNotifications?.configured_recipient_count || 0} получ.
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 text-[10px] leading-4 text-text-secondary sm:grid-cols-2">
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Очередь outbox: <strong className="text-text-primary">{organizerNotifications?.queue_size ?? 0}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Источник организаторов: <strong className="text-text-primary">{organizerNotifications?.recipient_source || 'none'}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя успешная: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_success?.sent_at)}</strong></div>
+          <div className="rounded-[12px] border border-border-soft bg-surface-2 px-3 py-2">Последняя ошибка: <strong className="text-text-primary">{formatMoment(organizerNotifications?.latest_failure?.last_attempt_at)}</strong></div>
+        </div>
+        {organizerNotifications?.latest_failure?.last_error ? (
+          <div className="mt-2 rounded-[12px] border border-danger/20 bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">
+            {organizerNotifications.latest_failure.last_error}
+          </div>
+        ) : null}
+        {organizerNotifications?.using_backup_fallback ? (
+          <div className="mt-2 rounded-[12px] border border-warning/20 bg-warning-soft px-3 py-2 text-[10px] leading-4 text-warning">
+            Используется BACKUP_ADMIN_ID. Это разрешено только явной настройкой ORGANIZER_NOTIFICATION_USE_BACKUP.
+          </div>
+        ) : null}
+        <button
+          type="button"
+          disabled={Boolean(busy) || !organizerNotifications?.configured_recipient_count}
+          onClick={() => void testOrganizerNotifications()}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-accent px-3 text-[11px] font-bold text-white disabled:opacity-40"
+        >
+          <TestTube2 className="h-4 w-4" /> {busy === 'test-organizer' ? 'Ставим в очередь…' : 'Отправить тестовое уведомление организаторам'}
+        </button>
+        <p className="mt-2 text-[10px] leading-4 text-text-muted">
+          {runtimeMonitor?.note || 'GitHub runtime-monitor проверяется отдельно: исправный webhook бота не подтверждает наличие GitHub Actions secrets.'}
+        </p>
       </section>
 
       {message ? <div className="rounded-[14px] bg-success-soft px-4 py-3 text-[12px] text-success">{message}</div> : null}

@@ -6,16 +6,19 @@ load_dotenv()
 # Telegram bot token is supplied only through the environment.
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 
-# ADMIN_IDS from env or fallback
+# ADMIN_IDS controls bot administration only. It is intentionally not reused as
+# the organizer-notification audience.
 ADMIN_IDS_RAW = os.getenv('ADMIN_IDS', '806709593,595795530,1576242455')
 ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(',') if x.strip().isdigit()]
 
 BACKUP_ADMIN_ID = int(os.getenv('BACKUP_ADMIN_ID', '1576242455'))
+ORGANIZER_NOTIFICATION_USE_BACKUP = os.getenv('ORGANIZER_NOTIFICATION_USE_BACKUP', 'False').lower() in ('true', '1', 't', 'yes', 'on')
 ORGANIZER_NOTIFICATION_IDS_RAW = (
     os.getenv('ORGANIZER_NOTIFICATION_IDS', '').strip()
     or os.getenv('ORGANIZER_CHAT_ID', '').strip()
-    or str(BACKUP_ADMIN_ID)
 )
+if not ORGANIZER_NOTIFICATION_IDS_RAW and ORGANIZER_NOTIFICATION_USE_BACKUP:
+    ORGANIZER_NOTIFICATION_IDS_RAW = str(BACKUP_ADMIN_ID)
 ORGANIZER_NOTIFICATION_IDS = [
     int(x.strip()) for x in ORGANIZER_NOTIFICATION_IDS_RAW.split(',') if x.strip().lstrip('-').isdigit()
 ]

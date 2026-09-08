@@ -14,6 +14,7 @@ import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerShopSchema } from './db/ensurePlayerShopSchema.ts';
 import { ensureRatingPeriodsSchema } from './db/ensureRatingPeriodsSchema.ts';
+import { ensureTelegramDirectMessageSchema } from './db/ensureTelegramDirectMessageSchema.ts';
 import { ensureTelegramPublishingSchema } from './db/ensureTelegramPublishingSchema.ts';
 import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSchema.ts';
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
@@ -88,6 +89,8 @@ import vkJoinStateRouter from './server/services/vkJoinStateRouter.ts';
 import vkDirectIntegrationRouter from './server/services/vkDirectIntegrationRouter.ts';
 import { reconcileAllPlayerAchievements } from './server/services/playerAchievementsService.ts';
 import { reconcileAllBettingPools } from './server/services/bettingPoolService.ts';
+import { startPersonalTelegramNotificationWorker } from './server/services/personalTelegramNotificationService.ts';
+import { startTelegramMessageOutboxWorker } from './server/services/telegramMessageOutboxService.ts';
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
 import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOutboxService.ts';
@@ -123,12 +126,17 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTournamentGameTokenSchema(db);
   await ensureAdminDataSchema(db);
   await ensureTelegramPublishingSchema(db);
+  await ensureTelegramDirectMessageSchema(db);
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
-  if (!isTest) startTelegramSyncOutboxWorker(db);
+  if (!isTest) {
+    startTelegramSyncOutboxWorker(db);
+    startTelegramMessageOutboxWorker(db);
+    startPersonalTelegramNotificationWorker(db);
+  }
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
   try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }

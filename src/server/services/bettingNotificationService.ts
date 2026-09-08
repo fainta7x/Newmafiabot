@@ -1,5 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import type { BettingRoleSnapshot } from './bettingPoolService.ts';
+import {
+  enqueueTelegramMessage,
+  getTelegramEntityDeliverySummary,
+  kickTelegramMessageOutbox,
+} from './telegramMessageOutboxService.ts';
 
 const roleLabel = (role: BettingRoleSnapshot['role']) => {
   if (role === 'sheriff') return 'Шериф';
@@ -8,9 +13,35 @@ const roleLabel = (role: BettingRoleSnapshot['role']) => {
   return 'Мирный';
 };
 
+const buildBettingText = (input: {
+  gameId: number;
+  gameNumber: number | null;
+  roleSnapshot: BettingRoleSnapshot[];
+}) => {
+  const red = input.roleSnapshot.filter((item) => item.team === 'red');
+  const black = input.roleSnapshot.filter((item) => item.team === 'black');
+  return [
+    `🎲 <b>СТАВКИ НА ИГРУ №${input.gameNumber || input.gameId}</b>`,
+    '',
+    '🔴 <b>КРАСНЫЕ</b>',
+    ...red.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
+    '',
+    '⚫ <b>ЧЁРНЫЕ</b>',
+    ...black.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
+    '',
+    'Коэффициенты меняются от ставок игроков.',
+    'Окно ставок — 90 секунд после старта игры.',
+  ].join('\n');
+};
+
+/**
+ * Persists one deduplicated message per eligible spectator. Delivery is handled by
+ * the direct-message outbox worker and therefore does not block or roll back game start.
+ */
 export async function notifyBettingSpectators(
   db: DatabaseWrapper,
   input: {
+    poolId: string;
     gameId: number;
     gameNumber: number | null;
     closesAt: string;
@@ -19,59 +50,55 @@ export async function notifyBettingSpectators(
     webAppUrl: string;
   },
 ) {
-  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  if (!token) return { sent: 0, failed: 0, skipped: true, reason: 'telegram_token_missing' };
-
-  const excluded = new Set(input.roleSnapshot.map((item) => item.player_id));
-  if (input.judgePlayerId) excluded.add(input.judgePlayerId);
-  const recipients = await db.all<any>(`
+  const excluded = new Set(input.roleSnapshot.map((item) => String(item.player_id)));
+  if (input.judgePlayerId) excluded.add(String(input.judgePlayerId));
+  const linkedPlayers = await db.all<any>(`
     SELECT id, nickname, telegram_user_id
       FROM players
      WHERE telegram_user_id IS NOT NULL AND TRIM(telegram_user_id) != ''
      ORDER BY nickname COLLATE NOCASE ASC
   `);
+  const recipients = linkedPlayers.filter((recipient: any) => !excluded.has(String(recipient.id)));
+  const text = buildBettingText(input);
 
-  const red = input.roleSnapshot.filter((item) => item.team === 'red');
-  const black = input.roleSnapshot.filter((item) => item.team === 'black');
-  const lines = [
-    `🎲 СТАВКИ НА ИГРУ №${input.gameNumber || input.gameId}`,
-    '',
-    '🔴 КРАСНЫЕ',
-    ...red.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
-    '',
-    '⚫ ЧЁРНЫЕ',
-    ...black.map((item) => `#${item.seat_number} ${item.nickname} — ${roleLabel(item.role)}`),
-    '',
-    'Коэффициенты меняются от ставок игроков. Если все грузят одну сторону, её прибыль стремится к нулю.',
-    'Окно ставок — 90 секунд после старта игры.',
-  ];
-  const text = lines.join('\n');
-
-  let sent = 0;
-  let failed = 0;
   for (const recipient of recipients) {
-    if (excluded.has(String(recipient.id))) continue;
-    try {
-      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: String(recipient.telegram_user_id),
-          text,
-          reply_markup: {
-            inline_keyboard: [[{
-              text: '🎲 Сделать ставку',
-              web_app: { url: input.webAppUrl },
-            }]],
-          },
-        }),
-      });
-      if (response.ok) sent += 1;
-      else failed += 1;
-    } catch {
-      failed += 1;
-    }
+    await enqueueTelegramMessage(db, {
+      messageKey: `betting-open:${input.poolId}:${recipient.id}`,
+      category: 'betting',
+      eventType: 'betting_pool_opened',
+      entityId: input.poolId,
+      playerId: String(recipient.id),
+      chatId: String(recipient.telegram_user_id),
+      text,
+      replyMarkup: {
+        inline_keyboard: [[{
+          text: '🎲 Сделать ставку',
+          web_app: { url: input.webAppUrl },
+        }]],
+      },
+    });
   }
 
-  return { sent, failed, skipped: false };
+  // Durable enqueue happens first; delivery begins immediately and concurrently.
+  kickTelegramMessageOutbox(db);
+  const delivery = await getTelegramEntityDeliverySummary(db, 'betting', input.poolId);
+  console.info('[BETS][TELEGRAM] queued', {
+    pool_id: input.poolId,
+    game_id: input.gameId,
+    eligible_recipients: recipients.length,
+    sent: delivery.sent,
+    failed: delivery.failed,
+  });
+  return {
+    eligible: recipients.length,
+    queued: recipients.length,
+    sent: delivery.sent,
+    failed: delivery.failed,
+    skipped: recipients.length === 0,
+    reason: recipients.length === 0 ? 'zero_eligible_recipients' : null,
+  };
+}
+
+export async function getBettingNotificationDiagnostics(db: DatabaseWrapper, poolId: string) {
+  return getTelegramEntityDeliverySummary(db, 'betting', poolId);
 }

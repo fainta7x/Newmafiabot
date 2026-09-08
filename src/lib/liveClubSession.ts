@@ -10,6 +10,15 @@ export const clubLiveEvidenceKey = (gameId: number | string) => `${clubLiveSessi
 export const clubLiveDeathProtocolKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:death-protocols`;
 export const clubLiveProtocolNotesKey = (gameId: number | string) => `${clubLiveSessionKey(gameId)}:notes`;
 
+let activeClubLiveGameId: number | null = null;
+
+/**
+ * Runtime-only identity of the club game currently mounted in Live Game.
+ * Betting start uses this canonical numeric game id instead of localStorage,
+ * polling or nickname matching. It is intentionally not persisted.
+ */
+export const getActiveClubLiveGameId = (): number | null => activeClubLiveGameId;
+
 export type LiveProtocolEvidence = {
   votes: VotingRound[];
   shots: ShotEntry[];
@@ -157,6 +166,7 @@ export class ClubLiveSessionRecorder {
   mount() {
     if (typeof window === 'undefined' || this.mounted) return;
     this.mounted = true;
+    activeClubLiveGameId = this.gameId;
     this.evidence = parseJson<LiveProtocolEvidence>(localStorage.getItem(this.evidenceKey), { votes: [], shots: [] });
     const scoped = localStorage.getItem(this.sessionKey);
     if (scoped) localStorage.setItem(LEGACY_LIVE_SESSION_KEY, scoped);
@@ -206,10 +216,15 @@ export class ClubLiveSessionRecorder {
     document.removeEventListener('visibilitychange', this.flushWhenHidden);
   }
 
+  private clearActiveIdentity() {
+    if (activeClubLiveGameId === this.gameId) activeClubLiveGameId = null;
+  }
+
   unmount() {
     if (typeof window === 'undefined') return;
     this.sync();
     this.stopLifecycleSync();
+    this.clearActiveIdentity();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);
@@ -220,6 +235,7 @@ export class ClubLiveSessionRecorder {
     if (typeof window === 'undefined') return;
     this.sync();
     this.stopLifecycleSync();
+    this.clearActiveIdentity();
     localStorage.removeItem(LEGACY_LIVE_SESSION_KEY);
     localStorage.removeItem(LEGACY_DEATH_PROTOCOL_KEY);
     localStorage.removeItem(LEGACY_PROTOCOL_NOTES_KEY);

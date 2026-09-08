@@ -30,7 +30,6 @@ export interface ActivePlayerState {
 }
 
 export type Phase = "setup" | "zero_night" | "day_speeches" | "day_voting" | "shootout" | "night";
-
 export type NightSubPhase = "intro" | "shooting" | "don" | "sheriff" | "best_move" | "morning";
 
 export interface LiveGameEngineProps {

@@ -32,6 +32,18 @@ export type ProtocolSavePayload = {
   player_results: PlayerResultData[];
 };
 
+export type ClubGameStartPayload = {
+  roles: Array<{ seat_number: number; role: string }>;
+};
+
+export type ClubGameStartResult = {
+  success: true;
+  created: boolean;
+  idempotent: boolean;
+  pool: any;
+  notification: any;
+};
+
 export type LiveBroadcastConfig = {
   overlay_url: string;
   overlay_path: string;
@@ -246,6 +258,10 @@ export const clubGamesApi = {
     judge_player_id?: string | null;
     seats: Array<{ participant_id: string; seat_number: number; role?: string | null }>;
   }) => request<ClubGameRecord>(`/api/games/evening/${encodeURIComponent(eveningId)}`, { method: 'POST', body: JSON.stringify(data) }),
+  start: (gameId: number, data: ClubGameStartPayload) => request<ClubGameStartResult>(`/api/games/${gameId}/start`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
   getBroadcastConfig: (gameId: number) => request<LiveBroadcastConfig>(`/api/games/${gameId}/broadcast-config`),
   publishBroadcastState: (gameId: number, state: LiveBroadcastState) => request<{ ok: true; received_at: string }>(
     `/api/games/${gameId}/broadcast-state`,

@@ -38,8 +38,8 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'Перейти к голосованию', exact: true }).click();
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #3');
-    await expect(page.locator('.live-judge-hud__context')).toContainText('Нулевой круг');
-    await expect(page.locator('.live-judge-hud__context')).toContainText('Раунд 1');
+    await expect(page.locator('.live-judge-hud__context')).toContainText('День 1');
+    await expect(page.locator('.live-judge-hud__context')).toContainText('Раунд 2');
     await expect(page.locator('.live-judge-voting-focus__candidate')).toContainText('Текущий кандидат#3');
 
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();

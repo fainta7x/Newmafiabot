@@ -3,8 +3,11 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
+router.use(crmReadFreshnessMiddleware);
+
 function getMoscowDateStr(value: string | null | undefined): string | null {
   if (!value || value.trim() === '') return null;
   const date = new Date(value);

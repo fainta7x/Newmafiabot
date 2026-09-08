@@ -38,6 +38,25 @@ describe('player cabinet navigation model', () => {
     expect(isPlayerCabinetNavActive('club', 'profile')).toBe(false);
   });
 
+  it('highlights exactly the open primary destination and none for wallet/profile', () => {
+    const primaryCases = [
+      ['home', 'home'],
+      ['events', 'events'],
+      ['games', 'games'],
+      ['rating', 'rating'],
+      ['club', 'club'],
+    ] as const;
+
+    for (const [section, expectedNav] of primaryCases) {
+      const active = PLAYER_CABINET_NAV.filter((item) => isPlayerCabinetNavActive(item.id, section)).map((item) => item.id);
+      expect(active).toEqual([expectedNav]);
+    }
+
+    for (const section of ['wallet', 'profile'] as const) {
+      expect(PLAYER_CABINET_NAV.some((item) => isPlayerCabinetNavActive(item.id, section))).toBe(false);
+    }
+  });
+
   it('keeps the primary navigation order stable', () => {
     expect(PLAYER_CABINET_NAV.map((item) => item.id)).toEqual(['home', 'events', 'games', 'rating', 'club']);
   });

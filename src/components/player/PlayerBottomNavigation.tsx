@@ -16,7 +16,7 @@ export default function PlayerBottomNavigation({
     <nav
       data-testid="player-bottom-nav"
       aria-label="Основная навигация"
-      className="ds-chrome-bottom fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-2 pb-[max(env(safe-area-inset-bottom),8px)]"
+      className="ds-chrome-bottom fixed inset-x-0 bottom-0 z-[var(--ds-layer-sticky)] border-t px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),8px)]"
     >
       <div className="mx-auto grid w-full max-w-[430px] grid-cols-5 gap-0.5">
         {PLAYER_CABINET_NAV.map((item) => {
@@ -29,8 +29,9 @@ export default function PlayerBottomNavigation({
               type="button"
               onClick={() => onOpen(item.id)}
               aria-current={active ? 'page' : undefined}
-              className={`ds-focus-ring flex min-h-13 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] font-medium transition-colors ${
-                active ? 'ds-nav-active text-white' : 'text-white/40 hover:text-white/65'
+              aria-label={item.label}
+              className={`ds-focus-ring flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[12px] font-semibold leading-none ${
+                active ? 'ds-nav-active text-white' : 'text-white/55 hover:text-white/75'
               }`}
             >
               <span className="text-base leading-none" aria-hidden="true">{item.icon}</span>

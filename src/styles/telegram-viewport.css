@@ -81,19 +81,6 @@ body {
   box-sizing: border-box;
 }
 
-/* OrganizerCRM historically hid its mobile nav at sm while the desktop nav
-   starts only at md. Keep primary navigation reachable across that 640-767px
-   Telegram-landscape band. */
-@media (min-width: 640px) and (max-width: 767px) {
-  .crm-premium nav.organizer-bottom-nav {
-    display: grid !important;
-  }
-
-  .crm-premium > main {
-    padding-bottom: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom) + 12px) !important;
-  }
-}
-
 /* Real production fullscreen layers. Keep the backdrop fullscreen while placing
    interactive content inside Telegram's content-safe rectangle. */
 [data-testid="canonical-player-profile-overlay"],

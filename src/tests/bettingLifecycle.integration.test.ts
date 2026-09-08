@@ -21,7 +21,7 @@ const roles = Array.from({ length: 10 }, (_, index) => ({
 const protocolFor = (gameId: number) => ({
   version: 1,
   kind: 'club_evening_protocol',
-  protocol: { game_id: String(gameId), status: 'draft', winner_team: null },
+  protocol: { game_id: String(gameId), status: 'draft', winner_team: null as 'red' | 'black' | null },
   player_results: Array.from({ length: 10 }, (_, index) => ({
     participant_id: `participant-${index + 1}`,
     player_id: `player-${index + 1}`,
@@ -94,7 +94,7 @@ describe('server-side club betting lifecycle', () => {
       .send({ roles });
     expect(first.status).toBe(201);
     expect(first.body.created).toBe(true);
-    expect(first.body.notifications).toMatchObject({ eligible: 0, sent: 0 });
+    expect(first.body.notification).toMatchObject({ eligible: 0, sent: 0 });
     expect(new Date(first.body.pool.closes_at).getTime() - new Date(first.body.pool.opens_at).getTime()).toBe(90_000);
 
     const repeated = await request(app)
@@ -161,6 +161,14 @@ describe('server-side club betting lifecycle', () => {
     await request(app).post(`/api/games/${gameId}/start`).set('Cookie', organizerCookie).send({ roles }).expect(201);
     await placePoolBet(db, { gameId, playerId: 'spectator-red', team: 'red', amount: 100, requestId: 'red-bet' });
     await placePoolBet(db, { gameId, playerId: 'spectator-black', team: 'black', amount: 100, requestId: 'black-bet' });
+
+    const completed = protocolFor(gameId);
+    completed.protocol.status = 'completed';
+    completed.protocol.winner_team = 'red';
+    await db.run(
+      `UPDATE games SET winner_team = 'Красные', winner_label = 'Красные', protocol_text = ? WHERE id = ?`,
+      [JSON.stringify(completed), gameId],
+    );
 
     const settled = await settleBetPool(db, gameId, 'red');
     expect(settled?.status).toBe('settled');

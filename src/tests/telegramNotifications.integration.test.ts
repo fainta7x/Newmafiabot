@@ -121,7 +121,7 @@ describe('personal and organizer Telegram notifications', () => {
 
   afterEach(async () => {
     // Let any fire-and-forget outbox drain finish before closing the in-memory DB.
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 10); });
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value == null) delete process.env[key]; else process.env[key] = value;
     }

@@ -71,6 +71,13 @@ describe('player profile privacy regression', () => {
     expect(response.body.player.telegram_username).toBeUndefined();
   });
 
+  it('preserves an existing legacy birthday choice until canonical birthday keys are explicitly saved', async () => {
+    await db.run("UPDATE players SET profile_visibility_json='{}', birthday_visibility='day_month' WHERE id=?",['privacy-player']);
+    const response = await request(app).get('/api/public/players/privacy-player/profile');
+    expect(response.status).toBe(200);
+    expect(response.body.player.birthday).toEqual({ day: 8, month: 9, year: null });
+  });
+
   it('keeps legacy birthday_visibility synchronized with canonical settings', async () => {
     const response = await request(app)
       .patch('/api/player/privacy-settings')
@@ -80,6 +87,20 @@ describe('player profile privacy regression', () => {
     const row = await db.get<any>('SELECT birthday_visibility,profile_visibility_json FROM players WHERE id=?',['privacy-player']);
     expect(row.birthday_visibility).toBe('day_month');
     expect(JSON.parse(row.profile_visibility_json).birth_year).toBe(false);
+  });
+
+  it('synchronizes legacy profile-settings birthday writes back into the canonical mask', async () => {
+    await db.run("UPDATE players SET profile_visibility_json='{}', birthday_visibility='private' WHERE id=?",['privacy-player']);
+    const response = await request(app)
+      .patch('/api/player/me')
+      .set('Cookie', cookie)
+      .send({ birthday_visibility: 'full' });
+    expect(response.status).toBe(200);
+    const row = await db.get<any>('SELECT birthday_visibility,profile_visibility_json FROM players WHERE id=?',['privacy-player']);
+    const visibility = JSON.parse(row.profile_visibility_json);
+    expect(row.birthday_visibility).toBe('full');
+    expect(visibility.birthday_day_month).toBe(true);
+    expect(visibility.birth_year).toBe(true);
   });
 
   it('does not leak Elo/rank from another player summary when game statistics are private', async () => {

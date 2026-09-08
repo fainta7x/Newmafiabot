@@ -66,14 +66,19 @@ body {
   padding-bottom: max(16px, var(--app-content-bottom)) !important;
 }
 
+/* Keep fixed navigation backdrops full-width, but place every interactive item
+   inside Telegram's horizontal content-safe rectangle. */
 .organizer-bottom-nav,
 [data-testid="player-bottom-nav"] {
   bottom: 0 !important;
-  left: var(--tg-content-safe-area-left) !important;
-  right: var(--tg-content-safe-area-right) !important;
+  left: 0 !important;
+  right: 0 !important;
   width: auto !important;
+  padding-left: var(--tg-content-safe-area-left) !important;
+  padding-right: var(--tg-content-safe-area-right) !important;
   padding-bottom: max(8px, var(--tg-content-safe-area-bottom)) !important;
   min-height: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom)) !important;
+  box-sizing: border-box;
 }
 
 /* Real production fullscreen layers. Keep the backdrop fullscreen while placing
@@ -104,10 +109,6 @@ body {
   padding-top: 12px !important;
   padding-right: 16px !important;
   padding-left: 16px !important;
-}
-
-[data-testid="canonical-player-profile-overlay"] .profile-sticky-tabs {
-  top: 72px !important;
 }
 
 .live-player-action-sheet,

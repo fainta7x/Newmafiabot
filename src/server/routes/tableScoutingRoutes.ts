@@ -4,9 +4,11 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
+router.use(crmReadFreshnessMiddleware);
 
 const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 

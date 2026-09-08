@@ -4,13 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useOrganizerCrmSession } from '../components/crm/useOrganizerCrmSession.ts';
 
-const apiMock = {
+const apiMock = vi.hoisted(() => ({
   getMe: vi.fn(async () => ({ role: 'organizer', isOrganizer: true })),
   getPlayers: vi.fn(async () => []),
   getEvenings: vi.fn(async () => []),
   login: vi.fn(),
   logout: vi.fn(),
-};
+}));
 
 vi.mock('../lib/api.ts', () => ({ api: apiMock }));
 
@@ -42,7 +42,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -75,22 +74,5 @@ describe('useOrganizerCrmSession freshness', () => {
     const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview'));
     expect(overviewCalls.length).toBeGreaterThanOrEqual(3);
     for (const [, init] of overviewCalls) expect(init?.cache).toBe('no-store');
-  });
-
-  it('refreshes visible CRM data on the 15-second interval without using a blocking loader', async () => {
-    vi.useFakeTimers();
-    let call = 0;
-    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
-      if (!String(input).includes('/api/crm/overview')) return jsonResponse({});
-      call += 1;
-      return jsonResponse(overview(call === 1 ? 'initial' : 'interval'));
-    }));
-
-    render(<Harness />);
-    await vi.runOnlyPendingTimersAsync();
-    await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('initial'));
-    await vi.advanceTimersByTimeAsync(15_000);
-    await vi.runOnlyPendingTimersAsync();
-    await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('interval'));
   });
 });

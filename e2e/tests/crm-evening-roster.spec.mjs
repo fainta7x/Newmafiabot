@@ -54,11 +54,12 @@ for (const width of [360, 390]) {
       await sheet.getByRole('button', { name: 'Добавить · 1', exact: true }).click();
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
+      await expect(manualRow).toContainText('В составе');
       await expect(manualRow).toContainText('RSVP: Нет ответа');
       await expect(manualRow).toContainText('Явка: не отмечена');
       const manualBody = await page.evaluate(() => JSON.parse(document.body.dataset.bulkParticipantBody || '{}'));
       expect(manualBody.response_status).toBe('unanswered');
-      expect(manualBody.registration_status).toBe('registered');
+      expect(manualBody.registration_status).toBe('unanswered');
       await attachViewport(page, testInfo, `crm-manual-rsvp-${width}.png`);
 
       await nav.getByRole('button', { name: 'Оплата', exact: true }).click();

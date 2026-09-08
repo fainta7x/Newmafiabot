@@ -1,0 +1,68 @@
+/* Mobile-only Live Game layout: the judge working surface gets priority over seat-card geometry. */
+@media (max-width: 767px) {
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: 84px minmax(286px, 1fr) 84px 84px !important;
+  }
+
+  /* Preserve the table's clockwise seat order while giving the HUD one full-width row. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(9)  { grid-column: 1 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(10) { grid-column: 2 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(1)  { grid-column: 3 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(2)  { grid-column: 4 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    min-height: 286px !important;
+  }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 4 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(7)  { grid-column: 1 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(6)  { grid-column: 2 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(5)  { grid-column: 3 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(4)  { grid-column: 4 !important; grid-row: 4 !important; }
+
+  /* The CRM avatar/name overlay mirrors the same four-row geometry. */
+  html body .evening-live-engine-shell .evening-live-identity-layer {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: 84px minmax(286px, 1fr) 84px 84px !important;
+  }
+
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="9"]  { grid-column: 1 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="10"] { grid-column: 2 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="1"]  { grid-column: 3 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="2"]  { grid-column: 4 !important; grid-row: 1 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="8"]  { grid-column: 1 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="3"]  { grid-column: 4 !important; grid-row: 3 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="7"]  { grid-column: 1 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="6"]  { grid-column: 2 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="5"]  { grid-column: 3 !important; grid-row: 4 !important; }
+  html body .evening-live-engine-shell .evening-live-identity[data-seat="4"]  { grid-column: 4 !important; grid-row: 4 !important; }
+
+  /* Essential voting labels stay readable even on 360px phones. */
+  html body .evening-live-engine-shell .live-judge-hud__context,
+  html body .evening-live-engine-shell .live-judge-voting-order__label,
+  html body .evening-live-engine-shell .live-judge-voting-order__seat,
+  html body .evening-live-engine-shell .live-judge-voter-state,
+  html body .evening-live-engine-shell .live-judge-vote-actions .live-judge-action {
+    font-size: 12px !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__body {
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll {
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-vote-actions {
+    margin-top: auto !important;
+  }
+
+  html body .evening-live-engine-shell .live-judge-vote-actions .live-judge-action {
+    min-height: 44px !important;
+  }
+}

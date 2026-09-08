@@ -19,7 +19,7 @@ describe('premium player profile API', () => {
       id,nickname,full_name,telegram_user_id,telegram_username,phone,contact_status,lifecycle_status,game_level,club_role,elo,tokens,created_at,updated_at,profile_visibility_json
     ) VALUES
       ('p1','Очень длинный ник игрока для мобильного профиля','Private Name','111','private_tg','+7 999 000-00-01','normal','normal','club','captain',1100,0,?,?,'{}'),
-      ('p2','Viewer',NULL,'222','viewer',NULL,'normal','normal','club',NULL,1000,0,?,?,'{}')`, [stamp, stamp, stamp, stamp]);
+      ('p2','Viewer',NULL,'222','viewer',NULL,'normal','normal','club','member',1000,0,?,?,'{}')`, [stamp, stamp, stamp, stamp]);
     p1Cookie = `player_token=${generatePlayerSessionToken('p1')}`;
     p2Cookie = `player_token=${generatePlayerSessionToken('p2')}`;
   });

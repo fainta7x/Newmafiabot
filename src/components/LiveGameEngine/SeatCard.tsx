@@ -116,7 +116,7 @@ export default function SeatCard(props: SeatCardProps) {
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
   const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;
-  const playerStateLabel = player.alive ? 'Жив' : getExitLabel(player);
+  const playerStateLabel = player.ppk ? 'Убит' : player.alive ? 'Жив' : getExitLabel(player);
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -300,7 +300,7 @@ export default function SeatCard(props: SeatCardProps) {
       )}
 
       <div className="live-seat-state">
-        {!player.alive ? (
+        {player.ppk || !player.alive ? (
           <div>
             <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
             <div className="live-seat-state__value">{getExitLabel(player)}</div>

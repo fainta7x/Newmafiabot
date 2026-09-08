@@ -40,7 +40,7 @@ describe('CanonicalPremiumPlayerProfile', () => {
 
     expect(await screen.findByText('Новый игрок')).toBeDefined();
     resolveOld(new Response(JSON.stringify(summary('old', 'Старый игрок')), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
     expect(screen.queryByText('Старый игрок')).toBeNull();
     expect(screen.getByText('Новый игрок')).toBeDefined();
   });

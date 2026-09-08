@@ -27,9 +27,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Shared application shells. Telegram viewportHeight tracks the keyboard and
-   partial collapse while stableHeight prevents a transient collapse becoming
-   the permanent minimum geometry. */
 .player-cabinet-shell,
 .crm-premium,
 [data-testid="live-game-engine"] {
@@ -42,7 +39,6 @@ body {
   padding-right: var(--tg-content-safe-area-right);
 }
 
-/* Fixed/sticky application chrome lives inside Telegram's content-safe rect. */
 .player-quick-access-bar,
 .crm-premium-header {
   top: var(--tg-content-safe-area-top) !important;
@@ -67,8 +63,6 @@ body {
   min-height: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom)) !important;
 }
 
-/* Canonical full-screen overlays use one shared viewport contract instead of
-   independent 82/88/100vh guesses. */
 [data-testid="canonical-player-profile-overlay"],
 [data-app-overlay="fullscreen"],
 [role="dialog"]:has(> [data-mobile-sheet]),
@@ -87,7 +81,6 @@ body {
   overscroll-behavior: contain;
 }
 
-/* Sticky profile tabs and sticky modal actions remain below app/Telegram chrome. */
 [data-profile-sticky-tabs],
 .profile-sticky-tabs {
   top: var(--app-content-top) !important;
@@ -98,8 +91,6 @@ body {
   bottom: var(--tg-content-safe-area-bottom) !important;
 }
 
-/* Generic dialogs/sheets can opt into these primitives without inventing their
-   own viewport constants. */
 .app-viewport-modal {
   max-height: var(--app-usable-height);
   overflow: auto;
@@ -112,6 +103,17 @@ body {
 
 .app-top-safe {
   padding-top: var(--app-content-top) !important;
+}
+
+/* The CRM shell is the sole primary title owner. Legacy child screens keep
+   their description, filters and actions, while the repeated heading itself
+   takes no visual or accessibility space. */
+.crm-premium [data-crm-duplicate-primary-title="true"] {
+  display: none !important;
+}
+
+.crm-premium :has(> [data-crm-duplicate-primary-title="true"]) > p:first-of-type {
+  margin-top: 0 !important;
 }
 
 @media (max-width: 639px) {

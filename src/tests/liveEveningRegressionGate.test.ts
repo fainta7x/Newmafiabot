@@ -36,6 +36,6 @@ describe('real-table live evening regression gate', () => {
     expect(liveCss).toContain('.live-seat-quick-action--nomination {');
     expect(liveCss).toContain('.live-seat-quick-action--nomination-active {');
     expect(liveCss).toContain('color: #ffe0e7 !important;');
-    expect(liveCss).toContain('color: rgba(255, 255, 255, 0.42) !important;');
+    expect(liveCss).toContain('color: rgba(255, 255, 255, 0.52) !important;');
   });
 });

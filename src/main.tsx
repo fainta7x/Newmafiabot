@@ -17,6 +17,7 @@ import "./components/crm/liveGameRecoveryPolish.css";
 import "./components/crm/liveGameDeathProtocolCabinet.css";
 import "./components/crm/liveGameTelegram.css";
 import "./components/crm/liveGameUrgentResume.css";
+import "./components/crm/liveGameMobileGeometryV6.css";
 import "./components/public/liveBroadcastCompact.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

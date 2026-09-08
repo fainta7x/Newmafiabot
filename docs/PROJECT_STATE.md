@@ -2,9 +2,9 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-07
+**Status date:** 2026-09-08
 
-**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #261. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #268. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -122,7 +122,11 @@ Recent reliability/UX work includes:
 - closed-evening payment edits remain available through the canonical payment service;
 - repeated payment/pricing reconciliation is idempotent and must not create duplicate financial ledger rows;
 - closeout distinguishes planned response from factual attendance;
-- active-evening operations use a compact one-row mobile navigation and avoid duplicate arrived-status text;
+- active-evening operations use compact primary navigation, with secondary tasks/tables/closeout grouped behind a mobile-friendly More action;
+- Today prioritizes organizer attention items instead of passive empty dashboard space;
+- event type/period/view/format filters remain available without presenting every filter layer at equal visual priority;
+- manually added/check-in participants remain in the working roster without fabricating a positive RSVP response;
+- closeout is presented as an attendance/payments/games/blockers checklist while retaining existing safeguards and exact blocker reasons;
 - next-game preparation stays inside the active Evening workspace instead of forcing a navigation detour;
 - Players quick segments and exact activity filters are mutually consistent, expose truthful active state, and use a fixed 3+2 phone grid rather than a horizontal micro-scroll;
 - opening a player profile no longer performs a redundant hidden full-list request, and creating a manual player refreshes the visible Players list immediately;
@@ -156,12 +160,17 @@ The real club launcher currently provides:
 
 - roster confirmation before role dealing;
 - roles hidden by default with manual reveal, including the bare-engine fallback;
-- phase-aware day/night/voting flow with clearer phase-step labels;
-- voting order fitted into the fixed mobile center cell without nested scrolling and a visible voting CTA on narrow phones;
+- phase-aware day/night/voting flow with explicit phase-step labels plus visible day/night and round context;
+- a phone-first judge HUD that receives a dedicated full-width working row instead of being squeezed by player cards;
+- voting hierarchy that separates current candidate, assigned votes, remaining votes, assigned voters and the exact next action without a nested voting scroll area;
+- explicit voting/transition actions such as next candidate, finish voting, next speech, start revote and go to night;
+- the automatic final-candidate vote remainder remains explicit before the judge commits the voting result;
 - editable vote assignment: a voter can be moved directly between candidates, and undo restores an editable voting state;
+- destructive confirmation remains limited to genuinely consequential transitions rather than routine hosting actions;
 - repeated split/revote speeches only once per unchanged disputed set;
 - exact raise/leave table-decision voter selections survive snapshot undo/recovery instead of being reconstructed from aggregate input;
 - player actions and fouls available throughout active play where appropriate, including direct removal/PPK after a player leaves the table and PPK after removal;
+- alive/killed/voted-out/removed state is textual as well as visual, while PPK remains a separate discipline marker and does not overwrite the canonical killed/removed state;
 - night shot/Don/Sheriff markers scoped to their actual subphase;
 - consistent Undo snapshots across voting, zero round and best-move/protocol overlays;
 - actual day-starter rotation based on the previous **actual** starter, skipping absent/dead seats;
@@ -216,7 +225,7 @@ Runtime credentials and callback state must be checked when a requested flow dep
 
 ## Recent real-world validation
 
-The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues; the requested follow-up audit has since addressed the confirmed navigation, mobile density, player-list consistency, rating-entry and Live Game recovery/readability issues in focused regression-tested PRs.
+The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues; the requested follow-up audit has since addressed the confirmed Player Cabinet navigation/information architecture, CRM organizer workflow, RSVP truth, mobile density, rating-entry and Live Game voting/readability issues in focused regression-tested PRs.
 
 This real-world success is useful evidence, but it is not a substitute for targeted regression tests or runtime verification after a new deploy. The next meaningful validation step is a manual pass against the current merged `main` after deployment.
 

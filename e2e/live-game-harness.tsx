@@ -19,6 +19,7 @@ import '../src/components/crm/liveGameNightReadability.css';
 import '../src/components/crm/liveGameTelegram.css';
 import '../src/components/crm/liveGameRecoveryPolish.css';
 import '../src/components/crm/liveGameDeathProtocolCabinet.css';
+import '../src/components/crm/liveGameMobileGeometryV6.css';
 
 const AUDIT_MODE = new URLSearchParams(window.location.search).get('mode') === 'audit';
 const RECOVERY_MODE = new URLSearchParams(window.location.search).get('mode') === 'recovery';

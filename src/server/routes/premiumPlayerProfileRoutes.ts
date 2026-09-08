@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPlayerSessionId } from '../auth.ts';
+import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import {
   loadPremiumProfileElo,
   loadPremiumProfileGames,
@@ -7,6 +7,11 @@ import {
   loadPremiumProfileSummary,
   type PremiumProfileRange,
 } from '../services/premiumPlayerProfileService.ts';
+import {
+  createVerifiedClubMilestone,
+  loadPremiumProfileShowcase,
+  setPinnedVerifiedAwards,
+} from '../services/premiumPlayerProfileShowcaseService.ts';
 
 const router = Router();
 
@@ -85,6 +90,42 @@ router.get('/profiles/:playerId/elo', async (req, res) => {
     return res.json(await loadPremiumProfileElo(req.db, playerId, range));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить историю Elo' });
+  }
+});
+
+router.get('/profiles/:playerId/showcase', async (req, res) => {
+  const viewerId = requireViewer(req, res);
+  if (!viewerId) return;
+  try {
+    const playerId = String(req.params.playerId);
+    const access = await canViewPlayer(req.db, playerId);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+    return res.json(await loadPremiumProfileShowcase(req.db, playerId, viewerId === playerId));
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить награды и историю клуба' });
+  }
+});
+
+router.patch('/profiles/:playerId/awards/pins', async (req, res) => {
+  const viewerId = requireViewer(req, res);
+  if (!viewerId) return;
+  const playerId = String(req.params.playerId);
+  if (viewerId !== playerId) return res.status(403).json({ error: 'Закреплять награды можно только в своём профиле' });
+  try {
+    const awardIds = Array.isArray(req.body?.award_ids) ? req.body.award_ids.map(String) : [];
+    const awards = await setPinnedVerifiedAwards(req.db, playerId, awardIds);
+    return res.json({ success: true, awards });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Не удалось закрепить награды' });
+  }
+});
+
+router.post('/profiles/:playerId/milestones', requireOrganizerAuth, async (req, res) => {
+  try {
+    const milestone = await createVerifiedClubMilestone(req.db, String(req.params.playerId), req.body, 'organizer');
+    return res.status(201).json({ milestone });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Не удалось добавить этап клубной истории' });
   }
 });
 

@@ -57,6 +57,7 @@ interface Props {
   onCreateEvening: () => void;
   onCompleteTask?: (taskId: string) => void | Promise<void>;
   onRefresh?: () => void | Promise<void>;
+  showTitle?: boolean;
 }
 
 const formatDateTime = (value: string | null) => {
@@ -79,6 +80,7 @@ export default function OrganizerCommandCenter({
   onNavigateTab,
   onCreateEvening,
   onRefresh,
+  showTitle = true,
 }: Props) {
   const [data, setData] = useState<CommandCenterResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,7 @@ export default function OrganizerCommandCenter({
   return <div className="mx-auto w-full max-w-3xl space-y-3">
     <div data-testid="crm-today-header" className="flex items-center justify-between gap-3 px-0.5">
       <div className="min-w-0">
-        <h2 className="text-[22px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2>
+        {showTitle ? <h2 className="text-[22px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2> : null}
         <p className="mt-1 text-[13px] leading-5 text-text-secondary">Только текущий вечер и действия, которые требуют внимания.</p>
       </div>
       <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className="h-4 w-4" /></button>

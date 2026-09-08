@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { validateBirthday, validatePhone } from '../services/playerProfileIntegrityService.ts';
+import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const cleanNullable = (value: unknown, maxLength: number) => {
 };
 
 const PROFILE_SELECT = `id, nickname, full_name, phone, telegram_user_id, telegram_username, game_level, club_role,
-  preferred_format, birth_day, birth_month, birth_year, birthday_visibility, profile_field_status_json,
+  preferred_format, birth_day, birth_month, birth_year, birthday_visibility, profile_visibility_json, profile_field_status_json,
   profile_checked_at, profile_updated_at, elo, tokens, updated_at`;
 
 router.get('/profile-settings', async (req, res) => {
@@ -28,6 +29,7 @@ router.get('/profile-settings', async (req, res) => {
   if (!playerId) return;
   try {
     const db = req.db;
+    await ensurePlayerProfileVisibilitySchema(db);
     const player = await db.get(`SELECT ${PROFILE_SELECT} FROM players WHERE id = ? LIMIT 1`, [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ player });
@@ -41,6 +43,7 @@ router.patch('/me', async (req, res) => {
   if (!playerId) return;
   try {
     const db = req.db;
+    await ensurePlayerProfileVisibilitySchema(db);
     const existing = await db.get<any>(`SELECT ${PROFILE_SELECT} FROM players WHERE id = ? LIMIT 1`, [playerId]);
     if (!existing) return res.status(404).json({ error: 'Игрок не найден' });
 
@@ -75,7 +78,11 @@ router.patch('/me', async (req, res) => {
     if (has('birthday_visibility')) {
       const visibility = String(req.body?.birthday_visibility || 'private');
       if (!['private', 'day_month', 'full'].includes(visibility)) return res.status(400).json({ error: 'Некорректная настройка видимости дня рождения' });
-      fields.push('birthday_visibility = ?'); values.push(visibility);
+      const canonicalVisibility = parsePlayerProfileVisibility(existing.profile_visibility_json, existing.birthday_visibility);
+      canonicalVisibility.birthday_day_month = visibility !== 'private';
+      canonicalVisibility.birth_year = visibility === 'full';
+      fields.push('birthday_visibility = ?', 'profile_visibility_json = ?');
+      values.push(visibility, JSON.stringify(canonicalVisibility));
     }
 
     if (has('sensitive_field_choice')) {

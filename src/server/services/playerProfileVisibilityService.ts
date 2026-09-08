@@ -22,13 +22,16 @@ export const DEFAULT_PLAYER_PROFILE_VISIBILITY: PlayerProfileVisibility = {
   connections: true,
 };
 
-export const parsePlayerProfileVisibility = (raw: unknown): PlayerProfileVisibility => {
+export const parsePlayerProfileVisibility = (raw: unknown, legacyBirthdayVisibility?: unknown): PlayerProfileVisibility => {
   let value: Record<string, unknown> = {};
   try { value = JSON.parse(String(raw || '{}')); } catch { value = {}; }
+  const legacy = String(legacyBirthdayVisibility || 'private');
+  const hasBirthdayDayMonth = Object.prototype.hasOwnProperty.call(value, 'birthday_day_month');
+  const hasBirthYear = Object.prototype.hasOwnProperty.call(value, 'birth_year');
   return {
     real_name: value.real_name === true,
-    birthday_day_month: value.birthday_day_month === true,
-    birth_year: value.birth_year === true,
+    birthday_day_month: hasBirthdayDayMonth ? value.birthday_day_month === true : legacy === 'day_month' || legacy === 'full',
+    birth_year: hasBirthYear ? value.birth_year === true : legacy === 'full',
     telegram_username: value.telegram_username === true,
     phone: value.phone === true,
     game_statistics: value.game_statistics !== false,

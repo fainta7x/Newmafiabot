@@ -64,7 +64,13 @@ router.get('/profiles/:playerId/summary', async (req, res) => {
     const playerId = String(req.params.playerId);
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
-    return res.json(await loadPremiumProfileSummary(req.db, playerId, viewer.viewerId, viewer.organizer));
+    const summary = await loadPremiumProfileSummary(req.db, playerId, viewer.viewerId, viewer.organizer);
+    if (!featureVisible(access.row, viewer, playerId, 'game_statistics')) {
+      summary.player.elo = null as any;
+      summary.player.rating_position = null as any;
+      summary.player.rating_movement_30d = null as any;
+    }
+    return res.json(summary);
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить профиль' });
   }

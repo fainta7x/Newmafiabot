@@ -43,6 +43,13 @@ type InvitationEvening = {
   existing_invitation?: { id: string; status: string; created_at: string } | null;
 };
 
+type InvitationContext = {
+  can_invite: boolean;
+  reason?: string | null;
+  recipient_state?: 'available' | 'registered' | 'reserve' | 'unavailable' | 'self' | string;
+  evenings: InvitationEvening[];
+};
+
 type IncomingInvitation = {
   id: string;
   evening_id: string;
@@ -64,6 +71,16 @@ const inviteStateLabel = (state?: InvitationState) => ({
   sender_limit: 'Лимит приглашений исчерпан',
   unavailable_format: 'Формат недоступен',
 }[state || 'eligible'] || 'Недоступно');
+
+const unavailableReasonLabel = (context: InvitationContext) => {
+  if (context.recipient_state === 'unavailable' || String(context.reason || '').startsWith('recipient_') || context.reason === 'player_not_found') return 'Игрок недоступен для приглашения';
+  if (context.reason === 'registered') return 'Игрок уже записан';
+  if (context.reason === 'reserve') return 'Игрок уже в резерве';
+  if (context.reason === 'sender_limit') return 'Лимит приглашений исчерпан';
+  if (context.reason === 'unavailable_format') return 'Подходящий формат недоступен';
+  if (context.reason === 'registration_closed') return 'Регистрация закрыта';
+  return 'Сейчас нет доступного вечера для приглашения';
+};
 
 function openPlayerProfile(playerId: string) {
   const path = `/player/players/${encodeURIComponent(playerId)}`;
@@ -98,7 +115,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   const [invitedBy, setInvitedBy] = useState<ReferralPlayer | null>(null);
   const [invitedPlayers, setInvitedPlayers] = useState<ReferralPlayer[]>([]);
   const [connectionsError, setConnectionsError] = useState('');
-  const [context, setContext] = useState<{ can_invite: boolean; reason?: string | null; evenings: InvitationEvening[] } | null>(null);
+  const [context, setContext] = useState<InvitationContext | null>(null);
   const [inbox, setInbox] = useState<IncomingInvitation[]>([]);
   const [selectedEveningId, setSelectedEveningId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -136,7 +153,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         return stillExists ? current : firstAvailable?.id || body.evenings?.[0]?.id || '';
       });
     } catch {
-      setContext({ can_invite: false, reason: 'unavailable', evenings: [] });
+      setContext({ can_invite: false, reason: 'unavailable', recipient_state: 'unavailable', evenings: [] });
+      setSelectedEveningId('');
     }
   };
 
@@ -152,7 +170,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   };
 
   useEffect(() => { void loadConnections(); }, [playerId]);
-  useEffect(() => { void (isSelf ? loadInbox() : loadInviteContext()); }, [playerId, selfPlayerId]);
+  useEffect(() => { setContext(null); setSelectedEveningId(''); void (isSelf ? loadInbox() : loadInviteContext()); }, [playerId, selfPlayerId]);
 
   const selectedEvening = useMemo(() => context?.evenings.find((item) => item.id === selectedEveningId) || null, [context, selectedEveningId]);
   const selectedState = selectedEvening?.existing_invitation ? 'already_invited' : selectedEvening?.state || 'eligible';
@@ -236,7 +254,7 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       ) : null}
 
       {!isSelf && context?.evenings?.length ? (
-        <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+        <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4" data-testid="invitation-picker">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
           <h2 className="mt-1 text-base font-semibold">Пригласить на игровой вечер</h2>
           <p className="mt-1 text-xs leading-5 text-white/40">Показываем только вечера, на которые ты уже идёшь. Состояние записи игрока проверяется перед отправкой.</p>
@@ -249,6 +267,14 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
           {selectedEvening ? <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span className="text-white/35">{selectedEvening.venue || 'Площадка не указана'}</span><span className={selectedState === 'eligible' ? 'text-emerald-200/65' : 'text-white/35'}>{inviteStateLabel(selectedState)}</span></div> : null}
           <button type="button" disabled={busy || !canSendSelected} onClick={() => void sendInvitation()} className="mt-3 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-35">{busy ? 'Отправляем…' : selectedState === 'eligible' ? 'Позвать на этот вечер' : inviteStateLabel(selectedState)}</button>
           <p className="mt-2 text-[11px] leading-4 text-white/30">Приглашение появится в приложении и уйдёт в Telegram, если он привязан. Оно не создаёт запись автоматически.</p>
+        </div>
+      ) : null}
+
+      {!isSelf && context && context.evenings.length === 0 ? (
+        <div data-testid="invitation-unavailable-state" className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Приглашение</div>
+          <h2 className="mt-1 text-base font-semibold">{unavailableReasonLabel(context)}</h2>
+          <p className="mt-1 text-xs leading-5 text-white/40">Кнопка отправки недоступна, пока сервер не вернёт состояние «Можно пригласить». Приглашение само по себе никогда не создаёт запись на вечер.</p>
         </div>
       ) : null}
 

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
+import { normalizeCanonicalEveningResponse } from '../../lib/eveningDomain.ts';
 import { ensurePremiumPlayerConnectionsSchema } from './premiumPlayerConnectionsService.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
 
@@ -41,7 +42,8 @@ export async function loadInvitationContextsForRecipients(
 
   const evenings = inviter ? await db.all<any>(`
     SELECT e.id,e.title,e.starts_at,e.venue,e.format,e.status,e.settled_at,
-           iep.response_status AS inviter_response, iep.registration_status AS inviter_registration
+           iep.response_status AS inviter_response, iep.registration_status AS inviter_registration,
+           iep.arrival_status AS inviter_arrival
       FROM game_evenings e
       JOIN evening_participants iep ON iep.evening_id=e.id AND iep.player_id=?
      WHERE e.settled_at IS NULL AND datetime(e.starts_at)>=datetime('now','-6 hours')
@@ -51,7 +53,7 @@ export async function loadInvitationContextsForRecipients(
   const eveningIds = evenings.map((row:any) => String(row.id));
 
   const participantRows = eveningIds.length ? await db.all<any>(`
-    SELECT evening_id,player_id,response_status,registration_status
+    SELECT evening_id,player_id,response_status,registration_status,arrival_status
       FROM evening_participants
      WHERE evening_id IN (${placeholders(eveningIds)}) AND player_id IN (${placeholders(ids)})
   `,[...eveningIds,...ids]) : [];
@@ -76,16 +78,20 @@ export async function loadInvitationContextsForRecipients(
     if (unavailableRecipient(recipient.status)) { result.set(id,{can_invite:false,reason:`recipient_${String(recipient.status).toLowerCase()}`,recipient_state:'unavailable',evenings:[]}); continue; }
 
     const payload = evenings
-      .filter((row:any) => ['going','late'].includes(String(row.inviter_response||'')) && playerLevelAllowsEveningFormat(inviter.game_level,row.format))
+      .filter((row:any) => {
+        const inviterResponse = normalizeCanonicalEveningResponse(row.inviter_response || row.inviter_registration, row.inviter_arrival);
+        return ['going','late'].includes(inviterResponse) && playerLevelAllowsEveningFormat(inviter.game_level,row.format);
+      })
       .map((row:any) => {
         const ep = participantMap.get(`${row.id}:${id}`);
         const existing = invitationMap.get(`${row.id}:${id}`) || null;
-        const response = String(ep?.response_status || '');
-        const registration = String(ep?.registration_status || '').toLowerCase();
+        const registration = String(ep?.registration_status || '').trim().toLowerCase();
+        const rawResponse = String(ep?.response_status || '').trim();
+        const response = normalizeCanonicalEveningResponse(rawResponse || registration, ep?.arrival_status);
         let state: InvitationEveningState = 'eligible';
         if (String(row.status) !== 'published') state='registration_closed';
-        else if (['going','late'].includes(response) || registration==='registered') state='registered';
-        else if (['reserve','waitlist','waiting'].includes(registration) || response==='reserve') state='reserve';
+        else if (response === 'going' || response === 'late') state='registered';
+        else if (registration === 'reserve' || registration === 'waiting' || rawResponse.toLowerCase() === 'reserve') state='reserve';
         else if (existing) state='already_invited';
         else if (!playerLevelAllowsEveningFormat(recipient.game_level,row.format)) state='unavailable_format';
         else if (Number(countMap.get(String(row.id))||0)>=5) state='sender_limit';
@@ -93,7 +99,7 @@ export async function loadInvitationContextsForRecipients(
       });
     const eligible = payload.some((item) => item.state==='eligible');
     const reason = eligible ? null : payload.length ? payload[0].state : 'no_active_evening';
-    result.set(id,{can_invite:eligible,reason,recipient_state:reason==='registered'?'registered':reason==='reserve'?'reserve':'available',evenings:payload});
+    result.set(id,{can_invite:eligible,reason,recipient_state:unavailableRecipient(recipient.status)?'unavailable':reason==='registered'?'registered':reason==='reserve'?'reserve':'available',evenings:payload});
   }
   return result;
 }
@@ -112,7 +118,7 @@ export async function createHardenedEveningInvitation(db: DatabaseWrapper, invit
   if (candidate?.existing_invitation) return {invitation:candidate.existing_invitation,created:false};
   if (!candidate || candidate.state!=='eligible') {
     const messages:Record<string,string>={registered:'Игрок уже зарегистрирован на этот вечер',reserve:'Игрок уже находится в резерве',registration_closed:'Регистрация на вечер закрыта',sender_limit:'На один вечер можно отправить не больше 5 приглашений',unavailable_format:'Формат вечера недоступен этому игроку'};
-    throw new Error(messages[candidate?.state||''] || (context.reason?.startsWith('recipient_') ? 'Игрок недоступен для приглашений' : 'Этот вечер недоступен для приглашения'));
+    throw new Error(messages[candidate?.state||''] || (context.recipient_state === 'unavailable' || context.reason?.startsWith('recipient_') ? 'Игрок недоступен для приглашений' : 'Этот вечер недоступен для приглашения'));
   }
   const [inviter,recipient] = await Promise.all([
     db.get<any>('SELECT nickname FROM players WHERE id=? LIMIT 1',[inviterPlayerId]),

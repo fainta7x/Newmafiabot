@@ -30,17 +30,34 @@ export type PlayerConnectionAnalytics = {
 type InternalRow = Omit<PlayerConnectionAnalytics, 'avatar_url' | 'relationship' | 'same_team_win_rate' | 'last_shared_game_date'> & { lastMs: number };
 type CacheEntry = { revision: number; byPlayer: Map<string, PlayerConnectionAnalytics[]> };
 const cache = new WeakMap<object, CacheEntry>();
+const revisionSchemaReady = new WeakSet<object>();
+const revisionSchemaPending = new WeakMap<object, Promise<void>>();
 const avatarUrl = (id: string) => `/api/player/players/${encodeURIComponent(id)}/avatar`;
 
 export async function ensurePlayerConnectionAnalyticsRevision(db: DatabaseWrapper) {
-  await db.run(`CREATE TABLE IF NOT EXISTS player_connection_analytics_revision (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL DEFAULT 0)`);
-  await db.run(`INSERT OR IGNORE INTO player_connection_analytics_revision (id, revision) VALUES (1, 0)`);
-  const sources = ['games', 'tournament_games', 'tournament_game_seats', 'tournament_participants'];
-  for (const table of sources) {
-    for (const action of ['INSERT', 'UPDATE', 'DELETE']) {
-      const trigger = `trg_connection_revision_${table}_${action.toLowerCase()}`;
-      await db.run(`CREATE TRIGGER IF NOT EXISTS ${trigger} AFTER ${action} ON ${table} BEGIN UPDATE player_connection_analytics_revision SET revision = revision + 1 WHERE id = 1; END`);
+  const key = db as object;
+  if (revisionSchemaReady.has(key)) return;
+  const pending = revisionSchemaPending.get(key);
+  if (pending) return pending;
+
+  const initialize = (async () => {
+    await db.run(`CREATE TABLE IF NOT EXISTS player_connection_analytics_revision (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL DEFAULT 0)`);
+    await db.run(`INSERT OR IGNORE INTO player_connection_analytics_revision (id, revision) VALUES (1, 0)`);
+    const sources = ['games', 'tournament_games', 'tournament_game_seats', 'tournament_participants'];
+    for (const table of sources) {
+      for (const action of ['INSERT', 'UPDATE', 'DELETE']) {
+        const trigger = `trg_connection_revision_${table}_${action.toLowerCase()}`;
+        await db.run(`CREATE TRIGGER IF NOT EXISTS ${trigger} AFTER ${action} ON ${table} BEGIN UPDATE player_connection_analytics_revision SET revision = revision + 1 WHERE id = 1; END`);
+      }
     }
+    revisionSchemaReady.add(key);
+  })();
+
+  revisionSchemaPending.set(key, initialize);
+  try {
+    await initialize;
+  } finally {
+    revisionSchemaPending.delete(key);
   }
 }
 

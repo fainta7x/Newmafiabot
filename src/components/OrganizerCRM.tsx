@@ -390,12 +390,21 @@ export const OrganizerCRM: React.FC<OrganizerCRMProps> = ({ onReturnToGameEngine
       </main>
 
       {isOrganizer ? (
-        <nav className="organizer-bottom-nav glass-nav fixed bottom-0 left-0 right-0 z-40 grid min-h-[64px] h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border-soft pb-safe sm:hidden">
-          {ORGANIZER_PRIMARY_NAV.map((item) => {
+        <nav className="organizer-bottom-nav glass-nav fixed bottom-0 left-0 right-0 z-40 grid min-h-[64px] h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border-soft pb-safe md:hidden">
+          {ORGANIZER_PRIMARY_NAV.map((item, index) => {
             const Icon = navMeta[item.id].icon;
             const active = primaryActive === item.id;
             return (
-              <button key={item.id} type="button" onClick={() => switchPrimaryTab(item.id)} className={`organizer-bottom-nav__item relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1 ${active ? 'organizer-bottom-nav__item--active' : ''}`}>
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => switchPrimaryTab(item.id)}
+                style={{
+                  marginLeft: index === 0 ? 'var(--tg-content-safe-area-left)' : undefined,
+                  marginRight: index === ORGANIZER_PRIMARY_NAV.length - 1 ? 'var(--tg-content-safe-area-right)' : undefined,
+                }}
+                className={`organizer-bottom-nav__item relative flex min-h-[48px] min-w-0 flex-col items-center justify-center px-1 ${active ? 'organizer-bottom-nav__item--active' : ''}`}
+              >
                 <Icon className={`h-[21px] w-[21px] ${active ? 'text-accent' : 'text-text-muted'}`} />
                 <span className={`mt-1 max-w-full truncate text-[11px] leading-none ${active ? 'font-bold text-text-primary' : 'font-medium text-text-muted'}`}>{item.label}</span>
                 {active ? <span className="absolute top-1 h-0.5 w-5 rounded-full bg-accent" /> : null}

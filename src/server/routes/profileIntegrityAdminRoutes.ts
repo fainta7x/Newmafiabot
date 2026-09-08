@@ -4,6 +4,8 @@ import {
   calculateProfileCompleteness,
   listUpcomingBirthdays,
   reconcileProfileIntegrityTasks,
+  validateBirthday,
+  validatePhone,
 } from '../services/playerProfileIntegrityService.ts';
 import {
   createVerifiedAward,
@@ -18,6 +20,42 @@ import { getRepositoryPlayerAvatarAsset } from '../../lib/playerAvatarManifest.t
 
 const router = Router();
 const actor = () => 'organizer';
+
+const enrichProfile = (player: any) => {
+  player.has_repository_avatar = !Number(player.avatar_suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(String(player.id)));
+  return { ...player, profile_completeness: calculateProfileCompleteness(player) };
+};
+
+router.get('/profile-integrity/summary', requireOrganizerAuth, async (req, res) => {
+  try {
+    await reconcileProfileIntegrityTasks(req.db);
+    const rows = await req.db.all<any>(`
+      SELECT p.*,
+             (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id LIMIT 1) AS avatar_updated_at,
+             EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
+             EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
+        FROM players p
+       ORDER BY p.nickname COLLATE NOCASE ASC
+    `);
+    return res.json({
+      players: rows.map((row: any) => {
+        const enriched = enrichProfile(row);
+        return {
+          id: String(row.id),
+          profile_completeness: enriched.profile_completeness,
+          birth_day: row.birth_day ?? null,
+          birth_month: row.birth_month ?? null,
+          birth_year: row.birth_year ?? null,
+          birthday_visibility: row.birthday_visibility || 'private',
+          profile_checked_at: row.profile_checked_at || null,
+          profile_updated_at: row.profile_updated_at || row.updated_at || null,
+        };
+      }),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error?.message || 'Не удалось загрузить сводку профилей' });
+  }
+});
 
 router.get('/profile-integrity/birthdays', requireOrganizerAuth, async (req, res) => {
   try {
@@ -61,20 +99,62 @@ router.get('/:id/profile-integrity', requireOrganizerAuth, async (req, res) => {
     const playerId = String(req.params.id);
     const player = await req.db.get<any>(`
       SELECT p.*,
+             (SELECT updated_at FROM player_avatars pa WHERE pa.player_id = p.id LIMIT 1) AS avatar_updated_at,
              EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
              EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
         FROM players p WHERE p.id = ? LIMIT 1
     `, [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
-    player.has_repository_avatar = !Number(player.avatar_suppressed || 0) && Boolean(getRepositoryPlayerAvatarAsset(playerId));
+    const enriched = enrichProfile(player);
     await syncTrustedTournamentAwards(req.db, playerId);
     return res.json({
-      completeness: calculateProfileCompleteness(player),
+      player: {
+        birth_day: player.birth_day ?? null,
+        birth_month: player.birth_month ?? null,
+        birth_year: player.birth_year ?? null,
+        birthday_visibility: player.birthday_visibility || 'private',
+        profile_checked_at: player.profile_checked_at || null,
+        profile_updated_at: player.profile_updated_at || player.updated_at || null,
+      },
+      completeness: enriched.profile_completeness,
       awards: await listVerifiedAwards(req.db, playerId, true),
       suggestions: await listAwardSuggestions(req.db, playerId),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить данные профиля' });
+  }
+});
+
+router.patch('/:id/profile-private', requireOrganizerAuth, async (req, res) => {
+  try {
+    const playerId = String(req.params.id);
+    const existing = await req.db.get<any>('SELECT * FROM players WHERE id = ? LIMIT 1', [playerId]);
+    if (!existing) return res.status(404).json({ error: 'Игрок не найден' });
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(req.body || {}, key);
+    const fields: string[] = [];
+    const values: any[] = [];
+    if (has('phone')) { fields.push('phone = ?'); values.push(validatePhone(req.body?.phone)); }
+    if (has('birth_day') || has('birth_month') || has('birth_year')) {
+      const birthday = validateBirthday(
+        has('birth_day') ? req.body?.birth_day : existing.birth_day,
+        has('birth_month') ? req.body?.birth_month : existing.birth_month,
+        has('birth_year') ? req.body?.birth_year : existing.birth_year,
+      );
+      fields.push('birth_day = ?', 'birth_month = ?', 'birth_year = ?');
+      values.push(birthday.day, birthday.month, birthday.year);
+    }
+    if (has('birthday_visibility')) {
+      const visibility = String(req.body?.birthday_visibility || 'private');
+      if (!['private', 'day_month', 'full'].includes(visibility)) return res.status(400).json({ error: 'Некорректная видимость дня рождения' });
+      fields.push('birthday_visibility = ?'); values.push(visibility);
+    }
+    if (!fields.length) return res.json({ success: true });
+    const now = new Date().toISOString();
+    fields.push('profile_updated_at = ?', 'updated_at = ?'); values.push(now, now, playerId);
+    await req.db.run(`UPDATE players SET ${fields.join(', ')} WHERE id = ?`, values);
+    return res.json({ success: true, player: await req.db.get('SELECT * FROM players WHERE id = ?', [playerId]) });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Не удалось обновить приватные поля' });
   }
 });
 

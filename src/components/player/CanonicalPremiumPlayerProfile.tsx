@@ -9,7 +9,7 @@ const TABS: Array<[Tab,string]> = [['overview','Обзор'],['games','Игры'
 const json = async (url:string) => { const r=await fetch(url,{credentials:'include'}); const b=await r.json().catch(()=>({})); if(!r.ok) throw new Error(b.error||'Ошибка загрузки'); return b; };
 const fmt = (v:any) => v ? new Date(v).toLocaleDateString('ru-RU') : '—';
 
-export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings}:{playerId:string;mode?:'self'|'public';selfPlayerId?:string;onClose?:()=>void;ownerSettings?:ReactNode}) {
+export default function CanonicalPremiumPlayerProfile({playerId,mode='public',selfPlayerId,onClose,ownerSettings}:{playerId:string;mode?:'self'|'public';selfPlayerId:string;onClose?:()=>void;ownerSettings?:ReactNode}) {
   const [tab,setTab]=useState<Tab>('overview'); const [summary,setSummary]=useState<any>(null); const [birthday,setBirthday]=useState<any>(null); const [data,setData]=useState<any>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [settings,setSettings]=useState(false);
   const [period,setPeriod]=useState<'all'|'season'|'custom'>('all'); const [activePeriod,setActivePeriod]=useState<Period|null>(null); const [from,setFrom]=useState(''); const [to,setTo]=useState(''); const [role,setRole]=useState(''); const [team,setTeam]=useState(''); const [result,setResult]=useState(''); const [offset,setOffset]=useState(0); const scrollRef=useRef<HTMLDivElement>(null); const scrollByTab=useRef<Record<string,number>>({});
   const isSelf=mode==='self';

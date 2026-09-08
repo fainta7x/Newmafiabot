@@ -81,22 +81,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Keep the CRM backdrop full-width while its outer grid actions stay inside
-   Telegram's horizontal content-safe rectangle. Grid tracks can ignore parent
-   padding in some WebViews, so bind the two edge actions directly. */
-.crm-premium .organizer-bottom-nav {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-.crm-premium .organizer-bottom-nav > button:first-child {
-  margin-left: var(--tg-content-safe-area-left);
-}
-
-.crm-premium .organizer-bottom-nav > button:last-child {
-  margin-right: var(--tg-content-safe-area-right);
-}
-
 /* Real production fullscreen layers. Keep the backdrop fullscreen while placing
    interactive content inside Telegram's content-safe rectangle. */
 [data-testid="canonical-player-profile-overlay"],

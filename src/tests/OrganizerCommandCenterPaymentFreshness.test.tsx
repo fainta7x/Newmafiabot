@@ -111,11 +111,11 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(screen.getByText('долг за 4 сентября: 600 ₽')).toBeDefined();
 
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
-    document.dispatchEvent(new Event('visibilitychange'));
+    fireEvent(document, new Event('visibilitychange'));
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
-    document.dispatchEvent(new Event('visibilitychange'));
+    fireEvent(document, new Event('visibilitychange'));
 
-    expect(screen.getByTestId('crm-payments-refreshing')).toBeDefined();
+    expect(await screen.findByTestId('crm-payments-refreshing')).toBeDefined();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
     expect(screen.queryByText('долг за 4 сентября: 600 ₽')).toBeNull();
     expect(screen.getByText('11 сентября')).toBeDefined();

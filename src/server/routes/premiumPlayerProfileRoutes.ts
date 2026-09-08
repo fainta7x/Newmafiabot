@@ -16,10 +16,10 @@ import {
   createEveningInvitation,
   getEveningInvitationContext,
   listIncomingEveningInvitations,
-  loadProfileConnections,
   respondToEveningInvitation,
   setHistoricalPlayerReferrer,
 } from '../services/premiumPlayerConnectionsService.ts';
+import { loadEnrichedProfileConnections } from '../services/premiumPlayerConnectionProfileService.ts';
 import { loadSmartFriendInviteSuggestions } from '../services/smartFriendInviteSuggestionService.ts';
 import { ensurePlayerProfileVisibilitySchema, parsePlayerProfileVisibility } from '../services/playerProfileVisibilityService.ts';
 
@@ -145,7 +145,7 @@ router.get('/profiles/:playerId/connections', async (req, res) => {
     const access = await canViewPlayer(req.db, playerId);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
     if (!featureVisible(access.row, viewer, playerId, 'connections')) return res.status(403).json({ error: 'Связи скрыты игроком' });
-    return res.json(await loadProfileConnections(req.db, playerId));
+    return res.json(await loadEnrichedProfileConnections(req.db, playerId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить связи игрока' });
   }

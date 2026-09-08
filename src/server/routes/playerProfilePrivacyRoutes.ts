@@ -34,7 +34,7 @@ router.patch('/privacy-settings', async (req,res) => {
 });
 
 router.get('/profiles/:playerId/birthday', async (req,res) => {
-  const viewer=playerId(req); const organizer=req.userRole==='ORGANIZER';
+  const viewer=playerId(req); const organizer=(req as any).userRole==='ORGANIZER';
   if(!viewer&&!organizer) return res.status(401).json({error:'Player authentication required.'});
   await ensurePlayerProfileVisibilitySchema(req.db);
   const id=String(req.params.playerId);

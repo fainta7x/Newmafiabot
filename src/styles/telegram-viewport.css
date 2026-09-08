@@ -85,7 +85,7 @@ body {
    starts only at md. Keep primary navigation reachable across that 640-767px
    Telegram-landscape band. */
 @media (min-width: 640px) and (max-width: 767px) {
-  .organizer-bottom-nav {
+  .crm-premium nav.organizer-bottom-nav {
     display: grid !important;
   }
 

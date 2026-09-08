@@ -11,6 +11,13 @@ type Connection = {
   last_played_at: string | null;
 };
 
+type ReferralPlayer = {
+  player_id: string;
+  nickname: string;
+  avatar_url: string;
+  created_at?: string | null;
+};
+
 type InvitationEvening = {
   id: string;
   title: string;
@@ -50,9 +57,19 @@ function Avatar({ src, name }: { src?: string | null; name: string }) {
     : <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/[0.07] text-sm font-semibold text-white/55">{name.slice(0, 1).toUpperCase()}</div>;
 }
 
+function ReferralLink({ label, player }: { label: string; player: ReferralPlayer }) {
+  return <button type="button" onClick={() => openPlayerProfile(player.player_id)} className="flex min-h-14 w-full items-center gap-3 rounded-2xl bg-black/20 p-2.5 text-left active:bg-white/[0.05]">
+    <Avatar src={player.avatar_url} name={player.nickname} />
+    <div className="min-w-0 flex-1"><div className="text-[11px] uppercase tracking-[0.1em] text-white/30">{label}</div><div className="mt-0.5 truncate text-sm font-semibold">{player.nickname}</div></div>
+    <span className="text-white/25">→</span>
+  </button>;
+}
+
 export default function PremiumProfileConnections({ playerId, selfPlayerId }: { playerId: string; selfPlayerId: string }) {
   const isSelf = playerId === selfPlayerId;
   const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [invitedBy, setInvitedBy] = useState<ReferralPlayer | null>(null);
+  const [invitedPlayers, setInvitedPlayers] = useState<ReferralPlayer[]>([]);
   const [connectionsError, setConnectionsError] = useState('');
   const [context, setContext] = useState<{ can_invite: boolean; reason?: string | null; evenings: InvitationEvening[] } | null>(null);
   const [inbox, setInbox] = useState<IncomingInvitation[]>([]);
@@ -67,8 +84,12 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить связи');
       setConnections(Array.isArray(body.connections) ? body.connections : []);
+      setInvitedBy(body.invited_by || null);
+      setInvitedPlayers(Array.isArray(body.invited_players) ? body.invited_players : []);
     } catch (error: any) {
       setConnections(null);
+      setInvitedBy(null);
+      setInvitedPlayers([]);
       setConnectionsError(error?.message || 'Не удалось загрузить связи');
     }
   };
@@ -195,6 +216,16 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       ) : null}
 
       {message ? <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-3 text-xs leading-5 text-white/65">{message}</div> : null}
+
+      {(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Клубные связи</div>
+        <h2 className="mt-1 text-base font-semibold">Кто кого привёл в 2LA noire</h2>
+        <p className="mt-1 text-xs leading-5 text-white/35">Только подтверждённая организатором история — без догадок по старым данным.</p>
+        <div className="mt-3 space-y-2">
+          {invitedBy ? <ReferralLink label="В клуб пригласил" player={invitedBy} /> : null}
+          {invitedPlayers.map((item) => <ReferralLink key={item.player_id} label="Пригласил в клуб" player={item} />)}
+        </div>
+      </div> : null}
 
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">

@@ -485,7 +485,10 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       const finalizeVoting = () => {
         if (pendingVotingResolution) return;
-        if (!confirm('Завершить голосование и зафиксировать распределение голосов?')) return;
+        const confirmation = remaining > 0
+          ? `Завершить голосование? Остаток (${remaining}) автоматически уйдёт к #${nominee}.`
+          : 'Завершить голосование и зафиксировать распределение голосов?';
+        if (!confirm(confirmation)) return;
         if (remaining > 0) {
           setPendingVotingResolution(true);
           handleInteractiveAutoRemainder();
@@ -519,7 +522,11 @@ export default function CenterPanel(props: CenterPanelProps) {
           <div className="live-judge-voter-state">
             <span className="live-judge-voter-state__label">Уже за #{nominee}</span>
             <strong>{assignedVoters.length ? assignedVoters.map((seat) => `#${seat}`).join(' · ') : '—'}</strong>
-            <span className="live-judge-voter-state__next">Сейчас: выберите голосующих на карточках игроков</span>
+            <span className="live-judge-voter-state__next">
+              {isLast && remaining > 0
+                ? `Остаток уйдёт к #${nominee} при подведении итога.`
+                : 'Сейчас: выберите голосующих на карточках игроков'}
+            </span>
           </div>
           <div className="live-judge-vote-actions">
             <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">Предыдущий кандидат</button>
@@ -772,10 +779,9 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         </div>
 
-        <div className="live-judge-hud__context" aria-label={`Контекст игры: ${cycleLabel}, раунд ${roundNumber}, автосохранение включено`}>
+        <div className="live-judge-hud__context" aria-label={`Контекст игры: ${cycleLabel}, раунд ${roundNumber}`}>
           <span>{cycleLabel}</span>
           <span>Раунд {roundNumber}</span>
-          <span className="live-judge-hud__save-state">● Автосохранение</span>
         </div>
 
         <div className="live-judge-hud__body">

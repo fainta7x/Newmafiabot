@@ -41,7 +41,6 @@ import playerEconomyRoutes from './server/routes/playerEconomyRoutes.ts';
 import playerBettingRoutes from './server/routes/playerBettingRoutes.ts';
 import playerPaymentRoutes from './server/routes/playerPaymentRoutes.ts';
 import playerExperienceRoutes from './server/routes/playerExperienceRoutes.ts';
-import playerConnectionsInviteRoutes from './server/routes/playerConnectionsInviteRoutes.ts';
 import playerInsightsRoutes from './server/routes/playerInsightsRoutes.ts';
 import playerReplayRoutes from './server/routes/playerReplayRoutes.ts';
 import playerSpeechRecordingRoutes from './server/routes/playerSpeechRecordingRoutes.ts';
@@ -167,7 +166,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerBettingRoutes);
   app.use('/api/player', playerPaymentRoutes);
   app.use('/api/player', playerExperienceRoutes);
-  app.use('/api/player', playerConnectionsInviteRoutes);
   app.use('/api/player', playerInsightsRoutes);
   app.use('/api/player', playerReplayRoutes);
   app.use('/api/player/speech-recordings', playerSpeechRecordingRoutes);

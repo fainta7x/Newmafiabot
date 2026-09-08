@@ -98,6 +98,18 @@ body {
   overscroll-behavior: contain;
 }
 
+/* The fullscreen profile overlay owns Telegram insets. Neutralize the profile's
+   historical inline safe-area padding so the same inset is not applied twice. */
+[data-testid="canonical-player-profile-overlay"] [data-testid="canonical-premium-profile"] > header {
+  padding-top: 12px !important;
+  padding-right: 16px !important;
+  padding-left: 16px !important;
+}
+
+[data-testid="canonical-player-profile-overlay"] .profile-sticky-tabs {
+  top: 72px !important;
+}
+
 .live-player-action-sheet,
 [data-testid="live-discipline-confirmation"],
 [data-testid="live-best-move-sheet"],
@@ -110,6 +122,10 @@ body {
 [data-profile-sticky-tabs],
 .profile-sticky-tabs {
   top: var(--app-content-top) !important;
+}
+
+[data-testid="canonical-player-profile-overlay"] .profile-sticky-tabs {
+  top: 72px !important;
 }
 
 [data-sticky-modal-actions],

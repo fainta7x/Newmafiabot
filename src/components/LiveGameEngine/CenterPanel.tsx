@@ -111,7 +111,10 @@ const normalizeJudgeCopy = (value: string): string => value
   .replace(/^Стрельба мафии$/, 'Отстрел')
   .replace(/^Прощальная речь/, 'Последняя речь')
   .replace(/^Прощальная /, 'Последняя речь ')
-  .replace(/^Завершить прощальные$/, 'Завершить последние речи')
+  .replace(/^Прощальная #(\d+)$/, 'Следующая последняя речь · #$1')
+  .replace(/^Завершить прощальные$/, 'Перейти к ночи')
+  .replace(/^Речь #(\d+)$/, 'Следующая речь · #$1')
+  .replace(/^К голосованию$/, 'Перейти к голосованию')
   .replace(/^Протокол убитого · 15с$/, `Протокол убитого · ${DEATH_PROTOCOL_SECONDS}с`)
   .replace(/^К дневным речам$/, 'Открыть день');
 
@@ -194,6 +197,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   const isRegularNightIntro = phase === 'night' && nightSubPhase === 'intro';
   const isFirstKilledBestMove = phase === 'night' && nightSubPhase === 'best_move';
   const dayLabel = roundNumber === 1 ? 'Нулевой круг' : `День ${roundNumber - 1}`;
+  const cycleLabel = phase === 'zero_night' ? 'Нулевая ночь' : phase === 'night' ? `Ночь ${roundNumber}` : dayLabel;
   const tableDecisionRequired = phase === 'day_voting'
     && votingStage === 'round_result'
     && currentVotingResult?.outcome === 'requires_table_decision';
@@ -474,9 +478,14 @@ export default function CenterPanel(props: CenterPanelProps) {
         currentNomineeIndex: currentVotingNomineeIndex,
         votesByPlayer,
       });
+      const assignedVoters = Object.entries(votesByPlayer)
+        .filter(([, target]) => target === nominee)
+        .map(([voter]) => Number(voter))
+        .sort((a, b) => a - b);
 
       const finalizeVoting = () => {
         if (pendingVotingResolution) return;
+        if (!confirm('Завершить голосование и зафиксировать распределение голосов?')) return;
         if (remaining > 0) {
           setPendingVotingResolution(true);
           handleInteractiveAutoRemainder();
@@ -487,11 +496,13 @@ export default function CenterPanel(props: CenterPanelProps) {
 
       return (
         <div className="live-judge-hud__stack live-judge-hud__stack--voting-scroll">
-          <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
+          <div className="live-judge-voting-focus">
+            <div className="live-judge-hud__eyebrow">{currentRound.is_revote ? `Переголосование ${activeVotingRoundIndex}` : 'Голосование'}</div>
+            <div className="live-judge-voting-focus__candidate"><span>Текущий кандидат</span><strong>#{nominee}</strong></div>
+          </div>
           {renderVotingOrder(currentRound.nominated_seats, currentVotingNomineeIndex)}
-          <div className="live-judge-hud__title">Кто против <strong>#{nominee}</strong>?</div>
           <div className="live-judge-vote-summary live-judge-vote-summary--with-undo">
-            <div className="live-judge-stat"><div className="live-judge-stat__label">Голосов</div><div className="live-judge-stat__value">{currentVotes}</div></div>
+            <div className="live-judge-stat"><div className="live-judge-stat__label">Назначено</div><div className="live-judge-stat__value">{currentVotes}</div></div>
             <div className="live-judge-stat"><div className="live-judge-stat__label">Осталось</div><div className="live-judge-stat__value">{remaining}/{eligible}</div></div>
             <button
               type="button"
@@ -501,21 +512,21 @@ export default function CenterPanel(props: CenterPanelProps) {
               onClick={() => handleUndoLastVote?.()}
               className="live-judge-stat live-judge-vote-undo"
             >
-              <span className="live-judge-stat__label">Отмена</span>
-              <span className="live-judge-vote-undo__value"><RotateCcw />голос</span>
+              <span className="live-judge-stat__label">Последнее</span>
+              <span className="live-judge-vote-undo__value"><RotateCcw />отменить</span>
             </button>
           </div>
-          <div className="live-judge-hud__hint">
-            {isLast
-              ? `Нажмите голосующих. Остаток уйдёт к #${nominee} при подведении итога.`
-              : `Нажмите игроков, голосующих против #${nominee}.`}
+          <div className="live-judge-voter-state">
+            <span className="live-judge-voter-state__label">Уже за #{nominee}</span>
+            <strong>{assignedVoters.length ? assignedVoters.map((seat) => `#${seat}`).join(' · ') : '—'}</strong>
+            <span className="live-judge-voter-state__next">Сейчас: выберите голосующих на карточках игроков</span>
           </div>
           <div className="live-judge-vote-actions">
-            <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">← Назад</button>
+            <button type="button" disabled={currentVotingNomineeIndex === 0 || pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex - 1)} className="live-judge-action">Предыдущий кандидат</button>
             {isLast ? (
-              <button type="button" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Подвести итог'}</button>
+              <button type="button" disabled={pendingVotingResolution} onClick={finalizeVoting} className="live-judge-action live-judge-action--success">{pendingVotingResolution ? 'Считаю…' : 'Завершить голосование'}</button>
             ) : (
-              <button type="button" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий →</button>
+              <button type="button" disabled={pendingVotingResolution} onClick={() => selectVotingNomineeIndex(currentVotingNomineeIndex + 1)} className="live-judge-action live-judge-action--primary">Следующий кандидат</button>
             )}
           </div>
         </div>
@@ -546,7 +557,7 @@ export default function CenterPanel(props: CenterPanelProps) {
           {renderVotingOrder(participants, revoteSpeakerIndex)}
           {renderTimer()}
           <button type="button" onClick={advanceSpeech} className="live-judge-action live-judge-action--primary">
-            {isLastSpeaker ? 'К переголосованию' : 'Следующий игрок'}
+            {isLastSpeaker ? 'Начать переголосование' : 'Следующая речь'}
           </button>
         </div>
       );
@@ -558,7 +569,7 @@ export default function CenterPanel(props: CenterPanelProps) {
           <div className="live-judge-hud__stack">
             <div className="live-judge-hud__eyebrow">Итог голосования</div>
             <div className="live-judge-hud__title">Заголосован <strong>#{result.winners[0]}</strong></div>
-            <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="live-judge-action live-judge-action--primary">Подтвердить</button>
+            <button type="button" onClick={() => handleConfirmSingleElimination?.(result.winners[0])} className="live-judge-action live-judge-action--primary">Подтвердить результат</button>
           </div>
         );
       }
@@ -570,7 +581,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__title">{result.winners.map((seat) => `#${seat}`).join(' · ')}</div>
             {renderVotingOrder(result.winners)}
             <div className="live-judge-hud__hint">Перед переголосованием каждый из этих игроков получает 30 секунд.</div>
-            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">Речи по 30 секунд</button>
+            <button type="button" onClick={() => handleGoToRevoteSpeeches?.(result.winners)} className="live-judge-action live-judge-action--primary">Начать речи по 30 секунд</button>
           </div>
         );
       }
@@ -581,7 +592,7 @@ export default function CenterPanel(props: CenterPanelProps) {
             <div className="live-judge-hud__eyebrow">Повторное равенство</div>
             <div className="live-judge-hud__title">Никто не покидает стол</div>
             <div className="live-judge-hud__hint">Решение «поднять / оставить» не проводится: в равенстве больше половины живых игроков.</div>
-            <button type="button" onClick={() => handleConfirmAutoNoElimination?.()} className="live-judge-action live-judge-action--success">Подтвердить → ночь</button>
+            <button type="button" onClick={() => confirm('Перейти к ночи без исключения игроков?') && handleConfirmAutoNoElimination?.()} className="live-judge-action live-judge-action--success">Перейти к ночи</button>
           </div>
         );
       }
@@ -605,7 +616,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               <span>За «поднять»</span>
               <strong>{entered}/{eligible}<small>нужно {majority}</small></strong>
             </div>
-            <button type="button" onClick={confirmTableDecision} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение</button>
+            <button type="button" onClick={confirmTableDecision} className={`live-judge-action ${hasMajority ? 'live-judge-action--success' : 'live-judge-action--primary'}`}>Зафиксировать решение стола</button>
           </div>
         );
       }
@@ -759,6 +770,12 @@ export default function CenterPanel(props: CenterPanelProps) {
               <button type="button" onClick={() => confirm('Выйти из текущей игры?') && onCancel()} className="live-judge-hud__header-button"><LogOut /><span>Выйти</span></button>
             )}
           </div>
+        </div>
+
+        <div className="live-judge-hud__context" aria-label={`Контекст игры: ${cycleLabel}, раунд ${roundNumber}, автосохранение включено`}>
+          <span>{cycleLabel}</span>
+          <span>Раунд {roundNumber}</span>
+          <span className="live-judge-hud__save-state">● Автосохранение</span>
         </div>
 
         <div className="live-judge-hud__body">

@@ -45,6 +45,10 @@ const withCurrentPaymentScope = (body: any) => {
         (sum: number, row: PaymentRow) => sum + Math.max(0, Number(row.amount_due || 0) - Number(row.amount_paid || 0)),
         0,
       );
+      if (Array.isArray(snapshot.blockers)) {
+        snapshot.blockers = snapshot.blockers.filter((item: any) => item?.kind !== 'payments');
+        if (unpaid.length) snapshot.blockers.push({ kind: 'payments', count: unpaid.length, label: 'Не закрыты оплаты' });
+      }
     }
     snapshot.payment_context = {
       scope: 'current_or_upcoming_evening',
@@ -68,6 +72,12 @@ const withCurrentPaymentScope = (body: any) => {
 
 const withOverviewPaymentScopes = (body: any) => {
   if (body?.nextEvening) {
+    const count = Math.max(0, Number(body.nextEvening.expectedToPayCount || 0));
+    let amount = Math.max(0, Number(body.nextEvening.expectedToPayAmount || 0));
+    if (normalizeEveningFormat(body.nextEvening.format) === 'CASUAL') {
+      amount = Math.min(amount, count * CLUB_EVENING_MAX_PRICE);
+      body.nextEvening.expectedToPayAmount = amount;
+    }
     body.currentPaymentContext = {
       scope: 'current_or_upcoming_evening',
       evening: {
@@ -77,8 +87,8 @@ const withOverviewPaymentScopes = (body: any) => {
         format: body.nextEvening.format,
         status: body.nextEvening.status,
       },
-      unpaid_count: Number(body.nextEvening.expectedToPayCount || 0),
-      unpaid_amount: Number(body.nextEvening.expectedToPayAmount || 0),
+      unpaid_count: count,
+      unpaid_amount: amount,
     };
   } else {
     body.currentPaymentContext = null;

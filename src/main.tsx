@@ -5,8 +5,10 @@ import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx"
 import ScopedEveningDeathProtocolBridge from "./components/crm/ScopedEveningDeathProtocolBridge.tsx";
 import LiveGameResumeBridge from "./components/crm/LiveGameResumeBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
+import { initializeTelegramWebAppViewport } from "./lib/telegramWebAppViewport.ts";
 import "./index.css";
 import "./styles/design-system.css";
+import "./styles/telegram-viewport.css";
 import "./releasePolish.css";
 import "./components/crm/liveGameJudge.css";
 import "./components/crm/liveGameCabinetShell.css";
@@ -19,6 +21,8 @@ import "./components/crm/liveGameTelegram.css";
 import "./components/crm/liveGameUrgentResume.css";
 import "./components/crm/liveGameMobileGeometryV6.css";
 import "./components/public/liveBroadcastCompact.css";
+
+initializeTelegramWebAppViewport();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -1,3 +1,5 @@
+@import "./liveGameMobileCenterPriority.css";
+
 /* Live evening fixes from real-table feedback. Keep this layer visual-only. */
 
 .evening-live-engine-shell .live-seat-quick-action--nomination {
@@ -119,38 +121,29 @@
   align-items: center;
   justify-content: center;
   padding: 4px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255,255,0.12);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.045);
-  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255,255,255,0.045);
+  color: rgba(255,255,255,0.78);
   font-size: 12px;
   font-weight: 800;
 }
 
 .live-judge-voting-order__seat--current {
-  border-color: rgba(251, 113, 133, 0.6);
-  background: rgba(225, 52, 88, 0.19);
+  border-color: rgba(251,113,133,0.6);
+  background: rgba(225,52,88,0.19);
   color: #fff;
 }
 
 .live-judge-vote-summary.live-judge-vote-summary--with-undo {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3,minmax(0,1fr));
   gap: 6px;
 }
 
-.live-judge-vote-summary .live-judge-stat {
-  min-height: 52px;
-}
-
-.live-judge-vote-summary .live-judge-stat__label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.live-judge-vote-summary .live-judge-stat__value {
-  font-size: 19px;
-}
+.live-judge-vote-summary .live-judge-stat { min-height: 52px; }
+.live-judge-vote-summary .live-judge-stat__label { font-size: 12px; color: rgba(255,255,255,0.6); }
+.live-judge-vote-summary .live-judge-stat__value { font-size: 19px; }
 
 .live-judge-vote-undo {
   width: 100%;
@@ -158,41 +151,30 @@
   cursor: pointer;
   text-align: left;
 }
-
-.live-judge-vote-undo:disabled {
-  cursor: default;
-  opacity: 0.34;
-}
-
+.live-judge-vote-undo:disabled { cursor: default; opacity: 0.34; }
 .live-judge-vote-undo__value {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-top: 3px;
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(255,255,255,0.86);
   font-size: 12px;
   font-weight: 800;
   line-height: 1.1;
 }
-
-.live-judge-vote-undo__value svg {
-  width: 13px;
-  height: 13px;
-  flex: none;
-}
+.live-judge-vote-undo__value svg { width: 13px; height: 13px; flex: none; }
 
 .live-judge-voter-state {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0,1fr);
   gap: 3px 8px;
   align-items: baseline;
   padding: 7px 9px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.045);
-  color: rgba(255, 255, 255, 0.64);
+  background: rgba(255,255,255,0.045);
+  color: rgba(255,255,255,0.64);
   font-size: 12px;
 }
-
 .live-judge-voter-state strong {
   min-width: 0;
   overflow: hidden;
@@ -200,11 +182,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.live-judge-voter-state__next {
-  grid-column: 1 / -1;
-  color: rgba(255, 255, 255, 0.72);
-}
+.live-judge-voter-state__next { grid-column: 1 / -1; color: rgba(255,255,255,0.72); }
 
 .live-judge-vote-actions .live-judge-action,
 .live-judge-hud__stack--revote-speech > .live-judge-action {
@@ -214,194 +192,53 @@
 }
 
 @media (max-width: 767px) {
-  /* The working panel gets the screen space first; seat cards remain readable
-     but no longer consume the phone viewport at the expense of judge controls. */
-  .evening-live-engine-shell .live-judge-hud {
-    min-height: 286px;
-  }
-
-  .evening-live-engine-shell .live-seat-card {
-    min-height: 84px !important;
-  }
-
+  .evening-live-engine-shell .live-judge-hud { min-height: 286px; }
+  .evening-live-engine-shell .live-seat-card { min-height: 84px !important; }
   .evening-live-engine-shell .live-seat-footer__name,
-  .evening-live-engine-shell .live-seat-state__value {
-    font-size: 12px !important;
-  }
-
-  .evening-live-engine-shell .live-seat-quick-action {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .live-judge-hud__header {
-    min-height: 48px;
-    align-items: center;
-  }
-
-  .live-judge-hud__phase {
-    font-size: 14px !important;
-  }
-
-  .live-judge-hud__header-button {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .live-judge-hud__header-button span {
-    font-size: 12px;
-  }
-
-  .live-judge-hud__context {
-    gap: 4px;
-    padding: 5px 7px;
-    font-size: 12px;
-  }
-
-  .live-judge-hud__context > span {
-    min-height: 26px;
-    padding-inline: 6px;
-  }
-
-  .live-judge-hud__body {
-    align-items: stretch !important;
-    overflow: hidden !important;
-    padding: 6px 7px !important;
-  }
-
-  .live-judge-hud__stack--voting-scroll {
-    height: 100%;
-    max-height: 100%;
-    justify-content: flex-start;
-    gap: 5px !important;
-  }
-
+  .evening-live-engine-shell .live-seat-state__value { font-size: 12px !important; }
+  .evening-live-engine-shell .live-seat-quick-action { min-width: 44px; min-height: 44px; }
+  .live-judge-hud__header { min-height: 48px; align-items: center; }
+  .live-judge-hud__phase { font-size: 14px !important; }
+  .live-judge-hud__header-button { min-width: 44px; min-height: 44px; }
+  .live-judge-hud__header-button span { font-size: 12px; }
+  .live-judge-hud__context { gap: 4px; padding: 5px 7px; font-size: 12px; }
+  .live-judge-hud__context > span { min-height: 26px; padding-inline: 6px; }
+  .live-judge-hud__body { align-items: stretch !important; overflow: hidden !important; padding: 6px 7px !important; }
+  .live-judge-hud__stack--voting-scroll { height: 100%; max-height: 100%; justify-content: flex-start; gap: 5px !important; }
   .live-judge-hud__stack--voting-scroll > .live-judge-hud__eyebrow,
-  .live-judge-voting-focus > .live-judge-hud__eyebrow {
-    font-size: 12px !important;
-    line-height: 1.1;
-  }
-
-  .live-judge-voting-focus__candidate {
-    font-size: 12px;
-  }
-
-  .live-judge-voting-focus__candidate strong {
-    font-size: 20px;
-  }
-
-  .live-judge-voting-order {
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 5px;
-    padding: 5px 6px;
-    border-radius: 9px;
-  }
-
-  .live-judge-voting-order__label {
-    max-width: 72px;
-    font-size: 12px;
-  }
-
-  .live-judge-voting-order__list {
-    gap: 3px;
-  }
-
-  .live-judge-voting-order__seat {
-    min-width: 32px;
-    min-height: 30px;
-    padding: 3px 4px;
-    border-radius: 7px;
-    font-size: 12px;
-  }
-
-  .live-judge-vote-summary.live-judge-vote-summary--with-undo {
-    gap: 4px;
-  }
-
-  .live-judge-vote-summary .live-judge-stat {
-    min-height: 48px;
-    padding: 5px 6px;
-    border-radius: 8px;
-  }
-
-  .live-judge-vote-summary .live-judge-stat__label {
-    font-size: 12px !important;
-  }
-
-  .live-judge-vote-summary .live-judge-stat__value {
-    margin-top: 2px;
-    font-size: 18px !important;
-  }
-
-  .live-judge-vote-undo__value {
-    font-size: 12px;
-  }
-
-  .live-judge-voter-state {
-    padding: 5px 7px;
-    font-size: 12px;
-    line-height: 1.15;
-  }
-
-  .live-judge-vote-actions {
-    flex: 0 0 auto;
-    margin-top: auto;
-    gap: 5px;
-  }
-
-  .live-judge-vote-actions .live-judge-action {
-    min-height: 44px;
-    padding-inline: 7px;
-    font-size: 12px;
-  }
-
-  .live-judge-hud__stack--revote-speech {
-    gap: 5px !important;
-  }
-
-  .live-judge-hud__stack--revote-speech > .live-judge-action {
-    min-height: 44px;
-    font-size: 13px;
-  }
-
-  .live-judge-hud__player-actions {
-    width: 96px;
-    min-height: 44px;
-    padding-left: 8px;
-    padding-right: 20px;
-    font-size: 12px;
-  }
-
+  .live-judge-voting-focus > .live-judge-hud__eyebrow { font-size: 12px !important; line-height: 1.1; }
+  .live-judge-voting-focus__candidate { font-size: 12px; }
+  .live-judge-voting-focus__candidate strong { font-size: 20px; }
+  .live-judge-voting-order { grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 5px; padding: 5px 6px; border-radius: 9px; }
+  .live-judge-voting-order__label { max-width: 72px; font-size: 12px; }
+  .live-judge-voting-order__list { gap: 3px; }
+  .live-judge-voting-order__seat { min-width: 32px; min-height: 30px; padding: 3px 4px; border-radius: 7px; font-size: 12px; }
+  .live-judge-vote-summary.live-judge-vote-summary--with-undo { gap: 4px; }
+  .live-judge-vote-summary .live-judge-stat { min-height: 48px; padding: 5px 6px; border-radius: 8px; }
+  .live-judge-vote-summary .live-judge-stat__label { font-size: 12px !important; }
+  .live-judge-vote-summary .live-judge-stat__value { margin-top: 2px; font-size: 18px !important; }
+  .live-judge-vote-undo__value { font-size: 12px; }
+  .live-judge-voter-state { padding: 5px 7px; font-size: 12px; line-height: 1.15; }
+  .live-judge-vote-actions { flex: 0 0 auto; margin-top: auto; gap: 5px; }
+  .live-judge-vote-actions .live-judge-action { min-height: 44px; padding-inline: 7px; font-size: 12px; }
+  .live-judge-hud__stack--revote-speech { gap: 5px !important; }
+  .live-judge-hud__stack--revote-speech > .live-judge-action { min-height: 44px; font-size: 13px; }
+  .live-judge-hud__player-actions { width: 96px; min-height: 44px; padding-left: 8px; padding-right: 20px; font-size: 12px; }
   .live-judge-timer__label,
   .live-judge-timer__name,
   .live-judge-hud__hint,
   .live-judge-hud__summary,
-  .live-judge-chip {
-    font-size: 12px !important;
-  }
-
+  .live-judge-chip { font-size: 12px !important; }
   .live-judge-timer__button,
   .live-judge-hud__primary,
-  .live-judge-hud__secondary {
-    min-height: 44px;
-    font-size: 12px;
-  }
+  .live-judge-hud__secondary { min-height: 44px; font-size: 12px; }
 }
 
 @media (max-width: 374px) {
-  .evening-live-engine-shell .live-judge-hud {
-    min-height: 300px;
-  }
-
-  .live-judge-hud__context {
-    font-size: 11px;
-  }
-
+  .evening-live-engine-shell .live-judge-hud { min-height: 300px; }
+  .live-judge-hud__context,
   .live-judge-voting-order__label,
   .live-judge-voting-order__seat,
   .live-judge-voter-state,
-  .live-judge-vote-actions .live-judge-action {
-    font-size: 11px;
-  }
+  .live-judge-vote-actions .live-judge-action { font-size: 12px; }
 }

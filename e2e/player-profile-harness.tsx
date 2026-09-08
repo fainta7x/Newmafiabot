@@ -5,13 +5,15 @@ import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
 
 const params = new URLSearchParams(location.search);
-const externalProfile = params.get('target') === 'friend';
-const targetPlayerId = externalProfile ? 'friend-1' : 'preview-player';
+const target = params.get('target');
+const externalProfile = target === 'friend' || target === 'unavailable';
+const unavailableProfile = target === 'unavailable';
+const targetPlayerId = target === 'friend' ? 'friend-1' : unavailableProfile ? 'unavailable-player' : 'preview-player';
 const now = new Date();
 const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
 const summaryFor = (id: string) => ({
   viewer: { is_self: id === 'preview-player', is_organizer: false },
-  player: { id, nickname: id === 'preview-player' ? 'Чагин' : 'Дэнди', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4 },
+  player: { id, nickname: id === 'preview-player' ? 'Чагин' : id === 'friend-1' ? 'Дэнди' : 'Недоступный игрок', full_name: id === 'preview-player' ? 'Евгений Чагин' : null, avatar_url: null, elo: 1542, rating_position: 4, rating_movement_30d: 18.4 },
   stats: { games: 48, wins: 29, win_rate: 60.4 },
   recent_games: [{ id: 'club:g4', title: 'Пятничный вечер', date: iso(2), game_number: 4, role: 'sheriff', won: true }],
 });
@@ -44,7 +46,9 @@ globalThis.fetch = async (input: RequestInfo | URL) => {
   if (url.pathname.endsWith('/elo')) return json({ points: [{ id: 'club:g4', title: 'Пятничный вечер', game_number: 4, date: iso(2), role: 'sheriff', elo_before: 1527, elo_after: 1542, elo_delta: 15 }] });
   if (url.pathname.endsWith('/showcase')) return json(showcase);
   if (url.pathname.endsWith('/connections')) return json({ connections: [connection], most_successful_partnership: connection, invited_by: null, invited_players: [] });
-  if (url.pathname.endsWith('/invitation-context')) return json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });
+  if (url.pathname.endsWith('/invitation-context')) return unavailableProfile
+    ? json({ can_invite: false, reason: 'recipient_blocked', recipient_state: 'unavailable', evenings: [] })
+    : json({ can_invite: true, reason: null, recipient_state: 'available', evenings: invitationStates });
   if (url.pathname === '/api/player/friend-invite-suggestions') return json({ suggestions: [{ ...connection, evening: invitationEvening }] });
   if (url.pathname === '/api/player/evening-invitations/inbox') return json({ invitations: [] });
   if (url.pathname === '/api/player/profile-completeness') return json({ score: 88, status: 'good', fields: [] });

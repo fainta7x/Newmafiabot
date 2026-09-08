@@ -79,6 +79,12 @@ const uploadSpeechClip = async (gameId: number, clip: StoredSpeechClip) => {
   });
 };
 
+/**
+ * Compatibility bridge only. Core betting pool creation now happens through the
+ * authenticated server start lifecycle invoked by the Live Game setup. This
+ * bridge keeps the old periodic settlement reconciliation and the unrelated
+ * speech-recording upload compatibility path; it never opens betting pools.
+ */
 export default function BettingLiveBridge() {
   useEffect(() => {
     let busy = false;
@@ -136,6 +142,12 @@ export default function BettingLiveBridge() {
     const tick = async () => {
       if (busy) return;
 
+      const now = Date.now();
+      if (now - lastReconcileAt > 5000) {
+        lastReconcileAt = now;
+        void fetch('/api/games/betting/reconcile', { method: 'POST', credentials: 'include' }).catch(() => undefined);
+      }
+
       let parsed: any = null;
       try {
         const raw = localStorage.getItem('mafia_live_session');
@@ -147,19 +159,13 @@ export default function BettingLiveBridge() {
       }
       if (liveSeenAt === null) liveSeenAt = Date.now();
 
-      const now = Date.now();
-      if (now - lastReconcileAt > 5000) {
-        lastReconcileAt = now;
-        void fetch('/api/games/betting/reconcile', { method: 'POST', credentials: 'include' }).catch(() => undefined);
-      }
-
       const activePlayers: LivePlayer[] = Array.isArray(parsed.activePlayers) ? parsed.activePlayers : [];
       if (activePlayers.length !== 10) return;
-      const roles = activePlayers.map((player) => ({ seat_number: Number(player.slot_num), role: player.role }));
-      if (roles.some((item) => !Number.isInteger(item.seat_number) || !item.role)) return;
       const liveNames = normalizedNames(activePlayers.map((player) => String(player.nickname || '')));
       if (liveNames.length !== 10) return;
 
+      // Legacy speech recordings do not carry canonical player/game ids yet. This
+      // name lookup is retained only for speech compatibility, never for betting.
       busy = true;
       try {
         const response = await fetch('/api/games?archived=0', { credentials: 'include' });
@@ -173,22 +179,9 @@ export default function BettingLiveBridge() {
           ))
           .sort((a: any, b: any) => Number(b.global_game_number || b.id || 0) - Number(a.global_game_number || a.id || 0));
         const game = candidates[0];
-        if (!game?.id) return;
-
-        void syncSpeech(Number(game.id), liveNames);
-
-        const storageKey = `betting_pool_opened_game_${game.id}`;
-        if (sessionStorage.getItem(storageKey) === '1') return;
-
-        const openResponse = await fetch(`/api/games/${game.id}/betting/open`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roles }),
-        });
-        if (openResponse.ok || openResponse.status === 409) sessionStorage.setItem(storageKey, '1');
+        if (game?.id) void syncSpeech(Number(game.id), liveNames);
       } catch (error) {
-        console.warn('[BETS] Live bridge failed to resolve current game:', error);
+        console.warn('[speech-recording] Live bridge failed to resolve current game:', error);
       } finally {
         busy = false;
       }

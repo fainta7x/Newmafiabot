@@ -7,10 +7,10 @@ export type PlayerGamesSection = 'games' | 'stats' | 'career' | 'recaps';
 
 type PrimaryGamesSection = 'games' | 'stats' | 'overview';
 
-const PRIMARY_TABS: Array<{ id: PrimaryGamesSection; label: string; description: string }> = [
-  { id: 'games', label: 'История', description: 'Список сыгранных партий' },
-  { id: 'stats', label: 'Статистика', description: 'Сводные показатели' },
-  { id: 'overview', label: 'Обзор', description: 'Карьера и итоги вечеров' },
+const PRIMARY_TABS: Array<{ id: PrimaryGamesSection; label: string }> = [
+  { id: 'games', label: 'История' },
+  { id: 'stats', label: 'Статистика' },
+  { id: 'overview', label: 'Обзор' },
 ];
 
 export default function PlayerGamesHub({
@@ -45,7 +45,6 @@ export default function PlayerGamesHub({
                 type="button"
                 onClick={() => onOpen(destination)}
                 aria-current={active ? 'page' : undefined}
-                aria-label={`${tab.label}: ${tab.description}`}
                 className={`min-h-11 rounded-xl px-2 text-[14px] font-semibold transition ${active ? 'bg-white text-black' : 'text-white/55 active:bg-white/[0.05]'}`}
               >
                 {tab.label}

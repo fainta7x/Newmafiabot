@@ -2,7 +2,7 @@
 @media (max-width: 767px) {
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-template-rows: 84px minmax(286px, 1fr) 84px 84px !important;
+    grid-template-rows: 84px minmax(320px, 1fr) 84px 84px !important;
   }
 
   /* Preserve the table's clockwise seat order while giving the HUD one full-width row. */
@@ -13,7 +13,7 @@
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(11) {
     grid-column: 1 / -1 !important;
     grid-row: 2 !important;
-    min-height: 286px !important;
+    min-height: 320px !important;
   }
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(8)  { grid-column: 1 !important; grid-row: 3 !important; }
   html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] > :nth-child(3)  { grid-column: 4 !important; grid-row: 3 !important; }
@@ -25,7 +25,7 @@
   /* The CRM avatar/name overlay mirrors the same four-row geometry. */
   html body .evening-live-engine-shell .evening-live-identity-layer {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    grid-template-rows: 84px minmax(286px, 1fr) 84px 84px !important;
+    grid-template-rows: 84px minmax(320px, 1fr) 84px 84px !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity[data-seat="9"]  { grid-column: 1 !important; grid-row: 1 !important; }

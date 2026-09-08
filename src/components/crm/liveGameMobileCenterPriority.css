@@ -1,8 +1,13 @@
 /* Mobile-only Live Game layout: the judge working surface gets priority over seat-card geometry. */
 @media (max-width: 767px) {
-  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"] {
+  /* Match and outrank the canonical mobile table selector from liveGameJudge.css.
+     A four-row board keeps the judge HUD separate from the interactive seat targets. */
+  html body .evening-live-engine-shell div[class*="grid-cols-2"][class*="md:grid-cols-5"]:has(> .live-seat-card) {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     grid-template-rows: 84px 320px 84px 84px !important;
+    height: 572px !important;
+    min-height: 572px !important;
+    max-height: 572px !important;
   }
 
   /* Place the actual interactive seat cards by their stable seat id, not DOM position.
@@ -31,6 +36,9 @@
   html body .evening-live-engine-shell .evening-live-identity-layer {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     grid-template-rows: 84px 320px 84px 84px !important;
+    height: 572px !important;
+    min-height: 572px !important;
+    max-height: 572px !important;
   }
 
   html body .evening-live-engine-shell .evening-live-identity[data-seat="9"]  { grid-column: 1 !important; grid-row: 1 !important; }

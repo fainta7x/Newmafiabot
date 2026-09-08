@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
+import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 type EventItem = {
   id: string;
@@ -179,7 +180,7 @@ export default function PlayerEventSlotDetail({
                     </div>
                     {slot.participants.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {slot.participants.map((participant) => <span key={participant.id} className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/45">{participant.nickname}</span>)}
+                        {slot.participants.map((participant) => <span key={participant.id} role="link" tabIndex={0} onClick={(event) => { event.stopPropagation(); openCanonicalPlayerProfile(participant.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openCanonicalPlayerProfile(participant.id); } }} className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] text-white/45 underline-offset-2 hover:underline">{participant.nickname}</span>)}
                       </div>
                     )}
                   </button>

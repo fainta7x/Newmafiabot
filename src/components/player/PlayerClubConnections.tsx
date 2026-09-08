@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 
 type PersonRelationship = {
   player_id: string;
@@ -43,14 +44,14 @@ function PersonRow({ item, kind }: { item: PersonRelationship; kind: 'rival' | '
   const valueTone = kind === 'rival' ? 'text-rose-100/85' : 'text-emerald-100/85';
 
   return (
-    <div className={`flex items-center gap-3 rounded-2xl border p-2.5 ${tone}`}>
+    <button type="button" onClick={() => openCanonicalPlayerProfile(item.player_id)} className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left ${tone}`}>
       <Avatar src={item.avatar_url} name={item.nickname} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold">{item.nickname}</div>
         <div className="mt-0.5 text-[10px] text-white/30">{kind === 'rival' ? 'встречались' : 'вместе'} {item.games} игр · {item.wins} побед</div>
       </div>
       <div className={`shrink-0 text-sm font-semibold ${valueTone}`}>{item.win_rate}%</div>
-    </div>
+    </button>
   );
 }
 
@@ -59,8 +60,8 @@ function DuoRow({ duo }: { duo: ClubDuo }) {
   return (
     <div className={`flex items-center gap-2 rounded-2xl border p-2.5 ${red ? 'border-rose-200/[0.07] bg-rose-300/[0.03]' : 'border-white/[0.06] bg-black/15'}`}>
       <div className="flex -space-x-2">
-        <Avatar src={duo.a_avatar_url} name={duo.a_name} size={32} />
-        <Avatar src={duo.b_avatar_url} name={duo.b_name} size={32} />
+        <button type="button" aria-label={`Открыть профиль ${duo.a_name}`} onClick={() => openCanonicalPlayerProfile(duo.a_id)}><Avatar src={duo.a_avatar_url} name={duo.a_name} size={32} /></button>
+        <button type="button" aria-label={`Открыть профиль ${duo.b_name}`} onClick={() => openCanonicalPlayerProfile(duo.b_id)}><Avatar src={duo.b_avatar_url} name={duo.b_name} size={32} /></button>
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold">{duo.a_name} + {duo.b_name}</div>

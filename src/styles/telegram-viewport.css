@@ -10,6 +10,7 @@
   --tg-content-safe-area-left: var(--tg-safe-area-left);
   --tg-content-safe-area-right: var(--tg-safe-area-right);
   --app-top-bar-height: 60px;
+  --app-player-top-bar-height: 56px;
   --app-bottom-nav-height: 68px;
   --app-usable-height: calc(var(--tg-viewport-height) - var(--tg-content-safe-area-top) - var(--tg-content-safe-area-bottom));
   --app-content-top: calc(var(--tg-content-safe-area-top) + var(--app-top-bar-height));
@@ -39,25 +40,34 @@ body {
   padding-right: var(--tg-content-safe-area-right);
 }
 
-.player-quick-access-bar,
+.player-cabinet-shell {
+  padding-bottom: var(--app-content-bottom);
+}
+
+[data-testid="player-top-bar"],
 .crm-premium-header {
-  top: var(--tg-content-safe-area-top) !important;
+  top: 0 !important;
+  padding-top: var(--tg-content-safe-area-top) !important;
+}
+
+[data-testid="player-top-bar"] {
+  height: calc(var(--app-player-top-bar-height) + var(--tg-content-safe-area-top)) !important;
+}
+
+.player-cabinet-shell > .h-14[aria-hidden="true"] {
+  height: calc(var(--app-player-top-bar-height) + var(--tg-content-safe-area-top)) !important;
 }
 
 .crm-premium-header {
-  padding-top: max(0px, var(--tg-content-safe-area-top));
   min-height: calc(var(--app-top-bar-height) + var(--tg-content-safe-area-top)) !important;
 }
 
-.player-cabinet-shell > main,
-.crm-premium > main,
-.player-events-shell > main {
+.crm-premium > main {
   padding-bottom: max(16px, var(--app-content-bottom)) !important;
 }
 
 .organizer-bottom-nav,
-.player-bottom-navigation,
-[data-testid="player-bottom-navigation"] {
+[data-testid="player-bottom-nav"] {
   bottom: 0 !important;
   padding-bottom: max(8px, var(--tg-content-safe-area-bottom)) !important;
   min-height: calc(var(--app-bottom-nav-height) + var(--tg-content-safe-area-bottom)) !important;
@@ -105,9 +115,6 @@ body {
   padding-top: var(--app-content-top) !important;
 }
 
-/* The CRM shell is the sole primary title owner. Legacy child screens keep
-   their description, filters and actions, while the repeated heading itself
-   takes no visual or accessibility space. */
 .crm-premium [data-crm-duplicate-primary-title="true"] {
   display: none !important;
 }

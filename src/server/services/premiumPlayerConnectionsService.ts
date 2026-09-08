@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
-import { loadCompletedGameSnapshots } from './clubGameAnalyticsService.ts';
+import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
+import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
 
 export type EveningInvitationStatus = 'sent' | 'opened' | 'accepted' | 'declined' | 'ignored';
@@ -10,6 +11,7 @@ const avatarUrl = (playerId: string) => `/api/player/players/${encodeURIComponen
 const nowIso = () => new Date().toISOString();
 
 export async function ensurePremiumPlayerConnectionsSchema(db: DatabaseWrapper) {
+  await ensurePlayerConnectionsSchema(db);
   await db.run(`
     CREATE TABLE IF NOT EXISTS player_evening_invitations (
       id TEXT PRIMARY KEY,
@@ -28,8 +30,7 @@ export async function ensurePremiumPlayerConnectionsSchema(db: DatabaseWrapper) 
   await db.run(`CREATE INDEX IF NOT EXISTS idx_player_evening_invitations_inviter ON player_evening_invitations(inviter_player_id, evening_id, created_at DESC)`);
 }
 
-export async function loadProfileConnections(db: DatabaseWrapper, playerId: string) {
-  const snapshots = await loadCompletedGameSnapshots(db);
+export function buildProfileConnections(snapshots: CompletedGameSnapshot[], playerId: string) {
   const rows = new Map<string, {
     player_id: string;
     nickname: string;
@@ -67,7 +68,7 @@ export async function loadProfileConnections(db: DatabaseWrapper, playerId: stri
     }
   }
 
-  const connections = [...rows.values()]
+  return [...rows.values()]
     .filter((item) => item.shared_games >= 2)
     .sort((a, b) => b.shared_games - a.shared_games || b.last_played_ms - a.last_played_ms || a.nickname.localeCompare(b.nickname, 'ru'))
     .slice(0, 24)
@@ -77,14 +78,79 @@ export async function loadProfileConnections(db: DatabaseWrapper, playerId: stri
       else if (item.opponent_games >= 3 && item.opponent_games > item.same_team_games) relationship = 'Часто по разные стороны';
       return { ...item, relationship, avatar_url: avatarUrl(item.player_id) };
     });
+}
+
+export async function loadProfileConnections(db: DatabaseWrapper, playerId: string) {
+  await ensurePlayerConnectionsSchema(db);
+  const snapshots = await loadCompletedGameSnapshots(db);
+  const connections = buildProfileConnections(snapshots, playerId);
+
+  const invitedByRow = await db.get<any>(`
+    SELECT r.created_at, p.id AS player_id, p.nickname
+      FROM player_referrals r
+      JOIN players p ON p.id = r.inviter_player_id
+     WHERE r.invited_player_id = ?
+     LIMIT 1
+  `, [playerId]);
+  const invitedRows = await db.all<any>(`
+    SELECT r.created_at, p.id AS player_id, p.nickname
+      FROM player_referrals r
+      JOIN players p ON p.id = r.invited_player_id
+     WHERE r.inviter_player_id = ?
+     ORDER BY datetime(r.created_at) ASC, p.nickname COLLATE NOCASE ASC
+     LIMIT 50
+  `, [playerId]);
+
+  const toReferralPlayer = (row: any) => ({
+    player_id: String(row.player_id),
+    nickname: String(row.nickname || 'Игрок'),
+    avatar_url: avatarUrl(String(row.player_id)),
+    created_at: row.created_at || null,
+  });
 
   return {
     connections,
+    invited_by: invitedByRow ? toReferralPlayer(invitedByRow) : null,
+    invited_players: invitedRows.map(toReferralPlayer),
     meta: {
       source: 'completed_games',
       minimum_shared_games: 2,
-      note: 'Связи считаются только по завершённым играм. Подписи описывают частоту совместных игр и не оценивают игроков.',
+      note: 'Игровые связи считаются только по завершённым играм. История приглашений в клуб показывается только из подтверждённых организатором данных.',
     },
+  };
+}
+
+export async function setHistoricalPlayerReferrer(
+  db: DatabaseWrapper,
+  invitedPlayerId: string,
+  inviterPlayerId: string | null,
+) {
+  await ensurePlayerConnectionsSchema(db);
+  const invited = await db.get<any>('SELECT id FROM players WHERE id = ? LIMIT 1', [invitedPlayerId]);
+  if (!invited) throw new Error('Игрок не найден');
+
+  if (!inviterPlayerId) {
+    await db.run('DELETE FROM player_referrals WHERE invited_player_id = ?', [invitedPlayerId]);
+    return null;
+  }
+  if (inviterPlayerId === invitedPlayerId) throw new Error('Игрок не может пригласить в клуб самого себя');
+  const inviter = await db.get<any>('SELECT id, nickname FROM players WHERE id = ? LIMIT 1', [inviterPlayerId]);
+  if (!inviter) throw new Error('Пригласивший игрок не найден');
+
+  const now = nowIso();
+  await db.run(`
+    INSERT INTO player_referrals (invited_player_id, inviter_player_id, source, created_at, updated_at)
+    VALUES (?, ?, 'organizer', ?, ?)
+    ON CONFLICT(invited_player_id) DO UPDATE SET
+      inviter_player_id = excluded.inviter_player_id,
+      source = 'organizer',
+      updated_at = excluded.updated_at
+  `, [invitedPlayerId, inviterPlayerId, now, now]);
+
+  return {
+    player_id: String(inviter.id),
+    nickname: String(inviter.nickname || 'Игрок'),
+    avatar_url: avatarUrl(String(inviter.id)),
   };
 }
 
@@ -105,9 +171,7 @@ const loadInviteCandidates = async (db: DatabaseWrapper, inviterPlayerId: string
   const rows = await db.all<any>(`
     SELECT e.id, e.title, e.starts_at, e.venue, e.format,
            inviter_ep.response_status AS inviter_response,
-           inviter_ep.registration_status AS inviter_registration,
-           recipient_ep.response_status AS recipient_response,
-           recipient_ep.registration_status AS recipient_registration
+           recipient_ep.response_status AS recipient_response
       FROM game_evenings e
       JOIN evening_participants inviter_ep
         ON inviter_ep.evening_id = e.id AND inviter_ep.player_id = ?

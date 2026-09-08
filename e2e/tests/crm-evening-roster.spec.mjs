@@ -59,7 +59,7 @@ for (const width of [360, 390]) {
       await expect(manualRow).toContainText('Явка: не отмечена');
       const manualBody = await page.evaluate(() => JSON.parse(document.body.dataset.bulkParticipantBody || '{}'));
       expect(manualBody.response_status).toBe('unanswered');
-      expect(manualBody.registration_status).toBe('unanswered');
+      expect(manualBody.registration_status).toBe('invited');
       await attachViewport(page, testInfo, `crm-manual-rsvp-${width}.png`);
 
       await nav.getByRole('button', { name: 'Оплата', exact: true }).click();

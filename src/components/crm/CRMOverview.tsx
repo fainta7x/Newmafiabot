@@ -33,6 +33,7 @@ export const CRMOverview = ({
 }: CRMOverviewProps) => (
   <div className="crm-overview-canonical">
     <OrganizerCommandCenter
+      showTitle={false}
       overview={overview}
       onOpenEvening={onOpenEvening}
       onOpenEveningSection={navigateEveningSection}

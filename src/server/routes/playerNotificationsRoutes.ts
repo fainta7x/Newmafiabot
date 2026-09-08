@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
@@ -51,6 +52,33 @@ const buildNotifications = async (db: any, playerId: string) => {
     action?: { kind: string; target?: string };
     priority: number;
   }> = [];
+
+  await ensurePlayerConnectionsSchema(db);
+  const personalInvite = await db.get(`
+    SELECT i.id, i.evening_id, i.created_at, e.title, e.starts_at, e.venue, p.nickname AS inviter_name
+      FROM player_evening_invites i
+      JOIN game_evenings e ON e.id = i.evening_id
+      JOIN players p ON p.id = i.inviter_player_id
+     WHERE i.invited_player_id = ?
+       AND e.status IN ('published', 'active')
+       AND e.settled_at IS NULL
+       AND datetime(e.starts_at) >= datetime('now', '-6 hours')
+     ORDER BY datetime(i.created_at) DESC
+     LIMIT 1
+  `, [playerId]);
+  if (personalInvite) {
+    const starts = new Date(String(personalInvite.starts_at));
+    items.push({
+      key: `player-evening-invite:${personalInvite.id}`,
+      type: 'player_evening_invite',
+      icon: '🎭',
+      title: 'Личное приглашение',
+      text: `${String(personalInvite.inviter_name || 'Игрок')} приглашает тебя на ${String(personalInvite.title || 'игровой вечер')}${personalInvite.venue ? ` · ${personalInvite.venue}` : ''}`,
+      date: new Date(String(personalInvite.created_at || personalInvite.starts_at)).toISOString(),
+      action: { kind: 'events', target: String(personalInvite.evening_id) },
+      priority: 110,
+    });
+  }
 
   const upcoming = await db.get(`
     SELECT e.id, e.title, e.starts_at, e.venue, ep.response_status

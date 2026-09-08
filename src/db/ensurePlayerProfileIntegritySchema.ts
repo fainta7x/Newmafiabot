@@ -66,5 +66,26 @@ export async function ensurePlayerProfileIntegritySchema(db: DatabaseWrapper): P
     );
     CREATE INDEX IF NOT EXISTS idx_player_award_suggestions_status ON player_award_suggestions(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_player_award_suggestions_player ON player_award_suggestions(player_id, status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS player_club_milestones (
+      id TEXT PRIMARY KEY,
+      player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      milestone_date TEXT,
+      icon TEXT NOT NULL DEFAULT '◆',
+      source TEXT NOT NULL DEFAULT 'manual',
+      verification_status TEXT NOT NULL DEFAULT 'verified',
+      created_by TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_player_club_milestones_player ON player_club_milestones(player_id, verification_status, COALESCE(milestone_date, created_at) DESC);
   `);
+
+  const awardColumns = await db.all<{ name: string }>('PRAGMA table_info(player_verified_awards)');
+  if (!awardColumns.some((column) => column.name === 'pinned_position')) {
+    await db.run('ALTER TABLE player_verified_awards ADD COLUMN pinned_position INTEGER');
+  }
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_player_verified_awards_pinned ON player_verified_awards(player_id, pinned_position);`);
 }

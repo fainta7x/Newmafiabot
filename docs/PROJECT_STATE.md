@@ -4,7 +4,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Status date:** 2026-09-08
 
-**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268 and the canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273. PR #274 is the current release candidate for weighted player-profile completeness, private birthday/profile maintenance and separate verified official awards. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -67,17 +67,22 @@ Implemented and connected:
 - events/calendar/registration and multi-game slot planning;
 - games/history/statistics/career/replay;
 - rating/Elo/rating periods;
-- club/player profiles and avatars;
+- one canonical premium player profile shared by self and other-player views, with mobile-first hero/overview, paginated completed-game history, role analytics and Elo history;
+- directory/rating identities open the same state-preserving player profile so Back returns to the prior screen instead of a duplicate profile implementation;
 - weighted profile-completeness state with exact missing fields, profile-update timestamps and a non-blocking Player Cabinet reminder that can be dismissed for the current visit and disappears after completion;
 - player self-service editing for canonical identity/contact data, optional day/month birthday with optional year and explicit birthday privacy, while linked Telegram identity remains system-owned;
 - official verified awards kept separate from application achievements, ratings and game/tournament statistics; players may only submit pending suggestions/corrections and only verified awards are visible in player/public profiles;
+- premium verified showcase with owner-pinned awards plus a club-history timeline built only from verified/system facts and organizer-authored milestones;
+- factual player-to-player connections calculated only from completed games, including shared-table, same-team and opponent counts;
+- organizer-curated historical `invited_by` / invited-player club relationships; historical referrals are never inferred or fabricated from nicknames or game history;
+- player-to-player invitations from another player's profile to an eligible upcoming evening the inviter is already attending, with duplicate/self/format/limit protection, in-app inbox/notification and durable Telegram outbox delivery; accepting an invitation never creates a booking automatically;
 - wallet/tokens/shop/manual accounting plus canonical club-game betting: one 90-second server pool per game, spectator-only eligibility, idempotent stake/payout/refund ledger writes, active bet/coefficient state and settled history in Player Cabinet;
 - judging/conduct surfaces and speech recording;
 - exactly two personal music slots in the player profile;
 - staff/judge music library and playlist;
 - judge game launcher and in-game music controller.
 
-Profile-completeness and verified-award schema changes are additive/idempotent. Historical awards are never auto-imported and manual/historical official awards do not create games/tournaments or affect Elo, statistics or rankings. Birthday congratulations are not sent automatically.
+Profile-completeness, verified-award, premium-profile, referral and invitation schema changes are additive/idempotent. Historical awards and referrals are never auto-inferred; manual/historical official awards or club-referral records do not create games/tournaments or affect Elo, statistics or rankings. Birthday congratulations are not sent automatically.
 
 The mobile Player Cabinet has been audited at narrow phone widths. Current navigation/content density, game history, profile, events, wallet, club and live-evening surfaces are the post-audit baseline; future changes should start from a reproduced issue rather than an assumed pending mobile redesign.
 
@@ -243,7 +248,7 @@ The latest real club evening reported by the user completed without a core Live 
 
 The betting/Telegram lifecycle from PR #273 is covered by integration acceptance tests for CRM and assigned-judge game start, one 90-second pool per game, player/judge exclusion, idempotent stake/payout/refund handling, Player Cabinet active/history state, durable Telegram retry/deduplication, personal invitation reconciliation and explicit organizer recipients.
 
-The profile-integrity/verified-awards release candidate in PR #274 is covered by focused service, integration and component tests for weighted completeness, privacy choices, self/organizer edit permissions, reminder dismissal/completion behavior, duplicate-safe tasks, birthday windows/leap-day handling, official-award suggestion review, public verified-only visibility and historical-award isolation from Elo/games/tournaments. Required CI and mobile UI preview must remain green on the final documentation head before merge.
+The profile work through PRs #274–#277 is complete in `main`: weighted completeness/privacy and verified official awards are followed by one canonical premium self/public profile, completed-game/role/Elo analytics, owner-pinned verified awards, verified club history, factual completed-game connections, organizer-curated historical referrals and duplicate-safe player-to-player evening invitations with in-app plus durable Telegram delivery. Focused tests cover connection aggregation, invitation deduplication/delivery/eligibility, organizer-only referral maintenance and the earlier profile integrity/award contracts. The final #277 head passed TypeScript, lint, the full test suite, production build/container startup, Gitleaks, CodeQL and UI preview before merge.
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 

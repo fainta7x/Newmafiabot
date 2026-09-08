@@ -3,7 +3,6 @@ import { DisciplineConfirmationOverlay } from '../src/components/LiveGameEngine/
 import '../src/index.css';
 import '../src/styles/design-system.css';
 import '../src/releasePolish.css';
-import '../src/components/crm/liveGame.css';
 
 const player = {
   slot_num: 6,

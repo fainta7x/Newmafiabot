@@ -71,11 +71,17 @@ async function compactTelegramViewport(page, values) {
   }, { height: values.compactHeight, bottom: values.content.bottom + 6 });
 }
 
-async function assertFixedNavInsideHorizontalSafeArea(page, selector, values) {
-  const rect = await page.locator(selector).boundingBox();
-  expect(rect).not.toBeNull();
-  expect(rect.x).toBeGreaterThanOrEqual(values.content.left - 1);
-  expect(rect.x + rect.width).toBeLessThanOrEqual(values.width - values.content.right + 1);
+async function assertFixedNavActionsInsideHorizontalSafeArea(page, selector, values) {
+  const nav = page.locator(selector);
+  await expect(nav).toBeVisible();
+  const buttons = nav.locator('button');
+  expect(await buttons.count()).toBeGreaterThan(0);
+  const first = await buttons.first().boundingBox();
+  const last = await buttons.last().boundingBox();
+  expect(first).not.toBeNull();
+  expect(last).not.toBeNull();
+  expect(first.x).toBeGreaterThanOrEqual(values.content.left - 1);
+  expect(last.x + last.width).toBeLessThanOrEqual(values.width - values.content.right + 1);
 }
 
 for (const item of cases) {
@@ -91,10 +97,8 @@ for (const item of cases) {
       await page.goto(surface.route);
       await page.locator('body').waitFor({ state: 'visible' });
       await assertTelegramGeometry(page, item);
-      if (surface.nav) await assertFixedNavInsideHorizontalSafeArea(page, surface.nav, item);
-      if (surface.name === 'crm') {
-        await expect(page.locator('.crm-premium h1')).toHaveCount(1);
-      }
+      if (surface.nav) await assertFixedNavActionsInsideHorizontalSafeArea(page, surface.nav, item);
+      if (surface.name === 'crm') await expect(page.locator('.crm-premium h1')).toHaveCount(1);
       await page.screenshot({ path: info.outputPath(`telegram-${item.name}-${surface.name}-initial.png`), fullPage: true });
 
       await compactTelegramViewport(page, item);
@@ -110,10 +114,9 @@ test('fixed Player and Organizer navigation respect horizontal Telegram content-
   await page.setViewportSize({ width: item.width, height: item.height });
   await installTelegramMock(page, item);
   await page.goto('/e2e/player-cabinet.html?scenario=live');
-  await assertFixedNavInsideHorizontalSafeArea(page, '[data-testid="player-bottom-nav"]', item);
+  await assertFixedNavActionsInsideHorizontalSafeArea(page, '[data-testid="player-bottom-nav"]', item);
   await page.goto('/e2e/organizer-crm.html');
-  await expect(page.locator('.organizer-bottom-nav')).toBeVisible();
-  await assertFixedNavInsideHorizontalSafeArea(page, '.organizer-bottom-nav', item);
+  await assertFixedNavActionsInsideHorizontalSafeArea(page, '.organizer-bottom-nav', item);
 });
 
 test('canonical profile tabs, filters, Elo and owner actions stay usable in Telegram', async ({ page }, info) => {
@@ -123,7 +126,7 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await page.goto('/e2e/player-profile.html');
   await expect(page.getByTestId('canonical-premium-profile')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Игры' }).click();
+  await page.getByRole('button', { name: 'Игры', exact: true }).click();
   await page.getByText('Дополнительные фильтры').click();
   await page.getByLabel('Роль').selectOption('sheriff');
   await page.getByLabel('Команда').selectOption('black');
@@ -131,14 +134,14 @@ test('canonical profile tabs, filters, Elo and owner actions stay usable in Tele
   await assertTelegramGeometry(page, item);
   await page.screenshot({ path: info.outputPath('telegram-profile-games-filters.png'), fullPage: true });
 
-  await page.getByRole('button', { name: 'Elo' }).click();
+  await page.getByRole('button', { name: 'Elo', exact: true }).click();
   await expect(page.getByText('1542').last()).toBeVisible();
   await expect(page.getByText('+15')).toBeVisible();
   await page.screenshot({ path: info.outputPath('telegram-profile-elo.png'), fullPage: true });
 
-  await page.getByRole('button', { name: 'Награды' }).click();
+  await page.getByRole('button', { name: 'Награды', exact: true }).click();
   await expect(page.getByTestId('award-suggestion-action')).toBeVisible();
-  await page.getByRole('button', { name: 'Связи' }).click();
+  await page.getByRole('button', { name: 'Связи', exact: true }).click();
   await expect(page.getByTestId('smart-friend-invite-suggestions')).toBeVisible();
   await page.screenshot({ path: info.outputPath('telegram-profile-owner-connections.png'), fullPage: true });
 });
@@ -148,7 +151,7 @@ test('invitation picker labels every server evening state before sending', async
   await page.setViewportSize({ width: item.width, height: item.height });
   await installTelegramMock(page, item);
   await page.goto('/e2e/player-profile.html?target=friend');
-  await page.getByRole('button', { name: 'Связи' }).click();
+  await page.getByRole('button', { name: 'Связи', exact: true }).click();
   const picker = page.getByTestId('invitation-picker');
   await expect(picker).toBeVisible();
   for (const label of ['Можно пригласить','Уже записан','Уже в резерве','Уже приглашён','Регистрация закрыта','Лимит приглашений исчерпан','Формат недоступен']) {
@@ -165,7 +168,7 @@ test('unavailable invitation recipient is labelled before any send action', asyn
   await page.setViewportSize({ width: item.width, height: item.height });
   await installTelegramMock(page, item);
   await page.goto('/e2e/player-profile.html?target=unavailable');
-  await page.getByRole('button', { name: 'Связи' }).click();
+  await page.getByRole('button', { name: 'Связи', exact: true }).click();
   const unavailable = page.getByTestId('invitation-unavailable-state');
   await expect(unavailable).toBeVisible();
   await expect(unavailable.getByText('Игрок недоступен для приглашения')).toBeVisible();

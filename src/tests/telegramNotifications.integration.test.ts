@@ -144,8 +144,8 @@ describe('personal and organizer Telegram notifications', () => {
     );
     await db.run(
       `INSERT INTO evening_participants
-       (id,evening_id,player_id,source,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
-       VALUES ('personal-participant','personal-evening','personal-player','invite','unanswered','unanswered','unknown','unpaid',?,?)`,
+       (id,evening_id,player_id,registration_status,response_status,attendance_status,payment_status,created_at,updated_at)
+       VALUES ('personal-participant','personal-evening','personal-player','unanswered','unanswered','pending','unpaid',?,?)`,
       [stamp, stamp],
     );
 

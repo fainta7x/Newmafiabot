@@ -81,14 +81,20 @@ body {
   box-sizing: border-box;
 }
 
-/* The CRM nav is fixed inside a padded application shell. Bound its interactive
-   grid explicitly because fixed-position layout does not inherit that shell's
-   horizontal content box consistently across WebView engines. */
+/* Keep the CRM backdrop full-width while its outer grid actions stay inside
+   Telegram's horizontal content-safe rectangle. Grid tracks can ignore parent
+   padding in some WebViews, so bind the two edge actions directly. */
 .crm-premium .organizer-bottom-nav {
-  left: var(--tg-content-safe-area-left) !important;
-  right: var(--tg-content-safe-area-right) !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+.crm-premium .organizer-bottom-nav > button:first-child {
+  margin-left: var(--tg-content-safe-area-left);
+}
+
+.crm-premium .organizer-bottom-nav > button:last-child {
+  margin-right: var(--tg-content-safe-area-right);
 }
 
 /* Real production fullscreen layers. Keep the backdrop fullscreen while placing

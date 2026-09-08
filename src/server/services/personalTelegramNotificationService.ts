@@ -14,6 +14,13 @@ const safeJson = (value: unknown): any => {
 
 const signed = (value: number) => `${value > 0 ? '+' : ''}${Math.round(value * 100) / 100}`;
 
+const teamForRole = (role: unknown): 'red' | 'black' | null => {
+  const value = String(role || '').toLocaleLowerCase('ru-RU');
+  if (value === 'don' || value === 'mafia' || value === 'дон' || value === 'мафия') return 'black';
+  if (value === 'citizen' || value === 'sheriff' || value === 'мирный' || value === 'шериф') return 'red';
+  return null;
+};
+
 async function queueEveningNotifications(db: DatabaseWrapper) {
   const rows = await db.all<any>(`
     SELECT ep.id AS participant_id, ep.player_id, ep.response_status, ep.attendance_status,
@@ -37,12 +44,22 @@ async function queueEveningNotifications(db: DatabaseWrapper) {
     const startsAt = new Date(String(row.starts_at)).getTime();
     const title = String(row.title || 'Игровой вечер');
     const place = row.venue ? ` · ${String(row.venue)}` : '';
+    const diff = startsAt - now;
 
     if (response === 'unanswered') {
       await enqueueTelegramMessage(db, {
         messageKey: `personal:invite:${eveningId}:${playerId}`,
         category: 'personal', eventType: 'invitation', entityId: eveningId, playerId, chatId,
         text: `💬 <b>Нужно подтвердить участие</b>\n${title}${place}\nОткрой личный кабинет и ответь на приглашение.`,
+      });
+      queued++;
+    }
+
+    if (Number.isFinite(diff) && diff >= 0 && diff <= 7 * DAY_MS && ['going', 'late'].includes(response)) {
+      await enqueueTelegramMessage(db, {
+        messageKey: `personal:upcoming:${eveningId}:${playerId}:${response}`,
+        category: 'personal', eventType: 'upcoming_evening', entityId: eveningId, playerId, chatId,
+        text: `📅 <b>Ты записан на игровой вечер</b>\n${title}${place}\nСтатус: ${response === 'late' ? 'буду позже' : 'иду'}.`,
       });
       queued++;
     }
@@ -58,12 +75,11 @@ async function queueEveningNotifications(db: DatabaseWrapper) {
       queued++;
     }
 
-    const diff = startsAt - now;
     if (Number.isFinite(diff) && diff >= 0 && diff <= DAY_MS && ['going', 'late'].includes(response)) {
       await enqueueTelegramMessage(db, {
         messageKey: `personal:reminder:24h:${eveningId}:${playerId}`,
         category: 'personal', eventType: 'evening_reminder', entityId: eveningId, playerId, chatId,
-        text: `📅 <b>Напоминание об игровом вечере</b>\n${title}${place}\nНачало уже в ближайшие 24 часа.`,
+        text: `⏰ <b>Напоминание об игровом вечере</b>\n${title}${place}\nНачало уже в ближайшие 24 часа.`,
       });
       queued++;
     }
@@ -96,19 +112,21 @@ async function queueGameAndEloNotifications(db: DatabaseWrapper) {
   for (const game of games) {
     const envelope = safeJson(game.protocol_text);
     if (envelope?.kind !== 'club_evening_protocol' || envelope?.protocol?.status !== 'completed') continue;
-    const winner = String(envelope?.protocol?.winning_team || envelope?.winning_team || '');
+    const winner = envelope?.protocol?.winner_team === 'red' || envelope?.protocol?.winner_team === 'black'
+      ? envelope.protocol.winner_team
+      : null;
     const results = Array.isArray(envelope.player_results) ? envelope.player_results : [];
     for (const result of results) {
       const playerId = String(result?.player_id || '');
       const chatId = chatByPlayer.get(playerId);
       if (!chatId) continue;
       const role = String(result?.role || '');
-      const team = String(result?.team || '');
-      const won = winner && team && winner.toLocaleLowerCase('ru-RU').includes(team.toLocaleLowerCase('ru-RU'));
+      const team = teamForRole(role);
+      const won = Boolean(winner && team === winner);
       await enqueueTelegramMessage(db, {
         messageKey: `personal:game-result:${game.id}:${playerId}`,
         category: 'personal', eventType: 'game_result', entityId: game.id, playerId, chatId,
-        text: `🎭 <b>Результат игры №${game.global_game_number || game.id}</b>\n${won ? 'Победа' : 'Игра завершена'}${role ? ` · роль: ${role}` : ''}.`,
+        text: `🎭 <b>Результат игры №${game.global_game_number || game.id}</b>\n${won ? 'Победа' : 'Поражение'}${role ? ` · роль: ${role}` : ''}.`,
       });
       queued++;
     }

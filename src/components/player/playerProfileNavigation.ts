@@ -1,14 +1,13 @@
+import { playerProfilePath } from '../../lib/appNavigation.ts';
+
 export const PLAYER_PROFILE_NAVIGATION_EVENT = '2la:open-player-profile';
 
-export const playerProfilePath = (playerId: string) => `/player/players/${encodeURIComponent(playerId)}`;
-
-/**
- * Opens the canonical player profile without unmounting the source Player Cabinet surface.
- * The source screen therefore keeps its filters, selected tab and scroll position when
- * browser/Telegram Back returns from the profile overlay.
- */
+/** Opens the canonical profile while retaining the source surface under the overlay. */
 export const openCanonicalPlayerProfile = (playerId: string) => {
   const id = String(playerId || '').trim();
   if (!id) return;
+  const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.history.pushState({ ...(window.history.state || {}), playerProfileReturn: returnPath }, '', playerProfilePath(id));
+  window.dispatchEvent(new PopStateEvent('popstate'));
   window.dispatchEvent(new CustomEvent(PLAYER_PROFILE_NAVIGATION_EVENT, { detail: { playerId: id } }));
 };

@@ -12,6 +12,7 @@ import { applyImportLegacyPlayerIdentitiesMigration } from './importLegacyPlayer
 import { applyApprovedEloBaselineMigration } from './applyApprovedEloBaselineMigration.ts';
 import { applyMillourtDuplicateMergeMigration } from './mergeMillourtDuplicateMigration.ts';
 import { applyFandorinAug28GameIdentityMigration } from './fixFandorinAug28GameIdentityMigration.ts';
+import { applySep4ChaginGameIdentityMigration } from './fixSep4ChaginGameIdentityMigration.ts';
 import { ensureJudgeAuthoritySchema } from './ensureJudgeAuthoritySchema.ts';
 import { ensureClubOperationsSchema } from './ensureClubOperationsSchema.ts';
 import { createTursoHttpDatabase } from './tursoHttpDatabase.ts';
@@ -159,6 +160,11 @@ export async function getDb(): Promise<DatabaseWrapper> {
       // This repair is deliberately narrow and fail-closed. A data mismatch must never
       // reset/replace the database or prevent the application from starting.
       console.error('[DATA] Fandorin 2026-08-28 game identity repair failed:', error);
+    }
+    try {
+      await applySep4ChaginGameIdentityMigration(defaultDbInstance);
+    } catch (error) {
+      console.error('[DATA] Confirmed 2026-09-04 game identity repair failed:', error);
     }
   }
   return defaultDbInstance;

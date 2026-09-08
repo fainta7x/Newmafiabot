@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { loadPlayerEveningSummaries } from '../services/playerEveningSummaryService.ts';
+import { ensurePremiumPlayerConnectionsSchema } from '../services/premiumPlayerConnectionsService.ts';
 
 const router = Router();
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
@@ -53,13 +53,14 @@ const buildNotifications = async (db: any, playerId: string) => {
     priority: number;
   }> = [];
 
-  await ensurePlayerConnectionsSchema(db);
+  await ensurePremiumPlayerConnectionsSchema(db);
   const personalInvite = await db.get(`
     SELECT i.id, i.evening_id, i.created_at, e.title, e.starts_at, e.venue, p.nickname AS inviter_name
-      FROM player_evening_invites i
+      FROM player_evening_invitations i
       JOIN game_evenings e ON e.id = i.evening_id
       JOIN players p ON p.id = i.inviter_player_id
-     WHERE i.invited_player_id = ?
+     WHERE i.recipient_player_id = ?
+       AND i.status IN ('sent', 'opened', 'accepted')
        AND e.status IN ('published', 'active')
        AND e.settled_at IS NULL
        AND datetime(e.starts_at) >= datetime('now', '-6 hours')
@@ -67,7 +68,6 @@ const buildNotifications = async (db: any, playerId: string) => {
      LIMIT 1
   `, [playerId]);
   if (personalInvite) {
-    const starts = new Date(String(personalInvite.starts_at));
     items.push({
       key: `player-evening-invite:${personalInvite.id}`,
       type: 'player_evening_invite',

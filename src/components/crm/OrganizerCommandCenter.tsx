@@ -147,7 +147,7 @@ export default function OrganizerCommandCenter({
     });
     if (snapshot.stats.unpaid_count > 0) rows.push({
       id: 'unpaid', label: 'Не оплачено', value: String(snapshot.stats.unpaid_count), detail: formatMoney(snapshot.stats.unpaid_amount), tone: 'text-warning', icon: <CircleDollarSign className="h-4 w-4" />,
-      action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
+      action: () => onOpenEveningSection(snapshot.evening.id, 'payments'),
     });
     if (unfinishedGames > 0) rows.push({
       id: 'unfinished', label: 'Игры', value: String(unfinishedGames), detail: 'ещё не завершено', tone: 'text-warning', icon: <Gamepad2 className="h-4 w-4" />,

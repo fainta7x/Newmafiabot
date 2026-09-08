@@ -18,6 +18,7 @@ import {
   listIncomingEveningInvitations,
   loadProfileConnections,
   respondToEveningInvitation,
+  setHistoricalPlayerReferrer,
 } from '../services/premiumPlayerConnectionsService.ts';
 
 const router = Router();
@@ -149,6 +150,17 @@ router.get('/profiles/:playerId/connections', async (req, res) => {
     return res.json(await loadProfileConnections(req.db, playerId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось загрузить связи игрока' });
+  }
+});
+
+router.put('/profiles/:playerId/referrer', requireOrganizerAuth, async (req, res) => {
+  try {
+    const raw = req.body?.inviter_player_id;
+    const inviterPlayerId = raw == null || String(raw).trim() === '' ? null : String(raw).trim();
+    const referrer = await setHistoricalPlayerReferrer(req.db, String(req.params.playerId), inviterPlayerId);
+    return res.json({ success: true, referrer });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Не удалось сохранить клубную связь' });
   }
 });
 

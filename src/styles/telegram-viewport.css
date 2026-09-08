@@ -68,7 +68,7 @@ body {
 
 /* Keep fixed navigation backdrops full-width, but place every interactive item
    inside Telegram's horizontal content-safe rectangle. */
-.organizer-bottom-nav,
+.crm-premium .organizer-bottom-nav,
 [data-testid="player-bottom-nav"] {
   bottom: 0 !important;
   left: 0 !important;

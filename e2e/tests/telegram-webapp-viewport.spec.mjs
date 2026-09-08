@@ -81,7 +81,7 @@ async function assertFixedNavInsideHorizontalSafeArea(page, selector, values) {
 for (const item of cases) {
   for (const surface of [
     { route: '/e2e/player-cabinet.html?scenario=live', name: 'player', nav: '[data-testid="player-bottom-nav"]' },
-    { route: '/e2e/crm-overview.html', name: 'crm' },
+    { route: '/e2e/organizer-crm.html', name: 'crm', nav: '.organizer-bottom-nav' },
     { route: '/e2e/player-profile.html', name: 'profile' },
     { route: '/e2e/live-game.html', name: 'live-game' },
   ]) {
@@ -92,6 +92,9 @@ for (const item of cases) {
       await page.locator('body').waitFor({ state: 'visible' });
       await assertTelegramGeometry(page, item);
       if (surface.nav) await assertFixedNavInsideHorizontalSafeArea(page, surface.nav, item);
+      if (surface.name === 'crm') {
+        await expect(page.locator('.crm-premium h1')).toHaveCount(1);
+      }
       await page.screenshot({ path: info.outputPath(`telegram-${item.name}-${surface.name}-initial.png`), fullPage: true });
 
       await compactTelegramViewport(page, item);
@@ -108,12 +111,9 @@ test('fixed Player and Organizer navigation respect horizontal Telegram content-
   await installTelegramMock(page, item);
   await page.goto('/e2e/player-cabinet.html?scenario=live');
   await assertFixedNavInsideHorizontalSafeArea(page, '[data-testid="player-bottom-nav"]', item);
-  await page.goto('/e2e/crm-login.html');
-  await expect(page.getByText('Вход для организатора')).toBeVisible();
-  const modal = page.getByText('Вход для организатора').locator('xpath=ancestor::div[contains(@class,"max-w-sm")][1]');
-  const rect = await modal.boundingBox();
-  expect(rect.x).toBeGreaterThanOrEqual(item.content.left - 1);
-  expect(rect.x + rect.width).toBeLessThanOrEqual(item.width - item.content.right + 1);
+  await page.goto('/e2e/organizer-crm.html');
+  await expect(page.locator('.organizer-bottom-nav')).toBeVisible();
+  await assertFixedNavInsideHorizontalSafeArea(page, '.organizer-bottom-nav', item);
 });
 
 test('canonical profile tabs, filters, Elo and owner actions stay usable in Telegram', async ({ page }, info) => {
@@ -160,6 +160,18 @@ test('invitation picker labels every server evening state before sending', async
   await page.screenshot({ path: info.outputPath('telegram-profile-invitation-states.png'), fullPage: true });
 });
 
+test('unavailable invitation recipient is labelled before any send action', async ({ page }) => {
+  const item = cases[0];
+  await page.setViewportSize({ width: item.width, height: item.height });
+  await installTelegramMock(page, item);
+  await page.goto('/e2e/player-profile.html?target=unavailable');
+  await page.getByRole('button', { name: 'Связи' }).click();
+  const unavailable = page.getByTestId('invitation-unavailable-state');
+  await expect(unavailable).toBeVisible();
+  await expect(unavailable.getByText('Игрок недоступен для приглашения')).toBeVisible();
+  await expect(unavailable.getByRole('button')).toHaveCount(0);
+});
+
 test('real Organizer CRM and Live Game modal content remains inside Telegram safe area', async ({ page }, info) => {
   const item = cases[1];
   await page.setViewportSize({ width: item.width, height: item.height });
@@ -182,7 +194,7 @@ test('real Organizer CRM and Live Game modal content remains inside Telegram saf
 
 test('browser fallback keeps representative surfaces free of horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 713 });
-  for (const route of ['/e2e/player-cabinet.html?scenario=live','/e2e/crm-overview.html','/e2e/player-profile.html','/e2e/live-game.html','/e2e/live-game-overlay.html']) {
+  for (const route of ['/e2e/player-cabinet.html?scenario=live','/e2e/organizer-crm.html','/e2e/player-profile.html','/e2e/live-game.html','/e2e/live-game-overlay.html']) {
     await page.goto(route);
     await page.locator('body').waitFor({ state: 'visible' });
     const state = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth || document.body.scrollWidth > innerWidth, tg: Boolean(window.Telegram?.WebApp) }));

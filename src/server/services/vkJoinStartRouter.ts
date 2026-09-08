@@ -4,9 +4,28 @@ import { ensureVkJoinSchema } from '../../db/ensureVkJoinSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { createVkJoinOAuthStart, resolveVkJoinSession } from './vkJoinAuthService.ts';
 import { createVkIdentityClaim } from './vkIdentityClaimService.ts';
+import { createVkPlayerOAuthStart } from './vkPlayerAuthService.ts';
 
 const router = Router();
 const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
+
+router.post('/player/vk/start', async (req, res) => {
+  try {
+    const db = req.db as DatabaseWrapper;
+    const result = await createVkPlayerOAuthStart(db, {
+      redirectUri: `${baseUrlFor(req)}/api/integrations/vk/oauth/callback`,
+      nickname: req.body?.nickname,
+      returnTo: req.body?.return_to,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Не удалось открыть VK ID',
+      code: error?.code || 'vk_auth_start_failed',
+    });
+  }
+});
 
 router.post('/evenings/:id/vk/start', async (req, res) => {
   try {

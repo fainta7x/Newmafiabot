@@ -8,9 +8,7 @@ import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerLiveOnlyCenter from './PlayerLiveOnlyCenter.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
-import PremiumPlayerProfile from './PremiumPlayerProfile.tsx';
-import PremiumProfileConnections from './PremiumProfileConnections.tsx';
-import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
+import CanonicalPremiumPlayerProfile from './CanonicalPremiumPlayerProfile.tsx';
 import { PlayerProfileReminder } from './PlayerProfileCompleteness.tsx';
 import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
@@ -96,12 +94,8 @@ export default function PlayerCabinetShell({ data, canOpenAdmin = false, onOpenA
       <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
 
       {profilePlayerId ? (
-        <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-[#090a0d] [padding-bottom:env(safe-area-inset-bottom)]">
-          <PremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} onClose={() => window.history.back()} />
-          <div className="mx-auto w-full max-w-[520px] space-y-3 px-3 pb-28">
-            <PremiumProfileShowcase playerId={profilePlayerId} isSelf={profilePlayerId === player.id} />
-            <PremiumProfileConnections playerId={profilePlayerId} selfPlayerId={player.id} />
-          </div>
+        <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-hidden bg-[#090a0d]">
+          <CanonicalPremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} selfPlayerId={player.id} onClose={() => window.history.back()} />
         </div>
       ) : null}
     </div>

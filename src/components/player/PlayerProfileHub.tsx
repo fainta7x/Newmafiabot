@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PlayerMeResponse } from '../../types/player.ts';
 import CanonicalPremiumPlayerProfile from './CanonicalPremiumPlayerProfile.tsx';
 import PlayerMusicSlots from './PlayerMusicSlots.tsx';
+import PlayerProfilePrivacySettings from './PlayerProfilePrivacySettings.tsx';
 import PlayerProfileSettings from './PlayerProfileSettings.tsx';
 
 export default function PlayerProfileHub({ data, onPlayerChange }: { data: PlayerMeResponse; onPlayerChange?: (player: PlayerMeResponse['player']) => void }) {
@@ -10,6 +11,7 @@ export default function PlayerProfileHub({ data, onPlayerChange }: { data: Playe
 
   const ownerSettings = <div className="space-y-4">
     <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
+    <PlayerProfilePrivacySettings />
     <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
       <summary className="cursor-pointer font-semibold">Музыка</summary>
       <div className="mt-4"><PlayerMusicSlots /></div>

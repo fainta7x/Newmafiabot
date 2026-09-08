@@ -38,7 +38,8 @@ for (const width of [360, 390]) {
     await page.getByRole('button', { name: 'Восстановить', exact: true }).click();
     await page.getByRole('button', { name: 'Перейти к голосованию', exact: true }).click();
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #3');
-    await expect(page.locator('.live-judge-hud__context')).toContainText('Автосохранение');
+    await expect(page.locator('.live-judge-hud__context')).toContainText('Нулевой круг');
+    await expect(page.locator('.live-judge-hud__context')).toContainText('Раунд 1');
     await expect(page.locator('.live-judge-voting-focus__candidate')).toContainText('Текущий кандидат#3');
 
     for (let n = 1; n <= 5; n++) await page.locator(`.live-seat-card[data-seat="${n}"]`).click();
@@ -64,6 +65,7 @@ for (const width of [360, 390]) {
 
     await nextCandidate.click();
     await expect(page.locator('.live-judge-hud__phase')).toHaveText('Голосование · кандидат #4');
+    await expect(page.locator('.live-judge-voter-state')).toContainText('Остаток уйдёт к #4 при подведении итога');
     const finishVoting = page.getByRole('button', { name: 'Завершить голосование', exact: true });
     await expectContainedAction(finishVoting);
     await finishVoting.click();

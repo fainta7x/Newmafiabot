@@ -30,7 +30,7 @@ export default function PlayerBottomNavigation({
               onClick={() => onOpen(item.id)}
               aria-current={active ? 'page' : undefined}
               aria-label={item.label}
-              className={`ds-focus-ring flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[12px] font-semibold leading-none transition-colors ${
+              className={`ds-focus-ring flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[12px] font-semibold leading-none ${
                 active ? 'ds-nav-active text-white' : 'text-white/55 hover:text-white/75'
               }`}
             >

@@ -6,12 +6,12 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 import {
   BettingDuplicateError,
   BettingIneligibleError,
-  BettingValidationError,
   getPlayerBettingDashboard,
   placePoolBet,
   refundBetPool,
   settleBetPool,
 } from '../server/services/bettingPoolService.ts';
+import { TokenInsufficientFundsError } from '../server/services/tokenLedgerService.ts';
 
 const roles = Array.from({ length: 10 }, (_, index) => ({
   seat_number: index + 1,
@@ -94,6 +94,7 @@ describe('server-side club betting lifecycle', () => {
       .send({ roles });
     expect(first.status).toBe(201);
     expect(first.body.created).toBe(true);
+    expect(first.body.notifications).toMatchObject({ eligible: 0, sent: 0 });
     expect(new Date(first.body.pool.closes_at).getTime() - new Date(first.body.pool.opens_at).getTime()).toBe(90_000);
 
     const repeated = await request(app)
@@ -109,6 +110,7 @@ describe('server-side club betting lifecycle', () => {
     expect(pools).toHaveLength(1);
     expect(pools[0].red_pool).toBe(0);
     expect(pools[0].black_pool).toBe(0);
+    expect(pools[0].notified_at).toBeNull();
   });
 
   it('allows the assigned host/player Live Game flow to start the same server lifecycle', async () => {
@@ -130,7 +132,7 @@ describe('server-side club betting lifecycle', () => {
     await expect(placePoolBet(db, { gameId, playerId: 'judge', team: 'red', amount: 50, requestId: 'judge' }))
       .rejects.toBeInstanceOf(BettingIneligibleError);
     await expect(placePoolBet(db, { gameId, playerId: 'spectator-low', team: 'red', amount: 50, requestId: 'low' }))
-      .rejects.toBeInstanceOf(BettingValidationError);
+      .rejects.toBeInstanceOf(TokenInsufficientFundsError);
 
     const placed = await placePoolBet(db, { gameId, playerId: 'spectator-red', team: 'red', amount: 100, requestId: 'request-1' });
     expect(placed.idempotent).toBe(false);

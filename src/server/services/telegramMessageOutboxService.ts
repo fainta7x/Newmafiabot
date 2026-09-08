@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
 
 export type TelegramMessageStatus = 'pending' | 'sent' | 'failed';
 
@@ -27,6 +28,7 @@ const MAX_BACKOFF_MS = 5 * 60_000;
 const WORKER_INTERVAL_MS = 5_000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let drainInFlight = false;
+const messageKeysInFlight = new Set<string>();
 
 const nowIso = () => new Date().toISOString();
 
@@ -38,6 +40,7 @@ const retryDelayMs = (retryCount: number, retryAfterSeconds?: number | null) => 
 };
 
 export async function enqueueTelegramMessage(db: DatabaseWrapper, input: TelegramMessageInput) {
+  await ensureTelegramDirectMessageSchema(db);
   const key = String(input.messageKey || '').trim();
   const chatId = String(input.chatId || '').trim();
   const text = String(input.text || '').trim();
@@ -56,8 +59,7 @@ export async function enqueueTelegramMessage(db: DatabaseWrapper, input: Telegra
       chat_id = excluded.chat_id,
       text = excluded.text,
       reply_markup_json = excluded.reply_markup_json,
-      updated_at = excluded.updated_at,
-      status = CASE WHEN telegram_message_outbox.status = 'sent' THEN 'sent' ELSE telegram_message_outbox.status END
+      updated_at = excluded.updated_at
   `, [
     key,
     input.category,
@@ -110,39 +112,66 @@ export async function sendTelegramMessage(
   }
 }
 
+const refreshLegacyBettingNotificationState = async (db: DatabaseWrapper, poolId: string) => {
+  const summary = await db.get<any>(`
+    SELECT COUNT(*) AS sent_count, MAX(sent_at) AS latest_sent_at
+      FROM telegram_message_outbox
+     WHERE category = 'betting' AND entity_id = ? AND status = 'sent'
+  `, [poolId]);
+  const sentCount = Number(summary?.sent_count || 0);
+  if (sentCount <= 0) return;
+  const sentAt = String(summary?.latest_sent_at || nowIso());
+  await db.run(`
+    UPDATE betting_pools
+       SET notification_count = ?, notified_at = COALESCE(notified_at, ?), updated_at = ?
+     WHERE id = ?
+  `, [sentCount, sentAt, sentAt, poolId]);
+};
+
 async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch) {
-  // Re-read before sending so a concurrent drain cannot resend a row already completed.
-  const current = await db.get('SELECT status, retry_count FROM telegram_message_outbox WHERE message_key = ?', [row.message_key]);
-  if (!current || current.status === 'sent') return { sent: 0, failed: 0 };
-  const attemptAt = nowIso();
-  const result = await sendTelegramMessage(row, fetchImpl);
-  if (result.ok) {
+  const key = String(row.message_key);
+  if (messageKeysInFlight.has(key)) return { sent: 0, failed: 0 };
+  messageKeysInFlight.add(key);
+  try {
+    const current = await db.get<any>('SELECT status, retry_count FROM telegram_message_outbox WHERE message_key = ?', [key]);
+    if (!current || current.status === 'sent' || Number(current.retry_count || 0) >= MAX_RETRIES) return { sent: 0, failed: 0 };
+    const attemptAt = nowIso();
+    const result = await sendTelegramMessage(row, fetchImpl);
+    if (result.ok) {
+      await db.run(`
+        UPDATE telegram_message_outbox
+           SET status = 'sent', last_attempt_at = ?, next_attempt_at = NULL,
+               last_error = NULL, sent_at = ?, updated_at = ?
+         WHERE message_key = ? AND status <> 'sent'
+      `, [attemptAt, attemptAt, attemptAt, key]);
+      if (row.category === 'betting' && row.entity_id) {
+        await refreshLegacyBettingNotificationState(db, String(row.entity_id));
+      }
+      return { sent: 1, failed: 0 };
+    }
+
+    const failedAttempts = Number(current.retry_count || 0) + 1;
+    const canRetry = Boolean(result.temporary) && failedAttempts < MAX_RETRIES;
+    const storedRetryCount = canRetry ? failedAttempts : MAX_RETRIES;
+    const nextAttemptAt = canRetry
+      ? new Date(Date.now() + retryDelayMs(failedAttempts, result.retryAfterSeconds)).toISOString()
+      : null;
     await db.run(`
       UPDATE telegram_message_outbox
-         SET status = 'sent', retry_count = retry_count + 1, last_attempt_at = ?, next_attempt_at = NULL,
-             last_error = NULL, sent_at = ?, updated_at = ?
+         SET status = 'failed', retry_count = ?, last_attempt_at = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
        WHERE message_key = ? AND status <> 'sent'
-    `, [attemptAt, attemptAt, attemptAt, row.message_key]);
-    return { sent: 1, failed: 0 };
+    `, [storedRetryCount, attemptAt, nextAttemptAt, String(result.error || 'Telegram delivery failed').slice(0, 1000), attemptAt, key]);
+    return { sent: 0, failed: 1 };
+  } finally {
+    messageKeysInFlight.delete(key);
   }
-
-  const nextRetryCount = Number(current.retry_count || 0) + 1;
-  const canRetry = Boolean(result.temporary) && nextRetryCount < MAX_RETRIES;
-  const nextAttemptAt = canRetry
-    ? new Date(Date.now() + retryDelayMs(nextRetryCount, result.retryAfterSeconds)).toISOString()
-    : null;
-  await db.run(`
-    UPDATE telegram_message_outbox
-       SET status = 'failed', retry_count = ?, last_attempt_at = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
-     WHERE message_key = ? AND status <> 'sent'
-  `, [nextRetryCount, attemptAt, nextAttemptAt, String(result.error || 'Telegram delivery failed').slice(0, 1000), attemptAt, row.message_key]);
-  return { sent: 0, failed: 1 };
 }
 
 export async function drainTelegramMessageOutbox(
   db: DatabaseWrapper,
   options: { limit?: number; concurrency?: number; category?: string; entityId?: string | number; fetchImpl?: typeof fetch } = {},
 ) {
+  await ensureTelegramDirectMessageSchema(db);
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || process.env.TELEGRAM_OUTBOX_CONCURRENCY || DEFAULT_CONCURRENCY)));
   const clauses = [`status <> 'sent'`, `(next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now'))`, `retry_count < ?`];
@@ -150,7 +179,7 @@ export async function drainTelegramMessageOutbox(
   if (options.category) { clauses.push('category = ?'); params.push(options.category); }
   if (options.entityId != null) { clauses.push('entity_id = ?'); params.push(String(options.entityId)); }
   params.push(limit);
-  const rows = await db.all(`
+  const rows = await db.all<any>(`
     SELECT * FROM telegram_message_outbox
      WHERE ${clauses.join(' AND ')}
      ORDER BY created_at ASC
@@ -169,12 +198,13 @@ export async function drainTelegramMessageOutbox(
 }
 
 export async function getTelegramMessageDiagnostics(db: DatabaseWrapper): Promise<TelegramDeliveryDiagnostics> {
-  const queue = await db.get(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status <> 'sent' AND retry_count < ?`, [MAX_RETRIES]);
-  const latestSuccess = await db.get(`
+  await ensureTelegramDirectMessageSchema(db);
+  const queue = await db.get<any>(`SELECT COUNT(*) AS count FROM telegram_message_outbox WHERE status <> 'sent' AND retry_count < ?`, [MAX_RETRIES]);
+  const latestSuccess = await db.get<any>(`
     SELECT message_key, sent_at, category, event_type FROM telegram_message_outbox
      WHERE status = 'sent' AND sent_at IS NOT NULL ORDER BY sent_at DESC LIMIT 1
   `);
-  const latestFailure = await db.get(`
+  const latestFailure = await db.get<any>(`
     SELECT message_key, last_attempt_at, last_error, category, event_type FROM telegram_message_outbox
      WHERE status = 'failed' AND last_error IS NOT NULL ORDER BY last_attempt_at DESC LIMIT 1
   `);
@@ -186,7 +216,8 @@ export async function getTelegramMessageDiagnostics(db: DatabaseWrapper): Promis
 }
 
 export async function getTelegramEntityDeliverySummary(db: DatabaseWrapper, category: string, entityId: string | number) {
-  const rows = await db.all(`
+  await ensureTelegramDirectMessageSchema(db);
+  const rows = await db.all<any>(`
     SELECT status, retry_count, last_error, sent_at, player_id, chat_id
       FROM telegram_message_outbox WHERE category = ? AND entity_id = ?
   `, [category, String(entityId)]);

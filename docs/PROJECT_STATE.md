@@ -4,7 +4,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Status date:** 2026-09-08
 
-**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #268. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #268. The next merge-ready release adds the canonical club-game betting lifecycle plus durable personal/organizer/betting Telegram delivery covered by full CI in PR #273. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -68,7 +68,7 @@ Implemented and connected:
 - games/history/statistics/career/replay;
 - rating/Elo/rating periods;
 - club/player profiles and avatars;
-- wallet/tokens/shop/betting/manual accounting;
+- wallet/tokens/shop/manual accounting plus canonical club-game betting: one 90-second server pool per game, spectator-only eligibility, idempotent stake/payout/refund ledger writes, active bet/coefficient state and settled history in Player Cabinet;
 - judging/conduct surfaces and speech recording;
 - exactly two personal music slots in the player profile;
 - staff/judge music library and playlist;
@@ -118,7 +118,6 @@ Recent reliability/UX work includes:
 
 - CRM startup renders after overview/evenings are ready instead of waiting for the full player aggregate; slow startup requests are measured in the browser console;
 - CRM overview is a read-only path; canonical payment reconciliation remains on game/payment mutation paths instead of rerunning across historical debts on every open/resume;
-
 - quick attendance/payment row actions update in place instead of refreshing the whole workspace;
 - mounted roster/payment lists provide search and counter filters; clearing search restores the selected filter; staff assignment stays in a collapsed section;
 - active in-progress evenings accept existing database players who arrived without prior registration;
@@ -208,12 +207,17 @@ Connected:
 - announcement APIs and Python bot bridge;
 - response/game-slot synchronization;
 - preservation of historical announcement messages after an evening closes;
+- durable direct-message outbox with stable message keys, retry/backoff state, partial-failure recovery and deduplication of already-sent events;
+- personal reconciliation that queues invitations/status reminders, completed game/Elo changes and betting results without requiring Player Cabinet to be opened;
+- betting-open notifications to linked eligible spectators, excluding the ten seated players and canonical judge;
+- organizer notification recipients are explicit (`ORGANIZER_NOTIFICATION_IDS` / `ORGANIZER_CHAT_ID`); `ADMIN_IDS` and `BACKUP_ADMIN_ID` are not silently reused unless the dedicated backup opt-in is enabled;
+- organizer Telegram settings expose recipient configuration/runtime diagnostics and an explicit test-notification action;
 - synchronization/outbox paths;
 - organizer runtime diagnostics;
 - independent GitHub Actions runtime monitor with Telegram outage/recovery notifications when secrets are configured;
 - weekly Friday calendar/announcement reconciliation.
 
-Green CI does not prove live bot token/webhook/deployed SHA.
+Green CI proves the code/test/container contracts only; it does not prove the live bot token, explicit organizer recipients, webhook/runtime connectivity or deployed SHA. Verify those after Amvera deploy.
 
 ### VK
 
@@ -230,7 +234,9 @@ Runtime credentials and callback state must be checked when a requested flow dep
 
 The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues; the requested follow-up audit has since addressed the confirmed Player Cabinet navigation/information architecture, CRM organizer workflow, RSVP truth, mobile density, rating-entry and Live Game voting/readability issues in focused regression-tested PRs.
 
-This real-world success is useful evidence, but it is not a substitute for targeted regression tests or runtime verification after a new deploy. The next meaningful validation step is a manual pass against the current merged `main` after deployment.
+The betting/Telegram release candidate is covered by integration acceptance tests for CRM and assigned-judge game start, one 90-second pool per game, player/judge exclusion, idempotent stake/payout/refund handling, Player Cabinet active/history state, durable Telegram retry/deduplication, personal invitation reconciliation and explicit organizer recipients. Full CI is required again on the final documentation head before merge.
+
+This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 
 ## Intentionally incomplete / deferred
 

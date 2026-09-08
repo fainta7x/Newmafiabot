@@ -56,6 +56,7 @@ interface SeatCardProps {
 }
 
 const getExitLabel = (player: ActivePlayerState): string => {
+  if (player.ppk) return 'ППК';
   if (player.exit_reason === 'voted_zero_round' || player.exit_reason === 'voted_day') return 'Заголосован';
   if (player.removal_reason || player.kick) return 'Удалён';
   return 'Убит';
@@ -115,6 +116,7 @@ export default function SeatCard(props: SeatCardProps) {
   const tableDecisionActive = phase === 'day_voting' && tableDecisionSelection.active;
   const tableDecisionSelected = tableDecisionActive && tableDecisionSelection.selectedVoterSlots.includes(slotNum);
   const hasVisibleDiscipline = regularFouls > 0 || minorTechFouls > 0 || majorTechFouls > 0;
+  const playerStateLabel = player.ppk ? 'ППК' : player.alive ? 'Жив' : getExitLabel(player);
 
   const firstNightVictim = activePlayers.find((item) => item.best_move_guesses && item.best_move_guesses.length > 0);
   const isChosenInBestMove = !hideBestMoveGlow && (
@@ -148,8 +150,6 @@ export default function SeatCard(props: SeatCardProps) {
     direction: "up" | "down",
   ) => {
     event.stopPropagation();
-    // A double-tap can surface as two click events. The second one carries
-    // detail > 1, while a later deliberate press remains a normal click.
     if (direction === "up" && event.detail > 1) return;
     handleFoulChange(slotNum, direction);
   };
@@ -206,9 +206,6 @@ export default function SeatCard(props: SeatCardProps) {
       return <div><div className="live-seat-state__label">Речь</div><div className="live-seat-state__value live-seat-state__value--warning">{timeLeft}с</div></div>;
     }
     if (player.has_foul_penalty && !isGuessingDay) return <div><div className="live-seat-state__value live-seat-state__value--warning">30 секунд</div></div>;
-    // The nomination is already visible in the compact action chip and in the
-    // centre panel. Do not duplicate it in the middle of the card: on mobile it
-    // covers the avatar and makes the table harder to scan.
     if (isNominated) return null;
     if (player.has_spoken_this_round) return <div><div className="live-seat-state__value live-seat-state__value--done">Речь ✓</div></div>;
     return null;
@@ -247,8 +244,10 @@ export default function SeatCard(props: SeatCardProps) {
     <div
       onClick={handleCardClick}
       data-seat={slotNum}
+      data-player-state={playerStateLabel}
       data-table-decision={tableDecisionActive ? 'true' : undefined}
       data-table-vote-selected={tableDecisionSelected ? 'true' : undefined}
+      aria-label={`Игрок #${slotNum}, ${player.nickname || `Игрок ${slotNum}`}, состояние: ${playerStateLabel}. Нажмите для действия.`}
       className={`live-seat-card ${!player.alive ? 'live-seat-card--dead' : ''} ${isSpeaking ? 'live-seat-card--speaking' : ''} ${phase === 'day_voting' && (isInteractiveVoting || tableDecisionActive) ? 'live-seat-card--voting' : ''} relative aspect-auto md:aspect-[16/11.5] min-h-[102px] sm:min-h-[120px] md:min-h-[160px] border cursor-pointer select-none flex flex-col w-full ${getSeatGridPositionClass(slotNum)} ${containerBorder}`}
     >
       {player.alive && phase === "day_speeches" && (
@@ -297,7 +296,9 @@ export default function SeatCard(props: SeatCardProps) {
       )}
 
       <div className="live-seat-state">
-        {!player.alive ? (
+        {player.ppk ? (
+          <div><div className="live-seat-state__label">Статус</div><div className="live-seat-state__value live-seat-state__value--warning">ППК</div></div>
+        ) : !player.alive ? (
           <div>
             <Skull className="w-4 h-4 mx-auto mb-1 text-rose-400/70" />
             <div className="live-seat-state__value">{getExitLabel(player)}</div>
@@ -318,6 +319,7 @@ export default function SeatCard(props: SeatCardProps) {
         <div className="live-seat-footer__identity">
           <div className="live-seat-number" data-seat={slotNum}>{slotNum}</div>
           <span className="live-seat-footer__name">{player.nickname || `Игрок ${slotNum}`}</span>
+          <span className="live-seat-footer__status">{playerStateLabel}</span>
         </div>
         {showRolesOnTable ? (
           <div className="live-seat-role" title={player.role === "Мирный" ? "Красный" : player.role}>

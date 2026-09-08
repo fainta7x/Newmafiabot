@@ -36,11 +36,18 @@ export const normalizeEveningResponse = (
 ): EveningResponseStatus => normalizeCanonicalEveningResponse(responseStatus, legacyArrivalStatus);
 
 export const getEveningResponse = (participant: any): EveningResponseStatus => {
+  const rawCurrent = String(participant?.response_status ?? '').trim().toLowerCase();
+  const rawLegacy = String(participant?.registration_status ?? '').trim().toLowerCase();
   const current = normalizeEveningResponse(participant?.response_status, participant?.arrival_status);
   const legacy = normalizeEveningResponse(participant?.registration_status, participant?.arrival_status);
-  // Pre-cutover rows received the response_status default "unanswered" even when
-  // registration_status still held the real answer. Current writes keep both fields
-  // synchronized, so only this mismatched historical shape needs a read fallback.
+
+  // Explicit canonical "unanswered" must not become a fabricated RSVP merely
+  // because legacy registration_status says that the person is registered in
+  // the event. Keep the historical fallback only when the legacy field itself
+  // carries an answer-like value from the pre-cutover model.
+  if (rawCurrent === 'unanswered' && ['registered', 'invited', ''].includes(rawLegacy)) {
+    return 'unanswered';
+  }
   return current === 'unanswered' && legacy !== 'unanswered' ? legacy : current;
 };
 

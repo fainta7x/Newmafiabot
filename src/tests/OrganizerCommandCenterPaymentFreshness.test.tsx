@@ -62,7 +62,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -92,13 +91,10 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
 
-    for (const [, init] of fetchMock.mock.calls) {
-      expect(init?.cache).toBe('no-store');
-    }
+    for (const [, init] of fetchMock.mock.calls) expect(init?.cache).toBe('no-store');
   });
 
   it('hides old payment amounts immediately on Telegram resume while refreshing in place', async () => {
-    vi.useFakeTimers();
     let resolveResume!: (value: Response) => void;
     const resumeResponse = new Promise<Response>((resolve) => { resolveResume = resolve; });
     let call = 0;
@@ -109,7 +105,6 @@ describe('OrganizerCommandCenter payment freshness', () => {
     }));
 
     render(<OrganizerCommandCenter {...props} />);
-    await vi.runOnlyPendingTimersAsync();
     expect(await screen.findByText('400 ₽', { exact: false })).toBeDefined();
     expect(screen.getByText('Долги с прошлого вечера · не текущая оплата')).toBeDefined();
     expect(screen.getByText('долг за 4 сентября: 600 ₽')).toBeDefined();
@@ -124,9 +119,8 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(screen.queryByText('долг за 4 сентября: 600 ₽')).toBeNull();
     expect(screen.getByText('11 сентября')).toBeDefined();
 
-    await vi.advanceTimersByTimeAsync(100);
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
     resolveResume(await jsonResponse(responseBody({ currentDue: 0, previousDue: 0 })));
-    await vi.runOnlyPendingTimersAsync();
     await waitFor(() => expect(screen.queryByTestId('crm-payments-refreshing')).toBeNull());
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();
   });

@@ -18,7 +18,9 @@ describe('organizer session boundary', () => {
     expect(session).toContain('api.getMe()');
     expect(session).toContain('api.getCrmOverview()');
     expect(session).toContain('api.getEvenings()');
-    expect(session).toContain('api.getPlayers()');
+    expect(session).toContain("measureRequest('players', () => api.getPlayers())");
+    expect(session.indexOf("measureRequest('players'")).toBeLessThan(session.indexOf('await Promise.all'));
+    expect(session).toContain('void playersPromise;');
     expect(session).toContain('api.login(password)');
     expect(session).toContain('api.logout()');
     expect(session).toContain("document.addEventListener('visibilitychange', scheduleRefresh)");

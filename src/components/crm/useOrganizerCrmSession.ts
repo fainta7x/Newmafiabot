@@ -32,15 +32,33 @@ export const useOrganizerCrmSession = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const measureRequest = async <T,>(label: string, request: () => Promise<T>): Promise<T> => {
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    try {
+      return await request();
+    } finally {
+      const finishedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const durationMs = Math.round(finishedAt - startedAt);
+      if (durationMs >= 500) console.info(`[CRM performance] ${label}: ${durationMs} ms`);
+    }
+  };
+
   const loadAllData = async () => {
-    const [overview, eveningList, playerList] = await Promise.all([
-      api.getCrmOverview(),
-      api.getEvenings(),
-      api.getPlayers(),
+    // Start every request together, but do not keep the whole CRM behind the
+    // expensive all-player aggregate. Overview and evenings are enough to render
+    // the initial organizer screen; player data continues in the background.
+    const playersPromise = measureRequest('players', () => api.getPlayers())
+      .then(setPlayers)
+      .catch((error) => {
+        console.error('Failed to load organizer player directory:', error);
+      });
+    const [overview, eveningList] = await Promise.all([
+      measureRequest('overview', () => api.getCrmOverview()),
+      measureRequest('evenings', () => api.getEvenings()),
     ]);
     setCrmOverview(overview);
     setEvenings(eveningList);
-    setPlayers(playerList);
+    void playersPromise;
   };
 
   const refreshSnapshotAfterEvening = () => {

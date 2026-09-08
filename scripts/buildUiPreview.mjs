@@ -6,8 +6,20 @@ import path from 'node:path';
 const root = process.cwd();
 const output = path.join(root, 'temp/ui-preview');
 const pages = ['preview/index.html', 'e2e/crm-evening-roster.html', 'e2e/live-game.html', 'e2e/player-shell.html', 'e2e/player-cabinet.html', 'e2e/crm-overview.html', 'e2e/crm-evenings.html', 'e2e/crm-players.html', 'e2e/crm-more.html', 'e2e/crm-closeout.html'];
+const telegramPreviewPlugin = {
+  name: 'telegram-preview-production-bootstrap',
+  transformIndexHtml() {
+    return [{
+      tag: 'script',
+      attrs: { type: 'module' },
+      children: `import { initializeTelegramWebAppViewport } from '/src/lib/telegramWebAppViewport.ts';\nimport { initializeCrmPrimaryTitleOwnership } from '/src/lib/crmPrimaryTitleOwnership.ts';\ninitializeTelegramWebAppViewport();\ninitializeCrmPrimaryTitleOwnership();`,
+      injectTo: 'head-prepend',
+    }];
+  },
+};
 await build({
   configFile: path.join(root, 'vite.config.ts'),
+  plugins: [telegramPreviewPlugin],
   // Do not copy uploads, checkpoints, avatars or other runtime data.
   publicDir: false,
   build: { outDir: output, emptyOutDir: true, sourcemap: false, rolldownOptions: { input: pages.map((file) => path.join(root, file)) } },

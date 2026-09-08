@@ -63,12 +63,12 @@ describe('useOrganizerCrmSession freshness', () => {
     await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('initial'));
 
     window.dispatchEvent(new Event('focus'));
-    await new Promise<void>((resolve) => setTimeout(resolve, 140));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 140); });
     fireEvent.click(screen.getByRole('button', { name: 'manual' }));
     await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('newest'));
 
     resolveSlow(await jsonResponse(overview('stale')));
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
     expect(screen.getByTestId('overview-title').textContent).toBe('newest');
 
     const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview'));

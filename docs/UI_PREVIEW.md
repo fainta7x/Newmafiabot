@@ -8,7 +8,7 @@ Run from the repository root:
 
     node scripts/buildUiPreview.mjs
 
-Output: temp/ui-preview. The allowlisted pages include evening roster/payments, CRM today/events/players/more/closeout, Live Game and Player Cabinet. Player Cabinet uses its actual shell with fixture-backed home/history; other API flows may show an unprepared-scenario error. The pre-vote entry seeds a recovery-engine state: press Restore to continue. The gallery supports phone sizes 390×713 and 360×640, plus a desktop frame. Reload resets the page fixtures. revision.json records the source commit and dirty state. CSP restricts requests to the preview's own origin. Runtime uploads, database checkpoints and production avatars are not copied.
+Output: temp/ui-preview. The allowlisted pages include evening roster/payments, Organizer CRM, Live Game, Player Cabinet and the canonical player profile. Player Cabinet uses its actual shell with fixture-backed home/history. The canonical profile fixture covers tabs, enumerated game filters, Elo history, owner award suggestions, Connections and invitation states. Organizer CRM and Live Game also expose representative real modal/overlay surfaces so Telegram safe-area geometry is exercised on production components rather than decorative stand-ins. The pre-vote Live Game entry seeds a recovery-engine state: press Restore to continue. Reload resets the page fixtures. revision.json records the source commit and dirty state. CSP restricts requests to the preview's own origin. Runtime uploads, database checkpoints and production avatars are not copied.
 
 ## Automatic checks
 
@@ -21,7 +21,7 @@ Artifacts (14 days):
 - ui-preview-site: exact built pages and source revision.
 - ui-preview-evidence: mobile screenshots and failure traces.
 
-The focused test covers the currently mounted evening roster/payments and the gallery. It does not replace the broader manual CRM/Live Game suites. Existing unrelated CRM failures remain tracked in PROJECT_STATE.
+The Telegram viewport matrix covers representative Android narrow portrait, iOS portrait and Telegram landscape content-safe-area combinations plus a browser fallback. It checks Player Cabinet, Organizer CRM, the canonical player profile and its tabs/filters/invitations, real modal/overlay screens and Live Game. Automated assertions include horizontal overflow, fixed navigation inside horizontal content-safe insets, reachable modal content/actions and duplicate CRM primary-heading regressions. These checks complement, rather than replace, the broader CRM/Live Game interaction suites.
 
 Before claiming visual approval, download the artifact for the intended PR run, check its source SHA, and inspect the actual images. Follow BINARY_ARTIFACT_SAFETY for ZIP downloads.
 

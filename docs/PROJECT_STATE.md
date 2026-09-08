@@ -4,7 +4,7 @@ This file is the canonical **current-state snapshot**. It deliberately does not 
 
 **Status date:** 2026-09-08
 
-**Latest release record:** the current Git baseline includes the completed organizer/player/Live Game UX audit work through PR #268. The next merge-ready release adds the canonical club-game betting lifecycle plus durable personal/organizer/betting Telegram delivery covered by full CI in PR #273. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268 and the canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273. PR #274 is the current release candidate for weighted player-profile completeness, private birthday/profile maintenance and separate verified official awards. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -68,11 +68,16 @@ Implemented and connected:
 - games/history/statistics/career/replay;
 - rating/Elo/rating periods;
 - club/player profiles and avatars;
+- weighted profile-completeness state with exact missing fields, profile-update timestamps and a non-blocking Player Cabinet reminder that can be dismissed for the current visit and disappears after completion;
+- player self-service editing for canonical identity/contact data, optional day/month birthday with optional year and explicit birthday privacy, while linked Telegram identity remains system-owned;
+- official verified awards kept separate from application achievements, ratings and game/tournament statistics; players may only submit pending suggestions/corrections and only verified awards are visible in player/public profiles;
 - wallet/tokens/shop/manual accounting plus canonical club-game betting: one 90-second server pool per game, spectator-only eligibility, idempotent stake/payout/refund ledger writes, active bet/coefficient state and settled history in Player Cabinet;
 - judging/conduct surfaces and speech recording;
 - exactly two personal music slots in the player profile;
 - staff/judge music library and playlist;
 - judge game launcher and in-game music controller.
+
+Profile-completeness and verified-award schema changes are additive/idempotent. Historical awards are never auto-imported and manual/historical official awards do not create games/tournaments or affect Elo, statistics or rankings. Birthday congratulations are not sent automatically.
 
 The mobile Player Cabinet has been audited at narrow phone widths. Current navigation/content density, game history, profile, events, wallet, club and live-evening surfaces are the post-audit baseline; future changes should start from a reproduced issue rather than an assumed pending mobile redesign.
 
@@ -110,6 +115,8 @@ Implemented and connected:
 - participants, walk-ins, attendance and payments;
 - tables/games/protocol workflow;
 - player CRM, tasks and analytics;
+- player profile integrity with completion percentage/missing-field filters, private contact/birthday data, last profile update/check state, upcoming birthdays and duplicate-safe actionable organizer tasks;
+- verified official-award administration, including organizer-only manual/historical entry, explicit legacy historical import, player suggestion approval/rejection/correction and trusted automatic awards only from completed tournament data;
 - commerce/admin data;
 - Telegram/VK/system diagnostics;
 - music administration/context links.
@@ -232,9 +239,11 @@ Runtime credentials and callback state must be checked when a requested flow dep
 
 ## Recent real-world validation
 
-The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The remaining complaints were mostly CRM convenience/reliability issues; the requested follow-up audit has since addressed the confirmed Player Cabinet navigation/information architecture, CRM organizer workflow, RSVP truth, mobile density, rating-entry and Live Game voting/readability issues in focused regression-tested PRs.
+The latest real club evening reported by the user completed without a core Live Game failure after the recent game-flow fixes. The requested follow-up audit has since addressed the confirmed Player Cabinet navigation/information architecture, CRM organizer workflow, RSVP truth, mobile density, rating-entry and Live Game voting/readability issues in focused regression-tested PRs.
 
-The betting/Telegram release candidate is covered by integration acceptance tests for CRM and assigned-judge game start, one 90-second pool per game, player/judge exclusion, idempotent stake/payout/refund handling, Player Cabinet active/history state, durable Telegram retry/deduplication, personal invitation reconciliation and explicit organizer recipients. Full CI is required again on the final documentation head before merge.
+The betting/Telegram lifecycle from PR #273 is covered by integration acceptance tests for CRM and assigned-judge game start, one 90-second pool per game, player/judge exclusion, idempotent stake/payout/refund handling, Player Cabinet active/history state, durable Telegram retry/deduplication, personal invitation reconciliation and explicit organizer recipients.
+
+The profile-integrity/verified-awards release candidate in PR #274 is covered by focused service, integration and component tests for weighted completeness, privacy choices, self/organizer edit permissions, reminder dismissal/completion behavior, duplicate-safe tasks, birthday windows/leap-day handling, official-award suggestion review, public verified-only visibility and historical-award isolation from Elo/games/tournaments. Required CI and mobile UI preview must remain green on the final documentation head before merge.
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 
@@ -243,4 +252,5 @@ This real-world success and automated coverage are useful evidence, but they are
 - External online acquiring/SBP remains intentionally disabled pending provider/product decision.
 - Multi-city/multi-club expansion is not a current priority.
 - Manual guests can be added while forming a game without fabricating an RSVP. Completed-game seat identity corrections are explicit organizer actions that preserve gameplay by seat and rerun dependent calculations; no date/nickname-based historical rewrite is allowed.
+- Historical official awards/photos from before the application remain organizer-curated data-entry/import work; they are not inferred from nicknames, fake tournaments or synthetic games.
 - Large refactor-only cleanup is paused unless it fixes a concrete bug or enables requested work.

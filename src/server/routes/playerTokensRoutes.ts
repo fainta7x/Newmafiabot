@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { getDb } from '../../db/index.ts';
 import { createPlayerSchema } from '../validation.ts';
 import { requireOrganizerAuth } from '../auth.ts';
+import profileIntegrityAdminRoutes from './profileIntegrityAdminRoutes.ts';
 import {
   getTokenLedgerPage,
   mutateTokenBalance,
@@ -13,6 +14,9 @@ import {
 } from '../services/tokenLedgerService.ts';
 
 const router = Router();
+
+// Player-scoped organizer extensions must mount before generic /:id handlers in playersRoutes.
+router.use(profileIntegrityAdminRoutes);
 
 const sendTokenError = (res: any, error: any) => {
   if (error instanceof TokenPlayerNotFoundError) return res.status(404).json({ error: 'Игрок не найден' });

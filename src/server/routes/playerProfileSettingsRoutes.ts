@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
+import { validateBirthday, validatePhone } from '../services/playerProfileIntegrityService.ts';
 
 const router = Router();
 
@@ -18,16 +19,16 @@ const cleanNullable = (value: unknown, maxLength: number) => {
   return text ? text.slice(0, maxLength) : null;
 };
 
+const PROFILE_SELECT = `id, nickname, full_name, phone, telegram_user_id, telegram_username, game_level, club_role,
+  preferred_format, birth_day, birth_month, birth_year, birthday_visibility, profile_field_status_json,
+  profile_checked_at, profile_updated_at, elo, tokens, updated_at`;
+
 router.get('/profile-settings', async (req, res) => {
   const playerId = requirePlayerId(req, res);
   if (!playerId) return;
   try {
     const db = req.db;
-    const player = await db.get(
-      `SELECT id, nickname, full_name, phone, telegram_username, game_level, club_role, elo, tokens
-         FROM players WHERE id = ? LIMIT 1`,
-      [playerId],
-    );
+    const player = await db.get(`SELECT ${PROFILE_SELECT} FROM players WHERE id = ? LIMIT 1`, [playerId]);
     if (!player) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ player });
   } catch (error: any) {
@@ -40,34 +41,64 @@ router.patch('/me', async (req, res) => {
   if (!playerId) return;
   try {
     const db = req.db;
-    const nickname = String(req.body?.nickname ?? '').trim().slice(0, 60);
-    if (!nickname) return res.status(400).json({ error: 'Ник не может быть пустым' });
+    const existing = await db.get<any>(`SELECT ${PROFILE_SELECT} FROM players WHERE id = ? LIMIT 1`, [playerId]);
+    if (!existing) return res.status(404).json({ error: 'Игрок не найден' });
 
-    const duplicate = await db.get(
-      `SELECT id FROM players
-        WHERE LOWER(TRIM(nickname)) = LOWER(TRIM(?)) AND id <> ?
-        LIMIT 1`,
-      [nickname, playerId],
-    );
-    if (duplicate) return res.status(409).json({ error: 'Игрок с таким ником уже существует' });
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(req.body || {}, key);
+    const fields: string[] = [];
+    const values: any[] = [];
 
-    const fullName = cleanNullable(req.body?.full_name, 120);
-    const phone = cleanNullable(req.body?.phone, 40);
+    if (has('nickname')) {
+      const nickname = String(req.body?.nickname ?? '').trim().slice(0, 60);
+      if (!nickname) return res.status(400).json({ error: 'Ник не может быть пустым' });
+      const duplicate = await db.get(
+        `SELECT id FROM players WHERE LOWER(TRIM(nickname)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1`,
+        [nickname, playerId],
+      );
+      if (duplicate) return res.status(409).json({ error: 'Игрок с таким ником уже существует' });
+      fields.push('nickname = ?'); values.push(nickname);
+    }
+    if (has('full_name')) { fields.push('full_name = ?'); values.push(cleanNullable(req.body?.full_name, 120)); }
+    if (has('phone')) { fields.push('phone = ?'); values.push(validatePhone(req.body?.phone)); }
+    if (has('preferred_format')) { fields.push('preferred_format = ?'); values.push(cleanNullable(req.body?.preferred_format, 80)); }
+
+    const birthdayTouched = has('birth_day') || has('birth_month') || has('birth_year');
+    if (birthdayTouched) {
+      const birthday = validateBirthday(
+        has('birth_day') ? req.body?.birth_day : existing.birth_day,
+        has('birth_month') ? req.body?.birth_month : existing.birth_month,
+        has('birth_year') ? req.body?.birth_year : existing.birth_year,
+      );
+      fields.push('birth_day = ?', 'birth_month = ?', 'birth_year = ?');
+      values.push(birthday.day, birthday.month, birthday.year);
+    }
+    if (has('birthday_visibility')) {
+      const visibility = String(req.body?.birthday_visibility || 'private');
+      if (!['private', 'day_month', 'full'].includes(visibility)) return res.status(400).json({ error: 'Некорректная настройка видимости дня рождения' });
+      fields.push('birthday_visibility = ?'); values.push(visibility);
+    }
+
+    if (has('sensitive_field_choice')) {
+      const choice = req.body?.sensitive_field_choice;
+      const field = String(choice?.field || '');
+      const state = String(choice?.state || '');
+      if (!['phone', 'birthday'].includes(field) || !['missing', 'declined'].includes(state)) {
+        return res.status(400).json({ error: 'Некорректный выбор приватного поля' });
+      }
+      let statuses: Record<string, string> = {};
+      try { statuses = JSON.parse(String(existing.profile_field_status_json || '{}')); } catch { statuses = {}; }
+      statuses[field] = state;
+      fields.push('profile_field_status_json = ?'); values.push(JSON.stringify(statuses));
+    }
+
+    if (!fields.length) return res.json({ success: true, player: existing });
     const now = new Date().toISOString();
-    await db.run(
-      `UPDATE players
-          SET nickname = ?, full_name = ?, phone = ?, updated_at = ?
-        WHERE id = ?`,
-      [nickname, fullName, phone, now, playerId],
-    );
-    const player = await db.get(
-      `SELECT id, nickname, full_name, phone, telegram_username, game_level, club_role, elo, tokens
-         FROM players WHERE id = ? LIMIT 1`,
-      [playerId],
-    );
+    fields.push('profile_updated_at = ?', 'updated_at = ?'); values.push(now, now, playerId);
+    await db.run(`UPDATE players SET ${fields.join(', ')} WHERE id = ?`, values);
+    const player = await db.get(`SELECT ${PROFILE_SELECT} FROM players WHERE id = ? LIMIT 1`, [playerId]);
     return res.json({ success: true, player });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || 'Не удалось сохранить профиль' });
+    return res.status(400).json({ error: error?.message || 'Не удалось сохранить профиль' });
   }
 });
 
@@ -98,13 +129,15 @@ router.put('/me/avatar', async (req, res) => {
     }
 
     const now = new Date().toISOString();
-    await db.run(
-      `INSERT OR REPLACE INTO player_avatars
-         (player_id, mime_type, image_data, byte_size, width, height, updated_at)
-       VALUES (?, 'image/jpeg', ?, ?, ?, ?, ?)`,
-      [playerId, buffer, buffer.length, w, h, now],
-    );
-    await db.run('DELETE FROM player_avatar_repository_suppression WHERE player_id = ?', [playerId]);
+    await db.transaction(async (tx: any) => {
+      await tx.run(
+        `INSERT OR REPLACE INTO player_avatars (player_id, mime_type, image_data, byte_size, width, height, updated_at)
+         VALUES (?, 'image/jpeg', ?, ?, ?, ?, ?)`,
+        [playerId, buffer, buffer.length, w, h, now],
+      );
+      await tx.run('DELETE FROM player_avatar_repository_suppression WHERE player_id = ?', [playerId]);
+      await tx.run('UPDATE players SET profile_updated_at = ?, updated_at = ? WHERE id = ?', [now, now, playerId]);
+    });
     return res.json({ success: true, updated_at: now });
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось сохранить аватар' });
@@ -119,10 +152,8 @@ router.delete('/me/avatar', async (req, res) => {
     const now = new Date().toISOString();
     await db.transaction(async (tx: any) => {
       await tx.run('DELETE FROM player_avatars WHERE player_id = ?', [playerId]);
-      await tx.run(
-        'INSERT OR IGNORE INTO player_avatar_repository_suppression (player_id, created_at) VALUES (?, ?)',
-        [playerId, now],
-      );
+      await tx.run('INSERT OR IGNORE INTO player_avatar_repository_suppression (player_id, created_at) VALUES (?, ?)', [playerId, now]);
+      await tx.run('UPDATE players SET profile_updated_at = ?, updated_at = ? WHERE id = ?', [now, now, playerId]);
     });
     return res.json({ success: true });
   } catch (error: any) {

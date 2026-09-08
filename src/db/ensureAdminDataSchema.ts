@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { ACHIEVEMENTS } from '../lib/achievementCatalog.ts';
+import { ensurePlayerProfileIntegritySchema } from './ensurePlayerProfileIntegritySchema.ts';
 
 export async function ensureAdminDataSchema(db: DatabaseWrapper): Promise<void> {
   await db.exec(`
@@ -48,6 +49,8 @@ export async function ensureAdminDataSchema(db: DatabaseWrapper): Promise<void> 
     CREATE INDEX IF NOT EXISTS idx_admin_change_log_created
       ON admin_change_log(created_at DESC, id DESC);
   `);
+
+  await ensurePlayerProfileIntegritySchema(db);
 
   const now = new Date().toISOString();
   for (const achievement of ACHIEVEMENTS) {

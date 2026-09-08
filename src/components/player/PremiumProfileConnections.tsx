@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
+type SharedGame = {
+  id: string;
+  title: string;
+  game_number: number;
+  played_at: string;
+  same_team: boolean;
+  won_together: boolean;
+};
+
 type Connection = {
   player_id: string;
   nickname: string;
@@ -8,7 +17,11 @@ type Connection = {
   shared_games: number;
   same_team_games: number;
   opponent_games: number;
+  same_team_wins?: number;
+  same_team_win_rate?: number;
+  recent_shared_games?: SharedGame[];
   last_played_at: string | null;
+  last_shared_game_date?: string | null;
 };
 
 type ReferralPlayer = {
@@ -18,12 +31,15 @@ type ReferralPlayer = {
   created_at?: string | null;
 };
 
+type InvitationState = 'eligible' | 'registered' | 'reserve' | 'already_invited' | 'registration_closed' | 'sender_limit' | 'unavailable_format';
+
 type InvitationEvening = {
   id: string;
   title: string;
   starts_at: string | null;
   venue: string | null;
   format: string;
+  state?: InvitationState;
   existing_invitation?: { id: string; status: string; created_at: string } | null;
 };
 
@@ -38,6 +54,16 @@ type IncomingInvitation = {
 const fmtDate = (value: string | null) => value && Number.isFinite(new Date(value).getTime())
   ? new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   : 'Дата не указана';
+
+const inviteStateLabel = (state?: InvitationState) => ({
+  eligible: 'Можно пригласить',
+  registered: 'Уже записан',
+  reserve: 'Уже в резерве',
+  already_invited: 'Уже приглашён',
+  registration_closed: 'Регистрация закрыта',
+  sender_limit: 'Лимит приглашений исчерпан',
+  unavailable_format: 'Формат недоступен',
+}[state || 'eligible'] || 'Недоступно');
 
 function openPlayerProfile(playerId: string) {
   const path = `/player/players/${encodeURIComponent(playerId)}`;
@@ -68,6 +94,7 @@ function ReferralLink({ label, player }: { label: string; player: ReferralPlayer
 export default function PremiumProfileConnections({ playerId, selfPlayerId }: { playerId: string; selfPlayerId: string }) {
   const isSelf = playerId === selfPlayerId;
   const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [mostSuccessful, setMostSuccessful] = useState<Connection | null>(null);
   const [invitedBy, setInvitedBy] = useState<ReferralPlayer | null>(null);
   const [invitedPlayers, setInvitedPlayers] = useState<ReferralPlayer[]>([]);
   const [connectionsError, setConnectionsError] = useState('');
@@ -84,10 +111,12 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить связи');
       setConnections(Array.isArray(body.connections) ? body.connections : []);
+      setMostSuccessful(body.most_successful_partnership || null);
       setInvitedBy(body.invited_by || null);
       setInvitedPlayers(Array.isArray(body.invited_players) ? body.invited_players : []);
     } catch (error: any) {
       setConnections(null);
+      setMostSuccessful(null);
       setInvitedBy(null);
       setInvitedPlayers([]);
       setConnectionsError(error?.message || 'Не удалось загрузить связи');
@@ -101,8 +130,11 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось проверить приглашение');
       setContext(body);
-      const firstAvailable = (body.evenings || []).find((item: InvitationEvening) => !item.existing_invitation);
-      setSelectedEveningId((current) => current || firstAvailable?.id || body.evenings?.[0]?.id || '');
+      const firstAvailable = (body.evenings || []).find((item: InvitationEvening) => (item.state || 'eligible') === 'eligible' && !item.existing_invitation);
+      setSelectedEveningId((current) => {
+        const stillExists = (body.evenings || []).some((item: InvitationEvening) => item.id === current);
+        return stillExists ? current : firstAvailable?.id || body.evenings?.[0]?.id || '';
+      });
     } catch {
       setContext({ can_invite: false, reason: 'unavailable', evenings: [] });
     }
@@ -123,9 +155,11 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
   useEffect(() => { void (isSelf ? loadInbox() : loadInviteContext()); }, [playerId, selfPlayerId]);
 
   const selectedEvening = useMemo(() => context?.evenings.find((item) => item.id === selectedEveningId) || null, [context, selectedEveningId]);
+  const selectedState = selectedEvening?.existing_invitation ? 'already_invited' : selectedEvening?.state || 'eligible';
+  const canSendSelected = Boolean(selectedEveningId && selectedEvening && selectedState === 'eligible' && context?.can_invite);
 
   const sendInvitation = async () => {
-    if (!selectedEveningId || busy) return;
+    if (!canSendSelected || busy) return;
     setBusy(true);
     setMessage('');
     try {
@@ -205,12 +239,15 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
         <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Позвать за стол</div>
           <h2 className="mt-1 text-base font-semibold">Пригласить на игровой вечер</h2>
-          <p className="mt-1 text-xs leading-5 text-white/40">Доступны вечера, на которые ты уже идёшь и которые подходят обоим игрокам.</p>
+          <p className="mt-1 text-xs leading-5 text-white/40">Показываем только вечера, на которые ты уже идёшь. Состояние записи игрока проверяется перед отправкой.</p>
           <select value={selectedEveningId} onChange={(event) => setSelectedEveningId(event.target.value)} className="mobile-field mt-3 w-full text-sm" aria-label="Игровой вечер для приглашения">
-            {context.evenings.map((evening) => <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at)}{evening.existing_invitation ? ' · уже приглашён' : ''}</option>)}
+            {context.evenings.map((evening) => {
+              const state = evening.existing_invitation ? 'already_invited' : evening.state || 'eligible';
+              return <option key={evening.id} value={evening.id}>{evening.title} · {fmtDate(evening.starts_at)} · {inviteStateLabel(state)}</option>;
+            })}
           </select>
-          {selectedEvening ? <div className="mt-2 text-xs text-white/35">{selectedEvening.venue || 'Площадка не указана'}</div> : null}
-          <button type="button" disabled={busy || !selectedEveningId || Boolean(selectedEvening?.existing_invitation)} onClick={() => void sendInvitation()} className="mt-3 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-35">{selectedEvening?.existing_invitation ? 'Приглашение уже отправлено' : busy ? 'Отправляем…' : 'Позвать на этот вечер'}</button>
+          {selectedEvening ? <div className="mt-2 flex items-center justify-between gap-2 text-xs"><span className="text-white/35">{selectedEvening.venue || 'Площадка не указана'}</span><span className={selectedState === 'eligible' ? 'text-emerald-200/65' : 'text-white/35'}>{inviteStateLabel(selectedState)}</span></div> : null}
+          <button type="button" disabled={busy || !canSendSelected} onClick={() => void sendInvitation()} className="mt-3 min-h-12 w-full rounded-2xl bg-white px-4 text-sm font-semibold text-black disabled:opacity-35">{busy ? 'Отправляем…' : selectedState === 'eligible' ? 'Позвать на этот вечер' : inviteStateLabel(selectedState)}</button>
           <p className="mt-2 text-[11px] leading-4 text-white/30">Приглашение появится в приложении и уйдёт в Telegram, если он привязан. Оно не создаёт запись автоматически.</p>
         </div>
       ) : null}
@@ -218,21 +255,26 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
       {message ? <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-3 text-xs leading-5 text-white/65">{message}</div> : null}
 
       {(invitedBy || invitedPlayers.length > 0) ? <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Клубные связи</div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">История клуба</div>
         <h2 className="mt-1 text-base font-semibold">Кто кого привёл в 2LA noire</h2>
-        <p className="mt-1 text-xs leading-5 text-white/35">Только подтверждённая организатором история — без догадок по старым данным.</p>
+        <p className="mt-1 text-xs leading-5 text-white/35">Это отдельная историческая связь, подтверждённая организатором. Она не относится к приглашениям на конкретный вечер.</p>
         <div className="mt-3 space-y-2">
           {invitedBy ? <ReferralLink label="В клуб пригласил" player={invitedBy} /> : null}
           {invitedPlayers.map((item) => <ReferralLink key={item.player_id} label="Пригласил в клуб" player={item} />)}
         </div>
       </div> : null}
 
+      {mostSuccessful ? <button type="button" onClick={() => openPlayerProfile(mostSuccessful.player_id)} className="w-full rounded-[26px] border border-emerald-200/10 bg-emerald-200/[0.045] p-4 text-left">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/45">Успешная связка</div>
+        <div className="mt-2 flex items-center gap-3"><Avatar src={mostSuccessful.avatar_url} name={mostSuccessful.nickname} /><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{mostSuccessful.nickname}</div><div className="mt-1 text-xs text-white/45">{mostSuccessful.same_team_wins || 0} побед в {mostSuccessful.same_team_games} совместных играх · {Number(mostSuccessful.same_team_win_rate || 0).toFixed(1)}%</div><div className="mt-1 text-[11px] text-white/28">Показывается только при достаточной выборке, без влияния на рейтинг.</div></div><span className="text-white/25">→</span></div>
+      </button> : null}
+
       <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
         <div className="flex items-start justify-between gap-3">
           <div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Связи за столом</div><h2 className="mt-1 text-base font-semibold">С кем чаще пересекается игрок</h2></div>
           {connections ? <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-white/40">{connections.length}</span> : null}
         </div>
-        <p className="mt-1 text-xs leading-5 text-white/35">Только факты завершённых игр: один стол, одна команда или разные стороны. Без оценок совместимости.</p>
+        <p className="mt-1 text-xs leading-5 text-white/35">Только факты завершённых игр: один стол, одна команда или разные стороны. Без скрытого рейтинга совместимости.</p>
         {connectionsError ? <div className="mt-3 rounded-2xl bg-rose-300/[0.06] p-3 text-xs text-rose-100/70">{connectionsError}</div> : connections === null ? <div className="mt-3 py-8 text-center text-xs text-white/30">Считаем связи…</div> : connections.length ? (
           <div className="mt-3 space-y-2">
             {connections.map((item) => (
@@ -241,7 +283,8 @@ export default function PremiumProfileConnections({ playerId, selfPlayerId }: { 
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{item.nickname}</div>
                   <div className="mt-0.5 text-xs text-white/40">{item.relationship}</div>
-                  <div className="mt-1 text-[11px] text-white/28">вместе {item.same_team_games} · против {item.opponent_games} · всего {item.shared_games}</div>
+                  <div className="mt-1 text-[11px] text-white/28">вместе {item.same_team_games} · против {item.opponent_games} · всего {item.shared_games}{item.same_team_games >= 3 ? ` · побед вместе ${item.same_team_wins || 0} (${Number(item.same_team_win_rate || 0).toFixed(1)}%)` : ''}</div>
+                  {item.last_shared_game_date ? <div className="mt-1 text-[10px] text-white/22">Последняя общая игра: {fmtDate(item.last_shared_game_date)}</div> : null}
                 </div>
                 <span className="text-white/25">→</span>
               </button>

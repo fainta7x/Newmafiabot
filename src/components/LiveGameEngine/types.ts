@@ -38,8 +38,6 @@ export interface LiveGameEngineProps {
   onGameFinished: (gameData: { winning_team: "Красные" | "Чёрные"; protocol_text: string; slots: GameSlot[]; judge_id: number }) => void;
   onCancel: () => void;
   onPhaseChange?: (phase: string) => void;
-  /** Server lifecycle hook. Failure must never roll back the already-started Mafia game. */
-  onGameStarted?: (roles: Array<{ seat_number: number; role: ActivePlayerState['role'] }>) => void | Promise<void>;
   rolesHidden?: boolean;
   onRolesHiddenChange?: (hidden: boolean) => void;
 }

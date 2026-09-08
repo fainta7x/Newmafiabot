@@ -8,6 +8,7 @@ import PlayerGamesHub, { type PlayerGamesSection } from './PlayerGamesHub.tsx';
 import PlayerHomeDashboard from './PlayerHomeDashboard.tsx';
 import PlayerLiveOnlyCenter from './PlayerLiveOnlyCenter.tsx';
 import PlayerProfileHub from './PlayerProfileHub.tsx';
+import PremiumPlayerProfile from './PremiumPlayerProfile.tsx';
 import { PlayerProfileReminder } from './PlayerProfileCompleteness.tsx';
 import PlayerQuickAccessBar from './PlayerQuickAccessBar.tsx';
 import PlayerRatingHub, { type PlayerRatingSection } from './PlayerRatingHub.tsx';
@@ -31,50 +32,44 @@ type Props = {
   onSectionChange?: (section: PlayerCabinetSection, target?: string | null) => void;
 };
 
-export default function PlayerCabinetShell({
-  data,
-  canOpenAdmin = false,
-  onOpenAdmin,
-  initialSection = 'home',
-  initialTarget = null,
-  onSectionChange,
-}: Props) {
-  const [section, setSection] = useState<PlayerCabinetSection>(() => normalizePlayerCabinetSection(initialSection));
+const profilePlayerIdFromTarget = (target: string | null | undefined) => target?.startsWith('player:') ? target.slice('player:'.length) || null : null;
+
+export default function PlayerCabinetShell({ data, canOpenAdmin = false, onOpenAdmin, initialSection = 'home', initialTarget = null, onSectionChange }: Props) {
+  const initialProfilePlayerId = profilePlayerIdFromTarget(initialTarget);
+  const [section, setSection] = useState<PlayerCabinetSection>(() => initialProfilePlayerId ? 'club' : normalizePlayerCabinetSection(initialSection));
   const [player, setPlayer] = useState(data.player);
   const [tokenBalance, setTokenBalance] = useState(Number(data.player.tokens || 0));
+  const profilePlayerId = profilePlayerIdFromTarget(initialTarget);
 
-  useEffect(() => setSection(normalizePlayerCabinetSection(initialSection)), [initialSection]);
+  useEffect(() => {
+    if (!profilePlayerId) setSection(normalizePlayerCabinetSection(initialSection));
+  }, [initialSection, profilePlayerId]);
   useEffect(() => {
     setPlayer(data.player);
     setTokenBalance(Number(data.player.tokens || 0));
   }, [data.player]);
+  useEffect(() => {
+    if (!profilePlayerId) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [profilePlayerId]);
 
   const open = (requested: PlayerCabinetSection, target: string | null = null) => {
     const next = normalizePlayerCabinetSection(requested);
     setSection(next);
     onSectionChange?.(next, target);
   };
-
   const handleNotificationNavigation = (destination: PlayerNotificationDestination, target?: string | null) => open(destination as PlayerCabinetSection, target || null);
   const currentData = { ...data, player };
 
   return (
     <div data-testid="player-cabinet-shell" className="player-events-shell player-cabinet-shell min-h-[var(--tg-viewport-stable-height,100dvh)] bg-background text-foreground">
-      <PlayerQuickAccessBar
-        player={player}
-        tokenBalance={tokenBalance}
-        active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null}
-        canOpenAdmin={canOpenAdmin}
-        onOpenAdmin={onOpenAdmin}
-        onOpenWallet={() => open('wallet')}
-        onOpenProfile={() => open('profile')}
-      />
+      <PlayerQuickAccessBar player={player} tokenBalance={tokenBalance} active={section === 'wallet' ? 'wallet' : section === 'profile' ? 'profile' : null} canOpenAdmin={canOpenAdmin} onOpenAdmin={onOpenAdmin} onOpenWallet={() => open('wallet')} onOpenProfile={() => open('profile')} />
       <PlayerSmartNotifications onNavigate={handleNotificationNavigation} />
       <div className="h-14" aria-hidden="true" />
       {section !== 'profile' ? <PlayerProfileReminder playerId={player.id} onOpenProfile={() => open('profile')} /> : null}
-      <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}>
-        <PlayerLiveOnlyCenter compact={section !== 'home'} />
-      </div>
+      <div data-testid="player-live-status-slot" className={`player-live-status-slot ${section === 'home' ? '' : 'player-live-status-slot--compact'}`}><PlayerLiveOnlyCenter compact={section !== 'home'} /></div>
 
       {section === 'home' ? (
         <PlayerHomeDashboard data={currentData} onOpenEvents={(eventId) => open('events', eventId || null)} onOpenGames={() => open('games')} onOpenRating={() => open('rating')} />
@@ -97,6 +92,12 @@ export default function PlayerCabinetShell({
       )}
 
       <PlayerBottomNavigation section={section} onOpen={(next) => open(next)} />
+
+      {profilePlayerId ? (
+        <div data-testid="canonical-player-profile-overlay" className="fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-[#090a0d] [padding-bottom:env(safe-area-inset-bottom)]">
+          <PremiumPlayerProfile playerId={profilePlayerId} mode={profilePlayerId === player.id ? 'self' : 'public'} onClose={() => window.history.back()} />
+        </div>
+      ) : null}
     </div>
   );
 }

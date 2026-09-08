@@ -49,8 +49,9 @@ describe('useOrganizerCrmSession freshness', () => {
     let resolveSlow!: (value: Response) => void;
     const slow = new Promise<Response>((resolve) => { resolveSlow = resolve; });
     let call = 0;
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if (!String(input).includes('/api/crm/overview')) return jsonResponse({});
+      expect(init?.cache).toBe('no-store');
       call += 1;
       if (call === 1) return jsonResponse(overview('initial'));
       if (call === 2) return slow;
@@ -70,8 +71,7 @@ describe('useOrganizerCrmSession freshness', () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(screen.getByTestId('overview-title').textContent).toBe('newest');
 
-    const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview')) as Array<[RequestInfo | URL, RequestInit | undefined]>;
+    const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview'));
     expect(overviewCalls.length).toBeGreaterThanOrEqual(3);
-    for (const [, init] of overviewCalls) expect(init?.cache).toBe('no-store');
   });
 });

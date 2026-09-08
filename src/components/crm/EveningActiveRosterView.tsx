@@ -172,7 +172,6 @@ export default function EveningActiveRosterView({
         phone: guestPhone.trim() || undefined,
         table_id: null,
         response_status: 'unanswered',
-        registration_status: 'unanswered',
         amount_due: evening.default_price,
       });
       setGuestNickname('');
@@ -257,7 +256,7 @@ export default function EveningActiveRosterView({
             })}
             {!availablePlayers.length ? <div className="p-5 text-center text-[12px] text-text-muted">Никого не найдено или все уже добавлены в событие.</div> : null}
           </div>
-        </> : <div className="space-y-2"><input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Никнейм гостя" className="mobile-field" /><input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} placeholder="Телефон — необязательно" className="mobile-field" /></div>}
+        </> : <div className="space-y-2"><input value={guestNickname} onChange={(event) => setGuestNickname(e.target.value)} placeholder="Никнейм гостя" className="mobile-field" /><input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} placeholder="Телефон — необязательно" className="mobile-field" /></div>}
       </div>
     </MobileSheet>
   </section>;

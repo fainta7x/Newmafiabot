@@ -89,7 +89,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
     await waitFor(() => expect(screen.queryByText('400 ₽', { exact: false })).toBeNull());
 
     resolveSlow(await jsonResponse(responseBody({ currentDue: 600, generated: 'stale' })));
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();
     expect(screen.queryByText('400 ₽', { exact: false })).toBeNull();
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
@@ -120,7 +120,7 @@ describe('OrganizerCommandCenter payment freshness', () => {
     expect(screen.queryByText('долг за 4 сентября: 600 ₽')).toBeNull();
     expect(screen.getByText('11 сентября')).toBeDefined();
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 100); });
     resolveResume(await jsonResponse(responseBody({ currentDue: 0, previousDue: 0 })));
     await waitFor(() => expect(screen.queryByTestId('crm-payments-refreshing')).toBeNull());
     expect(screen.queryByText('600 ₽', { exact: false })).toBeNull();

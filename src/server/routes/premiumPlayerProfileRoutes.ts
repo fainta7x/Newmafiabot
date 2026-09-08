@@ -20,7 +20,7 @@ const requireViewer = (req: any, res: any): string | null => {
 };
 
 const canViewPlayer = async (db: any, playerId: string) => {
-  const row = await db.get<any>('SELECT id, COALESCE(contact_status,lifecycle_status,\'normal\') AS status FROM players WHERE id=? LIMIT 1', [playerId]);
+  const row = await db.get('SELECT id, COALESCE(contact_status,lifecycle_status,\'normal\') AS status FROM players WHERE id=? LIMIT 1', [playerId]);
   if (!row) return { ok: false as const, status: 404, error: 'Игрок не найден' };
   return { ok: true as const, row };
 };

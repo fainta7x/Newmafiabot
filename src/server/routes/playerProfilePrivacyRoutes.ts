@@ -10,6 +10,9 @@ import {
 const router = Router();
 const playerId = (req:any) => getPlayerSessionId(req) ? String(getPlayerSessionId(req)) : null;
 
+const legacyBirthdayVisibility = (visibility: PlayerProfileVisibility) =>
+  visibility.birthday_day_month ? (visibility.birth_year ? 'full' : 'day_month') : 'private';
+
 router.get('/privacy-settings', async (req,res) => {
   const id=playerId(req); if(!id) return res.status(401).json({error:'Player authentication required.'});
   await ensurePlayerProfileVisibilitySchema(req.db);
@@ -29,7 +32,10 @@ router.patch('/privacy-settings', async (req,res) => {
     if(Object.prototype.hasOwnProperty.call(body,key)) next[key]=body[key]===true;
   }
   const now=new Date().toISOString();
-  await req.db.run('UPDATE players SET profile_visibility_json=?, profile_updated_at=?, updated_at=? WHERE id=?',[JSON.stringify(next),now,now,id]);
+  await req.db.run(
+    'UPDATE players SET profile_visibility_json=?, birthday_visibility=?, profile_updated_at=?, updated_at=? WHERE id=?',
+    [JSON.stringify(next),legacyBirthdayVisibility(next),now,now,id],
+  );
   return res.json({success:true,visibility:next});
 });
 

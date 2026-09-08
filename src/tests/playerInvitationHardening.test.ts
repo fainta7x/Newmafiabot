@@ -81,7 +81,7 @@ describe('hardened player evening invitations', () => {
     expect(repeated.body.created).toBe(false);
 
     const participant = await db.get<any>(`SELECT * FROM evening_participants WHERE evening_id='casual-evening' AND player_id='target'`);
-    expect(participant).toBeUndefined();
+    expect(participant).toBeNull();
 
     const outbox = await db.get<any>(`SELECT text FROM telegram_message_outbox WHERE event_type='evening_invite' LIMIT 1`);
     expect(String(outbox?.text || '')).toContain('https://club.example.test/player/events/casual-evening');

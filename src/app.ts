@@ -53,7 +53,6 @@ import commerceAdminRoutes from './server/routes/commerceAdminRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
-import eveningPaymentReviewRoutes from './server/routes/eveningPaymentReviewRoutes.ts';
 import eveningStaffRoutes from './server/routes/eveningStaffRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
 import eloSeedAdminRoutes from './server/routes/eloSeedAdminRoutes.ts';
@@ -206,7 +205,6 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
-  app.use('/api/evenings', eveningPaymentReviewRoutes);
   app.use('/api/evenings', eveningStaffRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);

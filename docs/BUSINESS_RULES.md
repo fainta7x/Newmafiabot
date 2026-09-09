@@ -299,6 +299,19 @@ Approved high-level publication format for tournament summary graphics is three 
 
 Historical UI/visual requirements may evolve, so inspect current publication components before changing visuals. The three-part information model should not be collapsed without an explicit redesign decision.
 
+## Tournament evening registration, reserve and entry fee
+
+- `TOURNAMENT` is a distinct event format. Regular `CASUAL` price-per-game, 400 ₽ cap, historical debt reconciliation, wallet-token logic and betting must not rewrite tournament entry-fee truth.
+- A tournament evening is only a registration/preparation front door into the canonical `tournaments` domain. Confirmed registrations synchronize into `tournament_participants` before seating; conducting, protocols, standings, compensation scoring, awards, three-part result publication, Elo and token settlement remain owned by the existing tournament engine.
+- Player capacity is **exactly 10**, excluding the assigned canonical judge. The assigned judge cannot register as a player in the same tournament.
+- The first ten eligible server-accepted registrations receive confirmed slots 1–10. Further eligible registrations enter deterministic FIFO reserve order unless an organizer performs an explicit audited reorder.
+- If a confirmed player cancels before the tournament starts, exactly the first reserve player is promoted atomically into the freed slot. Retries must not create an eleventh confirmed player or promote multiple reserves for one vacancy.
+- Organizer add/remove/manual-promotion/reserve-reorder actions require an explicit reason and must remain auditable.
+- Draft creation is not publication. A stable player link uses `/player/events/<tournamentId>` only after explicit publication. Tournament publication uses the canonical personal notification router and sends at most one external personal notification channel per eligible canonical player; the assigned judge is excluded from the player audience.
+- Tournament money is stored in rubles. Prize-allocation total must equal the configured prize fund before publication.
+- Online acquiring is not part of this workflow. Player action **«Я оплатил взнос»** records only a `pending` payment claim. Only organizer `confirmed` status counts as received money. `rejected`, `waived`, `refunded` and return-to-`unpaid` remain explicit, correctable audit states; `waived` removes the unpaid obligation but is not revenue.
+- Historical tournaments must not be rewritten, reseated or recalculated merely to add registration metadata. `Турнир Богдана 1.08` remains a read-only regression reference for the pre-existing tournament engine and publication/results path.
+
 ## Player economy / payments
 
 - Wallet/tokens, shop, betting, manual evening accounting and free-evening credits are active product areas.

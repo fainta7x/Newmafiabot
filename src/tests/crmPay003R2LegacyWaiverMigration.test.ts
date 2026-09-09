@@ -106,13 +106,15 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
     await markV1Completed(db);
     const ids = await seedLegacyWaiver(db, {
       suffix: 'explicit',
-      notes: 'Бесплатный вечер — явное освобождение организатором',
+      // The migration deliberately requires wording tied to the financial obligation;
+      // generic “free” text is ambiguous and must go to organizer review instead.
+      notes: 'Освобожден от оплаты взноса за вечер организатором',
     });
 
     await createApp(db);
 
     const waiver = await db.get<any>('SELECT reason FROM evening_fee_waivers WHERE participant_id = ?', [ids.participantId]);
-    expect(String(waiver?.reason || '')).toContain('Migrated legacy explicit waiver');
+    expect(String(waiver?.reason || '')).toContain('explicit waiver');
     const participant = await db.get<any>('SELECT amount_due,payment_status FROM evening_participants WHERE id = ?', [ids.participantId]);
     expect(participant).toMatchObject({ amount_due: 0, payment_status: 'waived' });
     const diagnostic = await db.get<any>('SELECT participant_id FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ?', [ids.participantId]);

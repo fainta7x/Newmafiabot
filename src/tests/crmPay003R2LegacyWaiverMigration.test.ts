@@ -188,6 +188,31 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
     expect(participant).toMatchObject({ amount_due: 0, payment_status: 'waived' });
   });
 
+  it('resumes a durable failed R2 marker instead of rescanning from scratch or blocking startup', async () => {
+    const db = makeDb();
+    await markV1Completed(db);
+    const ids = await seedLegacyWaiver(db, { suffix: 'resume', notes: null });
+
+    await createApp(db);
+    await db.run(`
+      UPDATE application_migration_history
+         SET status = 'failed', completed_at = NULL, processed_count = 0,
+             last_evening_id = NULL, failed_evening_id = ?, error_message = 'forced interruption', updated_at = ?
+       WHERE migration_key = ?
+    `, [ids.eveningId, now, CRM_PAY_003_R2_HISTORICAL_MIGRATION]);
+
+    await reconcileHistoricalRegularEveningsR2Once(db);
+
+    const marker = await db.get<any>(
+      'SELECT status,total_count,processed_count,failed_evening_id,error_message FROM application_migration_history WHERE migration_key = ?',
+      [CRM_PAY_003_R2_HISTORICAL_MIGRATION],
+    );
+    expect(marker?.status).toBe('completed');
+    expect(Number(marker?.processed_count)).toBe(Number(marker?.total_count));
+    expect(marker?.failed_evening_id).toBeNull();
+    expect(marker?.error_message).toBeNull();
+  });
+
   it('preserves recorded payment while migrating a legacy waiver and never creates negative income/refunds', async () => {
     const db = makeDb();
     await markV1Completed(db);

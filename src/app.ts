@@ -21,6 +21,7 @@ import { ensureTournamentDistanceSchema } from './db/ensureTournamentDistanceSch
 import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenSchema.ts';
 import { ensureVkIntegrationSchema } from './db/ensureVkIntegrationSchema.ts';
 import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
+import { ensureVkPersonalMessageSchema } from './db/ensureVkPersonalMessageSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -83,6 +84,7 @@ import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
 import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
+import vkPlayerStartRouter from './server/services/vkPlayerStartRouter.ts';
 import vkJoinStartRouter from './server/services/vkJoinStartRouter.ts';
 import vkJoinRegistrationCallbackRouter from './server/services/vkJoinRegistrationCallbackRouter.ts';
 import vkJoinRespondRouter from './server/services/vkJoinRespondRouter.ts';
@@ -95,6 +97,7 @@ import { startTelegramMessageOutboxWorker } from './server/services/telegramMess
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
 import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOutboxService.ts';
+import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
   const app = express();
@@ -131,6 +134,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureTelegramDirectMessageSchema(db);
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
+  await ensureVkPersonalMessageSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
@@ -138,6 +142,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
     startTelegramSyncOutboxWorker(db);
     startTelegramMessageOutboxWorker(db);
     startPersonalTelegramNotificationWorker(db);
+    startVkMessageOutboxWorker(db);
   }
   try { await reconcileTokenOpeningBalances(db); } catch (error) { console.error('[TOKENS] Opening-balance reconciliation failed:', error); }
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
@@ -174,6 +179,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
   app.use('/api/system-status', systemStatusRoutes);
+  app.use('/api/integrations', vkPlayerStartRouter);
   app.use('/api/integrations', vkJoinRegistrationCallbackRouter);
   app.use('/api/integrations', vkDirectIntegrationRouter);
   app.use('/api/integrations', integrationRoutes);

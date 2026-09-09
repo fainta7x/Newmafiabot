@@ -12,7 +12,7 @@ export default function PlayerProfileHub({ data, onPlayerChange }: { data: Playe
 
   const ownerSettings = <div className="space-y-4">
     <PlayerProfileSettings player={player} onPlayerChange={updatePlayer} />
-    <PlayerNotificationSettings />
+    <PlayerNotificationSettings nickname={player.nickname} />
     <PlayerProfilePrivacySettings />
     <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
       <summary className="cursor-pointer font-semibold">Музыка</summary>

@@ -14,6 +14,7 @@ import {
 } from '../services/bettingPoolService.ts';
 import { startClubGameLifecycle } from '../services/clubGameStartService.ts';
 import { getBettingNotificationDiagnostics } from '../services/bettingNotificationService.ts';
+import { buildTrustedPublicAppUrl } from '../services/publicAppOriginService.ts';
 
 const router = Router();
 
@@ -101,7 +102,7 @@ router.post('/:gameId/start', requireOrganizerAuth, async (req, res) => {
     const result = await startClubGameLifecycle(req.db as DatabaseWrapper, {
       gameId,
       roles: Array.isArray(req.body?.roles) ? req.body.roles : [],
-      webAppUrl: `${req.protocol}://${req.get('host')}/player`,
+      webAppUrl: buildTrustedPublicAppUrl('/player', req),
     });
     return res.status(result.created ? 201 : 200).json({ success: true, ...result });
   } catch (error: any) {
@@ -168,7 +169,7 @@ router.post('/:gameId/betting/open', requireOrganizerAuth, async (req, res) => {
     const result = await startClubGameLifecycle(req.db as DatabaseWrapper, {
       gameId,
       roles: Array.isArray(req.body?.roles) ? req.body.roles : [],
-      webAppUrl: `${req.protocol}://${req.get('host')}/player`,
+      webAppUrl: buildTrustedPublicAppUrl('/player', req),
     });
     return res.status(result.created ? 201 : 200).json({ success: true, ...result });
   } catch (error: any) {

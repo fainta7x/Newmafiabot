@@ -65,6 +65,7 @@ const createFixture = (input: {
       return null;
     },
     async all(sql: string) {
+      if (sql.includes('PRAGMA table_info(players)')) return [{ name: 'club_role' }, { name: 'judge_level' }];
       if (sql.includes('FROM evening_participants')) return [participant];
       if (sql.includes('FROM games')) return games;
       return [];
@@ -88,8 +89,7 @@ const createFixture = (input: {
       }
       if (sql.includes('UPDATE evening_participants')) {
         participant.amount_due = Number(params[0]);
-        participant.amount_paid = Number(params[1]);
-        participant.payment_status = String(params[2]);
+        participant.payment_status = String(params[1]);
         return { changes: 1, lastID: null };
       }
       return { changes: 0, lastID: null };
@@ -100,6 +100,10 @@ const createFixture = (input: {
   };
 
   return { db, evening, participant, games, ledger };
+};
+
+const expectNoNegativeIncome = (ledger: LedgerRow[]) => {
+  expect(ledger.filter((row) => row.type === 'income').every((row) => row.amount >= 0)).toBe(true);
 };
 
 describe('CRM-PAY-003 regular evening pricing', () => {
@@ -122,27 +126,59 @@ describe('CRM-PAY-003 regular evening pricing', () => {
     expect(fixture.participant.amount_due).toBe(300);
     expect(fixture.participant.amount_paid).toBe(300);
     expect(fixture.participant.payment_status).toBe('paid');
+    expectNoNegativeIncome(fixture.ledger);
+  });
+
+  it('preserves 400 ₽ prepaid before the first completed game', async () => {
+    const fixture = createFixture({ games: [], due: 0, paid: 400, status: 'paid', closed: false });
+
+    await reconcileRegularEveningPayments(fixture.db, 'e1');
+
+    expect(fixture.participant.amount_due).toBe(0);
+    expect(fixture.participant.amount_paid).toBe(400);
+    expect(fixture.participant.payment_status).toBe('paid');
+    expect(fixture.ledger).toEqual([]);
+  });
+
+  it('preserves a legacy due=600 paid=600 payment when only one game was completed', async () => {
+    const fixture = createFixture({ games: [completedGame(1)], due: 600, paid: 600, status: 'paid' });
+
+    await reconcileRegularEveningPayments(fixture.db, 'e1');
+
+    expect(fixture.participant.amount_due).toBe(100);
+    expect(fixture.participant.amount_paid).toBe(600);
+    expect(fixture.participant.payment_status).toBe('paid');
+    expectNoNegativeIncome(fixture.ledger);
   });
 
   it('keeps repeated reconciliation idempotent without duplicate ledger rows', async () => {
-    const fixture = createFixture();
+    const fixture = createFixture({ games: [completedGame(1)], due: 600, paid: 600, status: 'paid' });
     await reconcileRegularEveningPayments(fixture.db, 'e1');
     const afterFirst = fixture.ledger.map((row) => ({ ...row }));
 
     await reconcileRegularEveningPayments(fixture.db, 'e1');
 
     expect(fixture.ledger).toEqual(afterFirst);
+    expect(fixture.participant.amount_paid).toBe(600);
+    expectNoNegativeIncome(fixture.ledger);
   });
 
-  it('recalculates safely after a completed-game correction', async () => {
-    const fixture = createFixture();
+  it('recalculates after a game correction without reducing received payment', async () => {
+    const fixture = createFixture({
+      games: [completedGame(1), completedGame(2), completedGame(3), completedGame(4)],
+      due: 400,
+      paid: 400,
+      status: 'paid',
+    });
     await reconcileRegularEveningPayments(fixture.db, 'e1');
-    fixture.games.splice(2, 1);
+    fixture.games.splice(2, 2);
 
     await reconcileRegularEveningPayments(fixture.db, 'e1');
 
     expect(fixture.participant.amount_due).toBe(200);
-    expect(fixture.participant.amount_paid).toBe(200);
+    expect(fixture.participant.amount_paid).toBe(400);
+    expect(fixture.participant.payment_status).toBe('paid');
+    expectNoNegativeIncome(fixture.ledger);
     const snapshot = fixture.ledger.map((row) => ({ ...row }));
     await reconcileRegularEveningPayments(fixture.db, 'e1');
     expect(fixture.ledger).toEqual(snapshot);
@@ -169,6 +205,16 @@ describe('CRM-PAY-003 regular evening pricing', () => {
 
     expect(fixture.participant.amount_due).toBe(0);
     expect(fixture.participant.payment_status).toBe('waived');
+  });
+
+  it('does not mark zero-due participants as waived when money was recorded', async () => {
+    const fixture = createFixture({ games: [], due: 600, paid: 100, status: 'partial', closed: false });
+
+    await reconcileRegularEveningPayments(fixture.db, 'e1');
+
+    expect(fixture.participant.amount_due).toBe(0);
+    expect(fixture.participant.amount_paid).toBe(100);
+    expect(fixture.participant.payment_status).toBe('paid');
   });
 
   it('does not rewrite non-CASUAL formats', async () => {

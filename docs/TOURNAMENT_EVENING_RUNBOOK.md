@@ -64,6 +64,8 @@ npm run build
 
 The pull-request CI additionally checks Python bot syntax and the combined production container. CodeQL and Gitleaks are independent security gates.
 
+If `main` changes while this PR is open, do not rely on an older green run. GitHub must report the PR mergeable against the current `main`, and a fresh PR CI run must pass after that base change before merge.
+
 ## After merge / deploy
 
 Git merge, Amvera deployment and real Telegram/VK runtime verification are separate states. Record them separately. Do not claim the feature is live only because CI is green.

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 
 type VkPlayerAccessProps = {
-  initialNickname?: string;
   compact?: boolean;
 };
 
@@ -29,14 +28,11 @@ const safeVkErrorMessage = (value: string | null) => {
 const currentPlayerDestination = () => {
   const url = new URL(window.location.href);
   if (url.pathname !== '/player' && !url.pathname.startsWith('/player/')) return '/player';
-  // OAuth result markers are transient UI state. Keeping an old vk_error in
-  // return_to makes a successful retry land back on the previous error again.
   ['vk_error', 'vk_link_pending', 'vk_linked', 'vk_link_nickname'].forEach((key) => url.searchParams.delete(key));
   return `${url.pathname}${url.search}${url.hash}` || '/player';
 };
 
-export default function VkPlayerAccess({ initialNickname = '', compact = false }: VkPlayerAccessProps) {
-  const [nickname, setNickname] = useState(initialNickname);
+export default function VkPlayerAccess({ compact = false }: VkPlayerAccessProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const callbackError = useMemo(() => {
@@ -44,16 +40,6 @@ export default function VkPlayerAccess({ initialNickname = '', compact = false }
   }, []);
 
   const startVk = async () => {
-    const value = nickname.trim().replace(/\s+/g, ' ');
-    if (!value) {
-      setError('Введите игровой ник, чтобы безопасно сопоставить профиль.');
-      return;
-    }
-    if (value.length > 60) {
-      setError('Игровой ник не должен быть длиннее 60 символов.');
-      return;
-    }
-
     setBusy(true);
     setError(null);
     try {
@@ -62,7 +48,7 @@ export default function VkPlayerAccess({ initialNickname = '', compact = false }
         credentials: 'same-origin',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: value, return_to: currentPlayerDestination() }),
+        body: JSON.stringify({ return_to: currentPlayerDestination() }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body?.authorize_url) {
@@ -78,25 +64,16 @@ export default function VkPlayerAccess({ initialNickname = '', compact = false }
   return (
     <section className={compact ? '' : 'mt-5 border-t border-white/10 pt-5'} data-testid="vk-player-access">
       {!compact && <div className="mb-3 text-center text-xs uppercase tracking-[0.14em] text-white/30">или</div>}
-      <label className="block text-xs font-medium uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
-      <input
-        value={nickname}
-        onChange={(event) => setNickname(event.target.value)}
-        maxLength={60}
-        autoComplete="nickname"
-        placeholder="Ваш ник в 2LA Noire"
-        className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-base text-white outline-none placeholder:text-white/20 focus:border-white/25"
-      />
       <button
         type="button"
         disabled={busy}
         onClick={() => void startVk()}
-        className="mt-3 min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50"
+        className="min-h-12 w-full rounded-2xl bg-[#2688eb] px-4 text-sm font-semibold text-white disabled:opacity-50"
       >
-        {busy ? 'Открываем VK ID…' : 'Войти через VK'}
+        {busy ? 'Открываем VK ID…' : 'Продолжить через VK'}
       </button>
       <p className="mt-3 text-xs leading-5 text-white/40">
-        VK используется только для подтверждения вашей личности. Если профиль с таким ником уже существует, приложение не создаст дубликат без подтверждения связи.
+        Сначала VK ID подтвердит ваш аккаунт. Если профиль уже связан — кабинет откроется сразу. Если нет, после подтверждения вы сможете найти старый профиль или создать новый ник.
       </p>
       {(error || callbackError) && (
         <div className="mt-3 rounded-2xl bg-rose-400/[0.08] px-3 py-3 text-sm leading-5 text-rose-100/80">

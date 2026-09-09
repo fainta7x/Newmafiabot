@@ -4,6 +4,10 @@ import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
+import {
+  listPendingPlayerOnboardingLinks,
+  resolvePendingPlayerOnboardingLink,
+} from '../services/playerOnboardingOrganizerService.ts';
 
 const router = Router();
 
@@ -83,6 +87,7 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
     `);
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE COALESCE(p.contact_status,'normal')='normal' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
+    const pendingOnboardingLinks = await listPendingPlayerOnboardingLinks(db);
 
     // Pricing reconciliation belongs to game/payment mutation paths. Keeping this
     // overview route read-only avoids replaying every historical debt calculation
@@ -114,12 +119,26 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
         gamesCount,
         completedGamesCount,
       } : null,
-      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants },
-      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount },
+      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants, pendingOnboardingLinks },
+      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length },
     });
   } catch (err: any) {
     console.error('[CRM] Overview database error:', err);
     return res.status(500).json({ error: 'Database error', message: err.message });
   }
 });
+
+router.post('/onboarding-links/:id/resolve', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db: DatabaseWrapper = req.db || (await getDb());
+    const result = await resolvePendingPlayerOnboardingLink(db, req.params.id, req.body?.decision);
+    return res.json({ success: true, ...result });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Не удалось обработать запрос привязки',
+      code: error?.code || 'onboarding_link_resolution_failed',
+    });
+  }
+});
+
 export default router;

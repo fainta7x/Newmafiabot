@@ -36,6 +36,7 @@ export function replaceClubGameSeatIdentity(
         ...item,
         participant_id: replacement.participantId,
         player_id: replacement.playerId,
+        guest_placeholder_id: null,
         display_name: replacement.nickname,
       }
     : item);
@@ -45,6 +46,7 @@ export function replaceClubGameSeatIdentity(
         ...slot,
         participant_id: replacement.participantId,
         player_id: replacement.playerId,
+        guest_placeholder_id: null,
         nickname: replacement.nickname,
       }
     : slot);

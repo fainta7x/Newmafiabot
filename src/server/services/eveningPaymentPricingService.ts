@@ -35,6 +35,14 @@ const participantIdsFromGame = (game: any, protocol: any): string[] => {
     : [];
 };
 
+const tableExists = async (db: DatabaseWrapper, tableName: string): Promise<boolean> => {
+  const row = await db.get<any>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    [tableName],
+  );
+  return Boolean(row?.name);
+};
+
 const addLedgerAdjustment = async (
   db: DatabaseWrapper,
   input: {
@@ -135,25 +143,30 @@ export async function reconcileRegularEveningPayments(
     return { applied: false, games_by_participant: {} };
   }
 
-  // Standalone service tests and older local databases can predate the club-role
-  // columns. Production gets them from ensureClubOperationsSchema, but reconciliation
-  // should still be safe on those legacy schemas instead of failing before migration.
-  const playerColumns = new Set(
-    (await db.all<{ name: string }>('PRAGMA table_info(players)'))
-      .map((column) => String(column.name)),
-  );
-  const clubRoleExpr = playerColumns.has('club_role') ? "COALESCE(p.club_role, 'member')" : "'member'";
-  const judgeLevelExpr = playerColumns.has('judge_level') ? "COALESCE(p.judge_level, 'player')" : "'player'";
+  // Historical charging must depend only on facts attached to this evening.
+  // Current global club_role/judge_level are permissions/qualifications and are
+  // deliberately not selected here: changing them later must never rewrite history.
   const participants = await db.all<any>(`
-    SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status,
-           ${clubRoleExpr} AS club_role,
-           ${judgeLevelExpr} AS judge_level
+    SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status, ep.attendance_status
       FROM evening_participants ep
-      JOIN players p ON p.id = ep.player_id
      WHERE ep.evening_id = ?
   `, [eveningId]);
   const participantIds = new Set(participants.map((participant: any) => String(participant.id)));
   const byPlayerId = new Map(participants.map((participant: any) => [String(participant.player_id), String(participant.id)]));
+
+  const hasStaffAssignments = await tableExists(db, 'evening_staff_assignments');
+  const staffAssignment = hasStaffAssignments
+    ? await db.get<any>('SELECT organizer_player_id FROM evening_staff_assignments WHERE evening_id = ? LIMIT 1', [eveningId])
+    : null;
+  const assignedStaffPlayerId = staffAssignment?.organizer_player_id
+    ? String(staffAssignment.organizer_player_id)
+    : null;
+
+  const hasFeeWaivers = await tableExists(db, 'evening_fee_waivers');
+  const waiverRows = hasFeeWaivers
+    ? await db.all<any>('SELECT participant_id FROM evening_fee_waivers WHERE evening_id = ?', [eveningId])
+    : [];
+  const explicitWaiverIds = new Set(waiverRows.map((row: any) => String(row.participant_id)));
 
   const gameRows = await db.all<any>(`
     SELECT id, winner_team, protocol_text, slots_json
@@ -183,10 +196,11 @@ export async function reconcileRegularEveningPayments(
   const now = new Date().toISOString();
   await db.transaction(async (tx: DatabaseWrapper) => {
     for (const participant of participants) {
-      const feeExempt = participant.club_role === 'organizer'
-        || participant.judge_level === 'host'
-        || participant.judge_level === 'judge';
-      const gamesPlayed = playedCounts.get(String(participant.id)) || 0;
+      const participantId = String(participant.id);
+      const playerId = String(participant.player_id);
+      const feeExempt = explicitWaiverIds.has(participantId)
+        || (assignedStaffPlayerId !== null && assignedStaffPlayerId === playerId);
+      const gamesPlayed = playedCounts.get(participantId) || 0;
       const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed);
       const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
@@ -194,8 +208,8 @@ export async function reconcileRegularEveningPayments(
         await reconcileClosedLedger(tx, {
           eveningId,
           eveningTitle: String(evening.title || 'Игровой вечер'),
-          participantId: String(participant.id),
-          playerId: String(participant.player_id),
+          participantId,
+          playerId,
           canonicalDue,
           recordedPaid,
         });

@@ -4,6 +4,7 @@ import { ensureInviteAudienceSchema } from '../../db/ensureInviteAudienceSchema.
 import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.ts';
 import { ensureEloSeedSchema } from '../../db/ensureEloSeedSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
+import { recordNewPlayerOnboardingNotification } from './playerOnboardingOrganizerService.ts';
 
 export class PlayerRegistrationError extends Error {
   code: string;
@@ -134,6 +135,7 @@ export async function registerVerifiedPlayerIdentity(
     const fullName = normalizeFullName(input.fullName);
     const telegramUserId = input.platform === 'telegram' ? externalUserId : null;
     const telegramUsername = input.platform === 'telegram' ? username : null;
+    const source = input.source || `${input.platform}_verified_onboarding`;
 
     await tx.run(
       `INSERT INTO players (
@@ -142,7 +144,7 @@ export async function registerVerifiedPlayerIdentity(
         game_level, judge_level, elo, elo_seed, elo_seed_reason, elo_seed_set_at,
         tokens, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'novice', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
-      [playerId, telegramUserId, nickname, fullName, telegramUsername, input.source || `${input.platform}_verified_onboarding`, 'Новый игрок', now, now, now],
+      [playerId, telegramUserId, nickname, fullName, telegramUsername, source, 'Новый игрок', now, now, now],
     );
 
     if (input.platform === 'vk') {
@@ -151,6 +153,10 @@ export async function registerVerifiedPlayerIdentity(
           platform, external_user_id, player_id, screen_name, display_name, linked_at, updated_at
         ) VALUES ('vk', ?, ?, ?, ?, ?, ?)
       `, [externalUserId, playerId, username, fullName, now, now]);
+    }
+
+    if (source === `${input.platform}_verified_onboarding`) {
+      await recordNewPlayerOnboardingNotification(tx, { playerId, nickname, platform: input.platform });
     }
 
     return { created: true, player: await selectPlayer(tx, playerId) };

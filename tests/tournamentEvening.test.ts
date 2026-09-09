@@ -37,7 +37,8 @@ describe('TOURNAMENT-EVENING-001', () => {
   };
 
   const createEvening = async () => {
-    await addPlayer('judge', 'tournament', 'judge');
+    const existingJudge = await db.get<any>('SELECT id FROM players WHERE id=? LIMIT 1', ['judge']);
+    if (!existingJudge) await addPlayer('judge', 'tournament', 'judge');
     const response = await request(app)
       .post('/api/tournaments/evenings')
       .set('Authorization', `Bearer ${organizerToken}`)
@@ -222,9 +223,10 @@ describe('TOURNAMENT-EVENING-001', () => {
 
   it('does not rewrite historical canonical tournament data when additive schema is ensured', async () => {
     const now = new Date().toISOString();
+    await addPlayer('legacy-player');
     await db.run(`INSERT INTO tournaments (id,title,date,venue,stage,status,chief_judge_name,notes,game_count,created_at,updated_at)
       VALUES ('legacy-bogdan','Турнир Богдана 1.08','2026-08-01','legacy','final','completed','Богдан','historical',10,?,?)`, [now, now]);
-    await db.run(`INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES ('legacy-participant','legacy-bogdan',NULL,'Исторический игрок',1)`);
+    await db.run(`INSERT INTO tournament_participants (id,tournament_id,player_id,display_name,participant_number) VALUES ('legacy-participant','legacy-bogdan','legacy-player','Исторический игрок',1)`);
     const beforeTournament = await db.get<any>("SELECT title,date,venue,stage,status,chief_judge_name,notes,game_count FROM tournaments WHERE id='legacy-bogdan'");
     const beforeParticipant = await db.get<any>("SELECT * FROM tournament_participants WHERE id='legacy-participant'");
     const { ensureTournamentEveningSchema } = await import('../src/db/ensureTournamentEveningSchema.ts');

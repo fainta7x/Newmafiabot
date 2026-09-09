@@ -110,21 +110,33 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
     if (game.archived_at) throw new Error('Сначала восстановите игру из архива');
     const envelope = safeJsonParse<any>(game.protocol_text, null);
     if (!envelope || envelope.kind !== 'club_evening_protocol' || envelope.version !== 1) throw new Error('У игры отсутствует структурированный клубный протокол');
+
+    const player = await tx.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(source, '') != 'legacy_guest_migrated' AND COALESCE(lifecycle_status, 'normal') != 'archived'", [input.replacementPlayerId]);
+    if (!player) throw new Error('Выбранный зарегистрированный игрок не найден');
+
     const current = (envelope.player_results || []).find((item: any) => Number(item.seat_number) === input.seatNumber);
+    if (!current) throw new Error('Выбранное место не найдено');
+
+    const priorAudit = await tx.get<any>(`
+      SELECT * FROM guest_player_replacement_audit
+       WHERE game_id = ? AND seat_number = ? AND replacement_player_id = ?
+       ORDER BY created_at DESC LIMIT 1
+    `, [input.gameId, input.seatNumber, String(player.id)]);
+    if (priorAudit && String(current.player_id || '') === String(player.id)) {
+      return { changed:false,idempotent:true,guestId:String(priorAudit.guest_placeholder_id),playerId:String(player.id),participantId:String(priorAudit.replacement_participant_id),envelope,slots:safeJsonParse<any[]>(game.slots_json, []) };
+    }
+
     const guestId = String(current?.guest_placeholder_id || (current?.player_id ? '' : current?.participant_id || '')).trim();
     if (!guestId) throw new Error('На выбранном месте нет гостя');
     const guest = await tx.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ? AND evening_id = ?', [guestId, String(game.evening_id)]);
     if (!guest) throw new Error('Гостевая заглушка не найдена');
-
-    const player = await tx.get<any>("SELECT id, nickname FROM players WHERE id = ? AND COALESCE(source, '') NOT IN ('quick_guest','legacy_guest_migrated') AND COALESCE(lifecycle_status, 'normal') != 'archived'", [input.replacementPlayerId]);
-    if (!player) throw new Error('Выбранный зарегистрированный игрок не найден');
     if ((envelope.player_results || []).some((item: any) => Number(item.seat_number) !== input.seatNumber && String(item.player_id || '') === String(player.id))) throw new Error('Этот зарегистрированный игрок уже занимает другое место в игре');
 
     const existingAudit = await tx.get<any>(`
       SELECT * FROM guest_player_replacement_audit
        WHERE game_id = ? AND seat_number = ? AND guest_placeholder_id = ? AND replacement_player_id = ? LIMIT 1
     `, [input.gameId, input.seatNumber, guestId, String(player.id)]);
-    if (existingAudit) return { changed:false,idempotent:true,guestId,playerId:String(player.id) };
+    if (existingAudit) return { changed:false,idempotent:true,guestId,playerId:String(player.id),participantId:String(existingAudit.replacement_participant_id),envelope,slots:safeJsonParse<any[]>(game.slots_json, []) };
 
     const now = new Date().toISOString();
     let participant = await tx.get<any>('SELECT * FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [String(game.evening_id), String(player.id)]);

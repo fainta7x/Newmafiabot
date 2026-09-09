@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import {
   beginVerifiedPlayerOnboarding,
@@ -15,6 +15,7 @@ const makeDb = () => {
 };
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   while (opened.length) {
     try { opened.pop()?.sqlite.close(); } catch {}
   }
@@ -82,5 +83,19 @@ describe('VK-ACCESS-004 onboarding completion', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].target_player_id).toBe(existing.player.id);
     expect(requests[0].status).toBe('pending');
+  });
+
+  it('uses the existing private Telegram confirmation for a VK identity when the old profile has Telegram', async () => {
+    const db = makeDb();
+    const existing = await registerNewPlayer(db, { telegramUserId: '999', nickname: 'Ветеран' });
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) })) as any);
+    const started = await beginVerifiedPlayerOnboarding(db, { platform: 'vk', externalUserId: '404' }, '/player/profile');
+    if (started.status !== 'onboarding') throw new Error('expected onboarding');
+
+    const result = await requestExistingPlayerOnboardingLink(db, started.token, 'Ветеран', { baseUrl: 'https://club.example' });
+    expect(result).toMatchObject({ status: 'private_confirmation', playerId: existing.player.id, returnTo: '/player/profile' });
+    expect(await db.get<any>(`SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id='404'`)).toBeNull();
+    const claim = await db.get<any>('SELECT player_id FROM vk_player_identity_claims WHERE player_id=?', [existing.player.id]);
+    expect(claim?.player_id).toBe(existing.player.id);
   });
 });

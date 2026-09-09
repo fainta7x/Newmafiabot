@@ -24,10 +24,12 @@ export function resolveTrustedPublicAppOrigin(req?: Pick<Request, 'protocol' | '
   if (process.env.NODE_ENV === 'production') {
     throw Object.assign(new Error('PLAYER_APP_URL is required for VK OAuth in production'), { statusCode: 503, code: 'public_origin_not_configured' });
   }
-  if (!req) return 'http://127.0.0.1:3000';
+  if (!req) return 'https://127.0.0.1:3000';
   const host = String(req.get('host') || '').trim();
-  if (!host) return 'http://127.0.0.1:3000';
-  return `${req.protocol || 'http'}://${host}`.replace(/\/$/, '');
+  if (!host) return 'https://127.0.0.1:3000';
+  // Development may derive the host for convenience, but force HTTPS because VK ID
+  // rejects insecure callback origins. Production never trusts Host and requires config.
+  return `https://${host}`.replace(/\/$/, '');
 }
 
 export function buildTrustedPublicAppUrl(pathname: string, req?: Pick<Request, 'protocol' | 'get'>): string {

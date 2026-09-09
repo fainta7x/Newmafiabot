@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
+import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
 
 type EventItem = {
   id: string;
@@ -113,19 +114,7 @@ export default function PlayerEventSlotDetail({
   };
 
   if (event.event_type === 'tournament') {
-    return (
-      <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
-        <div className="mx-auto max-w-[430px]">
-          <button type="button" onClick={onBack} className="min-h-10 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-white/50">← События</button>
-          <section className="mt-3 rounded-[28px] border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-violet-100/40">Турнир</div>
-            <h1 className="mt-2 text-2xl font-semibold">{event.title}</h1>
-            <p className="mt-2 text-sm text-white/45">{eventDate(event.starts_at)}{event.venue ? ` · ${event.venue}` : ''}</p>
-            <div className="mt-4 rounded-2xl bg-black/20 p-4 text-sm text-white/50">Участников: {event.participant_count || 0}. Турниры используют отдельную регистрацию.</div>
-          </section>
-        </div>
-      </main>
-    );
+    return <PlayerTournamentEveningDetail tournamentId={event.id} onBack={onBack} onSaved={onSaved} />;
   }
 
   const price = plan?.slots[0]?.price ?? 100;

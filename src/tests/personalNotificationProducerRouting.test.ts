@@ -11,6 +11,13 @@ describe('channel-neutral personal notification producers',()=>{
     expect(source).not.toContain('telegram_user_id IS NOT NULL');
     for(const type of ['invitation','upcoming_evening','booking_attendance_status','evening_reminder','attendance_confirmation','game_result','elo_change','bet_result','bet_refund']) expect(source).toContain(`'${type}'`);
   });
+  it('routes direct friend invitations through the same channel-neutral service',()=>{
+    const source=read('src/server/services/playerInvitationEligibilityService.ts');
+    expect(source).toContain("from './personalNotificationRouterService.ts'");
+    expect(source).toContain("eventType:'evening_invite'");
+    expect(source).not.toContain('enqueueTelegramMessage');
+    expect(source).toContain('Запись на вечер подтверждается отдельно');
+  });
   it('keeps in-app notification generation independent from external delivery',()=>{
     const source=read('src/server/routes/playerNotificationsRoutes.ts');
     expect(source).toContain("router.get('/notifications'");

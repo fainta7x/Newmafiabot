@@ -34,15 +34,16 @@ Recorded payments remain factual: reconciliation may reduce canonical `amount_du
 
 ## Historical reconciliation and legacy waivers
 
-CRM-PAY-003-R2 uses a distinct durable application migration marker so deployments where the original CRM-PAY-003 scan already completed receive one corrected historical CASUAL reconciliation pass. Completed markers prevent repeated rescans; failed/interrupted markers retain diagnostics and block unsafe automatic full rescans.
+CRM-PAY-003-R2 uses a distinct durable application migration marker so deployments where the original CRM-PAY-003 scan already completed receive one corrected historical CASUAL reconciliation pass. Completed markers prevent repeated rescans. Failed/interrupted R2 markers retain durable progress and diagnostics; after the underlying problem is corrected, the next startup/retry resumes after the last successfully reconciled evening instead of discarding progress or creating a second migration marker. The original CRM-PAY-003 v1 marker keeps its existing fail-closed behavior.
 
 Legacy `payment_status='waived'` / `amount_due=0` rows require special care because older code could have produced that state from the player's then-current organizer/judge role. Before the R2 historical pass:
 
 - reliably identifiable explicit legacy waivers are converted to durable `evening_fee_waivers` evidence;
 - rows already protected by factual evening staff assignment or an existing waiver remain protected;
 - ambiguous legacy waived rows are **not automatically charged** and are recorded in `evening_fee_waiver_migration_diagnostics` with `needs_review` status;
-- an explicit organizer waiver decision resolves/supersedes that review hold;
-- migration/reconciliation is idempotent and recorded payments remain untouched.
+- the reconciliation service treats a `needs_review` diagnostic as a zero-debt review hold until an organizer explicitly resolves it;
+- an explicit organizer waiver decision resolves/supersedes that review hold, while an explicit waiver removal can resolve it in favour of normal factual charging;
+- migration/reconciliation is idempotent, resumable and recorded payments remain untouched.
 
 No production rows are to be edited manually for this task.
 
@@ -55,7 +56,7 @@ Verification must cover:
 - format conversion normalizing all regular-evening table prices;
 - legacy `STANDARD` compatibility;
 - evening-specific staff assignment, replacement/removal and explicit fee-waiver evidence;
-- safe explicit/ambiguous/already-migrated legacy-waiver handling and repeated startup;
+- safe explicit/ambiguous/already-migrated legacy-waiver handling, repeated startup and interrupted-marker resume;
 - no retroactive use of current global `club_role` / `judge_level`;
 - 0/1/2/3/4/5+ completed games = 0/100/200/300/400/400 ₽;
 - preservation of recorded payments and no negative income or synthetic refunds;

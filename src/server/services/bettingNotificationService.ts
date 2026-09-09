@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import type { BettingRoleSnapshot } from './bettingPoolService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
@@ -100,6 +101,7 @@ export async function notifyBettingSpectators(
 }
 
 export async function getBettingNotificationDiagnostics(db: DatabaseWrapper, poolId: string) {
+  await ensurePersonalNotificationRoutingSchema(db);
   const rows = await db.all<any>(`
     SELECT selected_channel, status, reason
       FROM personal_notification_deliveries

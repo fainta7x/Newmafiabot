@@ -208,7 +208,7 @@ router.put('/:gameId/seat-identity', requireOrganizerAuth, async (req: Authentic
     const previous = safeJsonParse<any>(existing.protocol_text, null);
     const previousStatus: 'draft' | 'completed' = previous?.protocol?.status === 'completed' ? 'completed' : 'draft';
     const replacement = await replaceGuestWithRegisteredPlayer(db, { gameId, seatNumber, replacementPlayerId });
-    if (replacement.changed && previousStatus === 'completed') {
+    if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed') {
       await db.transaction(async (tx) => reconcileClubGameTokenSettlement(tx, gameId, { activateIfUntracked: false, context: 'correction' }));
       const playerIds = replacement.envelope.player_results.map((item: any) => String(item.player_id || '')).filter(Boolean);
       await runClubGamePostSaveTasks(db, { gameId, eveningId: String(existing.evening_id), previousStatus: 'completed', status: 'completed', playerIds, judgePlayerId: existing.judge_player_id || null });

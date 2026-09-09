@@ -34,7 +34,7 @@ export default function PlayerWalletHub({
         const response = await fetch('/api/player/payments', { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
         if (!response.ok || cancelled) return;
-        setOutstanding(Number(body?.summary?.outstanding || 0));
+        setOutstanding(Number(body?.summary?.historical_debt || 0));
       } catch {
         if (!cancelled) setOutstanding(null);
       }
@@ -52,9 +52,9 @@ export default function PlayerWalletHub({
 
         <section className="grid grid-cols-2 gap-2">
           <div className="rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-3">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/30">К оплате</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/30">Долг</div>
             <div className={`mt-2 text-xl font-semibold ${Number(outstanding || 0) > 0 ? 'text-rose-100' : 'text-white/80'}`}>{rubles(outstanding)}</div>
-            <div className="mt-1 text-[10px] text-white/25">по игровым вечерам</div>
+            <div className="mt-1 text-[10px] text-white/25">только за посещённые вечера</div>
           </div>
           <div className="rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.035] p-3">
             <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/30">Жетоны</div>

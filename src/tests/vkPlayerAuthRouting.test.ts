@@ -15,10 +15,11 @@ describe('VK player authentication routing', () => {
     expect(callback).toContain('setPlayerSessionCookie(res, playerId)');
     expect(callback).toContain("res.cookie('vk_join_session'");
 
-    const cabinetBranch = callback.slice(
-      callback.indexOf('// Full player-cabinet VK ID flow.'),
-      callback.indexOf('// Existing public evening-registration VK flow remains unchanged.'),
-    );
+    const cabinetBranchStart = callback.indexOf('// Full player-cabinet VK ID flow uses the canonical player session only.');
+    const cabinetBranchEnd = callback.indexOf('// Existing public evening-registration VK flow remains unchanged.');
+    expect(cabinetBranchStart).toBeGreaterThanOrEqual(0);
+    expect(cabinetBranchEnd).toBeGreaterThan(cabinetBranchStart);
+    const cabinetBranch = callback.slice(cabinetBranchStart, cabinetBranchEnd);
     expect(cabinetBranch).toContain('setPlayerSessionCookie(res, playerId)');
     expect(cabinetBranch).toContain('browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE]');
     expect(cabinetBranch).toContain('result.initiatingPlayerId');

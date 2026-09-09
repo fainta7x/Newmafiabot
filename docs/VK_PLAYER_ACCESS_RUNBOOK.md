@@ -7,7 +7,7 @@ This runbook documents the canonical VK player-cabinet flow introduced by PR #28
 - Telegram and VK are transport identities attached to one canonical `player_id`.
 - The full Player Cabinet always authenticates with the existing `player_token`; VK does not create a parallel cabinet session model.
 - `vk_join_session` remains restricted to the public `/join/:eveningId` registration flow and must not authorize Player Cabinet, organizer, judge, wallet, profile, rating or game APIs.
-- A VK nickname collision never auto-merges accounts. Existing-player linkage uses the private confirmation path or an already authenticated canonical player session.
+- A VK nickname collision never auto-merges accounts. Existing-player linkage uses the private confirmation path or an explicitly initiated link from an already authenticated canonical player session.
 - Personal external notifications are owned by `player_notification_preferences` and `personal_notification_deliveries`, not by Telegram/VK identifiers.
 - One canonical notification selects at most one external channel. In-app notifications remain independent.
 - Direct player-to-player evening invitations never auto-register the recipient.
@@ -42,14 +42,18 @@ Temporary VK/network failures retry with bounded exponential backoff. VK API err
 
 Before merge/deploy, verify:
 
-1. VK OAuth state uses PKCE and expires.
-2. `return_to` is restricted to `/player` and `/player/...`; protocol-relative or external URLs fall back to `/player`.
-3. OAuth callback consumes the pending player state before creating/linking a player, preventing replay/parallel duplicate creation.
-4. Browser-supplied `player_id` is never trusted by VK linking routes.
-5. Existing `player_external_identities` mapping wins over nickname matching.
-6. Nickname collisions use private confirmation; no nickname-only auto-link is allowed.
-7. Canonical organizer/judge authorization remains `player_token -> player_id`; VK/Telegram transport IDs never grant those roles directly.
-8. Public `vk_join_session` never appears in the full Player Cabinet authentication branch.
+1. VK OAuth uses PKCE, short-lived state and a random HttpOnly browser-binding cookie.
+2. The OAuth state stores only the hash of that browser binding. A callback from another browser is rejected before the state is consumed.
+3. When an already authenticated player explicitly starts VK linking, the initiating canonical `player_id` is recorded with the OAuth state. The callback never chooses an account from whatever `player_token` happens to accompany the returned URL.
+4. OAuth state is atomically marked consumed before code exchange/linking, preventing replay and parallel duplicate creation/linking.
+5. Repeated Player Cabinet VK OAuth starts from one browser binding are rate-limited in the durable OAuth-state store.
+6. `return_to` is restricted to `/player` and `/player/...`; protocol-relative or external URLs fall back to `/player`.
+7. Browser-supplied `player_id` is never trusted by VK linking routes.
+8. Existing `player_external_identities` mapping wins over nickname matching.
+9. Nickname collisions use private confirmation; no nickname-only auto-link is allowed.
+10. Private Telegram identity-confirmation claim links are one-shot: `confirmed_at IS NULL` is required and the claim is atomically consumed before a canonical session cookie is issued.
+11. Canonical organizer/judge authorization remains `player_token -> player_id`; VK/Telegram transport IDs never grant those roles directly.
+12. Public `vk_join_session` never appears in the full Player Cabinet authentication branch.
 
 ## Notification regression checks
 
@@ -64,7 +68,8 @@ The full CI suite plus focused tests must cover:
 - VK uses stable idempotent `random_id` and durable retry state;
 - permission-denied VK responses remain failed and visible in diagnostics;
 - invitation/status/reminder/attendance/game-result/Elo/betting producers route through `queuePersonalNotification`;
-- direct friend invites use the same router and still do not create an `evening_participants` booking;
+- both active and legacy player-to-player invite services route through the neutral router rather than directly to Telegram;
+- direct friend invites still do not create an `evening_participants` booking;
 - in-app notification APIs do not depend on Telegram/VK credentials.
 
 Security-confirmation Telegram messages used specifically to prove ownership during a VK nickname collision are intentionally outside the user-selectable personal-notification router: they are authentication challenges, not club notification events.
@@ -95,6 +100,8 @@ Before calling VK Player Cabinet + personal notifications live on Amvera:
 - Organizer VK personal-delivery diagnostics show no unexplained configuration failures.
 - Send one safe test notification to a Telegram-selected linked player and one to a VK-selected linked player; verify exactly one external delivery for each canonical notification.
 - Test a VK permission-denied user and verify the failure is reported rather than marked sent.
+- Start VK linking in one browser and confirm that replaying the callback in another browser fails with a browser-binding error.
+- Confirm one nickname-collision identity-claim link, then verify the same claim URL cannot mint another player session.
 
 ## Verification status
 

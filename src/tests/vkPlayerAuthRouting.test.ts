@@ -20,6 +20,9 @@ describe('VK player authentication routing', () => {
       callback.indexOf('// Existing public evening-registration VK flow remains unchanged.'),
     );
     expect(cabinetBranch).toContain('setPlayerSessionCookie(res, playerId)');
+    expect(cabinetBranch).toContain('browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE]');
+    expect(cabinetBranch).toContain('result.initiatingPlayerId');
+    expect(cabinetBranch).not.toContain('getPlayerSessionId(req)');
     expect(cabinetBranch).not.toContain('setVkSessionCookie');
     expect(cabinetBranch).not.toContain("res.cookie('vk_join_session'");
   });
@@ -27,13 +30,27 @@ describe('VK player authentication routing', () => {
   it('does not trust browser player_id and uses the existing private confirmation path for nickname collisions', () => {
     const callback = read('src/server/services/vkJoinRegistrationCallbackRouter.ts');
     const service = read('src/server/services/vkPlayerAuthService.ts');
+    const schema = read('src/db/ensureVkPlayerAuthSchema.ts');
     expect(callback).not.toContain('req.body?.player_id');
     expect(callback).not.toContain('req.query?.player_id');
     expect(callback).toContain("error?.code !== 'nickname_taken'");
     expect(callback).toContain('createVkPlayerIdentityClaim');
     expect(service).toContain("platform='vk'");
+    expect(service).toContain('browser_binding_hash');
+    expect(service).toContain('vk_state_browser_mismatch');
+    expect(service).toContain('initiatingPlayerId');
+    expect(schema).toContain('browser_binding_hash');
+    expect(schema).toContain('initiating_player_id');
+    expect(schema).toContain('consumed_at');
     expect(service).toContain('sendTelegramClaimConfirmation');
     expect(service).not.toContain('console.log');
+  });
+
+  it('consumes private identity confirmation links only once', () => {
+    const service = read('src/server/services/vkPlayerAuthService.ts');
+    expect(service).toContain('claim.confirmed_at IS NULL');
+    expect(service).toContain("SET confirmed_at=?");
+    expect(service).toContain("WHERE token_hash=? AND confirmed_at IS NULL AND expires_at>?");
   });
 
   it('exposes VK login from the shared player application and preserves the requested player destination', () => {

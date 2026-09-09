@@ -13,6 +13,15 @@ const isProduction = () => process.env.NODE_ENV === 'production';
 
 const safeStartError = (error: any) => {
   const explicitCode = String(error?.code || '').trim();
+  if (explicitCode === 'public_origin_not_configured') {
+    return { code: 'vk_runtime_origin_missing', message: 'Вход через VK временно не настроен на сервере. Сообщите организатору.', status: 503 };
+  }
+  if (explicitCode === 'public_origin_invalid') {
+    return { code: 'vk_runtime_origin_invalid', message: 'Публичный адрес приложения настроен некорректно. Сообщите организатору.', status: 503 };
+  }
+  if (explicitCode === 'public_origin_https_required') {
+    return { code: 'vk_runtime_https_required', message: 'VK ID требует защищённый HTTPS-вход. Сообщите организатору.', status: 503 };
+  }
   if (explicitCode) {
     return {
       code: explicitCode,
@@ -37,7 +46,8 @@ const logStart = (stage: 'start_ok' | 'start_failed', req: any, details: Record<
   console.info('[VK PLAYER AUTH]', {
     stage,
     method: req.method,
-    path: req.originalUrl || req.url,
+    // Never log originalUrl here: OAuth/query parameters can contain sensitive material.
+    path: req.path,
     secure: Boolean(req.secure),
     forwarded_proto: String(req.get?.('x-forwarded-proto') || '').split(',')[0].trim() || null,
     has_player_session: Boolean(getPlayerSessionId(req)),

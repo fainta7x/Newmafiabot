@@ -8,6 +8,7 @@ import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
 import { ensureCommerceSchema } from './db/ensureCommerceSchema.ts';
 import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
+import { ensureEveningSlotsSchema } from './db/ensureEveningSlotsSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
 import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
@@ -118,6 +119,10 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const db = customDb || (await getDb());
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
+  // Mounted evening routes read evening_slot_settings directly. Ensure the slot
+  // schema during startup so a fresh/legacy DB can serve CRM GETs immediately and
+  // a PATCH can never mutate successfully only to fail while reading price_per_game.
+  await ensureEveningSlotsSchema(db);
   await ensureClubOperationsSchema(db);
   await ensureCanonicalEveningParticipantState(db);
   await ensureJudgeMusicSchema(db);

@@ -101,6 +101,7 @@ export default defineConfig([
       "src/server/routes/speechRecordingRoutes.ts",
       "src/server/services/playerRegistrationService.ts",
       "src/server/services/vkJoinRegistrationService.ts",
+      "src/server/services/vkPlayerAuthService.ts",
     ],
     rules: {
       "no-control-regex": "off",

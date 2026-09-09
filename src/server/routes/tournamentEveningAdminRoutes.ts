@@ -25,7 +25,7 @@ const statusFor = (code: string) => ({
   TOURNAMENT_FULL: 409,
 }[code] || 400);
 
-router.post('/evenings/:id/publish-and-notify', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+const publishTournament = async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   const tournamentId = String(req.params.id);
   const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id=? LIMIT 1', [tournamentId]);
@@ -42,7 +42,12 @@ router.post('/evenings/:id/publish-and-notify', requireOrganizerAuth, async (req
     VALUES (?,?,'publish','organizer',?)`, [crypto.randomUUID(), tournamentId, now]);
   const audience = firstPublish ? await notifyTournamentAudience(db, tournamentId) : { eligible_players: 0, queued: 0 };
   return res.json({ ...(await loadTournamentEvening(db, tournamentId)), audience });
-});
+};
+
+// Mounted before the legacy evening router: both supported publish URLs therefore use the
+// same validation/audience logic and cannot silently skip the canonical Telegram/VK router.
+router.post('/evenings/:id/publish', requireOrganizerAuth, publishTournament);
+router.post('/evenings/:id/publish-and-notify', requireOrganizerAuth, publishTournament);
 
 router.post('/evenings/:id/players', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -58,7 +63,7 @@ router.post('/evenings/:id/players', requireOrganizerAuth, async (req: Authentic
   }
 });
 
-router.post('/evenings/:id/players/:playerId/remove-audited', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+const removePlayer = async (req: AuthenticatedRequest, res: Response) => {
   const reason = String(req.body?.reason || '').trim();
   if (!reason) return res.status(400).json({ error: 'Для ручного удаления укажите причину' });
   try {
@@ -73,7 +78,12 @@ router.post('/evenings/:id/players/:playerId/remove-audited', requireOrganizerAu
   } catch (error: any) {
     return res.status(statusFor(error?.message)).json({ error: error?.message });
   }
-});
+};
+
+// Intercept both old and explicit audited URLs before tournamentEveningRoutes so every
+// organizer removal has a human-entered reason in tournament_evening_audit.
+router.post('/evenings/:id/players/:playerId/remove', requireOrganizerAuth, removePlayer);
+router.post('/evenings/:id/players/:playerId/remove-audited', requireOrganizerAuth, removePlayer);
 
 router.post('/evenings/:id/reserve/reorder', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {

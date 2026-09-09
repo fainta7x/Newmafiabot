@@ -48,6 +48,8 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       tournament_id TEXT NOT NULL,
       player_id TEXT NOT NULL,
       state TEXT NOT NULL DEFAULT 'unpaid',
+      reported_amount_rub INTEGER,
+      confirmed_amount_rub INTEGER,
       player_note TEXT,
       reported_at TEXT,
       reviewed_at TEXT,
@@ -57,6 +59,8 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       UNIQUE(tournament_id, player_id)
     )
   `);
+  await ensureColumn(db, 'tournament_payment_claims', 'reported_amount_rub', 'INTEGER');
+  await ensureColumn(db, 'tournament_payment_claims', 'confirmed_amount_rub', 'INTEGER');
 
   await db.run(`
     CREATE TABLE IF NOT EXISTS tournament_evening_audit (

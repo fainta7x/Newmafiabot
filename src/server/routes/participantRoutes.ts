@@ -9,7 +9,7 @@ import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
-import { serializeGuestPlaceholder, updateGuestPlaceholder } from '../services/guestPlayerService.ts';
+import { updateGuestPlaceholder } from '../services/guestPlayerService.ts';
 
 const router = Router();
 

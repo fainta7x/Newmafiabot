@@ -73,6 +73,17 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
   useEffect(() => { void load(); }, [tournamentId]);
   const allocated = useMemo(() => prizes.reduce((sum, row) => sum + Number(row.amount_rub || 0), 0), [prizes]);
   const editable = detail?.lifecycle === 'draft' || detail?.lifecycle === 'registration_open' || detail?.lifecycle === 'registration_closed';
+  const readinessBlockers = useMemo(() => {
+    if (!detail) return [] as string[];
+    const blockers: string[] = [];
+    if (!detail.judge_player_id) blockers.push('не выбран канонический судья');
+    if (!detail.venue?.trim()) blockers.push('не указано место');
+    if (Number.isNaN(new Date(detail.date).getTime())) blockers.push('не указаны корректные дата и время');
+    if (detail.confirmed_count !== detail.player_capacity) blockers.push(`основной состав ${detail.confirmed_count}/${detail.player_capacity}`);
+    const savedAllocated = (detail.prize_allocations || []).reduce((sum, row) => sum + Number(row.amount_rub || 0), 0);
+    if (savedAllocated !== Number(detail.prize_fund_rub || 0)) blockers.push('призовой фонд не совпадает с распределением');
+    return blockers;
+  }, [detail]);
 
   const requestAction = async (path: string, method = 'POST', body?: unknown) => {
     setBusy(true); setError(''); setMessage('');
@@ -100,6 +111,22 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
     });
   };
 
+  const copyRegistrationLink = async () => {
+    if (!detail?.published_at) {
+      setError('Сначала опубликуйте турнир — ссылка записи не должна распространять черновик.');
+      return;
+    }
+    const path = `/player/events/${encodeURIComponent(tournamentId)}`;
+    const link = typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setError('');
+      setMessage('Ссылка на запись скопирована. Она открывает этот же турнир для Telegram и VK игрока через канонический профиль.');
+    } catch {
+      setError(`Не удалось скопировать автоматически. Ссылка: ${link}`);
+    }
+  };
+
   if (!detail && !error) return <section className="rounded-[18px] border border-border-soft bg-surface-1 p-4 text-xs text-text-muted">Загружаем параметры турнирного вечера…</section>;
   if (!detail) return <section className="rounded-[18px] border border-danger/25 bg-danger-soft p-4 text-xs text-danger">{error}</section>;
 
@@ -116,6 +143,11 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       <div><div className="text-[9px] uppercase text-text-muted">Состав</div><b className="text-sm">{detail.confirmed_count}/{detail.player_capacity}</b></div>
       <div><div className="text-[9px] uppercase text-text-muted">Свободно</div><b className="text-sm">{detail.remaining_places}</b></div>
       <div><div className="text-[9px] uppercase text-text-muted">Взнос</div><b className="text-sm">{Number(detail.entry_fee_rub || 0)} ₽</b></div>
+    </div>
+
+    <div className={`mt-3 rounded-2xl border p-3 ${readinessBlockers.length ? 'border-warning/25 bg-warning-soft' : 'border-success/20 bg-success-soft'}`} data-testid="tournament-readiness-summary">
+      <div className={`text-[11px] font-black ${readinessBlockers.length ? 'text-warning' : 'text-success'}`}>{readinessBlockers.length ? 'До запуска есть блокеры' : 'Готовность к запуску: OK'}</div>
+      {readinessBlockers.length ? <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[10px] leading-4 text-text-secondary">{readinessBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="mt-1 text-[10px] leading-4 text-text-secondary">10 канонических участников, судья, место и призовой фонд согласованы. Дальше используется существующий турнирный модуль.</p>}
     </div>
 
     {error ? <div className="mt-3 rounded-xl border border-danger/25 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</div> : null}
@@ -144,6 +176,8 @@ export function TournamentEveningSettingsPanel({ tournamentId, onChanged }: { to
       {detail.lifecycle === 'draft' ? <button type="button" disabled={busy} onClick={() => void requestAction('/publish')} className="min-h-11 rounded-xl bg-accent text-xs font-bold text-white disabled:opacity-50">Опубликовать и открыть запись</button> : null}
       {detail.lifecycle === 'registration_open' ? <button type="button" disabled={busy} onClick={() => void requestAction('/registration/close')} className="min-h-11 rounded-xl border border-border-soft bg-surface-2 text-xs font-bold">Закрыть запись</button> : null}
       {detail.lifecycle === 'registration_closed' ? <button type="button" disabled={busy} onClick={() => void requestAction('/registration/open')} className="min-h-11 rounded-xl border border-border-soft bg-surface-2 text-xs font-bold">Снова открыть запись</button> : null}
+      <button type="button" disabled={busy || !detail.published_at} onClick={() => void copyRegistrationLink()} className="min-h-11 rounded-xl border border-border-soft bg-surface-2 text-xs font-bold disabled:opacity-40" data-testid="copy-tournament-registration-link">Скопировать ссылку записи</button>
     </div>
+    {!detail.published_at ? <p className="mt-2 text-[10px] leading-4 text-text-muted">Ссылка становится доступна только после явной публикации. При публикации турнирная аудитория получает одно персональное уведомление через выбранный канал Telegram/VK.</p> : null}
   </section>;
 }

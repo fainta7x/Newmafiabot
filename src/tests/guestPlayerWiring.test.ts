@@ -22,7 +22,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
   it('exposes explicit guest-to-registered-player correction and never recreates a guest from seat repair', () => {
     expect(protocolUi).toContain('Заменить гостя на зарегистрированного игрока');
     expect(protocolUi).toContain('clubGamesApi.repairSeatIdentity');
-    expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayerId');
+    expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayer.id');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain("if (req.body?.guest) return res.status(400)");
     expect(gamesRoute).toContain("if (replacement.changed && previousStatus === 'completed')");

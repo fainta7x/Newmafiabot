@@ -24,6 +24,7 @@ export type VerifiedOnboardingStart =
 const ONBOARDING_TTL_MS = 20 * 60 * 1000;
 const hashToken = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 const onboardingError = (code: string, message: string, statusCode = 400) => Object.assign(new Error(message), { code, statusCode });
+const PRIVATE_CONFIRMATION_UNAVAILABLE_CODES = new Set(['telegram_unavailable', 'telegram_delivery_failed']);
 
 export function validatePlayerOnboardingReturnPath(value: unknown): string {
   const raw = String(value || '/player').trim();
@@ -212,13 +213,19 @@ export async function requestExistingPlayerOnboardingLink(db: DatabaseWrapper, r
       throw onboardingError('target_vk_conflict', 'Этот игровой профиль уже связан с другим VK.', 409);
     }
     if (target.telegram_user_id && options.baseUrl) {
-      const claim = await createVkPlayerIdentityClaim(db, { vkUserId: externalUserId, nickname: target.nickname, returnTo, baseUrl: options.baseUrl });
-      if (!claim.pending && claim.playerId) {
-        await markOnboardingComplete(db, rawToken, { kind: 'linked', playerId: claim.playerId });
-        return { status: 'linked' as const, playerId: claim.playerId, returnTo };
+      try {
+        const claim = await createVkPlayerIdentityClaim(db, { vkUserId: externalUserId, nickname: target.nickname, returnTo, baseUrl: options.baseUrl });
+        if (!claim.pending && claim.playerId) {
+          await markOnboardingComplete(db, rawToken, { kind: 'linked', playerId: claim.playerId });
+          return { status: 'linked' as const, playerId: claim.playerId, returnTo };
+        }
+        await markOnboardingComplete(db, rawToken, { kind: 'private_confirmation', playerId: target.id });
+        return { status: 'private_confirmation' as const, playerId: target.id, returnTo };
+      } catch (error: any) {
+        if (!PRIVATE_CONFIRMATION_UNAVAILABLE_CODES.has(String(error?.code || ''))) throw error;
+        // Safe self-service proof is unavailable. The verified VK identity remains
+        // unlinked and the same request falls through to organizer review.
       }
-      await markOnboardingComplete(db, rawToken, { kind: 'private_confirmation', playerId: target.id });
-      return { status: 'private_confirmation' as const, playerId: target.id, returnTo };
     }
   }
 

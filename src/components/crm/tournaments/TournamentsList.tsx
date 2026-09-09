@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Plus, ArrowRight, Calendar, MapPin, UserCheck } from 'lucide-react';
 import { api, Tournament } from '../../../lib/api.ts';
-import { CreateTournamentModal } from './CreateTournamentModal.tsx';
+import { CreateTournamentEveningModal } from './CreateTournamentEveningModal.tsx';
 
 interface TournamentsListProps {
   onOpenTournament: (id: string) => void;
@@ -13,7 +13,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
-    loadTournaments();
+    void loadTournaments();
   }, []);
 
   const loadTournaments = async () => {
@@ -36,8 +36,8 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
             <Trophy className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Личные Турниры Клуба</h2>
-            <p className="text-xs text-text-secondary mt-0.5">10 игроков · дистанцию турнира организатор задаёт сам</p>
+            <h2 className="text-xl font-black text-text-primary uppercase tracking-tight">Турниры клуба</h2>
+            <p className="text-xs text-text-secondary mt-0.5">10 мест · резерв · взнос · призовой фонд</p>
           </div>
         </div>
 
@@ -46,7 +46,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           className="bg-accent hover:bg-accent-hover text-white font-bold px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent/20 shrink-0 min-h-[44px]"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Новый Турнир</span>
+          <span>Новый турнир</span>
         </button>
       </div>
 
@@ -58,7 +58,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
           <div className="space-y-1">
             <h3 className="text-base font-bold text-text-primary">Турниры ещё не созданы</h3>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
-              Создайте турнир на 10 участников и укажите нужную дистанцию: 8, 10, 12 или любое другое количество игр.
+              Создайте турнирный вечер. После публикации игроки смогут занять 10 основных мест, остальные автоматически попадут в резерв.
             </p>
           </div>
           <button
@@ -66,7 +66,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
             className="bg-accent hover:bg-accent-hover text-white font-bold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            <span>Создать Турнир</span>
+            <span>Создать турнир</span>
           </button>
         </div>
       ) : (
@@ -157,7 +157,7 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] text-text-muted uppercase font-bold block">Прогресс Игр</span>
+                      <span className="text-[9px] text-text-muted uppercase font-bold block">Прогресс игр</span>
                       <span className="text-sm font-bold text-accent">
                         {completedGames} / {totalGames}
                       </span>
@@ -178,11 +178,11 @@ export const TournamentsList: React.FC<TournamentsListProps> = ({ onOpenTourname
         </div>
       )}
 
-      <CreateTournamentModal
+      <CreateTournamentEveningModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreated={(newTournament) => {
-          loadTournaments();
+          void loadTournaments();
           onOpenTournament(newTournament.id);
         }}
       />

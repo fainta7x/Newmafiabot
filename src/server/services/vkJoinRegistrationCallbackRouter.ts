@@ -12,6 +12,7 @@ import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, peekVkPlayerIdenti
 import { beginVerifiedPlayerOnboarding } from './playerOnboardingService.ts';
 import { setPlayerOnboardingCookie } from './playerOnboardingCookie.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
+import { resolveTrustedPublicAppOrigin } from './publicAppOriginService.ts';
 import { VK_PLAYER_OAUTH_BINDING_COOKIE, VK_PLAYER_OAUTH_BINDING_PATH } from './vkPlayerStartRouter.ts';
 
 const router = Router();
@@ -107,9 +108,6 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         return res.redirect(302, result.returnTo);
       }
 
-      // VK identity is now proven. Only after that proof do we ask whether the
-      // person is new or already has a club profile. The raw onboarding token
-      // is transported only in an HttpOnly cookie, never in the redirect URL.
       const onboarding = await beginVerifiedPlayerOnboarding(db, {
         platform: 'vk',
         externalUserId: result.vkUserId,
@@ -157,7 +155,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
           vkUserId: result.vk_user_id,
           nickname,
           eveningId: result.evening_id,
-          baseUrl: String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').replace(/\/$/, ''),
+          baseUrl: resolveTrustedPublicAppOrigin(req),
         });
         returnUrl.searchParams.set('vk_link_pending', '1');
         if (claim.nickname) returnUrl.searchParams.set('vk_link_nickname', claim.nickname);

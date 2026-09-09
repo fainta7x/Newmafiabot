@@ -164,6 +164,23 @@ export default function PlayerEventsCalendar({
 
     void (async () => {
       try {
+        const tournamentResponse = await fetch(`/api/tournaments/evenings/${encodeURIComponent(requestedEventId)}`, { credentials: 'include' });
+        const tournamentBody = await tournamentResponse.json().catch(() => ({}));
+        if (tournamentResponse.ok && !cancelled && tournamentBody?.id) {
+          const event: EventItem = {
+            id: String(tournamentBody.id || requestedEventId),
+            title: String(tournamentBody.title || 'Турнир'),
+            starts_at: String(tournamentBody.date || ''),
+            venue: tournamentBody.venue ?? null,
+            format: 'TOURNAMENT',
+            event_type: 'tournament',
+            participant_count: Number(tournamentBody.confirmed_count || 0),
+          };
+          setSelected(event);
+          if (!initialEventId && queryEventId) onEventChange?.(event.id);
+          return;
+        }
+
         const response = await fetch(`/api/player/evenings/${encodeURIComponent(requestedEventId)}/slots`, { credentials: 'include' });
         const body = await response.json().catch(() => ({}));
         if (!response.ok || cancelled || !body?.event) return;

@@ -11,6 +11,8 @@ import {
 } from './vkOAuthService.ts';
 
 const OAUTH_TTL_MS = 10 * 60 * 1000;
+const OAUTH_START_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const OAUTH_START_RATE_LIMIT_COUNT = 5;
 const CLAIM_TTL_MS = 15 * 60 * 1000;
 const CLAIM_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const CLAIM_RATE_LIMIT_COUNT = 3;
@@ -21,6 +23,10 @@ export type VkPlayerOAuthState = {
   redirect_uri: string;
   nickname: string;
   return_to: string;
+  browser_binding_hash: string | null;
+  initiating_player_id: string | null;
+  consumed_at: string | null;
+  created_at: string;
   expires_at: string;
 };
 
@@ -46,6 +52,13 @@ const claimError = (message: string, statusCode: number, code: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
 const hashToken = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+const bindingMatches = (expectedHash: string | null | undefined, rawBinding: string) => {
+  if (!expectedHash || !rawBinding) return false;
+  const actual = hashToken(rawBinding);
+  const expectedBuffer = Buffer.from(String(expectedHash));
+  const actualBuffer = Buffer.from(actual);
+  return expectedBuffer.length === actualBuffer.length && crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+};
 
 export function validateVkPlayerReturnPath(value: unknown): string {
   const fallback = '/player';
@@ -77,7 +90,13 @@ const requestVkTokens = async (query: URLSearchParams, body: URLSearchParams): P
 
 export async function createVkPlayerOAuthStart(
   db: DatabaseWrapper,
-  input: { redirectUri: string; nickname: unknown; returnTo?: unknown },
+  input: {
+    redirectUri: string;
+    nickname: unknown;
+    returnTo?: unknown;
+    browserBinding: unknown;
+    initiatingPlayerId?: string | null;
+  },
 ) {
   await ensureVkIntegrationSchema(db);
   await ensureVkPlayerAuthSchema(db);
@@ -90,18 +109,34 @@ export async function createVkPlayerOAuthStart(
   if (nickname.length > 60 || /[\u0000-\u001f\u007f]/.test(nickname)) {
     throw claimError('Некорректный игровой ник', 400, 'nickname_invalid');
   }
+  const browserBinding = String(input.browserBinding || '').trim();
+  if (!/^[A-Za-z0-9_-]{32,256}$/.test(browserBinding)) {
+    throw claimError('Не удалось защитить VK OAuth-сессию. Обновите страницу и попробуйте снова.', 400, 'vk_browser_binding_invalid');
+  }
 
   const now = new Date();
-  await db.run('DELETE FROM vk_player_oauth_states WHERE expires_at <= ?', [now.toISOString()]);
+  const nowIso = now.toISOString();
+  const browserBindingHash = hashToken(browserBinding);
+  await db.run('DELETE FROM vk_player_oauth_states WHERE expires_at <= ?', [nowIso]);
+  const recent = await db.get<{ count: number }>(`
+    SELECT COUNT(*) AS count FROM vk_player_oauth_states
+     WHERE browser_binding_hash=? AND created_at>?
+  `, [browserBindingHash, new Date(now.getTime() - OAUTH_START_RATE_LIMIT_WINDOW_MS).toISOString()]);
+  if (Number(recent?.count || 0) >= OAUTH_START_RATE_LIMIT_COUNT) {
+    throw claimError('Слишком много попыток входа через VK. Повторите немного позже.', 429, 'vk_auth_start_rate_limited');
+  }
+
   const state = crypto.randomBytes(24).toString('base64url');
   const verifier = crypto.randomBytes(48).toString('base64url');
   const expiresAt = new Date(now.getTime() + OAUTH_TTL_MS).toISOString();
   const returnTo = validateVkPlayerReturnPath(input.returnTo);
+  const initiatingPlayerId = input.initiatingPlayerId ? String(input.initiatingPlayerId) : null;
   await db.run(`
     INSERT INTO vk_player_oauth_states (
-      state, verifier, redirect_uri, nickname, return_to, created_at, expires_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `, [state, verifier, redirectUri, nickname, returnTo, now.toISOString(), expiresAt]);
+      state, verifier, redirect_uri, nickname, return_to,
+      browser_binding_hash, initiating_player_id, consumed_at, created_at, expires_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+  `, [state, verifier, redirectUri, nickname, returnTo, browserBindingHash, initiatingPlayerId, nowIso, expiresAt]);
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -126,9 +161,11 @@ export async function peekVkPlayerOAuthState(db: DatabaseWrapper, stateInput: un
   const state = String(stateInput || '').trim();
   if (!state) return null;
   const pending = await db.get<VkPlayerOAuthState>(`
-    SELECT state, verifier, redirect_uri, nickname, return_to, expires_at
+    SELECT state, verifier, redirect_uri, nickname, return_to,
+           browser_binding_hash, initiating_player_id, consumed_at, created_at, expires_at
       FROM vk_player_oauth_states
-     WHERE state=? LIMIT 1
+     WHERE state=? AND consumed_at IS NULL
+     LIMIT 1
   `, [state]);
   if (!pending) return null;
   if (new Date(pending.expires_at).getTime() <= Date.now()) {
@@ -140,19 +177,32 @@ export async function peekVkPlayerOAuthState(db: DatabaseWrapper, stateInput: un
 
 export async function completeVkPlayerOAuth(
   db: DatabaseWrapper,
-  input: { code: unknown; deviceId: unknown; state: unknown },
+  input: { code: unknown; deviceId: unknown; state: unknown; browserBinding: unknown },
 ) {
   await ensureVkIntegrationSchema(db);
   await ensureVkPlayerAuthSchema(db);
   const code = String(input.code || '').trim();
   const deviceId = String(input.deviceId || '').trim();
   const state = String(input.state || '').trim();
+  const browserBinding = String(input.browserBinding || '').trim();
   if (!code || !deviceId || !state) throw claimError('VK ID вернул неполный OAuth callback', 400, 'vk_callback_invalid');
   const pending = await peekVkPlayerOAuthState(db, state);
   if (!pending) throw claimError('VK OAuth-сессия не найдена или уже использована', 410, 'vk_state_expired');
+  if (!bindingMatches(pending.browser_binding_hash, browserBinding)) {
+    throw claimError('Эта VK OAuth-сессия была начата в другом браузере. Начните вход заново.', 401, 'vk_state_browser_mismatch');
+  }
 
-  // Consume before exchanging the code so retries or parallel callbacks cannot create two players.
-  await db.run('DELETE FROM vk_player_oauth_states WHERE state=?', [state]);
+  // Consume before exchanging the code so retries or parallel callbacks cannot create/link two players.
+  const consumedAt = new Date().toISOString();
+  const consumed = await db.run(`
+    UPDATE vk_player_oauth_states
+       SET consumed_at=?
+     WHERE state=? AND consumed_at IS NULL AND expires_at>?
+  `, [consumedAt, state, consumedAt]);
+  if (Number(consumed?.changes || 0) !== 1) {
+    throw claimError('VK OAuth-сессия не найдена или уже использована', 410, 'vk_state_expired');
+  }
+
   const tokenRequest = buildVkAuthorizationCodeTokenRequest({
     appId: getVkOAuthAppId(),
     verifier: pending.verifier,
@@ -173,6 +223,7 @@ export async function completeVkPlayerOAuth(
   return {
     vkUserId,
     playerId: linked?.player_id ? String(linked.player_id) : null,
+    initiatingPlayerId: pending.initiating_player_id ? String(pending.initiating_player_id) : null,
     nickname: pending.nickname,
     returnTo: validateVkPlayerReturnPath(pending.return_to),
   };
@@ -279,18 +330,26 @@ export async function peekVkPlayerIdentityClaim(db: DatabaseWrapper, rawToken: u
     SELECT claim.*, player.nickname
       FROM vk_player_identity_claims claim
       JOIN players player ON player.id=claim.player_id
-     WHERE claim.token_hash=? AND claim.expires_at>?
+     WHERE claim.token_hash=? AND claim.expires_at>? AND claim.confirmed_at IS NULL
      LIMIT 1
   `, [hashToken(token), new Date().toISOString()]);
 }
 
 export async function confirmVkPlayerIdentityClaim(db: DatabaseWrapper, rawToken: unknown) {
   const claim = await peekVkPlayerIdentityClaim(db, rawToken);
-  if (!claim) throw claimError('Ссылка подтверждения устарела. Начните вход через VK ещё раз.', 410, 'claim_expired');
-  await linkVkIdentity(db, { vkUserId: claim.vk_user_id, playerId: claim.player_id });
-  if (!claim.confirmed_at) {
-    await db.run('UPDATE vk_player_identity_claims SET confirmed_at=? WHERE token_hash=?', [new Date().toISOString(), claim.token_hash]);
+  if (!claim) throw claimError('Ссылка подтверждения устарела или уже использована. Начните вход через VK ещё раз.', 410, 'claim_expired');
+
+  const confirmedAt = new Date().toISOString();
+  const consumed = await db.run(`
+    UPDATE vk_player_identity_claims
+       SET confirmed_at=?
+     WHERE token_hash=? AND confirmed_at IS NULL AND expires_at>?
+  `, [confirmedAt, claim.token_hash, confirmedAt]);
+  if (Number(consumed?.changes || 0) !== 1) {
+    throw claimError('Ссылка подтверждения устарела или уже использована. Начните вход через VK ещё раз.', 410, 'claim_expired');
   }
+
+  await linkVkIdentity(db, { vkUserId: claim.vk_user_id, playerId: claim.player_id });
   return {
     vkUserId: claim.vk_user_id,
     playerId: claim.player_id,

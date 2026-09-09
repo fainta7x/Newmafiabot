@@ -82,4 +82,21 @@ describe('TOURNAMENT-EVENING-001 player calendar isolation', () => {
     response = await request(app).get('/api/player/calendar?month=2026-10').set('Cookie', cookie);
     expect(response.body.events.find((event: any) => event.id === managedId)?.registration_open).toBe(false);
   });
+
+  it('uses one canonical personal-notification delivery when a tournament player has both Telegram and VK identities', async () => {
+    await addPlayer('dual-channel-player');
+    await db.run('UPDATE players SET telegram_user_id=? WHERE id=?', ['7001', 'dual-channel-player']);
+    const now = new Date().toISOString();
+    await db.run(`INSERT INTO player_external_identities
+      (platform,external_user_id,player_id,screen_name,display_name,linked_at,updated_at)
+      VALUES ('vk','8001','dual-channel-player','dual','Dual channel',?,?)`, [now, now]);
+
+    const managedId = await createManagedTournament();
+    const deliveries = await db.all<any>(
+      "SELECT notification_key,selected_channel,channel_target FROM personal_notification_deliveries WHERE player_id=? AND event_type='tournament_published' AND entity_id=?",
+      ['dual-channel-player', managedId],
+    );
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({ selected_channel: 'telegram', channel_target: '7001' });
+  });
 });

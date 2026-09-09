@@ -1,6 +1,7 @@
-import React from 'react';
-import { Shield, AlertTriangle } from 'lucide-react';
-import { TournamentGameProtocolData, PlayerResultData } from '../../../../lib/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Shield, AlertTriangle, UserRoundCog } from 'lucide-react';
+import { api, TournamentGameProtocolData, PlayerResultData, type Player } from '../../../../lib/api';
+import { clubGamesApi } from '../../../../lib/clubGamesApi';
 import { calculateDisciplinaryPenalty } from '../../../../lib/gameDiscipline';
 
 export interface ProtocolSummaryTabProps {
@@ -18,6 +19,85 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
   onReplacementChange,
   onJudgeNotesChange
 }) => {
+  const guestSeats = useMemo(() => playerResults
+    .filter((player) => !String(player.player_id || '').trim() || Boolean((player as any).guest_placeholder_id))
+    .slice()
+    .sort((a, b) => a.seat_number - b.seat_number), [playerResults]);
+  const occupiedPlayerIds = useMemo(() => new Set(
+    playerResults.map((player) => String(player.player_id || '').trim()).filter(Boolean),
+  ), [playerResults]);
+  const [replacementPlayers, setReplacementPlayers] = useState<Player[]>([]);
+  const [replacementSeat, setReplacementSeat] = useState<number | null>(null);
+  const [replacementPlayerId, setReplacementPlayerId] = useState('');
+  const [replacementQuery, setReplacementQuery] = useState('');
+  const [replacementBusy, setReplacementBusy] = useState(false);
+  const [replacementError, setReplacementError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!guestSeats.length) {
+      setReplacementSeat(null);
+      setReplacementPlayerId('');
+      setReplacementQuery('');
+      setReplacementError(null);
+      return;
+    }
+    let cancelled = false;
+    void api.getPlayers()
+      .then((players) => {
+        if (!cancelled) setReplacementPlayers(players);
+      })
+      .catch(() => {
+        if (!cancelled) setReplacementPlayers([]);
+      });
+    return () => { cancelled = true; };
+  }, [guestSeats.length]);
+
+  const visibleReplacementPlayers = useMemo(() => {
+    const query = replacementQuery.trim().toLocaleLowerCase('ru-RU');
+    return replacementPlayers
+      .filter((player) => !occupiedPlayerIds.has(String(player.id)))
+      .filter((player) => !query
+        || player.nickname.toLocaleLowerCase('ru-RU').includes(query)
+        || String(player.full_name || '').toLocaleLowerCase('ru-RU').includes(query))
+      .slice()
+      .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ru'))
+      .slice(0, 12);
+  }, [replacementPlayers, replacementQuery, occupiedPlayerIds]);
+
+  const selectedGuest = replacementSeat == null
+    ? null
+    : guestSeats.find((player) => player.seat_number === replacementSeat) || null;
+  const selectedReplacementPlayer = replacementPlayers.find((player) => String(player.id) === replacementPlayerId) || null;
+
+  const applyGuestReplacement = async () => {
+    if (!selectedGuest || !selectedReplacementPlayer || replacementBusy) return;
+    if (!confirm(
+      `Заменить гостя #${selectedGuest.seat_number} ${selectedGuest.display_name || 'Гость'} на зарегистрированного игрока ${selectedReplacementPlayer.nickname}? Все игровые факты места сохранятся.`,
+    )) return;
+
+    const gameId = Number(protocol.game_id);
+    if (!Number.isInteger(gameId) || gameId <= 0) {
+      setReplacementError('Не удалось определить ID игры для замены гостя.');
+      return;
+    }
+
+    setReplacementBusy(true);
+    setReplacementError(null);
+    try {
+      await clubGamesApi.repairSeatIdentity(gameId, {
+        seat_number: selectedGuest.seat_number,
+        replacement_player_id: selectedReplacementPlayer.id,
+      });
+      // Identity replacement is intentionally rare and may recalculate several derived
+      // player surfaces. Reload the organizer workspace from the canonical server copy
+      // instead of trying to partially patch protocol/rating/token state in memory.
+      window.location.reload();
+    } catch (error) {
+      setReplacementError(error instanceof Error ? error.message : 'Не удалось заменить гостя');
+      setReplacementBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Winner Team Selection */}
@@ -71,7 +151,79 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
         </div>
       )}
 
-      {/* Substitution Section */}
+      {/* Explicit guest identity replacement. This is not the ordinary in-game substitution below. */}
+      {guestSeats.length > 0 && (
+        <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-400/30 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-400/15 text-indigo-300">
+              <UserRoundCog className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-black text-indigo-100">Заменить гостя на зарегистрированного игрока</h4>
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">Только явная привязка личности. Роль, фолы, голосования, выход и остальные факты места сохраняются без изменений.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="text-[10px] font-bold text-slate-400">
+              Место гостя
+              <select
+                value={replacementSeat ?? ''}
+                onChange={(event) => {
+                  setReplacementSeat(event.target.value ? Number(event.target.value) : null);
+                  setReplacementPlayerId('');
+                  setReplacementError(null);
+                }}
+                className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-white"
+              >
+                <option value="">Выберите гостя</option>
+                {guestSeats.map((guest) => <option key={guest.participant_id} value={guest.seat_number}>#{guest.seat_number} · {guest.display_name || 'Гость'}</option>)}
+              </select>
+            </label>
+            <label className="text-[10px] font-bold text-slate-400">
+              Поиск зарегистрированного игрока
+              <input
+                value={replacementQuery}
+                onChange={(event) => setReplacementQuery(event.target.value)}
+                placeholder="Ник или имя"
+                className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-white placeholder:text-slate-600"
+              />
+            </label>
+          </div>
+
+          {replacementSeat != null && (
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60 p-2">
+              {visibleReplacementPlayers.length > 0 ? (
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {visibleReplacementPlayers.map((player) => (
+                    <button
+                      key={player.id}
+                      type="button"
+                      onClick={() => { setReplacementPlayerId(player.id); setReplacementError(null); }}
+                      className={`min-h-10 rounded-lg border px-3 text-left text-[11px] font-bold ${replacementPlayerId === player.id ? 'border-indigo-400 bg-indigo-500/15 text-indigo-100' : 'border-slate-800 bg-slate-900 text-slate-300'}`}
+                    >
+                      {player.nickname}{player.full_name ? <span className="ml-1 text-[9px] font-normal text-slate-500">· {player.full_name}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : <div className="py-4 text-center text-[10px] text-slate-500">Подходящих зарегистрированных игроков не найдено.</div>}
+            </div>
+          )}
+
+          {replacementError ? <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-300">{replacementError}</div> : null}
+
+          <button
+            type="button"
+            disabled={!selectedGuest || !selectedReplacementPlayer || replacementBusy}
+            onClick={applyGuestReplacement}
+            className="min-h-11 w-full rounded-xl bg-indigo-500 px-4 text-[11px] font-black text-white disabled:opacity-35"
+          >
+            {replacementBusy ? 'Заменяем…' : selectedGuest && selectedReplacementPlayer ? `Заменить #${selectedGuest.seat_number} на ${selectedReplacementPlayer.nickname}` : 'Выберите гостя и игрока'}
+          </button>
+        </div>
+      )}
+
+      {/* Ordinary in-game substitution metadata. This does not change account identity. */}
       <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
           <span className="font-semibold text-xs text-slate-200">Замена в игре</span>
@@ -225,7 +377,7 @@ export const ProtocolSummaryTab: React.FC<ProtocolSummaryTabProps> = ({
                 return (
                   <tr key={p.participant_id} className="hover:bg-slate-800/40">
                     <td className="py-2 px-1 font-bold text-amber-400">#{p.seat_number}</td>
-                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}</td>
+                    <td className="py-2 px-2 text-slate-100 font-medium">{p.display_name}{(!String(p.player_id || '').trim() || Boolean((p as any).guest_placeholder_id)) ? <span className="ml-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[8px] font-black uppercase text-indigo-300">гость</span> : null}</td>
                     <td className="py-2 px-2 text-amber-300/90">
                       {p.role === 'citizen' && 'Мирный'}
                       {p.role === 'sheriff' && 'Шериф'}

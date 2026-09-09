@@ -1,5 +1,7 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
+import { ensureTelegramDirectMessageSchema } from '../../db/ensureTelegramDirectMessageSchema.ts';
+import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
 import type { BettingRoleSnapshot } from './bettingPoolService.ts';
 import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
@@ -101,21 +103,37 @@ export async function notifyBettingSpectators(
 }
 
 export async function getBettingNotificationDiagnostics(db: DatabaseWrapper, poolId: string) {
-  await ensurePersonalNotificationRoutingSchema(db);
-  const rows = await db.all<any>(`
-    SELECT selected_channel, status, reason
-      FROM personal_notification_deliveries
-     WHERE event_type='betting_pool_opened' AND entity_id=?
-  `, [poolId]);
-  const telegram = rows.filter((row: any) => row.selected_channel === 'telegram').length;
-  const vk = rows.filter((row: any) => row.selected_channel === 'vk').length;
-  const failed = rows.filter((row: any) => row.status === 'unroutable' || row.reason === 'permission_denied').length;
-  return {
-    total: rows.length,
-    sent: rows.filter((row: any) => row.status === 'queued').length,
-    failed,
-    pending: rows.filter((row: any) => row.status === 'pending_channel').length,
-    telegram,
-    vk,
-  };
+  await Promise.all([
+    ensurePersonalNotificationRoutingSchema(db),
+    ensureTelegramDirectMessageSchema(db),
+    ensureVkPersonalMessageSchema(db),
+  ]);
+  const [deliveries, telegramRows, vkRows] = await Promise.all([
+    db.all<any>(`
+      SELECT selected_channel, status, reason
+        FROM personal_notification_deliveries
+       WHERE event_type='betting_pool_opened' AND entity_id=?
+    `, [poolId]),
+    db.all<any>(`
+      SELECT status
+        FROM telegram_message_outbox
+       WHERE event_type='betting_pool_opened' AND entity_id=?
+    `, [poolId]),
+    db.all<any>(`
+      SELECT status, failure_kind
+        FROM vk_message_outbox
+       WHERE event_type='betting_pool_opened' AND entity_id=?
+    `, [poolId]),
+  ]);
+  const telegram = deliveries.filter((row: any) => row.selected_channel === 'telegram').length;
+  const vk = deliveries.filter((row: any) => row.selected_channel === 'vk').length;
+  const unroutable = deliveries.filter((row: any) => row.status === 'unroutable').length;
+  const sent = telegramRows.filter((row: any) => row.status === 'sent').length
+    + vkRows.filter((row: any) => row.status === 'sent').length;
+  const failed = unroutable
+    + telegramRows.filter((row: any) => row.status === 'failed').length
+    + vkRows.filter((row: any) => row.status === 'failed').length;
+  const pending = telegramRows.filter((row: any) => row.status === 'pending').length
+    + vkRows.filter((row: any) => row.status === 'pending').length;
+  return { total: deliveries.length, sent, failed, pending, telegram, vk };
 }

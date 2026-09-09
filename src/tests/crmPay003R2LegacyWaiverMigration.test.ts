@@ -80,6 +80,16 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
   const openDbs: DatabaseWrapper[] = [];
   const makeDb = () => {
     const db = createDatabaseConnection(':memory:');
+    // Recreate the historical schema shape that existed before R2 fee-evidence tables:
+    // global role/judge columns were already present and are necessary to distinguish
+    // an explicit waiver from the old global organizer/judge exemption behavior.
+    const playerColumns = db.sqlite.pragma('table_info(players)') as Array<{ name: string }>;
+    if (!playerColumns.some((column) => column.name === 'club_role')) {
+      db.sqlite.exec("ALTER TABLE players ADD COLUMN club_role TEXT NOT NULL DEFAULT 'member'");
+    }
+    if (!playerColumns.some((column) => column.name === 'judge_level')) {
+      db.sqlite.exec("ALTER TABLE players ADD COLUMN judge_level TEXT NOT NULL DEFAULT 'none'");
+    }
     openDbs.push(db);
     return db;
   };
@@ -106,7 +116,7 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
     const participant = await db.get<any>('SELECT amount_due,payment_status FROM evening_participants WHERE id = ?', [ids.participantId]);
     expect(participant).toMatchObject({ amount_due: 0, payment_status: 'waived' });
     const diagnostic = await db.get<any>('SELECT participant_id FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ?', [ids.participantId]);
-    expect(diagnostic).toBeUndefined();
+    expect(diagnostic).toBeNull();
   });
 
   it('holds an ambiguous historical waiver at zero debt and persists durable review diagnostics', async () => {
@@ -121,7 +131,7 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
     await createApp(db);
 
     const waiver = await db.get<any>('SELECT participant_id FROM evening_fee_waivers WHERE participant_id = ?', [ids.participantId]);
-    expect(waiver).toBeUndefined();
+    expect(waiver).toBeNull();
     const diagnostic = await db.get<any>(
       'SELECT status,reason FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ?',
       [ids.participantId],
@@ -157,7 +167,7 @@ describe('CRM-PAY-003-R2 safe legacy waiver migration', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.reason).toBe('Already migrated factual waiver');
     const diagnostic = await db.get<any>('SELECT participant_id FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ?', [ids.participantId]);
-    expect(diagnostic).toBeUndefined();
+    expect(diagnostic).toBeNull();
   });
 
   it('is idempotent on repeated startup/reconciliation attempts after the R2 marker completes', async () => {

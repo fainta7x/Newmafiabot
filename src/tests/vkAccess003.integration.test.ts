@@ -148,7 +148,7 @@ describe('VK-ACCESS-003 production login', () => {
     expect(response.status).toBe(200);
     const cookies = String(response.headers['set-cookie']);
     expect(cookies).toContain('vk_player_oauth_binding=');
-    expect(cookies).toContain('Path=/');
+    expect(cookies).toContain('Path=/api/integrations');
     expect(cookies).toContain('Secure');
     expect(cookies).toContain('SameSite=Lax');
     expect(new URL(response.body.authorize_url).searchParams.get('redirect_uri'))
@@ -166,7 +166,7 @@ describe('VK-ACCESS-003 production login', () => {
       .set('X-Forwarded-Proto', 'https')
       .send({ nickname: 'Existing Player', return_to: '/player' });
     expect(response.status).toBe(503);
-    expect(response.body).toMatchObject({ code: 'vk_runtime_origin_missing' });
+    expect(response.body).toMatchObject({ code: 'public_origin_not_configured' });
     expect(String(response.body.error)).not.toContain('PLAYER_APP_URL');
   });
 

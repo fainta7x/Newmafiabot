@@ -33,23 +33,6 @@ const normalizeStartsAt = (value: unknown, fallback: string) => {
   return raw;
 };
 
-const clampExistingClubEveningCharges = async (db: DatabaseWrapper, evening: any) => {
-  if (normalizeEveningFormat(evening?.format) !== 'CASUAL') return;
-  const now = new Date().toISOString();
-  await db.run(
-    `UPDATE evening_participants
-        SET amount_due = ?,
-            payment_status = CASE
-              WHEN COALESCE(amount_paid, 0) >= ? THEN 'paid'
-              ELSE 'unpaid'
-            END,
-            updated_at = ?
-      WHERE evening_id = ?
-        AND COALESCE(amount_due, 0) > ?`,
-    [CLUB_EVENING_MAX_PRICE, CLUB_EVENING_MAX_PRICE, now, evening.id, CLUB_EVENING_MAX_PRICE],
-  );
-};
-
 export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: string) {
   await ensureEveningSlotsSchema(db);
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
@@ -103,10 +86,6 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
       });
     }
   }
-
-  // A regular club evening is 100 ₽ per game, but never more than 400 ₽ total.
-  // Clamp already-created overcharges too, without touching waived/free entries.
-  await clampExistingClubEveningCharges(db, evening);
 
   return { evening, settings, slots };
 }
@@ -273,23 +252,28 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
   const byId = new Map(available.map(s => [String(s.id), s]));
   const ids = Array.isArray(raw) ? Array.from(new Set(raw.map(v => String(v || '').trim()).filter(Boolean))) : [];
   if (ids.some(id => !byId.has(id))) throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
-  const total = calculateEveningSelectionTotal(
+  const estimate = calculateEveningSelectionTotal(
     evening.format,
     ids.map((id) => Number(byId.get(id)?.price_rub || 0)),
   );
+  const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();
   await db.transaction(async (tx: DatabaseWrapper) => {
-    let participant = await tx.get<any>('SELECT id, attendance_status, amount_paid FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
+    let participant = await tx.get<any>('SELECT id, attendance_status, amount_due, amount_paid, payment_status FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1', [eveningId, playerId]);
     if (participant && String(participant.attendance_status || 'pending') !== 'pending') throw Object.assign(new Error('Явка уже отмечена. Изменить запись может только организатор.'), { statusCode: 409 });
     if (!participant) {
       const id = randomUUID();
-      await tx.run("INSERT INTO evening_participants (id, evening_id, player_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at) VALUES (?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)", [id, eveningId, playerId, total ? 'unpaid' : 'waived', total, now, now, now]);
-      participant = { id, amount_paid: 0 };
+      const amountDue = isCasual ? 0 : estimate;
+      await tx.run("INSERT INTO evening_participants (id, evening_id, player_id, response_status, registration_status, attendance_status, arrival_status, payment_status, amount_due, amount_paid, registered_at, created_at, updated_at) VALUES (?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', ?, ?, 0, ?, ?, ?)", [id, eveningId, playerId, amountDue ? 'unpaid' : 'waived', amountDue, now, now, now]);
+      participant = { id, amount_due: amountDue, amount_paid: 0, payment_status: amountDue ? 'unpaid' : 'waived' };
     }
     await tx.run('DELETE FROM evening_slot_registrations WHERE participant_id = ? AND slot_id IN (SELECT id FROM evening_game_slots WHERE evening_id = ?)', [participant.id, eveningId]);
     for (const slotId of ids) await tx.run('INSERT INTO evening_slot_registrations (id, slot_id, participant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [randomUUID(), slotId, participant.id, now, now]);
-    const paid = Number(participant.amount_paid || 0);
-    await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [total, total === 0 ? 'waived' : paid >= total ? 'paid' : 'unpaid', now, participant.id]);
+    if (!isCasual) {
+      const paid = Number(participant.amount_paid || 0);
+      const paymentStatus = estimate === 0 ? 'waived' : paid >= estimate ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+      await tx.run('UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?', [estimate, paymentStatus, now, participant.id]);
+    }
     await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined');
   });
   return loadEveningSlotPlan(db, eveningId, playerId);

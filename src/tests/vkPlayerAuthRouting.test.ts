@@ -25,19 +25,24 @@ describe('VK player authentication routing', () => {
     expect(cabinetBranch).toContain('setPlayerSessionCookie(res, playerId)');
     expect(cabinetBranch).toContain('browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE]');
     expect(cabinetBranch).toContain('result.initiatingPlayerId');
+    expect(cabinetBranch).toContain('beginVerifiedPlayerOnboarding');
+    expect(cabinetBranch).toContain('setPlayerOnboardingCookie');
+    expect(cabinetBranch).not.toContain('registerVkPlayer');
     expect(cabinetBranch).not.toContain('getPlayerSessionId(req)');
     expect(cabinetBranch).not.toContain('setVkSessionCookie');
     expect(cabinetBranch).not.toContain("res.cookie('vk_join_session'");
   });
 
-  it('does not trust browser player_id and uses the existing private confirmation path for nickname collisions', () => {
+  it('keeps private existing-profile confirmation behind verified onboarding instead of auto-merging by nickname', () => {
     const callback = read('src/server/services/vkJoinRegistrationCallbackRouter.ts');
+    const onboarding = read('src/server/services/playerOnboardingService.ts');
     const service = read('src/server/services/vkPlayerAuthService.ts');
     const schema = read('src/db/ensureVkPlayerAuthSchema.ts');
     expect(callback).not.toContain('req.body?.player_id');
     expect(callback).not.toContain('req.query?.player_id');
-    expect(callback).toContain("error?.code !== 'nickname_taken'");
-    expect(callback).toContain('createVkPlayerIdentityClaim');
+    expect(onboarding).toContain('requestExistingPlayerOnboardingLink');
+    expect(onboarding).toContain('createVkPlayerIdentityClaim');
+    expect(onboarding).toContain("status: 'private_confirmation'");
     expect(service).toContain("platform='vk'");
     expect(service).toContain('browser_binding_hash');
     expect(service).toContain('vk_state_browser_mismatch');
@@ -56,19 +61,19 @@ describe('VK player authentication routing', () => {
     expect(service).toContain("WHERE token_hash=? AND confirmed_at IS NULL AND expires_at>?");
   });
 
-  it('exposes VK login from the shared player application and preserves the requested player destination', () => {
+  it('verifies VK before nickname and uses the shared onboarding UI', () => {
     const app = read('src/App.tsx');
+    const onboardingUi = read('src/components/player/VerifiedPlayerOnboarding.tsx');
     const vkAccess = read('src/components/player/VkPlayerAccess.tsx');
-    expect(app).toContain('VkPlayerAccess');
-    expect(app).toContain('Войти в кабинет игрока');
-    expect(app).not.toContain('Откройте через Telegram');
-    expect(app).not.toContain('Проверяем вход через Telegram');
+    expect(app).toContain('VerifiedPlayerOnboarding');
+    expect(onboardingUi).toContain('Я уже играл в клубе');
+    expect(onboardingUi).toContain('Я новый игрок');
+    expect(onboardingUi).toContain('VkPlayerAccess');
     expect(vkAccess).toContain("fetch('/api/integrations/player/vk/start'");
     expect(vkAccess).toContain('new URL(window.location.href)');
-    expect(vkAccess).toContain('url.pathname');
-    expect(vkAccess).toContain('url.search');
-    expect(vkAccess).toContain('url.hash');
     expect(vkAccess).toContain('return_to: currentPlayerDestination()');
+    expect(vkAccess).not.toContain('initialNickname');
+    expect(vkAccess).not.toContain('nickname: value');
   });
 
   it('keeps organizer and judge authorization tied to canonical player_token player_id', () => {

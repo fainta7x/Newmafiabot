@@ -101,13 +101,13 @@ describe('evening closeout workflow', () => {
       'SELECT type, amount FROM financial_transactions WHERE evening_id=? AND player_id=?',
       [eveningId, 'p1'],
     );
-    expect(financialRows).toEqual([]);
+    expect(financialRows).toEqual([{ type: 'income', amount: 100 }]);
 
     const participant = await db.get<any>(
       'SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id=?',
       ['ep1'],
     );
-    expect(participant).toMatchObject({ amount_due: 0, amount_paid: 0, payment_status: 'waived' });
+    expect(participant).toMatchObject({ amount_due: 0, amount_paid: 100, payment_status: 'paid' });
 
     const task = await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key=?', [`evening-close:${eveningId}`]);
     expect(task?.status).toBe('done');

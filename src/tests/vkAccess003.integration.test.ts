@@ -129,6 +129,29 @@ describe('VK-ACCESS-003 production login', () => {
     expect(run.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO players'))).toBe(false);
   });
 
+  it('does not log OAuth callback query credentials', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('JWT_SECRET', 'vk-access-003-test-secret');
+    vi.stubEnv('VK_APP_ID', '123456');
+    vi.stubEnv('PLAYER_APP_URL', 'https://club.example');
+    const binding = 'abcdefghijklmnopqrstuvwxyzABCDEFG_1234567890';
+    const { db } = makeLinkedDb(binding);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      access_token: 'opaque-token', user_id: 777, state: 'state-1',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    await request(makeApp(db))
+      .get('/api/integrations/vk/oauth/callback?code=secret-code&device_id=secret-device&state=secret-state')
+      .set('X-Forwarded-Proto', 'https')
+      .set('Cookie', `vk_player_oauth_binding=${binding}`);
+
+    const serialized = JSON.stringify(info.mock.calls);
+    expect(serialized).not.toContain('secret-code');
+    expect(serialized).not.toContain('secret-device');
+    expect(serialized).not.toContain('secret-state');
+  });
+
   it('writes a secure browser-binding cookie behind the production proxy', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('VK_APP_ID', '123456');
@@ -166,7 +189,7 @@ describe('VK-ACCESS-003 production login', () => {
       .set('X-Forwarded-Proto', 'https')
       .send({ nickname: 'Existing Player', return_to: '/player' });
     expect(response.status).toBe(503);
-    expect(response.body).toMatchObject({ code: 'public_origin_not_configured' });
+    expect(response.body).toMatchObject({ code: 'vk_runtime_origin_missing' });
     expect(String(response.body.error)).not.toContain('PLAYER_APP_URL');
   });
 

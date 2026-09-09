@@ -28,6 +28,9 @@ beforeEach(() => {
 describe('betting-open personal channel routing', () => {
   it('includes VK-only spectators, excludes players/judge, and queues once per canonical player', async () => {
     const db = {
+      exec: vi.fn(async () => {}),
+      run: vi.fn(async () => ({ changes: 1, lastID: null })),
+      get: vi.fn(async () => null),
       all: vi.fn(async (sql: string) => {
         if (sql.includes('FROM players p')) {
           return [
@@ -43,8 +46,14 @@ describe('betting-open personal channel routing', () => {
             { selected_channel: 'telegram', status: 'queued', reason: null },
           ];
         }
+        if (sql.includes('FROM telegram_message_outbox')) return [{ status: 'pending' }];
+        if (sql.includes('FROM vk_message_outbox')) return [{ status: 'pending', failure_kind: null }];
         return [];
       }),
+      transaction: vi.fn(),
+      sqlite: {} as any,
+      drizzle: {} as any,
+      dbPath: ':memory:',
     } as unknown as DatabaseWrapper;
 
     const result = await notifyBettingSpectators(db, {
@@ -66,7 +75,7 @@ describe('betting-open personal channel routing', () => {
     ]);
     expect(queued.every((item) => item.actionPath === '/player')).toBe(true);
     expect(queued.every((item) => item.telegramReplyMarkup?.inline_keyboard?.[0]?.[0]?.web_app?.url === 'https://club.example/player')).toBe(true);
-    expect(result).toMatchObject({ eligible: 2, queued: 2 });
+    expect(result).toMatchObject({ eligible: 2, queued: 2, sent: 0, failed: 0 });
   });
 
   it('uses the canonical router instead of direct Telegram outbox delivery', async () => {

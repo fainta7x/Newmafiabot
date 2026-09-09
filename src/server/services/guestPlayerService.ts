@@ -97,6 +97,63 @@ const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
 
+const mergeNotes = (...values: unknown[]) => {
+  const notes = [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))];
+  return notes.length ? notes.join('\n') : null;
+};
+
+const mergedPaymentStatus = (amountDue: number, amountPaid: number) => {
+  if (amountDue <= 0) return amountPaid > 0 ? 'paid' : 'waived';
+  if (amountPaid >= amountDue) return 'paid';
+  if (amountPaid > 0) return 'partial';
+  return 'unpaid';
+};
+
+async function mergeGuestEveningFactsIntoParticipant(tx: DatabaseWrapper, participant: any, guest: any, now: string) {
+  const amountDue = Math.max(0, Number(participant.amount_due || 0), Number(guest.amount_due || 0));
+  const amountPaid = Math.max(0, Number(participant.amount_paid || 0), Number(guest.amount_paid || 0));
+  const responseStatus = String(participant.response_status || 'unanswered') === 'unanswered'
+    ? String(guest.response_status || 'unanswered')
+    : String(participant.response_status || 'unanswered');
+  const registrationStatus = String(participant.registration_status || 'unanswered') === 'unanswered'
+    ? String(guest.registration_status || guest.response_status || 'unanswered')
+    : String(participant.registration_status || 'unanswered');
+  const attendanceStatus = String(participant.attendance_status || 'pending') === 'pending'
+    ? String(guest.attendance_status || 'pending')
+    : String(participant.attendance_status || 'pending');
+  const arrivalStatus = String(participant.arrival_status || 'unknown') === 'unknown'
+    ? String(guest.arrival_status || 'unknown')
+    : String(participant.arrival_status || 'unknown');
+
+  await tx.run(`
+    UPDATE evening_participants
+       SET table_id = COALESCE(table_id, ?),
+           response_status = ?, registration_status = ?,
+           attendance_status = ?, arrival_status = ?,
+           payment_status = ?, amount_due = ?, amount_paid = ?,
+           notes = ?, registered_at = COALESCE(registered_at, ?),
+           confirmed_at = COALESCE(confirmed_at, ?), checked_in_at = COALESCE(checked_in_at, ?),
+           updated_at = ?
+     WHERE id = ?
+  `, [
+    guest.table_id || null,
+    responseStatus,
+    registrationStatus,
+    attendanceStatus,
+    arrivalStatus,
+    mergedPaymentStatus(amountDue, amountPaid),
+    amountDue,
+    amountPaid,
+    mergeNotes(participant.notes, guest.notes, 'Гостевая запись заменена зарегистрированным игроком'),
+    guest.registered_at || guest.created_at || now,
+    guest.confirmed_at || null,
+    guest.checked_in_at || null,
+    now,
+    String(participant.id),
+  ]);
+  return tx.get<any>('SELECT * FROM evening_participants WHERE id = ?', [String(participant.id)]);
+}
+
 export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, input: {
   gameId: number;
   seatNumber: number;
@@ -147,10 +204,11 @@ export async function replaceGuestWithRegisteredPlayer(db: DatabaseWrapper, inpu
           id, evening_id, player_id, table_id, response_status, registration_status,
           attendance_status, arrival_status, payment_status, amount_due, amount_paid,
           notes, registered_at, checked_in_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'unanswered', 'unanswered', 'attended', 'on_time', 'waived', 0, 0, ?, ?, ?, ?, ?)
-      `, [id,String(game.evening_id),String(player.id),guest.table_id || null,'Создано при явной замене гостя',now,now,now,now]);
+        ) VALUES (?, ?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', 'waived', 0, 0, ?, ?, NULL, ?, ?)
+      `, [id,String(game.evening_id),String(player.id),guest.table_id || null,'Создано при явной замене гостя',now,now,now]);
       participant = await tx.get<any>('SELECT * FROM evening_participants WHERE id = ?', [id]);
     }
+    participant = await mergeGuestEveningFactsIntoParticipant(tx, participant, guest, now);
 
     const repaired = replaceClubGameSeatIdentity(
       envelope,

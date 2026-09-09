@@ -1,5 +1,6 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
+import { protectLegacyRegularWaiversBeforePricingMigration } from './protectLegacyRegularWaivers.ts';
 
 export type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
@@ -38,4 +39,9 @@ export async function ensureJudgeAuthoritySchema(db: DatabaseWrapper): Promise<v
   await db.run(
     "UPDATE players SET judge_level = 'none' WHERE judge_level IS NULL OR judge_level = '' OR judge_level NOT IN ('none','trainee','host','judge')",
   );
+
+  // createApp runs this schema step before ensureClubOperationsSchema. Capture
+  // historical waived CASUAL rows here so CRM-PAY-003 v1 cannot rewrite them before
+  // the safer R2 evidence migration has classified them.
+  await protectLegacyRegularWaiversBeforePricingMigration(db);
 }

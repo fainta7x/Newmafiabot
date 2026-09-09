@@ -22,7 +22,7 @@ describe('CRM read freshness middleware', () => {
     expect(result.next).toHaveBeenCalledOnce();
   });
 
-  it('caps stale current CASUAL payment rows at the canonical 400 ₽ maximum without changing previous debt', () => {
+  it('preserves payment values while marking current and previous payment scopes', () => {
     const result = runMiddleware('/command-center', {
       snapshot: {
         mode: 'upcoming',
@@ -42,12 +42,12 @@ describe('CRM read freshness middleware', () => {
       },
     });
 
-    expect(result.sent.snapshot.roster.unpaid[0].amount_due).toBe(400);
-    expect(result.sent.snapshot.stats.unpaid_amount).toBe(400);
+    expect(result.sent.snapshot.roster.unpaid[0].amount_due).toBe(600);
+    expect(result.sent.snapshot.stats.unpaid_amount).toBe(600);
     expect(result.sent.snapshot.payment_context).toMatchObject({
       scope: 'current_or_upcoming_evening',
       evening: { id: 'current', title: '11 сентября' },
-      unpaid_amount: 400,
+      unpaid_amount: 600,
     });
     expect(result.sent.wrapup.payment_scope).toBe('previous_evening_debt');
     expect(result.sent.wrapup.unpaid[0].amount_due).toBe(600);
@@ -67,7 +67,9 @@ describe('CRM read freshness middleware', () => {
     expect(result.sent.currentPaymentContext).toMatchObject({
       scope: 'current_or_upcoming_evening',
       evening: { id: 'current', title: '11 сентября' },
+      unpaid_amount: 800,
     });
+    expect(result.sent.nextEvening.expectedToPayAmount).toBe(800);
     expect(result.sent.actionLists.unpaidParticipants[0]).toMatchObject({
       evening_title: '4 сентября',
       payment_scope: 'previous_evening_debt',

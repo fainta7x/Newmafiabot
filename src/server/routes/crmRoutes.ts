@@ -6,7 +6,6 @@ import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackin
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
-router.use(crmReadFreshnessMiddleware);
 
 function getMoscowDateStr(value: string | null | undefined): string | null {
   if (!value || value.trim() === '') return null;
@@ -16,7 +15,7 @@ function getMoscowDateStr(value: string | null | undefined): string | null {
   return `${parts.find((p) => p.type === 'year')?.value}-${parts.find((p) => p.type === 'month')?.value}-${parts.find((p) => p.type === 'day')?.value}`;
 }
 
-router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
     const nowIso = new Date().toISOString();

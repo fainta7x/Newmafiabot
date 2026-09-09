@@ -8,7 +8,6 @@ import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
-router.use(crmReadFreshnessMiddleware);
 
 const rate = (wins: number, games: number) => games ? Math.round((wins / games) * 100) : 0;
 
@@ -40,7 +39,7 @@ export const needsCurrentCommunicationAttention = (player: any) => (
   Boolean(player?.eligible_now) && player?.attention_status !== 'answered'
 );
 
-router.get('/command-center', async (req, res) => {
+router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
   try {
     const db = req.db;
     const nowIso = new Date().toISOString();

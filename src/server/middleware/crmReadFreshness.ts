@@ -1,55 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
-import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import { CLUB_EVENING_MAX_PRICE } from '../services/eveningSlotPlanningService.ts';
 
 const NO_STORE = 'no-store, no-cache, must-revalidate';
-
-type PaymentRow = {
-  payment_status?: string;
-  amount_due?: number;
-  amount_paid?: number;
-  [key: string]: any;
-};
-
-const clampCurrentCasualPayment = (row: PaymentRow): PaymentRow => {
-  if (String(row.payment_status || '') === 'waived') {
-    return { ...row, amount_due: 0, amount_paid: 0, payment_status: 'waived' };
-  }
-  const amountDue = Math.min(CLUB_EVENING_MAX_PRICE, Math.max(0, Number(row.amount_due || 0)));
-  const amountPaid = Math.min(amountDue, Math.max(0, Number(row.amount_paid || 0)));
-  const paymentStatus = amountDue === 0
-    ? 'paid'
-    : amountPaid >= amountDue
-      ? 'paid'
-      : amountPaid > 0
-        ? 'partial'
-        : 'unpaid';
-  return { ...row, amount_due: amountDue, amount_paid: amountPaid, payment_status: paymentStatus };
-};
 
 const withCurrentPaymentScope = (body: any) => {
   const snapshot = body?.snapshot;
   if (snapshot?.evening) {
-    const casual = normalizeEveningFormat(snapshot.evening.format) === 'CASUAL';
-    if (snapshot.roster && casual) {
-      for (const key of ['expected', 'present', 'pending_attendance', 'unpaid'] as const) {
-        if (Array.isArray(snapshot.roster[key])) snapshot.roster[key] = snapshot.roster[key].map(clampCurrentCasualPayment);
-      }
-      if (Array.isArray(snapshot.suggested_lineup)) snapshot.suggested_lineup = snapshot.suggested_lineup.map(clampCurrentCasualPayment);
-      const unpaid = Array.isArray(snapshot.roster.unpaid)
-        ? snapshot.roster.unpaid.filter((row: PaymentRow) => row.payment_status !== 'waived' && Number(row.amount_due || 0) > Number(row.amount_paid || 0))
-        : [];
-      snapshot.roster.unpaid = unpaid;
-      snapshot.stats.unpaid_count = unpaid.length;
-      snapshot.stats.unpaid_amount = unpaid.reduce(
-        (sum: number, row: PaymentRow) => sum + Math.max(0, Number(row.amount_due || 0) - Number(row.amount_paid || 0)),
-        0,
-      );
-      if (Array.isArray(snapshot.blockers)) {
-        snapshot.blockers = snapshot.blockers.filter((item: any) => item?.kind !== 'payments');
-        if (unpaid.length) snapshot.blockers.push({ kind: 'payments', count: unpaid.length, label: 'Не закрыты оплаты' });
-      }
-    }
     snapshot.payment_context = {
       scope: 'current_or_upcoming_evening',
       evening: {
@@ -73,11 +28,7 @@ const withCurrentPaymentScope = (body: any) => {
 const withOverviewPaymentScopes = (body: any) => {
   if (body?.nextEvening) {
     const count = Math.max(0, Number(body.nextEvening.expectedToPayCount || 0));
-    let amount = Math.max(0, Number(body.nextEvening.expectedToPayAmount || 0));
-    if (normalizeEveningFormat(body.nextEvening.format) === 'CASUAL') {
-      amount = Math.min(amount, count * CLUB_EVENING_MAX_PRICE);
-      body.nextEvening.expectedToPayAmount = amount;
-    }
+    const amount = Math.max(0, Number(body.nextEvening.expectedToPayAmount || 0));
     body.currentPaymentContext = {
       scope: 'current_or_upcoming_evening',
       evening: {

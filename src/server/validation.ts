@@ -56,7 +56,7 @@ export const createPlayerSchema = z.object({
   nickname: z.string().min(1, 'Введите никнейм игрока'), full_name: z.string().nullable().optional(), telegram_user_id: z.string().nullable().optional(),
   telegram_username: z.string().nullable().optional(), phone: playerPhoneSchema, contact_status: z.enum(['normal', 'paused', 'blocked']).optional(),
   lifecycle_status: z.string().optional(), source: z.string().nullable().optional(), preferred_format: z.string().nullable().optional(),
-  game_level: z.enum(['novice', 'club', 'tournament']).optional(), club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(), judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
+  game_level: z.enum(['unrated', 'novice', 'club', 'tournament']).optional(), club_role: z.enum(['guest', 'member', 'team', 'organizer']).optional(), judge_level: z.enum(['none', 'trainee', 'host', 'judge']).optional(),
   referred_by: z.string().nullable().optional(), do_not_invite_until: z.string().nullable().optional(), pause_reason: z.string().nullable().optional(), notes: z.string().nullable().optional(),
   birth_day: z.number().int().min(1).max(31).nullable().optional(), birth_month: z.number().int().min(1).max(12).nullable().optional(), birth_year: z.number().int().min(1900).max(new Date().getFullYear()).nullable().optional(),
   birthday_visibility: z.enum(['private', 'day_month', 'full']).optional(), elo: z.number().int().default(1000), tokens: z.number().int().default(0),

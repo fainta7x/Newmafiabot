@@ -14,11 +14,13 @@ import {
 } from '../services/tokenLedgerService.ts';
 
 const router = Router();
-const GUEST_SOURCES = new Set(['quick_guest', 'legacy_guest_migrated']);
+const MIGRATED_GUEST_SOURCE = 'legacy_guest_migrated';
+const RESERVED_GUEST_SOURCES = new Set(['quick_guest', MIGRATED_GUEST_SOURCE]);
 
-// This router mounts before generic playersRoutes. Keep migrated legacy guests out
-// of the player directory/profile surface and refuse wallet/service mutations for
-// those technical rows even if an old direct URL is still known.
+// This router mounts before generic playersRoutes. Keep confirmed migrated legacy
+// guests out of player/profile/wallet surfaces. Rows still marked quick_guest but
+// carrying external identity are intentionally retained for organizer review and
+// must not be silently reclassified by routing logic.
 router.use(async (req, res, next) => {
   try {
     const pathParts = req.path.split('/').filter(Boolean);
@@ -26,14 +28,14 @@ router.use(async (req, res, next) => {
     if (candidateId) {
       const db = req.db || (await getDb());
       const player = await db.get<any>('SELECT source FROM players WHERE id = ? LIMIT 1', [candidateId]);
-      if (player && GUEST_SOURCES.has(String(player.source || ''))) return res.status(404).json({ error: 'Игрок не найден' });
+      if (player && String(player.source || '') === MIGRATED_GUEST_SOURCE) return res.status(404).json({ error: 'Игрок не найден' });
     }
 
     if (req.method === 'GET' && req.path === '/') {
       const originalJson = res.json.bind(res);
       res.json = ((body: any) => {
         const filtered = Array.isArray(body)
-          ? body.filter((player: any) => !GUEST_SOURCES.has(String(player?.source || '')))
+          ? body.filter((player: any) => String(player?.source || '') !== MIGRATED_GUEST_SOURCE)
           : body;
         return originalJson(filtered);
       }) as typeof res.json;
@@ -58,6 +60,9 @@ const sendTokenError = (res: any, error: any) => {
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createPlayerSchema.parse(req.body);
+    if (RESERVED_GUEST_SOURCES.has(String(data.source || ''))) {
+      return res.status(400).json({ error: 'Guest source markers are reserved for application reconciliation; use evening guest placeholder instead' });
+    }
     const db = req.db || (await getDb());
     const existingNick = await db.get('SELECT id FROM players WHERE nickname = ?', [data.nickname]);
     if (existingNick) return res.status(400).json({ error: 'Игрок с таким никнеймом уже существует' });

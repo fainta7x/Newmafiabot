@@ -5,7 +5,7 @@ import { createDatabaseConnection } from '../db/index';
 import { generateOrganizerToken } from '../server/auth';
 
 describe('current CRM smoke flow', () => {
-  it('creates a manual novice profile and can add it to an organizer evening', async () => {
+  it('creates a manual unassessed profile and can add it to an organizer evening', async () => {
     const db = createDatabaseConnection(':memory:');
     const app = await createApp(db);
     const cookie = `organizer_token=${generateOrganizerToken()}`;
@@ -15,7 +15,7 @@ describe('current CRM smoke flow', () => {
       .set('Cookie', cookie)
       .send({ nickname: 'Smoke_Player' });
     expect(player.status, JSON.stringify(player.body)).toBe(201);
-    expect(player.body.game_level).toBe('novice');
+    expect(player.body.game_level).toBe('unrated');
 
     const evening = await request(app)
       .post('/api/evenings')

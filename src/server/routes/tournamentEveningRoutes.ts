@@ -7,6 +7,7 @@ import {
   TOURNAMENT_PLAYER_CAPACITY,
   cancelTournamentRegistration,
   loadTournamentEvening,
+  notifyTournamentAudience,
   organizerAddTournamentPlayer,
   promoteTournamentReserve,
   registerTournamentPlayer,
@@ -117,9 +118,17 @@ router.post('/evenings/:id/publish', requireOrganizerAuth, async (req: Authentic
   const prize = validatePrizeConfiguration(tournament.prize_fund_rub, JSON.parse(tournament.prize_allocations_json || '[]'));
   if (!prize.ok || prize.mismatch) return res.status(409).json({ error: 'Сумма распределения призов не совпадает с общим призовым фондом', prize_fund_rub: prize.ok ? prize.prizeFund : null, allocated_rub: prize.ok ? prize.allocated : null });
   if (!tournament.judge_player_id || !tournament.venue) return res.status(409).json({ error: 'Перед публикацией укажите судью и место' });
+  const firstPublish = !tournament.published_at;
   const now = new Date().toISOString();
   await db.run('UPDATE tournaments SET published_at=COALESCE(published_at,?),registration_closed_at=NULL,updated_at=? WHERE id=?', [now,now,id]);
   await db.run(`INSERT INTO tournament_evening_audit (id,tournament_id,action,actor_type,created_at) VALUES (?,?,'publish','organizer',?)`, [crypto.randomUUID(),id,now]);
+  if (firstPublish) {
+    try {
+      await notifyTournamentAudience(db, id);
+    } catch (error) {
+      console.warn('[tournament-evening] audience notification failed', error);
+    }
+  }
   return res.json(await loadTournamentEvening(db, id));
 });
 

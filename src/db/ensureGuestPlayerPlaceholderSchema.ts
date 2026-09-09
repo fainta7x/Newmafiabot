@@ -17,11 +17,28 @@ const replaceExactStringsDeep = (value: any, from: string, to: string): any => {
   return value;
 };
 
-const hasExternalIdentity = (player: Record<string, any>) => Object.entries(player).some(([key, value]) => {
+const hasInlineExternalIdentity = (player: Record<string, any>) => Object.entries(player).some(([key, value]) => {
   const normalized = key.toLowerCase();
   if (!normalized.includes('telegram') && !normalized.startsWith('vk_') && !normalized.includes('vk_user')) return false;
   return value !== null && value !== undefined && String(value).trim() !== '';
 });
+
+async function tableExists(db: DatabaseWrapper, tableName: string) {
+  return Boolean(await db.get<any>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [tableName]));
+}
+
+async function externalIdentityEvidence(db: DatabaseWrapper, player: Record<string, any>) {
+  const evidence: string[] = [];
+  if (hasInlineExternalIdentity(player)) evidence.push('players_row');
+  const playerId = String(player.id);
+  if (await tableExists(db, 'player_external_identities')) {
+    if (await db.get<any>('SELECT 1 FROM player_external_identities WHERE player_id = ? LIMIT 1', [playerId])) evidence.push('player_external_identities');
+  }
+  if (await tableExists(db, 'vk_player_identity_claims')) {
+    if (await db.get<any>('SELECT 1 FROM vk_player_identity_claims WHERE player_id = ? LIMIT 1', [playerId])) evidence.push('vk_player_identity_claims');
+  }
+  return evidence;
+}
 
 async function ensureSchema(db: DatabaseWrapper) {
   await db.run(`
@@ -93,6 +110,15 @@ async function ensureSchema(db: DatabaseWrapper) {
   `);
 }
 
+async function recordDiagnostic(db: DatabaseWrapper, legacyPlayerId: string, reason: string, details: Record<string, any>) {
+  const now = new Date().toISOString();
+  await db.run(`
+    INSERT INTO guest_player_migration_diagnostics (id, migration_key, legacy_player_id, reason, details_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(migration_key, legacy_player_id, reason) DO UPDATE SET details_json = excluded.details_json, updated_at = excluded.updated_at
+  `, [`guestdiag:${legacyPlayerId}:${reason}`, GUEST_PLAYER_MIGRATION_KEY, legacyPlayerId, reason, JSON.stringify(details), now, now]);
+}
+
 async function migrateLegacyParticipantGames(
   db: DatabaseWrapper,
   legacyPlayerId: string,
@@ -110,7 +136,11 @@ async function migrateLegacyParticipantGames(
       String(result?.participant_id || '') === legacyParticipantId
       || String(result?.player_id || '') === legacyPlayerId,
     );
-    if (matches.length !== 1) continue;
+    if (matches.length === 0) continue;
+    if (matches.length !== 1) {
+      await recordDiagnostic(db, legacyPlayerId, 'ambiguous_game_seat', { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId, matches: matches.length });
+      continue;
+    }
 
     const rewritten = replaceExactStringsDeep(envelope, legacyParticipantId, guestId);
     rewritten.player_results = rewritten.player_results.map((result: any) => {
@@ -141,25 +171,21 @@ async function migrateLegacyParticipantGames(
 
 async function migrateLegacyPlayer(db: DatabaseWrapper, player: any) {
   const legacyPlayerId = String(player.id);
-  const now = new Date().toISOString();
-  if (!LEGACY_GUEST_SOURCES.has(String(player.source || '').trim())) return;
+  const source = String(player.source || '').trim();
+  if (source === 'legacy_guest_migrated') return;
+  if (!LEGACY_GUEST_SOURCES.has(source)) return;
 
-  if (hasExternalIdentity(player)) {
-    await db.run(`
-      INSERT INTO guest_player_migration_diagnostics (id, migration_key, legacy_player_id, reason, details_json, created_at, updated_at)
-      VALUES (?, ?, ?, 'external_identity_linked', ?, ?, ?)
-      ON CONFLICT(migration_key, legacy_player_id, reason) DO UPDATE SET details_json = excluded.details_json, updated_at = excluded.updated_at
-    `, [
-      `guestdiag:${legacyPlayerId}:external`,
-      GUEST_PLAYER_MIGRATION_KEY,
-      legacyPlayerId,
-      JSON.stringify({ source: player.source, nickname: player.nickname }),
-      now,
-      now,
-    ]);
+  const identityEvidence = await externalIdentityEvidence(db, player);
+  if (identityEvidence.length) {
+    await recordDiagnostic(db, legacyPlayerId, 'external_identity_linked', {
+      source: player.source,
+      nickname: player.nickname,
+      evidence: identityEvidence,
+    });
     return;
   }
 
+  const now = new Date().toISOString();
   const participants = await db.all<any>('SELECT * FROM evening_participants WHERE player_id = ? ORDER BY created_at ASC, id ASC', [legacyPlayerId]);
   for (const participant of participants) {
     const guestId = `guest:${String(participant.id)}`;
@@ -207,15 +233,18 @@ export async function reconcileLegacyGuestPlayers(db: DatabaseWrapper) {
   const existing = await db.get<any>('SELECT * FROM guest_player_migration_state WHERE migration_key = ?', [GUEST_PLAYER_MIGRATION_KEY]);
   if (existing?.status === 'completed') return existing;
 
-  const players = await db.all<any>("SELECT * FROM players WHERE source = 'quick_guest' ORDER BY id ASC");
+  // Include already-converted rows in the candidate snapshot so a process crash
+  // between the per-player transaction and progress checkpoint remains resumable.
+  const players = await db.all<any>("SELECT * FROM players WHERE source IN ('quick_guest','legacy_guest_migrated') ORDER BY id ASC");
   const startedAt = existing?.started_at || new Date().toISOString();
+  const totalCount = Math.max(Number(existing?.total_count || 0), players.length);
   if (!existing) {
     await db.run(`
       INSERT INTO guest_player_migration_state (migration_key, status, total_count, processed_count, started_at, updated_at)
       VALUES (?, 'running', ?, 0, ?, ?)
-    `, [GUEST_PLAYER_MIGRATION_KEY, players.length, startedAt, startedAt]);
+    `, [GUEST_PLAYER_MIGRATION_KEY, totalCount, startedAt, startedAt]);
   } else {
-    await db.run("UPDATE guest_player_migration_state SET status = 'running', total_count = ?, error_message = NULL, updated_at = ? WHERE migration_key = ?", [players.length, new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY]);
+    await db.run("UPDATE guest_player_migration_state SET status = 'running', total_count = ?, error_message = NULL, updated_at = ? WHERE migration_key = ?", [totalCount, new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY]);
   }
 
   let processed = Number(existing?.processed_count || 0);

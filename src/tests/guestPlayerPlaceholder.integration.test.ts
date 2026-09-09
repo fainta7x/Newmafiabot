@@ -68,7 +68,7 @@ describe('GUEST-PLAYER-001 placeholder lifecycle', () => {
       payment_status: 'partial',
     });
     expect(Number((await database.get<any>('SELECT COUNT(*) AS cnt FROM players'))?.cnt || 0)).toBe(playersBefore);
-    expect(await database.get<any>('SELECT * FROM players WHERE id = ?', [guest.id])).toBeUndefined();
+    expect(await database.get<any>('SELECT * FROM players WHERE id = ?', [guest.id])).toBeNull();
     expect(await database.get<any>('SELECT amount_due,amount_paid,payment_status FROM guest_player_placeholders WHERE id = ?', [guest.id]))
       .toEqual({ amount_due: 500, amount_paid: 200, payment_status: 'partial' });
   });
@@ -159,7 +159,7 @@ describe('GUEST-PLAYER-001 placeholder lifecycle', () => {
   it('migrates reliable quick_guest rows without nickname matching and remains resumable/idempotent', async () => {
     const database = await initialize();
     await seedEvening(database, 'e-resume');
-    await seedPlayer(database, 'legacy-a', 'Одинаковый ник', 'legacy_guest_migrated');
+    await seedPlayer(database, 'legacy-a', 'Ранее мигрированный гость', 'legacy_guest_migrated');
     await seedPlayer(database, 'legacy-b', 'Одинаковый ник', 'quick_guest');
     const now = '2026-09-09T13:00:00.000Z';
 
@@ -239,7 +239,7 @@ describe('GUEST-PLAYER-001 placeholder lifecycle', () => {
     expect(await database.get<any>("SELECT source,lifecycle_status FROM players WHERE id='linked-guest'"))
       .toEqual({ source: 'quick_guest', lifecycle_status: 'normal' });
     expect(await database.get<any>("SELECT id FROM guest_player_placeholders WHERE legacy_player_id='linked-guest'"))
-      .toBeUndefined();
+      .toBeNull();
     const diagnostic = await database.get<any>(`
       SELECT reason,details_json FROM guest_player_migration_diagnostics
        WHERE migration_key=? AND legacy_player_id='linked-guest'

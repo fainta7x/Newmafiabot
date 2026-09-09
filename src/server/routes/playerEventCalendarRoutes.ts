@@ -25,11 +25,15 @@ router.get('/calendar', async (req,res) => {
       const tournaments=await db.all(`SELECT t.id,t.title,t.date AS starts_at,t.venue,t.stage,t.status,t.game_count,t.chief_judge_name,
         t.entry_fee_rub,t.prize_fund_rub,t.prize_allocations_json,t.player_capacity,t.registration_closed_at
         FROM tournaments t
-        WHERE substr(t.date,1,10) >= ? AND substr(t.date,1,10) < ? AND t.published_at IS NOT NULL AND t.status NOT IN ('completed','cancelled') ORDER BY t.date`,[bounds.startDay,bounds.endDay]);
+        WHERE substr(t.date,1,10) >= ? AND substr(t.date,1,10) < ?
+          AND t.published_at IS NOT NULL
+          AND COALESCE(t.tournament_evening_flow,0)=1
+          AND COALESCE(t.status,'draft') NOT IN ('completed','cancelled')
+        ORDER BY t.date`,[bounds.startDay,bounds.endDay]);
       for(const item of tournaments){
         const x=await db.get("SELECT COUNT(*) AS count FROM tournament_registrations WHERE tournament_id = ? AND status='confirmed'",[item.id]);
         const mine=await db.get("SELECT status,queue_order FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1",[item.id,playerId]);
-        events.push({...item,event_type:'tournament',format:'TOURNAMENT',badge:'Турнир',participant_count:Number(x?.count||0),player_capacity:Number(item.player_capacity||10),remaining_places:Math.max(0,10-Number(x?.count||0)),prize_allocations:JSON.parse(item.prize_allocations_json||'[]'),registration_status:mine?.status||null,reserve_position:mine?.status==='reserve'?Number(mine.queue_order||0):null,registration_open:!item.registration_closed_at});
+        events.push({...item,event_type:'tournament',format:'TOURNAMENT',badge:'Турнир',participant_count:Number(x?.count||0),player_capacity:Number(item.player_capacity||10),remaining_places:Math.max(0,10-Number(x?.count||0)),prize_allocations:JSON.parse(item.prize_allocations_json||'[]'),registration_status:mine?.status||null,reserve_position:mine?.status==='reserve'?Number(mine.queue_order||0):null,registration_open:item.status==='draft'&&!item.registration_closed_at});
       }
     }
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());

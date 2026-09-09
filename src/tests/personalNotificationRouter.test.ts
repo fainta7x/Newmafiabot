@@ -36,7 +36,7 @@ function makeDb(input: { telegram?: string | null; vk?: string | null; preferenc
     get: vi.fn(async (sql: string, params: any[] = []) => {
       if (sql.includes('FROM player_notification_preferences')) return preference;
       if (sql.includes('SELECT telegram_user_id FROM players')) return { telegram_user_id: input.telegram || null };
-      if (sql.includes("FROM player_external_identities")) return input.vk ? { external_user_id: input.vk } : null;
+      if (sql.includes('FROM player_external_identities')) return input.vk ? { external_user_id: input.vk } : null;
       if (sql.includes('FROM personal_notification_deliveries')) return deliveries.get(String(params[0])) || null;
       if (sql.includes('FROM telegram_message_outbox')) return telegramRows.get(String(params[0])) || null;
       return null;
@@ -102,8 +102,8 @@ describe('personal notification router', () => {
     const second = await queuePersonalNotification(db, input);
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
-    expect(deliveries).toHaveLength(1);
-    expect(telegramRows).toHaveLength(1);
+    expect(deliveries.size).toBe(1);
+    expect(telegramRows.size).toBe(1);
     expect([...telegramRows.keys()][0]).toBe('personal:evening-invite:42:telegram');
   });
 
@@ -115,7 +115,7 @@ describe('personal notification router', () => {
     await queuePersonalNotification(db, {
       notificationKey: 'result:42', playerId: 'player-1', eventType: 'game_result', text: 'Игра завершена',
     });
-    expect(telegramRows).toHaveLength(0);
+    expect(telegramRows.size).toBe(0);
     expect(deliveries.get('result:42')).toMatchObject({
       selected_channel: 'vk', channel_target: '222', status: 'pending_channel', reason: 'vk_adapter_pending',
     });
@@ -129,7 +129,7 @@ describe('personal notification router', () => {
     await queuePersonalNotification(db, {
       notificationKey: 'summary:42', playerId: 'player-1', eventType: 'evening_summary', text: 'Итоги готовы',
     });
-    expect(telegramRows).toHaveLength(0);
+    expect(telegramRows.size).toBe(0);
     expect(deliveries.get('summary:42')).toMatchObject({ status: 'disabled', selected_channel: null });
   });
 });

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
+import tournamentEveningRoutes from './tournamentEveningRoutes.ts';
 import {
   drainTelegramSyncOutbox,
   enqueueTelegramTournamentSync,
@@ -7,6 +8,10 @@ import {
 } from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
+
+// Registration/fee/calendar metadata extends the canonical tournament entity. Mount it
+// ahead of the transport-specific sync hooks so Telegram and VK sessions hit the same API.
+router.use(tournamentEveningRoutes);
 
 const nudgeTournamentSync = async (db: any, tournamentId: string, enqueue = false) => {
   try {

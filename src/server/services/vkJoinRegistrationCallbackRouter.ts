@@ -7,22 +7,12 @@ import { registerVkPlayer } from './vkJoinRegistrationService.ts';
 import { appendVkOAuthResult } from './vkOAuthService.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { linkVkIdentity } from './vkEveningIntegrationService.ts';
-import {
-  confirmVkIdentityClaim,
-  createVkIdentityClaim,
-  peekVkIdentityClaim,
-} from './vkIdentityClaimService.ts';
-import {
-  completeVkPlayerOAuth,
-  confirmVkPlayerIdentityClaim,
-  createVkPlayerIdentityClaim,
-  peekVkPlayerIdentityClaim,
-  peekVkPlayerOAuthState,
-  validateVkPlayerReturnPath,
-} from './vkPlayerAuthService.ts';
+import { confirmVkIdentityClaim, createVkIdentityClaim, peekVkIdentityClaim } from './vkIdentityClaimService.ts';
+import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, createVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
 
 const router = Router();
+const VK_PLAYER_OAUTH_BINDING_COOKIE = 'vk_player_oauth_binding';
 
 const setVkSessionCookie = (res: any, token: string) => {
   res.cookie('vk_join_session', token, {
@@ -35,12 +25,7 @@ const setVkSessionCookie = (res: any, token: string) => {
 };
 
 const baseUrlFor = (req: any) => `${req.protocol}://${req.get('host')}`;
-const escapeHtml = (value: unknown) => String(value ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#039;');
+const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
 const appendPlayerResult = (returnTo: string, key: string, value: string) => {
   const safe = validateVkPlayerReturnPath(returnTo);
@@ -50,17 +35,10 @@ const appendPlayerResult = (returnTo: string, key: string, value: string) => {
 };
 
 const confirmationPage = (input: { token: string; nickname?: string; title?: string; error?: string; playerCabinet?: boolean }) => {
-  const action = input.playerCabinet
-    ? `/api/integrations/vk/player/claim/${encodeURIComponent(input.token)}`
-    : `/api/integrations/vk/link/confirm/${encodeURIComponent(input.token)}`;
-  const context = input.playerCabinet
-    ? `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong>?`
-    : `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong> для записи на «${escapeHtml(input.title)}»?`;
-  const body = input.error
-    ? `<div class="error">${escapeHtml(input.error)}</div>`
-    : `<p>${context}</p><form method="post" action="${action}"><button type="submit">Подтвердить связь</button></form>`;
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2LA Noire · Связать VK</title>
-  <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090a0d;color:#fff;font:16px system-ui;padding:24px;box-sizing:border-box}.card{width:min(100%,420px);border:1px solid #ffffff1a;border-radius:24px;background:#ffffff0b;padding:24px;box-sizing:border-box}h1{margin:0 0 12px;font-size:24px}p{color:#ffffffa8;line-height:1.55}button{width:100%;min-height:52px;border:0;border-radius:16px;background:#2688eb;color:#fff;font-weight:700;font-size:15px}.error{color:#fecdd3;line-height:1.55}</style></head><body><main class="card"><h1>Подтверждение профиля</h1>${body}</main></body></html>`;
+  const action = input.playerCabinet ? `/api/integrations/vk/player/claim/${encodeURIComponent(input.token)}` : `/api/integrations/vk/link/confirm/${encodeURIComponent(input.token)}`;
+  const context = input.playerCabinet ? `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong>?` : `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong> для записи на «${escapeHtml(input.title)}»?`;
+  const body = input.error ? `<div class="error">${escapeHtml(input.error)}</div>` : `<p>${context}</p><form method="post" action="${action}"><button type="submit">Подтвердить связь</button></form>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2LA Noire · Связать VK</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090a0d;color:#fff;font:16px system-ui;padding:24px;box-sizing:border-box}.card{width:min(100%,420px);border:1px solid #ffffff1a;border-radius:24px;background:#ffffff0b;padding:24px;box-sizing:border-box}h1{margin:0 0 12px;font-size:24px}p{color:#ffffffa8;line-height:1.55}button{width:100%;min-height:52px;border:0;border-radius:16px;background:#2688eb;color:#fff;font-weight:700;font-size:15px}.error{color:#fecdd3;line-height:1.55}</style></head><body><main class="card"><h1>Подтверждение профиля</h1>${body}</main></body></html>`;
 };
 
 router.get('/vk/oauth/callback', async (req, res, next) => {
@@ -68,7 +46,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
   await ensureVkIntegrationSchema(db);
   const state = String(req.query?.state || '').trim();
 
-  // Full player-cabinet VK ID flow. It never creates vk_join_session.
+  // Full player-cabinet VK ID flow uses the canonical player session only.
   const playerPending = await peekVkPlayerOAuthState(db, state);
   if (playerPending) {
     try {
@@ -76,14 +54,12 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         code: req.query?.code,
         deviceId: req.query?.device_id,
         state,
+        browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE],
       });
       let playerId = result.playerId;
-      if (!playerId) {
-        const authenticatedPlayerId = getPlayerSessionId(req);
-        if (authenticatedPlayerId) {
-          await linkVkIdentity(db, { vkUserId: result.vkUserId, playerId: authenticatedPlayerId });
-          playerId = authenticatedPlayerId;
-        }
+      if (!playerId && result.initiatingPlayerId) {
+        await linkVkIdentity(db, { vkUserId: result.vkUserId, playerId: result.initiatingPlayerId });
+        playerId = result.initiatingPlayerId;
       }
       if (!playerId) {
         try {
@@ -91,12 +67,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
           playerId = registration.playerId;
         } catch (error: any) {
           if (error?.code !== 'nickname_taken') throw error;
-          const claim = await createVkPlayerIdentityClaim(db, {
-            vkUserId: result.vkUserId,
-            nickname: result.nickname,
-            returnTo: result.returnTo,
-            baseUrl: baseUrlFor(req),
-          });
+          const claim = await createVkPlayerIdentityClaim(db, { vkUserId: result.vkUserId, nickname: result.nickname, returnTo: result.returnTo, baseUrl: baseUrlFor(req) });
           return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_link_pending', claim.pending ? '1' : '0'));
         }
       }
@@ -129,12 +100,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         await registerVkPlayer(db, result.vk_user_id, nickname);
       } catch (error: any) {
         if (error?.code !== 'nickname_taken') throw error;
-        const claim = await createVkIdentityClaim(db, {
-          vkUserId: result.vk_user_id,
-          nickname,
-          eveningId: result.evening_id,
-          baseUrl: baseUrlFor(req),
-        });
+        const claim = await createVkIdentityClaim(db, { vkUserId: result.vk_user_id, nickname, eveningId: result.evening_id, baseUrl: baseUrlFor(req) });
         returnUrl.searchParams.set('vk_link_pending', '1');
         if (claim.nickname) returnUrl.searchParams.set('vk_link_nickname', claim.nickname);
       }
@@ -150,17 +116,8 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
 router.get('/vk/player/claim/:token', async (req, res) => {
   const claim = await peekVkPlayerIdentityClaim(req.db as DatabaseWrapper, req.params.token);
   res.setHeader('Cache-Control', 'no-store');
-  if (!claim) {
-    return res.status(410).type('html').send(confirmationPage({
-      token: '', playerCabinet: true,
-      error: 'Ссылка подтверждения устарела. Начните вход через VK ещё раз.',
-    }));
-  }
-  return res.type('html').send(confirmationPage({
-    token: req.params.token,
-    nickname: claim.nickname,
-    playerCabinet: true,
-  }));
+  if (!claim) return res.status(410).type('html').send(confirmationPage({ token: '', playerCabinet: true, error: 'Ссылка подтверждения устарела. Начните вход через VK ещё раз.' }));
+  return res.type('html').send(confirmationPage({ token: req.params.token, nickname: claim.nickname, playerCabinet: true }));
 });
 
 router.post('/vk/player/claim/:token', async (req, res) => {
@@ -170,10 +127,7 @@ router.post('/vk/player/claim/:token', async (req, res) => {
     return res.redirect(303, appendPlayerResult(result.returnTo, 'vk_linked', '1'));
   } catch (error: any) {
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(Number(error?.statusCode || 500)).type('html').send(confirmationPage({
-      token: '', playerCabinet: true,
-      error: error?.message || 'Не удалось связать VK с игровым профилем.',
-    }));
+    return res.status(Number(error?.statusCode || 500)).type('html').send(confirmationPage({ token: '', playerCabinet: true, error: error?.message || 'Не удалось связать VK с игровым профилем.' }));
   }
 });
 
@@ -184,12 +138,7 @@ router.get('/vk/link/confirm/:token', async (req, res) => {
   const token = String(req.params.token || '');
   const claim = await peekVkIdentityClaim(db, token);
   res.setHeader('Cache-Control', 'no-store');
-  if (!claim) {
-    return res.status(410).type('html').send(confirmationPage({
-      token: '',
-      error: 'Ссылка подтверждения устарела. Вернитесь к записи через VK и начните привязку ещё раз.',
-    }));
-  }
+  if (!claim) return res.status(410).type('html').send(confirmationPage({ token: '', error: 'Ссылка подтверждения устарела. Вернитесь к записи через VK и начните привязку ещё раз.' }));
   return res.type('html').send(confirmationPage({ token, nickname: claim.nickname, title: claim.title }));
 });
 
@@ -204,10 +153,7 @@ router.post('/vk/link/confirm/:token', async (req, res) => {
     return res.redirect(303, `/join/${encodeURIComponent(result.eveningId)}?source=vk_entry&vk_linked=1`);
   } catch (error: any) {
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(Number(error?.statusCode || 500)).type('html').send(confirmationPage({
-      token: '',
-      error: error?.message || 'Не удалось связать VK с игровым профилем.',
-    }));
+    return res.status(Number(error?.statusCode || 500)).type('html').send(confirmationPage({ token: '', error: error?.message || 'Не удалось связать VK с игровым профилем.' }));
   }
 });
 

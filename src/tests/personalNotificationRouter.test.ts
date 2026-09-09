@@ -15,8 +15,8 @@ function makeDb(input: { telegram?: string | null; vk?: string | null; preferenc
         const [key,playerId,eventType,entityId,selectedChannel,channelTarget,text,actionPath,status,reason,createdAt,updatedAt]=params;
         deliveries.set(String(key),{notification_key:String(key),player_id:String(playerId),category:'personal',event_type:String(eventType),entity_id:entityId,selected_channel:selectedChannel,channel_target:channelTarget,text,action_path:actionPath,status,reason,created_at:createdAt,updated_at:updatedAt});
       }
-      if (sql.includes('INSERT INTO telegram_message_outbox')) telegramRows.set(String(params[0]),{message_key:String(params[0]),chat_id:String(params[5]),text:String(params[6])});
-      if (sql.includes('INSERT INTO vk_message_outbox')) vkRows.set(String(params[0]),{message_key:String(params[0]),notification_key:String(params[1]),vk_user_id:String(params[6]),text:String(params[7]),status:'pending',retry_count:0});
+      if (sql.includes('INSERT INTO telegram_message_outbox')) telegramRows.set(String(params[0]),{message_key:String(params[0]),chat_id:String(params[5]),text:String(params[6]),reply_markup_json:params[7]});
+      if (sql.includes('INSERT INTO vk_message_outbox')) vkRows.set(String(params[0]),{message_key:String(params[0]),notification_key:String(params[1]),vk_user_id:String(params[6]),text:String(params[7]),action_path:params[8],status:'pending',retry_count:0});
       return {changes:1,lastID:null};
     }),
     get: vi.fn(async (sql: string, params: any[] = []) => {
@@ -51,6 +51,21 @@ describe('personal notification router',()=>{
   });
   it('queues durable VK delivery without Telegram duplication',async()=>{
     const {db,deliveries,telegramRows,vkRows}=makeDb({telegram:'111',vk:'222',preference:{preferred_channel:'vk',personal_enabled:1,updated_at:new Date().toISOString()}}); await queuePersonalNotification(db,{notificationKey:'result:42',playerId:'player-1',eventType:'game_result',text:'Игра завершена'}); expect(telegramRows.size).toBe(0); expect(vkRows.get('personal:result:42:vk')).toMatchObject({notification_key:'result:42',vk_user_id:'222'}); expect(deliveries.get('result:42')).toMatchObject({selected_channel:'vk',status:'pending_channel'});
+  });
+  it('routes a VK-only betting spectator once with a Player Cabinet action path',async()=>{
+    const {db,deliveries,telegramRows,vkRows}=makeDb({vk:'222'});
+    await queuePersonalNotification(db,{notificationKey:'betting-open:pool-1:player-1',playerId:'player-1',eventType:'betting_pool_opened',entityId:'pool-1',text:'Ставки открыты',actionPath:'/player',telegramReplyMarkup:{inline_keyboard:[[{text:'Сделать ставку',web_app:{url:'https://club.example/player'}}]]}});
+    expect(telegramRows.size).toBe(0);
+    expect(vkRows.size).toBe(1);
+    expect(vkRows.get('personal:betting-open:pool-1:player-1:vk')).toMatchObject({vk_user_id:'222',action_path:'/player'});
+    expect(deliveries.get('betting-open:pool-1:player-1')).toMatchObject({selected_channel:'vk',status:'pending_channel'});
+  });
+  it('preserves the Telegram WebApp button when Telegram is selected',async()=>{
+    const {db,telegramRows,vkRows}=makeDb({telegram:'111',vk:'222'});
+    const replyMarkup={inline_keyboard:[[{text:'🎲 Сделать ставку',web_app:{url:'https://club.example/player'}}]]};
+    await queuePersonalNotification(db,{notificationKey:'betting-open:pool-1:player-2',playerId:'player-2',eventType:'betting_pool_opened',text:'Ставки открыты',actionPath:'/player',telegramReplyMarkup:replyMarkup});
+    expect(vkRows.size).toBe(0);
+    expect(JSON.parse(String(telegramRows.get('betting-open:pool-1:player-2')?.reply_markup_json))).toEqual(replyMarkup);
   });
   it('does not route when personal notifications are disabled',async()=>{
     const {db,deliveries,telegramRows,vkRows}=makeDb({telegram:'111',vk:'222',preference:{preferred_channel:'auto',personal_enabled:0,updated_at:new Date().toISOString()}}); await queuePersonalNotification(db,{notificationKey:'summary:42',playerId:'player-1',eventType:'evening_summary',text:'Итоги'}); expect(telegramRows.size).toBe(0); expect(vkRows.size).toBe(0); expect(deliveries.get('summary:42')).toMatchObject({status:'disabled',selected_channel:null});

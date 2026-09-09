@@ -49,6 +49,15 @@ describe('personal notification router',()=>{
   it('queues exactly one Telegram delivery for an idempotency key',async()=>{
     const {db,deliveries,telegramRows,vkRows}=makeDb({telegram:'111',vk:'222'}); const input={notificationKey:'evening-invite:42',playerId:'player-1',eventType:'evening_invite',entityId:'42',text:'Приглашение',actionPath:'/player/events/evening-1'}; expect((await queuePersonalNotification(db,input)).created).toBe(true); expect((await queuePersonalNotification(db,input)).created).toBe(false); expect(deliveries.size).toBe(1); expect(telegramRows.size).toBe(1); expect(telegramRows.get('evening-invite:42')).toMatchObject({message_key:'evening-invite:42',chat_id:'111'}); expect(vkRows.size).toBe(0);
   });
+  it('re-materializes a missing selected-channel outbox row on an idempotent retry',async()=>{
+    const {db,deliveries,telegramRows}=makeDb({telegram:'111'});
+    const input={notificationKey:'recover:42',playerId:'player-1',eventType:'game_result',entityId:'42',text:'Игра завершена',actionPath:'/player/games/42'};
+    expect((await queuePersonalNotification(db,input)).created).toBe(true);
+    expect(deliveries.size).toBe(1);
+    telegramRows.clear();
+    expect((await queuePersonalNotification(db,input)).created).toBe(false);
+    expect(telegramRows.get('recover:42')).toMatchObject({message_key:'recover:42',chat_id:'111'});
+  });
   it('queues durable VK delivery without Telegram duplication',async()=>{
     const {db,deliveries,telegramRows,vkRows}=makeDb({telegram:'111',vk:'222',preference:{preferred_channel:'vk',personal_enabled:1,updated_at:new Date().toISOString()}}); await queuePersonalNotification(db,{notificationKey:'result:42',playerId:'player-1',eventType:'game_result',text:'Игра завершена'}); expect(telegramRows.size).toBe(0); expect(vkRows.get('personal:result:42:vk')).toMatchObject({notification_key:'result:42',vk_user_id:'222'}); expect(deliveries.get('result:42')).toMatchObject({selected_channel:'vk',status:'pending_channel'});
   });

@@ -81,7 +81,22 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
            CASE WHEN EXISTS (
              SELECT 1 FROM evening_fee_waivers w
               WHERE w.participant_id = ep.id AND w.evening_id = ep.evening_id
-           ) THEN 1 ELSE 0 END AS fee_waived
+           ) THEN 1 ELSE 0 END AS fee_waived,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM evening_fee_waiver_migration_diagnostics d
+              WHERE d.participant_id = ep.id AND d.evening_id = ep.evening_id
+                AND d.status = 'needs_review'
+           ) THEN 1 ELSE 0 END AS fee_review_required,
+           (
+             SELECT d.status FROM evening_fee_waiver_migration_diagnostics d
+              WHERE d.participant_id = ep.id AND d.evening_id = ep.evening_id
+              LIMIT 1
+           ) AS fee_review_status,
+           (
+             SELECT d.reason FROM evening_fee_waiver_migration_diagnostics d
+              WHERE d.participant_id = ep.id AND d.evening_id = ep.evening_id
+              LIMIT 1
+           ) AS fee_review_reason
       FROM evening_participants ep
       JOIN players p ON p.id = ep.player_id
      WHERE ep.evening_id = ?
@@ -100,6 +115,9 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
     participants: participants.map((participant: any) => ({
       ...participant,
       fee_waived: Boolean(participant.fee_waived),
+      fee_review_required: Boolean(participant.fee_review_required),
+      fee_review_status: participant.fee_review_status || null,
+      fee_review_reason: participant.fee_review_reason || null,
       amount_due: Number(participant.amount_due || 0),
       amount_paid: Number(participant.amount_paid || 0),
     })),
@@ -127,10 +145,6 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
 
     const requestedOrganizer = req.body?.organizer_player_id;
     if (requestedOrganizer === null) {
-      // Explicit null means the factual staff assignment is being removed, not
-      // replaced by a global-role fallback. Reconcile immediately so a former
-      // organizer who actually played becomes normally chargeable again unless an
-      // explicit evening_fee_waivers row still protects that participation.
       await db.run('DELETE FROM evening_staff_assignments WHERE evening_id = ?', [eveningId]);
       if (normalizeEveningFormat(evening.format) === 'CASUAL') {
         await reconcileRegularEveningPayments(db, eveningId);
@@ -158,9 +172,6 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
         updated_at = excluded.updated_at
     `, [eveningId, organizerPlayerId, now, now]);
 
-    // Changing the actual staff assignment is evening-specific factual evidence.
-    // Reconcile immediately so both the newly assigned person and the previous staff
-    // member have the correct regular-evening charge without relying on a later read.
     if (normalizeEveningFormat(evening.format) === 'CASUAL') {
       await reconcileRegularEveningPayments(db, eveningId);
     }
@@ -227,12 +238,9 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
             reason = excluded.reason,
             updated_at = excluded.updated_at
         `, [participantId, eveningId, String(req.body?.reason || '').trim() || null, now, now]);
-        // Explicit organizer resolution supersedes any migration review hold.
         await db.run('DELETE FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ? AND evening_id = ?', [participantId, eveningId]);
       } else {
         await db.run('DELETE FROM evening_fee_waivers WHERE participant_id = ? AND evening_id = ?', [participantId, eveningId]);
-        // A deliberate waiver removal resolves ambiguity in favour of normal factual
-        // charging; retain the durable diagnostic row as resolved audit evidence.
         await db.run(`
           UPDATE evening_fee_waiver_migration_diagnostics
              SET status = 'resolved_charge', updated_at = ?
@@ -266,11 +274,6 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
   }
 });
 
-// The legacy evening routes still accept a per-evening default price. For a
-// regular club evening that value is only a planning artifact, never the bill.
-// These guards run before eveningsRoutes and prevent that legacy default from
-// being copied into participant debt while the canonical played-game pricing
-// service remains the single source of truth.
 router.post('/:id/participants', requireOrganizerAuth, async (req, res, next) => {
   try {
     const db = req.db || (await getDb());

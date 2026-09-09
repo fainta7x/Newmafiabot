@@ -11,6 +11,7 @@ import { ensureEloSeedSchema } from './db/ensureEloSeedSchema.ts';
 import { ensureEveningSlotsSchema } from './db/ensureEveningSlotsSchema.ts';
 import { ensureInviteAudienceSchema } from './db/ensureInviteAudienceSchema.ts';
 import { ensureJudgeAuthoritySchema } from './db/ensureJudgeAuthoritySchema.ts';
+import { ensureLegacyRegularWaiverProtection } from './db/ensureLegacyRegularWaiverProtection.ts';
 import { ensureJudgeMusicSchema } from './db/ensureJudgeMusicSchema.ts';
 import { ensurePlayerBettingSchema } from './db/ensurePlayerBettingSchema.ts';
 import { ensurePlayerConnectionsSchema } from './db/ensurePlayerConnectionsSchema.ts';
@@ -52,6 +53,7 @@ import commerceAdminRoutes from './server/routes/commerceAdminRoutes.ts';
 import organizerBettingRoutes from './server/routes/organizerBettingRoutes.ts';
 import eveningsRoutes from './server/routes/eveningsRoutes.ts';
 import eveningAnnouncementRoutes from './server/routes/eveningAnnouncementRoutes.ts';
+import eveningPaymentReviewRoutes from './server/routes/eveningPaymentReviewRoutes.ts';
 import eveningStaffRoutes from './server/routes/eveningStaffRoutes.ts';
 import participantRoutes from './server/routes/participantRoutes.ts';
 import eloSeedAdminRoutes from './server/routes/eloSeedAdminRoutes.ts';
@@ -123,6 +125,9 @@ export async function createApp(customDb?: DatabaseWrapper) {
   // schema during startup so a fresh/legacy DB can serve CRM GETs immediately and
   // a PATCH can never mutate successfully only to fail while reading price_per_game.
   await ensureEveningSlotsSchema(db);
+  // Protect historical waived rows before the original CRM-PAY-003 migration can
+  // recalculate them. This must precede ensureClubOperationsSchema, which runs v1.
+  await ensureLegacyRegularWaiverProtection(db);
   await ensureClubOperationsSchema(db);
   await ensureCanonicalEveningParticipantState(db);
   await ensureJudgeMusicSchema(db);
@@ -201,6 +206,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/public', publicLiveRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/evenings', eveningAnnouncementRoutes);
+  app.use('/api/evenings', eveningPaymentReviewRoutes);
   app.use('/api/evenings', eveningStaffRoutes);
   app.use('/api/evenings', eveningsRoutes);
   app.use('/api/participant', participantRoutes);

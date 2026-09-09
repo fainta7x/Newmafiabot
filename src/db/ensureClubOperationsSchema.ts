@@ -221,6 +221,7 @@ async function migrateLegacyRegularWaiversForR2(db: DatabaseWrapper): Promise<vo
 async function reconcileHistoricalRegularEveningsWithMarker(
   db: DatabaseWrapper,
   migrationKey: string,
+  options: { resumeInterrupted?: boolean } = {},
 ): Promise<void> {
   await ensureApplicationMigrationHistory(db);
 
@@ -229,7 +230,7 @@ async function reconcileHistoricalRegularEveningsWithMarker(
     [migrationKey],
   );
   if (existing?.status === 'completed') return;
-  if (existing?.status === 'failed' || existing?.status === 'running') {
+  if ((existing?.status === 'failed' || existing?.status === 'running') && !options.resumeInterrupted) {
     const context = [
       `status=${String(existing.status)}`,
       `processed=${Number(existing.processed_count || 0)}/${Number(existing.total_count || 0)}`,
@@ -253,16 +254,33 @@ async function reconcileHistoricalRegularEveningsWithMarker(
     .map((row) => String(row.id));
   const startedAt = new Date().toISOString();
 
-  await db.run(`
-    INSERT INTO application_migration_history (
-      migration_key, status, started_at, total_count, processed_count, updated_at
-    ) VALUES (?, 'running', ?, ?, 0, ?)
-  `, [migrationKey, startedAt, casualIds.length, startedAt]);
-
-  const { reconcileRegularEveningPayments } = await import('../server/services/eveningPaymentPricingService.ts');
   let processed = 0;
   let lastEveningId: string | null = null;
-  for (const eveningId of casualIds) {
+  let remainingIds = casualIds;
+
+  if (existing && (existing.status === 'failed' || existing.status === 'running') && options.resumeInterrupted) {
+    const recordedLastId = existing.last_evening_id ? String(existing.last_evening_id) : null;
+    const recordedProcessed = Math.max(0, Number(existing.processed_count || 0));
+    const lastIndex = recordedLastId ? casualIds.indexOf(recordedLastId) : -1;
+    processed = lastIndex >= 0 ? lastIndex + 1 : Math.min(recordedProcessed, casualIds.length);
+    lastEveningId = processed > 0 ? casualIds[processed - 1] : null;
+    remainingIds = casualIds.slice(processed);
+    await db.run(`
+      UPDATE application_migration_history
+         SET status = 'running', total_count = ?, processed_count = ?, last_evening_id = ?,
+             failed_evening_id = NULL, error_message = NULL, completed_at = NULL, updated_at = ?
+       WHERE migration_key = ?
+    `, [casualIds.length, processed, lastEveningId, startedAt, migrationKey]);
+  } else {
+    await db.run(`
+      INSERT INTO application_migration_history (
+        migration_key, status, started_at, total_count, processed_count, updated_at
+      ) VALUES (?, 'running', ?, ?, 0, ?)
+    `, [migrationKey, startedAt, casualIds.length, startedAt]);
+  }
+
+  const { reconcileRegularEveningPayments } = await import('../server/services/eveningPaymentPricingService.ts');
+  for (const eveningId of remainingIds) {
     try {
       await reconcileRegularEveningPayments(db, eveningId);
       processed += 1;
@@ -284,8 +302,11 @@ async function reconcileHistoricalRegularEveningsWithMarker(
       console.error(
         `[CRM-PAY-003] Historical CASUAL reconciliation ${migrationKey} failed at evening ${eveningId} after ${processed}/${casualIds.length}: ${message}`,
       );
+      const retryHint = options.resumeInterrupted
+        ? 'The durable marker preserves progress and the next startup/retry will resume from the failed evening.'
+        : 'Automatic full rescan is blocked.';
       throw new Error(
-        `CRM-PAY-003 historical reconciliation ${migrationKey} failed at evening ${eveningId}; durable diagnostics were recorded and automatic full rescan is blocked. Cause: ${message}`,
+        `CRM-PAY-003 historical reconciliation ${migrationKey} failed at evening ${eveningId}; durable diagnostics were recorded. ${retryHint} Cause: ${message}`,
       );
     }
   }
@@ -305,7 +326,11 @@ export async function reconcileHistoricalRegularEveningsOnce(db: DatabaseWrapper
 
 export async function reconcileHistoricalRegularEveningsR2Once(db: DatabaseWrapper): Promise<void> {
   await migrateLegacyRegularWaiversForR2(db);
-  return reconcileHistoricalRegularEveningsWithMarker(db, CRM_PAY_003_R2_HISTORICAL_MIGRATION);
+  return reconcileHistoricalRegularEveningsWithMarker(
+    db,
+    CRM_PAY_003_R2_HISTORICAL_MIGRATION,
+    { resumeInterrupted: true },
+  );
 }
 
 export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<void> {
@@ -506,7 +531,8 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
 
   // v1 keeps its durable marker semantics. R2 first protects/migrates legacy waived
   // rows, then uses a separate one-time marker so deployments where v1 already
-  // completed are rescanned once using corrected evening-specific evidence.
+  // completed are rescanned once using corrected evening-specific evidence. R2 may
+  // resume safely from its last completed evening after an interrupted deployment.
   await reconcileHistoricalRegularEveningsOnce(db);
   await reconcileHistoricalRegularEveningsR2Once(db);
 

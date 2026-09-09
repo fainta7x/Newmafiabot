@@ -52,9 +52,9 @@ const browserBindingFor = (req: any, res: any) => {
   res.cookie(VK_PLAYER_OAUTH_BINDING_COOKIE, binding, {
     httpOnly: true,
     secure: isProduction(),
-    // VK can open the cabinet in an embedded cross-site WebView. Lax cookies
-    // may be withheld there, which makes the callback lose the browser binding.
-    sameSite: isProduction() ? 'none' : 'lax',
+    // OAuth returns through a top-level HTTPS GET, for which Lax is the narrowest
+    // cookie policy that still carries the browser-binding nonce back to the app.
+    sameSite: 'lax',
     path: '/',
     maxAge: VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS,
   });
@@ -83,7 +83,7 @@ router.post('/player/vk/start', async (req, res) => {
     logStart('start_ok', req, {
       return_to: result.return_to,
       callback_origin_matches: redirectUri.startsWith(String(process.env.PLAYER_APP_URL || process.env.PUBLIC_APP_URL || '').trim().replace(/\/$/, '')),
-      binding_cookie_mode: isProduction() ? 'none-secure' : 'lax-dev',
+      binding_cookie_mode: isProduction() ? 'lax-secure' : 'lax-dev',
     });
     return res.json(result);
   } catch (error: any) {

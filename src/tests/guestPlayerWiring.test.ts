@@ -14,9 +14,9 @@ const migration = read('../db/ensureGuestPlayerPlaceholderSchema.ts');
 describe('GUEST-PLAYER-001 wiring contract', () => {
   it('keeps quick guest creation on the placeholder API without contact/account fields', () => {
     expect(eveningUi).toContain('Гость без профиля');
-    expect(eveningUi).toContain("nickname: guestNickname.trim() || undefined");
+    expect(eveningUi).toContain("nickname: guestNickname.trim() || 'Гость'");
     expect(eveningUi).not.toContain('guestPhone');
-    expect(eveningUi).toContain('Профиль, рейтинг и жетоны не создаются');
+    expect(eveningUi).toContain('Профиль, рейтинг, жетоны и контакты игрока не создаются');
   });
 
   it('exposes explicit guest-to-registered-player correction and never recreates a guest from seat repair', () => {
@@ -25,7 +25,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayerId');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain("if (req.body?.guest) return res.status(400)");
-    expect(gamesRoute).toContain('if (replacement.changed && previousStatus === \'completed\')');
+    expect(gamesRoute).toContain("if (replacement.changed && previousStatus === 'completed')");
   });
 
   it('keeps unresolved guests outside player-level derived effects', () => {

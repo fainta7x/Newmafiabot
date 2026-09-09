@@ -137,12 +137,12 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
   const players = await db.all<any>(
     `SELECT id, nickname, COALESCE(elo_seed, ?) AS elo_seed
        FROM players
-      WHERE COALESCE(source, '') NOT IN ('quick_guest','legacy_guest_migrated')
+      WHERE COALESCE(source, '') != 'legacy_guest_migrated'
         AND COALESCE(lifecycle_status, 'normal') != 'archived'
       ORDER BY nickname COLLATE NOCASE, id`,
     [DEFAULT_ELO],
   );
-  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') IN ('quick_guest','legacy_guest_migrated')");
+  const guestPlayerRows = await db.all<any>("SELECT id FROM players WHERE COALESCE(source,'') = 'legacy_guest_migrated'");
   const guestPlayerIds = new Set(guestPlayerRows.map((player: any) => String(player.id)));
   const knownPlayerIds = new Set(players.map((player) => String(player.id)));
   const seedByPlayer = new Map<string, number>(players.map((player) => {
@@ -210,10 +210,10 @@ export async function rebuildCanonicalEloRatings(db: DatabaseWrapper): Promise<E
     if (!winner) throw new Error(`Canonical Elo cannot rate club game ${game.id}: winner is missing.`);
     const results = Array.isArray(payload.player_results) ? payload.player_results : [];
 
-    // A guest is intentionally not an Elo subject. Until an organizer explicitly
-    // resolves that seat to a registered player, the whole game is withheld from
-    // canonical Elo rather than inventing a rating identity. The explicit identity
-    // replacement triggers a rebuild and the game enters Elo exactly once then.
+    // A canonical placeholder is never an Elo subject. Until an organizer explicitly
+    // resolves that seat to a registered player, the whole game is withheld from Elo.
+    // Ambiguous quick_guest rows with external identity are intentionally not treated
+    // as placeholders until migration diagnostics are resolved.
     const guestSeat = results.some((result: any) => {
       const playerId = String(result?.player_id || '').trim();
       return Boolean(result?.guest_placeholder_id) || !playerId || guestPlayerIds.has(playerId);

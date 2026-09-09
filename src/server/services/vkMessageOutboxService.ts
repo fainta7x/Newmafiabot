@@ -80,24 +80,14 @@ export async function sendVkCommunityMessage(row: any, fetchImpl: typeof fetch =
     const actionPath = String(row.action_path).startsWith('/player') ? String(row.action_path) : '/player';
     body.set('message', `${String(row.text)}\n\n${baseUrl}${actionPath}`);
   }
-
   try {
-    const response = await fetchImpl('https://api.vk.com/method/messages.send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      body,
-    });
+    const response = await fetchImpl('https://api.vk.com/method/messages.send', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body });
     const payload: any = await response.json().catch(() => ({}));
     if (response.ok && payload?.response !== undefined && !payload?.error) return { ok: true };
     const code = Number(payload?.error?.error_code || 0);
     const permissionDenied = code === 901 || code === 902;
     const temporary = response.status === 429 || response.status >= 500 || [6, 9, 10, 29].includes(code);
-    return {
-      ok: false,
-      permissionDenied,
-      temporary: !permissionDenied && temporary,
-      error: `VK API ${code || response.status || 'error'}: ${String(payload?.error?.error_msg || 'delivery failed')}`.slice(0, 1000),
-    };
+    return { ok: false, permissionDenied, temporary: !permissionDenied && temporary, error: `VK API ${code || response.status || 'error'}: ${String(payload?.error?.error_msg || 'delivery failed')}`.slice(0, 1000) };
   } catch (error: any) {
     return { ok: false, temporary: true, error: String(error?.message || error).slice(0, 1000) };
   }
@@ -113,60 +103,27 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
     const attemptAt = nowIso();
     const result = await sendVkCommunityMessage(row, fetchImpl);
     if (result.ok) {
-      await db.run(`
-        UPDATE vk_message_outbox
-           SET status='sent', last_attempt_at=?, next_attempt_at=NULL, last_error=NULL,
-               failure_kind=NULL, sent_at=?, updated_at=?
-         WHERE message_key=? AND status <> 'sent'
-      `, [attemptAt, attemptAt, attemptAt, key]);
-      await db.run(`
-        UPDATE personal_notification_deliveries
-           SET status='queued', reason=NULL, updated_at=?
-         WHERE notification_key=? AND selected_channel='vk'
-      `, [attemptAt, String(row.notification_key)]);
+      await db.run(`UPDATE vk_message_outbox SET status='sent', last_attempt_at=?, next_attempt_at=NULL, last_error=NULL, failure_kind=NULL, sent_at=?, updated_at=? WHERE message_key=? AND status <> 'sent'`, [attemptAt, attemptAt, attemptAt, key]);
+      await db.run(`UPDATE personal_notification_deliveries SET status='queued', reason=NULL, updated_at=? WHERE notification_key=? AND selected_channel='vk'`, [attemptAt, String(row.notification_key)]);
       return { sent: 1, failed: 0 };
     }
-
     const nextRetry = Number(current.retry_count || 0) + 1;
     const canRetry = Boolean(result.temporary) && nextRetry < MAX_RETRIES;
     const storedRetries = canRetry ? nextRetry : MAX_RETRIES;
     const nextAttemptAt = canRetry ? new Date(Date.now() + retryDelayMs(nextRetry)).toISOString() : null;
-    const failureKind: Exclude<VkFailureKind, null> = result.permissionDenied
-      ? 'permission_denied'
-      : result.temporary ? 'temporary' : result.error?.includes('not configured') ? 'configuration' : 'permanent';
-    await db.run(`
-      UPDATE vk_message_outbox
-         SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=?
-       WHERE message_key=? AND status <> 'sent'
-    `, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
-    await db.run(`
-      UPDATE personal_notification_deliveries
-         SET status='pending_channel', reason=?, updated_at=?
-       WHERE notification_key=? AND selected_channel='vk'
-    `, [failureKind, attemptAt, String(row.notification_key)]);
+    const failureKind: Exclude<VkFailureKind, null> = result.permissionDenied ? 'permission_denied' : result.temporary ? 'temporary' : result.error?.includes('not configured') ? 'configuration' : 'permanent';
+    await db.run(`UPDATE vk_message_outbox SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=? WHERE message_key=? AND status <> 'sent'`, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
+    await db.run(`UPDATE personal_notification_deliveries SET status='pending_channel', reason=?, updated_at=? WHERE notification_key=? AND selected_channel='vk'`, [failureKind, attemptAt, String(row.notification_key)]);
     return { sent: 0, failed: 1 };
-  } finally {
-    keysInFlight.delete(key);
-  }
+  } finally { keysInFlight.delete(key); }
 }
 
-export async function drainVkMessageOutbox(
-  db: DatabaseWrapper,
-  options: { limit?: number; concurrency?: number; fetchImpl?: typeof fetch } = {},
-) {
+export async function drainVkMessageOutbox(db: DatabaseWrapper, options: { limit?: number; concurrency?: number; fetchImpl?: typeof fetch } = {}) {
   await ensureVkPersonalMessageSchema(db);
   const limit = Math.max(1, Math.min(100, Number(options.limit || 40)));
   const concurrency = Math.max(1, Math.min(10, Number(options.concurrency || 4)));
-  const rows = await db.all<any>(`
-    SELECT * FROM vk_message_outbox
-     WHERE status <> 'sent'
-       AND retry_count < ?
-       AND (next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now'))
-     ORDER BY created_at ASC
-     LIMIT ?
-  `, [MAX_RETRIES, limit]);
-  let sent = 0;
-  let failed = 0;
+  const rows = await db.all<any>(`SELECT * FROM vk_message_outbox WHERE status <> 'sent' AND retry_count < ? AND (next_attempt_at IS NULL OR datetime(next_attempt_at) <= datetime('now')) ORDER BY created_at ASC LIMIT ?`, [MAX_RETRIES, limit]);
+  let sent = 0, failed = 0;
   for (let offset = 0; offset < rows.length; offset += concurrency) {
     const results = await Promise.all(rows.slice(offset, offset + concurrency).map((row: any) => deliverOne(db, row, options.fetchImpl || fetch)));
     for (const result of results) { sent += result.sent; failed += result.failed; }
@@ -176,19 +133,11 @@ export async function drainVkMessageOutbox(
 
 export async function getVkPersonalDeliveryStatus(db: DatabaseWrapper, playerId: string) {
   await ensureVkPersonalMessageSchema(db);
-  const latestPermissionFailure = await db.get<any>(`
-    SELECT updated_at
-      FROM vk_message_outbox
-     WHERE player_id=? AND failure_kind='permission_denied'
-     ORDER BY datetime(updated_at) DESC LIMIT 1
-  `, [playerId]);
+  const latest = await db.get<any>(`SELECT status, failure_kind, updated_at FROM vk_message_outbox WHERE player_id=? ORDER BY datetime(updated_at) DESC LIMIT 1`, [playerId]);
+  const denied = latest?.status === 'failed' && latest?.failure_kind === 'permission_denied';
   return {
-    permission_granted: !latestPermissionFailure,
-    permission_problem: latestPermissionFailure ? {
-      code: 'vk_messages_unavailable',
-      message: 'Разрешите сообщения от сообщества 2LA Noire во ВКонтакте, чтобы получать личные уведомления.',
-      detected_at: latestPermissionFailure.updated_at || null,
-    } : null,
+    permission_granted: !denied,
+    permission_problem: denied ? { code: 'vk_messages_unavailable', message: 'Разрешите сообщения от сообщества 2LA Noire во ВКонтакте, чтобы получать личные уведомления.', detected_at: latest.updated_at || null } : null,
   };
 }
 
@@ -196,30 +145,19 @@ export async function getVkPersonalDeliveryDiagnostics(db: DatabaseWrapper) {
   await ensureVkPersonalMessageSchema(db);
   const rows = await db.all<any>(`
     SELECT o.player_id, p.nickname, o.updated_at, o.last_error
-      FROM vk_message_outbox o
- LEFT JOIN players p ON p.id=o.player_id
-     WHERE o.failure_kind='permission_denied'
-       AND o.status='failed'
-     ORDER BY datetime(o.updated_at) DESC
-     LIMIT 100
+      FROM vk_message_outbox o LEFT JOIN players p ON p.id=o.player_id
+     WHERE o.failure_kind='permission_denied' AND o.status='failed'
+       AND NOT EXISTS (SELECT 1 FROM vk_message_outbox newer WHERE newer.player_id=o.player_id AND datetime(newer.updated_at)>datetime(o.updated_at))
+     ORDER BY datetime(o.updated_at) DESC LIMIT 100
   `);
-  return rows.map((row: any) => ({
-    player_id: row.player_id || null,
-    nickname: row.nickname || 'Игрок',
-    status: 'permission_denied',
-    detected_at: row.updated_at || null,
-    error: row.last_error || null,
-  }));
+  return rows.map((row: any) => ({ player_id: row.player_id || null, nickname: row.nickname || 'Игрок', status: 'permission_denied', detected_at: row.updated_at || null, error: row.last_error || null }));
 }
 
 export function kickVkMessageOutbox(db: DatabaseWrapper) {
   if (drainInFlight) return;
   drainInFlight = true;
-  void drainVkMessageOutbox(db)
-    .catch((error) => console.error('[VK OUTBOX] Immediate drain failed:', error instanceof Error ? error.message : String(error)))
-    .finally(() => { drainInFlight = false; });
+  void drainVkMessageOutbox(db).catch((error) => console.error('[VK OUTBOX] Immediate drain failed:', error instanceof Error ? error.message : String(error))).finally(() => { drainInFlight = false; });
 }
-
 export function startVkMessageOutboxWorker(db: DatabaseWrapper) {
   if (workerTimer) return;
   kickVkMessageOutbox(db);

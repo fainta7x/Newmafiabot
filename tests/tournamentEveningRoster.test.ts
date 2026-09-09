@@ -103,7 +103,7 @@ describe('TOURNAMENT-EVENING-001 canonical roster ownership', () => {
     await prepareTournamentEveningSeating(db, id, 'test-organizer');
 
     await expect(cancelTournamentRegistration(db, id, 'p1')).rejects.toThrow('ROSTER_ALREADY_SEATED');
-    await expect(registerTournamentPlayer(db, id, 'p11')).resolves.toMatchObject({ status: 'reserve' });
+    await expect(registerTournamentPlayer(db, id, 'p11')).rejects.toThrow('ROSTER_ALREADY_SEATED');
 
     const before = await db.all<any>('SELECT player_id FROM tournament_participants WHERE tournament_id=? ORDER BY participant_number', [id]);
     const legacyMutation = await request(app)

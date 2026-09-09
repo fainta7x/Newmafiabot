@@ -91,7 +91,7 @@ describe('CRM-PAY-003-R2 evening staff assignment routes', () => {
     expect(remove.body.organizer).toBeNull();
 
     const assignment = await db.get<any>('SELECT evening_id FROM evening_staff_assignments WHERE evening_id = ?', ['staff-evening']);
-    expect(assignment).toBeUndefined();
+    expect(assignment).toBeNull();
     a = await db.get<any>('SELECT amount_due,payment_status FROM evening_participants WHERE id = ?', ['staff-participant-a']);
     b = await db.get<any>('SELECT amount_due,payment_status FROM evening_participants WHERE id = ?', ['staff-participant-b']);
     expect(a).toMatchObject({ amount_due: 100, payment_status: 'unpaid' });

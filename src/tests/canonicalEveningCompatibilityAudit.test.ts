@@ -31,7 +31,7 @@ describe('canonical evening compatibility audit', () => {
     expect(await db.get(`SELECT response_status,registration_status FROM evening_participants WHERE id='ep2'`)).toMatchObject({ response_status: 'declined', registration_status: 'confirmed' });
   });
 
-  it('shows a legacy confirmed evening in the current player payment API', async () => {
+  it('shows a legacy confirmed CASUAL evening without turning RSVP into debt', async () => {
     await db.run(`INSERT INTO players (id,nickname,lifecycle_status,created_at,updated_at) VALUES ('pay-player','Плательщик','normal',?,?)`, [now, now]);
     await db.run(`INSERT INTO game_evenings (id,title,starts_at,status,created_at,updated_at) VALUES ('pay-evening','Вечер оплаты',?,'published',?,?)`, [now, now, now]);
     await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('pay-participant','pay-evening','pay-player','unanswered','confirmed','pending','unknown','unpaid',100,0,?,?)`, [now, now]);
@@ -43,7 +43,13 @@ describe('canonical evening compatibility audit', () => {
 
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     expect(response.body.current).toEqual(expect.arrayContaining([
-      expect.objectContaining({ participant_id: 'pay-participant', payment_expected: true, outstanding: 100 }),
+      expect.objectContaining({
+        participant_id: 'pay-participant',
+        payment_expected: true,
+        amount_due: 0,
+        outstanding: 0,
+        payment_status: 'waived',
+      }),
     ]));
   });
 

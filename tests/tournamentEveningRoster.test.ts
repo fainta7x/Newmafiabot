@@ -62,7 +62,7 @@ describe('TOURNAMENT-EVENING-001 canonical roster ownership', () => {
       (id,tournament_id,player_id,display_name,participant_number)
       VALUES ('legacy-participant','legacy-draft','legacy-player','Legacy player',1)`);
 
-    await expect(organizerAddTournamentPlayer(db, 'legacy-draft', 'new-player', 'must not touch legacy')).rejects.toThrow('NOT_TOURNAMENT_EVENING');
+    await expect(organizerAddTournamentPlayer(db, 'legacy-draft', 'new-player', 'must not touch legacy', 'test-organizer')).rejects.toThrow('NOT_TOURNAMENT_EVENING');
 
     const participants = await db.all<any>('SELECT id,player_id,display_name,participant_number FROM tournament_participants WHERE tournament_id=?', ['legacy-draft']);
     expect(participants).toEqual([{ id: 'legacy-participant', player_id: 'legacy-player', display_name: 'Legacy player', participant_number: 1 }]);

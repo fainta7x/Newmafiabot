@@ -68,7 +68,7 @@ function makeLinkedDb(binding: string) {
     drizzle: {} as any,
     dbPath: ':memory:',
   } as unknown as DatabaseWrapper;
-  return { db, run, get };
+  return { db, run };
 }
 
 const makeApp = (db: DatabaseWrapper) => {
@@ -84,8 +84,8 @@ const makeApp = (db: DatabaseWrapper) => {
   return app;
 };
 
-const cookiePair = (setCookie: string | string[] | undefined, name: string) => {
-  const values = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+const cookiePair = (setCookie: unknown, name: string) => {
+  const values = Array.isArray(setCookie) ? setCookie.map(String) : setCookie ? [String(setCookie)] : [];
   const found = values.find((value) => value.startsWith(`${name}=`));
   return found ? found.split(';')[0] : null;
 };
@@ -120,7 +120,7 @@ describe('VK-ACCESS-003 production login', () => {
     expect(callback.headers.location).toBe('/player/rating?period=current');
     const playerCookie = cookiePair(callback.headers['set-cookie'], 'player_token');
     expect(playerCookie).toBeTruthy();
-    expect(String(callback.headers['set-cookie'])).toContain('SameSite=None');
+    expect(String(callback.headers['set-cookie'])).toContain('SameSite=Lax');
     expect(String(callback.headers['set-cookie'])).toContain('Secure');
 
     const me = await request(app).get('/api/auth/me').set('Cookie', playerCookie!);
@@ -129,7 +129,7 @@ describe('VK-ACCESS-003 production login', () => {
     expect(run.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO players'))).toBe(false);
   });
 
-  it('writes an embedded-WebView compatible binding cookie behind the production proxy', async () => {
+  it('writes a secure browser-binding cookie behind the production proxy', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('VK_APP_ID', '123456');
     vi.stubEnv('PLAYER_APP_URL', 'https://club.example');
@@ -150,7 +150,7 @@ describe('VK-ACCESS-003 production login', () => {
     expect(cookies).toContain('vk_player_oauth_binding=');
     expect(cookies).toContain('Path=/');
     expect(cookies).toContain('Secure');
-    expect(cookies).toContain('SameSite=None');
+    expect(cookies).toContain('SameSite=Lax');
     expect(new URL(response.body.authorize_url).searchParams.get('redirect_uri'))
       .toBe('https://club.example/api/integrations/vk/oauth/callback');
   });

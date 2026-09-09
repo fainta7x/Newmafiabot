@@ -293,7 +293,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const [tables, games, announcement] = await Promise.all([
       db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[String(req.params.id)]),
       db.all<any>('SELECT * FROM games WHERE evening_id=? ORDER BY global_game_number ASC',[String(req.params.id)]),
-      loadAnnouncementOverview(db, String(req.params.id)).catch((error) => { console.warn(`[CRM] Could not load announcement state for evening ${String(req.params.id)}:`, error); return null; }),
+      loadAnnouncementOverview(db, String(req.params.id)).catch((error) => {
+        console.warn('[CRM] Could not load announcement state for evening:', String(req.params.id), error);
+        return null;
+      }),
     ]);
     return res.json({...withCanonicalFormat(evening),registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count),tables,participants,games,announcement});
   } catch(err:any){return res.status(500).json({error:'Database error',message:err.message});}
@@ -335,12 +338,14 @@ router.post('/:id/participants', requireOrganizerAuth, async (req,res)=>{
 router.patch('/:id/participants/bulk', requireOrganizerAuth, async(req,res)=>{
   try {
     const updates=req.body?.updates;if(!Array.isArray(updates)||!updates.length)return res.status(400).json({error:'Список обновлений участников пуст или некорректен'});const db=req.db||(await getDb());await ensureEditable(db,String(req.params.id));
-    for(const item of updates){
-      if(!item?.id)continue;
-      const guest=await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id=? AND evening_id=?',[item.id,String(req.params.id)]);
-      if(guest){const explicit=item.response_status??(['going','late','thinking','declined','unanswered'].includes(String(item.registration_status))?item.registration_status:undefined);const fact=item.attendance_fact!==undefined?parseAttendanceFact(item.attendance_fact):legacyAttendancePatchToFact(guest,item.attendance_status,item.arrival_status);await updateGuestPlaceholder(db,String(item.id),{...item,response_status:explicit,attendance_fact:fact||undefined});continue;}
-      const current=await db.get<any>('SELECT * FROM evening_participants WHERE id=? AND evening_id=?',[item.id,String(req.params.id)]);if(!current)continue;if('table_id' in item)await assignParticipantToTable(db,item.id,item.table_id,undefined,String(req.params.id));const explicit=item.response_status??(['going','late','thinking','declined','unanswered'].includes(String(item.registration_status))?item.registration_status:undefined);if(explicit!==undefined)await setParticipantResponse(db,item.id,parseResponseStatus(explicit));const fact=item.attendance_fact!==undefined?parseAttendanceFact(item.attendance_fact):legacyAttendancePatchToFact(current,item.attendance_status,item.arrival_status);if(fact)await setParticipantAttendance(db,item.id,fact);const fields:string[]=[];const values:any[]=[];for(const key of ['payment_status','amount_due','amount_paid','notes'])if(item[key]!==undefined){fields.push(`${key}=?`);values.push(item[key]);}if(fields.length){fields.push('updated_at=?');values.push(new Date().toISOString(),item.id);await db.run(`UPDATE evening_participants SET ${fields.join(',')} WHERE id=?`,values);}
-    }
+    await db.transaction(async(tx)=>{
+      for(const item of updates){
+        if(!item?.id)continue;
+        const guest=await tx.get<any>('SELECT * FROM guest_player_placeholders WHERE id=? AND evening_id=?',[item.id,String(req.params.id)]);
+        if(guest){const explicit=item.response_status??(['going','late','thinking','declined','unanswered'].includes(String(item.registration_status))?item.registration_status:undefined);const fact=item.attendance_fact!==undefined?parseAttendanceFact(item.attendance_fact):legacyAttendancePatchToFact(guest,item.attendance_status,item.arrival_status);await updateGuestPlaceholder(tx,String(item.id),{...item,response_status:explicit,attendance_fact:fact||undefined});continue;}
+        const current=await tx.get<any>('SELECT * FROM evening_participants WHERE id=? AND evening_id=?',[item.id,String(req.params.id)]);if(!current)continue;if('table_id' in item)await assignParticipantToTable(tx,item.id,item.table_id,undefined,String(req.params.id));const explicit=item.response_status??(['going','late','thinking','declined','unanswered'].includes(String(item.registration_status))?item.registration_status:undefined);if(explicit!==undefined)await setParticipantResponse(tx,item.id,parseResponseStatus(explicit));const fact=item.attendance_fact!==undefined?parseAttendanceFact(item.attendance_fact):legacyAttendancePatchToFact(current,item.attendance_status,item.arrival_status);if(fact)await setParticipantAttendance(tx,item.id,fact);const fields:string[]=[];const values:any[]=[];for(const key of ['payment_status','amount_due','amount_paid','notes'])if(item[key]!==undefined){fields.push(`${key}=?`);values.push(item[key]);}if(fields.length){fields.push('updated_at=?');values.push(new Date().toISOString(),item.id);await tx.run(`UPDATE evening_participants SET ${fields.join(',')} WHERE id=?`,values);}
+      }
+    });
     await runCrmAutomations(db);return res.json({success:true,participants:await loadEveningParticipants(db,String(req.params.id))});
   }catch(err:any){return res.status(err.status||400).json({error:err.message||'Database transaction error'});}
 });

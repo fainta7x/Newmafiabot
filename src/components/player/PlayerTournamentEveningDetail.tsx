@@ -37,6 +37,14 @@ const paymentLabel = (state?: TournamentRegistration['payment_state']) => ({
   refunded: 'Возвращено',
 }[state || 'unpaid']);
 
+const lifecycleLabel = (lifecycle: string) => ({
+  registration_open: 'Регистрация открыта',
+  registration_closed: 'Регистрация закрыта',
+  active: 'Турнир идёт',
+  completed: 'Турнир завершён',
+  draft: 'Черновик',
+}[lifecycle] || lifecycle);
+
 const registrationLabel = (registration?: TournamentRegistration | null) => {
   if (!registration) return 'Вы ещё не записаны';
   if (registration.status === 'confirmed') return 'Вы в основном составе';
@@ -92,9 +100,10 @@ export default function PlayerTournamentEveningDetail({ tournamentId, onBack, on
   };
 
   const me = detail?.me || null;
+  const hasFee = Number(detail?.entry_fee_rub || 0) > 0;
   const canRegister = Boolean(detail && detail.lifecycle === 'registration_open' && (!me || ['cancelled', 'declined'].includes(me.status)));
   const canCancel = Boolean(detail && ['registration_open', 'registration_closed'].includes(detail.lifecycle) && me && ['confirmed', 'reserve'].includes(me.status));
-  const canReportPayment = Boolean(me && ['confirmed', 'reserve'].includes(me.status) && !['confirmed', 'waived', 'pending'].includes(me.payment_state || 'unpaid'));
+  const canReportPayment = Boolean(hasFee && me && ['confirmed', 'reserve'].includes(me.status) && !['confirmed', 'waived', 'pending'].includes(me.payment_state || 'unpaid'));
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -106,7 +115,10 @@ export default function PlayerTournamentEveningDetail({ tournamentId, onBack, on
 
         {detail ? <>
           <section className="mt-3 rounded-[28px] border border-violet-200/10 bg-gradient-to-br from-violet-400/[0.10] to-white/[0.035] p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-violet-100/55">Турнир</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-violet-100/55">Турнир</div>
+              <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] font-semibold text-white/60">{lifecycleLabel(detail.lifecycle)}</span>
+            </div>
             <h1 className="mt-2 text-2xl font-semibold leading-tight">{detail.title}</h1>
             <p className="mt-2 text-sm leading-5 text-white/50">{eventDate(detail.date)}</p>
             {detail.venue ? <p className="mt-1 text-sm text-white/45">📍 {detail.venue}</p> : null}
@@ -121,8 +133,8 @@ export default function PlayerTournamentEveningDetail({ tournamentId, onBack, on
             </div>
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
               <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Взнос</div>
-              <div className="mt-1 text-lg font-black">{Number(detail.entry_fee_rub || 0).toLocaleString('ru-RU')} ₽</div>
-              <div className="mt-1 text-xs text-white/40">Ручная проверка</div>
+              <div className="mt-1 text-lg font-black">{hasFee ? `${Number(detail.entry_fee_rub).toLocaleString('ru-RU')} ₽` : 'Бесплатно'}</div>
+              <div className="mt-1 text-xs text-white/40">{hasFee ? 'Ручная проверка' : 'Оплата не нужна'}</div>
             </div>
           </section>
 
@@ -141,15 +153,17 @@ export default function PlayerTournamentEveningDetail({ tournamentId, onBack, on
           <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-4">
             <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Моя регистрация</div>
             <div className="mt-1 text-lg font-semibold">{registrationLabel(me)}</div>
-            {me && ['confirmed', 'reserve'].includes(me.status) ? <div className="mt-3 rounded-xl bg-black/20 px-3 py-3">
+            {me && ['confirmed', 'reserve'].includes(me.status) && hasFee ? <div className="mt-3 rounded-xl bg-black/20 px-3 py-3">
               <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Взнос</div>
               <div className="mt-1 text-sm font-semibold">{paymentLabel(me.payment_state)}</div>
               {me.organizer_note ? <div className="mt-1 text-xs leading-5 text-white/45">Комментарий: {me.organizer_note}</div> : null}
             </div> : null}
+            {me && ['confirmed', 'reserve'].includes(me.status) && !hasFee ? <div className="mt-3 rounded-xl bg-emerald-200/[0.07] px-3 py-2 text-xs leading-5 text-emerald-50/70">Турнир без вступительного взноса — отмечать оплату не нужно.</div> : null}
 
+            {!canRegister && (!me || ['cancelled', 'declined'].includes(me.status)) && detail.lifecycle !== 'registration_open' ? <div className="mt-3 rounded-xl bg-white/[0.04] px-3 py-2 text-xs leading-5 text-white/45">{detail.lifecycle === 'registration_closed' ? 'Организатор закрыл регистрацию.' : detail.lifecycle === 'active' ? 'Турнир уже начался.' : detail.lifecycle === 'completed' ? 'Турнир уже завершён.' : 'Регистрация пока недоступна.'}</div> : null}
             {canRegister ? <button disabled={busy} type="button" onClick={() => void action('/register')} className="mt-3 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:opacity-50">{busy ? 'Сохраняем…' : detail.remaining_places > 0 ? 'Записаться на турнир' : 'Встать в резерв'}</button> : null}
             {canReportPayment ? <button disabled={busy} type="button" onClick={() => void action('/payment/report')} className="mt-2 min-h-12 w-full rounded-xl bg-emerald-100 text-sm font-semibold text-emerald-950 disabled:opacity-50">Я оплатил взнос</button> : null}
-            {me?.payment_state === 'pending' ? <div className="mt-2 rounded-xl bg-amber-200/[0.07] px-3 py-2 text-xs leading-5 text-amber-50/65">Отметка отправлена. Оплата станет подтверждённой только после проверки организатором.</div> : null}
+            {me?.payment_state === 'pending' && hasFee ? <div className="mt-2 rounded-xl bg-amber-200/[0.07] px-3 py-2 text-xs leading-5 text-amber-50/65">Отметка отправлена. Оплата станет подтверждённой только после проверки организатором.</div> : null}
             {canCancel ? <>
               <div className="mt-3 text-xs leading-5 text-white/35">При отмене место освободится. Если вы в основном составе, первый игрок резерва будет автоматически переведён в состав.</div>
               <button disabled={busy} type="button" onClick={() => void action('/cancel-registration')} className="mt-2 min-h-11 w-full rounded-xl border border-rose-300/15 bg-rose-300/[0.05] text-sm font-semibold text-rose-100/75 disabled:opacity-50">Отменить регистрацию</button>

@@ -21,8 +21,17 @@ router.get('/calendar', async (req,res) => {
       const plan=await loadEveningSlotPlan(db,String(row.id),playerId);
       events.push({...plan.event,slots:plan.slots.map((slot:any)=>({id:slot.id,slot_number:slot.slot_number,starts_at:slot.starts_at,ends_at:slot.ends_at,price:slot.price,registered_count:slot.registered_count,selected:slot.selected}))});
     }
-    const tournaments=await db.all("SELECT id, title, date AS starts_at, venue, stage, status, game_count FROM tournaments WHERE substr(date,1,10) >= ? AND substr(date,1,10) < ? AND status NOT IN ('completed','cancelled') ORDER BY date",[bounds.startDay,bounds.endDay]);
-    for(const item of tournaments){const x=await db.get('SELECT COUNT(*) AS count FROM tournament_participants WHERE tournament_id = ?',[item.id]);events.push({...item,event_type:'tournament',format:'TOURNAMENT',participant_count:Number(x?.count||0)});}
+    if(playerLevelAllowsEveningFormat(player.game_level,'TOURNAMENT')){
+      const tournaments=await db.all(`SELECT t.id,t.title,t.date AS starts_at,t.venue,t.stage,t.status,t.game_count,t.chief_judge_name,
+        t.entry_fee_rub,t.prize_fund_rub,t.prize_allocations_json,t.player_capacity,t.registration_closed_at
+        FROM tournaments t
+        WHERE substr(t.date,1,10) >= ? AND substr(t.date,1,10) < ? AND t.published_at IS NOT NULL AND t.status NOT IN ('completed','cancelled') ORDER BY t.date`,[bounds.startDay,bounds.endDay]);
+      for(const item of tournaments){
+        const x=await db.get("SELECT COUNT(*) AS count FROM tournament_registrations WHERE tournament_id = ? AND status='confirmed'",[item.id]);
+        const mine=await db.get("SELECT status,queue_order FROM tournament_registrations WHERE tournament_id=? AND player_id=? LIMIT 1",[item.id,playerId]);
+        events.push({...item,event_type:'tournament',format:'TOURNAMENT',badge:'Турнир',participant_count:Number(x?.count||0),player_capacity:Number(item.player_capacity||10),remaining_places:Math.max(0,10-Number(x?.count||0)),prize_allocations:JSON.parse(item.prize_allocations_json||'[]'),registration_status:mine?.status||null,reserve_position:mine?.status==='reserve'?Number(mine.queue_order||0):null,registration_open:!item.registration_closed_at});
+      }
+    }
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
     return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events});
   }catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить календарь'});}

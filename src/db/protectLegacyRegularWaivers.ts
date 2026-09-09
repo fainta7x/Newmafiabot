@@ -71,7 +71,7 @@ export async function protectLegacyRegularWaiversBeforePricingMigration(db: Data
         INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(participant_id) DO NOTHING
-      `, [participantId, eveningId, `Migrated legacy explicit waiver: ${notes}`, now, now]);
+      `, [participantId, eveningId, `Migrated pre-reconciliation explicit waiver: ${notes}`, now, now]);
       continue;
     }
 
@@ -83,7 +83,7 @@ export async function protectLegacyRegularWaiversBeforePricingMigration(db: Data
     `, [
       participantId,
       eveningId,
-      'Legacy waived participation is ambiguous and is held at zero debt until organizer review. No explicit fee-waiver evidence was reliably identified.',
+      'Legacy waived participation is ambiguous: explicit fee-waiver evidence was not reliably identifiable. Hold at zero debt until organizer review.',
       now,
       now,
     ]);

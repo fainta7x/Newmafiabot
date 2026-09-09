@@ -102,7 +102,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.response_status='going' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.response_status='going' AND gp.replaced_at IS NULL)) AS confirmed_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='attended' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.attendance_status='attended' AND gp.replaced_at IS NULL)) AS attended_count,
       ((SELECT COUNT(*) FROM evening_participants p WHERE p.evening_id=e.id AND p.attendance_status='no_show' AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COUNT(*) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.attendance_status='no_show' AND gp.replaced_at IS NULL)) AS no_show_count,
-      ((SELECT COALESCE(SUM(amount_paid),0) FROM evening_participants p WHERE p.evening_id=e.id AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COALESCE(SUM(amount_paid),0) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id)) AS total_revenue
+      ((SELECT COALESCE(SUM(amount_paid),0) FROM evening_participants p WHERE p.evening_id=e.id AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id)) + (SELECT COALESCE(SUM(amount_paid),0) FROM guest_player_placeholders gp WHERE gp.evening_id=e.id AND gp.replaced_at IS NULL)) AS total_revenue
       FROM game_evenings e ORDER BY e.starts_at DESC`);
     return res.json(rows.map(withCanonicalFormat));
   } catch (err:any) { return res.status(500).json({error:'Database error',message:err.message}); }
@@ -114,7 +114,18 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const evening=await db.get<any>('SELECT * FROM game_evenings WHERE id=?',[String(req.params.id)]);
     if(!evening) return res.status(404).json({error:'Игровой вечер не найден'});
     const participants = req.userRole === 'ORGANIZER' ? await loadEveningParticipants(db, String(req.params.id)) : [];
-    const registered_count = participants.filter((p:any) => ['going','late'].includes(String(p.response_status))).length || Number((await db.get<any>(`SELECT COUNT(*) AS cnt FROM evening_participants WHERE evening_id=? AND ${expectedSql}`,[String(req.params.id)]))?.cnt||0);
+    const registered_count = req.userRole === 'ORGANIZER'
+      ? participants.filter((p:any) => ['going','late'].includes(String(p.response_status))).length
+      : Number((await db.get<any>(`
+          SELECT (
+            (SELECT COUNT(*) FROM evening_participants p
+              WHERE p.evening_id=? AND p.response_status IN ('going','late')
+                AND NOT EXISTS (SELECT 1 FROM guest_player_placeholders gp WHERE gp.legacy_participant_id=p.id))
+            +
+            (SELECT COUNT(*) FROM guest_player_placeholders gp
+              WHERE gp.evening_id=? AND gp.response_status IN ('going','late') AND gp.replaced_at IS NULL)
+          ) AS cnt
+        `,[String(req.params.id),String(req.params.id)]))?.cnt||0);
     if(req.userRole!=='ORGANIZER') return res.json({id:evening.id,title:evening.title,starts_at:evening.starts_at,ends_at:evening.ends_at,venue:evening.venue,format:normalizeEveningFormat(evening.format),status:evening.status,capacity:evening.capacity,default_price:evening.default_price,registered_count,available_spots:Math.max(0,Number(evening.capacity||0)-registered_count)});
     const [tables, games, announcement] = await Promise.all([
       db.all<any>('SELECT * FROM evening_tables WHERE evening_id=? ORDER BY sort_order ASC,created_at ASC',[String(req.params.id)]),

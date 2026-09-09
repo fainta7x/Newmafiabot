@@ -58,6 +58,7 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
     expect(auth).toContain("router.post('/onboarding/existing'");
     expect(auth).toContain('completeVerifiedNewPlayerOnboarding');
     expect(auth).toContain('requestExistingPlayerOnboardingLink');
+    expect(auth).toContain("pending?.platform === 'vk' ? resolveTrustedPublicAppOrigin(req) : undefined");
   });
 
   it('does not change the legacy public VK evening-registration branch', () => {
@@ -69,5 +70,6 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
     expect(publicBranch).toContain('registerVkPlayer');
     expect(publicBranch).toContain('setVkSessionCookie');
     expect(publicBranch).toContain("res.cookie('vk_join_session'");
+    expect(publicBranch).toContain('resolveTrustedPublicAppOrigin(req)');
   });
 });

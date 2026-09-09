@@ -7,6 +7,7 @@ import { buildTrustedPublicAppUrl } from './publicAppOriginService.ts';
 
 const router = Router();
 export const VK_PLAYER_OAUTH_BINDING_COOKIE = 'vk_player_oauth_binding';
+export const VK_PLAYER_OAUTH_BINDING_PATH = '/api/integrations';
 const VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS = 30 * 60 * 1000;
 
 const isProduction = () => process.env.NODE_ENV === 'production';
@@ -65,7 +66,7 @@ const browserBindingFor = (req: any, res: any) => {
     // OAuth returns through a top-level HTTPS GET, for which Lax is the narrowest
     // cookie policy that still carries the browser-binding nonce back to the app.
     sameSite: 'lax',
-    path: '/',
+    path: VK_PLAYER_OAUTH_BINDING_PATH,
     maxAge: VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS,
   });
   return binding;

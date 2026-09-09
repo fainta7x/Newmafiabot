@@ -4,6 +4,7 @@ export async function ensureVkPersonalMessageSchema(db: DatabaseWrapper): Promis
   await db.exec(`
     CREATE TABLE IF NOT EXISTS vk_message_outbox (
       message_key TEXT PRIMARY KEY,
+      notification_key TEXT NOT NULL,
       category TEXT NOT NULL,
       event_type TEXT NOT NULL,
       entity_id TEXT,

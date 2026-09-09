@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, type Player } from '../../../lib/api.ts';
 
 type PrizeRow = { place: string; amount_rub: number };

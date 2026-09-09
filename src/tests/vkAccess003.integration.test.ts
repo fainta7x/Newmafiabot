@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -91,6 +92,7 @@ const cookiePair = (setCookie: string | string[] | undefined, name: string) => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -169,14 +171,14 @@ describe('VK-ACCESS-003 production login', () => {
   });
 
   it('keeps transient OAuth errors out of the next requested return path', () => {
-    const source = require('node:fs').readFileSync('src/components/player/VkPlayerAccess.tsx', 'utf8');
+    const source = fs.readFileSync('src/components/player/VkPlayerAccess.tsx', 'utf8');
     expect(source).toContain("['vk_error', 'vk_link_pending', 'vk_linked', 'vk_link_nickname']");
-    expect(source).toContain("url.searchParams.delete(key)");
+    expect(source).toContain('url.searchParams.delete(key)');
     expect(source).toContain("cache: 'no-store'");
   });
 
   it('keeps public vk_join_session isolated from canonical Player Cabinet authentication', () => {
-    const source = require('node:fs').readFileSync('src/server/services/vkJoinRegistrationCallbackRouter.ts', 'utf8');
+    const source = fs.readFileSync('src/server/services/vkJoinRegistrationCallbackRouter.ts', 'utf8');
     const playerStart = source.indexOf('// Full player-cabinet VK ID flow uses the canonical player session only.');
     const publicStart = source.indexOf('// Existing public evening-registration VK flow remains unchanged.');
     const playerBranch = source.slice(playerStart, publicStart);

@@ -195,6 +195,23 @@ Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - Schema: `drizzle/` and matching `src/db/ensure*.ts`.
 - Wrong result: trace persisted protocol -> calculation/service -> publication/UI; do not patch only the final number.
 
+### Tournament evening registration / reserve / payments
+
+`TOURNAMENT-EVENING-001` is an additive front door into the existing tournament domain, not a second tournament engine.
+
+- Organizer setup/share: `src/components/crm/tournaments/CreateTournamentEveningModal.tsx`, `TournamentEveningSettingsPanel.tsx`.
+- Organizer roster/payment queue: `src/components/crm/tournaments/TournamentParticipantsPanel.tsx`.
+- Player detail: `src/components/player/PlayerTournamentEveningDetail.tsx`; calendar integration: `PlayerEventsCalendar.tsx` + `src/server/routes/playerEventCalendarRoutes.ts`.
+- API: `src/server/routes/tournamentEveningRoutes.ts`.
+- Server-owned registration/reserve/payment truth: `src/server/services/tournamentEveningService.ts`.
+- Additive schema: `src/db/ensureTournamentEveningSchema.ts`.
+- Focused coverage: `tests/tournamentEvening.test.ts`.
+- Operator procedure: `docs/TOURNAMENT_EVENING_RUNBOOK.md`.
+
+Canonical invariants: capacity is exactly 10 excluding judge; reserve is FIFO unless an organizer performs an audited reorder; confirmed registrations synchronize into `tournament_participants` before seating; player payment reports are only pending claims until organizer confirmation; tournament fee/prize data never enters regular-evening CASUAL reconciliation, wallet tokens or betting; external personal notifications go through the channel-neutral router and select at most one Telegram/VK channel. The shared player link is `/player/events/<tournamentId>` and draft publication is always explicit.
+
+After registration/preparation, continue through the existing tournament seating, games, protocols, standings, compensation scoring, awards, three result outputs, image/publication, Elo/token settlement and backup/correction surfaces above. Historical tournaments, including `Турнир Богдана 1.08`, must not be rewritten to add registration metadata.
+
 ## Speech recording
 
 - API: `src/server/routes/playerSpeechRecordingRoutes.ts`.

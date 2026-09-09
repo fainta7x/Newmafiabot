@@ -14,6 +14,7 @@ export type PersonalNotificationInput = {
   entityId?: string | number | null;
   text: string;
   actionPath?: string | null;
+  telegramReplyMarkup?: Record<string, unknown> | null;
 };
 export type PersonalNotificationRouting = {
   preferred_channel: PersonalNotificationPreference;
@@ -29,7 +30,8 @@ const normalizePreference = (value: unknown): PersonalNotificationPreference => 
   const normalized = String(value || 'auto').trim().toLowerCase();
   return normalized === 'telegram' || normalized === 'vk' ? normalized : 'auto';
 };
-const telegramTextWithAction = (text: string, actionPath?: string | null) => {
+const telegramTextWithAction = (text: string, actionPath?: string | null, hasReplyMarkup = false) => {
+  if (hasReplyMarkup) return text;
   const baseUrl = playerAppBaseUrl();
   const path = String(actionPath || '').trim();
   if (!baseUrl || !path.startsWith('/player')) return text;
@@ -153,15 +155,14 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
 
   if (selectedChannel === 'telegram' && routing.channel_target) {
     await enqueueTelegramMessage(db, {
-      // Preserve the canonical notification key as the Telegram outbox key so
-      // pre-router producers and retries remain idempotent across the migration.
       messageKey: notificationKey,
       category: 'personal',
       eventType,
       entityId: input.entityId,
       playerId,
       chatId: routing.channel_target,
-      text: telegramTextWithAction(text, input.actionPath),
+      text: telegramTextWithAction(text, input.actionPath, Boolean(input.telegramReplyMarkup)),
+      replyMarkup: input.telegramReplyMarkup || null,
     });
     kickTelegramMessageOutbox(db);
   } else if (selectedChannel === 'vk' && routing.channel_target) {

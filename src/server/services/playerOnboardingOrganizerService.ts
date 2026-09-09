@@ -2,15 +2,16 @@ import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePlayerOnboardingSchema } from '../../db/ensurePlayerOnboardingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
-import type { VerifiedOnboardingPlatform } from './playerOnboardingService.ts';
+
+export type OrganizerOnboardingPlatform = 'telegram' | 'vk';
 
 const organizerOnboardingError = (code: string, message: string, statusCode = 400) => Object.assign(new Error(message), { code, statusCode });
 
-const channelLabel = (platform: VerifiedOnboardingPlatform) => platform === 'telegram' ? 'Telegram' : 'VK';
+const channelLabel = (platform: OrganizerOnboardingPlatform) => platform === 'telegram' ? 'Telegram' : 'VK';
 
 export async function recordNewPlayerOnboardingNotification(
   db: DatabaseWrapper,
-  input: { playerId: string; nickname: string; platform: VerifiedOnboardingPlatform },
+  input: { playerId: string; nickname: string; platform: OrganizerOnboardingPlatform },
 ) {
   const now = new Date().toISOString();
   const automationKey = `verified-onboarding:new-player:${input.playerId}`;
@@ -45,7 +46,7 @@ export async function recordNewPlayerOnboardingNotification(
 
 export type PendingPlayerOnboardingLink = {
   id: string;
-  platform: VerifiedOnboardingPlatform;
+  platform: OrganizerOnboardingPlatform;
   target_player_id: string;
   nickname: string;
   created_at: string;
@@ -63,7 +64,7 @@ export async function listPendingPlayerOnboardingLinks(db: DatabaseWrapper): Pro
   `);
   return rows.map((row: any) => ({
     id: String(row.id),
-    platform: String(row.platform) as VerifiedOnboardingPlatform,
+    platform: String(row.platform) as OrganizerOnboardingPlatform,
     target_player_id: String(row.target_player_id),
     nickname: String(row.nickname),
     created_at: String(row.created_at),
@@ -105,7 +106,7 @@ export async function resolvePendingPlayerOnboardingLink(
       return { status: 'rejected' as const, requestId, playerId: String(row.target_player_id), changed: true };
     }
 
-    const platform = String(row.platform) as VerifiedOnboardingPlatform;
+    const platform = String(row.platform) as OrganizerOnboardingPlatform;
     const externalUserId = String(row.external_user_id);
     const targetPlayerId = String(row.target_player_id);
     const target = await tx.get<{ id: string; telegram_user_id: string | null }>(

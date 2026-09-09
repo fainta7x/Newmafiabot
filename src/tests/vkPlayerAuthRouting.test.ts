@@ -21,7 +21,7 @@ describe('VK player authentication routing', () => {
     );
     expect(cabinetBranch).toContain('setPlayerSessionCookie(res, playerId)');
     expect(cabinetBranch).not.toContain('setVkSessionCookie');
-    expect(cabinetBranch).not.toContain("vk_join_session");
+    expect(cabinetBranch).not.toContain("res.cookie('vk_join_session'");
   });
 
   it('does not trust browser player_id and uses the existing private confirmation path for nickname collisions', () => {

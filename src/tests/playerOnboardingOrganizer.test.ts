@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe('VK-ACCESS-004 organizer visibility', () => {
-  it('emits one factual organizer notification for a genuinely new verified player', async () => {
+  it('emits one factual organizer task to classify a genuinely new verified player', async () => {
     const db = makeDb();
     const started = await beginVerifiedPlayerOnboarding(db, {
       platform: 'telegram', externalUserId: '501', displayName: 'Новый участник',
@@ -41,7 +41,7 @@ describe('VK-ACCESS-004 organizer visibility', () => {
       [`verified-onboarding:new-player:${first.playerId}`],
     );
     expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('Новый игрок: Организатор видит');
+    expect(tasks[0].title).toBe('Определить игровой уровень: Организатор видит');
     expect(tasks[0].description).toContain('Telegram');
     expect(tasks[0].description).not.toContain('501');
   });

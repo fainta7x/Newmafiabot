@@ -10,14 +10,21 @@ afterEach(() => {
 });
 
 describe('Telegram invite audience by player level', () => {
-  it('routes novices only to novice evenings', () => {
+  it('keeps an unassessed player on safe novice and casual formats only', () => {
+    expect(playerLevelAllowsEveningFormat('unrated', 'NOVICE')).toBe(true);
+    expect(playerLevelAllowsEveningFormat('unrated', 'CASUAL')).toBe(true);
+    expect(playerLevelAllowsEveningFormat('unrated', 'RATING')).toBe(false);
+    expect(playerLevelAllowsEveningFormat('unrated', 'TOURNAMENT')).toBe(false);
+  });
+
+  it('routes actual novices only to novice evenings', () => {
     expect(playerLevelAllowsEveningFormat('novice', 'NOVICE')).toBe(true);
     expect(playerLevelAllowsEveningFormat('novice', 'CASUAL')).toBe(false);
     expect(playerLevelAllowsEveningFormat('novice', 'RATING')).toBe(false);
     expect(playerLevelAllowsEveningFormat('novice', 'TOURNAMENT')).toBe(false);
   });
 
-  it('keeps club players out of rating and tournament invitations', () => {
+  it('keeps experienced regular players out of rating and tournament invitations', () => {
     expect(playerLevelAllowsEveningFormat('club', 'NOVICE')).toBe(true);
     expect(playerLevelAllowsEveningFormat('club', 'CASUAL')).toBe(true);
     expect(playerLevelAllowsEveningFormat('club', 'RATING')).toBe(false);
@@ -31,16 +38,16 @@ describe('Telegram invite audience by player level', () => {
     expect(playerLevelAllowsEveningFormat('tournament', 'TOURNAMENT')).toBe(true);
   });
 
-  it('forces future organizer-created CRM players onto the novice path', async () => {
+  it('leaves future organizer-created CRM players unassessed instead of calling them novices', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureInviteAudienceSchema(db);
     const now = new Date().toISOString();
     await db.run(
       `INSERT INTO players (id, nickname, contact_status, lifecycle_status, source, elo, tokens, created_at, updated_at)
        VALUES (?, ?, 'normal', 'normal', 'crm_manual', 1000, 0, ?, ?)`,
-      ['manual-novice-test', 'Новый вручную', now, now],
+      ['manual-unrated-test', 'Новый вручную', now, now],
     );
-    const player = await db.get<{ game_level: string }>('SELECT game_level FROM players WHERE id = ?', ['manual-novice-test']);
-    expect(player?.game_level).toBe('novice');
+    const player = await db.get<{ game_level: string }>('SELECT game_level FROM players WHERE id = ?', ['manual-unrated-test']);
+    expect(player?.game_level).toBe('unrated');
   });
 });

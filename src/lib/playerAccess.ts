@@ -1,10 +1,11 @@
-export type GameLevel = 'novice' | 'club' | 'tournament';
+export type GameLevel = 'unrated' | 'novice' | 'club' | 'tournament';
 export type ClubRole = 'guest' | 'member' | 'team' | 'organizer';
 export type JudgeLevel = 'none' | 'trainee' | 'host' | 'judge';
 
 export const GAME_LEVELS: Array<{ value: GameLevel; label: string; hint: string }> = [
-  { value: 'novice', label: 'Новичок', hint: 'Школа и новичковые игры' },
-  { value: 'club', label: 'Игрок клуба', hint: 'Обычные клубные игры' },
+  { value: 'unrated', label: 'Не определён', hint: 'Уровень игры ещё не оценён организатором' },
+  { value: 'novice', label: 'Новичок', hint: 'Начальный уровень · новичковые игры' },
+  { value: 'club', label: 'Опытный игрок', hint: 'Регулярные клубные игры' },
   { value: 'tournament', label: 'Турнирный игрок', hint: 'Рейтинговые игры и турниры' },
 ];
 
@@ -22,7 +23,8 @@ export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: strin
   { value: 'judge', label: 'Судья', hint: 'Полные судейские полномочия' },
 ];
 
-export const normalizeGameLevel = (value: unknown): GameLevel => value === 'novice' || value === 'tournament' ? value : 'club';
+export const normalizeGameLevel = (value: unknown): GameLevel =>
+  value === 'unrated' || value === 'novice' || value === 'tournament' ? value : 'club';
 export const normalizeClubRole = (value: unknown): ClubRole => value === 'guest' || value === 'team' || value === 'organizer' ? value : 'member';
 export const normalizeJudgeLevel = (value: unknown): JudgeLevel => value === 'trainee' || value === 'host' || value === 'judge' ? value : 'none';
 

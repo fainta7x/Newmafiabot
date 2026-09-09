@@ -54,7 +54,7 @@ const selectPlayer = async (db: DatabaseWrapper, playerId: string): Promise<Regi
     full_name: player.full_name ?? null,
     telegram_user_id: player.telegram_user_id == null ? null : String(player.telegram_user_id),
     telegram_username: player.telegram_username ?? null,
-    game_level: String(player.game_level || 'novice'),
+    game_level: String(player.game_level || 'unrated'),
     judge_level: String(player.judge_level || 'none'),
     elo: Number(player.elo || 1000),
     elo_seed: Number(player.elo_seed || 1000),
@@ -143,7 +143,7 @@ export async function registerVerifiedPlayerIdentity(
         phone, contact_status, lifecycle_status, source, notes,
         game_level, judge_level, elo, elo_seed, elo_seed_reason, elo_seed_set_at,
         tokens, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'novice', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, NULL, 'normal', 'normal', ?, NULL, 'unrated', 'none', 1000, 1000, ?, ?, 0, ?, ?)`,
       [playerId, telegramUserId, nickname, fullName, telegramUsername, source, 'Новый игрок', now, now, now],
     );
 

@@ -14,6 +14,8 @@ type Registration = {
   payment_state: PaymentState;
   payment_note?: string | null;
   organizer_note?: string | null;
+  reported_amount_rub?: number | null;
+  confirmed_amount_rub?: number | null;
 };
 
 type TournamentDetail = {
@@ -55,6 +57,7 @@ const paymentLabels: Record<PaymentState, string> = {
   waived: 'Без взноса',
   refunded: 'Возврат',
 };
+const organizerPaymentStates: PaymentState[] = ['unpaid', 'confirmed', 'rejected', 'waived', 'refunded'];
 
 export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onChanged }) => {
   const [detail, setDetail] = useState<TournamentDetail | null>(null);
@@ -146,8 +149,37 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
     }, 'Порядок резерва сохранён.');
   };
 
-  const updatePayment = async (playerId: string, state: PaymentState) => {
-    await mutate(`payment:${playerId}`, `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}/payment`, 'POST', { state }, `Статус оплаты: ${paymentLabels[state]}.`);
+  const updatePayment = async (row: Registration, state: PaymentState) => {
+    if (state === 'pending') return;
+    const payload: { state: PaymentState; amount_rub?: number; note?: string } = { state };
+    if (state === 'confirmed' || state === 'refunded') {
+      const defaultAmount = state === 'confirmed'
+        ? row.reported_amount_rub ?? row.confirmed_amount_rub ?? detail?.entry_fee_rub ?? 0
+        : row.confirmed_amount_rub ?? row.reported_amount_rub ?? 0;
+      const rawAmount = window.prompt(
+        state === 'confirmed' ? 'Фактически подтверждённая сумма, ₽' : 'Сумма возврата, ₽',
+        String(defaultAmount),
+      );
+      if (rawAmount === null) return;
+      const amount = Number(rawAmount);
+      if (!Number.isInteger(amount) || amount < 0) {
+        setError('Сумма должна быть неотрицательным целым числом рублей.');
+        return;
+      }
+      const note = window.prompt('Комментарий / причина изменения суммы', row.organizer_note || '');
+      if (note === null) return;
+      if (!note.trim()) {
+        setError('Для изменения подтверждённой суммы укажите комментарий.');
+        return;
+      }
+      payload.amount_rub = amount;
+      payload.note = note.trim();
+    } else {
+      const note = window.prompt('Комментарий организатора (необязательно)', row.organizer_note || '');
+      if (note === null) return;
+      if (note.trim()) payload.note = note.trim();
+    }
+    await mutate(`payment:${row.player_id}`, `/api/tournaments/evenings/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(row.player_id)}/payment`, 'POST', payload, `Статус оплаты: ${paymentLabels[state]}.`);
   };
 
   const moveReserve = (index: number, direction: -1 | 1) => {
@@ -209,12 +241,13 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">{index + 1}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold text-text-primary">{row?.nickname || 'Свободное место'}</div>
-                {row ? <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}</div> : null}
+                {row ? <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}{row.reported_amount_rub != null ? ` · заявлено ${row.reported_amount_rub} ₽` : ''}{row.confirmed_amount_rub != null ? ` · подтверждено ${row.confirmed_amount_rub} ₽` : ''}</div> : null}
               </div>
               {row ? (
                 <>
-                  <select value={row.payment_state || 'unpaid'} disabled={!!busyKey} onChange={(event) => void updatePayment(row.player_id, event.target.value as PaymentState)} className="max-w-[145px] rounded-lg border border-border-soft bg-surface-1 px-2 py-1.5 text-[10px] text-text-primary">
-                    {Object.entries(paymentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  <select value={row.payment_state || 'unpaid'} disabled={!!busyKey} onChange={(event) => void updatePayment(row, event.target.value as PaymentState)} className="max-w-[145px] rounded-lg border border-border-soft bg-surface-1 px-2 py-1.5 text-[10px] text-text-primary">
+                    {row.payment_state === 'pending' ? <option value="pending" disabled>{paymentLabels.pending}</option> : null}
+                    {organizerPaymentStates.map((value) => <option key={value} value={value}>{paymentLabels[value]}</option>)}
                   </select>
                   {!locked ? <button type="button" disabled={!!busyKey} onClick={() => void removePlayer(row.player_id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-danger hover:bg-danger-soft" aria-label={`Снять ${row.nickname}`}><X className="h-4 w-4" /></button> : null}
                 </>
@@ -234,7 +267,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-1 text-[11px] font-black text-text-muted">R{index + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[12px] font-bold text-text-primary">{row.nickname}</div>
-              <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}</div>
+              <div className="text-[10px] text-text-muted">{paymentLabels[row.payment_state || 'unpaid']}{row.reported_amount_rub != null ? ` · ${row.reported_amount_rub} ₽ заявлено` : ''}</div>
             </div>
             {!locked ? (
               <div className="flex shrink-0 items-center gap-1">
@@ -251,7 +284,7 @@ export const TournamentParticipantsPanel: React.FC<Props> = ({ tournamentId, onC
       {detail && detail.confirmed.length ? (
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-[10px] leading-4 text-text-muted">
           <div className="flex items-center gap-2 font-black uppercase tracking-wide text-text-primary"><CreditCard className="h-3.5 w-3.5" /> Оплаты</div>
-          <div className="mt-1">Взнос: {detail.entry_fee_rub || 0} ₽ · заявлено к проверке: {payment?.reported_rub || 0} ₽ · не закрыто оплат: {payment?.unpaid_count || 0}</div>
+          <div className="mt-1">Взнос: {detail.entry_fee_rub || 0} ₽ · заявлено к проверке: {payment?.reported_rub || 0} ₽ · подтверждено: {payment?.confirmed_rub || 0} ₽ · не закрыто оплат: {payment?.unpaid_count || 0}</div>
         </div>
       ) : null}
     </section>

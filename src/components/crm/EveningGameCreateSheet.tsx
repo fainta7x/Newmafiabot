@@ -61,7 +61,6 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const [query, setQuery] = useState('');
   const [manualPlayerQuery, setManualPlayerQuery] = useState('');
   const [guestNickname, setGuestNickname] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
   const [addingParticipant, setAddingParticipant] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,12 +97,14 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const linkedJudgePlayerId = judgeMode === 'linked' ? String(judgePlayerId || '') : '';
   const eligible = useMemo(() => sortEveningRotationCandidates(
     roster
-      .filter((participant) => isEveningGameEligible(participant) && (!linkedJudgePlayerId || String(participant.player_id) !== linkedJudgePlayerId))
+      .filter((participant) => isEveningGameEligible(participant) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId))
       .map((participant) => ({ ...participant, play_count: playCounts.get(participant.id) || 0 })),
     previousRotationGame,
   ), [roster, playCounts, previousRotationGame, linkedJudgePlayerId]);
   const byId = useMemo(() => new Map(roster.map((participant) => [participant.id, participant])), [roster]);
-  const byPlayerId = useMemo(() => new Map(roster.map((participant) => [String(participant.player_id), participant])), [roster]);
+  const byPlayerId = useMemo(() => new Map(
+    roster.filter((participant) => String(participant.player_id || '').trim()).map((participant) => [String(participant.player_id), participant]),
+  ), [roster]);
   const eligibleIds = useMemo(() => new Set(eligible.map((participant) => participant.id)), [eligible]);
   const judgePlayers = useMemo(() => crmPlayers
     .filter((player) => playerCanJudgeFormat(player, evening.format))
@@ -165,13 +166,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     if (!playerId) return;
     setSeats((previous) => previous.map((participantId) => {
       const participant = participantId ? byId.get(participantId) : null;
-      return participant && String(participant.player_id) === String(playerId) ? '' : participantId;
+      return participant && String(participant.player_id || '') === String(playerId) ? '' : participantId;
     }));
   };
 
   const toggle = (participantId: string) => {
     const participant = byId.get(participantId);
-    if (linkedJudgePlayerId && participant && String(participant.player_id) === linkedJudgePlayerId) {
+    if (linkedJudgePlayerId && participant && String(participant.player_id || '') === linkedJudgePlayerId) {
       setError('Судья этой игры не может одновременно быть игроком.');
       return;
     }
@@ -211,20 +212,17 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   };
 
   const addGuest = async () => {
-    const nickname = guestNickname.trim();
-    if (!nickname || addingParticipant) return;
+    if (addingParticipant) return;
     setAddingParticipant(true);
     setError(null);
     try {
       const added = await api.addParticipant(evening.id, {
-        nickname,
-        phone: guestPhone.trim() || undefined,
+        nickname: guestNickname.trim() || 'Гость',
         response_status: 'unanswered',
         amount_due: evening.default_price,
       });
       selectNewParticipant(added);
       setGuestNickname('');
-      setGuestPhone('');
     } catch (err: any) {
       setError(err?.message || 'Не удалось добавить гостя');
     } finally {
@@ -297,13 +295,13 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
     <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="flex max-h-[100dvh] w-full min-w-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[24px] border border-border-soft bg-surface-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-text-primary sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:pb-4">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и 10 игроков. Добавленного здесь игрока считаем фактически пришедшим при создании игры.</p></div>
+          <div className="min-w-0 flex-1"><h3 className="text-[18px] font-black">Новая игра</h3><p className="mt-0.5 text-[11px] text-text-secondary">Выбери площадку, ведущего и 10 участников. Добавленного здесь участника считаем фактически пришедшим при создании игры.</p></div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-text-muted hover:text-text-primary"><X className="h-4 w-4" /></button>
         </div>
 
         {error ? <div className="flex items-start gap-2 rounded-[12px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[11px] text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
         {!eveningCanStart ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Сначала опубликуй вечер. Игры создаются только внутри опубликованного или уже активного вечера.</span></div> : null}
-        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Для игры пока не хватает {missingPresent} {missingPresent === 1 ? 'доступного игрока' : 'доступных игроков'}. Можно прямо здесь добавить игрока клуба или гостя.</span></div> : null}
+        {eveningCanStart && missingPresent > 0 ? <div className="flex items-start gap-2 rounded-[12px] border border-warning/25 bg-warning-soft px-3 py-2.5 text-[11px] text-warning"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>Для игры пока не хватает {missingPresent} {missingPresent === 1 ? 'доступного участника' : 'доступных участников'}. Можно прямо здесь добавить игрока клуба или гостя-заглушку.</span></div> : null}
 
         <label className="text-[10px] font-black uppercase text-text-muted">Стол · необязательно<select value={selectedTableId} onChange={(event) => changeTable(event.target.value)} className="mt-1 min-h-[44px] w-full rounded-[12px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary"><option value="">Без указания</option>{tables.map((table) => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
 
@@ -331,12 +329,12 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
                 return <button key={player.id} type="button" disabled={addingParticipant} onClick={() => addKnownPlayer(player)} className="flex min-h-11 items-center gap-2 rounded-[11px] border border-border-soft bg-surface-1 px-2.5 text-left disabled:opacity-50"><PlayerAvatar nickname={player.nickname} playerId={player.id} forceStoredLookup size="sm" /><span className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{player.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{existing ? 'Уже на вечере · сделать доступным для игры' : 'Добавить на вечер и в игру'}</span></span></button>;
               })}</div> : manualPlayerQuery.trim() ? <div className="text-[9px] text-text-muted">Подходящих игроков вне доступного состава не найдено.</div> : null}
             </div>
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-black uppercase tracking-wide text-text-muted">Незарегистрированный гость</div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_0.8fr_auto]">
-                <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник гостя" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-1 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
-                <input value={guestPhone} onChange={(event) => setGuestPhone(event.target.value)} placeholder="Телефон · необязательно" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-1 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
-                <button type="button" disabled={!guestNickname.trim() || addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить</button>
+            <div className="space-y-1.5 rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
+              <div className="text-[9px] font-black uppercase tracking-wide text-text-muted">Гость без профиля</div>
+              <p className="text-[9px] leading-4 text-text-muted">Создаётся только заглушка участия в этом вечере. Профиль, рейтинг, жетоны и контакты игрока не создаются.</p>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[1fr_auto]">
+                <input value={guestNickname} onChange={(event) => setGuestNickname(event.target.value)} placeholder="Имя / ник · можно оставить пустым" className="min-h-11 rounded-[11px] border border-border-soft bg-surface-2 px-3 text-[12px] text-text-primary outline-none placeholder:text-text-muted" />
+                <button type="button" disabled={addingParticipant} onClick={addGuest} className="min-h-11 rounded-[11px] bg-accent px-4 text-[10px] font-black text-white disabled:opacity-35">Добавить гостя</button>
               </div>
             </div>
           </div>
@@ -347,7 +345,8 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
           <div className="grid grid-cols-5 gap-1.5">
             {seats.map((participantId, index) => {
               const participant = participantId ? byId.get(participantId) : null;
-              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[8px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[9px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span></button>;
+              const isGuest = Boolean(participant && ((participant as any).is_guest || !String(participant.player_id || '').trim()));
+              return <button key={index} type="button" onClick={() => participantId && clearSeat(index)} className={`min-h-[52px] min-w-0 rounded-[11px] border p-1.5 text-center ${participant ? 'border-accent/40 bg-accent-soft' : 'border-border-soft bg-surface-1'}`}><span className="block text-[8px] font-mono text-text-muted">#{index + 1}</span><span className={`mt-1 block truncate text-[9px] font-black ${participant ? 'text-text-primary' : 'text-text-muted'}`}>{participant?.nickname || '—'}</span>{isGuest ? <span className="mt-0.5 block text-[7px] font-black uppercase text-text-muted">гость</span> : null}</button>;
             })}
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -359,15 +358,16 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
 
         <TableScoutingCard participantIds={selectedParticipantIds} />
 
-        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Доступны для игры · приоритет ротации</span><span>{visible.length} игроков</span></div>
-        <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск игрока" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
+        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-text-muted"><span>Доступны для игры · приоритет ротации</span><span>{visible.length} участников</span></div>
+        <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск участника" className="w-full rounded-[12px] border border-border-soft bg-surface-2 py-2.5 pl-9 pr-3 text-[13px] text-text-primary outline-none placeholder:text-text-muted" /></div>
         <div className="grid shrink-0 grid-cols-2 content-start gap-2 pr-1">
           {visible.map((participant) => {
             const seatIndex = seats.indexOf(participant.id); const selected = seatIndex >= 0;
             const priority = getRotationPriority(participant.id, previousRotationGame);
-            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}><PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
+            const isGuest = Boolean((participant as any).is_guest || !String(participant.player_id || '').trim());
+            return <button key={participant.id} type="button" onClick={() => toggle(participant.id)} className={`flex min-w-0 items-center gap-2 rounded-[12px] border p-2.5 text-left ${selected ? 'border-accent bg-accent-soft' : 'border-border-soft bg-surface-2'}`}>{isGuest ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-soft bg-surface-1 text-[9px] font-black text-text-muted">Г</div> : <PlayerAvatar nickname={participant.nickname} playerId={participant.player_id} forceStoredLookup size="sm" />}<div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-text-primary">{participant.nickname}</strong><span className="block truncate text-[8px] text-text-muted">{isGuest ? 'Гость без профиля' : priorityLabel(priority.reason)} · игр {participant.play_count}</span></div>{selected && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-accent text-[10px] font-black text-white">{seatIndex + 1}</span>}</button>;
           })}
-          {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Игроков не найдено</div>}
+          {visible.length === 0 && <div className="col-span-2 py-8 text-center text-[12px] text-text-muted">Участников не найдено</div>}
         </div>
         <button type="button" disabled={!eveningCanStart || selectedCount !== 10 || creating || (judgeMode === 'linked' && !judgePlayerId)} onClick={create} className="min-h-12 w-full shrink-0 rounded-[12px] bg-accent text-[13px] font-black text-white disabled:opacity-35">{creating ? 'Создаём…' : !eveningCanStart ? 'Сначала опубликуй вечер' : selectedCount === 10 ? 'Создать игру' : `Выбери ещё ${10 - selectedCount}`}</button>
       </div>

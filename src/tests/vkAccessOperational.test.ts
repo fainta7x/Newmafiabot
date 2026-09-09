@@ -51,7 +51,7 @@ describe('VK-ACCESS-002 operational contracts', () => {
     expect(response.body.return_to).toBe('/player/rating');
     const authorize = new URL(response.body.authorize_url);
     expect(authorize.searchParams.get('redirect_uri')).toBe('https://club.example/api/integrations/vk/oauth/callback');
-    expect(response.headers['set-cookie']?.join(';')).toContain('vk_player_oauth_binding=');
+    expect(String(response.headers['set-cookie'] || '')).toContain('vk_player_oauth_binding=');
   });
 
   it('keeps cabinet OAuth and public evening VK registration as separate mounts', () => {

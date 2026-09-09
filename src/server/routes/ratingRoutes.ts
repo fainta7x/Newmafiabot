@@ -55,6 +55,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         ) AS games
       FROM players p
       WHERE COALESCE(p.contact_status, 'normal') != 'blocked'
+        AND COALESCE(p.source, '') NOT IN ('quick_guest', 'legacy_guest_migrated')
+        AND COALESCE(p.lifecycle_status, 'normal') != 'archived'
       )
       SELECT * FROM ranked_players
        WHERE games > 0
@@ -74,10 +76,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       };
     });
 
-    res.json({
-      generated_at: new Date().toISOString(),
-      players: leaderboard,
-    });
+    res.json({ generated_at: new Date().toISOString(), players: leaderboard });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Не удалось загрузить рейтинг клуба' });
   }

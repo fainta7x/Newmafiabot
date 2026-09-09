@@ -24,7 +24,13 @@ export async function ensureVkPersonalMessageSchema(db: DatabaseWrapper): Promis
       sent_at TEXT,
       CHECK (status IN ('pending', 'sent', 'failed'))
     );
-
+  `);
+  const columns = await db.all<any>('PRAGMA table_info(vk_message_outbox)');
+  if (!columns.some((column: any) => String(column.name) === 'notification_key')) {
+    await db.run('ALTER TABLE vk_message_outbox ADD COLUMN notification_key TEXT');
+    await db.run("UPDATE vk_message_outbox SET notification_key = message_key WHERE notification_key IS NULL OR TRIM(notification_key) = ''");
+  }
+  await db.exec(`
     CREATE INDEX IF NOT EXISTS idx_vk_message_outbox_queue
       ON vk_message_outbox(status, next_attempt_at, created_at);
     CREATE INDEX IF NOT EXISTS idx_vk_message_outbox_player

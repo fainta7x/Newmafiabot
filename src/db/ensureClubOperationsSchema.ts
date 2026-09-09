@@ -79,6 +79,143 @@ async function ensureEveningFeeEvidenceSchema(db: DatabaseWrapper) {
     CREATE INDEX IF NOT EXISTS idx_evening_fee_waivers_evening
       ON evening_fee_waivers(evening_id)
   `);
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS evening_fee_waiver_migration_diagnostics (
+      participant_id TEXT PRIMARY KEY REFERENCES evening_participants(id) ON DELETE CASCADE,
+      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'needs_review',
+      detected_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await db.run(`
+    CREATE INDEX IF NOT EXISTS idx_evening_fee_waiver_diag_evening
+      ON evening_fee_waiver_migration_diagnostics(evening_id, status)
+  `);
+}
+
+async function ensureCanonicalRegularTablePricing(db: DatabaseWrapper, now: string) {
+  // Normalize historical regular table rows immediately. This makes every mounted
+  // public/organizer read canonical even if an old row still contains 400/500/600.
+  await db.run(`
+    UPDATE evening_tables
+       SET default_price = 100,
+           updated_at = ?
+     WHERE COALESCE(default_price, 0) != 100
+       AND evening_id IN (
+         SELECT id FROM game_evenings
+          WHERE upper(COALESCE(format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+       )
+  `, [now]);
+
+  // The legacy mounted table routes still accept arbitrary default_price. Enforce
+  // canonical persistence at the DB boundary so their post-write SELECT can only
+  // return 100 for a table owned by a regular evening.
+  await db.run('DROP TRIGGER IF EXISTS trg_regular_table_price_insert');
+  await db.run('DROP TRIGGER IF EXISTS trg_regular_table_price_update');
+  await db.run('DROP TRIGGER IF EXISTS trg_regular_evening_table_price_conversion');
+  await db.run(`
+    CREATE TRIGGER trg_regular_table_price_insert
+    AFTER INSERT ON evening_tables
+    WHEN EXISTS (
+      SELECT 1 FROM game_evenings e
+       WHERE e.id = NEW.evening_id
+         AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+    )
+      AND COALESCE(NEW.default_price, 0) != 100
+    BEGIN
+      UPDATE evening_tables SET default_price = 100 WHERE id = NEW.id;
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER trg_regular_table_price_update
+    AFTER UPDATE OF default_price, evening_id ON evening_tables
+    WHEN EXISTS (
+      SELECT 1 FROM game_evenings e
+       WHERE e.id = NEW.evening_id
+         AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+    )
+      AND COALESCE(NEW.default_price, 0) != 100
+    BEGIN
+      UPDATE evening_tables SET default_price = 100 WHERE id = NEW.id;
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER trg_regular_evening_table_price_conversion
+    AFTER UPDATE OF format ON game_evenings
+    WHEN upper(COALESCE(NEW.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+    BEGIN
+      UPDATE game_evenings SET default_price = 100 WHERE id = NEW.id AND COALESCE(default_price, 0) != 100;
+      UPDATE evening_tables SET default_price = 100, updated_at = NEW.updated_at WHERE evening_id = NEW.id AND COALESCE(default_price, 0) != 100;
+    END
+  `);
+}
+
+const hasExplicitLegacyWaiverNote = (value: unknown): boolean => {
+  const note = String(value || '').trim().toLowerCase();
+  if (!note) return false;
+  return ['waiv', 'free', 'бесплат', 'освобожд', 'льгот'].some((marker) => note.includes(marker));
+};
+
+async function migrateLegacyRegularWaiversForR2(db: DatabaseWrapper): Promise<void> {
+  await ensureEveningFeeEvidenceSchema(db);
+  const rows = await db.all<any>(`
+    SELECT ep.id AS participant_id, ep.evening_id, ep.player_id, ep.notes,
+           ep.amount_due, ep.amount_paid, ep.payment_status, ep.attendance_status,
+           p.club_role, p.judge_level,
+           s.organizer_player_id,
+           CASE WHEN w.participant_id IS NULL THEN 0 ELSE 1 END AS already_migrated,
+           CASE WHEN d.participant_id IS NULL THEN 0 ELSE 1 END AS already_diagnostic
+      FROM evening_participants ep
+      JOIN game_evenings e ON e.id = ep.evening_id
+      JOIN players p ON p.id = ep.player_id
+      LEFT JOIN evening_staff_assignments s ON s.evening_id = ep.evening_id
+      LEFT JOIN evening_fee_waivers w ON w.participant_id = ep.id
+      LEFT JOIN evening_fee_waiver_migration_diagnostics d ON d.participant_id = ep.id
+     WHERE (e.status = 'completed' OR e.settled_at IS NOT NULL)
+       AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+       AND ep.payment_status = 'waived'
+       AND COALESCE(ep.amount_due, 0) = 0
+       AND COALESCE(ep.attendance_status, '') = 'attended'
+     ORDER BY e.starts_at ASC, ep.id ASC
+  `);
+
+  for (const row of rows) {
+    if (Number(row.already_migrated || 0) === 1 || Number(row.already_diagnostic || 0) === 1) continue;
+    if (row.organizer_player_id && String(row.organizer_player_id) === String(row.player_id)) {
+      // Already protected by factual evening-specific staff evidence.
+      continue;
+    }
+
+    const timestamp = new Date().toISOString();
+    if (hasExplicitLegacyWaiverNote(row.notes)) {
+      await db.run(`
+        INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(participant_id) DO NOTHING
+      `, [
+        String(row.participant_id),
+        String(row.evening_id),
+        `Migrated legacy explicit waiver: ${String(row.notes).trim()}`,
+        timestamp,
+        timestamp,
+      ]);
+      continue;
+    }
+
+    const oldGlobalExemptionPossible = String(row.club_role || '') === 'organizer'
+      || ['host', 'judge'].includes(String(row.judge_level || ''));
+    const reason = oldGlobalExemptionPossible
+      ? 'Legacy waived participation may have been produced by the former global organizer/judge exemption; organizer review required before charging.'
+      : 'Legacy waived participation has no durable explicit-waiver evidence; organizer review required before charging.';
+    await db.run(`
+      INSERT INTO evening_fee_waiver_migration_diagnostics
+        (participant_id, evening_id, reason, status, detected_at, updated_at)
+      VALUES (?, ?, ?, 'needs_review', ?, ?)
+      ON CONFLICT(participant_id) DO NOTHING
+    `, [String(row.participant_id), String(row.evening_id), reason, timestamp, timestamp]);
+  }
 }
 
 async function reconcileHistoricalRegularEveningsWithMarker(
@@ -167,6 +304,7 @@ export async function reconcileHistoricalRegularEveningsOnce(db: DatabaseWrapper
 }
 
 export async function reconcileHistoricalRegularEveningsR2Once(db: DatabaseWrapper): Promise<void> {
+  await migrateLegacyRegularWaiversForR2(db);
   return reconcileHistoricalRegularEveningsWithMarker(db, CRM_PAY_003_R2_HISTORICAL_MIGRATION);
 }
 
@@ -310,9 +448,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
 
   const now = new Date().toISOString();
 
-  // CASUAL/STANDARD is always 100 ₽ per factual game. Keep default_price canonical too
-  // so legacy 600 ₽ does not leak through generic evening API/UI fields.
+  // CASUAL/STANDARD is always 100 ₽ per factual game. Keep both evening and table
+  // defaults canonical so legacy 600 ₽ cannot leak through any mounted API/UI path.
   await normalizeRegularEveningDefaults(db, now);
+  await ensureCanonicalRegularTablePricing(db, now);
   await clearRegularPlannedCharges(db, now);
 
   // Canonical current club roles requested by the organizer. Access to the CRM itself
@@ -365,9 +504,9 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
        AND EXISTS (SELECT 1 FROM players p WHERE p.id = ?)
   `, [PRIMARY_ORGANIZER_PLAYER_ID, now, now, PRIMARY_ORGANIZER_PLAYER_ID]);
 
-  // v1 keeps its durable marker semantics. R2 has a separate one-time marker because
-  // deployments where v1 already completed must be rescanned once using the corrected
-  // evening-specific exemption evidence. Neither scan repeats after completion.
+  // v1 keeps its durable marker semantics. R2 first protects/migrates legacy waived
+  // rows, then uses a separate one-time marker so deployments where v1 already
+  // completed are rescanned once using corrected evening-specific evidence.
   await reconcileHistoricalRegularEveningsOnce(db);
   await reconcileHistoricalRegularEveningsR2Once(db);
 

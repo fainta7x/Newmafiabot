@@ -10,11 +10,6 @@ const enabled = (value: unknown) => ['1', 'true', 'yes', 'on'].includes(String(v
 
 export type OrganizerRecipientSource = 'ORGANIZER_NOTIFICATION_IDS' | 'ORGANIZER_CHAT_ID' | 'BACKUP_ADMIN_ID' | 'none';
 
-/**
- * Organizer alerts are opt-in and deliberately independent from ADMIN_IDS.
- * BACKUP_ADMIN_ID is used only when the explicit fallback switch is enabled,
- * so a missing recipient list cannot silently collapse a digest to one admin.
- */
 export function resolveOrganizerNotificationRecipients(env: NodeJS.ProcessEnv = process.env) {
   const direct = parseIds(env.ORGANIZER_NOTIFICATION_IDS);
   if (direct.length) return { recipients: direct, source: 'ORGANIZER_NOTIFICATION_IDS' as const, fallback: false };
@@ -40,21 +35,37 @@ export async function getOrganizerNotificationDiagnostics(db: DatabaseWrapper) {
   };
 }
 
+export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
+  messageKey: string;
+  eventType: string;
+  entityId: string;
+  text: string;
+}) {
+  const config = resolveOrganizerNotificationRecipients();
+  for (const chatId of config.recipients) {
+    await enqueueTelegramMessage(db, {
+      messageKey: `${input.messageKey}:${chatId}`,
+      category: 'organizer',
+      eventType: input.eventType,
+      entityId: input.entityId,
+      chatId,
+      text: input.text,
+    });
+  }
+  if (config.recipients.length) kickTelegramMessageOutbox(db);
+  return { queued: config.recipients.length, recipient_source: config.source };
+}
+
 export async function enqueueOrganizerTestNotification(db: DatabaseWrapper) {
   const config = resolveOrganizerNotificationRecipients();
   if (!config.recipients.length) throw new Error('Организаторы для Telegram-уведомлений не настроены');
   const eventId = randomUUID();
   const stamp = new Date().toLocaleString('ru-RU');
-  for (const chatId of config.recipients) {
-    await enqueueTelegramMessage(db, {
-      messageKey: `organizer-test:${eventId}:${chatId}`,
-      category: 'organizer',
-      eventType: 'test_notification',
-      entityId: eventId,
-      chatId,
-      text: `✅ <b>Тест уведомлений 2LA Noire</b>\n${stamp}\nЕсли вы видите это сообщение, серверная доставка Telegram работает.`,
-    });
-  }
-  kickTelegramMessageOutbox(db);
+  await enqueueOrganizerNotification(db, {
+    messageKey: `organizer-test:${eventId}`,
+    eventType: 'test_notification',
+    entityId: eventId,
+    text: `✅ <b>Тест уведомлений 2LA Noire</b>\n${stamp}\nЕсли вы видите это сообщение, серверная доставка Telegram работает.`,
+  });
   return { queued: config.recipients.length, recipient_source: config.source, using_backup_fallback: config.fallback };
 }

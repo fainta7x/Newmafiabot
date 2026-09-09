@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  Gamepad2, ListTodo, MessageCircle, RefreshCw, UserCheck,
+  Gamepad2, Link2, ListTodo, MessageCircle, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
@@ -17,6 +17,14 @@ type OpsPlayer = {
   amount_due: number;
   amount_paid: number;
   play_count: number;
+};
+
+type PendingOnboardingLink = {
+  id: string;
+  platform: 'telegram' | 'vk';
+  target_player_id: string;
+  nickname: string;
+  created_at: string;
 };
 
 type CommandCenterResponse = {
@@ -87,8 +95,10 @@ const communicationLabel = (status: string) => {
 };
 
 export default function OrganizerCommandCenter({
+  overview,
   onOpenEvening,
   onOpenEveningSection,
+  onOpenPlayer,
   onNavigateTab,
   onCreateEvening,
   onRefresh,
@@ -171,10 +181,32 @@ export default function OrganizerCommandCenter({
   const attendanceAttention = snapshot?.mode === 'active' ? snapshot.stats.pending_attendance : 0;
   const unfinishedGames = snapshot?.mode === 'active' ? Math.max(0, snapshot.stats.games - snapshot.stats.completed_games) : 0;
   const taskCount = snapshot?.stats.open_tasks || snapshot?.attention.tasks.length || 0;
+  const pendingOnboardingLinks = (((overview as any)?.actionLists?.pendingOnboardingLinks || []) as PendingOnboardingLink[]);
 
   const refreshAll = async () => {
     setPaymentsFresh(false);
     await Promise.all([load({ silent: true, invalidatePayments: true }), onRefresh?.()]);
+  };
+
+  const resolveOnboardingLink = async (item: PendingOnboardingLink, decision: 'approve' | 'reject') => {
+    if (busy) return;
+    setBusy(`onboarding:${item.id}`);
+    setError(null);
+    try {
+      const response = await fetch(`/api/crm/onboarding-links/${encodeURIComponent(item.id)}/resolve`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось обработать привязку');
+      await refreshAll();
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось обработать привязку');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const markPaid = async (participant: { id?: string; participant_id?: string; amount_due: number }) => {
@@ -227,6 +259,29 @@ export default function OrganizerCommandCenter({
     </div>
 
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
+
+    {pendingOnboardingLinks.length ? <section data-testid="pending-onboarding-links" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><Link2 className="h-4 w-4" /> Запросы на привязку профиля · {pendingOnboardingLinks.length}</div>
+      <p className="mt-1 text-[12px] leading-4 text-text-secondary">Игрок подтвердил внешний аккаунт, но автоматическая привязка по нику запрещена. Проверь профиль и подтверди или отклони связь.</p>
+      <div className="mt-2 space-y-2">
+        {pendingOnboardingLinks.slice(0, 8).map((item) => {
+          const rowBusy = busy === `onboarding:${item.id}`;
+          return <div key={item.id} className="rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <button type="button" onClick={() => onOpenPlayer(item.target_player_id)} className="min-h-11 min-w-0 flex-1 text-left">
+                <strong className="block truncate text-[13px] text-text-primary">{item.nickname}</strong>
+                <span className="text-[12px] text-text-muted">Подтверждён через {item.platform === 'telegram' ? 'Telegram' : 'VK'} · {formatPaymentDate(item.created_at)}</span>
+              </button>
+              <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" disabled={Boolean(busy)} onClick={() => void resolveOnboardingLink(item, 'approve')} className="min-h-11 rounded-[10px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Обрабатываем…' : 'Подтвердить'}</button>
+              <button type="button" disabled={Boolean(busy)} onClick={() => void resolveOnboardingLink(item, 'reject')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-3 text-[13px] font-bold text-text-secondary disabled:opacity-40">Отклонить</button>
+            </div>
+          </div>;
+        })}
+      </div>
+    </section> : null}
 
     {!snapshot ? <section className="rounded-[22px] border border-border-soft bg-surface-1 p-5 text-center">
       <Calendar className="mx-auto h-8 w-8 text-text-muted" />

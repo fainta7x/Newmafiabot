@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from './index.ts';
+import { ensureGuestPlayerPlaceholderSchema } from './ensureGuestPlayerPlaceholderSchema.ts';
 
 /**
  * Repairs only the pre-cutover mismatch where response_status was added with its
@@ -26,4 +27,9 @@ export async function ensureCanonicalEveningParticipantState(db: DatabaseWrapper
        AND registration_status IN ('going', 'late', 'registered', 'confirmed', 'thinking', 'declined', 'cancelled', 'waitlist')
        AND NOT (registration_status = 'waitlist' AND COALESCE(arrival_status, 'unknown') != 'late')
   `);
+
+  // Guest placeholders are deliberately application-managed rather than a manual
+  // production rewrite. The reconciliation is idempotent/resumable and records
+  // durable diagnostics for quick_guest rows that carry an external identity.
+  await ensureGuestPlayerPlaceholderSchema(db);
 }

@@ -8,7 +8,9 @@ import { appendVkOAuthResult } from './vkOAuthService.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { linkVkIdentity } from './vkEveningIntegrationService.ts';
 import { confirmVkIdentityClaim, createVkIdentityClaim, peekVkIdentityClaim } from './vkIdentityClaimService.ts';
-import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, createVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
+import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
+import { beginVerifiedPlayerOnboarding } from './playerOnboardingService.ts';
+import { setPlayerOnboardingCookie } from './playerOnboardingCookie.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
 import { resolveTrustedPublicAppOrigin } from './publicAppOriginService.ts';
 import { VK_PLAYER_OAUTH_BINDING_COOKIE, VK_PLAYER_OAUTH_BINDING_PATH } from './vkPlayerStartRouter.ts';
@@ -48,7 +50,6 @@ const logPlayerCallback = (stage: string, req: any, details: Record<string, unkn
   console.info('[VK PLAYER AUTH]', {
     stage,
     method: req.method,
-    // Never log originalUrl: the callback query contains OAuth code/state/device_id.
     path: req.path,
     secure: Boolean(req.secure),
     forwarded_proto: String(req.get?.('x-forwarded-proto') || '').split(',')[0].trim() || null,
@@ -92,33 +93,35 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         logPlayerCallback('callback_failed', req, { code: 'vk_identity_conflict', status: 409 });
         return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_error', 'vk_identity_conflict'));
       }
+
       let playerId = result.playerId;
       if (!playerId && result.initiatingPlayerId) {
         await linkVkIdentity(db, { vkUserId: result.vkUserId, playerId: result.initiatingPlayerId });
         playerId = result.initiatingPlayerId;
         logPlayerCallback('identity_linked_to_initiator', req);
       }
-      if (!playerId) {
-        try {
-          const registration = await registerVkPlayer(db, result.vkUserId, result.nickname);
-          playerId = registration.playerId;
-          logPlayerCallback('new_player_registered', req, { created: Boolean(registration.created) });
-        } catch (error: any) {
-          if (error?.code !== 'nickname_taken') throw error;
-          const claim = await createVkPlayerIdentityClaim(db, {
-            vkUserId: result.vkUserId,
-            nickname: result.nickname,
-            returnTo: result.returnTo,
-            baseUrl: resolveTrustedPublicAppOrigin(req),
-          });
-          logPlayerCallback('identity_confirmation_required', req, { pending: Boolean(claim.pending) });
-          return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_link_pending', claim.pending ? '1' : '0'));
-        }
+
+      if (playerId) {
+        setPlayerSessionCookie(res, playerId);
+        res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
+        logPlayerCallback('session_issued', req, { return_to: result.returnTo });
+        return res.redirect(302, result.returnTo);
       }
-      setPlayerSessionCookie(res, playerId);
+
+      const onboarding = await beginVerifiedPlayerOnboarding(db, {
+        platform: 'vk',
+        externalUserId: result.vkUserId,
+      }, result.returnTo);
+      if (onboarding.status === 'linked') {
+        setPlayerSessionCookie(res, onboarding.playerId);
+        res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
+        logPlayerCallback('session_issued', req, { return_to: onboarding.returnTo });
+        return res.redirect(302, onboarding.returnTo);
+      }
+      setPlayerOnboardingCookie(res, onboarding.token);
       res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
-      logPlayerCallback('session_issued', req, { return_to: result.returnTo });
-      return res.redirect(302, result.returnTo);
+      logPlayerCallback('onboarding_required', req, { platform: 'vk', return_to: onboarding.returnTo });
+      return res.redirect(302, onboarding.returnTo);
     } catch (error: any) {
       const code = safePlayerCallbackCode(error);
       logPlayerCallback('callback_failed', req, { code, status: Number(error?.statusCode || 500) });

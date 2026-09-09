@@ -1,7 +1,7 @@
 import type { DatabaseWrapper } from './index.ts';
 import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 
-export type PlayerGameLevel = 'novice' | 'club' | 'tournament';
+export type PlayerGameLevel = 'unrated' | 'novice' | 'club' | 'tournament';
 export type PlayerClubRole = 'guest' | 'member' | 'team' | 'organizer';
 
 const tableColumns = async (db: DatabaseWrapper, table: string) =>
@@ -32,14 +32,14 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
   await ensureColumn(db, 'game_evenings', 'settled_at', 'TEXT');
 
   await db.run(
-    "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('novice','club','tournament')",
+    "UPDATE players SET game_level = 'club' WHERE game_level IS NULL OR game_level = '' OR game_level NOT IN ('unrated','novice','club','tournament')",
   );
   await db.run(
     "UPDATE players SET club_role = 'member' WHERE club_role IS NULL OR club_role = '' OR club_role NOT IN ('guest','member','team','organizer')",
   );
 
-  // One explicit product transition: the existing club roster is no longer a novice
-  // cohort. Keep future CRM-created players on the novice path via the trigger below.
+  // Historical roster correction only. Club-newness and mafia skill are independent;
+  // this migration must not be reused to classify future registrations as novices.
   const clubRosterMigration = await db.get<{ id: string }>('SELECT id FROM app_data_migrations WHERE id = ?', ['2026-08-main-club-roster']);
   if (!clubRosterMigration) {
     await db.run("UPDATE players SET game_level = 'club' WHERE game_level = 'novice'");
@@ -57,27 +57,26 @@ export async function ensureInviteAudienceSchema(db: DatabaseWrapper): Promise<v
     }
   }
 
-  // Turso's exec compatibility splits scripts on semicolons. CREATE TRIGGER must be sent
-  // as one complete statement, so use run() just like the Telegram publishing triggers.
-  // Historical databases use `club` as the column default. Preserve existing players,
-  // but make every future organizer-created CRM profile enter through the novice path.
+  // Retire the old trigger that equated a manually created club profile with mafia novice skill.
+  await db.run('DROP TRIGGER IF EXISTS trg_players_crm_manual_default_novice');
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice
+    CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_unrated
     AFTER INSERT ON players
-    WHEN NEW.source = 'crm_manual'
+    WHEN NEW.source IN ('crm_manual', 'manual') AND NEW.game_level = 'club'
     BEGIN
-      UPDATE players SET game_level = 'novice' WHERE id = NEW.id;
+      UPDATE players SET game_level = 'unrated' WHERE id = NEW.id;
     END;
   `);
 }
 
 export function playerLevelAllowsEveningFormat(level: string | null | undefined, format: string | null | undefined): boolean {
-  const normalizedLevel: PlayerGameLevel = level === 'novice' || level === 'tournament' ? level : 'club';
+  const normalizedLevel: PlayerGameLevel =
+    level === 'unrated' || level === 'novice' || level === 'tournament' ? level : 'club';
   const normalizedFormat = normalizeEveningFormat(format);
 
+  // Unassessed players get a safe, non-competitive path while the organizer determines skill.
+  if (normalizedLevel === 'unrated') return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
   if (normalizedLevel === 'novice') return normalizedFormat === 'NOVICE';
-  if (normalizedLevel === 'club') {
-    return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
-  }
+  if (normalizedLevel === 'club') return normalizedFormat === 'NOVICE' || normalizedFormat === 'CASUAL';
   return normalizedFormat === 'CASUAL' || normalizedFormat === 'RATING' || normalizedFormat === 'TOURNAMENT';
 }

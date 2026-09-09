@@ -9,6 +9,7 @@ const router = Router();
 export const VK_PLAYER_OAUTH_BINDING_COOKIE = 'vk_player_oauth_binding';
 export const VK_PLAYER_OAUTH_BINDING_PATH = '/api/integrations';
 const VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS = 30 * 60 * 1000;
+const VERIFIED_ONBOARDING_PLACEHOLDER = 'verified-vk-onboarding';
 
 const isProduction = () => process.env.NODE_ENV === 'production';
 
@@ -47,7 +48,6 @@ const logStart = (stage: 'start_ok' | 'start_failed', req: any, details: Record<
   console.info('[VK PLAYER AUTH]', {
     stage,
     method: req.method,
-    // Never log originalUrl here: OAuth/query parameters can contain sensitive material.
     path: req.path,
     secure: Boolean(req.secure),
     forwarded_proto: String(req.get?.('x-forwarded-proto') || '').split(',')[0].trim() || null,
@@ -63,8 +63,6 @@ const browserBindingFor = (req: any, res: any) => {
   res.cookie(VK_PLAYER_OAUTH_BINDING_COOKIE, binding, {
     httpOnly: true,
     secure: isProduction(),
-    // OAuth returns through a top-level HTTPS GET, for which Lax is the narrowest
-    // cookie policy that still carries the browser-binding nonce back to the app.
     sameSite: 'lax',
     path: VK_PLAYER_OAUTH_BINDING_PATH,
     maxAge: VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS,
@@ -76,7 +74,9 @@ router.post('/player/vk/start', async (req, res) => {
   try {
     const db = req.db as DatabaseWrapper;
     const initiatingPlayerId = getPlayerSessionId(req);
-    let nickname = req.body?.nickname;
+    // VK-ACCESS-004 verifies VK first. The legacy OAuth-state column remains
+    // NOT NULL for compatibility, but this placeholder is never used as a player nickname.
+    let nickname = VERIFIED_ONBOARDING_PLACEHOLDER;
     if (initiatingPlayerId) {
       const player = await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [initiatingPlayerId]);
       if (!player?.nickname) return res.status(401).json({ error: 'Сессия игрока устарела. Войдите снова.', code: 'player_session_invalid' });

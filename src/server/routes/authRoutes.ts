@@ -11,6 +11,18 @@ import {
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
 import {
+  beginVerifiedPlayerOnboarding,
+  completeVerifiedNewPlayerOnboarding,
+  loadVerifiedPlayerOnboarding,
+  requestExistingPlayerOnboardingLink,
+} from '../services/playerOnboardingService.ts';
+import {
+  PLAYER_ONBOARDING_COOKIE,
+  clearPlayerOnboardingCookie,
+  setPlayerOnboardingCookie,
+} from '../services/playerOnboardingCookie.ts';
+import { resolveTrustedPublicAppOrigin } from '../services/publicAppOriginService.ts';
+import {
   grantOrganizerPlayerAccess,
   hasOrganizerPlayerAccess,
   resolveVerifiedPlayerIdentity,
@@ -75,10 +87,23 @@ router.post('/telegram', async (req, res) => {
 
     if (!player) {
       res.clearCookie('player_token', { path: '/' });
-      return res.json({ ...telegram, linked: false });
+      const onboarding = await beginVerifiedPlayerOnboarding(db, {
+        platform: 'telegram',
+        externalUserId: String(telegram.id),
+        username: telegram.username ?? null,
+        displayName: telegram.first_name ?? null,
+      }, req.body?.return_to);
+      if (onboarding.status === 'linked') {
+        setPlayerCookie(res, onboarding.playerId);
+        clearPlayerOnboardingCookie(res);
+        return res.json({ ...telegram, linked: true });
+      }
+      setPlayerOnboardingCookie(res, onboarding.token);
+      return res.json({ ...telegram, linked: false, onboarding: true, platform: 'telegram' });
     }
 
     setPlayerCookie(res, String(player.id));
+    clearPlayerOnboardingCookie(res);
     return res.json({ ...telegram, linked: true });
   } catch (error) {
     if (error instanceof TelegramInitDataError) {
@@ -89,6 +114,8 @@ router.post('/telegram', async (req, res) => {
   }
 });
 
+// Legacy Telegram registration remains available for compatibility with older clients.
+// The shared Player Cabinet UI uses the verified onboarding endpoints below.
 router.post('/register', async (req, res) => {
   try {
     const telegram = validateTelegramRequest(req.body?.initData);
@@ -101,6 +128,7 @@ router.post('/register', async (req, res) => {
       source: 'telegram_webapp_registration',
     });
     setPlayerCookie(res, result.player.id);
+    clearPlayerOnboardingCookie(res);
     return res.status(result.created ? 201 : 200).json({
       success: true,
       created: result.created,
@@ -115,6 +143,66 @@ router.post('/register', async (req, res) => {
       return res.status(status).json({ error: error.message });
     }
     return res.status(500).json({ error: error?.message || 'Не удалось создать профиль игрока' });
+  }
+});
+
+router.get('/onboarding', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const rawToken = String(req.cookies?.[PLAYER_ONBOARDING_COOKIE] || '');
+  const pending = await loadVerifiedPlayerOnboarding(req.db, rawToken);
+  if (!pending) {
+    clearPlayerOnboardingCookie(res);
+    return res.status(404).json({ active: false });
+  }
+  return res.json({
+    active: true,
+    platform: pending.platform,
+    return_to: pending.returnTo,
+    display_name: pending.identity?.display_name || null,
+    username: pending.identity?.username || null,
+  });
+});
+
+router.post('/onboarding/new', async (req, res) => {
+  try {
+    const rawToken = String(req.cookies?.[PLAYER_ONBOARDING_COOKIE] || '');
+    const result = await completeVerifiedNewPlayerOnboarding(req.db, rawToken, req.body?.nickname);
+    setPlayerCookie(res, result.playerId);
+    clearPlayerOnboardingCookie(res);
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      status: result.status,
+      return_to: result.returnTo,
+    });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || error?.status || 400)).json({
+      error: String(error?.message || 'Не удалось создать профиль'),
+      code: String(error?.code || 'onboarding_failed'),
+    });
+  }
+});
+
+router.post('/onboarding/existing', async (req, res) => {
+  try {
+    const rawToken = String(req.cookies?.[PLAYER_ONBOARDING_COOKIE] || '');
+    const pending = await loadVerifiedPlayerOnboarding(req.db, rawToken);
+    const result = await requestExistingPlayerOnboardingLink(req.db, rawToken, req.body?.nickname, {
+      baseUrl: pending?.platform === 'vk' ? resolveTrustedPublicAppOrigin(req) : undefined,
+    });
+    if (result.status === 'linked' && result.playerId) {
+      setPlayerCookie(res, result.playerId);
+    }
+    clearPlayerOnboardingCookie(res);
+    return res.json({
+      success: true,
+      status: result.status,
+      return_to: result.returnTo,
+    });
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 400)).json({
+      error: String(error?.message || 'Не удалось подтвердить существующий профиль'),
+      code: String(error?.code || 'onboarding_failed'),
+    });
   }
 });
 
@@ -135,9 +223,6 @@ router.post('/login', async (req, res) => {
   if (verifyOrganizerPassword(password)) {
     resetLoginRateLimit(clientIp);
 
-    // A correct organizer password may bind only the identity that the server
-    // has already verified through the signed player cookie or VK join session.
-    // Client-supplied player / Telegram / VK IDs are never trusted here.
     const identity = await resolveVerifiedPlayerIdentity(req.db, req);
     if (identity) await grantOrganizerPlayerAccess(req.db, identity);
 
@@ -225,7 +310,6 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
     );
     if (linkedPlayer) player = toSafePlayer(linkedPlayer);
   } else if (getPlayerSessionId(req)) {
-    // A signed player cookie pointed to a profile that no longer exists.
     res.clearCookie('player_token', { path: '/' });
   }
 

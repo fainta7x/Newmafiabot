@@ -25,6 +25,25 @@ async function normalizeRegularEveningDefaults(db: DatabaseWrapper, now: string)
   }
 }
 
+async function clearRegularPlannedCharges(db: DatabaseWrapper, now: string) {
+  const rows = await db.all<any>(`
+    SELECT ep.id, ep.amount_due, ep.payment_status, e.format
+      FROM evening_participants ep
+      JOIN game_evenings e ON e.id = ep.evening_id
+     WHERE COALESCE(ep.attendance_status, 'pending') = 'pending'
+       AND e.status != 'completed'
+       AND e.settled_at IS NULL
+  `);
+  for (const row of rows) {
+    if (normalizeEveningFormat(row.format) !== 'CASUAL') continue;
+    if (Number(row.amount_due || 0) === 0 && String(row.payment_status || '') === 'waived') continue;
+    await db.run(
+      'UPDATE evening_participants SET amount_due = 0, payment_status = ?, updated_at = ? WHERE id = ?',
+      ['waived', now, String(row.id)],
+    );
+  }
+}
+
 async function reconcileHistoricalRegularEvenings(db: DatabaseWrapper) {
   const rows = await db.all<any>(`
     SELECT id, format
@@ -155,6 +174,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   // CASUAL/STANDARD is always 100 ₽ per factual game. Keep default_price canonical too
   // so legacy 600 ₽ does not leak through generic evening API/UI fields.
   await normalizeRegularEveningDefaults(db, now);
+  await clearRegularPlannedCharges(db, now);
 
   // Canonical current club roles requested by the organizer. Access to the CRM itself
   // remains a separate entitlement in organizer_player_access.

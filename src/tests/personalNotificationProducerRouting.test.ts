@@ -16,7 +16,7 @@ describe('channel-neutral personal notification producers',()=>{
     expect(source).toContain("from './personalNotificationRouterService.ts'");
     expect(source).toContain("eventType:'evening_invite'");
     expect(source).not.toContain('enqueueTelegramMessage');
-    expect(source).toContain('Запись на вечер подтверждается отдельно');
+    expect(source).toContain('Приглашение не создаёт запись автоматически');
   });
   it('keeps in-app notification generation independent from external delivery',()=>{
     const source=read('src/server/routes/playerNotificationsRoutes.ts');

@@ -145,9 +145,19 @@ export async function reconcileRegularEveningPayments(
     return { applied: false, games_by_participant: {} };
   }
 
+  // Standalone service tests and older local databases can predate the club-role
+  // columns. Production gets them from ensureClubOperationsSchema, but reconciliation
+  // should still be safe on those legacy schemas instead of failing before migration.
+  const playerColumns = new Set(
+    (await db.all<{ name: string }>('PRAGMA table_info(players)'))
+      .map((column) => String(column.name)),
+  );
+  const clubRoleExpr = playerColumns.has('club_role') ? "COALESCE(p.club_role, 'member')" : "'member'";
+  const judgeLevelExpr = playerColumns.has('judge_level') ? "COALESCE(p.judge_level, 'player')" : "'player'";
   const participants = await db.all<any>(`
     SELECT ep.id, ep.player_id, ep.amount_due, ep.amount_paid, ep.payment_status,
-           p.club_role, p.judge_level
+           ${clubRoleExpr} AS club_role,
+           ${judgeLevelExpr} AS judge_level
       FROM evening_participants ep
       JOIN players p ON p.id = ep.player_id
      WHERE ep.evening_id = ?

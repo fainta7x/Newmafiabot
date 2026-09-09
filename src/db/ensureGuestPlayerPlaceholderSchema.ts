@@ -32,12 +32,16 @@ async function externalIdentityEvidence(db: DatabaseWrapper, player: Record<stri
   if (hasInlineExternalIdentity(player)) evidence.push('players_row');
   const playerId = String(player.id);
   if (await tableExists(db, 'player_external_identities')) {
-    if (await db.get<any>('SELECT 1 FROM player_external_identities WHERE player_id = ? LIMIT 1', [playerId])) evidence.push('player_external_identities');
+    const identities = await db.all<any>('SELECT platform FROM player_external_identities WHERE player_id = ?', [playerId]);
+    for (const identity of identities) {
+      const platform = String(identity?.platform || '').trim().toLowerCase();
+      evidence.push(platform ? `external:${platform}` : 'player_external_identities');
+    }
   }
   if (await tableExists(db, 'vk_player_identity_claims')) {
     if (await db.get<any>('SELECT 1 FROM vk_player_identity_claims WHERE player_id = ? LIMIT 1', [playerId])) evidence.push('vk_player_identity_claims');
   }
-  return evidence;
+  return [...new Set(evidence)];
 }
 
 async function ensureSchema(db: DatabaseWrapper) {

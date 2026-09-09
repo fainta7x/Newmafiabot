@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe('VK-ACCESS-004 onboarding completion', () => {
-  it('creates one Telegram player only after verified identity and is idempotent on retry', async () => {
+  it('creates one Telegram player only after verified identity and leaves skill unassessed', async () => {
     const db = makeDb();
     const started = await beginVerifiedPlayerOnboarding(db, {
       platform: 'telegram', externalUserId: '101', username: 'new_tg', displayName: 'Новый игрок',
@@ -31,29 +31,34 @@ describe('VK-ACCESS-004 onboarding completion', () => {
     expect(started.status).toBe('onboarding');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
 
-    const first = await completeVerifiedNewPlayerOnboarding(db, started.token, 'Новичок');
-    const retry = await completeVerifiedNewPlayerOnboarding(db, started.token, 'Новичок');
+    const first = await completeVerifiedNewPlayerOnboarding(db, started.token, 'Новый в клубе');
+    const retry = await completeVerifiedNewPlayerOnboarding(db, started.token, 'Новый в клубе');
     expect(first).toMatchObject({ status: 'created', created: true, returnTo: '/player/rating' });
     expect(retry).toMatchObject({ status: 'linked', created: false, playerId: first.playerId });
 
-    const rows = await db.all<any>('SELECT id, telegram_user_id, nickname FROM players WHERE nickname=?', ['Новичок']);
+    const rows = await db.all<any>('SELECT id, telegram_user_id, nickname, game_level FROM players WHERE nickname=?', ['Новый в клубе']);
     expect(rows).toHaveLength(1);
     expect(String(rows[0].telegram_user_id)).toBe('101');
+    expect(rows[0].game_level).toBe('unrated');
+    const task = await db.get<any>('SELECT title, description FROM organizer_tasks WHERE player_id=?', [first.playerId]);
+    expect(task?.title).toBe('Определить игровой уровень: Новый в клубе');
+    expect(task?.description).toContain('Игровой уровень пока не определён');
   });
 
-  it('creates one VK-only canonical player and attaches the verified VK identity', async () => {
+  it('creates one VK-only canonical player with unassessed skill and attaches the verified VK identity', async () => {
     const db = makeDb();
     const started = await beginVerifiedPlayerOnboarding(db, {
       platform: 'vk', externalUserId: '202', username: 'vk_user', displayName: 'VK User',
     }, '/player/profile');
     if (started.status !== 'onboarding') throw new Error('expected onboarding');
 
-    const result = await completeVerifiedNewPlayerOnboarding(db, started.token, 'VK Новичок');
+    const result = await completeVerifiedNewPlayerOnboarding(db, started.token, 'Гость из другого клуба');
     expect(result.status).toBe('created');
-    const player = await db.get<any>('SELECT telegram_user_id, nickname FROM players WHERE id=?', [result.playerId]);
+    const player = await db.get<any>('SELECT telegram_user_id, nickname, game_level FROM players WHERE id=?', [result.playerId]);
     const identity = await db.get<any>(`SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id=?`, ['202']);
     expect(player?.telegram_user_id).toBeNull();
-    expect(player?.nickname).toBe('VK Новичок');
+    expect(player?.nickname).toBe('Гость из другого клуба');
+    expect(player?.game_level).toBe('unrated');
     expect(identity?.player_id).toBe(result.playerId);
   });
 

@@ -302,6 +302,13 @@ Historical UI/visual requirements may evolve, so inspect current publication com
 ## Player economy / payments
 
 - Wallet/tokens, shop, betting, manual evening accounting and free-evening credits are active product areas.
+- For every regular **CASUAL** evening, the canonical charge is **100 ₽ per actually played completed game**, capped at **400 ₽**: 0/1/2/3/4/5+ completed games produce 0/100/200/300/400/400 ₽.
+- RSVP and selected/planned game slots are planning facts only. They may expose an estimate, but must not persist planned CASUAL debt into `amount_due`.
+- CASUAL `default_price` / per-slot estimate is **100 ₽**; a regular-evening API or UI must never newly create or display a legacy fixed **600 ₽** cost.
+- The canonical CASUAL amount is durably reconciled from completed protocols after game save/correction and again before closeout. Reconciliation is idempotent and must not duplicate ledger effects.
+- Historical CASUAL 600 ₽ rows are repaired by an application-level, idempotent migration/reconciliation; production data must not be manually edited, reset or replaced for this correction.
+- Recorded money remains factual even if later protocol correction lowers the amount due; reconciliation must not silently erase a payment or synthesize a refund.
+- NOVICE, TOURNAMENT and other non-CASUAL formats retain independent pricing policy.
 - A historical game-evening debt exists only for a completed/settled evening that the player factually attended, is not waived and still has `amount_due > amount_paid`. An old RSVP alone must never create debt after settlement; planned payment for an active/upcoming evening is displayed separately from historical debt.
 - External online acquiring/SBP is **intentionally paused/disabled** in the current implementation.
 - `online_payment_available: false` is a product state, not automatically a bug.

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from './eveningParticipantState.ts';
+import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
 
 const CLOSEOUT_TASK_PREFIX = 'evening-close:';
@@ -24,7 +26,6 @@ export const isUnfinishedEveningGame = (game: any): boolean => {
 export const closeoutTaskDueAt = (startsAt: string): string | null => {
   const startMs = new Date(String(startsAt || '')).getTime();
   if (!Number.isFinite(startMs)) return null;
-  // Regular Friday starts 20:00 Moscow. Saturday 19:00 Moscow = +23 hours.
   return new Date(startMs + 23 * HOUR_MS).toISOString();
 };
 
@@ -164,7 +165,11 @@ export async function addEveningWalkIn(
     [eveningId, playerId],
   );
   const dueRaw = Number(input.amount_due);
-  const amountDue = Number.isFinite(dueRaw) && dueRaw >= 0 ? Math.round(dueRaw) : Math.max(0, Number(evening.default_price || 0));
+  const amountDue = normalizeEveningFormat(evening.format) === 'CASUAL'
+    ? 0
+    : Number.isFinite(dueRaw) && dueRaw >= 0
+      ? Math.round(dueRaw)
+      : Math.max(0, Number(evening.default_price || 0));
 
   if (!participant) {
     const id = randomUUID();
@@ -191,6 +196,9 @@ export async function settleEveningFromCloseout(
   eveningId: string,
   options: { allow_missing_game_stats?: boolean } = {},
 ) {
+  // Closing must use the same factual completed-protocol amount as post-save and
+  // historical backfill. This is a durable write, not a response-time clamp.
+  await reconcileRegularEveningPayments(db, eveningId);
   const state = await loadEveningCloseout(db, eveningId);
   const evening = state.evening;
   if (evening.status === 'completed' || evening.settled_at) {

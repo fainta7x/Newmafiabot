@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import {
   calculateEveningSelectionTotal,
   ensureSlotsForEvening,
@@ -34,15 +35,16 @@ export async function replaceOrganizerPlayerSlotSelection(
     throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
   }
 
-  const total = calculateEveningSelectionTotal(
+  const estimate = calculateEveningSelectionTotal(
     evening.format,
     slotIds.map((slotId) => Number(byId.get(slotId)?.price_rub || 0)),
   );
+  const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();
 
   await db.transaction(async (tx) => {
     let participant = await tx.get<any>(
-      'SELECT id, amount_paid FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1',
+      'SELECT id, amount_due, amount_paid, payment_status FROM evening_participants WHERE evening_id = ? AND player_id = ? LIMIT 1',
       [eveningId, playerId],
     );
 
@@ -56,7 +58,7 @@ export async function replaceOrganizerPlayerSlotSelection(
          VALUES (?, ?, ?, 'unanswered', 'unanswered', 'pending', 'unknown', 'waived', 0, 0, ?, ?, ?)`,
         [participantId, eveningId, playerId, now, now, now],
       );
-      participant = { id: participantId, amount_paid: 0 };
+      participant = { id: participantId, amount_due: 0, amount_paid: 0, payment_status: 'waived' };
     }
 
     await tx.run(
@@ -75,19 +77,23 @@ export async function replaceOrganizerPlayerSlotSelection(
       );
     }
 
-    const paid = Number(participant.amount_paid || 0);
-    const paymentStatus = total === 0
-      ? 'waived'
-      : paid >= total
-        ? 'paid'
-        : paid > 0
-          ? 'partial'
-          : 'unpaid';
+    // For a regular evening selected slots are only an estimate. The factual charge
+    // is written later from completed protocols by reconcileRegularEveningPayments.
+    if (!isCasual) {
+      const paid = Number(participant.amount_paid || 0);
+      const paymentStatus = estimate === 0
+        ? 'waived'
+        : paid >= estimate
+          ? 'paid'
+          : paid > 0
+            ? 'partial'
+            : 'unpaid';
 
-    await tx.run(
-      'UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
-      [total, paymentStatus, now, participant.id],
-    );
+      await tx.run(
+        'UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
+        [estimate, paymentStatus, now, participant.id],
+      );
+    }
     await setParticipantResponse(tx, String(participant.id), slotIds.length ? 'going' : 'declined');
   });
 

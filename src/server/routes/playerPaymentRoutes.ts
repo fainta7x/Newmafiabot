@@ -14,8 +14,13 @@ const requirePlayerId = (req: any, res: any): string | null => {
   return playerId;
 };
 
-const isPaymentExpected = (row: any): boolean =>
-  String(row.attendance_status || '') === 'attended' || isAttendingResponse(row);
+const isSettledEvening = (row: any): boolean =>
+  String(row.evening_status || '') === 'completed' || Boolean(row.settled_at);
+
+const isPaymentExpected = (row: any): boolean => {
+  if (isSettledEvening(row)) return String(row.attendance_status || '') === 'attended';
+  return String(row.attendance_status || '') === 'attended' || isAttendingResponse(row);
+};
 
 const normalizePaymentStatus = (amountDue: number, amountPaid: number, stored: unknown) => {
   if (amountDue <= 0) return 'waived';
@@ -37,6 +42,7 @@ const serializePayment = (row: any) => {
     starts_at: row.starts_at || null,
     venue: row.venue || null,
     evening_status: String(row.evening_status || ''),
+    settled_at: row.settled_at || null,
     attendance_status: String(row.attendance_status || 'pending'),
     payment_expected: paymentExpected,
     amount_due: amountDue,
@@ -77,7 +83,7 @@ router.get('/payments', async (req, res) => {
       db.all<any>(`
         SELECT ep.id AS participant_id, ep.evening_id, ep.response_status, ep.registration_status, ep.payment_status,
                ep.amount_due, ep.amount_paid, ep.attendance_status, ep.updated_at,
-               e.title, e.starts_at, e.venue, e.status AS evening_status
+               e.title, e.starts_at, e.venue, e.status AS evening_status, e.settled_at
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id
          WHERE ep.player_id = ? AND e.status <> 'cancelled'
@@ -112,16 +118,18 @@ router.get('/payments', async (req, res) => {
     const items = rows
       .map(serializePayment)
       .filter((item) => item.payment_expected || item.amount_paid > 0);
-    const current = items.filter((item) => item.evening_status !== 'completed' || item.outstanding > 0);
-    const history = items.filter((item) => item.evening_status === 'completed' && item.outstanding === 0);
+    const current = items.filter((item) => !isSettledEvening(item) || item.outstanding > 0);
+    const history = items.filter((item) => isSettledEvening(item) && item.outstanding === 0);
     const summary = items.reduce((acc, item) => {
       acc.amount_due += item.amount_due;
       acc.amount_paid += item.amount_paid;
       acc.outstanding += item.outstanding;
       if (item.payment_status === 'paid' || item.payment_status === 'waived') acc.closed += 1;
       else acc.open += 1;
+      if (isSettledEvening(item)) acc.historical_debt += item.outstanding;
+      else acc.upcoming_due += item.outstanding;
       return acc;
-    }, { amount_due: 0, amount_paid: 0, outstanding: 0, open: 0, closed: 0 });
+    }, { amount_due: 0, amount_paid: 0, outstanding: 0, historical_debt: 0, upcoming_due: 0, open: 0, closed: 0 });
 
     const freeEvening = await db.get<any>(`
       SELECT COUNT(*) AS count
@@ -201,7 +209,7 @@ router.post('/payments/:participantId/use-free-evening', async (req, res) => {
       const participant = await tx.get<any>(`
         SELECT ep.id, ep.player_id, ep.response_status, ep.registration_status, ep.attendance_status,
                ep.amount_due, ep.amount_paid, ep.payment_status,
-               e.id AS evening_id, e.title, e.status AS evening_status
+               e.id AS evening_id, e.title, e.status AS evening_status, e.settled_at
           FROM evening_participants ep
           JOIN game_evenings e ON e.id = ep.evening_id
          WHERE ep.id = ? AND ep.player_id = ?

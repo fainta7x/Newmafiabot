@@ -130,6 +130,7 @@ Recent reliability/UX work includes:
 
 - CRM startup renders after overview/evenings are ready instead of waiting for the full player aggregate; slow startup requests are measured in the browser console;
 - CRM overview is a read-only path; canonical payment reconciliation remains on game/payment mutation paths instead of rerunning across historical debts on every open/resume;
+- Player Cabinet and organizer player records use the same historical-debt eligibility: completed/settled, factually attended, non-waived and still unpaid; upcoming planned payments remain separate from debt;
 - quick attendance/payment row actions update in place instead of refreshing the whole workspace;
 - mounted roster/payment lists provide search and counter filters; clearing search restores the selected filter; staff assignment stays in a collapsed section;
 - active in-progress evenings accept existing database players who arrived without prior registration;

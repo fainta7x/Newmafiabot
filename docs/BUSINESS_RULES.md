@@ -302,6 +302,7 @@ Historical UI/visual requirements may evolve, so inspect current publication com
 ## Player economy / payments
 
 - Wallet/tokens, shop, betting, manual evening accounting and free-evening credits are active product areas.
+- A historical game-evening debt exists only for a completed/settled evening that the player factually attended, is not waived and still has `amount_due > amount_paid`. An old RSVP alone must never create debt after settlement; planned payment for an active/upcoming evening is displayed separately from historical debt.
 - External online acquiring/SBP is **intentionally paused/disabled** in the current implementation.
 - `online_payment_available: false` is a product state, not automatically a bug.
 - Do not fabricate or enable a payment provider without an explicit provider/setup decision.

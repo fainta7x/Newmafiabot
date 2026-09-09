@@ -89,7 +89,14 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
         (SELECT MAX(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as last_visit,
         (SELECT MIN(e.starts_at) FROM evening_participants ep JOIN game_evenings e ON ep.evening_id = e.id WHERE ep.player_id = p.id AND ep.attendance_status = 'attended' AND e.status = 'completed') as first_visit,
         (SELECT COUNT(*) FROM organizer_tasks t WHERE t.player_id = p.id AND t.status != 'done' AND t.status != 'cancelled') as open_tasks_count,
-        (SELECT COALESCE(SUM(amount_due - amount_paid), 0) FROM evening_participants ep WHERE ep.player_id = p.id AND ep.amount_due > ep.amount_paid) as outstanding_debt
+        (SELECT COALESCE(SUM(ep.amount_due - ep.amount_paid), 0)
+           FROM evening_participants ep
+           JOIN game_evenings debt_evening ON debt_evening.id = ep.evening_id
+          WHERE ep.player_id = p.id
+            AND (debt_evening.status = 'completed' OR debt_evening.settled_at IS NOT NULL)
+            AND ep.attendance_status = 'attended'
+            AND ep.payment_status != 'waived'
+            AND ep.amount_due > ep.amount_paid) as outstanding_debt
       FROM players p
       ORDER BY p.nickname ASC
     `);

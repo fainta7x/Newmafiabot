@@ -137,7 +137,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
   if (new Set(playerIds).size !== playerIds.length) throw new Error('Для начисления жетонов нужны уникальные UUID зарегистрированных игроков');
   if (playerIds.length) {
     const placeholders = playerIds.map(() => '?').join(',');
-    const existingPlayers = await db.all<{ id: string }>(`SELECT id FROM players WHERE id IN (${placeholders}) AND COALESCE(source, '') NOT IN ('quick_guest','legacy_guest_migrated')`, playerIds);
+    const existingPlayers = await db.all<{ id: string }>(`SELECT id FROM players WHERE id IN (${placeholders}) AND COALESCE(source, '') != 'legacy_guest_migrated'`, playerIds);
     if (existingPlayers.length !== playerIds.length) throw new Error('Один или несколько UUID игроков завершённой игры отсутствуют в CRM');
   }
 
@@ -150,7 +150,7 @@ const buildDesiredTargets = async (db: DatabaseWrapper, game: any): Promise<Map<
     desired.set(`player:${playerId}`, { subjectType: 'player', playerId, amount: breakdown.total, breakdown });
   }
   if (game.judge_player_id) {
-    const judge = await db.get<{ id: string }>("SELECT id FROM players WHERE id = ? AND COALESCE(source,'') NOT IN ('quick_guest','legacy_guest_migrated')", [String(game.judge_player_id)]);
+    const judge = await db.get<{ id: string }>("SELECT id FROM players WHERE id = ? AND COALESCE(source,'') != 'legacy_guest_migrated'", [String(game.judge_player_id)]);
     if (judge) desired.set(`judge:${judge.id}`, { subjectType: 'judge', playerId: judge.id, amount: 100, breakdown: { judge_reward: 100 } });
   }
   return desired;

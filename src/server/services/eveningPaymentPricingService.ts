@@ -168,6 +168,20 @@ export async function reconcileRegularEveningPayments(
     : [];
   const explicitWaiverIds = new Set(waiverRows.map((row: any) => String(row.participant_id)));
 
+  // Ambiguous legacy `waived + due=0` rows are not evidence of an explicit waiver,
+  // but charging them automatically would be unsafe because the old global-role
+  // triggers may have created them. Keep them on a durable review hold until the
+  // organizer explicitly resolves the record.
+  const hasWaiverDiagnostics = await tableExists(db, 'evening_fee_waiver_migration_diagnostics');
+  const diagnosticRows = hasWaiverDiagnostics
+    ? await db.all<any>(`
+        SELECT participant_id
+          FROM evening_fee_waiver_migration_diagnostics
+         WHERE evening_id = ? AND status = 'needs_review'
+      `, [eveningId])
+    : [];
+  const reviewHoldIds = new Set(diagnosticRows.map((row: any) => String(row.participant_id)));
+
   const gameRows = await db.all<any>(`
     SELECT id, winner_team, protocol_text, slots_json
       FROM games
@@ -199,6 +213,7 @@ export async function reconcileRegularEveningPayments(
       const participantId = String(participant.id);
       const playerId = String(participant.player_id);
       const feeExempt = explicitWaiverIds.has(participantId)
+        || reviewHoldIds.has(participantId)
         || (assignedStaffPlayerId !== null && assignedStaffPlayerId === playerId);
       const gamesPlayed = playedCounts.get(participantId) || 0;
       const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed);

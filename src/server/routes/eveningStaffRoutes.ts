@@ -125,8 +125,21 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get<any>('SELECT id, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
-    const organizerPlayerId = String(req.body?.organizer_player_id || '').trim();
-    if (!organizerPlayerId) return res.status(400).json({ error: 'Выбери организатора вечера' });
+    const requestedOrganizer = req.body?.organizer_player_id;
+    if (requestedOrganizer === null) {
+      // Explicit null means the factual staff assignment is being removed, not
+      // replaced by a global-role fallback. Reconcile immediately so a former
+      // organizer who actually played becomes normally chargeable again unless an
+      // explicit evening_fee_waivers row still protects that participation.
+      await db.run('DELETE FROM evening_staff_assignments WHERE evening_id = ?', [eveningId]);
+      if (normalizeEveningFormat(evening.format) === 'CASUAL') {
+        await reconcileRegularEveningPayments(db, eveningId);
+      }
+      return res.json(await loadStaff(db, eveningId));
+    }
+
+    const organizerPlayerId = String(requestedOrganizer || '').trim();
+    if (!organizerPlayerId) return res.status(400).json({ error: 'Выбери организатора вечера или передай null для снятия назначения' });
 
     const organizer = await db.get<any>(`
       SELECT id, nickname, club_role
@@ -214,8 +227,17 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
             reason = excluded.reason,
             updated_at = excluded.updated_at
         `, [participantId, eveningId, String(req.body?.reason || '').trim() || null, now, now]);
+        // Explicit organizer resolution supersedes any migration review hold.
+        await db.run('DELETE FROM evening_fee_waiver_migration_diagnostics WHERE participant_id = ? AND evening_id = ?', [participantId, eveningId]);
       } else {
         await db.run('DELETE FROM evening_fee_waivers WHERE participant_id = ? AND evening_id = ?', [participantId, eveningId]);
+        // A deliberate waiver removal resolves ambiguity in favour of normal factual
+        // charging; retain the durable diagnostic row as resolved audit evidence.
+        await db.run(`
+          UPDATE evening_fee_waiver_migration_diagnostics
+             SET status = 'resolved_charge', updated_at = ?
+           WHERE participant_id = ? AND evening_id = ?
+        `, [now, participantId, eveningId]);
       }
       await reconcileRegularEveningPayments(db, eveningId);
       return res.json(await loadPayments(db, eveningId));

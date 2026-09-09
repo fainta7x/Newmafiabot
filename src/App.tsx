@@ -7,6 +7,7 @@ import { PublicJoinView } from "./components/public/PublicJoinView.tsx";
 import { PublicTournamentResults } from "./components/public/PublicTournamentResults.tsx";
 import PlayerCabinetShell, { type PlayerCabinetSection } from "./components/player/PlayerCabinetShell.tsx";
 import PlayerReplayScreen from "./components/player/PlayerReplayScreen.tsx";
+import VkPlayerAccess from "./components/player/VkPlayerAccess.tsx";
 import AsyncState from "./components/ui/AsyncState.tsx";
 import { appBackTarget, isRoutePrefix, parsePlayerRoute, playerPathForSection, type PlayerRouteSection } from "./lib/appNavigation.ts";
 import type { PlayerMeResponse } from "./types/player.ts";
@@ -82,12 +83,22 @@ function PlayerRegistration({
 
   if (!initData || !telegram) {
     return (
-      <RootMessage
-        kind="empty"
-        title="Откройте через Telegram"
-        text="Регистрация игрока подтверждается Telegram-аккаунтом. Откройте приложение из бота клуба и повторите вход."
-        canOpenAdmin={canOpenAdmin}
-      />
+      <main className="flex min-h-screen items-center justify-center bg-[#090a0d] px-4 py-8 text-white">
+        <div className="w-full max-w-[390px] rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
+          <h1 className="mt-3 text-2xl font-semibold">Войти в кабинет игрока</h1>
+          <p className="mt-2 text-sm leading-6 text-white/50">
+            Подтвердите игровой профиль через VK ID. После входа откроется тот же кабинет с вашими играми, рейтингом, профилем и записями на вечера.
+          </p>
+          <VkPlayerAccess compact />
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs leading-5 text-white/45">
+            Можно также войти через приложение клуба в Telegram. Оба способа ведут в один и тот же игровой профиль.
+          </div>
+          {canOpenAdmin && (
+            <a href="/admin" className="mt-3 block text-center text-xs text-white/35">Открыть панель организатора</a>
+          )}
+        </div>
+      </main>
     );
   }
 
@@ -114,7 +125,7 @@ function PlayerRegistration({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (body?.code === 'nickname_taken') {
-          throw new Error('Такой ник уже есть в клубе. Если это ваш старый профиль, не создавайте новый — попросите организатора привязать существующий профиль к вашему Telegram.');
+          throw new Error('Такой ник уже есть в клубе. Если это ваш старый профиль, не создавайте новый — используйте подтверждение существующей личности или обратитесь к организатору.');
         }
         throw new Error(body?.error || 'Не удалось создать профиль.');
       }
@@ -132,7 +143,7 @@ function PlayerRegistration({
         <div className="text-xs uppercase tracking-[0.2em] text-white/35">2LA Noire</div>
         <h1 className="mt-3 text-2xl font-semibold">Создать профиль</h1>
         <p className="mt-2 text-sm leading-6 text-white/50">
-          Telegram подтверждён{telegram.first_name ? ` · ${telegram.first_name}` : ''}. Осталось выбрать игровой ник — под ним вы будете отображаться в записях, играх, рейтингах и турнирах.
+          Аккаунт подтверждён{telegram.first_name ? ` · ${telegram.first_name}` : ''}. Осталось выбрать игровой ник — под ним вы будете отображаться в записях, играх, рейтингах и турнирах.
         </p>
 
         <label className="mt-5 block text-xs font-medium uppercase tracking-[0.14em] text-white/35">Игровой ник</label>
@@ -157,8 +168,10 @@ function PlayerRegistration({
         </button>
 
         <div className="mt-4 rounded-2xl border border-amber-200/10 bg-amber-200/[0.04] px-3 py-3 text-xs leading-5 text-amber-50/50">
-          Уже играли в 2LA noire? Если ваш профиль уже есть в клубной базе, не создавайте второй — обратитесь к организатору для привязки Telegram.
+          Уже играли в 2LA noire? Если профиль уже есть в клубной базе, не создавайте второй — подтвердите связь существующего профиля.
         </div>
+
+        <VkPlayerAccess initialNickname={nickname} />
 
         {canOpenAdmin && (
           <a href="/admin" className="mt-3 block text-center text-xs text-white/35">Открыть панель организатора</a>
@@ -307,7 +320,7 @@ export default function App() {
   }
 
   if (rootState.status === 'loading') {
-    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем вход через Telegram…" />;
+    return <RootMessage kind="loading" title="Загружаем профиль" text="Проверяем сессию игрока…" />;
   }
 
   if (rootState.status === 'unlinked') {

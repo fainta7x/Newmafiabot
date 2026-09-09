@@ -1,12 +1,51 @@
+import crypto from 'node:crypto';
 import { Router, type Request } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
+import { getPlayerSessionId } from '../auth.ts';
 import { ensureVkJoinSchema } from '../../db/ensureVkJoinSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { createVkJoinOAuthStart, resolveVkJoinSession } from './vkJoinAuthService.ts';
 import { createVkIdentityClaim } from './vkIdentityClaimService.ts';
+import { createVkPlayerOAuthStart } from './vkPlayerAuthService.ts';
 
 const router = Router();
+const VK_PLAYER_OAUTH_BINDING_COOKIE = 'vk_player_oauth_binding';
+const VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS = 30 * 60 * 1000;
 const baseUrlFor = (req: Request) => `${req.protocol}://${req.get('host')}`;
+const browserBindingFor = (req: any, res: any) => {
+  const existing = String(req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE] || '').trim();
+  if (/^[A-Za-z0-9_-]{32,256}$/.test(existing)) return existing;
+  const binding = crypto.randomBytes(32).toString('base64url');
+  res.cookie(VK_PLAYER_OAUTH_BINDING_COOKIE, binding, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/integrations',
+    maxAge: VK_PLAYER_OAUTH_BINDING_MAX_AGE_MS,
+  });
+  return binding;
+};
+
+router.post('/player/vk/start', async (req, res) => {
+  try {
+    const db = req.db as DatabaseWrapper;
+    const result = await createVkPlayerOAuthStart(db, {
+      redirectUri: `${baseUrlFor(req)}/api/integrations/vk/oauth/callback`,
+      nickname: req.body?.nickname,
+      returnTo: req.body?.return_to,
+      browserBinding: browserBindingFor(req, res),
+      initiatingPlayerId: getPlayerSessionId(req),
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(result);
+  } catch (error: any) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Не удалось открыть VK ID',
+      code: error?.code || 'vk_auth_start_failed',
+    });
+  }
+});
 
 router.post('/evenings/:id/vk/start', async (req, res) => {
   try {

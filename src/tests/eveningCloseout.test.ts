@@ -75,7 +75,7 @@ describe('evening closeout workflow', () => {
     expect(task?.status).toBe('todo');
   });
 
-  it('requires attendance truth but allows closing without game stats and keeps unpaid balance as debt', async () => {
+  it('requires attendance truth and creates no CASUAL debt when no games were completed', async () => {
     const db = createDb();
     const eveningId = await seedEvening(db);
     await seedPlayer(db, 'p1', 'Альфа');
@@ -87,8 +87,7 @@ describe('evening closeout workflow', () => {
 
     await setParticipantAttendance(db, 'ep1', 'attended_on_time');
     const before = await loadEveningCloseout(db, eveningId);
-    expect(before.outstanding).toHaveLength(1);
-    expect(before.outstanding[0].balance).toBe(300);
+    expect(before.outstanding).toHaveLength(0);
     expect(before.games.needs_override).toBe(true);
 
     await expect(settleEveningFromCloseout(db, eveningId))
@@ -98,26 +97,26 @@ describe('evening closeout workflow', () => {
     expect(settled.success).toBe(true);
     expect(settled.evening.status).toBe('completed');
 
-    const debt = await db.get<any>(
-      `SELECT amount FROM financial_transactions
-       WHERE evening_id=? AND player_id='p1' AND type='debt_created'`,
-      [eveningId],
+    const financialRows = await db.all<any>(
+      'SELECT type, amount FROM financial_transactions WHERE evening_id=? AND player_id=?',
+      [eveningId, 'p1'],
     );
-    expect(Number(debt?.amount)).toBe(300);
-    const income = await db.get<any>(
-      `SELECT amount FROM financial_transactions
-       WHERE evening_id=? AND player_id='p1' AND type='income'`,
-      [eveningId],
+    expect(financialRows).toEqual([]);
+
+    const participant = await db.get<any>(
+      'SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id=?',
+      ['ep1'],
     );
-    expect(Number(income?.amount)).toBe(100);
+    expect(participant).toMatchObject({ amount_due: 0, amount_paid: 0, payment_status: 'waived' });
 
     const task = await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key=?', [`evening-close:${eveningId}`]);
     expect(task?.status).toBe('done');
   });
 
-  it('adds an unregistered player as a walk-in with a quick custom charge', async () => {
+  it('keeps a quick custom walk-in charge for non-CASUAL formats', async () => {
     const db = createDb();
     const eveningId = await seedEvening(db);
+    await db.run("UPDATE game_evenings SET format='TOURNAMENT' WHERE id=?", [eveningId]);
     await seedPlayer(db, 'walk1', 'Гость');
 
     const participant = await addEveningWalkIn(db, eveningId, { player_id: 'walk1', amount_due: 200 });
@@ -128,6 +127,16 @@ describe('evening closeout workflow', () => {
 
     const state = await loadEveningCloseout(db, eveningId);
     expect(state.unplanned_attended.map((item: any) => item.nickname)).toContain('Гость');
+  });
+
+  it('does not turn a CASUAL walk-in estimate into debt before factual games exist', async () => {
+    const db = createDb();
+    const eveningId = await seedEvening(db);
+    await seedPlayer(db, 'walk-casual', 'Гость CASUAL');
+
+    const participant = await addEveningWalkIn(db, eveningId, { player_id: 'walk-casual', amount_due: 600 });
+    expect(Number(participant?.amount_due)).toBe(0);
+    expect(participant?.payment_status).toBe('waived');
   });
 
   it('lets someone who previously said thinking still be marked as unexpectedly present', async () => {

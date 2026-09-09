@@ -25,6 +25,7 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       tournament_id TEXT NOT NULL,
       player_id TEXT NOT NULL,
       status TEXT NOT NULL,
+      slot_number INTEGER,
       registered_at TEXT NOT NULL,
       queue_order INTEGER,
       cancelled_at TEXT,
@@ -33,7 +34,9 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       UNIQUE(tournament_id, player_id)
     )
   `);
+  await ensureColumn(db, 'tournament_registrations', 'slot_number', 'INTEGER');
   await db.run('CREATE INDEX IF NOT EXISTS idx_tournament_registrations_queue ON tournament_registrations(tournament_id, status, registered_at, id)');
+  await db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_tournament_registrations_confirmed_slot ON tournament_registrations(tournament_id, slot_number) WHERE status='confirmed' AND slot_number IS NOT NULL");
 
   await db.run(`
     CREATE TABLE IF NOT EXISTS tournament_payment_claims (

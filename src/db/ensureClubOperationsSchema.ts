@@ -1,4 +1,5 @@
 import type { DatabaseWrapper } from './index.ts';
+import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
 
 const ensuredDatabases = new WeakSet<object>();
@@ -10,6 +11,23 @@ async function ensurePlayerAccessColumns(db: DatabaseWrapper) {
   }
   if (!columns.some((column) => column.name === 'club_role')) {
     await db.run("ALTER TABLE players ADD COLUMN club_role TEXT NOT NULL DEFAULT 'member'");
+  }
+}
+
+async function reconcileHistoricalRegularEvenings(db: DatabaseWrapper) {
+  const rows = await db.all<any>(`
+    SELECT id, format
+      FROM game_evenings
+     WHERE status = 'completed' OR settled_at IS NOT NULL
+  `);
+  const casualIds = rows
+    .filter((row) => normalizeEveningFormat(row.format) === 'CASUAL')
+    .map((row) => String(row.id));
+  if (!casualIds.length) return;
+
+  const { reconcileRegularEveningPayments } = await import('../server/services/eveningPaymentPricingService.ts');
+  for (const eveningId of casualIds) {
+    await reconcileRegularEveningPayments(db, eveningId);
   }
 }
 
@@ -61,6 +79,44 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
       UPDATE evening_participants
          SET amount_due = 0,
              amount_paid = 0,
+             payment_status = 'waived'
+       WHERE id = NEW.id;
+    END
+  `);
+
+  // RSVP and slot selection are planning only. Until attendance is factual, CASUAL
+  // participants must not persist a planned charge into the canonical debt fields.
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_casual_planned_fee_insert
+    AFTER INSERT ON evening_participants
+    WHEN COALESCE(NEW.attendance_status, 'pending') = 'pending'
+      AND EXISTS (
+        SELECT 1 FROM game_evenings e
+         WHERE e.id = NEW.evening_id
+           AND upper(COALESCE(e.format, 'CASUAL')) = 'CASUAL'
+      )
+      AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
+    BEGIN
+      UPDATE evening_participants
+         SET amount_due = 0,
+             payment_status = 'waived'
+       WHERE id = NEW.id;
+    END
+  `);
+
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_casual_planned_fee_update
+    AFTER UPDATE OF amount_due, payment_status, attendance_status ON evening_participants
+    WHEN COALESCE(NEW.attendance_status, 'pending') = 'pending'
+      AND EXISTS (
+        SELECT 1 FROM game_evenings e
+         WHERE e.id = NEW.evening_id
+           AND upper(COALESCE(e.format, 'CASUAL')) = 'CASUAL'
+      )
+      AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
+    BEGIN
+      UPDATE evening_participants
+         SET amount_due = 0,
              payment_status = 'waived'
        WHERE id = NEW.id;
     END
@@ -129,6 +185,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
        AND NOT EXISTS (SELECT 1 FROM evening_staff_assignments s WHERE s.evening_id = e.id)
        AND EXISTS (SELECT 1 FROM players p WHERE p.id = ?)
   `, [PRIMARY_ORGANIZER_PLAYER_ID, now, now, PRIMARY_ORGANIZER_PLAYER_ID]);
+
+  // Application-level, idempotent backfill: historical regular evenings are repaired
+  // from completed protocols on startup. No production database is edited manually.
+  await reconcileHistoricalRegularEvenings(db);
 
   ensuredDatabases.add(db as object);
 }

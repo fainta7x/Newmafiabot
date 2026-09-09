@@ -14,6 +14,35 @@ import {
 } from '../services/tokenLedgerService.ts';
 
 const router = Router();
+const GUEST_SOURCES = new Set(['quick_guest', 'legacy_guest_migrated']);
+
+// This router mounts before generic playersRoutes. Keep migrated legacy guests out
+// of the player directory/profile surface and refuse wallet/service mutations for
+// those technical rows even if an old direct URL is still known.
+router.use(async (req, res, next) => {
+  try {
+    const pathParts = req.path.split('/').filter(Boolean);
+    const candidateId = pathParts[0] || '';
+    if (candidateId) {
+      const db = req.db || (await getDb());
+      const player = await db.get<any>('SELECT source FROM players WHERE id = ? LIMIT 1', [candidateId]);
+      if (player && GUEST_SOURCES.has(String(player.source || ''))) return res.status(404).json({ error: 'Игрок не найден' });
+    }
+
+    if (req.method === 'GET' && req.path === '/') {
+      const originalJson = res.json.bind(res);
+      res.json = ((body: any) => {
+        const filtered = Array.isArray(body)
+          ? body.filter((player: any) => !GUEST_SOURCES.has(String(player?.source || '')))
+          : body;
+        return originalJson(filtered);
+      }) as typeof res.json;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Player-scoped organizer extensions must mount before generic /:id handlers in playersRoutes.
 router.use(profileIntegrityAdminRoutes);
@@ -26,44 +55,29 @@ const sendTokenError = (res: any, error: any) => {
   return res.status(500).json({ error: 'Database error', message: error?.message || String(error) });
 };
 
-// Canonical player creation path. A non-zero starting balance is journaled atomically.
 router.post('/', requireOrganizerAuth, async (req, res) => {
   try {
     const data = createPlayerSchema.parse(req.body);
     const db = req.db || (await getDb());
     const existingNick = await db.get('SELECT id FROM players WHERE nickname = ?', [data.nickname]);
     if (existingNick) return res.status(400).json({ error: 'Игрок с таким никнеймом уже существует' });
-
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const normalizedTg = data.telegram_username ? data.telegram_username.replace('@', '').trim() || null : null;
     const contactStatus = data.contact_status || (data.lifecycle_status === 'blocked' ? 'blocked' : data.lifecycle_status === 'paused' ? 'paused' : 'normal');
-
     await db.transaction(async (tx: any) => {
       await tx.run(
         `INSERT INTO players (id, telegram_user_id, nickname, full_name, telegram_username, phone, contact_status, lifecycle_status, source, notes, elo, tokens, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-        [
-          id, data.telegram_user_id || null, data.nickname, data.full_name || null,
-          normalizedTg, data.phone || null, contactStatus, contactStatus,
-          data.source || 'crm_manual', data.notes || null, data.elo, now, now,
-        ],
+        [id, data.telegram_user_id || null, data.nickname, data.full_name || null, normalizedTg, data.phone || null, contactStatus, contactStatus, data.source || 'crm_manual', data.notes || null, data.elo, now, now],
       );
       if (data.tokens !== 0) {
         await mutateTokenBalance(tx, {
-          playerId: id,
-          delta: data.tokens,
-          reasonType: 'initial_balance',
-          description: 'Начальный баланс при создании игрока',
-          sourceType: 'player_creation',
-          sourceId: id,
-          idempotencyKey: `player-create:${id}:tokens`,
-          debitPolicy: 'allow_negative',
-          actorType: 'organizer',
+          playerId: id, delta: data.tokens, reasonType: 'initial_balance', description: 'Начальный баланс при создании игрока',
+          sourceType: 'player_creation', sourceId: id, idempotencyKey: `player-create:${id}:tokens`, debitPolicy: 'allow_negative', actorType: 'organizer',
         });
       }
     });
-
     const created = await db.get('SELECT * FROM players WHERE id = ?', [id]);
     res.status(201).json(created);
   } catch (error: any) {
@@ -72,13 +86,9 @@ router.post('/', requireOrganizerAuth, async (req, res) => {
   }
 });
 
-// Raw balance replacement is retired. Metadata edits continue to the existing players router.
 router.patch('/:id', requireOrganizerAuth, (req, res, next) => {
   if (Object.prototype.hasOwnProperty.call(req.body || {}, 'tokens')) {
-    return res.status(400).json({
-      error: 'Прямая замена баланса жетонов отключена',
-      adjustment_endpoint: `/api/players/${String(req.params.id)}/tokens/adjustments`,
-    });
+    return res.status(400).json({ error: 'Прямая замена баланса жетонов отключена', adjustment_endpoint: `/api/players/${String(req.params.id)}/tokens/adjustments` });
   }
   next();
 });
@@ -86,12 +96,8 @@ router.patch('/:id', requireOrganizerAuth, (req, res, next) => {
 router.get('/:id/tokens', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const limit = Number(req.query.limit || 20);
-    const offset = Number(req.query.offset || 0);
-    res.json(await getTokenLedgerPage(db, String(req.params.id), limit, offset));
-  } catch (error: any) {
-    return sendTokenError(res, error);
-  }
+    res.json(await getTokenLedgerPage(db, String(req.params.id), Number(req.query.limit || 20), Number(req.query.offset || 0)));
+  } catch (error: any) { return sendTokenError(res, error); }
 });
 
 router.post('/:id/tokens/adjustments', requireOrganizerAuth, async (req, res) => {
@@ -102,24 +108,13 @@ router.post('/:id/tokens/adjustments', requireOrganizerAuth, async (req, res) =>
     if (!Number.isInteger(delta) || delta === 0) return res.status(400).json({ error: 'delta должен быть ненулевым целым числом' });
     if (!reason) return res.status(400).json({ error: 'Причина корректировки обязательна' });
     if (!idempotencyKey) return res.status(400).json({ error: 'idempotency_key обязателен' });
-
     const db = req.db || (await getDb());
     const entry = await mutateTokenBalance(db, {
-      playerId: String(req.params.id),
-      delta,
-      reasonType: 'manual_adjustment',
-      description: reason,
-      sourceType: 'organizer',
-      sourceId: String(req.params.id),
-      idempotencyKey,
-      debitPolicy: 'prevent_negative',
-      actorType: 'organizer',
-      metadata: { route: 'player_token_adjustment' },
+      playerId: String(req.params.id), delta, reasonType: 'manual_adjustment', description: reason, sourceType: 'organizer', sourceId: String(req.params.id),
+      idempotencyKey, debitPolicy: 'prevent_negative', actorType: 'organizer', metadata: { route: 'player_token_adjustment' },
     });
     res.json({ success: true, balance: entry.balance_after, entry });
-  } catch (error: any) {
-    return sendTokenError(res, error);
-  }
+  } catch (error: any) { return sendTokenError(res, error); }
 });
 
 export default router;

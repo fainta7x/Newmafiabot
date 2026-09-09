@@ -83,6 +83,25 @@ describe('TOURNAMENT-EVENING-001 player calendar isolation', () => {
     expect(response.body.events.find((event: any) => event.id === managedId)?.registration_open).toBe(false);
   });
 
+  it('retries publication notifications without silently reopening a closed registration', async () => {
+    await addPlayer('calendar-player');
+    const managedId = await createManagedTournament();
+    await request(app)
+      .post(`/api/tournaments/evenings/${managedId}/registration/close`)
+      .set('Authorization', `Bearer ${organizerToken}`)
+      .expect(200);
+    const before = await db.get<any>('SELECT registration_closed_at FROM tournaments WHERE id=?', [managedId]);
+    expect(before?.registration_closed_at).toBeTruthy();
+
+    const retry = await request(app)
+      .post(`/api/tournaments/evenings/${managedId}/publish`)
+      .set('Authorization', `Bearer ${organizerToken}`);
+    expect(retry.status).toBe(200);
+    expect(retry.body.lifecycle).toBe('registration_closed');
+    const after = await db.get<any>('SELECT registration_closed_at FROM tournaments WHERE id=?', [managedId]);
+    expect(after?.registration_closed_at).toBe(before?.registration_closed_at);
+  });
+
   it('uses one canonical personal-notification delivery when a tournament player has both Telegram and VK identities', async () => {
     await addPlayer('dual-channel-player');
     await db.run('UPDATE players SET telegram_user_id=? WHERE id=?', ['7001', 'dual-channel-player']);

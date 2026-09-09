@@ -14,6 +14,17 @@ async function ensurePlayerAccessColumns(db: DatabaseWrapper) {
   }
 }
 
+async function normalizeRegularEveningDefaults(db: DatabaseWrapper, now: string) {
+  const rows = await db.all<any>('SELECT id, format, default_price FROM game_evenings');
+  for (const row of rows) {
+    if (normalizeEveningFormat(row.format) !== 'CASUAL' || Number(row.default_price || 0) === 100) continue;
+    await db.run(
+      'UPDATE game_evenings SET default_price = 100, updated_at = ? WHERE id = ?',
+      [now, String(row.id)],
+    );
+  }
+}
+
 async function reconcileHistoricalRegularEvenings(db: DatabaseWrapper) {
   const rows = await db.all<any>(`
     SELECT id, format
@@ -93,7 +104,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
       AND EXISTS (
         SELECT 1 FROM game_evenings e
          WHERE e.id = NEW.evening_id
-           AND upper(COALESCE(e.format, 'CASUAL')) = 'CASUAL'
+           AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
       )
       AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
     BEGIN
@@ -111,7 +122,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
       AND EXISTS (
         SELECT 1 FROM game_evenings e
          WHERE e.id = NEW.evening_id
-           AND upper(COALESCE(e.format, 'CASUAL')) = 'CASUAL'
+           AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
       )
       AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
     BEGIN
@@ -140,6 +151,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   `);
 
   const now = new Date().toISOString();
+
+  // CASUAL/STANDARD is always 100 ₽ per factual game. Keep default_price canonical too
+  // so legacy 600 ₽ does not leak through generic evening API/UI fields.
+  await normalizeRegularEveningDefaults(db, now);
 
   // Canonical current club roles requested by the organizer. Access to the CRM itself
   // remains a separate entitlement in organizer_player_access.

@@ -7,7 +7,10 @@ import {
   TOURNAMENT_PLAYER_CAPACITY,
   cancelTournamentRegistration,
   loadTournamentEvening,
+  organizerAddTournamentPlayer,
+  promoteTournamentReserve,
   registerTournamentPlayer,
+  reorderTournamentReserve,
   reportTournamentPayment,
   reviewTournamentPayment,
   validatePrizeConfiguration,
@@ -27,9 +30,15 @@ const errorStatus = (code: string) => ({
   JUDGE_CANNOT_REGISTER: 409,
   NOT_ELIGIBLE: 403,
   NOT_REGISTERED: 409,
+  NOT_IN_RESERVE: 409,
+  TOURNAMENT_FULL: 409,
   ROSTER_LOCKED: 409,
+  ROSTER_ALREADY_SEATED: 409,
   INVALID_PAYMENT_STATE: 400,
+  INVALID_RESERVE_ORDER: 400,
+  REASON_REQUIRED: 400,
 }[code] || 400);
+const organizerReason = (req: AuthenticatedRequest) => String(req.body?.reason || '').trim();
 
 router.post('/evenings', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
@@ -171,9 +180,48 @@ router.post('/evenings/:id/payment/report', async (req: AuthenticatedRequest, re
   catch (error: any) { return res.status(errorStatus(error?.message)).json({ error: error?.message }); }
 });
 
+router.post('/evenings/:id/players/:playerId/add', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const reason = organizerReason(req);
+  if (!reason) return res.status(400).json({ error: 'REASON_REQUIRED' });
+  try {
+    await organizerAddTournamentPlayer(req.db as DatabaseWrapper, String(req.params.id), String(req.params.playerId), reason);
+    return res.json(await loadTournamentEvening(req.db as DatabaseWrapper, String(req.params.id)));
+  } catch (error: any) {
+    return res.status(errorStatus(error?.message)).json({ error: error?.message });
+  }
+});
+
 router.post('/evenings/:id/players/:playerId/remove', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try { return res.json(await cancelTournamentRegistration(req.db as DatabaseWrapper, String(req.params.id), String(req.params.playerId), 'organizer', null, String(req.body?.reason || '').trim() || 'manual organizer removal')); }
-  catch (error: any) { return res.status(errorStatus(error?.message)).json({ error: error?.message }); }
+  const reason = organizerReason(req);
+  if (!reason) return res.status(400).json({ error: 'REASON_REQUIRED' });
+  try {
+    await cancelTournamentRegistration(req.db as DatabaseWrapper, String(req.params.id), String(req.params.playerId), 'organizer', null, reason);
+    return res.json(await loadTournamentEvening(req.db as DatabaseWrapper, String(req.params.id)));
+  } catch (error: any) {
+    return res.status(errorStatus(error?.message)).json({ error: error?.message });
+  }
+});
+
+router.post('/evenings/:id/players/:playerId/promote', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const reason = organizerReason(req);
+  if (!reason) return res.status(400).json({ error: 'REASON_REQUIRED' });
+  try {
+    await promoteTournamentReserve(req.db as DatabaseWrapper, String(req.params.id), String(req.params.playerId), reason);
+    return res.json(await loadTournamentEvening(req.db as DatabaseWrapper, String(req.params.id)));
+  } catch (error: any) {
+    return res.status(errorStatus(error?.message)).json({ error: error?.message });
+  }
+});
+
+router.put('/evenings/:id/reserve-order', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const reason = organizerReason(req);
+  const registrationIds = Array.isArray(req.body?.registration_ids) ? req.body.registration_ids.map(String) : [];
+  if (!reason) return res.status(400).json({ error: 'REASON_REQUIRED' });
+  try {
+    return res.json(await reorderTournamentReserve(req.db as DatabaseWrapper, String(req.params.id), registrationIds, reason));
+  } catch (error: any) {
+    return res.status(errorStatus(error?.message)).json({ error: error?.message });
+  }
 });
 
 router.post('/evenings/:id/players/:playerId/payment', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {

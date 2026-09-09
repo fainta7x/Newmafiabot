@@ -23,7 +23,7 @@ The **actual current main SHA belongs to Git**, not this document. Always read i
 - Visual contract: `docs/DESIGN_SYSTEM.md`.
 - Old roadmaps, old chats and old PR descriptions: historical evidence only.
 
-**Important:** the known open PR outside current `main` is draft PR #246, which is separate scoped work for manual club players/guests and historical lineup repair. It is not part of the completed UX audit and must not be mixed into unrelated fixes. Old closed PR descriptions are not backlog; always compare historical work with current `main` before treating it as unfinished product work.
+**Important:** the known open PR outside current `main` is draft PR #246, which is separate scoped work for manual club players/guests and historical lineup repair. It is not part of the completed UX audit and must not be mixed into unrelated fixes. `TOURNAMENT-EVENING-001` is implemented in PR #300 and is likewise not part of `main` until merged. Old closed PR descriptions are not backlog; always compare historical work with current `main` before treating it as unfinished product work.
 
 ## Production/runtime
 
@@ -150,6 +150,24 @@ Recent reliability/UX work includes:
 
 The requested broad CRM/cabinet/Live Game usability audit has been completed in current `main`. Do not resurrect old redesign roadmaps as backlog. Future UX work should start from a newly reproduced issue, new user feedback, or a deliberate new design request.
 
+### Tournament evening registration — PR #300
+
+`TOURNAMENT-EVENING-001` is implemented in PR #300 as an additive registration/preparation layer over the existing canonical tournament engine.
+
+Repository implementation includes:
+
+- organizer creation/editing with title, date/time, venue, canonical judge, exact 10-player capacity, entry fee, prize fund/allocation and notes;
+- explicit publication/open/close registration lifecycle, readiness summary and stable `/player/events/<tournamentId>` copy link;
+- Player Cabinet calendar/detail for tournament registration, reserve position, cancellation and manual payment-report status;
+- first ten eligible players confirmed, deterministic FIFO reserve after capacity, judge exclusion and atomic reserve promotion on confirmed cancellation;
+- organizer manual add/remove/promote/reorder with required audit reasons;
+- two-stage tournament entry-fee claims where player reports `pending` and only organizer `confirmed` counts as money; tournament fees remain isolated from CASUAL pricing/debt, wallet tokens and betting;
+- channel-neutral publication/promotion/payment notifications routed to at most one linked Telegram/VK channel for the canonical player identity;
+- confirmed roster synchronization into `tournament_participants` before seating so the pre-existing tournament conducting/protocol/standings/awards/results/Elo/token modules remain the only tournament engine;
+- additive schema plus focused regression coverage that does not rewrite synthetic historical tournament/participant state.
+
+PR #300 is **not merged or deployed merely because this branch contains the implementation**. Historical `Турнир Богдана 1.08` remains a read-only regression reference; real production standings/compensation/awards/three-output verification and real Telegram/VK WebView screenshots remain post-merge/deploy runtime checks. See `docs/TOURNAMENT_EVENING_RUNBOOK.md`.
+
 ### Evening / Telegram response flow
 
 Current approved behavior:
@@ -260,6 +278,8 @@ The profile work through PRs #274–#277 is complete in `main`: weighted complet
 VK-ACCESS-002 adds focused Supertest/auth/outbox/betting/channel regressions for the exact cabinet start route, separation from public join auth, restart-active VK delivery, VK-only and dual-linked betting notification routing, owner-only linking, cross-player identity conflicts and trusted public callback URLs. Repository verification is still distinct from the required post-deploy VK runtime pass.
 
 CRM-PAY-003 adds focused pricing/reconciliation regressions for 0/1/2/3/4/5+ completed CASUAL games, legacy 600 ₽ durable repair, correction/idempotency, debt-free planned slots, CRM/Player Cabinet debt consistency and non-CASUAL isolation. Production rows such as Kawasaki's historical evenings are intentionally not claimed verified until the reviewed revision is merged, deployed and checked against the live database through normal application paths.
+
+TOURNAMENT-EVENING-001 / PR #300 adds focused organizer/player registration, exact-capacity, reserve-promotion, canonical-roster synchronization, manual payment/audit, calendar/deep-link, one-channel notification and additive historical-schema regressions. Repository checks remain distinct from the required real `Турнир Богдана 1.08` read-only runtime comparison and Telegram/VK mobile WebView evidence after deployment.
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 

@@ -10,10 +10,10 @@ export const TABLE_MIN_PLAYERS = 11;
 export const TABLE_MIN_READY_SLOTS = 4;
 
 export const calculateEveningSelectionTotal = (format: unknown, prices: number[]): number => {
-  const rawTotal = prices.reduce((sum, price) => sum + Math.max(0, Number(price || 0)), 0);
-  return normalizeEveningFormat(format) === 'CASUAL'
-    ? Math.min(rawTotal, CLUB_EVENING_MAX_PRICE)
-    : rawTotal;
+  if (normalizeEveningFormat(format) === 'CASUAL') {
+    return Math.min(prices.length * SLOT_PRICE, CLUB_EVENING_MAX_PRICE);
+  }
+  return prices.reduce((sum, price) => sum + Math.max(0, Number(price || 0)), 0);
 };
 
 const plusMinutes = (value: string, minutes: number) => new Date(new Date(value).getTime() + minutes * 60000).toISOString();
@@ -38,7 +38,13 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
   if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
 
+  const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();
+  if (isCasual && Number(evening.default_price || 0) !== SLOT_PRICE) {
+    await db.run('UPDATE game_evenings SET default_price = ?, updated_at = ? WHERE id = ?', [SLOT_PRICE, now, eveningId]);
+    evening.default_price = SLOT_PRICE;
+  }
+
   let settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   if (!settings) {
     await db.run(
@@ -47,12 +53,20 @@ export async function ensureSlotsForEvening(db: DatabaseWrapper, eveningId: stri
     );
     settings = await db.get<any>('SELECT * FROM evening_slot_settings WHERE evening_id = ? LIMIT 1', [eveningId]);
   }
+  if (isCasual && Number(settings?.price_per_game || 0) !== SLOT_PRICE) {
+    await db.run('UPDATE evening_slot_settings SET price_per_game = ?, updated_at = ? WHERE evening_id = ?', [SLOT_PRICE, now, eveningId]);
+    settings = { ...settings, price_per_game: SLOT_PRICE };
+  }
 
   let slots = await db.all<any>('SELECT * FROM evening_game_slots WHERE evening_id = ? ORDER BY slot_number', [eveningId]);
+  if (isCasual && slots.some((slot) => Number(slot.price_rub || 0) !== SLOT_PRICE)) {
+    await db.run('UPDATE evening_game_slots SET price_rub = ?, updated_at = ? WHERE evening_id = ?', [SLOT_PRICE, now, eveningId]);
+    slots = slots.map((slot) => ({ ...slot, price_rub: SLOT_PRICE }));
+  }
   if (!slots.length) {
     const duration = Number(settings.slot_duration_minutes || 60);
     const count = Number(settings.planned_slots || 6);
-    const price = Number(settings.price_per_game || SLOT_PRICE);
+    const price = isCasual ? SLOT_PRICE : Number(settings.price_per_game || SLOT_PRICE);
     const targetPlayers = Number(settings.ready_players_per_slot || TABLE_MIN_PLAYERS);
 
     await db.transaction(async (tx: DatabaseWrapper) => {
@@ -103,8 +117,11 @@ export async function updateEveningSlotSettings(
   const { evening, settings } = await ensureSlotsForEvening(db, eveningId);
   if (evening.status === 'completed' || evening.settled_at) throw Object.assign(new Error('Завершённый вечер менять нельзя'), { statusCode: 409 });
 
+  const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const nextCount = Math.max(1, Math.min(12, Math.round(Number(input.planned_slots ?? settings.planned_slots ?? 6))));
-  const nextPrice = Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
+  const nextPrice = isCasual
+    ? SLOT_PRICE
+    : Math.max(0, Math.round(Number(input.price_per_game ?? settings.price_per_game ?? SLOT_PRICE)));
   const nextDuration = Math.max(15, Math.min(180, Math.round(Number(input.slot_duration_minutes ?? settings.slot_duration_minutes ?? 60))));
   const nextStartsAt = normalizeStartsAt(input.starts_at, evening.starts_at);
   if (!Number.isFinite(nextCount) || !Number.isFinite(nextPrice) || !Number.isFinite(nextDuration)) {
@@ -227,7 +244,7 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       format: evening.format || 'CASUAL',
       status: evening.status,
       event_type: 'evening',
-      price_per_game: Number(settings.price_per_game || SLOT_PRICE),
+      price_per_game: isFinite(Number(settings.price_per_game)) ? Number(settings.price_per_game) : SLOT_PRICE,
       max_evening_price: normalizeEveningFormat(evening.format) === 'CASUAL' ? CLUB_EVENING_MAX_PRICE : null,
       slot_duration_minutes: Number(settings.slot_duration_minutes || 60),
       slot_count: slots.length,

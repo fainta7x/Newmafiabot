@@ -11,7 +11,7 @@ import { confirmVkIdentityClaim, createVkIdentityClaim, peekVkIdentityClaim } fr
 import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, createVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
 import { resolveTrustedPublicAppOrigin } from './publicAppOriginService.ts';
-import { VK_PLAYER_OAUTH_BINDING_COOKIE } from './vkPlayerStartRouter.ts';
+import { VK_PLAYER_OAUTH_BINDING_COOKIE, VK_PLAYER_OAUTH_BINDING_PATH } from './vkPlayerStartRouter.ts';
 
 const router = Router();
 
@@ -116,7 +116,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         }
       }
       setPlayerSessionCookie(res, playerId);
-      res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: '/' });
+      res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
       logPlayerCallback('session_issued', req, { return_to: result.returnTo });
       return res.redirect(302, result.returnTo);
     } catch (error: any) {

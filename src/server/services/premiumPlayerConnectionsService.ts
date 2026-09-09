@@ -3,7 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { ensurePlayerConnectionsSchema } from '../../db/ensurePlayerConnectionsSchema.ts';
 import { loadCompletedGameSnapshots, type CompletedGameSnapshot } from './clubGameAnalyticsService.ts';
-import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
+import { queuePersonalNotification } from './personalNotificationRouterService.ts';
 
 export type EveningInvitationStatus = 'sent' | 'opened' | 'accepted' | 'declined' | 'ignored';
 
@@ -253,19 +253,17 @@ export async function createEveningInvitation(db: DatabaseWrapper, inviterPlayer
     VALUES (?, ?, ?, ?, 'sent', ?, ?)
   `, [id, eveningId, inviterPlayerId, recipientPlayerId, now, now]);
 
-  if (recipient.telegram_user_id) {
-    const starts = evening.starts_at ? new Date(String(evening.starts_at)).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'скоро';
-    await enqueueTelegramMessage(db, {
-      messageKey: `evening-invite:${id}`,
-      category: 'personal',
-      eventType: 'evening_invite',
-      entityId: id,
-      playerId: recipientPlayerId,
-      chatId: String(recipient.telegram_user_id),
-      text: `🎲 <b>${String(inviter.nickname || 'Игрок')}</b> зовёт тебя на «${String(evening.title || 'Игровой вечер')}» · ${starts}.\n\nОткрой личный кабинет, чтобы посмотреть приглашение. Запись на вечер подтверждается отдельно.`,
-    });
-    kickTelegramMessageOutbox(db);
-  }
+  const starts = evening.starts_at
+    ? new Date(String(evening.starts_at)).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : 'скоро';
+  await queuePersonalNotification(db, {
+    notificationKey: `evening-invite:${id}`,
+    playerId: recipientPlayerId,
+    eventType: 'evening_invite',
+    entityId: id,
+    text: `🎲 ${String(inviter.nickname || 'Игрок')} зовёт тебя на «${String(evening.title || 'Игровой вечер')}» · ${starts}.\n\nОткрой личный кабинет, чтобы посмотреть приглашение. Приглашение не создаёт запись автоматически.`,
+    actionPath: `/player/events/${encodeURIComponent(eveningId)}`,
+  });
 
   const invitation = await db.get<any>('SELECT * FROM player_evening_invitations WHERE id = ?', [id]);
   return { invitation, created: true };

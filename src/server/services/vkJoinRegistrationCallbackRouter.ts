@@ -48,7 +48,8 @@ const logPlayerCallback = (stage: string, req: any, details: Record<string, unkn
   console.info('[VK PLAYER AUTH]', {
     stage,
     method: req.method,
-    path: req.originalUrl || req.url,
+    // Never log originalUrl: the callback query contains OAuth code/state/device_id.
+    path: req.path,
     secure: Boolean(req.secure),
     forwarded_proto: String(req.get?.('x-forwarded-proto') || '').split(',')[0].trim() || null,
     has_binding_cookie: Boolean(req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE]),

@@ -8,7 +8,6 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
   it('moves new Telegram identities onto the shared verified onboarding flow', () => {
     const app = read('src/App.tsx');
     const auth = read('src/server/routes/authRoutes.ts');
-
     expect(app).toContain('VerifiedPlayerOnboarding');
     expect(app).toContain("fetch('/api/auth/telegram'");
     expect(app).toContain('return_to: currentPlayerReturnPath()');
@@ -22,7 +21,6 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
     const access = read('src/components/player/VkPlayerAccess.tsx');
     const start = read('src/server/services/vkPlayerStartRouter.ts');
     const callback = read('src/server/services/vkJoinRegistrationCallbackRouter.ts');
-
     expect(access).toContain('Продолжить через VK');
     expect(access).not.toContain('Игровой ник');
     expect(access).not.toContain('nickname:');
@@ -36,7 +34,6 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
     const cookie = read('src/server/services/playerOnboardingCookie.ts');
     const auth = read('src/server/routes/authRoutes.ts');
     const ui = read('src/components/player/VerifiedPlayerOnboarding.tsx');
-
     expect(cookie).toContain("export const PLAYER_ONBOARDING_COOKIE = 'player_onboarding'");
     expect(cookie).toContain('httpOnly: true');
     expect(cookie).toContain("sameSite: 'lax'");
@@ -50,7 +47,6 @@ describe('VK-ACCESS-004 shared onboarding UI routing', () => {
   it('uses one channel-neutral choice and completion API for both Telegram and VK', () => {
     const ui = read('src/components/player/VerifiedPlayerOnboarding.tsx');
     const auth = read('src/server/routes/authRoutes.ts');
-
     expect(ui).toContain('Я уже играл в клубе');
     expect(ui).toContain('Я новый игрок');
     expect(ui).toContain('`/api/auth/onboarding/${kind}`');

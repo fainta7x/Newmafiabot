@@ -25,7 +25,7 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       tournament_id TEXT NOT NULL,
       player_id TEXT NOT NULL,
       status TEXT NOT NULL,
-      slot_number INTEGER,
+      slot_number INTEGER CHECK(slot_number IS NULL OR slot_number BETWEEN 1 AND 10),
       registered_at TEXT NOT NULL,
       queue_order INTEGER,
       cancelled_at TEXT,
@@ -34,8 +34,8 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
       UNIQUE(tournament_id, player_id)
     )
   `);
-  await ensureColumn(db, 'tournament_registrations', 'slot_number', 'INTEGER');
-  await db.run('CREATE INDEX IF NOT EXISTS idx_tournament_registrations_queue ON tournament_registrations(tournament_id, status, registered_at, id)');
+  await ensureColumn(db, 'tournament_registrations', 'slot_number', 'INTEGER CHECK(slot_number IS NULL OR slot_number BETWEEN 1 AND 10)');
+  await db.run('CREATE INDEX IF NOT EXISTS idx_tournament_registrations_queue ON tournament_registrations(tournament_id, status, queue_order, registered_at, id)');
   await db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_tournament_registrations_confirmed_slot ON tournament_registrations(tournament_id, slot_number) WHERE status='confirmed' AND slot_number IS NOT NULL");
 
   await db.run(`
@@ -68,7 +68,6 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
     )
   `);
 
-  // New workflow is additive. Historical tournament rows are never rewritten here.
-  // Capacity remains fixed at ten for newly-created tournament evenings; legacy tournaments
-  // keep their stored participant/protocol/result data untouched.
+  // Additive only: no UPDATE touches legacy tournament participants, games, protocols,
+  // standings, awards or Bogdan's historical tournament rows.
 }

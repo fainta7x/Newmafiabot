@@ -27,6 +27,7 @@ const playerIdOr401 = (req: AuthenticatedRequest, res: Response) => {
 };
 const errorStatus = (code: string) => ({
   TOURNAMENT_NOT_FOUND: 404,
+  NOT_TOURNAMENT_EVENING: 409,
   REGISTRATION_CLOSED: 409,
   JUDGE_CANNOT_REGISTER: 409,
   NOT_ELIGIBLE: 403,
@@ -35,6 +36,8 @@ const errorStatus = (code: string) => ({
   TOURNAMENT_FULL: 409,
   ROSTER_LOCKED: 409,
   ROSTER_ALREADY_SEATED: 409,
+  ROSTER_NOT_READY: 409,
+  ROSTER_MISMATCH: 409,
   INVALID_PAYMENT_STATE: 400,
   INVALID_RESERVE_ORDER: 400,
   REASON_REQUIRED: 400,
@@ -60,8 +63,8 @@ router.post('/evenings', requireOrganizerAuth, async (req: AuthenticatedRequest,
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.run(`INSERT INTO tournaments
-      (id,title,date,venue,stage,status,chief_judge_name,notes,game_count,created_at,updated_at,judge_player_id,player_capacity,entry_fee_rub,prize_fund_rub,prize_allocations_json,registration_token)
-      VALUES (?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?,?,?)`, [
+      (id,title,date,venue,stage,status,chief_judge_name,notes,game_count,created_at,updated_at,judge_player_id,player_capacity,entry_fee_rub,prize_fund_rub,prize_allocations_json,registration_token,tournament_evening_flow)
+      VALUES (?,?,?,?,?,'draft',?,?,?,?,?,?,?,?,?,?,?,1)`, [
       id, title, date.toISOString(), venue, 'TOURNAMENT', judge.judge_name,
       body.notes == null ? null : String(body.notes).trim() || null,
       Number.isInteger(Number(body.game_count)) && Number(body.game_count) > 0 ? Number(body.game_count) : 10,
@@ -81,7 +84,7 @@ router.put('/evenings/:id', requireOrganizerAuth, async (req: AuthenticatedReque
   const db = req.db as DatabaseWrapper;
   const id = String(req.params.id);
   const current = await db.get<any>('SELECT * FROM tournaments WHERE id=? LIMIT 1', [id]);
-  if (!current) return res.status(404).json({ error: 'Турнир не найден' });
+  if (!current || Number(current.tournament_evening_flow || 0) !== 1) return res.status(404).json({ error: 'Турнир не найден' });
   if (current.status !== 'draft') return res.status(409).json({ error: 'После запуска турнирные настройки заблокированы' });
   const body = req.body || {};
   const title = body.title == null ? current.title : String(body.title).trim();
@@ -113,7 +116,7 @@ router.post('/evenings/:id/publish', requireOrganizerAuth, async (req: Authentic
   const db = req.db as DatabaseWrapper;
   const id = String(req.params.id);
   const tournament = await db.get<any>('SELECT * FROM tournaments WHERE id=? LIMIT 1', [id]);
-  if (!tournament) return res.status(404).json({ error: 'Турнир не найден' });
+  if (!tournament || Number(tournament.tournament_evening_flow || 0) !== 1) return res.status(404).json({ error: 'Турнир не найден' });
   if (tournament.status !== 'draft') return res.status(409).json({ error: 'Публикация доступна только до запуска' });
   const prize = validatePrizeConfiguration(tournament.prize_fund_rub, JSON.parse(tournament.prize_allocations_json || '[]'));
   if (!prize.ok || prize.mismatch) return res.status(409).json({ error: 'Сумма распределения призов не совпадает с общим призовым фондом', prize_fund_rub: prize.ok ? prize.prizeFund : null, allocated_rub: prize.ok ? prize.allocated : null });
@@ -135,14 +138,14 @@ router.post('/evenings/:id/publish', requireOrganizerAuth, async (req: Authentic
 router.post('/evenings/:id/registration/close', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
   const id = String(req.params.id); const now = new Date().toISOString();
-  const result = await db.run("UPDATE tournaments SET registration_closed_at=COALESCE(registration_closed_at,?),updated_at=? WHERE id=? AND published_at IS NOT NULL AND status='draft'", [now,now,id]);
+  const result = await db.run("UPDATE tournaments SET registration_closed_at=COALESCE(registration_closed_at,?),updated_at=? WHERE id=? AND tournament_evening_flow=1 AND published_at IS NOT NULL AND status='draft'", [now,now,id]);
   if (!result.changes) return res.status(409).json({ error: 'Регистрацию нельзя закрыть из текущего состояния' });
   return res.json(await loadTournamentEvening(db, id));
 });
 
 router.post('/evenings/:id/registration/open', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper; const id = String(req.params.id); const now = new Date().toISOString();
-  const result = await db.run("UPDATE tournaments SET registration_closed_at=NULL,updated_at=? WHERE id=? AND published_at IS NOT NULL AND status='draft'", [now,id]);
+  const result = await db.run("UPDATE tournaments SET registration_closed_at=NULL,updated_at=? WHERE id=? AND tournament_evening_flow=1 AND published_at IS NOT NULL AND status='draft'", [now,id]);
   if (!result.changes) return res.status(409).json({ error: 'Регистрацию нельзя открыть из текущего состояния' });
   return res.json(await loadTournamentEvening(db, id));
 });
@@ -165,7 +168,7 @@ router.get('/evenings/:id', async (req: AuthenticatedRequest, res: Response) => 
 
 router.get('/registration/:token', async (req: AuthenticatedRequest, res: Response) => {
   const db = req.db as DatabaseWrapper;
-  const tournament = await db.get<any>('SELECT id FROM tournaments WHERE registration_token=? AND published_at IS NOT NULL LIMIT 1', [String(req.params.token)]);
+  const tournament = await db.get<any>('SELECT id FROM tournaments WHERE registration_token=? AND tournament_evening_flow=1 AND published_at IS NOT NULL LIMIT 1', [String(req.params.token)]);
   if (!tournament) return res.status(404).json({ error: 'Ссылка регистрации недействительна' });
   const detail = await loadTournamentEvening(db, String(tournament.id), getPlayerSessionId(req));
   return res.json({ ...detail, registrations: undefined, confirmed: undefined, reserves: undefined, payment_totals: undefined });

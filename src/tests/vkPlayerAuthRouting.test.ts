@@ -64,9 +64,10 @@ describe('VK player authentication routing', () => {
     expect(app).not.toContain('Откройте через Telegram');
     expect(app).not.toContain('Проверяем вход через Telegram');
     expect(vkAccess).toContain("fetch('/api/integrations/player/vk/start'");
-    expect(vkAccess).toContain('window.location.pathname');
-    expect(vkAccess).toContain('window.location.search');
-    expect(vkAccess).toContain('window.location.hash');
+    expect(vkAccess).toContain('new URL(window.location.href)');
+    expect(vkAccess).toContain('url.pathname');
+    expect(vkAccess).toContain('url.search');
+    expect(vkAccess).toContain('url.hash');
     expect(vkAccess).toContain('return_to: currentPlayerDestination()');
   });
 

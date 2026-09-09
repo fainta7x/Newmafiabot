@@ -5,9 +5,34 @@ type VkPlayerAccessProps = {
   compact?: boolean;
 };
 
+const VK_ERROR_MESSAGES: Record<string, string> = {
+  vk_callback_invalid: 'VK ID вернул неполный ответ. Начните вход через VK ещё раз.',
+  vk_state_expired: 'Сессия входа через VK устарела или уже использована. Начните вход заново.',
+  vk_state_browser_mismatch: 'Вход через VK вернулся в другой браузер. Откройте ссылку и завершите вход в одном окне.',
+  vk_state_mismatch: 'VK ID вернул неподходящую сессию. Начните вход заново.',
+  vk_user_missing: 'VK ID не смог подтвердить аккаунт. Попробуйте войти через VK ещё раз.',
+  vk_identity_conflict: 'Этот VK уже связан с другим игровым профилем. Обратитесь к организатору.',
+  vk_provider_exchange_failed: 'VK ID не завершил авторизацию. Проверьте вход в VK и попробуйте ещё раз.',
+  vk_auth_callback_failed: 'Не удалось завершить вход через VK. Попробуйте ещё раз чуть позже.',
+  vk_runtime_origin_missing: 'Вход через VK временно не настроен на сервере. Сообщите организатору.',
+  vk_runtime_app_id_invalid: 'VK ID временно недоступен из-за настройки приложения. Сообщите организатору.',
+  vk_runtime_https_required: 'VK ID требует защищённый HTTPS-вход. Сообщите организатору.',
+  vk_auth_start_rate_limited: 'Слишком много попыток входа через VK. Повторите немного позже.',
+};
+
+const safeVkErrorMessage = (value: string | null) => {
+  const code = String(value || '').trim();
+  if (!code) return null;
+  return VK_ERROR_MESSAGES[code] || 'Не удалось завершить вход через VK. Попробуйте ещё раз или сообщите организатору.';
+};
+
 const currentPlayerDestination = () => {
-  const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  return path.startsWith('/player') ? path : '/player';
+  const url = new URL(window.location.href);
+  if (url.pathname !== '/player' && !url.pathname.startsWith('/player/')) return '/player';
+  // OAuth result markers are transient UI state. Keeping an old vk_error in
+  // return_to makes a successful retry land back on the previous error again.
+  ['vk_error', 'vk_link_pending', 'vk_linked', 'vk_link_nickname'].forEach((key) => url.searchParams.delete(key));
+  return `${url.pathname}${url.search}${url.hash}` || '/player';
 };
 
 export default function VkPlayerAccess({ initialNickname = '', compact = false }: VkPlayerAccessProps) {
@@ -15,8 +40,7 @@ export default function VkPlayerAccess({ initialNickname = '', compact = false }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const callbackError = useMemo(() => {
-    const value = new URLSearchParams(window.location.search).get('vk_error');
-    return value ? String(value).slice(0, 240) : null;
+    return safeVkErrorMessage(new URLSearchParams(window.location.search).get('vk_error'));
   }, []);
 
   const startVk = async () => {
@@ -36,11 +60,14 @@ export default function VkPlayerAccess({ initialNickname = '', compact = false }
       const response = await fetch('/api/integrations/player/vk/start', {
         method: 'POST',
         credentials: 'same-origin',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nickname: value, return_to: currentPlayerDestination() }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body?.authorize_url) throw new Error(body?.error || 'Не удалось открыть VK ID.');
+      if (!response.ok || !body?.authorize_url) {
+        throw new Error(body?.error || safeVkErrorMessage(body?.code) || 'Не удалось открыть VK ID.');
+      }
       window.location.assign(String(body.authorize_url));
     } catch (startError: any) {
       setError(startError?.message || 'Не удалось открыть VK ID.');

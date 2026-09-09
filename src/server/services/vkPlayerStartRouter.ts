@@ -27,9 +27,15 @@ router.post('/player/vk/start', async (req, res) => {
   try {
     const db = req.db as DatabaseWrapper;
     const initiatingPlayerId = getPlayerSessionId(req);
+    let nickname = req.body?.nickname;
+    if (initiatingPlayerId) {
+      const player = await db.get<{ nickname: string }>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [initiatingPlayerId]);
+      if (!player?.nickname) return res.status(401).json({ error: 'Player authentication required.', code: 'player_session_invalid' });
+      nickname = player.nickname;
+    }
     const result = await createVkPlayerOAuthStart(db, {
       redirectUri: buildTrustedPublicAppUrl('/api/integrations/vk/oauth/callback', req),
-      nickname: req.body?.nickname,
+      nickname,
       returnTo: req.body?.return_to,
       browserBinding: browserBindingFor(req, res),
       initiatingPlayerId,

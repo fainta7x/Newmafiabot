@@ -82,7 +82,7 @@ export async function createHardenedEveningInvitation(db: DatabaseWrapper, invit
     playerId:recipientPlayerId,
     eventType:'evening_invite',
     entityId:id,
-    text:`🎲 ${String(inviter?.nickname||'Игрок')} зовёт тебя на «${candidate.title}» · ${starts}.\n\nОткрой личный кабинет, чтобы посмотреть приглашение. Запись на вечер подтверждается отдельно.`,
+    text:`🎲 ${String(inviter?.nickname||'Игрок')} зовёт тебя на «${candidate.title}» · ${starts}.\n\nОткрой личный кабинет, чтобы посмотреть приглашение. Приглашение не создаёт запись автоматически.`,
     actionPath:`/player/events/${encodeURIComponent(eveningId)}`,
   });
   const invitation=await db.get<any>('SELECT * FROM player_evening_invitations WHERE id=?',[id]);

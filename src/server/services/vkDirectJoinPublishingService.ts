@@ -32,6 +32,13 @@ type PublicationRow = {
 const nowIso = () => new Date().toISOString();
 const normalizeBaseUrl = (value: string) => String(value || '').trim().replace(/\/$/, '');
 const joinUrlFor = (baseUrl: string, eveningId: string) => `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(eveningId)}?source=vk_entry`;
+export const playerCabinetUrlForVk = (baseUrl: string, destination = '/player') => {
+  const normalizedDestination = String(destination || '/player');
+  const safeDestination = normalizedDestination === '/player' || normalizedDestination.startsWith('/player/')
+    ? normalizedDestination
+    : '/player';
+  return `${normalizeBaseUrl(baseUrl)}${safeDestination}`;
+};
 
 const formatDate = (evening: EveningRow) => {
   const date = new Date(evening.starts_at);
@@ -86,7 +93,16 @@ export const buildDirectVkEveningAnnouncement = async (
   const plan = await loadEveningSlotPlan(db, evening.id);
   const lines = [`🕵️ ${evening.title}`, '', `📅 ${formatDate(evening)}`];
   if (evening.venue) lines.push(`📍 ${evening.venue}`);
-  lines.push('', ...buildSlotLines(plan), '', 'Выбрать игры или изменить запись:', joinUrlFor(baseUrl, evening.id));
+  lines.push(
+    '',
+    ...buildSlotLines(plan),
+    '',
+    'Выбрать игры или изменить запись:',
+    joinUrlFor(baseUrl, evening.id),
+    '',
+    '👤 Открыть личный кабинет:',
+    playerCabinetUrlForVk(baseUrl, '/player'),
+  );
   return lines.join('\n');
 };
 
@@ -110,6 +126,7 @@ export async function getDirectVkEveningAnnouncementDraft(
   return {
     message,
     join_url: joinUrl,
+    cabinet_url: playerCabinetUrlForVk(baseUrl, '/player'),
     share_url: `https://vk.com/share.php?${new URLSearchParams({ url: joinUrl, title: evening.title, comment: message }).toString()}`,
     public_url: destinations.find((item) => item.key === 'public')?.configuredUrl || null,
     channel_url: destinations.find((item) => item.key === 'channel')?.configuredUrl || null,

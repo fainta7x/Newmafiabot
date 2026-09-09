@@ -12,7 +12,7 @@ import {
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
 import {
-  createGuestPlaceholder, listGuestPlaceholdersForEvening, serializeGuestPlaceholder,
+  createGuestPlaceholder, listGuestPlaceholdersForEvening,
   updateGuestPlaceholder,
 } from '../services/guestPlayerService.ts';
 import baseRouter from './eveningsRoutesBase.ts';

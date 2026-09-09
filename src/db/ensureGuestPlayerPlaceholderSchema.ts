@@ -17,6 +17,13 @@ const replaceExactStringsDeep = (value: any, from: string, to: string): any => {
   return value;
 };
 
+const containsExactStringDeep = (value: any, targets: Set<string>): boolean => {
+  if (typeof value === 'string') return targets.has(value);
+  if (Array.isArray(value)) return value.some((item) => containsExactStringDeep(item, targets));
+  if (value && typeof value === 'object') return Object.values(value).some((item) => containsExactStringDeep(item, targets));
+  return false;
+};
+
 const hasInlineExternalIdentity = (player: Record<string, any>) => Object.entries(player).some(([key, value]) => {
   const normalized = key.toLowerCase();
   if (!normalized.includes('telegram') && !normalized.startsWith('vk_') && !normalized.includes('vk_user')) return false;
@@ -123,6 +130,39 @@ async function recordDiagnostic(db: DatabaseWrapper, legacyPlayerId: string, rea
   `, [`guestdiag:${legacyPlayerId}:${reason}`, GUEST_PLAYER_MIGRATION_KEY, legacyPlayerId, reason, JSON.stringify(details), now, now]);
 }
 
+type MigrationBlocker = { reason: string; details: Record<string, any> };
+
+async function inspectLegacyParticipantGames(
+  db: DatabaseWrapper,
+  legacyPlayerId: string,
+  legacyParticipantId: string,
+  eveningId: string,
+): Promise<MigrationBlocker[]> {
+  const blockers: MigrationBlocker[] = [];
+  const targets = new Set([legacyPlayerId, legacyParticipantId]);
+  const games = await db.all<any>('SELECT id, protocol_text, slots_json FROM games WHERE evening_id = ?', [eveningId]);
+  for (const game of games) {
+    const slots = safeJsonParse<any>(game.slots_json, null);
+    if (Array.isArray(slots)) {
+      const matches = slots.filter((slot: any) => String(slot?.participant_id || '') === legacyParticipantId || String(slot?.player_id || '') === legacyPlayerId);
+      if (matches.length > 1) blockers.push({ reason: 'ambiguous_game_slots', details: { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId, matches: matches.length } });
+    } else if (typeof game.slots_json === 'string' && game.slots_json.trim() && targets.size && [...targets].some((target) => game.slots_json.includes(target))) {
+      blockers.push({ reason: 'malformed_game_slots', details: { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId } });
+    }
+
+    const envelope = safeJsonParse<any>(game.protocol_text, null);
+    if (envelope?.kind === 'club_evening_protocol' && envelope?.version === 1 && Array.isArray(envelope.player_results)) {
+      const matches = envelope.player_results.filter((result: any) => String(result?.participant_id || '') === legacyParticipantId || String(result?.player_id || '') === legacyPlayerId);
+      if (matches.length > 1) blockers.push({ reason: 'ambiguous_game_seat', details: { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId, matches: matches.length } });
+    } else if (envelope && containsExactStringDeep(envelope, targets)) {
+      blockers.push({ reason: 'unstructured_protocol_identity', details: { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId } });
+    } else if (!envelope && typeof game.protocol_text === 'string' && game.protocol_text.trim() && [...targets].some((target) => game.protocol_text.includes(target))) {
+      blockers.push({ reason: 'malformed_protocol_identity', details: { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId } });
+    }
+  }
+  return blockers;
+}
+
 async function migrateLegacyParticipantGames(
   db: DatabaseWrapper,
   legacyPlayerId: string,
@@ -133,43 +173,27 @@ async function migrateLegacyParticipantGames(
 ) {
   const games = await db.all<any>('SELECT id, protocol_text, slots_json FROM games WHERE evening_id = ?', [eveningId]);
   for (const game of games) {
+    const slots = safeJsonParse<any[]>(game.slots_json, []);
+    const slotMatches = Array.isArray(slots) ? slots.filter((slot: any) => String(slot?.participant_id || '') === legacyParticipantId || String(slot?.player_id || '') === legacyPlayerId) : [];
+    if (slotMatches.length === 1) {
+      const rewrittenSlots = replaceExactStringsDeep(slots, legacyParticipantId, guestId).map((slot: any) => {
+        if (String(slot?.participant_id || '') !== guestId && String(slot?.player_id || '') !== legacyPlayerId) return slot;
+        return { ...slot, participant_id: guestId, player_id: null, guest_placeholder_id: guestId, nickname: displayName };
+      });
+      await db.run('UPDATE games SET slots_json = ? WHERE id = ?', [JSON.stringify(rewrittenSlots), game.id]);
+    }
+
     const envelope = safeJsonParse<any>(game.protocol_text, null);
     if (!envelope || envelope.kind !== 'club_evening_protocol' || envelope.version !== 1 || !Array.isArray(envelope.player_results)) continue;
-
-    const matches = envelope.player_results.filter((result: any) =>
-      String(result?.participant_id || '') === legacyParticipantId
-      || String(result?.player_id || '') === legacyPlayerId,
-    );
-    if (matches.length === 0) continue;
-    if (matches.length !== 1) {
-      await recordDiagnostic(db, legacyPlayerId, 'ambiguous_game_seat', { game_id: game.id, evening_id: eveningId, legacy_participant_id: legacyParticipantId, matches: matches.length });
-      continue;
-    }
+    const matches = envelope.player_results.filter((result: any) => String(result?.participant_id || '') === legacyParticipantId || String(result?.player_id || '') === legacyPlayerId);
+    if (matches.length !== 1) continue;
 
     const rewritten = replaceExactStringsDeep(envelope, legacyParticipantId, guestId);
     rewritten.player_results = rewritten.player_results.map((result: any) => {
       if (String(result?.participant_id || '') !== guestId && String(result?.player_id || '') !== legacyPlayerId) return result;
-      return {
-        ...result,
-        participant_id: guestId,
-        player_id: null,
-        guest_placeholder_id: guestId,
-        display_name: displayName,
-      };
+      return { ...result, participant_id: guestId, player_id: null, guest_placeholder_id: guestId, display_name: displayName };
     });
-
-    const slots = safeJsonParse<any[]>(game.slots_json, []);
-    const rewrittenSlots = replaceExactStringsDeep(slots, legacyParticipantId, guestId).map((slot: any) => {
-      if (String(slot?.participant_id || '') !== guestId && String(slot?.player_id || '') !== legacyPlayerId) return slot;
-      return {
-        ...slot,
-        participant_id: guestId,
-        player_id: null,
-        guest_placeholder_id: guestId,
-        nickname: displayName,
-      };
-    });
-    await db.run('UPDATE games SET protocol_text = ?, slots_json = ? WHERE id = ?', [JSON.stringify(rewritten), JSON.stringify(rewrittenSlots), game.id]);
+    await db.run('UPDATE games SET protocol_text = ? WHERE id = ?', [JSON.stringify(rewritten), game.id]);
   }
 }
 
@@ -181,16 +205,22 @@ async function migrateLegacyPlayer(db: DatabaseWrapper, player: any) {
 
   const identityEvidence = await externalIdentityEvidence(db, player);
   if (identityEvidence.length) {
-    await recordDiagnostic(db, legacyPlayerId, 'external_identity_linked', {
-      source: player.source,
-      nickname: player.nickname,
-      evidence: identityEvidence,
-    });
+    await recordDiagnostic(db, legacyPlayerId, 'external_identity_linked', { source: player.source, nickname: player.nickname, evidence: identityEvidence });
     return;
   }
 
   const now = new Date().toISOString();
   const participants = await db.all<any>('SELECT * FROM evening_participants WHERE player_id = ? ORDER BY created_at ASC, id ASC', [legacyPlayerId]);
+  const blockers: MigrationBlocker[] = [];
+  for (const participant of participants) {
+    blockers.push(...await inspectLegacyParticipantGames(db, legacyPlayerId, String(participant.id), String(participant.evening_id)));
+  }
+  if (blockers.length) {
+    for (const blocker of blockers) await recordDiagnostic(db, legacyPlayerId, blocker.reason, blocker.details);
+    await recordDiagnostic(db, legacyPlayerId, 'migration_requires_review', { source: player.source, nickname: player.nickname, blockers: blockers.map((blocker) => blocker.reason) });
+    return;
+  }
+
   for (const participant of participants) {
     const guestId = `guest:${String(participant.id)}`;
     const displayName = String(player.nickname || '').trim() || 'Гость';
@@ -226,10 +256,7 @@ async function migrateLegacyPlayer(db: DatabaseWrapper, player: any) {
     await migrateLegacyParticipantGames(db, legacyPlayerId, String(participant.id), guestId, displayName, String(participant.evening_id));
   }
 
-  await db.run(
-    "UPDATE players SET source = 'legacy_guest_migrated', lifecycle_status = 'archived', updated_at = ? WHERE id = ? AND source = 'quick_guest'",
-    [now, legacyPlayerId],
-  );
+  await db.run("UPDATE players SET source = 'legacy_guest_migrated', lifecycle_status = 'archived', updated_at = ? WHERE id = ? AND source = 'quick_guest'", [now, legacyPlayerId]);
 }
 
 export async function reconcileLegacyGuestPlayers(db: DatabaseWrapper) {
@@ -258,26 +285,17 @@ export async function reconcileLegacyGuestPlayers(db: DatabaseWrapper) {
     try {
       await db.transaction(async (tx) => migrateLegacyPlayer(tx, player));
       processed += 1;
-      await db.run(
-        'UPDATE guest_player_migration_state SET processed_count = ?, last_player_id = ?, updated_at = ? WHERE migration_key = ?',
-        [processed, String(player.id), new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY],
-      );
+      await db.run('UPDATE guest_player_migration_state SET processed_count = ?, last_player_id = ?, updated_at = ? WHERE migration_key = ?', [processed, String(player.id), new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY]);
     } catch (error: any) {
       const message = String(error?.message || error || 'Unknown guest migration error').slice(0, 2000);
-      await db.run(
-        "UPDATE guest_player_migration_state SET status = 'failed', error_message = ?, updated_at = ? WHERE migration_key = ?",
-        [message, new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY],
-      );
+      await db.run("UPDATE guest_player_migration_state SET status = 'failed', error_message = ?, updated_at = ? WHERE migration_key = ?", [message, new Date().toISOString(), GUEST_PLAYER_MIGRATION_KEY]);
       console.error(`[GUEST-PLAYER-001] Legacy guest reconciliation failed at ${String(player.id)}: ${message}`);
       throw error;
     }
   }
 
   const completedAt = new Date().toISOString();
-  await db.run(
-    "UPDATE guest_player_migration_state SET status = 'completed', processed_count = total_count, completed_at = ?, error_message = NULL, updated_at = ? WHERE migration_key = ?",
-    [completedAt, completedAt, GUEST_PLAYER_MIGRATION_KEY],
-  );
+  await db.run("UPDATE guest_player_migration_state SET status = 'completed', processed_count = total_count, completed_at = ?, error_message = NULL, updated_at = ? WHERE migration_key = ?", [completedAt, completedAt, GUEST_PLAYER_MIGRATION_KEY]);
   return db.get<any>('SELECT * FROM guest_player_migration_state WHERE migration_key = ?', [GUEST_PLAYER_MIGRATION_KEY]);
 }
 

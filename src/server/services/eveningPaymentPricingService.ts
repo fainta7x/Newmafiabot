@@ -1,19 +1,19 @@
 import crypto from 'crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
-import {
-  calculateEveningSelectionTotal,
-  SLOT_PRICE,
-} from './eveningSlotPlanningService.ts';
+
+export const REGULAR_GAME_PRICE = 100;
+export const REGULAR_EVENING_MAX_PRICE = 400;
+
+export const calculateRegularEveningPlayedAmount = (gamesPlayed: number): number => {
+  const count = Math.max(0, Math.floor(Number(gamesPlayed || 0)));
+  return Math.min(count * REGULAR_GAME_PRICE, REGULAR_EVENING_MAX_PRICE);
+};
 
 const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
 };
-
-export const calculateRegularEveningPlayedAmount = (gamesPlayed: number): number => (
-  calculateEveningSelectionTotal('CASUAL', Array.from({ length: Math.max(0, Math.floor(Number(gamesPlayed || 0))) }, () => SLOT_PRICE))
-);
 
 const isCompletedGame = (game: any, protocol: any) => {
   if (protocol?.version === 1 && protocol?.kind === 'club_evening_protocol') {

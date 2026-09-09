@@ -2,9 +2,9 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-08
+**Status date:** 2026-09-09
 
-**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
+**Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
 **Deploy mode:** Amvera combined Docker application; Git merge, deployment and runtime verification are three separate states.
 
@@ -234,14 +234,19 @@ Green CI proves the code/test/container contracts only; it does not prove the li
 
 ### VK
 
-Connected:
+Connected in repository code:
 
-- OAuth/callback/join/direct paths;
-- organizer runtime diagnostics;
-- public join/live endpoints;
-- Friday publication through the weekly announcement reconciliation.
+- Player Cabinet OAuth starts at the exact `/api/integrations/player/vk/start` route used by the shared UI; public evening registration remains isolated under `/api/public` and cannot authorize the full cabinet;
+- OAuth state remains browser-bound, PKCE-protected, rate-limited and one-shot, with `return_to` restricted to `/player` paths;
+- production callback and confirmation links use the configured trusted public HTTPS application URL instead of trusting the request Host header;
+- an authenticated player can explicitly link VK from owner-only profile/settings to the same canonical `player_id`; an identity already owned by another player is rejected without changing the current session;
+- personal notifications select at most one linked external channel according to the canonical player preference;
+- the durable VK message outbox starts during normal application bootstrap and immediately resumes pending/retryable rows after process restart;
+- betting-open spectator notifications use the channel-neutral personal router, include VK-only eligible spectators, preserve the Telegram WebApp action and give VK recipients a Player Cabinet action link;
+- organizer delivery diagnostics derive delivered/pending/failed betting state from the actual Telegram/VK channel outboxes;
+- public join/live endpoints, organizer runtime diagnostics and Friday publication remain connected.
 
-Runtime credentials and callback state must be checked when a requested flow depends on them.
+These are repository-level guarantees only. After PR #290 is merged and deployed, verify the deployed SHA plus one real VK login/link, one successful VK test notification, one permission-denied case and one betting-open notification to a VK-only test player before calling VK cabinet access live.
 
 ## Recent real-world validation
 
@@ -250,6 +255,8 @@ The latest real club evening reported by the user completed without a core Live 
 The betting/Telegram lifecycle from PR #273 is covered by integration acceptance tests for CRM and assigned-judge game start, one 90-second pool per game, player/judge exclusion, idempotent stake/payout/refund handling, Player Cabinet active/history state, durable Telegram retry/deduplication, personal invitation reconciliation and explicit organizer recipients.
 
 The profile work through PRs #274–#277 is complete in `main`: weighted completeness/privacy and verified official awards are followed by one canonical premium self/public profile, completed-game/role/Elo analytics, owner-pinned verified awards, verified club history, factual completed-game connections, organizer-curated historical referrals and duplicate-safe player-to-player evening invitations with in-app plus durable Telegram delivery. Focused tests cover connection aggregation, invitation deduplication/delivery/eligibility, organizer-only referral maintenance and the earlier profile integrity/award contracts. The final #277 head passed TypeScript, lint, the full test suite, production build/container startup, Gitleaks, CodeQL and UI preview before merge.
+
+VK-ACCESS-002 adds focused Supertest/auth/outbox/betting/channel regressions for the exact cabinet start route, separation from public join auth, restart-active VK delivery, VK-only and dual-linked betting notification routing, owner-only linking, cross-player identity conflicts and trusted public callback URLs. Repository verification is still distinct from the required post-deploy VK runtime pass.
 
 This real-world success and automated coverage are useful evidence, but they are not substitutes for runtime verification after a new deploy. The next meaningful validation step is a manual/runtime pass against the merged `main` after deployment.
 

@@ -11,7 +11,7 @@ type State = {
 
 const LABEL: Record<Channel, string> = { telegram: 'Telegram', vk: 'VK' };
 
-export default function PlayerNotificationSettings() {
+export default function PlayerNotificationSettings({ nickname }: { nickname?: string }) {
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -39,6 +39,25 @@ export default function PlayerNotificationSettings() {
     finally { setBusy(false); }
   };
 
+  const linkVk = async () => {
+    if (busy) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/integrations/player/vk/start', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: nickname || undefined, return_to: '/player/profile' }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.authorize_url) throw new Error(body?.error || 'Не удалось открыть VK ID');
+      window.location.assign(String(body.authorize_url));
+    } catch (e: any) {
+      setError(e?.message || 'Не удалось открыть VK ID');
+      setBusy(false);
+    }
+  };
+
   const sendTest = async () => {
     if (busy) return;
     setBusy(true); setError(''); setMessage('');
@@ -53,9 +72,15 @@ export default function PlayerNotificationSettings() {
   };
 
   if (!state) return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4 text-sm text-white/50">{error || 'Загружаем каналы уведомлений…'}</section>;
+  const vkLinked = state.channel_status?.vk?.linked === true;
   return <section className="rounded-2xl border border-white/10 bg-white/[.03] p-4" data-testid="player-notification-settings">
     <h2 className="font-semibold">Личные уведомления</h2>
     <p className="mt-1 text-sm text-white/50">Выберите один связанный канал. Одно уведомление не дублируется одновременно в Telegram и VK.</p>
+    {!vkLinked ? <div className="mt-4 rounded-xl border border-white/10 bg-white/[.025] p-3">
+      <div className="text-sm font-medium">VK не связан с профилем</div>
+      <p className="mt-1 text-xs leading-5 text-white/45">Свяжите свой VK через VK ID. Привязка выполняется только для текущего авторизованного профиля.</p>
+      <button type="button" disabled={busy} onClick={()=>void linkVk()} className="mt-3 min-h-11 w-full rounded-xl bg-[#2688eb] px-3 text-sm font-semibold text-white disabled:opacity-40">Связать VK</button>
+    </div> : <div className="mt-4 rounded-xl bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">VK связан с этим игровым профилем</div>}
     <label className="mt-4 flex items-center justify-between gap-3 text-sm"><span>Получать личные уведомления</span><input type="checkbox" checked={state.personal_enabled} disabled={busy} onChange={(e)=>void save({ personal_enabled:e.target.checked })}/></label>
     <div className="mt-4 space-y-2" role="radiogroup" aria-label="Предпочтительный канал">
       {state.available_channels.map((channel) => {

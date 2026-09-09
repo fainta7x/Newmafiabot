@@ -5,7 +5,7 @@ import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts'
 import { createDatabaseConnection, initializeDatabase } from '../db/index.ts';
 
 describe('invite audience schema', () => {
-  it('creates the CRM novice trigger with run() instead of exec() for Turso compatibility', async () => {
+  it('creates the CRM unrated trigger with run() instead of exec() for Turso compatibility', async () => {
     const runSql: string[] = [];
     const execSql: string[] = [];
     const db: any = {
@@ -22,7 +22,7 @@ describe('invite audience schema', () => {
     };
 
     await expect(ensureInviteAudienceSchema(db)).resolves.toBeUndefined();
-    expect(runSql.some((sql) => sql.includes('CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_novice'))).toBe(true);
+    expect(runSql.some((sql) => sql.includes('CREATE TRIGGER IF NOT EXISTS trg_players_crm_manual_default_unrated'))).toBe(true);
     expect(execSql.some((sql) => sql.includes('CREATE TRIGGER'))).toBe(false);
   });
 

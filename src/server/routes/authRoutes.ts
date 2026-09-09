@@ -185,8 +185,9 @@ router.post('/onboarding/new', async (req, res) => {
 router.post('/onboarding/existing', async (req, res) => {
   try {
     const rawToken = String(req.cookies?.[PLAYER_ONBOARDING_COOKIE] || '');
+    const pending = await loadVerifiedPlayerOnboarding(req.db, rawToken);
     const result = await requestExistingPlayerOnboardingLink(req.db, rawToken, req.body?.nickname, {
-      baseUrl: resolveTrustedPublicAppOrigin(req),
+      baseUrl: pending?.platform === 'vk' ? resolveTrustedPublicAppOrigin(req) : undefined,
     });
     if (result.status === 'linked' && result.playerId) {
       setPlayerCookie(res, result.playerId);

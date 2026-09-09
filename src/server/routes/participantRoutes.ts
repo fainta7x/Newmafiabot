@@ -9,6 +9,7 @@ import {
   legacyAttendancePatchToFact, parseAttendanceFact, parseResponseStatus,
   serializeEveningParticipant, setParticipantAttendance, setParticipantResponse,
 } from '../services/eveningParticipantState.ts';
+import { serializeGuestPlaceholder, updateGuestPlaceholder } from '../services/guestPlayerService.ts';
 
 const router = Router();
 
@@ -16,6 +17,26 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const data = updateParticipantSchema.parse(req.body);
     const db = req.db || (await getDb());
+    const guest = await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [req.params.id]);
+    if (guest) {
+      const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [guest.evening_id]);
+      const closed = evening?.status === 'completed' || Boolean(evening?.settled_at);
+      const suppliedKeys = Object.entries(data).filter(([, value]) => value !== undefined).map(([key]) => key);
+      if (closed && !suppliedKeys.every((key) => key === 'payment_status' || key === 'amount_paid')) {
+        return res.status(400).json({ error: 'Завершённый вечер доступен только для чтения' });
+      }
+      const patch: Record<string, any> = { ...data };
+      if (data.response_status !== undefined) patch.response_status = parseResponseStatus(data.response_status);
+      if (data.attendance_fact !== undefined) patch.attendance_fact = parseAttendanceFact(data.attendance_fact);
+      else {
+        const fact = legacyAttendancePatchToFact(guest, data.attendance_status, data.arrival_status);
+        if (fact) patch.attendance_fact = fact;
+      }
+      const updated = await updateGuestPlaceholder(db, String(guest.id), patch);
+      await runCrmAutomations(db);
+      return res.json(updated);
+    }
+
     const current = await db.get<any>('SELECT * FROM evening_participants WHERE id = ?', [req.params.id]);
     if (!current) return res.status(404).json({ error: 'Участник не найден' });
     const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [current.evening_id]);
@@ -71,20 +92,29 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
 router.delete('/:id', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
-    const part = await db.get('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
-    if (!part) {
-      return res.status(404).json({ error: 'Запись участника не найдена' });
+    const guest = await db.get<any>('SELECT * FROM guest_player_placeholders WHERE id = ?', [String(req.params.id)]);
+    if (guest) {
+      const evening = await db.get<any>('SELECT status, settled_at FROM game_evenings WHERE id = ?', [guest.evening_id]);
+      if (evening?.status === 'completed' || evening?.settled_at) return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
+      const used = await db.all<any>('SELECT id, protocol_text FROM games WHERE evening_id = ? AND archived_at IS NULL', [guest.evening_id]);
+      if (used.some((game) => String(game.protocol_text || '').includes(String(guest.id)))) {
+        return res.status(409).json({ error: 'Гость уже участвует в игре. Сначала исправьте состав игры.' });
+      }
+      await db.run('DELETE FROM guest_player_placeholders WHERE id = ?', [String(req.params.id)]);
+      await runCrmAutomations(db);
+      return res.json({ success: true, message: 'Гость удалён из вечера' });
     }
 
-    const evening = await db.get('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
+    const part = await db.get<any>('SELECT * FROM evening_participants WHERE id = ?', [String(req.params.id)]);
+    if (!part) return res.status(404).json({ error: 'Запись участника не найдена' });
+
+    const evening = await db.get<any>('SELECT status, settled_at FROM game_evenings WHERE id = ?', [part.evening_id]);
     if (evening?.status === 'completed' || evening?.settled_at) {
       return res.status(400).json({ error: 'Запрещено удалять участников из завершённых вечеров' });
     }
 
     await db.run('DELETE FROM evening_participants WHERE id = ?', [String(req.params.id)]);
-
     await runCrmAutomations(db);
-
     res.json({ success: true, message: 'Участник удален из вечера' });
   } catch (err: any) {
     res.status(500).json({ error: 'Database error', message: err.message });

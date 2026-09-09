@@ -63,7 +63,15 @@ describe('useOrganizerCrmSession freshness', () => {
     await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('initial'));
 
     window.dispatchEvent(new Event('focus'));
-    await new Promise<void>((resolve) => { setTimeout(resolve, 140); });
+    // Wait for the debounced resume request to actually start instead of relying
+    // on a wall-clock sleep. Under a busy full-suite runner, 140 ms can elapse
+    // before React/effect scheduling lets the 120 ms timer execute, which makes
+    // the manual click become call #2 and incorrectly block on `slow`.
+    await waitFor(() => {
+      const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview'));
+      expect(overviewCalls.length).toBeGreaterThanOrEqual(2);
+    });
+
     fireEvent.click(screen.getByRole('button', { name: 'manual' }));
     await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('newest'));
 

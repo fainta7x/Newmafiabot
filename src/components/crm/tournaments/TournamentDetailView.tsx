@@ -4,6 +4,8 @@ import { api, type Player } from '../../../lib/api.ts';
 import { JudgeAssignmentFields, type JudgeIdentityMode } from '../JudgeAssignmentFields.tsx';
 import { TournamentDetailView as TournamentDetailViewBase } from './TournamentDetailViewBase.tsx';
 import { TournamentLifecycleOverview } from './TournamentLifecycleOverview.tsx';
+import { TournamentEveningSettingsPanel } from './TournamentEveningSettingsPanel.tsx';
+import { TournamentParticipantsPanel } from './TournamentParticipantsPanel.tsx';
 
 interface TournamentDetailViewProps {
   tournamentId: string;
@@ -136,6 +138,9 @@ export const TournamentDetailView: React.FC<TournamentDetailViewProps> = ({ tour
       {tournament ? (
         <TournamentLifecycleOverview tournament={tournament} onOpenWorkspace={openWorkspace} />
       ) : null}
+
+      <TournamentEveningSettingsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
+      <TournamentParticipantsPanel tournamentId={tournamentId} onChanged={() => setRevision((value) => value + 1)} />
 
       {tournament ? (
         <section className="rounded-[18px] border border-border-soft bg-surface-1 p-3.5">

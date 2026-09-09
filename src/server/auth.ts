@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -71,6 +72,15 @@ export interface AuthenticatedRequest extends Request {
   userRole?: 'PLAYER' | 'ORGANIZER';
   delegatedOrganizerAccess?: boolean;
   delegatedPlayerId?: string;
+  organizerActorId?: string;
+}
+
+const organizerSessionActorId = (token: string) =>
+  `organizer-session:${crypto.createHash('sha256').update(token).digest('hex').slice(0, 24)}`;
+
+export function getAuthenticatedOrganizerActorId(req: AuthenticatedRequest): string | null {
+  if (req.delegatedPlayerId) return `player:${req.delegatedPlayerId}`;
+  return req.organizerActorId || null;
 }
 
 export function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
@@ -90,6 +100,7 @@ export function parseUserSession(req: AuthenticatedRequest, _res: Response, next
       const decoded = jwt.verify(token, JWT_SECRET) as { role: string };
       if (decoded.role === 'ORGANIZER') {
         req.userRole = 'ORGANIZER';
+        req.organizerActorId = organizerSessionActorId(token);
         return next();
       }
     } catch (e) {

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireOrganizerAuth } from '../auth.ts';
+import tournamentEveningAdminRoutes from './tournamentEveningAdminRoutes.ts';
+import tournamentEveningRoutes from './tournamentEveningRoutes.ts';
 import {
   drainTelegramSyncOutbox,
   enqueueTelegramTournamentSync,
@@ -7,6 +9,11 @@ import {
 } from '../services/telegramSyncOutboxService.ts';
 
 const router = Router();
+
+// Registration/fee/calendar metadata extends the canonical tournament entity. Mount it
+// ahead of the transport-specific sync hooks so Telegram and VK sessions hit the same API.
+router.use(tournamentEveningAdminRoutes);
+router.use(tournamentEveningRoutes);
 
 const nudgeTournamentSync = async (db: any, tournamentId: string, enqueue = false) => {
   try {
@@ -39,8 +46,6 @@ router.use((req: any, res: any, next) => {
   );
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 300 || !tournamentId) return;
-    // DB triggers persist live/published tournament changes transactionally. The explicit
-    // enqueue preserves the previous behavior for a draft roster that is published manually.
     const needsExplicitEnqueue = req.method === 'PUT' && Boolean(participantUpdate);
     void nudgeTournamentSync(req.db, tournamentId, needsExplicitEnqueue);
   });

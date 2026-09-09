@@ -47,6 +47,9 @@ const addLedgerAdjustment = async (
   },
 ) => {
   if (!Number.isFinite(input.amount) || Math.abs(input.amount) < 0.0001) return;
+  if (input.type === 'income' && input.amount < 0) {
+    throw new Error('Pricing reconciliation must never create negative income/refund transactions');
+  }
   const category = input.type === 'debt_paid'
     ? 'Погашение долга за вечер'
     : input.type === 'debt_created'
@@ -95,28 +98,17 @@ const reconcileClosedLedger = async (
   const debtPaid = Number(totals?.debt_paid || 0);
   const currentPaid = income + debtPaid;
   const currentAccrued = income + debtCreated;
-  const targetPaid = Math.min(
-    input.canonicalDue,
-    Math.max(0, Number(input.recordedPaid || 0), currentPaid),
-  );
+  const recordedPaid = Math.max(0, Number(input.recordedPaid || 0));
 
-  const paidDelta = targetPaid - currentPaid;
+  // Reconciliation may add missing evidence of a payment already recorded on the
+  // participant, but it must never reduce monetary income or synthesize a refund.
+  // Explicit organizer refund flows are the only place allowed to lower received money.
+  const paidDelta = recordedPaid - currentPaid;
   if (paidDelta > 0.0001) {
     await addLedgerAdjustment(db, {
       type: 'debt_paid', amount: paidDelta,
       eveningId: input.eveningId, playerId: input.playerId, participantId: input.participantId,
-      description: `Синхронизация оплаты с единым тарифом: ${input.eveningTitle}`,
-    });
-  } else if (paidDelta < -0.0001) {
-    await addLedgerAdjustment(db, {
-      type: 'income', amount: paidDelta,
-      eveningId: input.eveningId, playerId: input.playerId, participantId: input.participantId,
-      description: `Снижение переплаты после пересчёта тарифа: ${input.eveningTitle}`,
-    });
-    await addLedgerAdjustment(db, {
-      type: 'debt_created', amount: -paidDelta,
-      eveningId: input.eveningId, playerId: input.playerId, participantId: input.participantId,
-      description: `Балансировка долга после снижения подтверждённой оплаты: ${input.eveningTitle}`,
+      description: `Синхронизация зафиксированной оплаты: ${input.eveningTitle}`,
     });
   }
 
@@ -128,8 +120,6 @@ const reconcileClosedLedger = async (
       description: `Пересчёт взноса по фактически сыгранным играм: ${input.eveningTitle}`,
     });
   }
-
-  return targetPaid;
 };
 
 export async function reconcileRegularEveningPayments(
@@ -198,34 +188,33 @@ export async function reconcileRegularEveningPayments(
         || participant.judge_level === 'judge';
       const gamesPlayed = playedCounts.get(String(participant.id)) || 0;
       const canonicalDue = feeExempt ? 0 : calculateRegularEveningPlayedAmount(gamesPlayed);
-      let canonicalPaid = Math.min(canonicalDue, Math.max(0, Number(participant.amount_paid || 0)));
+      const recordedPaid = Math.max(0, Number(participant.amount_paid || 0));
 
       if (closed) {
-        canonicalPaid = await reconcileClosedLedger(tx, {
+        await reconcileClosedLedger(tx, {
           eveningId,
           eveningTitle: String(evening.title || 'Игровой вечер'),
           participantId: String(participant.id),
           playerId: String(participant.player_id),
           canonicalDue,
-          recordedPaid: Number(participant.amount_paid || 0),
+          recordedPaid,
         });
       }
 
       const paymentStatus = canonicalDue === 0
-        ? 'waived'
-        : canonicalPaid >= canonicalDue
+        ? (recordedPaid > 0 ? 'paid' : 'waived')
+        : recordedPaid >= canonicalDue
           ? 'paid'
-          : canonicalPaid > 0
+          : recordedPaid > 0
             ? 'partial'
             : 'unpaid';
       if (
         Number(participant.amount_due || 0) !== canonicalDue
-        || Number(participant.amount_paid || 0) !== canonicalPaid
         || String(participant.payment_status || '') !== paymentStatus
       ) {
         await tx.run(
-          'UPDATE evening_participants SET amount_due = ?, amount_paid = ?, payment_status = ?, updated_at = ? WHERE id = ?',
-          [canonicalDue, canonicalPaid, paymentStatus, now, participant.id],
+          'UPDATE evening_participants SET amount_due = ?, payment_status = ?, updated_at = ? WHERE id = ?',
+          [canonicalDue, paymentStatus, now, participant.id],
         );
       }
     }

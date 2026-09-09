@@ -7,6 +7,7 @@ export type VkFailureKind = 'permission_denied' | 'temporary' | 'permanent' | 'c
 
 export interface VkMessageInput {
   messageKey: string;
+  notificationKey: string;
   category: 'personal';
   eventType: string;
   entityId?: string | number | null;
@@ -35,16 +36,18 @@ const playerAppBaseUrl = () => String(process.env.PLAYER_APP_URL || process.env.
 export async function enqueueVkMessage(db: DatabaseWrapper, input: VkMessageInput) {
   await ensureVkPersonalMessageSchema(db);
   const key = String(input.messageKey || '').trim();
+  const notificationKey = String(input.notificationKey || '').trim();
   const vkUserId = String(input.vkUserId || '').trim();
   const text = String(input.text || '').trim();
-  if (!key || !/^\d+$/.test(vkUserId) || !text) throw new Error('VK outbox messageKey, vkUserId and text are required');
+  if (!key || !notificationKey || !/^\d+$/.test(vkUserId) || !text) throw new Error('VK outbox messageKey, notificationKey, vkUserId and text are required');
   const now = nowIso();
   await db.run(`
     INSERT INTO vk_message_outbox (
-      message_key, category, event_type, entity_id, player_id, vk_user_id, text, action_path,
+      message_key, notification_key, category, event_type, entity_id, player_id, vk_user_id, text, action_path,
       random_id, status, retry_count, next_attempt_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)
     ON CONFLICT(message_key) DO UPDATE SET
+      notification_key = excluded.notification_key,
       category = excluded.category,
       event_type = excluded.event_type,
       entity_id = excluded.entity_id,
@@ -54,7 +57,7 @@ export async function enqueueVkMessage(db: DatabaseWrapper, input: VkMessageInpu
       action_path = excluded.action_path,
       updated_at = excluded.updated_at
   `, [
-    key, input.category, input.eventType, input.entityId == null ? null : String(input.entityId),
+    key, notificationKey, input.category, input.eventType, input.entityId == null ? null : String(input.entityId),
     input.playerId || null, vkUserId, text, input.actionPath || null, stableRandomId(key), now, now, now,
   ]);
   return db.get('SELECT * FROM vk_message_outbox WHERE message_key = ?', [key]);
@@ -120,7 +123,7 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
         UPDATE personal_notification_deliveries
            SET status='queued', reason=NULL, updated_at=?
          WHERE notification_key=? AND selected_channel='vk'
-      `, [attemptAt, String(row.entity_notification_key || key).replace(/^personal:/, '').replace(/:vk$/, '')]).catch(() => undefined);
+      `, [attemptAt, String(row.notification_key)]);
       return { sent: 1, failed: 0 };
     }
 
@@ -136,6 +139,11 @@ async function deliverOne(db: DatabaseWrapper, row: any, fetchImpl: typeof fetch
          SET status='failed', retry_count=?, last_attempt_at=?, next_attempt_at=?, last_error=?, failure_kind=?, updated_at=?
        WHERE message_key=? AND status <> 'sent'
     `, [storedRetries, attemptAt, nextAttemptAt, result.error || 'VK delivery failed', failureKind, attemptAt, key]);
+    await db.run(`
+      UPDATE personal_notification_deliveries
+         SET status='pending_channel', reason=?, updated_at=?
+       WHERE notification_key=? AND selected_channel='vk'
+    `, [failureKind, attemptAt, String(row.notification_key)]);
     return { sent: 0, failed: 1 };
   } finally {
     keysInFlight.delete(key);
@@ -169,7 +177,7 @@ export async function drainVkMessageOutbox(
 export async function getVkPersonalDeliveryStatus(db: DatabaseWrapper, playerId: string) {
   await ensureVkPersonalMessageSchema(db);
   const latestPermissionFailure = await db.get<any>(`
-    SELECT updated_at, last_error
+    SELECT updated_at
       FROM vk_message_outbox
      WHERE player_id=? AND failure_kind='permission_denied'
      ORDER BY datetime(updated_at) DESC LIMIT 1

@@ -18,6 +18,10 @@ export async function ensureTournamentEveningSchema(db: DatabaseWrapper): Promis
   await ensureColumn(db, 'tournaments', 'registration_token', 'TEXT');
   await ensureColumn(db, 'tournaments', 'published_at', 'TEXT');
   await ensureColumn(db, 'tournaments', 'registration_closed_at', 'TEXT');
+  // Explicit ownership marker. Legacy/canonical tournaments keep the additive default 0 and
+  // are never roster-synchronized by the tournament-evening registration service.
+  await ensureColumn(db, 'tournaments', 'tournament_evening_flow', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn(db, 'tournaments', 'tournament_evening_seating_prepared_at', 'TEXT');
 
   await db.run(`
     CREATE TABLE IF NOT EXISTS tournament_registrations (

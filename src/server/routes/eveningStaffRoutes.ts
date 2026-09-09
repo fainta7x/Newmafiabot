@@ -77,7 +77,11 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
   const participants = await db.all<any>(`
     SELECT ep.id, ep.player_id, p.nickname, ep.attendance_status,
            ep.payment_status, ep.amount_due, ep.amount_paid,
-           p.club_role, p.judge_level
+           p.club_role, p.judge_level,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM evening_fee_waivers w
+              WHERE w.participant_id = ep.id AND w.evening_id = ep.evening_id
+           ) THEN 1 ELSE 0 END AS fee_waived
       FROM evening_participants ep
       JOIN players p ON p.id = ep.player_id
      WHERE ep.evening_id = ?
@@ -95,6 +99,7 @@ async function loadPayments(db: DatabaseWrapper, eveningId: string) {
     },
     participants: participants.map((participant: any) => ({
       ...participant,
+      fee_waived: Boolean(participant.fee_waived),
       amount_due: Number(participant.amount_due || 0),
       amount_paid: Number(participant.amount_paid || 0),
     })),
@@ -117,7 +122,7 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
     const db = req.db || (await getDb());
     await ensureClubOperationsSchema(db);
     const eveningId = String(req.params.id);
-    const evening = await db.get<any>('SELECT id FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
+    const evening = await db.get<any>('SELECT id, format FROM game_evenings WHERE id = ? LIMIT 1', [eveningId]);
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
     const organizerPlayerId = String(req.body?.organizer_player_id || '').trim();
@@ -140,6 +145,13 @@ router.patch('/:id/staff', requireOrganizerAuth, async (req, res) => {
         updated_at = excluded.updated_at
     `, [eveningId, organizerPlayerId, now, now]);
 
+    // Changing the actual staff assignment is evening-specific factual evidence.
+    // Reconcile immediately so both the newly assigned person and the previous staff
+    // member have the correct regular-evening charge without relying on a later read.
+    if (normalizeEveningFormat(evening.format) === 'CASUAL') {
+      await reconcileRegularEveningPayments(db, eveningId);
+    }
+
     return res.json(await loadStaff(db, eveningId));
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Не удалось назначить организатора вечера' });
@@ -150,6 +162,7 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
     const eveningId = String(req.params.id);
+    await ensureClubOperationsSchema(db);
     await reconcileRegularEveningPayments(db, eveningId);
     const payments = await loadPayments(db, eveningId);
     if (!payments) return res.status(404).json({ error: 'Вечер не найден' });
@@ -162,20 +175,23 @@ router.get('/:id/payments', requireOrganizerAuth, async (req, res) => {
 router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, res) => {
   try {
     const db = req.db || (await getDb());
+    await ensureClubOperationsSchema(db);
     const eveningId = String(req.params.id);
     const participantId = String(req.params.participantId);
     const paid = req.body?.paid;
-    if (typeof paid !== 'boolean') return res.status(400).json({ error: 'Передай paid=true или paid=false' });
+    const waived = req.body?.waived;
+    if (typeof paid !== 'boolean' && typeof waived !== 'boolean') {
+      return res.status(400).json({ error: 'Передай paid=true/false или waived=true/false' });
+    }
 
-    await reconcileRegularEveningPayments(db, eveningId);
     const evening = await db.get<any>(
-      'SELECT id, title, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
+      'SELECT id, title, format, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
       [eveningId],
     );
     if (!evening) return res.status(404).json({ error: 'Вечер не найден' });
 
     const participant = await db.get<any>(`
-      SELECT ep.*, p.nickname, p.club_role, p.judge_level
+      SELECT ep.*, p.nickname
         FROM evening_participants ep
         JOIN players p ON p.id = ep.player_id
        WHERE ep.id = ? AND ep.evening_id = ?
@@ -184,13 +200,34 @@ router.patch('/:id/payments/:participantId', requireOrganizerAuth, async (req, r
     if (!participant) return res.status(404).json({ error: 'Игрок не найден в этом вечере' });
     if (participant.attendance_status !== 'attended') return res.status(400).json({ error: 'Оплата отмечается только для фактически пришедших игроков' });
 
-    const due = Math.max(0, Number(participant.amount_due || 0));
-    const feeExempt = participant.club_role === 'organizer' || participant.judge_level === 'host' || participant.judge_level === 'judge' || due === 0;
-    if (feeExempt) return res.status(400).json({ error: 'Для этого игрока взнос за вечер не требуется' });
+    if (typeof waived === 'boolean') {
+      if (normalizeEveningFormat(evening.format) !== 'CASUAL') {
+        return res.status(400).json({ error: 'Явное освобождение этим действием доступно только для обычного клубного вечера' });
+      }
+      const now = new Date().toISOString();
+      if (waived) {
+        await db.run(`
+          INSERT INTO evening_fee_waivers (participant_id, evening_id, reason, waived_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(participant_id) DO UPDATE SET
+            evening_id = excluded.evening_id,
+            reason = excluded.reason,
+            updated_at = excluded.updated_at
+        `, [participantId, eveningId, String(req.body?.reason || '').trim() || null, now, now]);
+      } else {
+        await db.run('DELETE FROM evening_fee_waivers WHERE participant_id = ? AND evening_id = ?', [participantId, eveningId]);
+      }
+      await reconcileRegularEveningPayments(db, eveningId);
+      return res.json(await loadPayments(db, eveningId));
+    }
+
+    await reconcileRegularEveningPayments(db, eveningId);
+    const refreshed = await db.get<any>('SELECT amount_due, amount_paid, payment_status FROM evening_participants WHERE id = ?', [participantId]);
+    const due = Math.max(0, Number(refreshed?.amount_due || 0));
+    if (due === 0) return res.status(400).json({ error: 'Для этого игрока взнос за вечер не требуется' });
 
     const closed = evening.status === 'completed' || Boolean(evening.settled_at);
     const now = new Date().toISOString();
-
     if (closed) {
       await setClosedEveningParticipantPaid(db, participantId, paid);
     } else {

@@ -6,11 +6,13 @@ const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), 
 
 describe('VK player authentication routing', () => {
   it('keeps public join session separate from canonical cabinet authentication', () => {
-    const startRouter = read('src/server/services/vkJoinStartRouter.ts');
+    const playerStartRouter = read('src/server/services/vkPlayerStartRouter.ts');
+    const publicStartRouter = read('src/server/services/vkJoinStartRouter.ts');
     const callback = read('src/server/services/vkJoinRegistrationCallbackRouter.ts');
 
-    expect(startRouter).toContain("router.post('/player/vk/start'");
-    expect(startRouter).toContain("router.post('/evenings/:id/vk/start'");
+    expect(playerStartRouter).toContain("router.post('/player/vk/start'");
+    expect(publicStartRouter).toContain("router.post('/evenings/:id/vk/start'");
+    expect(publicStartRouter).not.toContain("router.post('/player/vk/start'");
     expect(callback).toContain('peekVkPlayerOAuthState');
     expect(callback).toContain('setPlayerSessionCookie(res, playerId)');
     expect(callback).toContain("res.cookie('vk_join_session'");

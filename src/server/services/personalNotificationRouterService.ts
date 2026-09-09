@@ -2,6 +2,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensurePersonalNotificationRoutingSchema } from '../../db/ensurePersonalNotificationRoutingSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { enqueueTelegramMessage, kickTelegramMessageOutbox } from './telegramMessageOutboxService.ts';
+import { enqueueVkMessage, kickVkMessageOutbox } from './vkMessageOutboxService.ts';
 
 export type PersonalNotificationChannel = 'telegram' | 'vk';
 export type PersonalNotificationPreference = 'auto' | PersonalNotificationChannel;
@@ -143,9 +144,7 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
     ? 'personal_notifications_disabled'
     : status === 'unroutable'
       ? 'no_linked_delivery_channel'
-      : selectedChannel === 'vk'
-        ? 'vk_adapter_pending'
-        : null;
+      : null;
 
   await db.run(`
     INSERT INTO personal_notification_deliveries (
@@ -179,6 +178,19 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
       text,
     });
     kickTelegramMessageOutbox(db);
+  } else if (selectedChannel === 'vk' && routing.channel_target) {
+    await enqueueVkMessage(db, {
+      messageKey: `personal:${notificationKey}:vk`,
+      notificationKey,
+      category: 'personal',
+      eventType,
+      entityId: input.entityId,
+      playerId,
+      vkUserId: routing.channel_target,
+      text,
+      actionPath: input.actionPath || '/player',
+    });
+    kickVkMessageOutbox(db);
   }
 
   const delivery = await db.get<any>(`

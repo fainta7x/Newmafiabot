@@ -3,6 +3,7 @@ import { normalizeEveningFormat } from '../lib/eveningFormat.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema.ts';
 
 const ensuredDatabases = new WeakSet<object>();
+export const CRM_PAY_003_HISTORICAL_MIGRATION = 'crm_pay_003_historical_casual_pricing_v1';
 
 async function ensurePlayerAccessColumns(db: DatabaseWrapper) {
   const columns = await db.all<{ name: string }>('PRAGMA table_info(players)');
@@ -27,7 +28,7 @@ async function normalizeRegularEveningDefaults(db: DatabaseWrapper, now: string)
 
 async function clearRegularPlannedCharges(db: DatabaseWrapper, now: string) {
   const rows = await db.all<any>(`
-    SELECT ep.id, ep.amount_due, ep.payment_status, e.format
+    SELECT ep.id, ep.amount_due, ep.amount_paid, ep.payment_status, e.format
       FROM evening_participants ep
       JOIN game_evenings e ON e.id = ep.evening_id
      WHERE COALESCE(ep.attendance_status, 'pending') = 'pending'
@@ -36,29 +37,109 @@ async function clearRegularPlannedCharges(db: DatabaseWrapper, now: string) {
   `);
   for (const row of rows) {
     if (normalizeEveningFormat(row.format) !== 'CASUAL') continue;
-    if (Number(row.amount_due || 0) === 0 && String(row.payment_status || '') === 'waived') continue;
+    const recordedPaid = Math.max(0, Number(row.amount_paid || 0));
+    const nextStatus = recordedPaid > 0 ? 'paid' : 'waived';
+    if (Number(row.amount_due || 0) === 0 && String(row.payment_status || '') === nextStatus) continue;
     await db.run(
       'UPDATE evening_participants SET amount_due = 0, payment_status = ?, updated_at = ? WHERE id = ?',
-      ['waived', now, String(row.id)],
+      [nextStatus, now, String(row.id)],
     );
   }
 }
 
-async function reconcileHistoricalRegularEvenings(db: DatabaseWrapper) {
+async function ensureApplicationMigrationHistory(db: DatabaseWrapper) {
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS application_migration_history (
+      migration_key TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      completed_at TEXT,
+      total_count INTEGER NOT NULL DEFAULT 0,
+      processed_count INTEGER NOT NULL DEFAULT 0,
+      last_evening_id TEXT,
+      failed_evening_id TEXT,
+      error_message TEXT,
+      updated_at TEXT NOT NULL
+    )
+  `);
+}
+
+export async function reconcileHistoricalRegularEveningsOnce(db: DatabaseWrapper): Promise<void> {
+  await ensureApplicationMigrationHistory(db);
+
+  const existing = await db.get<any>(
+    'SELECT * FROM application_migration_history WHERE migration_key = ? LIMIT 1',
+    [CRM_PAY_003_HISTORICAL_MIGRATION],
+  );
+  if (existing?.status === 'completed') return;
+  if (existing?.status === 'failed' || existing?.status === 'running') {
+    const context = [
+      `status=${String(existing.status)}`,
+      `processed=${Number(existing.processed_count || 0)}/${Number(existing.total_count || 0)}`,
+      existing.last_evening_id ? `last=${String(existing.last_evening_id)}` : null,
+      existing.failed_evening_id ? `failed=${String(existing.failed_evening_id)}` : null,
+      existing.error_message ? `error=${String(existing.error_message)}` : null,
+    ].filter(Boolean).join(', ');
+    throw new Error(
+      `Historical CASUAL pricing migration ${CRM_PAY_003_HISTORICAL_MIGRATION} requires investigation (${context}). Full rescan is intentionally blocked.`,
+    );
+  }
+
   const rows = await db.all<any>(`
     SELECT id, format
       FROM game_evenings
      WHERE status = 'completed' OR settled_at IS NOT NULL
+     ORDER BY starts_at ASC, id ASC
   `);
   const casualIds = rows
     .filter((row) => normalizeEveningFormat(row.format) === 'CASUAL')
     .map((row) => String(row.id));
-  if (!casualIds.length) return;
+  const startedAt = new Date().toISOString();
+
+  await db.run(`
+    INSERT INTO application_migration_history (
+      migration_key, status, started_at, total_count, processed_count, updated_at
+    ) VALUES (?, 'running', ?, ?, 0, ?)
+  `, [CRM_PAY_003_HISTORICAL_MIGRATION, startedAt, casualIds.length, startedAt]);
 
   const { reconcileRegularEveningPayments } = await import('../server/services/eveningPaymentPricingService.ts');
+  let processed = 0;
+  let lastEveningId: string | null = null;
   for (const eveningId of casualIds) {
-    await reconcileRegularEveningPayments(db, eveningId);
+    try {
+      await reconcileRegularEveningPayments(db, eveningId);
+      processed += 1;
+      lastEveningId = eveningId;
+      await db.run(`
+        UPDATE application_migration_history
+           SET processed_count = ?, last_evening_id = ?, updated_at = ?
+         WHERE migration_key = ?
+      `, [processed, lastEveningId, new Date().toISOString(), CRM_PAY_003_HISTORICAL_MIGRATION]);
+    } catch (error: any) {
+      const message = String(error?.message || error || 'Unknown reconciliation error').slice(0, 2000);
+      const failedAt = new Date().toISOString();
+      await db.run(`
+        UPDATE application_migration_history
+           SET status = 'failed', processed_count = ?, last_evening_id = ?,
+               failed_evening_id = ?, error_message = ?, updated_at = ?
+         WHERE migration_key = ?
+      `, [processed, lastEveningId, eveningId, message, failedAt, CRM_PAY_003_HISTORICAL_MIGRATION]);
+      console.error(
+        `[CRM-PAY-003] Historical CASUAL reconciliation failed at evening ${eveningId} after ${processed}/${casualIds.length}: ${message}`,
+      );
+      throw new Error(
+        `CRM-PAY-003 historical reconciliation failed at evening ${eveningId}; durable diagnostics were recorded and automatic full rescan is blocked. Cause: ${message}`,
+      );
+    }
   }
+
+  const completedAt = new Date().toISOString();
+  await db.run(`
+    UPDATE application_migration_history
+       SET status = 'completed', processed_count = ?, last_evening_id = ?,
+           failed_evening_id = NULL, error_message = NULL, completed_at = ?, updated_at = ?
+     WHERE migration_key = ?
+  `, [processed, lastEveningId, completedAt, completedAt, CRM_PAY_003_HISTORICAL_MIGRATION]);
 }
 
 export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<void> {
@@ -114,10 +195,16 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
     END
   `);
 
+  // Replace previous CRM-PAY-003 triggers so already-initialized databases receive
+  // the corrected paid>0 status behavior as an application-managed schema migration.
+  await db.run('DROP TRIGGER IF EXISTS trg_casual_planned_fee_insert');
+  await db.run('DROP TRIGGER IF EXISTS trg_casual_planned_fee_update');
+
   // RSVP and slot selection are planning only. Until attendance is factual, CASUAL
   // participants must not persist a planned charge into the canonical debt fields.
+  // A recorded prepayment remains factual money and therefore remains payment_status=paid.
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_casual_planned_fee_insert
+    CREATE TRIGGER trg_casual_planned_fee_insert
     AFTER INSERT ON evening_participants
     WHEN COALESCE(NEW.attendance_status, 'pending') = 'pending'
       AND EXISTS (
@@ -125,29 +212,35 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
          WHERE e.id = NEW.evening_id
            AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
       )
-      AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
+      AND (
+        COALESCE(NEW.amount_due, 0) != 0
+        OR COALESCE(NEW.payment_status, '') != CASE WHEN COALESCE(NEW.amount_paid, 0) > 0 THEN 'paid' ELSE 'waived' END
+      )
     BEGIN
       UPDATE evening_participants
          SET amount_due = 0,
-             payment_status = 'waived'
+             payment_status = CASE WHEN COALESCE(amount_paid, 0) > 0 THEN 'paid' ELSE 'waived' END
        WHERE id = NEW.id;
     END
   `);
 
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_casual_planned_fee_update
-    AFTER UPDATE OF amount_due, payment_status, attendance_status ON evening_participants
+    CREATE TRIGGER trg_casual_planned_fee_update
+    AFTER UPDATE OF amount_due, amount_paid, payment_status, attendance_status ON evening_participants
     WHEN COALESCE(NEW.attendance_status, 'pending') = 'pending'
       AND EXISTS (
         SELECT 1 FROM game_evenings e
          WHERE e.id = NEW.evening_id
            AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
       )
-      AND (COALESCE(NEW.amount_due, 0) != 0 OR COALESCE(NEW.payment_status, 'waived') != 'waived')
+      AND (
+        COALESCE(NEW.amount_due, 0) != 0
+        OR COALESCE(NEW.payment_status, '') != CASE WHEN COALESCE(NEW.amount_paid, 0) > 0 THEN 'paid' ELSE 'waived' END
+      )
     BEGIN
       UPDATE evening_participants
          SET amount_due = 0,
-             payment_status = 'waived'
+             payment_status = CASE WHEN COALESCE(amount_paid, 0) > 0 THEN 'paid' ELSE 'waived' END
        WHERE id = NEW.id;
     END
   `);
@@ -221,9 +314,10 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
        AND EXISTS (SELECT 1 FROM players p WHERE p.id = ?)
   `, [PRIMARY_ORGANIZER_PLAYER_ID, now, now, PRIMARY_ORGANIZER_PLAYER_ID]);
 
-  // Application-level, idempotent backfill: historical regular evenings are repaired
-  // from completed protocols on startup. No production database is edited manually.
-  await reconcileHistoricalRegularEvenings(db);
+  // Durable one-time application migration. Historical CASUAL evenings are scanned
+  // only until this migration reaches completed. Failed/interrupted states retain
+  // diagnostics and intentionally block automatic full rescans on future restarts.
+  await reconcileHistoricalRegularEveningsOnce(db);
 
   ensuredDatabases.add(db as object);
 }

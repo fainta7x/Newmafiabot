@@ -16,7 +16,7 @@ describe('channel-neutral personal notification producers',()=>{
     const legacy=read('src/server/services/premiumPlayerConnectionsService.ts');
     for(const source of [hardened, legacy]) {
       expect(source).toContain("from './personalNotificationRouterService.ts'");
-      expect(source).toContain("eventType: 'evening_invite'").or.toContain("eventType:'evening_invite'");
+      expect(source.includes("eventType: 'evening_invite'") || source.includes("eventType:'evening_invite'")).toBe(true);
       expect(source).not.toContain('enqueueTelegramMessage');
       expect(source).toContain('Приглашение не создаёт запись автоматически');
     }

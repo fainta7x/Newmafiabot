@@ -98,6 +98,47 @@ export async function resolvePersonalNotificationRouting(db: DatabaseWrapper, pl
   };
 }
 
+async function ensureExternalOutboxRow(
+  db: DatabaseWrapper,
+  delivery: any,
+  telegramReplyMarkup?: Record<string, unknown> | null,
+) {
+  const notificationKey = String(delivery.notification_key || '').trim();
+  const playerId = String(delivery.player_id || '').trim();
+  const target = String(delivery.channel_target || '').trim();
+  const eventType = String(delivery.event_type || '').trim();
+  const text = String(delivery.text || '').trim();
+  if (!notificationKey || !playerId || !target || !eventType || !text) return;
+
+  if (delivery.selected_channel === 'telegram' && delivery.status === 'queued') {
+    await enqueueTelegramMessage(db, {
+      messageKey: notificationKey,
+      category: 'personal',
+      eventType,
+      entityId: delivery.entity_id,
+      playerId,
+      chatId: target,
+      text: telegramTextWithAction(text, delivery.action_path, Boolean(telegramReplyMarkup)),
+      replyMarkup: telegramReplyMarkup || null,
+    });
+    kickTelegramMessageOutbox(db);
+  } else if (delivery.selected_channel === 'vk' && delivery.status === 'pending_channel') {
+    await enqueueVkMessage(db, {
+      messageKey: `personal:${notificationKey}:vk`,
+      notificationKey,
+      category: 'personal',
+      eventType,
+      entityId: delivery.entity_id,
+      playerId,
+      vkUserId: target,
+      text,
+      actionPath: delivery.action_path || '/player',
+    });
+    startVkMessageOutboxWorker(db);
+    kickVkMessageOutbox(db);
+  }
+}
+
 export async function queuePersonalNotification(db: DatabaseWrapper, input: PersonalNotificationInput) {
   await ensurePersonalNotificationRoutingSchema(db);
   const notificationKey = String(input.notificationKey || '').trim();
@@ -110,10 +151,10 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
 
   const existing = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
   if (existing) {
-    if (existing.selected_channel === 'vk' && existing.status === 'pending_channel') {
-      startVkMessageOutboxWorker(db);
-      kickVkMessageOutbox(db);
-    }
+    // A process can stop after the canonical delivery ledger is committed but before
+    // the selected channel outbox row is materialized. Re-enqueue idempotently so a
+    // producer retry heals that gap instead of leaving the notification stuck forever.
+    await ensureExternalOutboxRow(db, existing, input.telegramReplyMarkup);
     return { delivery: existing, created: false };
   }
 
@@ -153,36 +194,8 @@ export async function queuePersonalNotification(db: DatabaseWrapper, input: Pers
     ],
   );
 
-  if (selectedChannel === 'telegram' && routing.channel_target) {
-    await enqueueTelegramMessage(db, {
-      messageKey: notificationKey,
-      category: 'personal',
-      eventType,
-      entityId: input.entityId,
-      playerId,
-      chatId: routing.channel_target,
-      text: telegramTextWithAction(text, input.actionPath, Boolean(input.telegramReplyMarkup)),
-      replyMarkup: input.telegramReplyMarkup || null,
-    });
-    kickTelegramMessageOutbox(db);
-  } else if (selectedChannel === 'vk' && routing.channel_target) {
-    await enqueueVkMessage(db, {
-      messageKey: `personal:${notificationKey}:vk`,
-      notificationKey,
-      category: 'personal',
-      eventType,
-      entityId: input.entityId,
-      playerId,
-      vkUserId: routing.channel_target,
-      text,
-      actionPath: input.actionPath || '/player',
-    });
-    startVkMessageOutboxWorker(db);
-    kickVkMessageOutbox(db);
-  }
+  const delivery = await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]);
+  if (delivery) await ensureExternalOutboxRow(db, delivery, input.telegramReplyMarkup);
 
-  return {
-    delivery: await db.get<any>('SELECT * FROM personal_notification_deliveries WHERE notification_key = ? LIMIT 1', [notificationKey]),
-    created: true,
-  };
+  return { delivery, created: true };
 }

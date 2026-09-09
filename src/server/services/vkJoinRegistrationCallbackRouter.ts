@@ -114,7 +114,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
           return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_link_pending', claim.pending ? '1' : '0'));
         }
       }
-      setPlayerSessionCookie(res, playerId, { crossSiteWebView: true });
+      setPlayerSessionCookie(res, playerId);
       res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: '/' });
       logPlayerCallback('session_issued', req, { return_to: result.returnTo });
       return res.redirect(302, result.returnTo);
@@ -175,7 +175,7 @@ router.get('/vk/player/claim/:token', async (req, res) => {
 router.post('/vk/player/claim/:token', async (req, res) => {
   try {
     const result = await confirmVkPlayerIdentityClaim(req.db as DatabaseWrapper, req.params.token);
-    setPlayerSessionCookie(res, result.playerId, { crossSiteWebView: true });
+    setPlayerSessionCookie(res, result.playerId);
     return res.redirect(303, appendPlayerResult(result.returnTo, 'vk_linked', '1'));
   } catch (error: any) {
     res.setHeader('Cache-Control', 'no-store');

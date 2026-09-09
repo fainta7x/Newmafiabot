@@ -50,7 +50,7 @@ export async function loadTournamentEvening(db: DatabaseWrapper, tournamentId: s
     payment_totals: {
       expected_rub: confirmed.length*entryFee,
       reported_rub: confirmed.filter((row) => row.payment_state === 'pending').length*entryFee,
-      confirmed_rub: confirmed.filter((row) => ['confirmed','waived'].includes(row.payment_state)).length*entryFee,
+      confirmed_rub: confirmed.filter((row) => row.payment_state === 'confirmed').length*entryFee,
       unpaid_count: confirmed.filter((row) => !['confirmed','waived'].includes(row.payment_state)).length,
     },
   };
@@ -139,9 +139,9 @@ export async function cancelTournamentRegistration(db:DatabaseWrapper,tournament
 }
 
 export async function notifyTournamentAudience(db:DatabaseWrapper,tournamentId:string){
-  const tournament=await db.get<any>('SELECT id,title,date,venue FROM tournaments WHERE id=?',[tournamentId]);if(!tournament)throw new Error('TOURNAMENT_NOT_FOUND');
-  const players=await db.all<any>("SELECT id FROM players WHERE game_level='tournament'");let queued=0;
-  for(const player of players){const result=await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:published:${player.id}`,playerId:String(player.id),eventType:'tournament_published',entityId:tournamentId,text:`Открыта запись на турнир «${tournament.title}». ${tournament.venue || ''}`.trim(),actionPath:tournamentPlayerPath(tournamentId)});if(result)queued+=1;}
+  const tournament=await db.get<any>('SELECT id,title,date,venue,judge_player_id FROM tournaments WHERE id=?',[tournamentId]);if(!tournament)throw new Error('TOURNAMENT_NOT_FOUND');
+  const players=await db.all<any>("SELECT id FROM players WHERE game_level='tournament' AND id <> COALESCE(?, '')",[tournament.judge_player_id]);let queued=0;
+  for(const player of players){const result=await queuePersonalNotification(db,{notificationKey:`tournament:${tournamentId}:published:${player.id}`,playerId:String(player.id),eventType:'tournament_published',entityId:tournamentId,text:`Открыта запись на турнир «${tournament.title}». ${tournament.venue || ''}`.trim(),actionPath:tournamentPlayerPath(tournamentId)});if(result?.created)queued+=1;}
   return {eligible_players:players.length,queued};
 }
 

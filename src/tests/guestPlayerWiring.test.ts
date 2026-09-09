@@ -5,6 +5,7 @@ const read = (relative: string) => readFileSync(new URL(relative, import.meta.ur
 
 const eveningUi = read('../components/crm/EveningGameCreateSheet.tsx');
 const protocolUi = read('../components/crm/tournaments/protocol/ProtocolSummaryTab.tsx');
+const eveningsRoute = read('../server/routes/eveningsRoutes.ts');
 const gamesRoute = read('../server/routes/gamesRoutes.ts');
 const tokenSettlement = read('../server/services/clubGameTokenSettlementService.ts');
 const eloService = read('../server/services/eloRatingService.ts');
@@ -26,6 +27,20 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain("if (req.body?.guest) return res.status(400)");
     expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");
+  });
+
+  it('keeps mixed guest and registered bulk participant updates atomic', () => {
+    const bulkStart = eveningsRoute.indexOf("router.patch('/:id/participants/bulk'");
+    const settleStart = eveningsRoute.indexOf("router.post('/:id/settle'", bulkStart);
+    const bulkRoute = eveningsRoute.slice(bulkStart, settleStart);
+    expect(bulkStart).toBeGreaterThanOrEqual(0);
+    expect(bulkRoute).toContain('await db.transaction(async(tx)=>');
+    expect(bulkRoute).toContain('updateGuestPlaceholder(tx');
+    expect(bulkRoute).toContain('assignParticipantToTable(tx');
+    expect(bulkRoute).toContain('setParticipantResponse(tx');
+    expect(bulkRoute).toContain('setParticipantAttendance(tx');
+    expect(bulkRoute).not.toContain('updateGuestPlaceholder(db');
+    expect(eveningsRoute).toContain("console.warn('[CRM] Could not load announcement state for evening:'");
   });
 
   it('keeps unresolved guests outside player-level derived effects', () => {

@@ -30,9 +30,12 @@ const publishTournament = async (req: AuthenticatedRequest, res: Response) => {
   if(!t||Number(t.tournament_evening_flow||0)!==1)return res.status(404).json({error:'Турнир не найден'}); if(t.status!=='draft')return res.status(409).json({error:'Публикация доступна только до запуска'});
   const prize=validatePrizeConfiguration(t.prize_fund_rub,JSON.parse(t.prize_allocations_json||'[]'));if(!prize.ok||prize.mismatch)return res.status(409).json({error:'Сумма распределения призов не совпадает с общим призовым фондом'});if(!t.judge_player_id||!t.venue)return res.status(409).json({error:'Перед публикацией укажите судью и место'});
   const actor=actorId(req);if(!actor)return res.status(401).json({error:'ACTOR_REQUIRED'});
-  const first=!t.published_at,now=new Date().toISOString();await db.run('UPDATE tournaments SET published_at=COALESCE(published_at,?),registration_closed_at=NULL,updated_at=? WHERE id=?',[now,now,tournamentId]);
+  const first=!t.published_at,now=new Date().toISOString();
+  if(first)await db.run('UPDATE tournaments SET published_at=?,registration_closed_at=NULL,updated_at=? WHERE id=?',[now,now,tournamentId]);
+  else await db.run('UPDATE tournaments SET updated_at=? WHERE id=?',[now,tournamentId]);
   if(first)await db.run(`INSERT INTO tournament_evening_audit (id,tournament_id,action,actor_type,actor_id,created_at) VALUES (?,?,'publish','organizer',?,?)`,[crypto.randomUUID(),tournamentId,actor,now]);
   // Always retry the audience. Stable per-player notification keys make this duplicate-safe and heal partial failures.
+  // A retry must not reopen registration after an organizer intentionally closed it.
   const audience=await notifyTournamentAudience(db,tournamentId);return res.json({...await loadTournamentEvening(db,tournamentId),audience});
 };
 router.post('/evenings/:id/publish',requireOrganizerAuth,publishTournament);

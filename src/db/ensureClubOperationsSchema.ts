@@ -5,6 +5,10 @@ import { PRIMARY_ORGANIZER_PLAYER_ID } from './ensureOrganizerPlayerAccessSchema
 const ensuredDatabases = new WeakSet<object>();
 export const CRM_PAY_003_HISTORICAL_MIGRATION = 'crm_pay_003_historical_casual_pricing_v1';
 export const CRM_PAY_003_R2_HISTORICAL_MIGRATION = 'crm_pay_003_r2_evening_specific_fee_exemptions_v1';
+// R2 was deployed before every historical pricing correction was present. A database
+// that already completed that marker must receive one fresh canonical pass instead
+// of keeping legacy 500/600 ₽ participant rows forever.
+export const CRM_PAY_003_STALE_DEBT_REPAIR_MIGRATION = 'crm_pay_003_stale_regular_debt_repair_v1';
 
 async function ensurePlayerAccessColumns(db: DatabaseWrapper) {
   const columns = await db.all<{ name: string }>('PRAGMA table_info(players)');
@@ -333,6 +337,14 @@ export async function reconcileHistoricalRegularEveningsR2Once(db: DatabaseWrapp
   );
 }
 
+export async function reconcileStaleHistoricalRegularDebtsOnce(db: DatabaseWrapper): Promise<void> {
+  return reconcileHistoricalRegularEveningsWithMarker(
+    db,
+    CRM_PAY_003_STALE_DEBT_REPAIR_MIGRATION,
+    { resumeInterrupted: true },
+  );
+}
+
 export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<void> {
   if (ensuredDatabases.has(db as object)) return;
 
@@ -535,6 +547,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   // resume safely from its last completed evening after an interrupted deployment.
   await reconcileHistoricalRegularEveningsOnce(db);
   await reconcileHistoricalRegularEveningsR2Once(db);
+  await reconcileStaleHistoricalRegularDebtsOnce(db);
 
   ensuredDatabases.add(db as object);
 }

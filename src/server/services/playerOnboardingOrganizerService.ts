@@ -27,8 +27,8 @@ export async function recordNewPlayerOnboardingNotification(
       ) VALUES (?, ?, ?, 'other', 'todo', 'medium', NULL, NULL, ?, ?, NULL, ?, ?)
     `, [
       taskId,
-      `Новый игрок: ${input.nickname}`,
-      `Профиль создан после подтверждения аккаунта через ${channelLabel(input.platform)}.`,
+      `Определить игровой уровень: ${input.nickname}`,
+      `Новый профиль создан после подтверждения аккаунта через ${channelLabel(input.platform)}. Игровой уровень пока не определён; проверьте опыт игрока и назначьте допуск.`,
       automationKey,
       input.playerId,
       now,

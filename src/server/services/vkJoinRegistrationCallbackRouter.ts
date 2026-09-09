@@ -11,9 +11,9 @@ import { confirmVkIdentityClaim, createVkIdentityClaim, peekVkIdentityClaim } fr
 import { completeVkPlayerOAuth, confirmVkPlayerIdentityClaim, createVkPlayerIdentityClaim, peekVkPlayerIdentityClaim, peekVkPlayerOAuthState, validateVkPlayerReturnPath } from './vkPlayerAuthService.ts';
 import { setPlayerSessionCookie } from './playerSessionCookie.ts';
 import { resolveTrustedPublicAppOrigin } from './publicAppOriginService.ts';
+import { VK_PLAYER_OAUTH_BINDING_COOKIE, VK_PLAYER_OAUTH_BINDING_PATH } from './vkPlayerStartRouter.ts';
 
 const router = Router();
-const VK_PLAYER_OAUTH_BINDING_COOKIE = 'vk_player_oauth_binding';
 
 const setVkSessionCookie = (res: any, token: string) => {
   res.cookie('vk_join_session', token, {
@@ -34,6 +34,29 @@ const appendPlayerResult = (returnTo: string, key: string, value: string) => {
   return `${url.pathname}${url.search}${url.hash}`;
 };
 
+const safePlayerCallbackCode = (error: any) => {
+  const explicit = String(error?.code || '').trim();
+  if (explicit) return explicit;
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('vk id') || message.includes('oauth') || message.includes('redirect') || message.includes('http')) {
+    return 'vk_provider_exchange_failed';
+  }
+  return 'vk_auth_callback_failed';
+};
+
+const logPlayerCallback = (stage: string, req: any, details: Record<string, unknown> = {}) => {
+  console.info('[VK PLAYER AUTH]', {
+    stage,
+    method: req.method,
+    // Never log originalUrl: the callback query contains OAuth code/state/device_id.
+    path: req.path,
+    secure: Boolean(req.secure),
+    forwarded_proto: String(req.get?.('x-forwarded-proto') || '').split(',')[0].trim() || null,
+    has_binding_cookie: Boolean(req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE]),
+    ...details,
+  });
+};
+
 const confirmationPage = (input: { token: string; nickname?: string; title?: string; error?: string; playerCabinet?: boolean }) => {
   const action = input.playerCabinet ? `/api/integrations/vk/player/claim/${encodeURIComponent(input.token)}` : `/api/integrations/vk/link/confirm/${encodeURIComponent(input.token)}`;
   const context = input.playerCabinet ? `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong>?` : `Связать VK с игровым профилем <strong>«${escapeHtml(input.nickname)}»</strong> для записи на «${escapeHtml(input.title)}»?`;
@@ -49,6 +72,11 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
   // Full player-cabinet VK ID flow uses the canonical player session only.
   const playerPending = await peekVkPlayerOAuthState(db, state);
   if (playerPending) {
+    logPlayerCallback('callback_received', req, {
+      has_code: Boolean(req.query?.code),
+      has_device_id: Boolean(req.query?.device_id),
+      return_to: playerPending.return_to,
+    });
     try {
       const result = await completeVkPlayerOAuth(db, {
         code: req.query?.code,
@@ -56,22 +84,25 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         state,
         browserBinding: req.cookies?.[VK_PLAYER_OAUTH_BINDING_COOKIE],
       });
+      logPlayerCallback('provider_exchange_ok', req, {
+        linked_identity: Boolean(result.playerId),
+        initiated_link: Boolean(result.initiatingPlayerId),
+      });
       if (result.initiatingPlayerId && result.playerId && result.playerId !== result.initiatingPlayerId) {
-        return res.status(409).type('html').send(confirmationPage({
-          token: '',
-          playerCabinet: true,
-          error: 'Этот VK-профиль уже связан с другим игроком. Текущая сессия не изменена.',
-        }));
+        logPlayerCallback('callback_failed', req, { code: 'vk_identity_conflict', status: 409 });
+        return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_error', 'vk_identity_conflict'));
       }
       let playerId = result.playerId;
       if (!playerId && result.initiatingPlayerId) {
         await linkVkIdentity(db, { vkUserId: result.vkUserId, playerId: result.initiatingPlayerId });
         playerId = result.initiatingPlayerId;
+        logPlayerCallback('identity_linked_to_initiator', req);
       }
       if (!playerId) {
         try {
           const registration = await registerVkPlayer(db, result.vkUserId, result.nickname);
           playerId = registration.playerId;
+          logPlayerCallback('new_player_registered', req, { created: Boolean(registration.created) });
         } catch (error: any) {
           if (error?.code !== 'nickname_taken') throw error;
           const claim = await createVkPlayerIdentityClaim(db, {
@@ -80,13 +111,18 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
             returnTo: result.returnTo,
             baseUrl: resolveTrustedPublicAppOrigin(req),
           });
+          logPlayerCallback('identity_confirmation_required', req, { pending: Boolean(claim.pending) });
           return res.redirect(302, appendPlayerResult(result.returnTo, 'vk_link_pending', claim.pending ? '1' : '0'));
         }
       }
       setPlayerSessionCookie(res, playerId);
+      res.clearCookie(VK_PLAYER_OAUTH_BINDING_COOKIE, { path: VK_PLAYER_OAUTH_BINDING_PATH });
+      logPlayerCallback('session_issued', req, { return_to: result.returnTo });
       return res.redirect(302, result.returnTo);
     } catch (error: any) {
-      return res.redirect(302, appendPlayerResult(playerPending.return_to, 'vk_error', error?.message || 'VK ID failed'));
+      const code = safePlayerCallbackCode(error);
+      logPlayerCallback('callback_failed', req, { code, status: Number(error?.statusCode || 500) });
+      return res.redirect(302, appendPlayerResult(playerPending.return_to, 'vk_error', code));
     }
   }
 

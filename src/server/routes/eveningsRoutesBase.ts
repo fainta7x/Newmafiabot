@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { getDb } from '../../db/index.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { runCrmAutomations } from '../services/crmAutomationService.ts';
 import { assignParticipantToTable } from '../services/tableAssignmentService.ts';
@@ -12,6 +13,8 @@ import {
 } from '../validation.ts';
 
 const router = Router();
+const REGULAR_PRICE = 100;
+const isRegularEvening = (format: unknown) => normalizeEveningFormat(format) === 'CASUAL';
 
 // POST /api/evenings/create-next-friday - Quick action to create next Friday evening with 2 tables
 router.post('/create-next-friday', requireOrganizerAuth, async (req, res) => {
@@ -777,7 +780,11 @@ router.post('/:id/tables', requireOrganizerAuth, async (req, res) => {
 
     const tableId = crypto.randomUUID();
     const now = new Date().toISOString();
-    const defaultPrice = req.body.default_price ?? evening.default_price ?? 500;
+    // Table price is owned by the parent evening pricing policy. Legacy 400/500/600
+    // input must never be persisted for CASUAL/legacy STANDARD evenings.
+    const defaultPrice = isRegularEvening(evening.format)
+      ? REGULAR_PRICE
+      : (req.body.default_price ?? evening.default_price ?? 500);
     await db.run(
       `INSERT INTO evening_tables (id, evening_id, name, format, capacity, host_name, default_price, notes, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -818,6 +825,9 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
     }
 
     const now = new Date().toISOString();
+    const defaultPrice = isRegularEvening(evening?.format)
+      ? REGULAR_PRICE
+      : (req.body.default_price !== undefined ? req.body.default_price : table.default_price);
     await db.run(
       `UPDATE evening_tables 
        SET name = ?, format = ?, capacity = ?, host_name = ?, default_price = ?, notes = ?, sort_order = ?, updated_at = ?
@@ -827,7 +837,7 @@ router.put('/tables/:tableId', requireOrganizerAuth, async (req, res) => {
         req.body.format !== undefined ? req.body.format : table.format,
         req.body.capacity !== undefined ? req.body.capacity : table.capacity,
         req.body.host_name !== undefined ? req.body.host_name : table.host_name,
-        req.body.default_price !== undefined ? req.body.default_price : table.default_price,
+        defaultPrice,
         req.body.notes !== undefined ? req.body.notes : table.notes,
         req.body.sort_order !== undefined ? req.body.sort_order : table.sort_order,
         now,

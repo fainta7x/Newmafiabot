@@ -25,7 +25,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(protocolUi).toContain('replacement_player_id: selectedReplacementPlayer.id');
     expect(gamesRoute).toContain('replaceGuestWithRegisteredPlayer');
     expect(gamesRoute).toContain("if (req.body?.guest) return res.status(400)");
-    expect(gamesRoute).toContain("if (replacement.changed && previousStatus === 'completed')");
+    expect(gamesRoute).toContain("if ((replacement.changed || replacement.idempotent) && previousStatus === 'completed')");
   });
 
   it('keeps unresolved guests outside player-level derived effects', () => {
@@ -39,6 +39,7 @@ describe('GUEST-PLAYER-001 wiring contract', () => {
     expect(migration).toContain("const LEGACY_GUEST_SOURCES = new Set(['quick_guest'])");
     expect(migration).toContain("'external_identity_linked'");
     expect(migration).toContain("'ambiguous_game_seat'");
+    expect(migration).toContain("'migration_requires_review'");
     expect(migration).toContain("source IN ('quick_guest','legacy_guest_migrated')");
     expect(migration).not.toMatch(/WHERE\s+[^;]*nickname\s*=\s*\?/i);
   });

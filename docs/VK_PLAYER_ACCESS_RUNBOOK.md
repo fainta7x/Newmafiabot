@@ -26,6 +26,36 @@ Security-sensitive callback and identity-confirmation links use the configured `
 
 An authenticated owner can initiate VK linking from their own profile notification settings. The server records the initiating canonical `player_id`; browser-supplied `player_id` is never accepted. If the returned VK identity is already linked to another canonical player, the callback returns a conflict and leaves the current player session unchanged.
 
+### VK-ACCESS-003 production login trace
+
+For a Player Cabinet login opened from a VK notification, trace exactly this sequence before changing data or identity links:
+
+1. notification action opens the trusted `PLAYER_APP_URL` plus a `/player/...` path;
+2. unauthenticated cabinet renders the VK login action;
+3. `POST /api/integrations/player/vk/start` returns an authorize URL and writes the HttpOnly browser-binding cookie;
+4. VK ID returns to `GET /api/integrations/vk/oauth/callback` with `code`, `device_id` and the one-shot state;
+5. the server verifies the binding, consumes state, exchanges the code and resolves `player_external_identities` before any registration/nickname path;
+6. an already-linked identity receives the canonical `player_token` and is redirected to the preserved `/player/...` destination;
+7. `/api/auth/me` and normal `/api/player/*` requests must then resolve that same canonical `player_id`.
+
+VK-ACCESS-003 adds sanitized `[VK PLAYER AUTH]` log stages for that sequence. The logs intentionally contain only stage names, HTTP path/method, secure/proxy booleans, presence booleans, safe error codes/status and the safe return path. They must never log OAuth access/refresh tokens, authorization codes, state/verifier values, VK IDs, player IDs, nicknames, session cookies or bot/community credentials.
+
+Useful stages:
+
+- `start_ok` / `start_failed`;
+- `callback_received`;
+- `provider_exchange_ok`;
+- `identity_linked_to_initiator` or `new_player_registered` only when those branches are legitimately reached;
+- `identity_confirmation_required` for a nickname collision requiring private proof;
+- `session_issued`;
+- `callback_failed` with a safe code such as `vk_state_browser_mismatch`, `vk_provider_exchange_failed` or `vk_identity_conflict`.
+
+On retry, transient result parameters (`vk_error`, `vk_link_pending`, `vk_linked`, `vk_link_nickname`) are removed before constructing the new `return_to`. A prior failed attempt must never make a later successful callback render the old error again.
+
+The browser-binding and canonical player cookies remain `HttpOnly`; production cookies are `Secure` and `SameSite=Lax`. The binding cookie uses `/` so the start and callback paths share one unambiguous scope. The top-level HTTPS VK ID callback is compatible with Lax without expanding the canonical player session to a cross-site cookie policy.
+
+If production evidence is unavailable, do **not** guess the live failing stage. Record repository/CI findings separately and use the sanitized stages above after deployment to identify the first missing/failing transition.
+
 ## Channel selection
 
 `preferred_channel` supports:
@@ -133,6 +163,8 @@ Before calling VK Player Cabinet + personal notifications live on Amvera:
 - Telegram bot credentials remain valid for Telegram-selected players and for the private VK identity-confirmation challenge.
 - Organizer VK personal-delivery diagnostics show no unexplained configuration failures.
 - Perform one real VK login through `/api/integrations/player/vk/start` and verify the requested Player Cabinet return path.
+- For VK-ACCESS-003 specifically, capture the consecutive `[VK PLAYER AUTH]` stages for one real affected login and confirm the sequence reaches `session_issued`; if it stops earlier, use only that safe stage/code as the incident cause.
+- After `session_issued`, verify `/api/auth/me` reports the already-linked canonical player and that repeated login does not add a player row.
 - Send one safe test notification to a Telegram-selected linked player and one to a VK-selected linked player; verify exactly one external delivery for each canonical notification.
 - Test a VK permission-denied user and verify the failure is reported rather than marked sent.
 - Open a betting pool with a VK-only eligible spectator and verify one usable betting-open Player Cabinet message.

@@ -4,6 +4,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { getRotationPriority, sortEveningRotationCandidates, type RotationPreviousGame } from '../../lib/eveningRotation.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
 router.use(requireOrganizerAuth);
@@ -38,7 +39,7 @@ export const needsCurrentCommunicationAttention = (player: any) => (
   Boolean(player?.eligible_now) && player?.attention_status !== 'answered'
 );
 
-router.get('/command-center', async (req, res) => {
+router.get('/command-center', crmReadFreshnessMiddleware, async (req, res) => {
   try {
     const db = req.db;
     const nowIso = new Date().toISOString();

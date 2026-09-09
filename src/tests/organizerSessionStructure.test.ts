@@ -16,7 +16,9 @@ describe('organizer session boundary', () => {
     expect(crm).not.toContain('api.logout()');
 
     expect(session).toContain('api.getMe()');
-    expect(session).toContain('api.getCrmOverview()');
+    expect(session).toContain("fetch('/api/crm/overview'");
+    expect(session).toContain("cache: 'no-store'");
+    expect(session).toContain("measureRequest('overview', () => fetchCrmOverview(controller.signal))");
     expect(session).toContain('api.getEvenings()');
     expect(session).toContain("measureRequest('players', () => api.getPlayers())");
     expect(session.indexOf("measureRequest('players'")).toBeLessThan(session.indexOf('await Promise.all'));

@@ -3,8 +3,10 @@ import { getDb, type DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
+import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
 
 const router = Router();
+
 function getMoscowDateStr(value: string | null | undefined): string | null {
   if (!value || value.trim() === '') return null;
   const date = new Date(value);
@@ -13,7 +15,7 @@ function getMoscowDateStr(value: string | null | undefined): string | null {
   return `${parts.find((p) => p.type === 'year')?.value}-${parts.find((p) => p.type === 'month')?.value}-${parts.find((p) => p.type === 'day')?.value}`;
 }
 
-router.get('/overview', requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db: DatabaseWrapper = req.db || (await getDb());
     const nowIso = new Date().toISOString();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
   Gamepad2, ListTodo, MessageCircle, RefreshCw, UserCheck,
@@ -28,6 +28,12 @@ type CommandCenterResponse = {
       unpaid_count: number; unpaid_amount: number; games: number; completed_games: number;
       draft_games: number; open_tasks: number; ready_to_close: boolean;
     };
+    payment_context?: {
+      scope: 'current_or_upcoming_evening';
+      evening: { id: string; title: string; starts_at: string | null; format: string; status: string };
+      unpaid_count: number;
+      unpaid_amount: number;
+    };
     current_game: null | {
       id: number; local_number: number; global_number: number; table_name: string | null; judge_name: string | null;
       players: Array<{ participant_id: string; player_id: string | null; nickname: string; seat_number: number }>;
@@ -41,6 +47,7 @@ type CommandCenterResponse = {
     blockers: Array<{ kind: string; count: number; label: string }>;
   };
   wrapup: null | {
+    payment_scope?: 'previous_evening_debt';
     evening: { id: string; title: string; starts_at: string | null };
     unpaid: Array<{ id: string; player_id: string; nickname: string; amount_due: number; amount_paid: number }>;
     tasks: Array<any>;
@@ -66,6 +73,11 @@ const formatDateTime = (value: string | null) => {
   return date.toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 };
 
+const formatPaymentDate = (value: string | null) => {
+  if (!value) return 'дата не указана';
+  return new Date(value).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+};
+
 const formatMoney = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
 
 const communicationLabel = (status: string) => {
@@ -82,34 +94,74 @@ export default function OrganizerCommandCenter({
   onRefresh,
   showTitle = true,
 }: Props) {
+  const requestGenerationRef = useRef(0);
+  const requestAbortRef = useRef<AbortController | null>(null);
+  const resumeTimerRef = useRef<number | null>(null);
   const [data, setData] = useState<CommandCenterResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentsFresh, setPaymentsFresh] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (options: { silent?: boolean; invalidatePayments?: boolean } = {}) => {
+    const silent = Boolean(options.silent);
+    const generation = ++requestGenerationRef.current;
+    requestAbortRef.current?.abort();
+    const controller = new AbortController();
+    requestAbortRef.current = controller;
+
     if (!silent) setLoading(true);
+    if (options.invalidatePayments) setPaymentsFresh(false);
     setError(null);
     try {
-      const response = await fetch('/api/crm/command-center', { credentials: 'same-origin' });
+      const response = await fetch('/api/crm/command-center', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить пульт');
+      if (generation !== requestGenerationRef.current) return false;
       setData(body as CommandCenterResponse);
+      setPaymentsFresh(true);
+      return true;
     } catch (err: any) {
+      if (generation !== requestGenerationRef.current || err?.name === 'AbortError') return false;
       setError(err?.message || 'Не удалось загрузить пульт');
+      return false;
     } finally {
-      if (!silent) setLoading(false);
+      if (requestAbortRef.current === controller) requestAbortRef.current = null;
+      if (!silent && generation === requestGenerationRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void load(true);
+    void load({ invalidatePayments: true });
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load({ silent: true });
     }, 15_000);
-    const onVisible = () => document.visibilityState === 'visible' && void load(true);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+
+    const scheduleResumeRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      setPaymentsFresh(false);
+      if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = window.setTimeout(() => {
+        resumeTimerRef.current = null;
+        void load({ silent: true, invalidatePayments: true });
+      }, 80);
+    };
+
+    document.addEventListener('visibilitychange', scheduleResumeRefresh);
+    window.addEventListener('focus', scheduleResumeRefresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', scheduleResumeRefresh);
+      window.removeEventListener('focus', scheduleResumeRefresh);
+      if (resumeTimerRef.current !== null) window.clearTimeout(resumeTimerRef.current);
+      requestGenerationRef.current += 1;
+      requestAbortRef.current?.abort();
+      requestAbortRef.current = null;
+    };
   }, [load]);
 
   const snapshot = data?.snapshot || null;
@@ -121,7 +173,8 @@ export default function OrganizerCommandCenter({
   const taskCount = snapshot?.stats.open_tasks || snapshot?.attention.tasks.length || 0;
 
   const refreshAll = async () => {
-    await Promise.all([load(true), onRefresh?.()]);
+    setPaymentsFresh(false);
+    await Promise.all([load({ silent: true, invalidatePayments: true }), onRefresh?.()]);
   };
 
   const markPaid = async (participant: { id?: string; participant_id?: string; amount_due: number }) => {
@@ -147,8 +200,8 @@ export default function OrganizerCommandCenter({
       id: 'present', label: 'Пришли', value: String(snapshot.stats.present), detail: 'фактически на месте', tone: 'text-success', icon: <UserCheck className="h-4 w-4" />,
       action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
     });
-    if (snapshot.stats.unpaid_count > 0) rows.push({
-      id: 'unpaid', label: 'Не оплачено', value: String(snapshot.stats.unpaid_count), detail: formatMoney(snapshot.stats.unpaid_amount), tone: 'text-warning', icon: <CircleDollarSign className="h-4 w-4" />,
+    if (paymentsFresh && snapshot.stats.unpaid_count > 0) rows.push({
+      id: 'unpaid', label: 'Не оплачено · этот вечер', value: String(snapshot.stats.unpaid_count), detail: `${snapshot.evening.title} · ${formatPaymentDate(snapshot.evening.starts_at)} · ${formatMoney(snapshot.stats.unpaid_amount)}`, tone: 'text-warning', icon: <CircleDollarSign className="h-4 w-4" />,
       action: () => onOpenEveningSection(snapshot.evening.id, 'management'),
     });
     if (unfinishedGames > 0) rows.push({
@@ -160,7 +213,7 @@ export default function OrganizerCommandCenter({
       action: () => onNavigateTab('tasks'),
     });
     return rows;
-  }, [snapshot, unansweredCount, unfinishedGames, taskCount, onNavigateTab, onOpenEveningSection]);
+  }, [snapshot, paymentsFresh, unansweredCount, unfinishedGames, taskCount, onNavigateTab, onOpenEveningSection]);
 
   if (loading && !data) return <div className="flex min-h-[45vh] items-center justify-center"><RefreshCw className="h-6 w-6 animate-spin text-accent" /></div>;
 
@@ -170,7 +223,7 @@ export default function OrganizerCommandCenter({
         {showTitle ? <h2 className="text-[22px] font-semibold leading-tight text-text-primary sm:text-[24px]">Сегодня</h2> : null}
         <p className="mt-1 text-[13px] leading-5 text-text-secondary">Только текущий вечер и действия, которые требуют внимания.</p>
       </div>
-      <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className="h-4 w-4" /></button>
+      <button type="button" onClick={() => void refreshAll()} aria-label="Обновить" className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-border-soft bg-surface-1 text-text-secondary"><RefreshCw className={`h-4 w-4 ${!paymentsFresh && data ? 'animate-spin' : ''}`} /></button>
     </div>
 
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
@@ -193,13 +246,15 @@ export default function OrganizerCommandCenter({
         </div>
       </section>
 
+      {!paymentsFresh ? <section data-testid="crm-payments-refreshing" className="flex min-h-14 items-center gap-2 rounded-[16px] border border-border-soft bg-surface-1 px-3 text-[13px] text-text-secondary"><RefreshCw className="h-4 w-4 animate-spin text-accent" /> Обновляем оплаты за {snapshot.evening.title} · {formatPaymentDate(snapshot.evening.starts_at)}…</section> : null}
+
       {actionCards.length ? <section aria-label="Действия сегодня" className="grid grid-cols-2 gap-2">
         {actionCards.map((item) => <button key={item.id} type="button" onClick={item.action} className="min-h-[78px] rounded-[16px] border border-border-soft bg-surface-1 p-3 text-left active:bg-surface-hover">
           <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${item.tone}`}>{item.icon}{item.label}</div>
           <div className="mt-1.5 text-[22px] font-bold leading-none text-text-primary">{item.value}</div>
           <div className="mt-1 text-[12px] leading-4 text-text-secondary">{item.detail}</div>
         </button>)}
-      </section> : <section className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section>}
+      </section> : paymentsFresh ? <section className="flex min-h-14 items-center gap-2 rounded-[16px] border border-success/20 bg-success-soft px-3 text-[13px] text-success"><CheckCircle2 className="h-4 w-4" /> На текущий момент срочных действий нет.</section> : null}
 
       {(deliveryProblems.length > 0 || attendanceAttention > 0) ? <section className="rounded-[18px] border border-warning/20 bg-surface-1 p-3">
         <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><AlertTriangle className="h-4 w-4" /> Требует уточнения</div>
@@ -210,9 +265,9 @@ export default function OrganizerCommandCenter({
       </section> : null}
     </>}
 
-    {data?.wrapup?.unpaid.length ? <section className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
-      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">После прошлого вечера</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
-      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">осталось {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
+    {paymentsFresh && data?.wrapup?.unpaid.length ? <section data-testid="previous-evening-debts" className="rounded-[18px] border border-warning/20 bg-warning-soft/40 p-3">
+      <div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[12px] font-semibold text-warning">Долги с прошлого вечера · не текущая оплата</div><div className="mt-0.5 line-clamp-1 text-[13px] font-bold text-text-primary">{data.wrapup.evening.title}</div><div className="mt-0.5 text-[12px] text-text-muted">{formatPaymentDate(data.wrapup.evening.starts_at)}</div></div><button type="button" onClick={() => onOpenEvening(data.wrapup!.evening.id)} aria-label="Открыть прошлый вечер" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-surface-1 text-text-secondary"><ArrowRight className="h-4 w-4" /></button></div>
+      <div className="mt-2 space-y-1.5">{data.wrapup.unpaid.slice(0, 4).map((row) => <div key={row.id} className="flex min-h-11 items-center gap-2 rounded-[10px] bg-surface-1 px-2.5"><span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{row.nickname}</strong><span className="text-[12px] text-text-muted">долг за {data.wrapup!.evening.title}: {formatMoney(row.amount_due - row.amount_paid)}</span></span><button type="button" disabled={Boolean(busy)} onClick={() => void markPaid(row)} className="min-h-11 rounded-[9px] bg-success-soft px-3 text-[13px] font-bold text-success disabled:opacity-40">Оплачено</button></div>)}</div>
     </section> : null}
   </div>;
 }

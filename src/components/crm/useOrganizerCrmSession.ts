@@ -21,8 +21,25 @@ const refreshTelegramPlayerSession = async () => {
   }
 };
 
+const fetchCrmOverview = async (signal: AbortSignal): Promise<CrmOverview> => {
+  const response = await fetch('/api/crm/overview', {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    signal,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error: any = new Error(body?.error || body?.message || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return body as CrmOverview;
+};
+
 export const useOrganizerCrmSession = () => {
   const resumeRefreshTimerRef = useRef<number | null>(null);
+  const refreshGenerationRef = useRef(0);
+  const overviewAbortRef = useRef<AbortController | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -43,22 +60,39 @@ export const useOrganizerCrmSession = () => {
     }
   };
 
-  const loadAllData = async () => {
-    // Start every request together, but do not keep the whole CRM behind the
-    // expensive all-player aggregate. Overview and evenings are enough to render
-    // the initial organizer screen; player data continues in the background.
+  const loadAllData = async (): Promise<boolean> => {
+    const generation = ++refreshGenerationRef.current;
+    overviewAbortRef.current?.abort();
+    const controller = new AbortController();
+    overviewAbortRef.current = controller;
+
+    // Start every request together, but only the newest generation may publish
+    // any result. This prevents a slow interval/resume request from overwriting a
+    // newer manual refresh or foreground refresh.
     const playersPromise = measureRequest('players', () => api.getPlayers())
-      .then(setPlayers)
+      .then((value) => {
+        if (generation === refreshGenerationRef.current) setPlayers(value);
+      })
       .catch((error) => {
-        console.error('Failed to load organizer player directory:', error);
+        if (generation === refreshGenerationRef.current) console.error('Failed to load organizer player directory:', error);
       });
-    const [overview, eveningList] = await Promise.all([
-      measureRequest('overview', () => api.getCrmOverview()),
-      measureRequest('evenings', () => api.getEvenings()),
-    ]);
-    setCrmOverview(overview);
-    setEvenings(eveningList);
-    void playersPromise;
+
+    try {
+      const [overview, eveningList] = await Promise.all([
+        measureRequest('overview', () => fetchCrmOverview(controller.signal)),
+        measureRequest('evenings', () => api.getEvenings()),
+      ]);
+      if (generation !== refreshGenerationRef.current) return false;
+      setCrmOverview(overview);
+      setEvenings(eveningList);
+      void playersPromise;
+      return true;
+    } catch (error: any) {
+      if (generation !== refreshGenerationRef.current || error?.name === 'AbortError') return false;
+      throw error;
+    } finally {
+      if (overviewAbortRef.current === controller) overviewAbortRef.current = null;
+    }
   };
 
   const refreshSnapshotAfterEvening = () => {
@@ -94,14 +128,15 @@ export const useOrganizerCrmSession = () => {
   };
 
   const retryLoad = async () => {
-    setLoading(true);
+    const needsBlockingLoader = crmOverview === null;
+    if (needsBlockingLoader) setLoading(true);
     setLoadError(null);
     try {
       await loadAllData();
     } catch (error: any) {
       setLoadError(error?.message || 'Не удалось загрузить данные CRM');
     } finally {
-      setLoading(false);
+      if (needsBlockingLoader) setLoading(false);
     }
   };
 
@@ -121,6 +156,9 @@ export const useOrganizerCrmSession = () => {
   };
 
   const logout = async () => {
+    refreshGenerationRef.current += 1;
+    overviewAbortRef.current?.abort();
+    overviewAbortRef.current = null;
     await api.logout();
     setIsOrganizer(false);
     setShowLoginModal(true);
@@ -131,23 +169,37 @@ export const useOrganizerCrmSession = () => {
 
   useEffect(() => {
     void checkAuthAndLoad();
+    return () => {
+      refreshGenerationRef.current += 1;
+      overviewAbortRef.current?.abort();
+      overviewAbortRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
     if (!isOrganizer || typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const refreshVisibleSnapshot = () => {
+      if (document.visibilityState === 'hidden') return;
+      void loadAllData().catch((error: any) => {
+        console.error('Failed to refresh visible organizer snapshot:', error);
+      });
+    };
 
     const scheduleRefresh = () => {
       if (document.visibilityState === 'hidden') return;
       if (resumeRefreshTimerRef.current !== null) window.clearTimeout(resumeRefreshTimerRef.current);
       resumeRefreshTimerRef.current = window.setTimeout(() => {
         resumeRefreshTimerRef.current = null;
-        refreshSnapshotAfterEvening();
+        refreshVisibleSnapshot();
       }, 120);
     };
 
+    const interval = window.setInterval(refreshVisibleSnapshot, 15_000);
     document.addEventListener('visibilitychange', scheduleRefresh);
     window.addEventListener('focus', scheduleRefresh);
     return () => {
+      window.clearInterval(interval);
       document.removeEventListener('visibilitychange', scheduleRefresh);
       window.removeEventListener('focus', scheduleRefresh);
       if (resumeRefreshTimerRef.current !== null) {

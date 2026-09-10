@@ -59,15 +59,25 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const saveSequence = useRef(0);
+  const syncedPlayerId = useRef(player.id);
+  const openRef = useRef(open);
+  const dirtyRef = useRef(false);
+
+  const dirty = useMemo(() => !equalDraft(draft, baseline), [baseline, draft]);
+  openRef.current = open;
+  dirtyRef.current = dirty;
 
   useEffect(() => {
     const normalized = normalize(accessPlayer);
+    setOrganizerAccess(Boolean(accessPlayer.organizer_player_access));
+
+    const samePlayer = syncedPlayerId.current === player.id;
+    if (samePlayer && openRef.current && dirtyRef.current) return;
+
+    syncedPlayerId.current = player.id;
     setDraft(normalized);
     setBaseline(normalized);
-    setOrganizerAccess(Boolean(accessPlayer.organizer_player_access));
   }, [player]);
-
-  const dirty = useMemo(() => !equalDraft(draft, baseline), [baseline, draft]);
 
   const requestClose = () => {
     if (saving || accessSaving) return;
@@ -146,7 +156,7 @@ export function PlayerAccessSettings({ player, onSaved }: { player: PlayerDetail
       }
       setOrganizerAccess(enabled);
       setSuccess(enabled ? 'Доступ к CRM организатора выдан.' : 'Доступ к CRM организатора отозван.');
-      await onSaved?.();
+      if (!dirty) await onSaved?.();
     } catch (accessError: any) {
       setError(accessError?.message || 'Не удалось изменить доступ к CRM организатора');
       setOpen(true);

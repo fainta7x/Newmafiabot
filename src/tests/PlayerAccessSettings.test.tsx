@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlayerAccessSettings } from '../components/crm/PlayerAccessSettings.tsx';
 
@@ -98,6 +98,6 @@ describe('PlayerAccessSettings', () => {
     rerender(<PlayerAccessSettings player={{ ...player, organizer_player_access: true }} onSaved={onSaved} />);
 
     expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
-    expect(screen.getByText('Есть доступ')).toBeDefined();
+    expect(within(screen.getByTestId('crm-player-access-summary')).getByText('Есть доступ')).toBeDefined();
   });
 });

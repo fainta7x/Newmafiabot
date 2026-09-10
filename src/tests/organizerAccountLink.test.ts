@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { createVkJoinSession } from '../server/services/vkJoinAuthService.ts';
 
@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe('organizer access linked to verified player identity', () => {
-  it('binds after one password login and auto-authorizes the same Telegram player session', async () => {
+  it('does not grant CRM entitlement through password login and authorizes only after an explicit grant', async () => {
     const db = createTestDatabase();
     const player = (await registerNewPlayer(db, {
       telegramUserId: '910000001',
@@ -58,6 +58,25 @@ describe('organizer access linked to verified player identity', () => {
     const app = await createApp(db);
 
     const playerToken = generatePlayerSessionToken(player.id);
+    const deniedLogin = await request(app)
+      .post('/api/auth/login')
+      .set('Cookie', `player_token=${playerToken}`)
+      .send({ password: 'adminpass' });
+
+    expect(deniedLogin.status).toBe(403);
+    expect(deniedLogin.body.code).toBe('organizer_player_access_required');
+    expect(await db.get(
+      'SELECT player_id FROM organizer_player_access WHERE player_id = ? LIMIT 1',
+      [player.id],
+    )).toBeFalsy();
+
+    const grant = await request(app)
+      .patch(`/api/players/${player.id}/organizer-access`)
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`)
+      .send({ enabled: true });
+    expect(grant.status, JSON.stringify(grant.body)).toBe(200);
+    expect(grant.body.organizer_player_access).toBe(true);
+
     const login = await request(app)
       .post('/api/auth/login')
       .set('Cookie', `player_token=${playerToken}`)

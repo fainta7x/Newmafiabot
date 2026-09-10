@@ -148,6 +148,12 @@ Recent reliability/UX work includes:
 - opening a player profile no longer performs a redundant hidden full-list request, and creating a manual player refreshes the visible Players list immediately;
 - CRM Rating opens directly, automatically selects the current active period when available, and falls back predictably without changing rating calculations.
 
+For CRM-PLAYER-UX-001 / PR #307, the organizer player card explicitly separates four independent concepts: `game_level` is playing skill/access, `club_role` is relationship/status in the club, `judge_level` is hosting/judging qualification, and `organizer_player_access` is the separate actual Organizer CRM entitlement. `club_role=organizer` does not grant CRM access; grant/revoke of CRM access does not modify the other three fields. A revoked identity-bound entitlement remains revoked even after a correct organizer-password login; the password-only root organizer flow is explicit and separate from player-bound authorization.
+
+A registered external/occasional player remains a canonical account and is not a guest placeholder, even where the stored compatibility value is `club_role=guest`. A true guest placeholder has no account/profile, Elo, tokens, or Telegram/VK identity and cannot become an editable registered-player profile. Profile role edits do not alter CASUAL fee treatment: regular-evening waivers remain evening-specific.
+
+PR #307 repository checks, tests and UI preview verify repository behavior only. They do not prove that the same revision is deployed on Amvera or that real Telegram/VK identity-bound sessions work; deployment and real runtime verification remain separate.
+
 The requested broad CRM/cabinet/Live Game usability audit has been completed in current `main`. Do not resurrect old redesign roadmaps as backlog. Future UX work should start from a newly reproduced issue, new user feedback, or a deliberate new design request.
 
 ### Tournament evening registration — PR #300

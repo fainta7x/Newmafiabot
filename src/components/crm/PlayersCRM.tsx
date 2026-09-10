@@ -563,16 +563,16 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
             <section data-testid="crm-player-quick-actions" className="grid grid-cols-2 gap-2">
               {contactHref ? <a href={contactHref} target={playerDetails.telegram_username ? '_blank' : undefined} rel="noreferrer" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] bg-white text-[12px] font-semibold text-[#090a0d]"><MessageSquare className="h-4 w-4" /> Связаться</a> : <button type="button" onClick={() => { setEditError(null); setShowEditSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Edit3 className="h-4 w-4" /> Добавить контакт</button>}
-              <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4" /> Задача</button>
-              <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4" /> Общение</button>
-              <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4" /> Настройки</button>
+              <button type="button" onClick={() => { setTaskError(null); setShowTaskSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><Clock3 className="h-4 w-4 shrink-0" /> Создать задачу</button>
+              <button type="button" onClick={() => { setCommError(null); setShowCommSheet(true); }} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MessageSquare className="h-4 w-4 shrink-0" /> Записать общение</button>
+              <button type="button" onClick={() => setShowPlayerMenu(true)} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[13px] border border-border-soft bg-surface-2 px-2 text-[12px] font-semibold text-text-primary"><MoreHorizontal className="h-4 w-4 shrink-0" /> Данные и фото</button>
             </section>
 
             <PlayerAccessSettings player={playerDetails} onSaved={refreshPlayer} />
 
             <section className="space-y-2 rounded-[17px] border border-border-soft bg-surface-1 p-3.5">
-              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
-              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Группа</span><strong className="text-right text-[11px] text-text-primary">{engagementLabel}</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Контактный статус</span><strong className={`text-[11px] ${statusTone(playerDetails.contact_status)}`}>{getRussianContactStatusLabel(playerDetails.contact_status)}</strong></div>
+              <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-text-secondary">Вовлечённость</span><strong className="text-right text-[11px] text-text-primary">{engagementLabel}</strong></div>
               <div className="flex items-start justify-between gap-3"><span className="text-[11px] text-text-secondary">Контакт</span><strong className="text-right text-[11px] text-text-primary">{playerDetails.telegram_username ? `@${playerDetails.telegram_username.replace('@', '')}` : playerDetails.phone || 'Не указан'}</strong></div>
               {playerDetails.notes ? <div className="border-t border-border-soft pt-2"><span className="text-[10px] text-text-muted">Важная заметка</span><p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-text-primary">{playerDetails.notes}</p></div> : null}
               {playerDetails.do_not_invite_until ? <div className="rounded-[11px] bg-warning-soft p-2.5 text-[11px] text-warning">Не приглашать до {fmtDate(playerDetails.do_not_invite_until)}{playerDetails.pause_reason ? ` · ${playerDetails.pause_reason}` : ''}</div> : null}
@@ -644,7 +644,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
 
       <input id="player-avatar-file" type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
 
-      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Настройки профиля" widthClass="sm:max-w-sm">
+      <MobileSheet open={showPlayerMenu} onClose={() => setShowPlayerMenu(false)} title="Данные и фото игрока" widthClass="sm:max-w-sm">
         <div className="space-y-2">
           <MenuButton icon={Edit3} label="Редактировать данные" onClick={() => { setShowPlayerMenu(false); setEditError(null); setShowEditSheet(true); }} />
           <MenuButton icon={ImagePlus} label={playerDetails?.avatar_updated_at ? 'Заменить фото' : 'Добавить фото'} onClick={() => document.getElementById('player-avatar-file')?.click()} disabled={avatarBusy} />

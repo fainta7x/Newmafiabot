@@ -345,6 +345,58 @@ export async function reconcileStaleHistoricalRegularDebtsOnce(db: DatabaseWrapp
   );
 }
 
+/**
+ * A historical migration can only see evenings that were closed at the moment it
+ * ran.  The legacy `/:id/settle` route could close a later evening with a stale
+ * table price, so a completed migration marker was not sufficient protection.
+ *
+ * This is deliberately an integrity audit, not another one-time blanket
+ * migration: each closed CASUAL evening is checked once per pricing revision and
+ * checked again only after its own record changes.  It persists no payment
+ * override; reconciliation remains the sole writer of factual amounts.
+ */
+async function verifyRegularEveningPaymentIntegrity(db: DatabaseWrapper): Promise<void> {
+  const pricingRevision = 'casual_factual_price_v1';
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS regular_evening_payment_integrity_checks (
+      evening_id TEXT NOT NULL REFERENCES game_evenings(id) ON DELETE CASCADE,
+      pricing_revision TEXT NOT NULL,
+      checked_at TEXT NOT NULL,
+      PRIMARY KEY (evening_id, pricing_revision)
+    )
+  `);
+
+  const rows = await db.all<any>(`
+    SELECT e.id
+      FROM game_evenings e
+      LEFT JOIN regular_evening_payment_integrity_checks audit
+        ON audit.evening_id = e.id AND audit.pricing_revision = ?
+     WHERE (e.status = 'completed' OR e.settled_at IS NOT NULL)
+       AND upper(COALESCE(e.format, 'CASUAL')) IN ('CASUAL', 'STANDARD', '')
+       AND (
+         audit.evening_id IS NULL
+         OR COALESCE(e.updated_at, e.settled_at, e.starts_at) > audit.checked_at
+         OR EXISTS (
+           SELECT 1 FROM evening_participants ep
+            WHERE ep.evening_id = e.id
+              AND COALESCE(ep.amount_due, 0) > 400
+         )
+       )
+     ORDER BY e.starts_at ASC, e.id ASC
+  `, [pricingRevision]);
+
+  const { reconcileRegularEveningPayments } = await import('../server/services/eveningPaymentPricingService.ts');
+  for (const row of rows) {
+    const eveningId = String(row.id);
+    await reconcileRegularEveningPayments(db, eveningId);
+    await db.run(`
+      INSERT INTO regular_evening_payment_integrity_checks (evening_id, pricing_revision, checked_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(evening_id, pricing_revision) DO UPDATE SET checked_at = excluded.checked_at
+    `, [eveningId, pricingRevision, new Date().toISOString()]);
+  }
+}
+
 export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<void> {
   if (ensuredDatabases.has(db as object)) return;
 
@@ -548,6 +600,7 @@ export async function ensureClubOperationsSchema(db: DatabaseWrapper): Promise<v
   await reconcileHistoricalRegularEveningsOnce(db);
   await reconcileHistoricalRegularEveningsR2Once(db);
   await reconcileStaleHistoricalRegularDebtsOnce(db);
+  await verifyRegularEveningPaymentIntegrity(db);
 
   ensuredDatabases.add(db as object);
 }

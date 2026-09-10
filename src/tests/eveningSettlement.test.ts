@@ -183,4 +183,34 @@ describe('canonical evening settlement', () => {
       [eveningId],
     ))?.n || 0)).toBe(2);
   });
+
+  it('routes the legacy settle endpoint through factual CASUAL pricing instead of its stale table price', async () => {
+    const eveningId = 'settle-legacy-price';
+    await insertEvening(eveningId);
+    await db.run('UPDATE game_evenings SET default_price=600 WHERE id=?', [eveningId]);
+    await db.run(
+      `INSERT INTO players (id,nickname,lifecycle_status,source,elo,tokens,created_at,updated_at)
+       VALUES ('p-legacy','Legacy price player','normal','test',1000,0,?,?)`,
+      [now, now],
+    );
+    await db.run(
+      `INSERT INTO evening_participants
+       (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at)
+       VALUES ('ep-legacy',?,'p-legacy','going','going','attended','on_time','unpaid',600,0,?,?)`,
+      [eveningId, now, now],
+    );
+    await insertGame(eveningId, 507, 'completed', false, [{ participantId: 'ep-legacy', playerId: 'p-legacy' }]);
+
+    const response = await request(app)
+      .post(`/api/evenings/${eveningId}/settle`)
+      .set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(await db.get<any>('SELECT amount_due,payment_status FROM evening_participants WHERE id=?', ['ep-legacy']))
+      .toMatchObject({ amount_due: 100, payment_status: 'unpaid' });
+    expect(await db.get<any>(
+      "SELECT amount FROM financial_transactions WHERE evening_id=? AND source_id='ep-legacy' AND type='debt_created'",
+      [eveningId],
+    )).toMatchObject({ amount: 100 });
+  });
 });

@@ -79,4 +79,25 @@ describe('PlayerAccessSettings', () => {
     expect(error.textContent).toContain('повторное чтение вернуло другие значения');
     expect(screen.getByTestId('crm-player-access-sheet')).toBeDefined();
   });
+
+  it('preserves dirty classification fields when CRM access changes and the parent refetches the same player', async () => {
+    const onSaved = vi.fn();
+    const fetchMock = vi.fn(() => response({ organizer_player_access: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { rerender } = render(<PlayerAccessSettings player={player} onSaved={onSaved} />);
+
+    fireEvent.click(screen.getByTestId('crm-player-access-edit'));
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'tournament' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Выдать доступ к CRM' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Выдать доступ' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(onSaved).not.toHaveBeenCalled();
+    expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
+
+    rerender(<PlayerAccessSettings player={{ ...player, organizer_player_access: true }} onSaved={onSaved} />);
+
+    expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe('tournament');
+    expect(screen.getByText('Есть доступ')).toBeDefined();
+  });
 });

@@ -22,11 +22,12 @@ const evening = {
 } as any;
 
 const players = [
-  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none' },
-  { id: 'kinder', nickname: 'Киндер', full_name: null, contact_status: 'normal', days_since_last_visit: 6, open_tasks_count: 0, attendance_count: 3, avatar_updated_at: null, game_level: 'novice', club_role: 'member', judge_level: 'none' },
-  { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null, game_level: 'tournament', club_role: 'team', judge_level: 'host' },
-  { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none' },
-  { id: 'vid', nickname: 'Вид', full_name: null, contact_status: 'paused', days_since_last_visit: 18, open_tasks_count: 0, attendance_count: 7, avatar_updated_at: null, game_level: 'club', club_role: 'guest', judge_level: 'none' },
+  { id: 'bogdan', nickname: 'Богдан', full_name: 'Богдан С.', contact_status: 'normal', days_since_last_visit: 4, open_tasks_count: 1, attendance_count: 8, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: true },
+  { id: 'kinder', nickname: 'Киндер', full_name: null, contact_status: 'normal', days_since_last_visit: 6, open_tasks_count: 0, attendance_count: 3, avatar_updated_at: null, game_level: 'novice', club_role: 'member', judge_level: 'none', organizer_player_access: false },
+  { id: 'pristan', nickname: 'Пристань', full_name: null, contact_status: 'normal', days_since_last_visit: 9, open_tasks_count: 0, attendance_count: 12, avatar_updated_at: null, game_level: 'tournament', club_role: 'team', judge_level: 'host', organizer_player_access: false },
+  { id: 'matroskina', nickname: 'Матроскина', full_name: 'Анна', contact_status: 'normal', days_since_last_visit: 32, open_tasks_count: 0, attendance_count: 5, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: false },
+  { id: 'vid', nickname: 'Вид', full_name: null, contact_status: 'paused', days_since_last_visit: 18, open_tasks_count: 0, attendance_count: 7, avatar_updated_at: null, game_level: 'club', club_role: 'guest', judge_level: 'none', organizer_player_access: false },
+  { id: 'longname', nickname: 'Очень длинный никнейм игрока который должен переноситься без горизонтального скролла', full_name: 'Очень длинное имя игрока для проверки мобильной карточки', contact_status: 'normal', days_since_last_visit: 2, open_tasks_count: 0, attendance_count: 4, avatar_updated_at: null, game_level: 'club', club_role: 'member', judge_level: 'none', organizer_player_access: false },
 ] as any[];
 
 const baseDetails = {
@@ -39,6 +40,7 @@ const baseDetails = {
   calculated_stage: 'regular',
   club_role: 'member',
   judge_level: 'none',
+  organizer_player_access: false,
   preferred_format: 'Клубный',
   referred_by: null,
   attendance_count: 3,
@@ -74,6 +76,7 @@ const bogdanDetails = {
   telegram_user_id: '777',
   notes: 'Предпочитает заранее понимать, во сколько его первая игра.',
   game_level: 'club',
+  organizer_player_access: true,
   attendance_count: 8,
   tokens: 120,
   elo: 1042,
@@ -106,7 +109,17 @@ const kinderDetails = {
   game_level: 'novice',
 } as any;
 
-const detailsById: Record<string, any> = { bogdan: bogdanDetails, kinder: kinderDetails };
+const longNameDetails = {
+  ...baseDetails,
+  id: 'longname',
+  nickname: 'Очень длинный никнейм игрока который должен переноситься без горизонтального скролла',
+  full_name: 'Очень длинное имя игрока для проверки мобильной карточки',
+  telegram_username: 'long_mobile_player',
+  notes: 'Длинная служебная заметка для проверки переноса текста в узкой карточке без обрезания кнопок и появления горизонтального скролла.',
+  game_level: 'club',
+} as any;
+
+const detailsById: Record<string, any> = { bogdan: bogdanDetails, kinder: kinderDetails, longname: longNameDetails };
 
 api.getPlayers = async () => players as any;
 api.getPlayer = async (id: string) => detailsById[id] || { ...baseDetails, ...players.find((player) => player.id === id) } as any;
@@ -120,8 +133,29 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return new Response(JSON.stringify({ player_id: url.pathname.split('/')[3] || 'bogdan', balance: 120, ledger: { items: [], total: 0, limit: 5, offset: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
-  if (method === 'PATCH' && url.pathname.startsWith('/api/players/')) {
-    const playerId = decodeURIComponent(url.pathname.split('/').pop() || '');
+  const organizerAccessMatch = url.pathname.match(/^\/api\/players\/([^/]+)\/organizer-access$/);
+  if (method === 'PATCH' && organizerAccessMatch) {
+    const playerId = decodeURIComponent(organizerAccessMatch[1]);
+    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const enabled = Boolean(body.enabled);
+    if (detailsById[playerId]) detailsById[playerId].organizer_player_access = enabled;
+    const row = players.find((player) => player.id === playerId);
+    if (row) row.organizer_player_access = enabled;
+    return new Response(JSON.stringify({ player_id: playerId, organizer_player_access: enabled }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  const playerMatch = url.pathname.match(/^\/api\/players\/([^/]+)$/);
+  if (method === 'GET' && playerMatch) {
+    const playerId = decodeURIComponent(playerMatch[1]);
+    return new Response(JSON.stringify(detailsById[playerId] || { ...baseDetails, ...players.find((player) => player.id === playerId) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (method === 'PATCH' && playerMatch) {
+    const playerId = decodeURIComponent(playerMatch[1]);
+    if (document.body.dataset.failNextPlayerPatch === '1') {
+      delete document.body.dataset.failNextPlayerPatch;
+      return new Response(JSON.stringify({ error: 'Тестовая ошибка валидации' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
     const patch = init?.body ? JSON.parse(String(init.body)) : {};
     if (detailsById[playerId]) Object.assign(detailsById[playerId], patch);
     const row = players.find((player) => player.id === playerId);

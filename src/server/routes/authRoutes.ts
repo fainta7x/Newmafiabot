@@ -50,8 +50,8 @@ const setPlayerCookie = (res: Response, playerId: string) => {
   });
 };
 
-const setOrganizerCookie = (res: Response) => {
-  const token = generateOrganizerToken();
+const setOrganizerCookie = (res: Response, organizerPlayerId?: string) => {
+  const token = generateOrganizerToken(organizerPlayerId);
   res.cookie('organizer_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -226,7 +226,7 @@ router.post('/login', async (req, res) => {
     const identity = await resolveVerifiedPlayerIdentity(req.db, req);
     if (identity) await grantOrganizerPlayerAccess(req.db, identity);
 
-    const token = setOrganizerCookie(res);
+    const token = setOrganizerCookie(res, identity?.playerId);
     return res.json({
       success: true,
       role: 'ORGANIZER',
@@ -317,7 +317,7 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   let organizerAutoAuthorized = false;
 
   if (!isOrganizer && identity && await hasOrganizerPlayerAccess(db, identity.playerId)) {
-    setOrganizerCookie(res);
+    setOrganizerCookie(res, identity.playerId);
     isOrganizer = true;
     organizerAutoAuthorized = true;
   }

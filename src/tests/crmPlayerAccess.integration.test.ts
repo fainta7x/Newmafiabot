@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 
 describe('CRM player access profile', () => {
@@ -116,6 +117,55 @@ describe('CRM player access profile', () => {
     const update = await agent.patch('/api/players/telegram-admin').send({ judge_level: 'host' });
     expect(update.status, JSON.stringify(update.body)).toBe(200);
     expect(update.body.judge_level).toBe('host');
+  });
+
+  it('invalidates an identity-bound organizer session immediately after CRM access is revoked', async () => {
+    await insertPlayer('revoked-admin');
+    await insertPlayer('backup-admin');
+
+    expect((await request(app).patch('/api/players/revoked-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
+    expect((await request(app).patch('/api/players/backup-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
+
+    const agent = request.agent(app);
+    const me = await agent
+      .get('/api/auth/me')
+      .set('Cookie', `player_token=${generatePlayerSessionToken('revoked-admin')}`);
+    expect(me.status, JSON.stringify(me.body)).toBe(200);
+    expect(me.body.isOrganizer).toBe(true);
+
+    const beforeRevoke = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'host' });
+    expect(beforeRevoke.status, JSON.stringify(beforeRevoke.body)).toBe(200);
+
+    const revoke = await request(app)
+      .patch('/api/players/revoked-admin/organizer-access')
+      .set('Cookie', organizerCookie())
+      .send({ enabled: false });
+    expect(revoke.status, JSON.stringify(revoke.body)).toBe(200);
+
+    const afterRevoke = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'judge' });
+    expect(afterRevoke.status).toBe(401);
+  });
+
+  it('rejects canonical owner revocation before mutation or audit write', async () => {
+    await insertPlayer(PRIMARY_ORGANIZER_PLAYER_ID, 'Основной владелец');
+    await insertPlayer('backup-admin');
+
+    expect((await request(app).patch('/api/players/backup-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
+
+    const before = await db.all<any>('SELECT action, player_id FROM organizer_player_access_audit WHERE player_id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+    expect(before).toHaveLength(0);
+
+    const revokeOwner = await request(app)
+      .patch(`/api/players/${PRIMARY_ORGANIZER_PLAYER_ID}/organizer-access`)
+      .set('Cookie', organizerCookie())
+      .send({ enabled: false });
+    expect(revokeOwner.status).toBe(409);
+    expect(revokeOwner.body.code).toBe('primary_organizer_access_required');
+
+    const entitlement = await db.get<any>('SELECT player_id FROM organizer_player_access WHERE player_id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+    expect(entitlement?.player_id).toBe(PRIMARY_ORGANIZER_PLAYER_ID);
+    const after = await db.all<any>('SELECT action, player_id FROM organizer_player_access_audit WHERE player_id = ?', [PRIMARY_ORGANIZER_PLAYER_ID]);
+    expect(after).toHaveLength(0);
   });
 
   it('does not change CASUAL debt or waivers when classification changes', async () => {

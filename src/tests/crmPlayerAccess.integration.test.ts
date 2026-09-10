@@ -6,9 +6,13 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 
 describe('CRM player access profile', () => {
   let db: DatabaseWrapper;
+  let app: Awaited<ReturnType<typeof createApp>>;
   const now = '2026-09-10T06:00:00.000Z';
 
-  beforeEach(() => { db = createDatabaseConnection(':memory:'); });
+  beforeEach(async () => {
+    db = createDatabaseConnection(':memory:');
+    app = await createApp(db);
+  });
   afterEach(() => { try { db.sqlite.close(); } catch {} });
 
   const insertPlayer = async (id: string, nickname = id, source = 'crm_manual') => {
@@ -23,7 +27,6 @@ describe('CRM player access profile', () => {
 
   it('persists each classification field independently, combined, and survives refetch', async () => {
     await insertPlayer('profile');
-    const app = await createApp(db);
 
     for (const patch of [
       { game_level: 'tournament' },
@@ -51,7 +54,6 @@ describe('CRM player access profile', () => {
 
   it('rejects validation failures and unauthorized classification requests', async () => {
     await insertPlayer('profile');
-    const app = await createApp(db);
 
     const unauthorized = await request(app).patch('/api/players/profile').send({ game_level: 'novice' });
     expect(unauthorized.status).toBe(401);
@@ -66,7 +68,6 @@ describe('CRM player access profile', () => {
   it('manages CRM authorization separately, audits changes, and protects the last access', async () => {
     await insertPlayer('admin-one');
     await insertPlayer('admin-two');
-    const app = await createApp(db);
 
     const grantOne = await request(app).patch('/api/players/admin-one/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true });
     expect(grantOne.status, JSON.stringify(grantOne.body)).toBe(200);
@@ -100,7 +101,6 @@ describe('CRM player access profile', () => {
 
   it('allows an entitled Telegram player session to become an organizer session and persist a role change', async () => {
     await insertPlayer('telegram-admin');
-    const app = await createApp(db);
 
     const grant = await request(app).patch('/api/players/telegram-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true });
     expect(grant.status).toBe(200);
@@ -120,7 +120,6 @@ describe('CRM player access profile', () => {
 
   it('does not change CASUAL debt or waivers when classification changes', async () => {
     await insertPlayer('payer');
-    const app = await createApp(db);
     await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,created_at,updated_at) VALUES ('e1','Вечер',?,'CASUAL','completed',?,?)`, [now, now, now]);
     await db.run(`
       INSERT INTO evening_participants
@@ -137,7 +136,6 @@ describe('CRM player access profile', () => {
 
   it('keeps migrated guest placeholders outside editable registered-player profiles', async () => {
     await insertPlayer('guest-placeholder', 'Гость', 'legacy_guest_migrated');
-    const app = await createApp(db);
     const response = await request(app).patch('/api/players/guest-placeholder').set('Cookie', organizerCookie()).send({ game_level: 'club' });
     expect(response.status).toBe(404);
   });

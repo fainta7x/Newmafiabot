@@ -10,10 +10,10 @@ export const GAME_LEVELS: Array<{ value: GameLevel; label: string; hint: string 
 ];
 
 export const CLUB_ROLES: Array<{ value: ClubRole; label: string; hint: string }> = [
-  { value: 'guest', label: 'Гость', hint: 'Не входит в постоянный состав клуба' },
+  { value: 'guest', label: 'Зарегистрированный игрок', hint: 'Играет эпизодически или представляет другой клуб; это полноценный аккаунт, не гостевой placeholder' },
   { value: 'member', label: 'Участник клуба', hint: 'Постоянный участник клуба' },
   { value: 'team', label: 'Команда клуба', hint: 'Входит в команду 2LA noire' },
-  { value: 'organizer', label: 'Организатор', hint: 'Организационная роль в клубе' },
+  { value: 'organizer', label: 'Организатор клуба', hint: 'Организационная роль в клубе; сама по себе не открывает CRM' },
 ];
 
 export const JUDGE_LEVELS: Array<{ value: JudgeLevel; label: string; hint: string }> = [

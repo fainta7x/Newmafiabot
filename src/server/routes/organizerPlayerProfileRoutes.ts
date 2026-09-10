@@ -68,7 +68,7 @@ router.patch('/:id', requireOrganizerAuth, async (req, res, next) => {
 
     const supplied = classificationKeys.filter((key) => parsed[key] !== undefined);
     const fields = supplied.map((key) => `${key} = ?`);
-    const values = supplied.map((key) => parsed[key]);
+    const values: any[] = supplied.map((key) => parsed[key]);
     fields.push('updated_at = ?');
     values.push(new Date().toISOString());
     values.push(playerId);

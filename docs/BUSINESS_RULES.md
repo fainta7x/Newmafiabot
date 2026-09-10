@@ -362,6 +362,23 @@ See `AGENTS.md` and `docs/RUNBOOK.md` for the operational safeguards.
 - Payments, token settlement, rating and achievements must be reconciled for both the previous and replacement player.
 - Historical games must never be rewritten automatically from a date or nickname guess. Every correction is an explicit, confirmed action.
 
+## Organizer player profile roles and CRM entitlement
+
+Organizer CRM player profiles keep four independent concepts separate:
+
+- `game_level` = the player's playing skill/access level;
+- `club_role` = the player's relationship/status inside the club;
+- `judge_level` = hosting/judging qualification;
+- `organizer_player_access` = the separate, actual entitlement to Organizer CRM.
+
+`club_role=organizer` does **not** grant Organizer CRM access. Granting or revoking `organizer_player_access` does not modify `game_level`, `club_role`, or `judge_level`, and password login with a verified player identity must never recreate a revoked entitlement. A deliberately supported password-only root organizer session is separate from player-bound entitlement.
+
+A registered external/occasional player is still a canonical player account, even when the historical stored `club_role` value is `guest`; the UI must not present that account as a guest placeholder. A true guest placeholder has no player account/profile, Elo, tokens, Telegram/VK identity, or editable registered-player profile.
+
+CASUAL payment exemptions remain evening-specific. Editing `game_level`, `club_role`, `judge_level`, or Organizer CRM entitlement must not retroactively create or remove a regular-evening waiver.
+
+Repository tests and GitHub checks verify code only. They do not prove the deployed Amvera revision or real Telegram/VK runtime behavior; deployment and runtime verification remain separate steps.
+
 ## Rule-change workflow
 
 When a requested change touches any rule above:

@@ -119,7 +119,7 @@ describe('CRM player access profile', () => {
     expect(update.body.judge_level).toBe('host');
   });
 
-  it('invalidates an identity-bound organizer session immediately after CRM access is revoked', async () => {
+  it('keeps revocation persistent across another correct-password login with the same player identity', async () => {
     await insertPlayer('revoked-admin');
     await insertPlayer('backup-admin');
 
@@ -132,6 +132,7 @@ describe('CRM player access profile', () => {
       .set('Cookie', `player_token=${generatePlayerSessionToken('revoked-admin')}`);
     expect(me.status, JSON.stringify(me.body)).toBe(200);
     expect(me.body.isOrganizer).toBe(true);
+    expect(me.body.organizerAutoAuthorized).toBe(true);
 
     const beforeRevoke = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'host' });
     expect(beforeRevoke.status, JSON.stringify(beforeRevoke.body)).toBe(200);
@@ -144,6 +145,30 @@ describe('CRM player access profile', () => {
 
     const afterRevoke = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'judge' });
     expect(afterRevoke.status).toBe(401);
+
+    const loginAgain = await agent.post('/api/auth/login').send({ password: 'adminpass' });
+    expect(loginAgain.status, JSON.stringify(loginAgain.body)).toBe(403);
+    expect(loginAgain.body.code).toBe('organizer_player_access_required');
+
+    const entitlement = await db.get<any>(
+      'SELECT player_id FROM organizer_player_access WHERE player_id = ? LIMIT 1',
+      ['revoked-admin'],
+    );
+    expect(entitlement).toBeFalsy();
+
+    const afterPasswordLogin = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'judge' });
+    expect(afterPasswordLogin.status).toBe(401);
+  });
+
+  it('keeps the deliberate password-only root organizer flow separate from player entitlements', async () => {
+    const rootAgent = request.agent(app);
+    const login = await rootAgent.post('/api/auth/login').send({ password: 'adminpass' });
+    expect(login.status, JSON.stringify(login.body)).toBe(200);
+    expect(login.body.organizerAccountLinked).toBe(false);
+
+    const me = await rootAgent.get('/api/auth/me');
+    expect(me.status, JSON.stringify(me.body)).toBe(200);
+    expect(me.body.isOrganizer).toBe(true);
   });
 
   it('rejects canonical owner revocation before mutation or audit write', async () => {

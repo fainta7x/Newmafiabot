@@ -40,7 +40,7 @@ describe('PlayerAccessSettings', () => {
 
   it('accepts success only after canonical refetch matches and refreshes the parent profile/list', async () => {
     const onSaved = vi.fn();
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === 'PATCH') {
         return response({ ...player, game_level: 'club', club_role: 'team', judge_level: 'host' });
       }

@@ -15,6 +15,7 @@ if (process.env.NODE_ENV === 'production') {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'adminpass';
+const ORGANIZER_SESSION_VERSION = 2;
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -44,8 +45,23 @@ export function verifyOrganizerPassword(password: string): boolean {
   return password === ORGANIZER_PASSWORD;
 }
 
-export function generateOrganizerToken(): string {
-  return jwt.sign({ role: 'ORGANIZER' }, JWT_SECRET, { expiresIn: '7d' });
+export function generateOrganizerToken(organizerPlayerId?: string): string {
+  return jwt.sign(
+    organizerPlayerId
+      ? {
+          role: 'ORGANIZER',
+          organizerPlayerId,
+          organizerSessionType: 'player_bound',
+          organizerSessionVersion: ORGANIZER_SESSION_VERSION,
+        }
+      : {
+          role: 'ORGANIZER',
+          organizerSessionType: 'root_password',
+          organizerSessionVersion: ORGANIZER_SESSION_VERSION,
+        },
+    JWT_SECRET,
+    { expiresIn: '7d' },
+  );
 }
 
 export function generatePlayerSessionToken(playerId: string): string {
@@ -73,6 +89,7 @@ export interface AuthenticatedRequest extends Request {
   delegatedOrganizerAccess?: boolean;
   delegatedPlayerId?: string;
   organizerActorId?: string;
+  organizerPlayerId?: string;
 }
 
 const organizerSessionActorId = (token: string) =>
@@ -80,10 +97,11 @@ const organizerSessionActorId = (token: string) =>
 
 export function getAuthenticatedOrganizerActorId(req: AuthenticatedRequest): string | null {
   if (req.delegatedPlayerId) return `player:${req.delegatedPlayerId}`;
+  if (req.organizerPlayerId) return `player:${req.organizerPlayerId}`;
   return req.organizerActorId || null;
 }
 
-export function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+export async function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   let token = req.cookies?.organizer_token;
 
   if (!token) {
@@ -97,14 +115,39 @@ export function parseUserSession(req: AuthenticatedRequest, _res: Response, next
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { role: string };
-      if (decoded.role === 'ORGANIZER') {
-        req.userRole = 'ORGANIZER';
-        req.organizerActorId = organizerSessionActorId(token);
-        return next();
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        role?: string;
+        organizerPlayerId?: string;
+        organizerSessionType?: string;
+        organizerSessionVersion?: number;
+      };
+      if (decoded.role === 'ORGANIZER' && decoded.organizerSessionVersion === ORGANIZER_SESSION_VERSION) {
+        const organizerPlayerId = typeof decoded.organizerPlayerId === 'string' ? decoded.organizerPlayerId.trim() : '';
+        if (decoded.organizerSessionType === 'player_bound' && organizerPlayerId) {
+          const db = req.db;
+          if (db) {
+            try {
+              const access = await db.get<{ player_id: string }>(
+                'SELECT player_id FROM organizer_player_access WHERE player_id = ? LIMIT 1',
+                [organizerPlayerId],
+              );
+              if (access?.player_id) {
+                req.userRole = 'ORGANIZER';
+                req.organizerPlayerId = organizerPlayerId;
+                return next();
+              }
+            } catch {
+              // Missing/unavailable entitlement storage means the identity-bound organizer session is not trusted.
+            }
+          }
+        } else if (decoded.organizerSessionType === 'root_password' && !organizerPlayerId) {
+          req.userRole = 'ORGANIZER';
+          req.organizerActorId = organizerSessionActorId(token);
+          return next();
+        }
       }
     } catch (e) {
-      // Invalid token, fallback to PLAYER
+      // Invalid, expired or legacy organizer token falls back to PLAYER.
     }
   }
 

@@ -103,6 +103,23 @@ Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` 
 - API: `playerSelfCoreRoutes.ts`, `playersRoutes.ts`.
 - Avatars: `src/lib/playerAvatarManifest.ts`, `public/player-avatars/`.
 
+### Organizer player access model
+
+The organizer player card intentionally separates four values:
+
+- `game_level` — playing skill/access level;
+- `club_role` — relationship/status inside the club;
+- `judge_level` — hosting/judging qualification;
+- `organizer_player_access` — separate server-authoritative Organizer CRM entitlement.
+
+`club_role=organizer` does not grant CRM access, and grant/revoke of `organizer_player_access` does not modify the other three fields. The player-bound organizer session is checked against the current entitlement, so a revoked player cannot restore access by repeating password login. The deliberately supported password-only root organizer session remains an explicit separate flow.
+
+The historical registered-player `club_role=guest` value means an external/occasional **registered account**, not a non-account guest placeholder. A true guest placeholder has no profile/account, Elo, tokens, or Telegram/VK identity and is excluded from editable registered-player CRM profiles.
+
+CASUAL payment waivers remain evening-specific and are not derived from these profile fields. Repository CI/UI preview is not evidence that the same revision is deployed on Amvera or that real Telegram/VK sessions work; those are runtime checks after deployment.
+
+Relevant implementation: `src/components/crm/PlayerAccessSettings.tsx`, `src/server/routes/organizerPlayerProfileRoutes.ts`, `src/server/services/organizerPlayerAccessService.ts`, `src/server/auth.ts`, `src/server/routes/authRoutes.ts`, with focused coverage in `src/tests/crmPlayerAccess.integration.test.ts` and `src/tests/organizerAccountLink.test.ts`.
+
 ## Music system
 
 **Already implemented.** Do not treat “build music database/player” as open backlog without a concrete missing behavior.
@@ -208,7 +225,7 @@ Read `docs/BUSINESS_RULES.md` before changing game behavior.
 - Focused coverage: `tests/tournamentEvening.test.ts`.
 - Operator procedure: `docs/TOURNAMENT_EVENING_RUNBOOK.md`.
 
-Canonical invariants: capacity is exactly 10 excluding judge; reserve is FIFO unless an organizer performs an audited reorder; confirmed registrations synchronize into `tournament_participants` before seating; player payment reports are only pending claims until organizer confirmation; tournament fee/prize data never enters regular-evening CASUAL reconciliation, wallet tokens or betting; external personal notifications go through the channel-neutral router and select at most one Telegram/VK channel. The shared player link is `/player/events/<tournamentId>` and draft publication is always explicit.
+Canonical invariants: capacity is exactly 10 excluding judge; reserve is FIFO unless an organizer performs an explicit audited reorder; confirmed registrations synchronize into `tournament_participants` before seating; player payment reports are only pending claims until organizer confirmation; tournament fee/prize data never enters regular-evening CASUAL reconciliation, wallet tokens or betting; external personal notifications go through the channel-neutral router and select at most one Telegram/VK channel. The shared player link is `/player/events/<tournamentId>` and draft publication is always explicit.
 
 After registration/preparation, continue through the existing tournament seating, games, protocols, standings, compensation scoring, awards, three result outputs, image/publication, Elo/token settlement and backup/correction surfaces above. Historical tournaments, including `Турнир Богдана 1.08`, must not be rewritten to add registration metadata.
 
@@ -244,6 +261,7 @@ After registration/preparation, continue through the existing tournament seating
 
 - `src/server/auth.ts`, `src/server/routes/authRoutes.ts`, route mount order in `src/app.ts`.
 - Organizer client: `src/components/OrganizerCRM.tsx`.
+- Player-bound organizer sessions require an existing active `organizer_player_access`; successful password verification does not grant or restore that entitlement.
 - If reads work but mutation gets 401/403, verify middleware on the exact route first.
 
 ## DB / schema / checkpoints

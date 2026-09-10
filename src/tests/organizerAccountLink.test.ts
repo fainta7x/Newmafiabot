@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
-import { generatePlayerSessionToken } from '../server/auth.ts';
+import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { createVkJoinSession } from '../server/services/vkJoinAuthService.ts';
 
 const openDatabases: DatabaseWrapper[] = [];
+const TEST_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 
 const createTestDatabase = () => {
   const db = createDatabaseConnection(':memory:');
@@ -39,7 +41,7 @@ afterEach(() => {
 });
 
 describe('organizer access linked to verified player identity', () => {
-  it('binds after one password login and auto-authorizes the same Telegram player session', async () => {
+  it('does not grant CRM entitlement through password login and authorizes only after an explicit grant', async () => {
     const db = createTestDatabase();
     const player = (await registerNewPlayer(db, {
       telegramUserId: '910000001',
@@ -58,6 +60,25 @@ describe('organizer access linked to verified player identity', () => {
     const app = await createApp(db);
 
     const playerToken = generatePlayerSessionToken(player.id);
+    const deniedLogin = await request(app)
+      .post('/api/auth/login')
+      .set('Cookie', `player_token=${playerToken}`)
+      .send({ password: 'adminpass' });
+
+    expect(deniedLogin.status).toBe(403);
+    expect(deniedLogin.body.code).toBe('organizer_player_access_required');
+    expect(await db.get(
+      'SELECT player_id FROM organizer_player_access WHERE player_id = ? LIMIT 1',
+      [player.id],
+    )).toBeFalsy();
+
+    const grant = await request(app)
+      .patch(`/api/players/${player.id}/organizer-access`)
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`)
+      .send({ enabled: true });
+    expect(grant.status, JSON.stringify(grant.body)).toBe(200);
+    expect(grant.body.organizer_player_access).toBe(true);
+
     const login = await request(app)
       .post('/api/auth/login')
       .set('Cookie', `player_token=${playerToken}`)
@@ -87,6 +108,30 @@ describe('organizer access linked to verified player identity', () => {
     expect(ordinaryMe.status).toBe(200);
     expect(ordinaryMe.body.isOrganizer).toBe(false);
     expect(ordinaryMe.body.organizerAutoAuthorized).toBe(false);
+  });
+
+  it('rejects pre-versioning organizer cookies instead of treating them as root sessions', async () => {
+    const db = createTestDatabase();
+    const app = await createApp(db);
+    const legacyOrganizerToken = jwt.sign({ role: 'ORGANIZER' }, TEST_JWT_SECRET, { expiresIn: '7d' });
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `organizer_token=${legacyOrganizerToken}`);
+
+    expect(me.status).toBe(200);
+    expect(me.body.isOrganizer).toBe(false);
+
+    const protectedRequest = await request(app)
+      .get('/api/players')
+      .set('Cookie', `organizer_token=${legacyOrganizerToken}`);
+    expect(protectedRequest.status).toBe(401);
+
+    const currentRoot = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`);
+    expect(currentRoot.status).toBe(200);
+    expect(currentRoot.body.isOrganizer).toBe(true);
   });
 
   it('auto-authorizes the canonical CRM owner through Telegram without any password login', async () => {

@@ -23,7 +23,6 @@ import {
 } from '../services/playerOnboardingCookie.ts';
 import { resolveTrustedPublicAppOrigin } from '../services/publicAppOriginService.ts';
 import {
-  grantOrganizerPlayerAccess,
   hasOrganizerPlayerAccess,
   resolveVerifiedPlayerIdentity,
 } from '../services/organizerPlayerAccessService.ts';
@@ -50,8 +49,8 @@ const setPlayerCookie = (res: Response, playerId: string) => {
   });
 };
 
-const setOrganizerCookie = (res: Response) => {
-  const token = generateOrganizerToken();
+const setOrganizerCookie = (res: Response, organizerPlayerId?: string) => {
+  const token = generateOrganizerToken(organizerPlayerId);
   res.cookie('organizer_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -224,17 +223,35 @@ router.post('/login', async (req, res) => {
     resetLoginRateLimit(clientIp);
 
     const identity = await resolveVerifiedPlayerIdentity(req.db, req);
-    if (identity) await grantOrganizerPlayerAccess(req.db, identity);
+    if (identity) {
+      const entitled = await hasOrganizerPlayerAccess(req.db, identity.playerId);
+      if (!entitled) {
+        res.clearCookie('organizer_token', { path: '/' });
+        return res.status(403).json({
+          error: 'Доступ к CRM организатора не выдан для этого аккаунта',
+          code: 'organizer_player_access_required',
+        });
+      }
 
+      const token = setOrganizerCookie(res, identity.playerId);
+      return res.json({
+        success: true,
+        role: 'ORGANIZER',
+        token,
+        organizerAccountLinked: true,
+        message: 'Успешная авторизация. Используется ранее выданный доступ к CRM организатора.',
+      });
+    }
+
+    // Deliberate root/password-only organizer flow. It is intentionally not tied to a player
+    // identity and never creates or restores organizer_player_access for a player account.
     const token = setOrganizerCookie(res);
     return res.json({
       success: true,
       role: 'ORGANIZER',
       token,
-      organizerAccountLinked: Boolean(identity),
-      message: identity
-        ? 'Успешная авторизация. Аккаунт привязан к доступу организатора.'
-        : 'Успешная авторизация организатора',
+      organizerAccountLinked: false,
+      message: 'Успешная авторизация организатора',
     });
   }
 
@@ -317,7 +334,7 @@ router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   let organizerAutoAuthorized = false;
 
   if (!isOrganizer && identity && await hasOrganizerPlayerAccess(db, identity.playerId)) {
-    setOrganizerCookie(res);
+    setOrganizerCookie(res, identity.playerId);
     isOrganizer = true;
     organizerAutoAuthorized = true;
   }

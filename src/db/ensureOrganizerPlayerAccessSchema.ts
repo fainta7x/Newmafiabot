@@ -21,6 +21,17 @@ export async function ensureOrganizerPlayerAccessSchema(db: DatabaseWrapper): Pr
         granted_at TEXT NOT NULL,
         granted_via TEXT NOT NULL DEFAULT 'password_verified_identity'
       );
+
+      CREATE TABLE IF NOT EXISTS organizer_player_access_audit (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        action TEXT NOT NULL CHECK(action IN ('grant', 'revoke')),
+        actor_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_organizer_player_access_audit_player
+        ON organizer_player_access_audit(player_id, occurred_at DESC);
     `);
     ensuredDatabases.add(db as object);
   }

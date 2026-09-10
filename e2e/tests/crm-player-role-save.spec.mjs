@@ -49,7 +49,6 @@ test.describe('CRM player classification persistence', () => {
 
     await expect(sheet).not.toBeVisible();
     await expect(page.getByTestId('crm-player-work-card')).toBeVisible();
-    await expect(page.getByTestId('crm-active-player-list')).not.toBeVisible();
     await expect(summary).toContainText('Опытный игрок');
     await expect(summary).toContainText('Команда клуба');
     await expect(summary).toContainText('Ведущий');

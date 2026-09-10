@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
@@ -8,6 +9,7 @@ import { registerNewPlayer } from '../server/services/playerRegistrationService.
 import { createVkJoinSession } from '../server/services/vkJoinAuthService.ts';
 
 const openDatabases: DatabaseWrapper[] = [];
+const TEST_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 
 const createTestDatabase = () => {
   const db = createDatabaseConnection(':memory:');
@@ -106,6 +108,30 @@ describe('organizer access linked to verified player identity', () => {
     expect(ordinaryMe.status).toBe(200);
     expect(ordinaryMe.body.isOrganizer).toBe(false);
     expect(ordinaryMe.body.organizerAutoAuthorized).toBe(false);
+  });
+
+  it('rejects pre-versioning organizer cookies instead of treating them as root sessions', async () => {
+    const db = createTestDatabase();
+    const app = await createApp(db);
+    const legacyOrganizerToken = jwt.sign({ role: 'ORGANIZER' }, TEST_JWT_SECRET, { expiresIn: '7d' });
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `organizer_token=${legacyOrganizerToken}`);
+
+    expect(me.status).toBe(200);
+    expect(me.body.isOrganizer).toBe(false);
+
+    const protectedRequest = await request(app)
+      .get('/api/players')
+      .set('Cookie', `organizer_token=${legacyOrganizerToken}`);
+    expect(protectedRequest.status).toBe(401);
+
+    const currentRoot = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `organizer_token=${generateOrganizerToken()}`);
+    expect(currentRoot.status).toBe(200);
+    expect(currentRoot.body.isOrganizer).toBe(true);
   });
 
   it('auto-authorizes the canonical CRM owner through Telegram without any password login', async () => {

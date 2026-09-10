@@ -1,7 +1,10 @@
 import crypto from 'crypto';
 import type { Request } from 'express';
 import type { DatabaseWrapper } from '../../db/index.ts';
-import { ensureOrganizerPlayerAccessSchema } from '../../db/ensureOrganizerPlayerAccessSchema.ts';
+import {
+  ensureOrganizerPlayerAccessSchema,
+  PRIMARY_ORGANIZER_PLAYER_ID,
+} from '../../db/ensureOrganizerPlayerAccessSchema.ts';
 import { getPlayerSessionId } from '../auth.ts';
 import { resolveVkJoinSession } from './vkJoinAuthService.ts';
 
@@ -16,6 +19,15 @@ export class LastOrganizerAccessError extends Error {
 
   constructor() {
     super('Нельзя отозвать последний оставшийся доступ к CRM организатора');
+  }
+}
+
+export class PrimaryOrganizerAccessError extends Error {
+  statusCode = 409;
+  code = 'primary_organizer_access_required';
+
+  constructor() {
+    super('Нельзя отозвать доступ к CRM у основного владельца клуба');
   }
 }
 
@@ -85,6 +97,10 @@ export async function setOrganizerPlayerAccess(
     error.statusCode = 404;
     error.code = 'player_not_found';
     throw error;
+  }
+
+  if (!input.enabled && input.playerId === PRIMARY_ORGANIZER_PLAYER_ID) {
+    throw new PrimaryOrganizerAccessError();
   }
 
   return db.transaction(async (tx: DatabaseWrapper) => {

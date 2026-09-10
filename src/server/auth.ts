@@ -15,6 +15,7 @@ if (process.env.NODE_ENV === 'production') {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'adminpass';
+const ORGANIZER_SESSION_VERSION = 2;
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -46,7 +47,18 @@ export function verifyOrganizerPassword(password: string): boolean {
 
 export function generateOrganizerToken(organizerPlayerId?: string): string {
   return jwt.sign(
-    organizerPlayerId ? { role: 'ORGANIZER', organizerPlayerId } : { role: 'ORGANIZER' },
+    organizerPlayerId
+      ? {
+          role: 'ORGANIZER',
+          organizerPlayerId,
+          organizerSessionType: 'player_bound',
+          organizerSessionVersion: ORGANIZER_SESSION_VERSION,
+        }
+      : {
+          role: 'ORGANIZER',
+          organizerSessionType: 'root_password',
+          organizerSessionVersion: ORGANIZER_SESSION_VERSION,
+        },
     JWT_SECRET,
     { expiresIn: '7d' },
   );
@@ -103,10 +115,15 @@ export async function parseUserSession(req: AuthenticatedRequest, _res: Response
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { role?: string; organizerPlayerId?: string };
-      if (decoded.role === 'ORGANIZER') {
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        role?: string;
+        organizerPlayerId?: string;
+        organizerSessionType?: string;
+        organizerSessionVersion?: number;
+      };
+      if (decoded.role === 'ORGANIZER' && decoded.organizerSessionVersion === ORGANIZER_SESSION_VERSION) {
         const organizerPlayerId = typeof decoded.organizerPlayerId === 'string' ? decoded.organizerPlayerId.trim() : '';
-        if (organizerPlayerId) {
+        if (decoded.organizerSessionType === 'player_bound' && organizerPlayerId) {
           const db = req.db;
           if (db) {
             try {
@@ -123,14 +140,14 @@ export async function parseUserSession(req: AuthenticatedRequest, _res: Response
               // Missing/unavailable entitlement storage means the identity-bound organizer session is not trusted.
             }
           }
-        } else {
+        } else if (decoded.organizerSessionType === 'root_password' && !organizerPlayerId) {
           req.userRole = 'ORGANIZER';
           req.organizerActorId = organizerSessionActorId(token);
           return next();
         }
       }
     } catch (e) {
-      // Invalid token, fallback to PLAYER
+      // Invalid, expired or legacy organizer token falls back to PLAYER.
     }
   }
 

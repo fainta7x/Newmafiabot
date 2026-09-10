@@ -21,6 +21,7 @@ import {
   createGuestPlaceholder, listGuestPlaceholdersForEvening,
   updateGuestPlaceholder,
 } from '../services/guestPlayerService.ts';
+import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
 
 const router = Router();
@@ -39,20 +40,6 @@ const withCanonicalFormat = <T extends { format?: unknown }>(evening: T): T & { 
   format: normalizeEveningFormat(evening.format),
 });
 const isRegularEvening = (format: unknown) => normalizeEveningFormat(format) === 'CASUAL';
-
-const safeJsonParse = <T = any>(value: unknown, fallback: T): T => {
-  if (typeof value !== 'string' || !value.trim()) return fallback;
-  try { return JSON.parse(value) as T; } catch { return fallback; }
-};
-
-const isUnfinishedEveningGame = (game: any): boolean => {
-  const payload = safeJsonParse<any>(game?.protocol_text, null);
-  if (payload?.kind === 'club_evening_protocol' && payload?.version === 1) {
-    return payload.protocol?.status !== 'completed';
-  }
-  const winner = String(game?.winner_team || '').trim().toLowerCase();
-  return !winner || winner === 'draft';
-};
 
 const ensureEditable = async (db: DatabaseWrapper, id: string) => {
   const evening = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [id]);
@@ -352,11 +339,33 @@ router.patch('/:id/participants/bulk', requireOrganizerAuth, async(req,res)=>{
 
 router.post('/:id/settle', requireOrganizerAuth, async(req,res)=>{
   try {
-    const db=req.db||(await getDb());const evening=await db.get<any>('SELECT * FROM game_evenings WHERE id=?',[String(req.params.id)]);if(!evening)return res.status(404).json({error:'Игровой вечер не найден'});if(evening.status==='completed'||evening.settled_at)return res.json({success:true,alreadySettled:true,evening});
-    const allParticipants=await loadEveningParticipants(db,String(req.params.id));const pending=allParticipants.filter((p:any)=>['going','late'].includes(String(p.response_status))&&p.attendance_status==='pending');if(pending.length)return res.status(409).json({error:'Не отмечена фактическая явка ожидаемых игроков',pendingParticipants:pending.map((p:any)=>({id:p.id,nickname:p.nickname,player_id:p.player_id})),message:'Перед закрытием отметьте фактическую явку игроков, которые ответили «Иду» или «Приду позже».'});
-    const eveningGames=await db.all<any>('SELECT id,global_game_number,winner_team,protocol_text FROM games WHERE evening_id=? AND archived_at IS NULL ORDER BY global_game_number ASC',[String(req.params.id)]);const unfinishedGames=eveningGames.filter(isUnfinishedEveningGame);if(unfinishedGames.length)return res.status(409).json({error:'Сначала завершите все игры вечера',unfinishedGames:unfinishedGames.map((game:any)=>({id:game.id,game_number:game.global_game_number})),message:`Незавершённых игр: ${unfinishedGames.length}. Откройте вкладку «Игры» и завершите их перед закрытием вечера.`});
-    const now=new Date().toISOString();await db.transaction(async(tx)=>{await tx.run(`UPDATE game_evenings SET status='completed',settled_at=?,updated_at=? WHERE id=? AND status!='completed'`,[now,now,String(req.params.id)]);for(const p of allParticipants){if(p.attendance_status!=='attended'||p.payment_status==='waived')continue;const due=Number(p.amount_due||0),paid=Number(p.amount_paid||0),debt=Math.max(0,due-paid);const playerId=p.is_guest?null:p.player_id;if(paid>0)await tx.run(`INSERT OR IGNORE INTO financial_transactions (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at) VALUES (?,'income',?,'Взнос за вечер',?,?,?,'evening_settle',?,?)`,[crypto.randomUUID(),paid,`Оплата за вечер ${evening.title}`,playerId,evening.id,p.id,now]);if(debt>0)await tx.run(`INSERT OR IGNORE INTO financial_transactions (id,type,amount,category,description,player_id,evening_id,source_type,source_id,created_at) VALUES (?,'debt_created',?,'Неоплата за вечер',?,?,?,'evening_settle',?,?)`,[crypto.randomUUID(),debt,`Долг за вечер ${evening.title}`,playerId,evening.id,p.id,now]);}});await runCrmAutomations(db);return res.json({success:true,alreadySettled:false,message:'Игровой вечер успешно закрыт и рассчитан',evening:await db.get('SELECT * FROM game_evenings WHERE id=?',[String(req.params.id)])});
-  }catch(err:any){return res.status(err.status||500).json({error:err.message||'Database transaction error'});}
+    const db=req.db||(await getDb());
+    return res.json(await settleEveningFromCloseout(db, String(req.params.id), {
+      allow_missing_game_stats: Boolean(req.body?.allow_missing_game_stats),
+    }));
+  } catch (err:any) {
+    // Keep the legacy endpoint's error contract while delegating its writes to
+    // the canonical closeout service. Existing mobile CRM clients still use it.
+    if (err?.code === 'attendance_required') {
+      return res.status(409).json({
+        error: 'Не отмечена фактическая явка ожидаемых игроков',
+        pendingParticipants: err.details,
+        message: 'Перед закрытием отметьте фактическую явку игроков, которые ответили «Иду» или «Приду позже».',
+      });
+    }
+    if (err?.code === 'game_stats_confirmation_required') {
+      return res.status(409).json({
+        error: 'Сначала завершите все игры вечера',
+        unfinishedGames: err.details?.unfinished || [],
+        message: err?.message,
+      });
+    }
+    return res.status(Number(err?.statusCode || 500)).json({
+      error: err?.message || 'Не удалось закрыть игровой вечер',
+      code: err?.code,
+      details: err?.details,
+    });
+  }
 });
 
 router.patch('/participants/:participantId/move-table', requireOrganizerAuth, async(req,res)=>{

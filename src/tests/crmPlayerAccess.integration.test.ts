@@ -126,10 +126,11 @@ describe('CRM player access profile', () => {
     expect((await request(app).patch('/api/players/revoked-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
     expect((await request(app).patch('/api/players/backup-admin/organizer-access').set('Cookie', organizerCookie()).send({ enabled: true })).status).toBe(200);
 
+    const playerCookie = `player_token=${generatePlayerSessionToken('revoked-admin')}`;
     const agent = request.agent(app);
     const me = await agent
       .get('/api/auth/me')
-      .set('Cookie', `player_token=${generatePlayerSessionToken('revoked-admin')}`);
+      .set('Cookie', playerCookie);
     expect(me.status, JSON.stringify(me.body)).toBe(200);
     expect(me.body.isOrganizer).toBe(true);
     expect(me.body.organizerAutoAuthorized).toBe(true);
@@ -146,7 +147,10 @@ describe('CRM player access profile', () => {
     const afterRevoke = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'judge' });
     expect(afterRevoke.status).toBe(401);
 
-    const loginAgain = await agent.post('/api/auth/login').send({ password: 'adminpass' });
+    const loginAgain = await agent
+      .post('/api/auth/login')
+      .set('Cookie', playerCookie)
+      .send({ password: 'adminpass' });
     expect(loginAgain.status, JSON.stringify(loginAgain.body)).toBe(403);
     expect(loginAgain.body.code).toBe('organizer_player_access_required');
 
@@ -156,7 +160,10 @@ describe('CRM player access profile', () => {
     );
     expect(entitlement).toBeFalsy();
 
-    const afterPasswordLogin = await agent.patch('/api/players/revoked-admin').send({ judge_level: 'judge' });
+    const afterPasswordLogin = await agent
+      .patch('/api/players/revoked-admin')
+      .set('Cookie', playerCookie)
+      .send({ judge_level: 'judge' });
     expect(afterPasswordLogin.status).toBe(401);
   });
 

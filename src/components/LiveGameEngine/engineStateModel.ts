@@ -160,13 +160,12 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
   const recoveringFirstKilledBestMove = isRecoveredFirstKilledBestMove(snapshot);
   const votingFinalActionActive = snapshot.phase === 'day_voting';
   const nightFinalActionActive = snapshot.phase === 'night';
+  const recoveredFirstKilledBestMoveSource: BestMoveSource | null = recoveringFirstKilledBestMove ? 'first_killed' : null;
   const recoveredBestMoveSource: BestMoveSource | null = votingFinalActionActive && snapshot.activeBestMoveSource === 'zero_round_voted'
     ? 'zero_round_voted'
-    : recoveringFirstKilledBestMove
-      ? 'first_killed'
-      : null;
+    : recoveredFirstKilledBestMoveSource;
   const recoveredBestMoveSlot = recoveredBestMoveSource === null
-    ? null
+    ? (snapshot.activeBestMoveSlot ?? null)
     : snapshot.activeBestMoveSlot
       ?? (recoveringFirstKilledBestMove ? protocolMarkers.firstKilledSlot : protocolMarkers.zeroRoundVotedSlot)
       ?? (recoveringFirstKilledBestMove ? snapshot.shotPlayerSlot : null)

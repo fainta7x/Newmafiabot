@@ -22,6 +22,7 @@ for (const width of [360, 390]) {
   test(`mobile work surfaces ${width}`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 360 ? 640 : 713 });
     await page.goto('/e2e/crm-evening-roster.html');
+    // Test the mounted list without depending on fixture row IDs.
     await expect(page.getByRole('button', { name: 'Пришёл', exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath('roster.png') });
     await page.goto('/e2e/player-cabinet.html');

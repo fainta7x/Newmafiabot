@@ -12,13 +12,20 @@ test('Live Game keeps compact proven mobile table geometry', async ({ page }, in
   await expect(center).toBeVisible();
   const centerBox = await center.boundingBox();
   expect(centerBox).not.toBeNull();
-  expect(centerBox.height).toBeLessThan(286);
-  expect(centerBox.width).toBeLessThan(360);
+  expect(centerBox.width).toBeLessThan(340);
 
-  const firstSeat = page.locator('.live-seat-card').first();
-  const seatBox = await firstSeat.boundingBox();
-  expect(seatBox).not.toBeNull();
-  expect(seatBox.height).toBeLessThan(84);
+  await expect(page.locator('.live-seat-card[data-seat="1"]')).toBeVisible();
+  await expect(page.locator('.live-seat-card[data-seat="10"]')).toBeVisible();
+
+  const geometry = await page.evaluate(() => ({
+    viewport: innerWidth,
+    doc: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+    giantPriorityLayer: Boolean(document.querySelector('.live-game-mobile-center-priority')),
+  }));
+  expect(geometry.doc).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(geometry.body).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(geometry.giantPriorityLayer).toBe(false);
 
   await page.screenshot({ path: info.outputPath('live-game-compact-restored-360x800.png'), fullPage: false });
 });

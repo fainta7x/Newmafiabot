@@ -165,7 +165,7 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     ? 'zero_round_voted'
     : recoveredFirstKilledBestMoveSource;
   const recoveredBestMoveSlot = recoveredBestMoveSource === null
-    ? (snapshot.activeBestMoveSlot ?? null)
+    ? (snapshot.activeBestMoveSlot === 0 ? 0 : null)
     : snapshot.activeBestMoveSlot
       ?? (recoveringFirstKilledBestMove ? protocolMarkers.firstKilledSlot : protocolMarkers.zeroRoundVotedSlot)
       ?? (recoveringFirstKilledBestMove ? snapshot.shotPlayerSlot : null)

@@ -150,9 +150,9 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.queryByText(/голосование математически решено/i)).toBeNull();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
-    expect(screen.getByText(/Сейчас: выберите голосующих на карточках игроков/i)).toBeTruthy();
+    expect(screen.getByText(/Нажмите игроков, голосующих против #2/i)).toBeTruthy();
     expect(screen.getByText('6', { exact: true })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Следующий кандидат/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Следующий/i })).toBeTruthy();
   });
 
   it('shows the explicit voter count rather than the aggregate remainder preview', () => {
@@ -214,6 +214,6 @@ describe('CenterPanel live flow guardrails', () => {
     expect(screen.getByText(/Остаток уйдёт к #5 при подведении итога/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
     expect(screen.queryByRole('button', { name: '−1' })).toBeNull();
-    expect(screen.getByRole('button', { name: /Завершить голосование/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Подвести итог/i })).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
-@import "./liveGameMobileCenterPriority.css";
-
 /* Live evening fixes from real-table feedback. Keep this layer visual-only. */
 
+/* The judge needs to spot players who are NOT nominated yet. Make the action
+   to nominate prominent and deliberately quiet the already-nominated remove state. */
 .evening-live-engine-shell .live-seat-quick-action--nomination {
   border-color: rgba(251, 113, 133, 0.46) !important;
   background: rgba(225, 52, 88, 0.18) !important;
@@ -12,84 +12,28 @@
 .evening-live-engine-shell .live-seat-quick-action--nomination-active {
   border-color: rgba(255, 255, 255, 0.10) !important;
   background: rgba(255, 255, 255, 0.035) !important;
-  color: rgba(255, 255, 255, 0.52) !important;
+  color: rgba(255, 255, 255, 0.42) !important;
   box-shadow: none !important;
 }
 
-/* Voting remains a single fixed working surface, never a nested scroll area. */
+/* The center is a fixed protocol cell. Voting must stay fully visible instead
+   of becoming a second, easy-to-miss scroll area inside the table. */
 .live-judge-hud__stack--voting-scroll {
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
 }
 
-.live-judge-hud__phase {
-  min-width: 0;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  line-height: 1.15;
-}
-
-.live-judge-hud__context {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.live-judge-hud__context > span {
-  display: inline-flex;
-  min-height: 24px;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.live-judge-hud__save-state {
-  color: #86efac;
-}
-
 .live-judge-hud__player-actions {
-  width: min(150px, 32vw);
-  min-height: 44px;
-  padding: 0 26px 0 10px;
+  width: 72px;
+  min-height: 28px;
+  padding: 0 18px 0 7px;
   border: 1px solid var(--live-stage-line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--ds-inset);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 8px;
   font-weight: 700;
-}
-
-.live-judge-voting-focus {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.live-judge-voting-focus__candidate {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 6px;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.live-judge-voting-focus__candidate strong {
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
 }
 
 .live-judge-voting-order {
@@ -102,10 +46,12 @@
 }
 
 .live-judge-voting-order__label {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
-  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8px;
+  line-height: 1.1;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .live-judge-voting-order__list {
@@ -116,34 +62,29 @@
 
 .live-judge-voting-order__seat {
   display: inline-flex;
-  min-width: 36px;
-  min-height: 32px;
+  min-width: 30px;
+  height: 28px;
   align-items: center;
   justify-content: center;
-  padding: 4px 6px;
-  border: 1px solid rgba(255, 255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9px;
-  background: rgba(255,255,255,0.045);
-  color: rgba(255,255,255,0.78);
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
   font-weight: 800;
 }
 
 .live-judge-voting-order__seat--current {
-  border-color: rgba(251,113,133,0.6);
-  background: rgba(225,52,88,0.19);
-  color: #fff;
+  border-color: rgba(251, 113, 133, 0.52);
+  background: rgba(225, 52, 88, 0.17);
+  color: #ffe0e7;
 }
 
 .live-judge-vote-summary.live-judge-vote-summary--with-undo {
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
-
-.live-judge-vote-summary .live-judge-stat { min-height: 52px; }
-.live-judge-vote-summary .live-judge-stat__label { font-size: 12px; color: rgba(255,255,255,0.6); }
-.live-judge-vote-summary .live-judge-stat__value { font-size: 19px; }
 
 .live-judge-vote-undo {
   width: 100%;
@@ -151,94 +92,185 @@
   cursor: pointer;
   text-align: left;
 }
-.live-judge-vote-undo:disabled { cursor: default; opacity: 0.34; }
+
+.live-judge-vote-undo:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
 .live-judge-vote-undo__value {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 3px;
-  color: rgba(255,255,255,0.86);
-  font-size: 12px;
+  gap: 3px;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
 }
-.live-judge-vote-undo__value svg { width: 13px; height: 13px; flex: none; }
 
-.live-judge-voter-state {
-  display: grid;
-  grid-template-columns: auto minmax(0,1fr);
-  gap: 3px 8px;
-  align-items: baseline;
-  padding: 7px 9px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.045);
-  color: rgba(255,255,255,0.64);
-  font-size: 12px;
-}
-.live-judge-voter-state strong {
-  min-width: 0;
-  overflow: hidden;
-  color: #fff;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.live-judge-voter-state__next { grid-column: 1 / -1; color: rgba(255,255,255,0.72); }
-
-.live-judge-vote-actions .live-judge-action,
-.live-judge-hud__stack--revote-speech > .live-judge-action {
-  min-height: 44px;
-  font-size: 13px;
-  line-height: 1.15;
+.live-judge-vote-undo__value svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
 }
 
 @media (max-width: 767px) {
-  .evening-live-engine-shell .live-judge-hud { min-height: 286px; }
-  .evening-live-engine-shell .live-seat-card { min-height: 84px !important; }
-  .evening-live-engine-shell .live-seat-footer__name,
-  .evening-live-engine-shell .live-seat-state__value { font-size: 12px !important; }
-  .evening-live-engine-shell .live-seat-quick-action { min-width: 44px; min-height: 44px; }
-  .live-judge-hud__header { min-height: 48px; align-items: center; }
-  .live-judge-hud__phase { font-size: 14px !important; }
-  .live-judge-hud__header-button { min-width: 44px; min-height: 44px; }
-  .live-judge-hud__header-button span { font-size: 12px; }
-  .live-judge-hud__context { gap: 4px; padding: 5px 7px; font-size: 12px; }
-  .live-judge-hud__context > span { min-height: 26px; padding-inline: 6px; }
-  .live-judge-hud__body { align-items: stretch !important; overflow: hidden !important; padding: 6px 7px !important; }
-  .live-judge-hud__stack--voting-scroll { height: 100%; max-height: 100%; justify-content: flex-start; gap: 5px !important; }
-  .live-judge-hud__stack--voting-scroll > .live-judge-hud__eyebrow,
-  .live-judge-voting-focus > .live-judge-hud__eyebrow { font-size: 12px !important; line-height: 1.1; }
-  .live-judge-voting-focus__candidate { font-size: 12px; }
-  .live-judge-voting-focus__candidate strong { font-size: 20px; }
-  .live-judge-voting-order { grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 5px; padding: 5px 6px; border-radius: 9px; }
-  .live-judge-voting-order__label { max-width: 72px; font-size: 12px; }
-  .live-judge-voting-order__list { gap: 3px; }
-  .live-judge-voting-order__seat { min-width: 32px; min-height: 30px; padding: 3px 4px; border-radius: 7px; font-size: 12px; }
-  .live-judge-vote-summary.live-judge-vote-summary--with-undo { gap: 4px; }
-  .live-judge-vote-summary .live-judge-stat { min-height: 48px; padding: 5px 6px; border-radius: 8px; }
-  .live-judge-vote-summary .live-judge-stat__label { font-size: 12px !important; }
-  .live-judge-vote-summary .live-judge-stat__value { margin-top: 2px; font-size: 18px !important; }
-  .live-judge-vote-undo__value { font-size: 12px; }
-  .live-judge-voter-state { padding: 5px 7px; font-size: 12px; line-height: 1.15; }
-  .live-judge-vote-actions { flex: 0 0 auto; margin-top: auto; gap: 5px; }
-  .live-judge-vote-actions .live-judge-action { min-height: 44px; padding-inline: 7px; font-size: 12px; }
-  .live-judge-hud__stack--revote-speech { gap: 5px !important; }
-  .live-judge-hud__stack--revote-speech > .live-judge-action { min-height: 44px; font-size: 13px; }
-  .live-judge-hud__player-actions { width: 96px; min-height: 44px; padding-left: 8px; padding-right: 20px; font-size: 12px; }
-  .live-judge-timer__label,
-  .live-judge-timer__name,
-  .live-judge-hud__hint,
-  .live-judge-hud__summary,
-  .live-judge-chip { font-size: 12px !important; }
-  .live-judge-timer__button,
-  .live-judge-hud__primary,
-  .live-judge-hud__secondary { min-height: 44px; font-size: 12px; }
-}
+  .live-judge-voting-order {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    padding: 3px 4px;
+    gap: 4px;
+    border-radius: 8px;
+  }
 
-@media (max-width: 374px) {
-  .evening-live-engine-shell .live-judge-hud { min-height: 300px; }
-  .live-judge-hud__context,
-  .live-judge-voting-order__label,
-  .live-judge-voting-order__seat,
-  .live-judge-voter-state,
-  .live-judge-vote-actions .live-judge-action { font-size: 12px; }
+  .live-judge-voting-order__label {
+    max-width: 42px;
+    font-size: 0;
+  }
+
+  .live-judge-voting-order__label::after {
+    content: "Очередь";
+    font-size: 7px;
+    letter-spacing: 0.05em;
+  }
+
+  .live-judge-voting-order__list {
+    gap: 3px;
+  }
+
+  .live-judge-voting-order__seat {
+    min-width: 23px;
+    height: 21px;
+    padding-inline: 3px;
+    border-radius: 6px;
+    font-size: 8px;
+  }
+
+  .live-judge-hud__player-actions {
+    width: 54px;
+    min-height: 24px;
+    padding-left: 5px;
+    padding-right: 14px;
+    border-radius: 7px;
+  }
+
+  /* Collecting votes has to live inside one fixed table cell. Compress only
+     this state and reserve the last row for the phase CTA instead of making
+     the center panel scroll. Revote speeches keep their timer geometry below. */
+  .live-judge-hud__body:has(> .live-judge-hud__stack--voting-scroll > .live-judge-vote-summary) {
+    align-items: stretch;
+    overflow-y: hidden;
+    padding: 3px 5px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) {
+    height: 100%;
+    max-height: 100%;
+    gap: 2px;
+    justify-content: flex-start;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__eyebrow {
+    font-size: 6px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-voting-order {
+    padding: 2px 3px;
+    gap: 3px;
+    border-radius: 7px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-order__seat {
+    height: 19px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__title {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-summary {
+    gap: 3px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-vote-undo__value {
+    gap: 2px;
+    margin-top: 1px;
+    font-size: 7px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-vote-undo__value svg {
+    width: 8px;
+    height: 8px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat {
+    padding: 2px 4px;
+    border-radius: 6px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat__label {
+    font-size: 5.5px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-stat__value {
+    margin-top: 1px;
+    font-size: 10px;
+  }
+
+  /* The current candidate is already shown in the HUD phase pill and on the
+     voting-order chip. The large duplicate focus label added by the readability
+     experiment consumes the compact table cell, so keep it out of the phone layout. */
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-focus__candidate {
+    display: none !important;
+  }
+
+  /* Seat cards already show each assigned vote. Keep the textual voter recap as
+     a one-line safety hint without letting it push the primary voting CTA below
+     the fixed center cell. */
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voter-state {
+    max-height: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 6px !important;
+    line-height: 1 !important;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__hint {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    font-size: 6px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions {
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-top: 1px;
+  }
+
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions .live-judge-action {
+    min-height: 31px;
+    flex-shrink: 0;
+    font-size: 8px;
+  }
+
+  .live-judge-hud__stack--revote-speech {
+    gap: 3px !important;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-hud__eyebrow {
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .live-judge-hud__stack--revote-speech > .live-judge-action {
+    min-height: 32px;
+    flex-shrink: 0;
+  }
 }

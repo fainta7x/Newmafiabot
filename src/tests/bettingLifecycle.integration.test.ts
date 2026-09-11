@@ -39,8 +39,10 @@ describe('server-side club betting lifecycle', () => {
   let gameId: number;
   let secondGameId: number;
   const now = '2026-09-08T18:00:00.000Z';
+  const originalLiveBettingEnabled = process.env.LIVE_BETTING_ENABLED;
 
   beforeEach(async () => {
+    process.env.LIVE_BETTING_ENABLED = 'true';
     db = createDatabaseConnection(':memory:');
     app = await createApp(db);
     organizerCookie = `organizer_token=${generateOrganizerToken()}`;
@@ -85,6 +87,20 @@ describe('server-side club betting lifecycle', () => {
 
   afterEach(() => {
     try { db.sqlite.close(); } catch {}
+    if (originalLiveBettingEnabled === undefined) delete process.env.LIVE_BETTING_ENABLED;
+    else process.env.LIVE_BETTING_ENABLED = originalLiveBettingEnabled;
+  });
+
+  it('does not open a pool or delay game start while betting is disabled', async () => {
+    process.env.LIVE_BETTING_ENABLED = 'false';
+    const response = await request(app)
+      .post(`/api/games/${gameId}/start`)
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ success: true, disabled: true, pool: null });
+    expect(await db.all('SELECT * FROM betting_pools WHERE game_id = ?', [gameId])).toHaveLength(0);
   });
 
   it('opens exactly one 90-second pool from CRM and preserves it on repeated start', async () => {

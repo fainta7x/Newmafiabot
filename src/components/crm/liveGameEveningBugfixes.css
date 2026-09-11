@@ -220,13 +220,32 @@
     font-size: 10px;
   }
 
+  /* The current candidate is already shown in the HUD phase pill and on the
+     voting-order chip. The large duplicate focus label added by the readability
+     experiment consumes the compact table cell, so keep it out of the phone layout. */
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voting-focus__candidate {
+    display: none !important;
+  }
+
+  /* Seat cards already show each assigned vote. Keep the textual voter recap as
+     a one-line safety hint without letting it push the primary voting CTA below
+     the fixed center cell. */
+  .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) .live-judge-voter-state {
+    max-height: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 6px !important;
+    line-height: 1 !important;
+  }
+
   .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-hud__hint {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 6.5px;
-    line-height: 1.08;
+    -webkit-line-clamp: 1;
+    font-size: 6px;
+    line-height: 1;
   }
 
   .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions {
@@ -236,8 +255,9 @@
   }
 
   .live-judge-hud__stack--voting-scroll:has(> .live-judge-vote-summary) > .live-judge-vote-actions .live-judge-action {
-    min-height: 32px;
+    min-height: 31px;
     flex-shrink: 0;
+    font-size: 8px;
   }
 
   .live-judge-hud__stack--revote-speech {

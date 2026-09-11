@@ -101,7 +101,7 @@ export default function SetupPhase(props: SetupPhaseProps) {
         ) : null}
         {clubStartPending ? (
           <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-[10px] text-white/45">
-            Фиксируем старт игры и открываем ставки…
+            Фиксируем старт игры…
           </div>
         ) : null}
         <ClubGameSetupPhase

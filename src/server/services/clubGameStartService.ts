@@ -7,6 +7,12 @@ export interface ClubGameRoleAssignment {
   role: unknown;
 }
 
+/**
+ * Betting is deliberately opt-in while the live-game flow is stabilised.
+ * Starting a game must never depend on opening a pool or sending notifications.
+ */
+export const isLiveBettingEnabled = () => process.env.LIVE_BETTING_ENABLED === 'true';
+
 const canonicalPlayerAppUrl = () => (
   String(process.env.PLAYER_APP_URL || process.env.WEBHOOK_URL || 'https://2la-noire-chagina7x.waw0.amvera.tech')
     .replace(/\/webhook\/?$/, '')
@@ -22,6 +28,16 @@ export async function startClubGameLifecycle(
   db: DatabaseWrapper,
   input: { gameId: number; roles: ClubGameRoleAssignment[]; webAppUrl?: string },
 ) {
+  if (!isLiveBettingEnabled()) {
+    return {
+      pool: null,
+      created: false,
+      idempotent: true,
+      disabled: true,
+      notification: { eligible: 0, sent: 0, disabled: true },
+    };
+  }
+
   const game = await db.get<any>(`
     SELECT id, evening_id, judge_player_id, archived_at
       FROM games WHERE id = ? LIMIT 1

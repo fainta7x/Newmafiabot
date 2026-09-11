@@ -158,21 +158,30 @@ const isRecoveredFirstKilledBestMove = (snapshot: LiveSnapshot): boolean => (
 export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSnapshot => {
   const protocolMarkers = snapshot.protocolMarkers || createEmptyLiveProtocolMarkers();
   const recoveringFirstKilledBestMove = isRecoveredFirstKilledBestMove(snapshot);
-  const recoveredBestMoveSlot = snapshot.activeBestMoveSlot
-    ?? (recoveringFirstKilledBestMove ? protocolMarkers.firstKilledSlot : null)
-    ?? (recoveringFirstKilledBestMove ? snapshot.shotPlayerSlot : null)
-    ?? null;
+  const votingFinalActionActive = snapshot.phase === 'day_voting';
+  const nightFinalActionActive = snapshot.phase === 'night';
+  const recoveredBestMoveSource: BestMoveSource | null = votingFinalActionActive && snapshot.activeBestMoveSource === 'zero_round_voted'
+    ? 'zero_round_voted'
+    : recoveringFirstKilledBestMove
+      ? 'first_killed'
+      : null;
+  const recoveredBestMoveSlot = recoveredBestMoveSource === null
+    ? null
+    : snapshot.activeBestMoveSlot
+      ?? (recoveringFirstKilledBestMove ? protocolMarkers.firstKilledSlot : protocolMarkers.zeroRoundVotedSlot)
+      ?? (recoveringFirstKilledBestMove ? snapshot.shotPlayerSlot : null)
+      ?? null;
 
   return {
     ...snapshot,
     dayStarterSlot: snapshot.dayStarterSlot ?? (((snapshot.roundNumber - 1) % 10) + 1),
     nominationsMap: snapshot.nominationsMap || {},
-    postNightStage: snapshot.postNightStage || 'none',
+    postNightStage: nightFinalActionActive ? (snapshot.postNightStage || 'none') : 'none',
     protocolMarkers,
-    activeBestMoveSource: snapshot.activeBestMoveSource || (recoveringFirstKilledBestMove ? 'first_killed' : null),
+    activeBestMoveSource: recoveredBestMoveSource,
     activeBestMoveSlot: recoveredBestMoveSlot,
-    pendingBestMoveSeats: snapshot.pendingBestMoveSeats || [],
-    bestMoveDeadlineMs: snapshot.bestMoveDeadlineMs ?? null,
+    pendingBestMoveSeats: recoveredBestMoveSource === null ? [] : (snapshot.pendingBestMoveSeats || []),
+    bestMoveDeadlineMs: recoveredBestMoveSource === null ? null : (snapshot.bestMoveDeadlineMs ?? null),
     votingRounds: snapshot.votingRounds || [],
     activeVotingRoundIndex: snapshot.activeVotingRoundIndex || 0,
     votesByPlayer: snapshot.votesByPlayer || {},
@@ -196,8 +205,8 @@ export const normalizeLiveSnapshotForRestore = (snapshot: LiveSnapshot): LiveSna
     sheriffCheckSlot: snapshot.sheriffCheckSlot ?? null,
     sheriffCheckResult: snapshot.sheriffCheckResult ?? null,
     nightLogs: snapshot.nightLogs || [],
-    votingFarewellQueue: snapshot.votingFarewellQueue || [],
-    votingFarewellIndex: snapshot.votingFarewellIndex || 0,
+    votingFarewellQueue: votingFinalActionActive ? (snapshot.votingFarewellQueue || []) : [],
+    votingFarewellIndex: votingFinalActionActive ? (snapshot.votingFarewellIndex || 0) : 0,
     discipline: snapshot.discipline || createInitialLiveDiscipline(),
   };
 };

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { expect, it } from 'vitest';
 import { editVkWallPostWithPublisher } from '../server/services/vkWallPostEditor.ts';
 
 const restoreEnv = (name: string, value: string | undefined) => {
@@ -7,7 +6,7 @@ const restoreEnv = (name: string, value: string | undefined) => {
   else process.env[name] = value;
 };
 
-test('community wall posts are edited through wall.edit with publisher token', async () => {
+it('community wall posts are edited through wall.edit with publisher token', async () => {
   const originalFetch = globalThis.fetch;
   const originalGroupToken = process.env.VK_GROUP_ACCESS_TOKEN;
   const originalUserToken = process.env.VK_ACCESS_TOKEN;
@@ -35,13 +34,13 @@ test('community wall posts are edited through wall.edit with publisher token', a
       message: 'Актуальная запись 7/11',
     });
 
-    assert.equal(capturedUrl, 'https://api.vk.com/method/wall.edit');
+    expect(capturedUrl).toBe('https://api.vk.com/method/wall.edit');
     const body = new URLSearchParams(capturedBody);
-    assert.equal(body.get('access_token'), 'test-community-token');
-    assert.equal(body.get('v'), '5.199');
-    assert.equal(body.get('owner_id'), '-212761164');
-    assert.equal(body.get('post_id'), '456');
-    assert.equal(body.get('message'), 'Актуальная запись 7/11');
+    expect(body.get('access_token')).toBe('test-community-token');
+    expect(body.get('v')).toBe('5.199');
+    expect(body.get('owner_id')).toBe('-212761164');
+    expect(body.get('post_id')).toBe('456');
+    expect(body.get('message')).toBe('Актуальная запись 7/11');
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnv('VK_GROUP_ACCESS_TOKEN', originalGroupToken);
@@ -50,7 +49,7 @@ test('community wall posts are edited through wall.edit with publisher token', a
   }
 });
 
-test('publisher wall edit surfaces VK API errors instead of reporting false success', async () => {
+it('publisher wall edit surfaces VK API errors instead of reporting false success', async () => {
   const originalFetch = globalThis.fetch;
   const originalGroupToken = process.env.VK_GROUP_ACCESS_TOKEN;
   const originalUserToken = process.env.VK_ACCESS_TOKEN;
@@ -64,10 +63,9 @@ test('publisher wall edit surfaces VK API errors instead of reporting false succ
   } as Response)) as typeof fetch;
 
   try {
-    await assert.rejects(
-      () => editVkWallPostWithPublisher({ groupId: '212761164', postId: 456, message: 'test' }),
-      /VK API 15: Access denied/,
-    );
+    await expect(
+      editVkWallPostWithPublisher({ groupId: '212761164', postId: 456, message: 'test' }),
+    ).rejects.toThrow('VK API 15: Access denied');
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnv('VK_GROUP_ACCESS_TOKEN', originalGroupToken);

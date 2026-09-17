@@ -32,8 +32,8 @@ jobs:
       - name: Probe production and notify Telegram on transitions
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUNTIME_MONITOR_BASE_URL: ${{ vars.RUNTIME_MONITOR_BASE_URL }}
-          TELEGRAM_MONITOR_BOT_TOKEN: ${{ secrets.TELEGRAM_MONITOR_BOT_TOKEN }}
-          TELEGRAM_MONITOR_CHAT_IDS: ${{ secrets.TELEGRAM_MONITOR_CHAT_IDS }}
+          RUNTIME_MONITOR_BASE_URL: ${{ vars.RUNTIME_MONITOR_BASE_URL || vars.PLAYER_APP_URL }}
+          TELEGRAM_MONITOR_BOT_TOKEN: ${{ secrets.TELEGRAM_MONITOR_BOT_TOKEN || secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_MONITOR_CHAT_IDS: ${{ secrets.TELEGRAM_MONITOR_CHAT_IDS || secrets.RUNTIME_ALERT_RECIPIENT_IDS || secrets.ORGANIZER_NOTIFICATION_IDS || secrets.ORGANIZER_CHAT_ID }}
           MONITOR_TEST_NOTIFICATION: ${{ inputs.send_test_notification }}
         run: node scripts/runtimeMonitor.mjs

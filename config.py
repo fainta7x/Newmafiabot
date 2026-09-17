@@ -23,6 +23,18 @@ ORGANIZER_NOTIFICATION_IDS = [
     int(x.strip()) for x in ORGANIZER_NOTIFICATION_IDS_RAW.split(',') if x.strip().lstrip('-').isdigit()
 ]
 ORGANIZER_NOTIFICATION_INTERVAL_MINUTES = int(os.getenv('ORGANIZER_NOTIFICATION_INTERVAL_MINUTES', '30'))
+# Runtime alerts are intentionally separate from CRM digests. They use the
+# organizer audience when configured and otherwise notify the current bot admins.
+RUNTIME_ALERT_RECIPIENT_IDS_RAW = (
+    os.getenv('RUNTIME_ALERT_RECIPIENT_IDS', '').strip()
+    or ORGANIZER_NOTIFICATION_IDS_RAW
+    or ','.join(str(user_id) for user_id in ADMIN_IDS)
+)
+RUNTIME_ALERT_RECIPIENT_IDS = [
+    int(x.strip()) for x in RUNTIME_ALERT_RECIPIENT_IDS_RAW.split(',') if x.strip().lstrip('-').isdigit()
+]
+RUNTIME_ALERT_INTERVAL_SECONDS = max(15, int(os.getenv('RUNTIME_ALERT_INTERVAL_SECONDS', '30')))
+RUNTIME_ALERT_FAILURE_THRESHOLD = max(1, int(os.getenv('RUNTIME_ALERT_FAILURE_THRESHOLD', '2')))
 PHONE = os.getenv('ORGANIZER_PHONE', '')
 BANK = os.getenv('ORGANIZER_BANK', 'Сбербанк')
 

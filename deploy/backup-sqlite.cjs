@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const sourcePath = process.env.DATABASE_PATH || '/data/mafia_crm.sqlite';
+const sourcePath = '/data/mafia_crm.sqlite';
 const backupDir = process.env.SQLITE_BACKUP_DIR || '/data/backups';
 const intervalMs = Math.max(60 * 60 * 1000, Number(process.env.SQLITE_BACKUP_INTERVAL_MS || 6 * 60 * 60 * 1000));
 const keepCount = Math.max(3, Number(process.env.SQLITE_BACKUP_KEEP || 30));

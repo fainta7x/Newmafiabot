@@ -58,15 +58,19 @@ describe('useOrganizerCrmSession freshness', () => {
       return jsonResponse(overview('newest'));
     });
     vi.stubGlobal('fetch', fetchMock);
+    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
 
     render(<Harness />);
     await waitFor(() => expect(screen.getByTestId('overview-title').textContent).toBe('initial'));
 
+    // The foreground-refresh listeners are installed by a separate effect after
+    // organizer authorization. Wait for the actual focus listener instead of
+    // racing that effect with the synthetic focus event on a busy CI runner.
+    await waitFor(() => {
+      expect(addEventListenerSpy.mock.calls.some(([type]) => type === 'focus')).toBe(true);
+    });
+
     window.dispatchEvent(new Event('focus'));
-    // Wait for the debounced resume request to actually start instead of relying
-    // on a wall-clock sleep. Under a busy full-suite runner, 140 ms can elapse
-    // before React/effect scheduling lets the 120 ms timer execute, which makes
-    // the manual click become call #2 and incorrectly block on `slow`.
     await waitFor(() => {
       const overviewCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/crm/overview'));
       expect(overviewCalls.length).toBeGreaterThanOrEqual(2);

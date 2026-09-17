@@ -1,11 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
-  canEditVkWallPosts,
   createVkWallPost,
-  editVkWallPost,
   getVkDestinations,
   type VkDestination,
 } from './vkPublishingService.ts';
+import { editVkWallPostWithPublisher } from './vkWallPostEditor.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
 type EveningRow = {
@@ -27,6 +26,12 @@ type PublicationRow = {
   post_id: number | null;
   external_url: string | null;
   published_at: string | null;
+};
+
+type DestinationSyncResult = {
+  publication: PublicationRow | null | undefined;
+  skipped: boolean;
+  reason?: string;
 };
 
 const nowIso = () => new Date().toISOString();
@@ -164,30 +169,21 @@ const syncDestination = async (
   destination: VkDestination,
   message: string,
   onlyExisting: boolean,
-) => {
-  if (!destination.groupId || !destination.supported) return { publication: null, skipped: true };
+): Promise<DestinationSyncResult> => {
+  if (!destination.groupId || !destination.supported) {
+    return { publication: null, skipped: true, reason: 'destination_unavailable' };
+  }
   const existing = await getPublication(db, evening.id, destination.key);
-  if (onlyExisting && !existing?.post_id) return { publication: null, skipped: true };
+  if (onlyExisting && !existing?.post_id) {
+    return { publication: null, skipped: true, reason: 'no_existing_post' };
+  }
 
   let postOwnerId = Number(existing?.post_owner_id || 0);
   let postId = Number(existing?.post_id || 0);
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
   if (postId > 0) {
-    if (destination.key === 'public' && !canEditVkWallPosts()) {
-      const now = nowIso();
-      await db.run(`
-        UPDATE vk_evening_publications
-           SET status='published', last_error=NULL, updated_at=?
-         WHERE evening_id=? AND destination_key=? AND post_id IS NOT NULL
-      `, [now, evening.id, destination.key]);
-      return {
-        publication: await getPublication(db, evening.id, destination.key),
-        skipped: true,
-        reason: 'Пост уже опубликован. Свежий текст можно скопировать и вставить через редактирование в VK.',
-      };
-    }
-    await editVkWallPost({ groupId: destination.groupId, postId, message });
+    await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
     if (destination.key === 'public') {
       postOwnerId = -Math.abs(Number(destination.groupId));
       externalUrl = `https://vk.com/wall${postOwnerId}_${postId}`;

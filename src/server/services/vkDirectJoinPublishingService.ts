@@ -1,11 +1,10 @@
 import type { DatabaseWrapper } from '../../db/index.ts';
 import {
-  canEditVkWallPosts,
   createVkWallPost,
-  editVkWallPost,
   getVkDestinations,
   type VkDestination,
 } from './vkPublishingService.ts';
+import { editVkWallPostWithPublisher } from './vkWallPostEditor.ts';
 import { loadEveningSlotPlan } from './eveningSlotPlanningService.ts';
 
 type EveningRow = {
@@ -174,20 +173,7 @@ const syncDestination = async (
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
   if (postId > 0) {
-    if (destination.key === 'public' && !canEditVkWallPosts()) {
-      const now = nowIso();
-      await db.run(`
-        UPDATE vk_evening_publications
-           SET status='published', last_error=NULL, updated_at=?
-         WHERE evening_id=? AND destination_key=? AND post_id IS NOT NULL
-      `, [now, evening.id, destination.key]);
-      return {
-        publication: await getPublication(db, evening.id, destination.key),
-        skipped: true,
-        reason: 'Пост уже опубликован. Свежий текст можно скопировать и вставить через редактирование в VK.',
-      };
-    }
-    await editVkWallPost({ groupId: destination.groupId, postId, message });
+    await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
     if (destination.key === 'public') {
       postOwnerId = -Math.abs(Number(destination.groupId));
       externalUrl = `https://vk.com/wall${postOwnerId}_${postId}`;

@@ -68,7 +68,7 @@ describe('VK publishing adapter', () => {
     }
   });
 
-  it('does not attempt wall.edit with a community-only token', async () => {
+  it('does not attempt the legacy wall.edit adapter with a community-only token', async () => {
     delete process.env.VK_ACCESS_TOKEN;
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn();
@@ -80,7 +80,7 @@ describe('VK publishing adapter', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('uses a user token when wall.edit is available', async () => {
+  it('uses a user token when the legacy wall.edit adapter is available', async () => {
     process.env.VK_ACCESS_TOKEN = 'user-token';
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ response: 1 }), { status: 200 }));
@@ -92,10 +92,12 @@ describe('VK publishing adapter', () => {
     expect(body.get('access_token')).toBe('user-token');
   });
 
-  it('keeps an existing public post published when only a community token is available', async () => {
+  it('updates an existing public post with the community publisher token', async () => {
     delete process.env.VK_ACCESS_TOKEN;
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ response: 1 }), { status: 200 }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const db = createDatabaseConnection(':memory:');
@@ -112,17 +114,23 @@ describe('VK publishing adapter', () => {
         answer_map_json, status, external_url, published_at, updated_at, last_error
       ) VALUES ('evening-published', 'public', '212761164', -212761164, 77,
         '{}', 'error', 'https://vk.com/wall-212761164_77', ?, ?,
-        'VK API 27: Group authorization failed: method is unavailable with group auth.')
+        'previous VK edit error')
     `, [now, now]);
 
     const result = await syncDirectVkEveningPublications(db, 'evening-published', 'https://example.test');
     expect(result.results).toEqual([expect.objectContaining({
-      destination: 'public', success: true, skipped: true,
+      destination: 'public', success: true,
     })]);
     expect(await db.get<any>(`
       SELECT status, post_id, last_error FROM vk_evening_publications
        WHERE evening_id='evening-published' AND destination_key='public'
     `)).toEqual({ status: 'published', post_id: 77, last_error: null });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.vk.com/method/wall.edit');
+    const body = init?.body as URLSearchParams;
+    expect(body.get('access_token')).toBe('community-token');
+    expect(body.get('owner_id')).toBe('-212761164');
+    expect(body.get('post_id')).toBe('77');
   });
 });

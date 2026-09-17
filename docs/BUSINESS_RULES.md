@@ -169,6 +169,14 @@ The conducted-game interface is a judge protocol surface, not a generic game UI.
 - Night shot/Don/Sheriff markers belong only to their active night subphase and must not leak into later best-move/farewell states.
 - “Назад” / Undo must not become a dead end behind full-screen protocol or best-move overlays; entering such a state needs a restorable previous snapshot and an accessible way back.
 
+## Live Game betting resilience
+
+- A valid conducted game must never be blocked by betting-pool creation, betting notifications or loss of network connectivity.
+- Betting opens one idempotent 90-second pool from the canonical game/seat/role snapshot. Repeating the start request must not reset the deadline or existing bets.
+- Seated players and the canonical judge cannot bet on their own game.
+- `LIVE_BETTING_ENABLED=false` is an emergency kill switch for betting only; canonical game validation and Live Game progression remain active.
+- A betting or notification failure must be recorded as an explicit degraded state. It must not be represented as a healthy betting pool.
+
 ## Player status terminology
 
 Automatic final statuses should use the approved semantics:

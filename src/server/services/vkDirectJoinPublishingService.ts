@@ -28,6 +28,12 @@ type PublicationRow = {
   published_at: string | null;
 };
 
+type DestinationSyncResult = {
+  publication: PublicationRow | null | undefined;
+  skipped: boolean;
+  reason?: string;
+};
+
 const nowIso = () => new Date().toISOString();
 const normalizeBaseUrl = (value: string) => String(value || '').trim().replace(/\/$/, '');
 const joinUrlFor = (baseUrl: string, eveningId: string) => `${normalizeBaseUrl(baseUrl)}/join/${encodeURIComponent(eveningId)}?source=vk_entry`;
@@ -163,10 +169,14 @@ const syncDestination = async (
   destination: VkDestination,
   message: string,
   onlyExisting: boolean,
-) => {
-  if (!destination.groupId || !destination.supported) return { publication: null, skipped: true };
+): Promise<DestinationSyncResult> => {
+  if (!destination.groupId || !destination.supported) {
+    return { publication: null, skipped: true, reason: 'destination_unavailable' };
+  }
   const existing = await getPublication(db, evening.id, destination.key);
-  if (onlyExisting && !existing?.post_id) return { publication: null, skipped: true };
+  if (onlyExisting && !existing?.post_id) {
+    return { publication: null, skipped: true, reason: 'no_existing_post' };
+  }
 
   let postOwnerId = Number(existing?.post_owner_id || 0);
   let postId = Number(existing?.post_id || 0);

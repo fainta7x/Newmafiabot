@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureVkPersonalMessageSchema } from '../../db/ensureVkPersonalMessageSchema.ts';
+import { startVkLiveEveningSyncWorker } from './vkLiveEveningSyncWorker.ts';
 
 export type VkMessageStatus = 'pending' | 'sent' | 'failed';
 export type VkFailureKind = 'permission_denied' | 'temporary' | 'permanent' | 'configuration' | null;
@@ -161,6 +162,7 @@ export function kickVkMessageOutbox(db: DatabaseWrapper) {
 export function startVkMessageOutboxWorker(db: DatabaseWrapper) {
   if (workerTimer) return;
   kickVkMessageOutbox(db);
+  startVkLiveEveningSyncWorker(db);
   workerTimer = setInterval(() => kickVkMessageOutbox(db), WORKER_INTERVAL_MS);
   workerTimer.unref?.();
 }

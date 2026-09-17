@@ -259,7 +259,23 @@ Optional variable if the public origin changes:
 
 Use the manual test-notification input after configuration and leave the scheduled monitor enabled. See `docs/telegram-runtime-health.md`.
 
-## 10. Telegram runtime verification
+## 10. Live Game betting runtime verification
+
+Betting is enabled by default. `LIVE_BETTING_ENABLED=false` is an emergency kill switch and must not be used as the normal configured state.
+
+After deployment:
+
+1. confirm the deployed SHA;
+2. start a disposable/test club game with a canonical judge and ten seats;
+3. confirm the judge leaves role dealing immediately, without waiting for notifications;
+4. confirm exactly one 90-second pool appears and a repeated start does not change its ID or deadline;
+5. confirm one eligible spectator can place an idempotent token bet while seated players and the judge are rejected;
+6. confirm Telegram/VK notification diagnostics are queued/sent without duplicate delivery;
+7. close/settle or refund the test pool and verify ledger balances once.
+
+If betting fails during a real evening, set `LIVE_BETTING_ENABLED=false` and redeploy/restart only if necessary. Continue conducting games; do not alter or delete existing pool, bet or ledger rows. Re-enable by setting the variable to `true` (or removing it) only after the underlying runtime fault is understood.
+
+## 11. Telegram runtime verification
 
 Preferred order:
 
@@ -276,7 +292,7 @@ When testing RSVP behavior, verify coarse response and exact game-slot plan sepa
 
 When closing an evening, verify the old Telegram announcement/history remains useful and is not overwritten by only “registration closed”.
 
-## 11. VK runtime verification
+## 12. VK runtime verification
 
 Preferred order:
 
@@ -288,13 +304,13 @@ Preferred order:
 
 See `docs/vk-runtime-health.md`.
 
-## 12. Legacy Render
+## 13. Legacy Render
 
 Render configuration remains historical/fallback. It is not the canonical combined runtime.
 
 If rollback to legacy hosting is ever required, keep Turso unchanged; hosting rollback is not data rollback.
 
-## 13. Dependency/security work
+## 14. Dependency/security work
 
 Use read-only diagnostics first:
 
@@ -308,7 +324,7 @@ npm ls <package>
 - never use `npm audit fix --force` blindly;
 - do not merge Dependabot merely because it is open; run project CI and inspect breaking-risk packages.
 
-## 14. Legacy/stale PR cleanup
+## 15. Legacy/stale PR cleanup
 
 Before using an old open PR as work:
 
@@ -319,7 +335,7 @@ Before using an old open PR as work:
 
 Before deleting legacy-looking source files, also confirm imports, route mounts and build transforms. Names are not proof of dead code.
 
-## 15. Documentation responsibility
+## 16. Documentation responsibility
 
 - `PROJECT_STATE` — current product/deploy state and queue.
 - `ARCHITECTURE` — subsystem/runtime ownership.
@@ -332,7 +348,7 @@ Before deleting legacy-looking source files, also confirm imports, route mounts 
 
 When a planned feature is completed, update/remove its stale backlog state. Do not leave old instructions that tell future sessions to rebuild an already-existing subsystem.
 
-## 16. End-of-task handoff
+## 17. End-of-task handoff
 
 Report:
 

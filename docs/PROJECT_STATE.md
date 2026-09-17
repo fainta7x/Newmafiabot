@@ -2,7 +2,7 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-09
+**Status date:** 2026-09-17
 
 **Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. CRM-PAY-003 / PR #292 implements factual regular-evening pricing at 100 ₽ per actually completed game with a 400 ₽ cap, debt-free RSVP/slot planning and application-level historical reconciliation; it remains subject to review, merge, deployment and runtime/data verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
@@ -77,6 +77,7 @@ Implemented and connected:
 - organizer-curated historical `invited_by` / invited-player club relationships; historical referrals are never inferred or fabricated from nicknames or game history;
 - player-to-player invitations from another player's profile to an eligible upcoming evening the inviter is already attending, with duplicate/self/format/limit protection, in-app inbox/notification and durable Telegram outbox delivery; accepting an invitation never creates a booking automatically;
 - wallet/tokens/shop/manual accounting plus canonical club-game betting: one 90-second server pool per game, spectator-only eligibility, idempotent stake/payout/refund ledger writes, active bet/coefficient state and settled history in Player Cabinet;
+- the Live Game start boundary is fail-open: after local setup validation the judge proceeds immediately, while betting synchronization reports `ready`, `disabled`, `pool_failed` or `notification_failed`; `LIVE_BETTING_ENABLED=false` remains an emergency betting-only kill switch;
 - judging/conduct surfaces and speech recording;
 - exactly two personal music slots in the player profile;
 - staff/judge music library and playlist;

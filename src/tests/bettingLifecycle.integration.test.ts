@@ -99,8 +99,19 @@ describe('server-side club betting lifecycle', () => {
       .send({ roles });
 
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ success: true, disabled: true, pool: null });
+    expect(response.body).toMatchObject({ success: true, disabled: true, degraded: false, betting_status: 'disabled', pool: null });
     expect(await db.all('SELECT * FROM betting_pools WHERE game_id = ?', [gameId])).toHaveLength(0);
+  });
+
+  it('still validates the canonical game while betting is disabled', async () => {
+    process.env.LIVE_BETTING_ENABLED = 'false';
+    const response = await request(app)
+      .post('/api/games/999999/start')
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Игра не найдена');
   });
 
   it('opens exactly one 90-second pool from CRM and preserves it on repeated start', async () => {
@@ -109,7 +120,7 @@ describe('server-side club betting lifecycle', () => {
       .set('Cookie', organizerCookie)
       .send({ roles });
     expect(first.status).toBe(201);
-    expect(first.body.created).toBe(true);
+    expect(first.body).toMatchObject({ created: true, degraded: false, betting_status: 'ready' });
     expect(first.body.notification).toMatchObject({ eligible: 0, sent: 0 });
     expect(new Date(first.body.pool.closes_at).getTime() - new Date(first.body.pool.opens_at).getTime()).toBe(90_000);
 
@@ -127,6 +138,17 @@ describe('server-side club betting lifecycle', () => {
     expect(pools[0].red_pool).toBe(0);
     expect(pools[0].black_pool).toBe(0);
     expect(pools[0].notified_at).toBeNull();
+  });
+
+  it('enables betting by default when the emergency flag is absent', async () => {
+    delete process.env.LIVE_BETTING_ENABLED;
+    const response = await request(app)
+      .post(`/api/games/${gameId}/start`)
+      .set('Cookie', organizerCookie)
+      .send({ roles });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ success: true, betting_status: 'ready', disabled: false });
   });
 
   it('allows the assigned host/player Live Game flow to start the same server lifecycle', async () => {

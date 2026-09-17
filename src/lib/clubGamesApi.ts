@@ -40,6 +40,9 @@ export type ClubGameStartResult = {
   success: true;
   created: boolean;
   idempotent: boolean;
+  disabled: boolean;
+  degraded: boolean;
+  betting_status: 'ready' | 'disabled' | 'pool_failed' | 'notification_failed';
   pool: any;
   notification: any;
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ChevronDown, Mic2 } from 'lucide-react';
 import type { Player } from '../../types.js';
 import { clubGamesApi } from '../../lib/clubGamesApi.ts';
@@ -10,6 +10,7 @@ import { mountSpeechRecordingServerSync } from './SpeechRecordingServerSync.ts';
 import { getLiveGameSetupMode } from './setupMode.js';
 import { getSetupStartValidationError } from './setupState.js';
 import type { ActivePlayerState } from './types.js';
+import { startClubGameFailOpen } from './startClubGameFailOpen.ts';
 
 interface SetupPhaseProps {
   players: Player[];
@@ -51,16 +52,13 @@ const ClubSpeechRecordingControl = () => (
 export default function SetupPhase(props: SetupPhaseProps) {
   const setupMode = getLiveGameSetupMode(props.players);
   const isClubEveningEngine = setupMode === 'club';
-  const [clubStartError, setClubStartError] = useState<string | null>(null);
-  const [clubStartPending, setClubStartPending] = useState(false);
 
   useEffect(() => {
     if (!isClubEveningEngine) return undefined;
     return mountSpeechRecordingServerSync();
   }, [isClubEveningEngine]);
 
-  const validateClubSetupAndStart = async () => {
-    if (clubStartPending) return;
+  const validateClubSetupAndStart = () => {
     const validationError = getSetupStartValidationError(props.judgeId, props.activePlayers);
     if (validationError) {
       // Keep the engine's established validation/toast behavior unchanged.
@@ -70,40 +68,27 @@ export default function SetupPhase(props: SetupPhaseProps) {
 
     const gameId = getActiveClubLiveGameId();
     if (!gameId) {
-      setClubStartError('Не удалось определить серверную игру. Закрой и снова открой Live Game.');
+      // Conducting the game is more important than optional server-side betting.
+      props.validateSetupAndStart();
       return;
     }
 
-    setClubStartPending(true);
-    setClubStartError(null);
-    try {
-      await clubGamesApi.start(gameId, {
-        roles: props.activePlayers.map((player) => ({
-          seat_number: player.slot_num,
-          role: player.role,
-        })),
-      });
-      props.validateSetupAndStart();
-    } catch (error: any) {
-      setClubStartError(error?.message || 'Не удалось зафиксировать старт игры на сервере');
-    } finally {
-      setClubStartPending(false);
-    }
+    const startPayload = {
+      roles: props.activePlayers.map((player) => ({
+        seat_number: player.slot_num,
+        role: player.role,
+      })),
+    };
+    startClubGameFailOpen({
+      continueGame: props.validateSetupAndStart,
+      syncServerStart: () => clubGamesApi.start(gameId, startPayload),
+      onSyncError: (error) => console.warn('[LIVE GAME] Betting/start synchronization failed', { gameId, error }),
+    });
   };
 
   if (isClubEveningEngine) {
     return (
       <div className="space-y-2">
-        {clubStartError ? (
-          <div className="rounded-[14px] border border-rose-400/20 bg-rose-400/[0.08] px-3 py-2 text-[11px] leading-5 text-rose-100/85" role="alert">
-            {clubStartError}
-          </div>
-        ) : null}
-        {clubStartPending ? (
-          <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-[10px] text-white/45">
-            Фиксируем старт игры…
-          </div>
-        ) : null}
         <ClubGameSetupPhase
           players={props.players}
           activePlayers={props.activePlayers}

@@ -67,6 +67,29 @@ describe('Telegram publishing destinations', () => {
     expect(rows.every((row) => Number(row.active) === 0)).toBe(true);
   });
 
+  it('rehydrates the club destination from legacy env after a database reset and queues existing open evenings', async () => {
+    const previousGroupId = process.env.TEST_GROUP_ID;
+    const previousTopicId = process.env.ANNOUNCE_TOPIC_ID;
+    process.env.TEST_GROUP_ID = '-1001234567890';
+    process.env.ANNOUNCE_TOPIC_ID = '5912';
+    try {
+      db = createDatabaseConnection(':memory:');
+      await insertEvening(db, 'ev-restored-before-schema');
+      await ensureTelegramPublishingSchema(db);
+
+      const club = await db.get<any>("SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id='club'");
+      expect(club).toMatchObject({ chat_id: '-1001234567890', topic_id: 5912, active: 1 });
+
+      const queued = await db.get<any>("SELECT kind, entity_id FROM telegram_sync_outbox WHERE sync_key='evening:ev-restored-before-schema'");
+      expect(queued).toMatchObject({ kind: 'evening', entity_id: 'ev-restored-before-schema' });
+    } finally {
+      if (previousGroupId === undefined) delete process.env.TEST_GROUP_ID;
+      else process.env.TEST_GROUP_ID = previousGroupId;
+      if (previousTopicId === undefined) delete process.env.ANNOUNCE_TOPIC_ID;
+      else process.env.ANNOUNCE_TOPIC_ID = previousTopicId;
+    }
+  });
+
   it('keeps publication identity unique per event and destination', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);

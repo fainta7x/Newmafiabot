@@ -191,33 +191,6 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     END
   `);
   await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_telegram_sync_insert
-    AFTER INSERT ON evening_slot_registrations
-    WHEN EXISTS (
-      SELECT 1
-        FROM evening_game_slots s
-       WHERE s.id = NEW.slot_id
-         AND EXISTS (SELECT 1 FROM game_evenings e WHERE e.id = s.evening_id)
-    )
-    BEGIN
-      ${eveningOutboxUpsertSql("(SELECT evening_id FROM evening_game_slots WHERE id = NEW.slot_id)")}
-    END
-  `);
-  await db.run(`
-    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_telegram_sync_delete
-    AFTER DELETE ON evening_slot_registrations
-    WHEN EXISTS (
-      SELECT 1
-        FROM evening_game_slots s
-       WHERE s.id = OLD.slot_id
-         AND EXISTS (SELECT 1 FROM game_evenings e WHERE e.id = s.evening_id)
-    )
-    BEGIN
-      ${eveningOutboxUpsertSql("(SELECT evening_id FROM evening_game_slots WHERE id = OLD.slot_id)")}
-    END
-  `);
-
-  await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_tournament_telegram_dispatch_update
     AFTER UPDATE OF title, date, venue, stage, status, chief_judge_name, notes, game_count
     ON tournaments

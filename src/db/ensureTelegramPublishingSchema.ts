@@ -277,8 +277,11 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
       topicId: process.env.TELEGRAM_NOVICE_TOPIC_ID,
     },
     club: {
-      chatId: process.env.TELEGRAM_CLUB_CHAT_ID || process.env.TEST_GROUP_ID,
-      topicId: process.env.TELEGRAM_CLUB_TOPIC_ID || process.env.ANNOUNCE_TOPIC_ID,
+      // Keep the Node-side bootstrap aligned with the Python bot defaults.
+      // The legacy bot has always used this forum chat/topic when env overrides
+      // are absent, so a DB replacement must not leave the CRM disconnected.
+      chatId: process.env.TELEGRAM_CLUB_CHAT_ID || process.env.TEST_GROUP_ID || '-1001628595679',
+      topicId: process.env.TELEGRAM_CLUB_TOPIC_ID || process.env.ANNOUNCE_TOPIC_ID || '5912',
     },
     rating: { chatId: process.env.TELEGRAM_RATING_CHAT_ID },
   };

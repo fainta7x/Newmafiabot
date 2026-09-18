@@ -303,30 +303,30 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
     );
   }
 
-  // Triggers only see future mutations. After a DB restore/replacement, queue every
-  // currently open evening once so existing Telegram posts are refreshed, or a new
-  // canonical post is created when the publication mapping was lost with the DB.
-  const openEvenings = await db.all<any>(
-    `SELECT id
-       FROM game_evenings
-      WHERE status IN ('published', 'active') AND settled_at IS NULL`,
+  // Do not enqueue every open evening here. This schema function is called not only
+  // at process startup but also by the weekly calendar reconciler, so bulk-enqueueing
+  // here can publish every future Friday at once after a DB replacement.
+  //
+  // As a safety net, drop only premature, never-published evening sync jobs that may
+  // have been left by an older build. The weekly automation will enqueue them when
+  // their real announcement window arrives.
+  await db.run(
+    `DELETE FROM telegram_sync_outbox
+      WHERE kind = 'evening'
+        AND entity_id IN (
+          SELECT e.id
+            FROM game_evenings e
+           WHERE e.status IN ('published', 'active')
+             AND e.settled_at IS NULL
+             AND datetime(e.starts_at) > datetime('now', '+4 days', '+1 hour')
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM evening_telegram_publications p
+                WHERE p.evening_id = e.id
+             )
+        )`,
   );
-  for (const evening of openEvenings) {
-    await db.run(
-      `INSERT INTO telegram_sync_outbox
-        (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
-       VALUES (?, 'evening', ?, 1, 0, ?, NULL, NULL, NULL)
-       ON CONFLICT(sync_key) DO UPDATE SET
-         entity_id = excluded.entity_id,
-         version = telegram_sync_outbox.version + 1,
-         attempt_count = 0,
-         requested_at = excluded.requested_at,
-         last_attempt_at = NULL,
-         next_attempt_at = NULL,
-         last_error = NULL`,
-      [`evening:${String(evening.id)}`, String(evening.id), now],
-    );
-  }
+
 }
 
 export function isTelegramDestinationId(value: unknown): value is TelegramDestinationId {

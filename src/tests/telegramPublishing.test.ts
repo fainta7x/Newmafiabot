@@ -88,7 +88,7 @@ describe('Telegram publishing destinations', () => {
     }
   });
 
-  it('rehydrates the club destination from legacy env after a database reset and queues existing open evenings', async () => {
+  it('rehydrates the club destination from legacy env without bulk-queueing existing evenings', async () => {
     const previousGroupId = process.env.TEST_GROUP_ID;
     const previousTopicId = process.env.ANNOUNCE_TOPIC_ID;
     process.env.TEST_GROUP_ID = '-1001234567890';
@@ -102,13 +102,30 @@ describe('Telegram publishing destinations', () => {
       expect(club).toMatchObject({ chat_id: '-1001234567890', topic_id: 5912, active: 1 });
 
       const queued = await db.get<any>("SELECT kind, entity_id FROM telegram_sync_outbox WHERE sync_key='evening:ev-restored-before-schema'");
-      expect(queued).toMatchObject({ kind: 'evening', entity_id: 'ev-restored-before-schema' });
+      expect(queued).toBeNull();
     } finally {
       if (previousGroupId === undefined) delete process.env.TEST_GROUP_ID;
       else process.env.TEST_GROUP_ID = previousGroupId;
       if (previousTopicId === undefined) delete process.env.ANNOUNCE_TOPIC_ID;
       else process.env.ANNOUNCE_TOPIC_ID = previousTopicId;
     }
+  });
+
+  it('drops a premature future-evening sync job before weekly announcement time', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    const now = new Date();
+    const future = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES ('ev-too-early', 'Будущий вечер', ?, 'Europe/Moscow', 'Тула', 'CASUAL', 'published', 20, 100, ?, ?)`,
+      [future, now.toISOString(), now.toISOString()],
+    );
+    expect(await db.get("SELECT sync_key FROM telegram_sync_outbox WHERE sync_key='evening:ev-too-early'")).toBeTruthy();
+
+    await ensureTelegramPublishingSchema(db);
+
+    expect(await db.get("SELECT sync_key FROM telegram_sync_outbox WHERE sync_key='evening:ev-too-early'")).toBeNull();
   });
 
   it('keeps publication identity unique per event and destination', async () => {

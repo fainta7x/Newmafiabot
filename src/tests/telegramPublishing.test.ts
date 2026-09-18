@@ -58,13 +58,34 @@ async function insertTournament(target: DatabaseWrapper, id: string, status = 'd
 }
 
 describe('Telegram publishing destinations', () => {
-  it('seeds the four club destinations disabled by default', async () => {
+  it('seeds all Telegram destinations and bootstraps only the legacy club route by default', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
 
-    const rows = await db.all<any>('SELECT id, active FROM telegram_destinations ORDER BY id ASC');
+    const rows = await db.all<any>('SELECT id, chat_id, topic_id, active FROM telegram_destinations ORDER BY id ASC');
     expect(rows.map((row) => row.id).sort()).toEqual(['club', 'novice', 'public', 'rating']);
-    expect(rows.every((row) => Number(row.active) === 0)).toBe(true);
+    const club = rows.find((row) => row.id === 'club');
+    expect(club).toMatchObject({ chat_id: '-1001628595679', topic_id: 5912, active: 1 });
+    expect(rows.filter((row) => row.id !== 'club').every((row) => Number(row.active) === 0)).toBe(true);
+  });
+
+  it('falls back to the Python bot club chat/topic defaults when env is absent', async () => {
+    const keys = ['TELEGRAM_CLUB_CHAT_ID', 'TEST_GROUP_ID', 'TELEGRAM_CLUB_TOPIC_ID', 'ANNOUNCE_TOPIC_ID'] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    for (const key of keys) delete process.env[key];
+    try {
+      db = createDatabaseConnection(':memory:');
+      await ensureTelegramPublishingSchema(db);
+
+      const club = await db.get<any>("SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id='club'");
+      expect(club).toMatchObject({ chat_id: '-1001628595679', topic_id: 5912, active: 1 });
+    } finally {
+      for (const key of keys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   it('rehydrates the club destination from legacy env after a database reset and queues existing open evenings', async () => {

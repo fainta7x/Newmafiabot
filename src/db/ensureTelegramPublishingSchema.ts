@@ -190,6 +190,32 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
       ${eveningOutboxUpsertSql('OLD.evening_id')}
     END
   `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_telegram_sync_insert
+    AFTER INSERT ON evening_slot_registrations
+    WHEN EXISTS (
+      SELECT 1
+        FROM evening_game_slots s
+       WHERE s.id = NEW.slot_id
+         AND EXISTS (SELECT 1 FROM game_evenings e WHERE e.id = s.evening_id)
+    )
+    BEGIN
+      ${eveningOutboxUpsertSql("(SELECT evening_id FROM evening_game_slots WHERE id = NEW.slot_id)")}
+    END
+  `);
+  await db.run(`
+    CREATE TRIGGER IF NOT EXISTS trg_evening_slot_registration_telegram_sync_delete
+    AFTER DELETE ON evening_slot_registrations
+    WHEN EXISTS (
+      SELECT 1
+        FROM evening_game_slots s
+       WHERE s.id = OLD.slot_id
+         AND EXISTS (SELECT 1 FROM game_evenings e WHERE e.id = s.evening_id)
+    )
+    BEGIN
+      ${eveningOutboxUpsertSql("(SELECT evening_id FROM evening_game_slots WHERE id = OLD.slot_id)")}
+    END
+  `);
 
   await db.run(`
     CREATE TRIGGER IF NOT EXISTS trg_tournament_telegram_dispatch_update
@@ -265,6 +291,64 @@ export async function ensureTelegramPublishingSchema(db: DatabaseWrapper): Promi
           SET name = ?, description = ?
         WHERE id = ?`,
       [destination.name, destination.description, destination.id],
+    );
+  }
+
+  // A database replacement must not silently disconnect Telegram publishing.
+  // Rehydrate only missing destination fields from environment variables; never
+  // overwrite values that were explicitly configured in CRM.
+  const destinationEnv: Partial<Record<TelegramDestinationId, { chatId?: string; topicId?: string }>> = {
+    public: { chatId: process.env.TELEGRAM_PUBLIC_CHAT_ID },
+    novice: {
+      chatId: process.env.TELEGRAM_NOVICE_CHAT_ID,
+      topicId: process.env.TELEGRAM_NOVICE_TOPIC_ID,
+    },
+    club: {
+      chatId: process.env.TELEGRAM_CLUB_CHAT_ID || process.env.TEST_GROUP_ID,
+      topicId: process.env.TELEGRAM_CLUB_TOPIC_ID || process.env.ANNOUNCE_TOPIC_ID,
+    },
+    rating: { chatId: process.env.TELEGRAM_RATING_CHAT_ID },
+  };
+
+  for (const destinationId of TELEGRAM_DESTINATION_IDS) {
+    const fallback = destinationEnv[destinationId];
+    const chatId = String(fallback?.chatId || '').trim();
+    if (!chatId) continue;
+    const topicRaw = String(fallback?.topicId || '').trim();
+    const topicId = /^\d+$/.test(topicRaw) && Number(topicRaw) > 0 ? Number(topicRaw) : null;
+    await db.run(
+      `UPDATE telegram_destinations
+          SET chat_id = CASE WHEN chat_id IS NULL OR TRIM(chat_id) = '' THEN ? ELSE chat_id END,
+              topic_id = CASE WHEN topic_id IS NULL THEN ? ELSE topic_id END,
+              active = CASE WHEN chat_id IS NULL OR TRIM(chat_id) = '' THEN 1 ELSE active END,
+              updated_at = CASE WHEN chat_id IS NULL OR TRIM(chat_id) = '' THEN ? ELSE updated_at END
+        WHERE id = ?`,
+      [chatId, topicId, now, destinationId],
+    );
+  }
+
+  // Triggers only see future mutations. After a DB restore/replacement, queue every
+  // currently open evening once so existing Telegram posts are refreshed, or a new
+  // canonical post is created when the publication mapping was lost with the DB.
+  const openEvenings = await db.all<any>(
+    `SELECT id
+       FROM game_evenings
+      WHERE status IN ('published', 'active') AND settled_at IS NULL`,
+  );
+  for (const evening of openEvenings) {
+    await db.run(
+      `INSERT INTO telegram_sync_outbox
+        (sync_key, kind, entity_id, version, attempt_count, requested_at, last_attempt_at, next_attempt_at, last_error)
+       VALUES (?, 'evening', ?, 1, 0, ?, NULL, NULL, NULL)
+       ON CONFLICT(sync_key) DO UPDATE SET
+         entity_id = excluded.entity_id,
+         version = telegram_sync_outbox.version + 1,
+         attempt_count = 0,
+         requested_at = excluded.requested_at,
+         last_attempt_at = NULL,
+         next_attempt_at = NULL,
+         last_error = NULL`,
+      [`evening:${String(evening.id)}`, String(evening.id), now],
     );
   }
 }

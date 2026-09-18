@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
+import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
 
 export const SLOT_PRICE = 100;
 export const CLUB_EVENING_MAX_PRICE = 400;
@@ -293,5 +294,6 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
     }
     await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined');
   });
+  await enqueueTelegramEveningSync(db, eveningId);
   return loadEveningSlotPlan(db, eveningId, playerId);
 }

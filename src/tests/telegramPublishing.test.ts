@@ -67,6 +67,25 @@ describe('Telegram publishing destinations', () => {
     expect(rows.every((row) => Number(row.active) === 0)).toBe(true);
   });
 
+  it('falls back to the Python bot club chat/topic defaults when env is absent', async () => {
+    const keys = ['TELEGRAM_CLUB_CHAT_ID', 'TEST_GROUP_ID', 'TELEGRAM_CLUB_TOPIC_ID', 'ANNOUNCE_TOPIC_ID'] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    for (const key of keys) delete process.env[key];
+    try {
+      db = createDatabaseConnection(':memory:');
+      await ensureTelegramPublishingSchema(db);
+
+      const club = await db.get<any>("SELECT chat_id, topic_id, active FROM telegram_destinations WHERE id='club'");
+      expect(club).toMatchObject({ chat_id: '-1001628595679', topic_id: 5912, active: 1 });
+    } finally {
+      for (const key of keys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
   it('rehydrates the club destination from legacy env after a database reset and queues existing open evenings', async () => {
     const previousGroupId = process.env.TEST_GROUP_ID;
     const previousTopicId = process.env.ANNOUNCE_TOPIC_ID;

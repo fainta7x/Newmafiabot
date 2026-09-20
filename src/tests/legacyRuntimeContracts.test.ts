@@ -103,7 +103,8 @@ describe('canonical runtime contracts', () => {
     const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
 
     const guardIndex = main.indexOf('legacy_retired_actions.router');
-    expect(guardIndex).toBeGreaterThan(main.indexOf('admin_crm.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('admin_crm.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('admin_judges.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('admin.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('profile.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('payment.router'));
@@ -175,6 +176,18 @@ describe('canonical runtime contracts', () => {
     expect(startBlock).toContain('database.get_user_by_id');
     expect(finishBlock).not.toContain('database.update_nickname');
     expect(finishBlock).toContain('register_canonical_profile');
+  });
+
+  it('intercepts legacy judge-management actions before the old DB-backed judge router', () => {
+    const main = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+    const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
+
+    expect(main.indexOf('legacy_retired_actions.router')).toBeLessThan(main.indexOf('admin_judges.router'));
+    expect(guard).toContain('"⚖ Судьи"');
+    expect(guard).toContain('"judge_list"');
+    expect(guard).toContain('"judge_add"');
+    expect(guard).toContain('"judge_confirm_add_"');
+    expect(guard).toContain('"judge_remove_"');
   });
 
   it('keeps only the canonical player creation and retired game creation contracts', () => {

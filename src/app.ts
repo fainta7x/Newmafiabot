@@ -99,6 +99,7 @@ import { startTelegramMessageOutboxWorker } from './server/services/telegramMess
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
 import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOutboxService.ts';
+import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts';
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 
 export async function createApp(customDb?: DatabaseWrapper) {
@@ -118,6 +119,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
   const db = customDb || (await getDb());
+  logStartupMutationRegistry();
   await ensureInviteAudienceSchema(db);
   await ensureJudgeAuthoritySchema(db);
   // Mounted evening routes read evening_slot_settings directly. Ensure the slot

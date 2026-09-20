@@ -80,8 +80,12 @@ async function automaticEveningSyncPolicy(
     [eveningId],
   );
   if (!evening) return { deliver: false, reason: 'evening_missing' };
+
+  // Closed/cancelled/settled evenings are safe to deliver: the bot plan has no
+  // desired destinations, so it can only archive/finalize an existing post and
+  // cannot create a new announcement. This preserves the final-sync contract.
   if (!['published', 'active'].includes(String(evening.status || '')) || evening.settled_at) {
-    return { deliver: false, reason: 'evening_not_open' };
+    return { deliver: true };
   }
 
   const startMs = new Date(String(evening.starts_at || '')).getTime();

@@ -114,6 +114,12 @@ describe('canonical runtime contracts', () => {
     expect(guard).toContain('"pay_now"');
     expect(guard).toContain('"shop_buy:"');
     expect(guard).toContain('"editgame_"');
+    expect(guard).toContain('"edit_slot_"');
+    expect(guard).toContain('"role_set_"');
+    expect(guard).toContain('"edit_clear_all"');
+    expect(guard).toContain('"admin_evenings_history"');
+    expect(guard).toContain('"/shop"');
+    expect(guard).toContain('"✏️ Редактировать"');
     expect(guard).toContain('Эта старая кнопка отключена');
   });
 

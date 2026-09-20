@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Bot, CheckCircle2, Database, Globe2, RefreshCw, Send, Server } from 'lucide-react';
+import { AlertTriangle, Archive, Bot, CheckCircle2, Database, Globe2, RefreshCw, Send, Server } from 'lucide-react';
 
 type StatusData = {
   checked_at: string;
@@ -15,6 +15,15 @@ type StatusData = {
     last_attempt_at: string | null;
     next_attempt_at: string | null;
     last_error: string | null;
+  };
+  backup: {
+    ok: boolean;
+    state: 'ok' | 'warming_up' | 'missing' | 'stale' | 'unavailable';
+    latest_at: string | null;
+    age_minutes: number | null;
+    bytes: number | null;
+    stale_after_hours: number;
+    error: string | null;
   };
 };
 
@@ -60,6 +69,14 @@ const queueDetail = (queue: StatusData['sync_queue']) => {
   }
   if (queue.pending > 0) return `${queue.pending} ждут отправки`;
   return 'Очередь пуста';
+};
+
+
+const backupDetail = (backup: StatusData['backup']) => {
+  if (backup.state === 'warming_up') return 'Backup-worker запускается';
+  if (!backup.ok) return backup.error || 'Бэкап недоступен';
+  const age = backup.age_minutes ?? 0;
+  return age < 60 ? `последний ${age} мин назад` : `последний ${Math.round(age / 60)} ч назад`;
 };
 
 const vkDetail = (data: VkRuntimeHealth) => {
@@ -122,6 +139,7 @@ export const SystemStatusCard: React.FC = () => {
     { key: 'bot', name: 'MafiaBot', ok: data.bot.ok, icon: Bot, detail: data.bot.ok ? `${data.bot.latency_ms ?? 0} мс` : data.bot.error || 'Нет ответа' },
     { key: 'telegram', name: 'Telegram', ok: data.telegram.ok, icon: Send, detail: `${data.telegram.active}/${data.telegram.total} направлений включено` },
     { key: 'sync', name: 'Синхронизация', ok: data.sync_queue.ok, icon: RefreshCw, detail: queueDetail(data.sync_queue) },
+    { key: 'backup', name: 'Бэкап', ok: data.backup.ok, icon: Archive, detail: backupDetail(data.backup) },
   ] : [];
 
   return (
@@ -132,7 +150,7 @@ export const SystemStatusCard: React.FC = () => {
             {data?.overall_ok ? <CheckCircle2 className="h-5 w-5 text-success" /> : <AlertTriangle className="h-5 w-5 text-warning" />}
             <h3 className="text-[14px] font-black text-text-primary">Состояние системы</h3>
           </div>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Приложение, база, бот, Telegram и очередь синхронизации.</p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">Приложение, база, бот, Telegram, синхронизация и резервные копии.</p>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={loading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-text-muted disabled:opacity-40" aria-label="Обновить статус"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>

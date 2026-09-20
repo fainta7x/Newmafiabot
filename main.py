@@ -313,11 +313,13 @@ async def start_webhook():
     else:
         logger.warning(f"⚠️ [Backend API] Не удалось установить связь с бэкендом: {res.get('message')}. Бот продолжает работу в автономном режиме.")
 
-    asyncio.create_task(daily_backup_task())
+    # Canonical product backups are owned by the Node sqlite-backup worker and
+    # stored under /data/backups. Do not start the legacy Python DB backup here:
+    # it targets mafia_crm.db, which is not the canonical product database.
     asyncio.create_task(public_router_refresh_task())
     asyncio.create_task(organizer_notification_task(bot))
     asyncio.create_task(runtime_alert_task(bot))
-    logger.info("✅ Задача ежедневного бэкапа запущена")
+    logger.info("ℹ️ Бэкапы product SQLite выполняет отдельный sqlite-backup worker")
     logger.info("✅ Автообновление публичного Telegram-маршрутизатора запущено")
     logger.info("✅ CRM-уведомления организатора запущены")
     logger.info("✅ Runtime-уведомления организатора запущены")

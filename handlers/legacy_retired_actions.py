@@ -17,6 +17,8 @@ _PLAYER_LEGACY_TEXTS = {
     "🏆 Рейтинг",
     "🏆 Рейтинг (старый)",
     "🛒 Магазин",
+    "/shop",
+    "✏️ Редактировать",
 }
 
 _ADMIN_LEGACY_TEXTS = {
@@ -42,6 +44,30 @@ _PLAYER_LEGACY_CALLBACK_PREFIXES = (
     "shop_my_tokens",
     "shop_back",
     "shop_close",
+    "edit_slot_",
+    "role_set_",
+    "team_set_",
+    "status_set_",
+    "edit_fouls_",
+    "fouls_kick_",
+    "fouls_small_",
+    "fouls_big_",
+    "fouls_dec_",
+    "edit_role",
+    "edit_team",
+    "edit_status",
+    "edit_pu",
+    "pu_confirm_yes",
+    "edit_lh",
+    "edit_protocol_points",
+    "edit_protocol_text",
+    "edit_opinion_points",
+    "edit_opinion_text",
+    "edit_clear_all",
+    "clear_confirm_yes",
+    "edit_back_to_slots",
+    "edit_back_to_menu",
+    "edit_close",
 )
 
 _ADMIN_LEGACY_CALLBACK_PREFIXES = (
@@ -55,6 +81,7 @@ _ADMIN_LEGACY_CALLBACK_PREFIXES = (
     "back_months_",
     "back_to_month_",
     "editgame_",
+    "admin_evenings_history",
 )
 
 

@@ -5,8 +5,6 @@ import { requireOrganizerAuth } from '../auth.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import {
   linkVkIdentity,
-  parseVkPollVoteCallback,
-  processVkPollVoteCallback,
   unlinkVkIdentity,
 } from '../services/vkEveningIntegrationService.ts';
 import {
@@ -15,14 +13,10 @@ import {
 } from '../services/vkPublishingService.ts';
 import {
   appendVkOAuthResult,
-  completeVkOAuth,
-  createVkOAuthStart,
   disconnectVkOAuth,
   getVkOAuthStatus,
-  hydrateVkOAuthAccessToken,
 } from '../services/vkOAuthService.ts';
 import {
-  ensureVkCallbackRegistration,
   getVkCallbackRequestConfig,
   getVkCallbackRuntimeStatus,
 } from '../services/vkCallbackSetupService.ts';
@@ -33,24 +27,11 @@ const router = Router();
 const withVkSchema = async (req: any) => {
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
-  await hydrateVkOAuthAccessToken(db);
   return db;
 };
 
 const callbackText = (res: any, status: number, text: string) => res.status(status).type('text/plain').send(text);
 const callbackUrlFor = (req: any) => `${req.protocol}://${req.get('host')}/api/integrations/vk/callback`;
-
-const tryRepairVkCallback = async (db: DatabaseWrapper, req: any) => {
-  const integration = getVkIntegrationStatus();
-  const current = await getVkCallbackRuntimeStatus(db);
-  if (current.configured || !integration.group_token_configured) return current;
-  try {
-    await ensureVkCallbackRegistration(db, callbackUrlFor(req));
-  } catch (error) {
-    console.error('[VK CALLBACK REPAIR]', error);
-  }
-  return getVkCallbackRuntimeStatus(db);
-};
 
 router.post('/vk/callback', async (req, res) => {
   try {
@@ -87,10 +68,9 @@ router.post('/vk/callback', async (req, res) => {
         return;
       }
 
-      if (type === 'poll_vote_new') {
-        const vote = parseVkPollVoteCallback(req.body);
-        if (vote) await processVkPollVoteCallback(tx, vote);
-      }
+      // Poll-based evening RSVP is retired. Keep Callback API acknowledgement and
+      // dedupe storage only so an already-configured VK callback server does not
+      // retry indefinitely, but never mutate canonical evening responses here.
     });
 
     if (duplicate) return callbackText(res, 200, 'ok');
@@ -101,60 +81,34 @@ router.post('/vk/callback', async (req, res) => {
   }
 });
 
-router.post('/vk/oauth/start', requireOrganizerAuth, async (req, res) => {
-  try {
-    const db = await withVkSchema(req);
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
-    const result = await createVkOAuthStart(db, {
-      redirectUri: callbackUrl,
-      returnTo: req.body?.return_to,
-    });
-    res.setHeader('Cache-Control', 'no-store');
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Не удалось начать подключение VK' });
-  }
+router.post('/vk/oauth/start', requireOrganizerAuth, (_req, res) => {
+  res.status(410).json({
+    code: 'vk_organizer_oauth_retired',
+    error: 'Организаторский VK OAuth больше не используется. Публикация работает через серверный ключ сообщества.',
+  });
 });
 
-router.get('/vk/oauth/callback', async (req, res) => {
-  const db = req.db as DatabaseWrapper;
+router.get('/vk/oauth/callback', async (req, res, next) => {
+  // Player Cabinet and public join OAuth callbacks are handled by
+  // vkJoinRegistrationCallbackRouter earlier in the mount order. Reaching this
+  // route means the state belongs to the retired organizer OAuth flow or is unknown.
   const state = String(req.query?.state || '').trim();
-  let returnTo = '/';
-  try {
-    await ensureVkIntegrationSchema(db);
-    if (state) {
-      const pending = await db.get<{ return_to: string }>('SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1', [state]);
-      if (pending?.return_to) returnTo = pending.return_to;
-    }
-
-    const result = await completeVkOAuth(db, {
-      code: req.query?.code,
-      deviceId: req.query?.device_id,
-      state,
-    });
-    returnTo = result.return_to || returnTo;
-
-    try {
-      await ensureVkCallbackRegistration(db, callbackUrlFor(req));
-    } catch (callbackError) {
-      console.error('[VK CALLBACK SETUP]', callbackError);
-    }
-
-    res.setHeader('Cache-Control', 'no-store');
-    return res.redirect(302, appendVkOAuthResult(returnTo, 'vk_connected', '1'));
-  } catch (error: any) {
-    console.error('[VK OAUTH CALLBACK]', error);
-    return res.redirect(302, appendVkOAuthResult(returnTo, 'vk_error', error?.message || 'VK OAuth failed'));
-  }
+  if (!state) return next();
+  const db = req.db as DatabaseWrapper;
+  await ensureVkIntegrationSchema(db);
+  const pending = await db.get<{ return_to: string }>(
+    'SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1',
+    [state],
+  );
+  if (!pending) return next();
+  return res.redirect(302, appendVkOAuthResult(pending.return_to || '/', 'vk_error', 'vk_organizer_oauth_retired'));
 });
 
-router.post('/vk/callback/setup', requireOrganizerAuth, async (req, res) => {
-  try {
-    const db = await withVkSchema(req);
-    res.json(await ensureVkCallbackRegistration(db, callbackUrlFor(req)));
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Не удалось подключить Callback API VK' });
-  }
+router.post('/vk/callback/setup', requireOrganizerAuth, (_req, res) => {
+  res.status(410).json({
+    code: 'vk_poll_callback_setup_retired',
+    error: 'Callback API для старых VK-опросов больше не используется.',
+  });
 });
 
 router.delete('/vk/oauth', requireOrganizerAuth, async (req, res) => {
@@ -178,7 +132,6 @@ router.post('/vk/runtime-health', requireOrganizerAuth, async (req, res) => {
 router.get('/status', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
-    await tryRepairVkCallback(db, req);
     const vk = getVkIntegrationStatus();
     const [oauth, callback] = await Promise.all([getVkOAuthStatus(db), getVkCallbackRuntimeStatus(db)]);
     const callbackUrl = callbackUrlFor(req);

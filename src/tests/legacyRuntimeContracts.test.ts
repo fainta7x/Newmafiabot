@@ -151,6 +151,18 @@ describe('canonical runtime contracts', () => {
     expect(panel).not.toContain("import EveningVkCard from './EveningVkCard.tsx';");
   });
 
+  it('keeps retired VK poll and organizer OAuth paths read-only/inert', () => {
+    const routes = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/integrationRoutes.ts'), 'utf8');
+
+    expect(routes).toContain("code: 'vk_organizer_oauth_retired'");
+    expect(routes).toContain("code: 'vk_poll_callback_setup_retired'");
+    expect(routes).not.toContain('processVkPollVoteCallback');
+    expect(routes).not.toContain('parseVkPollVoteCallback');
+    expect(routes).not.toContain('createVkOAuthStart');
+    expect(routes).not.toContain('completeVkOAuth');
+    expect(routes).not.toContain('ensureVkCallbackRegistration');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

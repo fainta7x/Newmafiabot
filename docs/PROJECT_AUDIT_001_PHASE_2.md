@@ -244,6 +244,26 @@ Phase 2 should not perform a big-bang migration. The safe sequence is:
 
 Each slice needs focused regression tests and must preserve the current Mini App/API contract.
 
+## 13. Startup mutation registry status
+
+Current main now has a machine-readable `STARTUP_MUTATION_REGISTRY` in
+`src/server/startupMutationRegistry.ts` and logs it once during `createApp`.
+
+The registry records, in execution order:
+
+- schema ensure operations;
+- compatibility repairs;
+- data migrations;
+- the remaining historical one-off correction;
+- runtime workers;
+- continuous reconciliations.
+
+This audit slice adds a contract test that compares registry order to the real
+`src/app.ts` call order. That prevents the registry from silently becoming stale
+when startup logic changes.
+
+The registry is observational only. It does not change migration semantics.
+
 ## 13. Phase 2 conclusion so far
 
 The product SQLite itself is not currently showing evidence of two competing Node-side canonical databases. The main architectural problem is instead **two generations of application state running side-by-side**:

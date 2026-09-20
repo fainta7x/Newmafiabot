@@ -570,127 +570,63 @@ async def back_to_specific_month(call: CallbackQuery):
 
 
 # ========== БЭКАП ==========
+# The Python bot's mafia_crm.db is legacy local state, not the canonical product
+# database. Product data lives in /data/mafia_crm.sqlite and is backed up by the
+# dedicated sqlite-backup worker. Never offer a bot-local restore that can be
+# mistaken for restoring the club database.
+
+_BACKUP_INFO = (
+    "📁 <b>Бэкапы клубной базы</b>\n\n"
+    "Каноническая база приложения: <code>/data/mafia_crm.sqlite</code>.\n"
+    "Её резервные копии автоматически создаёт отдельный backup-worker в "
+    "<code>/data/backups</code> и проверяет через SQLite integrity_check.\n\n"
+    "Восстановление через Telegram отключено: оно требует явной проверки файла "
+    "и отдельной процедуры на сервере, чтобы случайно не заменить актуальные данные."
+)
+
+
 @router.message(F.text == "📁 Бэкапы")
 async def admin_backup_menu(message: Message):
-    """Открывает подменю бэкапов"""
     if message.from_user.id != config.BACKUP_ADMIN_ID:
         await message.answer("⛔ Доступ запрещён")
         return
-    
-    await message.answer(
-        "📁 **Управление бэкапами**\n\nВыберите действие:",
-        parse_mode="Markdown",
-        reply_markup=keyboards.backup_submenu()
-    )
+    await message.answer(_BACKUP_INFO, parse_mode="HTML", reply_markup=keyboards.admin_menu())
 
 
 @router.message(F.text == "📁 Создать бэкап")
 async def admin_create_backup(message: Message):
-    """Создание бэкапа и отправка"""
     if message.from_user.id != config.BACKUP_ADMIN_ID:
         await message.answer("⛔ Доступ запрещён")
         return
-    
-    await message.answer("⏳ Создаю бэкап...")
-    
-    # Создаём временный файл
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"mafia_crm_backup_{timestamp}.db"
-    temp_dir = tempfile.gettempdir()
-    temp_path = os.path.join(temp_dir, filename)
-    
-    try:
-        # Копируем БД во временный файл
-        shutil.copy2(database.DB_NAME, temp_path)
-        
-        # Отправляем файл
-        await message.answer_document(
-            FSInputFile(temp_path),
-            caption="📁 Бэкап базы данных"
-        )
-        await message.answer("✅ Бэкап создан и отправлен!")
-        
-        # Удаляем временный файл
-        os.remove(temp_path)
-        
-    except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
-    
-    # Возвращаемся в подменю
-    await admin_backup_menu(message)
+    await message.answer(
+        _BACKUP_INFO + "\n\nРучное создание legacy <code>mafia_crm.db</code> отключено.",
+        parse_mode="HTML",
+        reply_markup=keyboards.admin_menu(),
+    )
 
 
 @router.message(F.text == "🔄 Восстановить бэкап")
 async def admin_restore_backup(message: Message):
-    """Запрос на отправку файла для восстановления"""
     if message.from_user.id != config.BACKUP_ADMIN_ID:
         await message.answer("⛔ Доступ запрещён")
         return
-    
     await message.answer(
-        "📁 **Восстановление базы данных**\n\n"
-        "Отправьте файл бэкапа (`.db`) с вашего компьютера.\n\n"
-        "⚠️ Текущие данные будут заменены!",
-        parse_mode="Markdown"
+        _BACKUP_INFO + "\n\nФайл сюда отправлять не нужно.",
+        parse_mode="HTML",
+        reply_markup=keyboards.admin_menu(),
     )
 
 
 @router.message(F.document)
 async def handle_backup_file(message: Message):
-    """Обработка загруженного файла бэкапа"""
+    """Fail closed: uploaded DB files must never replace any runtime DB from Telegram."""
     if message.from_user.id != config.BACKUP_ADMIN_ID:
-        await message.answer("⛔ Доступ запрещён")
         return
-    
-    document = message.document
-    
-    # Проверяем расширение
-    if not document.file_name.endswith('.db'):
-        await message.answer("❌ Отправьте файл с расширением `.db`")
-        return
-    
-    await message.answer("⏳ Восстанавливаю базу данных...")
-    
-    # Скачиваем файл
-    file = await message.bot.get_file(document.file_id)
-    temp_path = f"temp_restore_{document.file_name}"
-    await message.bot.download_file(file.file_path, temp_path)
-    
-    try:
-        # Проверяем, что это SQLite файл
-        with open(temp_path, 'rb') as f:
-            header = f.read(16)
-            if header[:6] != b'SQLite':
-                await message.answer("❌ Файл не является SQLite базой данных")
-                os.remove(temp_path)
-                return
-        
-        # Создаём бэкап текущей БД
-        backup_dir = "backups"
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir)
-        
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = os.path.join(backup_dir, f"before_restore_{timestamp}.db")
-        shutil.copy2(database.DB_NAME, backup_path)
-        
-        # Восстанавливаем
-        shutil.copy2(temp_path, database.DB_NAME)
-        
-        # Удаляем временный файл
-        os.remove(temp_path)
-        
-        await message.answer(
-            "✅ **База данных восстановлена!**\n\n"
-            f"📁 Бэкап старой БД сохранён: `{backup_path}`\n\n"
-            "🔄 Перезапустите бота для применения изменений.",
-            parse_mode="Markdown"
-        )
-        
-    except Exception as e:
-        await message.answer(f"❌ Ошибка восстановления: {e}")
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    await message.answer(
+        "⛔ Восстановление базы из Telegram отключено. "
+        "Файл не применён и никакие данные не изменены.",
+        reply_markup=keyboards.admin_menu(),
+    )
 
 
 @router.message(F.text == "🔙 Назад в админ-меню")

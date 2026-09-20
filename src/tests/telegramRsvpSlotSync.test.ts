@@ -21,11 +21,12 @@ describe('Telegram evening RSVP contracts', () => {
     expect(source).not.toContain("method: 'POST'");
   });
 
-  it('freezes routed Telegram event posts when an evening leaves an active destination', () => {
+  it('finalizes routed Telegram event posts when an evening leaves an active destination', () => {
     const source = read('handlers/crm_telegram_publishing.py');
 
-    expect(source).toContain('"action": "archived"');
-    expect(source).not.toContain('closed_event_text');
-    expect(source).not.toContain('"action": "closed"');
+    expect(source).toContain('closed_event_text(evening, cancelled=cancelled)');
+    expect(source).toContain('"action": "finalized"');
+    expect(source).toContain('None,');
+    expect(source).not.toContain('"action": "archived"');
   });
 });

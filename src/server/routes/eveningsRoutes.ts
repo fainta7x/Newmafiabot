@@ -22,6 +22,7 @@ import {
   updateGuestPlaceholder,
 } from '../services/guestPlayerService.ts';
 import { settleEveningFromCloseout } from '../services/eveningCloseoutService.ts';
+import { finalizeExistingVkEveningPublications } from '../services/vkDirectJoinPublishingService.ts';
 import baseRouter from './eveningsRoutesBase.ts';
 
 const router = Router();
@@ -226,6 +227,13 @@ router.patch('/:id', requireOrganizerAuth, async (req, res) => {
     });
 
     const updated = await db.get<any>('SELECT * FROM game_evenings WHERE id = ?', [eveningId]);
+    if (String(updated?.status || '') === 'cancelled') {
+      try {
+        await finalizeExistingVkEveningPublications(db, eveningId);
+      } catch (error) {
+        console.warn('[EVENING UPDATE] VK cancellation finalization failed:', error instanceof Error ? error.message : String(error));
+      }
+    }
     const pricePerGame = regular ? REGULAR_PRICE : await loadEveningPricePerGame(db, eveningId);
     return res.json({
       ...withCanonicalFormat(updated),

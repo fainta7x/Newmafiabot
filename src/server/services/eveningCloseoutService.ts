@@ -5,6 +5,7 @@ import { getEveningResponse } from '../../lib/eveningResponse.ts';
 import { setParticipantAttendance } from './eveningParticipantState.ts';
 import { reconcileRegularEveningPayments } from './eveningPaymentPricingService.ts';
 import { runCrmAutomations } from './crmAutomationService.ts';
+import { finalizeExistingVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 
 const CLOSEOUT_TASK_PREFIX = 'evening-close:';
 const HOUR_MS = 60 * 60 * 1000;
@@ -270,6 +271,14 @@ export async function settleEveningFromCloseout(
   });
 
   await runCrmAutomations(db);
+  // Publication finalization is best-effort and must never roll back a settled
+  // evening. Telegram is finalized by its durable outbox trigger; VK is edited
+  // directly here using the existing post identity only.
+  try {
+    await finalizeExistingVkEveningPublications(db, eveningId);
+  } catch (error) {
+    console.warn('[EVENING CLOSEOUT] VK finalization failed:', error instanceof Error ? error.message : String(error));
+  }
   return {
     success: true,
     alreadySettled: false,

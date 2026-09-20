@@ -111,6 +111,19 @@ export const buildDirectVkEveningAnnouncement = async (
   return lines.join('\n');
 };
 
+const buildClosedVkEveningAnnouncement = (evening: EveningRow) => {
+  const cancelled = String(evening.status || '') === 'cancelled';
+  const lines = [
+    cancelled ? '❌ Событие отменено' : '🔒 Запись закрыта',
+    '',
+    `🕵️ ${evening.title}`,
+    `📅 ${formatDate(evening)}`,
+  ];
+  if (evening.venue) lines.push(`📍 ${evening.venue}`);
+  lines.push('', cancelled ? 'Этот вечер отменён.' : 'Игровой вечер завершён.');
+  return lines.join('\n');
+};
+
 const loadEvening = (db: DatabaseWrapper, eveningId: string) => db.get<EveningRow>(`
   SELECT id, title, starts_at, timezone, venue, status, default_price, settled_at
     FROM game_evenings
@@ -255,4 +268,46 @@ export async function syncDirectVkEveningPublications(
     throw Object.assign(new Error(attempted.map((item) => item.error).filter(Boolean).join('; ') || 'VK-публикация не удалась'), { statusCode: 502 });
   }
   return { evening_id: eveningId, results };
+}
+
+export async function finalizeExistingVkEveningPublications(
+  db: DatabaseWrapper,
+  eveningId: string,
+) {
+  const evening = await loadEvening(db, eveningId);
+  if (!evening) throw Object.assign(new Error('Вечер не найден'), { statusCode: 404 });
+
+  const message = buildClosedVkEveningAnnouncement(evening);
+  const results: Array<{ destination: string; success: boolean; skipped?: boolean; error?: string }> = [];
+  for (const destination of getVkDestinations()) {
+    if (!destination.supported || !destination.groupId) continue;
+    const existing = await getPublication(db, evening.id, destination.key);
+    if (!existing?.post_id) {
+      results.push({ destination: destination.key, success: true, skipped: true });
+      continue;
+    }
+    try {
+      await editVkWallPostWithPublisher({
+        groupId: destination.groupId,
+        postId: Number(existing.post_id),
+        message,
+      });
+      const now = nowIso();
+      await db.run(
+        `UPDATE vk_evening_publications
+            SET status='archived', updated_at=?, last_error=NULL
+          WHERE evening_id=? AND destination_key=?`,
+        [now, evening.id, destination.key],
+      );
+      results.push({ destination: destination.key, success: true });
+    } catch (error) {
+      await savePublicationError(db, evening.id, destination, error);
+      results.push({
+        destination: destination.key,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return { evening_id: evening.id, results };
 }

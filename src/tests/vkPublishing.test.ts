@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection } from '../db/index.ts';
 import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
-import { syncDirectVkEveningPublications } from '../server/services/vkDirectJoinPublishingService.ts';
+import { finalizeExistingVkEveningPublications, syncDirectVkEveningPublications } from '../server/services/vkDirectJoinPublishingService.ts';
 import {
   canEditVkWallPosts,
   createVkWallPost,
@@ -91,6 +91,67 @@ describe('VK publishing adapter', () => {
     await editVkWallPost({ groupId: '212761164', postId: 77, message: 'Обновление' });
     const body = fetchMock.mock.calls[0][1]?.body as URLSearchParams;
     expect(body.get('access_token')).toBe('user-token');
+  });
+
+  it('finalizes an existing VK post in place when the evening is cancelled', async () => {
+    delete process.env.VK_ACCESS_TOKEN;
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ response: 1 }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`
+      INSERT INTO game_evenings (
+        id, title, starts_at, format, status, default_price, created_at, updated_at
+      ) VALUES ('evening-cancelled', 'Игровой вечер', ?, 'CASUAL', 'cancelled', 400, ?, ?)
+    `, [now, now, now]);
+    await db.run(`
+      INSERT INTO vk_evening_publications (
+        evening_id, destination_key, group_id, post_owner_id, post_id,
+        answer_map_json, status, external_url, published_at, updated_at
+      ) VALUES ('evening-cancelled', 'public', '212761164', -212761164, 91,
+        '{}', 'published', 'https://vk.com/wall-212761164_91', ?, ?)
+    `, [now, now]);
+
+    const result = await finalizeExistingVkEveningPublications(db, 'evening-cancelled');
+    expect(result.results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ destination: 'public', success: true }),
+    ]));
+    expect(await db.get<any>(`
+      SELECT status, post_id, last_error FROM vk_evening_publications
+       WHERE evening_id='evening-cancelled' AND destination_key='public'
+    `)).toEqual({ status: 'archived', post_id: 91, last_error: null });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.vk.com/method/wall.edit');
+    const body = init?.body as URLSearchParams;
+    expect(body.get('post_id')).toBe('91');
+    expect(body.get('message')).toContain('Событие отменено');
+    expect(body.get('message')).not.toContain('/join/');
+  });
+
+  it('does not create a VK post while finalizing an evening with no publication', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`
+      INSERT INTO game_evenings (
+        id, title, starts_at, format, status, default_price, created_at, updated_at
+      ) VALUES ('evening-closed-no-post', 'Игровой вечер', ?, 'CASUAL', 'completed', 400, ?, ?)
+    `, [now, now, now]);
+
+    const result = await finalizeExistingVkEveningPublications(db, 'evening-closed-no-post');
+    expect(result.results.every((item) => item.skipped)).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('updates an existing public post with the community publisher token', async () => {

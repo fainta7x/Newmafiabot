@@ -55,6 +55,19 @@ describe('canonical runtime contracts', () => {
     expect(shutdown).not.toContain('delete_webhook');
   });
 
+  it('pins canonical Amvera product storage to persistent SQLite and keeps legacy bot backups disabled', () => {
+    const webStart = fs.readFileSync(path.resolve(process.cwd(), 'deploy/start-web.sh'), 'utf8');
+    const botMain = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+    const backupWorker = fs.readFileSync(path.resolve(process.cwd(), 'deploy/backup-sqlite.cjs'), 'utf8');
+    const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+
+    expect(webStart).toContain('export DATABASE_PATH="/data/mafia_crm.sqlite"');
+    expect(webStart).toContain('unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN');
+    expect(botMain).not.toContain('asyncio.create_task(daily_backup_task())');
+    expect(backupWorker).toContain("db.pragma('integrity_check'");
+    expect(packageJson.scripts['backup:verify']).toBe('node deploy/verify-sqlite-backup.cjs');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

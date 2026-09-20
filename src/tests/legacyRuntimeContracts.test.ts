@@ -190,6 +190,18 @@ describe('canonical runtime contracts', () => {
     expect(guard).toContain('"judge_remove_"');
   });
 
+  it('intercepts the remaining legacy Telegram game-control callbacks', () => {
+    const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
+
+    for (const token of [
+      '"🎲 Новая игра"', '"game_confirm_yes"', '"select_mafia_"',
+      '"foul_add_"', '"ppk_team_"', '"score_finish"',
+      '"nominate_toggle_"', '"vote_set_"', '"kill_select_"', '"numeric_done"',
+    ]) {
+      expect(guard).toContain(token);
+    }
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

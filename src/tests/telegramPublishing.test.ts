@@ -148,6 +148,85 @@ describe('Telegram publishing destinations', () => {
     )).rejects.toThrow();
   });
 
+  it('does not auto-create a Telegram post for a far-future evening mutation', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    const now = new Date('2030-01-01T12:00:00.000Z');
+    const future = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES ('ev-auto-future', 'Будущий вечер', ?, 'Europe/Moscow', 'Тула', 'CASUAL', 'published', 20, 100, ?, ?)`,
+      [future, now.toISOString(), now.toISOString()],
+    );
+
+    let deliveries = 0;
+    const drained = await drainTelegramSyncOutbox(db, {
+      now,
+      deliver: async () => {
+        deliveries += 1;
+        return { success: true, status: 200 };
+      },
+    });
+
+    expect(deliveries).toBe(0);
+    expect(drained).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });
+    expect(await db.get("SELECT sync_key FROM telegram_sync_outbox WHERE sync_key='evening:ev-auto-future'")).toBeNull();
+  });
+
+  it('refreshes an existing Telegram publication even when the evening is far in the future', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    const now = new Date('2030-01-01T12:00:00.000Z');
+    const future = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES ('ev-existing-future', 'Будущий вечер', ?, 'Europe/Moscow', 'Тула', 'CASUAL', 'published', 20, 100, ?, ?)`,
+      [future, now.toISOString(), now.toISOString()],
+    );
+    await db.run(
+      `INSERT INTO evening_telegram_publications
+        (evening_id, destination_id, chat_id, topic_id, message_id, sent_at, updated_at)
+       VALUES ('ev-existing-future', 'club', '-1001', 42, 777, ?, ?)`,
+      [now.toISOString(), now.toISOString()],
+    );
+
+    let deliveries = 0;
+    const drained = await drainTelegramSyncOutbox(db, {
+      now,
+      deliver: async () => {
+        deliveries += 1;
+        return { success: true, status: 200 };
+      },
+    });
+
+    expect(deliveries).toBe(1);
+    expect(drained).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });
+  });
+
+  it('allows an explicit organizer sync to create a far-future Telegram post', async () => {
+    db = createDatabaseConnection(':memory:');
+    await ensureTelegramPublishingSchema(db);
+    const now = new Date('2030-01-01T12:00:00.000Z');
+    const future = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    await db.run(
+      `INSERT INTO game_evenings (id, title, starts_at, timezone, venue, format, status, capacity, default_price, created_at, updated_at)
+       VALUES ('ev-manual-future', 'Будущий вечер', ?, 'Europe/Moscow', 'Тула', 'CASUAL', 'published', 20, 100, ?, ?)`,
+      [future, now.toISOString(), now.toISOString()],
+    );
+
+    let deliveries = 0;
+    await drainTelegramSyncOutbox(db, {
+      now,
+      allowEveningCreateOutsideWindow: true,
+      deliver: async () => {
+        deliveries += 1;
+        return { success: true, status: 200 };
+      },
+    });
+
+    expect(deliveries).toBe(1);
+  });
+
   it('coalesces evening mutations and retries a failed Telegram sync', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
@@ -164,6 +243,7 @@ describe('Telegram publishing destinations', () => {
 
     const failed = await drainTelegramSyncOutbox(db, {
       now: new Date('2030-01-01T12:00:00.000Z'),
+      allowEveningCreateOutsideWindow: true,
       deliver: async () => ({ success: false, status: 502, error: 'bot offline' }),
     });
     expect(failed).toMatchObject({ processed: 1, succeeded: 0, failed: 1 });
@@ -181,6 +261,7 @@ describe('Telegram publishing destinations', () => {
 
     const succeeded = await drainTelegramSyncOutbox(db, {
       now: new Date('2030-01-01T12:01:00.000Z'),
+      allowEveningCreateOutsideWindow: true,
       deliver: async () => ({ success: true, status: 200, data: { ok: true } }),
     });
     expect(succeeded).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });

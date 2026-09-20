@@ -37,6 +37,8 @@ const agents = readText('AGENTS.md');
 const projectState = readText('docs/PROJECT_STATE.md');
 const runbook = readText('docs/RUNBOOK.md');
 const renderYaml = readText('render.yaml');
+const amveraYaml = readText('amvera.yml');
+const startWeb = readText('deploy/start-web.sh');
 const productionEnvExample = readText('.env.production.example');
 
 const branch = runGit('rev-parse', '--abbrev-ref', 'HEAD');
@@ -65,8 +67,11 @@ const navigationTools = [
 
 const renderTursoUrl = hasEnvKey(renderYaml, 'TURSO_DATABASE_URL');
 const renderTursoToken = hasEnvKey(renderYaml, 'TURSO_AUTH_TOKEN');
-const envExampleTursoUrl = /(?:^|\n)TURSO_DATABASE_URL=/m.test(productionEnvExample);
-const envExampleTursoToken = /(?:^|\n)TURSO_AUTH_TOKEN=/m.test(productionEnvExample);
+const amveraPersistenceMount = capture(amveraYaml, /(?:^|\n)\s*persistenceMount:\s*([^\n#]+)/);
+const amveraContainerPort = capture(amveraYaml, /(?:^|\n)\s*containerPort:\s*([^\n#]+)/);
+const productionDatabasePath = capture(startWeb, /export DATABASE_PATH=["']?([^"'\n]+)["']?/);
+const startWebUnsetsTurso = /unset\s+TURSO_DATABASE_URL\s+TURSO_AUTH_TOKEN/.test(startWeb);
+const envExampleDatabasePath = capture(productionEnvExample, /(?:^|\n)DATABASE_PATH=([^\n#]+)/);
 const agentsPrBudget = /(?:at most|maximum) \*\*3 pull requests total\*\*/i.test(agents);
 const runbookPrBudget = /maximum \*\*3 PRs\*\*/i.test(runbook);
 const pinnedCurrentMain = /\*\*Current main:\*\*/i.test(projectState);
@@ -81,12 +86,22 @@ const render = {
   tursoAuthTokenDeclared: renderTursoToken,
 };
 
+const amvera = {
+  containerPort: amveraContainerPort,
+  persistenceMount: amveraPersistenceMount,
+  databasePath: productionDatabasePath,
+  unsetsTurso: startWebUnsetsTurso,
+};
+
 const storage = {
-  productionContract: renderTursoUrl && renderTursoToken
-    ? 'turso-primary-when-secrets-configured'
-    : 'INVALID-or-local-only',
-  localFallbackPath: render.databasePath,
-  envExampleDocumentsTurso: envExampleTursoUrl && envExampleTursoToken,
+  productionContract: (
+    amvera.persistenceMount === '/data'
+    && amvera.databasePath === '/data/mafia_crm.sqlite'
+    && amvera.unsetsTurso
+  ) ? 'amvera-persistent-sqlite' : 'INVALID-production-storage-contract',
+  canonicalPath: amvera.databasePath,
+  persistenceMount: amvera.persistenceMount,
+  envExampleDatabasePath,
   checkpointRole: 'bootstrap/recovery only; never overwrite non-empty runtime data',
 };
 
@@ -106,14 +121,10 @@ for (const tool of navigationTools) {
 if (!projectStateDate) checkFailures.push('docs/PROJECT_STATE.md has no Status date marker');
 if (pinnedCurrentMain) checkFailures.push('docs/PROJECT_STATE.md must not pin a mutable Current main SHA; Git owns the current SHA');
 if (!agentsPrBudget || !runbookPrBudget) checkFailures.push('3-PR-per-user-request work budget must be declared in both AGENTS.md and RUNBOOK.md');
-if (!render.service) checkFailures.push('render.yaml service name was not detected');
-if (!render.branch) checkFailures.push('render.yaml branch was not detected');
-if (!render.autoDeployTrigger) checkFailures.push('render.yaml autoDeployTrigger was not detected');
-if (!render.healthCheckPath) checkFailures.push('render.yaml healthCheckPath was not detected');
-if (renderTursoUrl !== renderTursoToken) checkFailures.push('render.yaml must declare TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together');
-if (!renderTursoUrl || !renderTursoToken) checkFailures.push('render.yaml must document the current Turso production storage contract');
-if (!envExampleTursoUrl || !envExampleTursoToken) checkFailures.push('.env.production.example must document both Turso production variables');
-if (/\/var\/data\/mafia_crm\.sqlite/.test(productionEnvExample)) checkFailures.push('.env.production.example still contains obsolete /var/data SQLite production path');
+if (amvera.persistenceMount !== '/data') checkFailures.push('amvera.yml must mount persistent storage at /data');
+if (amvera.databasePath !== '/data/mafia_crm.sqlite') checkFailures.push('deploy/start-web.sh must pin DATABASE_PATH=/data/mafia_crm.sqlite');
+if (!amvera.unsetsTurso) checkFailures.push('deploy/start-web.sh must unset stale Turso variables in canonical Amvera production');
+if (storage.envExampleDatabasePath !== '/data/mafia_crm.sqlite') checkFailures.push('.env.production.example must document DATABASE_PATH=/data/mafia_crm.sqlite');
 
 const info = {
   project: packageJson.name || 'Newmafiabot',
@@ -132,6 +143,7 @@ const info = {
     docs,
     navigationTools,
   },
+  amvera,
   render,
   storage,
   workContract,
@@ -139,7 +151,7 @@ const info = {
     ok: checkFailures.length === 0,
     failures: checkFailures,
   },
-  note: 'Read-only repository/config snapshot. Current SHA comes from Git. This does not query GitHub Actions, Render secrets, Turso contents or live deployed runtime.',
+  note: 'Read-only repository/config snapshot. Current SHA comes from Git. This does not query GitHub Actions, Amvera deployment state, persistent volume contents or live runtime.',
 };
 
 const jsonMode = process.argv.includes('--json');
@@ -168,22 +180,21 @@ if (jsonMode) {
   console.log('Work contract:');
   console.log(`  max PRs per user request: ${info.workContract.maxPrsPerUserRequest ?? 'not enforced'}`);
   console.log('');
-  console.log('Render/storage config:');
-  console.log(`  service: ${info.render.service || 'not found'}`);
-  console.log(`  branch: ${info.render.branch || 'not found'}`);
-  console.log(`  auto deploy: ${info.render.autoDeployTrigger || 'not found'}`);
-  console.log(`  health: ${info.render.healthCheckPath || 'not found'}`);
-  console.log(`  Turso URL declared: ${yesNo(info.render.tursoDatabaseUrlDeclared)}`);
-  console.log(`  Turso token declared: ${yesNo(info.render.tursoAuthTokenDeclared)}`);
+  console.log('Amvera/storage config:');
+  console.log(`  container port: ${info.amvera.containerPort || 'not found'}`);
+  console.log(`  persistence mount: ${info.amvera.persistenceMount || 'not found'}`);
+  console.log(`  canonical DB: ${info.amvera.databasePath || 'not found'}`);
+  console.log(`  stale Turso vars disabled by start script: ${yesNo(info.amvera.unsetsTurso)}`);
   console.log(`  production storage contract: ${info.storage.productionContract}`);
-  console.log(`  local DB fallback: ${info.render.databasePath || 'not found'}`);
+  console.log(`  env example DB: ${info.storage.envExampleDatabasePath || 'not found'}`);
+  console.log(`  legacy Render config present: ${yesNo(Boolean(info.render.service))}`);
   console.log('');
   console.log(`Handoff integrity: ${info.check.ok ? 'OK' : 'FAILED'}`);
   for (const failure of checkFailures) console.log(`  - ${failure}`);
   console.log('');
   console.log('Navigate: known feature -> FEATURE_MAP; symptom -> ERROR_PLAYBOOK; fuzzy term -> npm run project:find.');
   console.log('After edits: npm run project:affected -- <changed files>.');
-  console.log('Note: this command does not prove GitHub CI, live Render secrets, deployed SHA or runtime health.');
+  console.log('Note: this command does not prove GitHub CI, Amvera deployed SHA, persistent-volume contents or runtime health.');
 }
 
 if (checkMode && !info.check.ok) process.exitCode = 1;

@@ -77,6 +77,16 @@ describe('canonical runtime contracts', () => {
     expect(backupSection).toContain('Восстановление базы из Telegram отключено');
   });
 
+  it('keeps the production env example aligned with persistent Amvera SQLite', () => {
+    const envExample = fs.readFileSync(path.resolve(process.cwd(), '.env.production.example'), 'utf8');
+
+    expect(envExample).toContain('DATABASE_PATH=/data/mafia_crm.sqlite');
+    expect(envExample).toContain('USE_WEBHOOK=true');
+    expect(envExample).toContain('BOT_SERVICE_URL=http://127.0.0.1:8081');
+    expect(envExample).not.toContain('TURSO_DATABASE_URL=<set-in-render-secret>');
+    expect(envExample).not.toContain('DATABASE_PATH=/tmp/2la-noire-web-staging');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

@@ -10,13 +10,6 @@ describe('Bogdana historical correction migration', () => {
   it('applies once and records a durable completion marker', async () => {
     const db = createDatabaseConnection(':memory:');
     await db.exec(`
-      CREATE TABLE migration_history (
-        id TEXT PRIMARY KEY,
-        migration_name TEXT NOT NULL,
-        status TEXT NOT NULL,
-        details_json TEXT,
-        executed_at TEXT NOT NULL
-      );
       CREATE TABLE tournaments (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,

@@ -213,13 +213,9 @@ async def start_with_registration(message: Message, command: CommandObject, stat
     if not message.from_user:
         return
 
-    await database.init_db()
-    await database.add_or_update_user(
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-    )
-
+    # Canonical registration/linking lives in the Node product DB. Do not mirror
+    # every /start into the legacy Python users table; keep legacy access read-only
+    # only for one-time recovery of an existing historical nickname.
     args = (command.args or "").strip()
     canonical = await get_canonical_profile(message.from_user.id)
     if canonical.get("success"):
@@ -288,10 +284,6 @@ async def finish_registration(message: Message, state: FSMContext):
     if result.get("success"):
         player = (result.get("data") or {}).get("player") or {}
         registered_nickname = str(player.get("nickname") or nickname)
-        try:
-            await database.update_nickname(message.from_user.id, registered_nickname)
-        except Exception:
-            pass
         await state.clear()
         await message.answer(
             f"✅ Готово! Профиль «{registered_nickname}» создан и привязан к твоему Telegram."

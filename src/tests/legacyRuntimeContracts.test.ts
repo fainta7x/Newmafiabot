@@ -151,6 +151,20 @@ describe('canonical runtime contracts', () => {
     expect(panel).not.toContain("import EveningVkCard from './EveningVkCard.tsx';");
   });
 
+  it('keeps Telegram /start and new registration from writing the legacy users table', () => {
+    const registration = fs.readFileSync(path.resolve(process.cwd(), 'handlers/registration.py'), 'utf8');
+    const startIndex = registration.indexOf('async def start_with_registration');
+    const finishIndex = registration.indexOf('async def finish_registration');
+    const startBlock = registration.slice(startIndex, finishIndex);
+    const finishBlock = registration.slice(finishIndex, registration.indexOf('\n@router.', finishIndex + 1));
+
+    expect(startBlock).not.toContain('database.add_or_update_user');
+    expect(startBlock).not.toContain('database.init_db');
+    expect(startBlock).toContain('database.get_user_by_id');
+    expect(finishBlock).not.toContain('database.update_nickname');
+    expect(finishBlock).toContain('register_canonical_profile');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

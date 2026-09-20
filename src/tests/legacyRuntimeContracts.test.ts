@@ -116,6 +116,14 @@ describe('canonical runtime contracts', () => {
     expect(guard).toContain('Эта старая кнопка отключена');
   });
 
+  it('finalizes old Telegram evening posts instead of leaving active buttons behind', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'handlers/crm_telegram_publishing.py'), 'utf8');
+
+    expect(source).toContain('closed_event_text(evening, cancelled=cancelled)');
+    expect(source).toContain('"action": "finalized"');
+    expect(source).toContain('None,');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

@@ -67,19 +67,24 @@ async def on_startup():
     global bot, dp
     await init_db()
     logger.info("✅ БД инициализирована")
-    await bot.delete_webhook(drop_pending_updates=True)
     await setup_bot_commands(bot)
     logger.info("✅ Команды для меню установлены!")
     webhook_url = f"{config.WEBHOOK_URL}/webhook"
+    # Do not delete the webhook before setting it. During an Amvera rolling deploy
+    # the old and new bot replicas overlap; deleting here creates an avoidable gap
+    # and dropping pending updates can lose Telegram events.
     await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     logger.info(f"✅ Вебхук установлен: {webhook_url}")
 
 
 async def on_shutdown():
     global bot
-    await bot.delete_webhook()
+    # Never delete the shared production webhook on process shutdown. In a rolling
+    # deploy, the retiring replica can shut down after the replacement has already
+    # installed the same webhook, and an unconditional delete would remove the new
+    # replica's webhook too.
     await bot.session.close()
-    logger.info("✅ Бот остановлен")
+    logger.info("✅ Бот остановлен без удаления production webhook")
 
 
 async def handle_webhook(request):

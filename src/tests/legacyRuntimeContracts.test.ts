@@ -45,6 +45,16 @@ describe('canonical runtime contracts', () => {
     }
   });
 
+  it('keeps the production Telegram webhook stable across rolling deploys', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+    const startup = source.slice(source.indexOf('async def on_startup():'), source.indexOf('async def on_shutdown():'));
+    const shutdown = source.slice(source.indexOf('async def on_shutdown():'), source.indexOf('async def handle_webhook'));
+
+    expect(startup).toContain('await bot.set_webhook(webhook_url');
+    expect(startup).not.toContain('delete_webhook');
+    expect(shutdown).not.toContain('delete_webhook');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

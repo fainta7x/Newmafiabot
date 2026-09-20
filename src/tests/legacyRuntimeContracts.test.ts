@@ -139,6 +139,12 @@ describe('canonical runtime contracts', () => {
     expect(appSource).toContain('logStartupMutationRegistry()');
   });
 
+  it('uses the direct VK evening card in the active CRM announcement panel', () => {
+    const panel = fs.readFileSync(path.resolve(process.cwd(), 'src/components/crm/EveningAnnouncementPanel.tsx'), 'utf8');
+    expect(panel).toContain("import EveningVkCard from './EveningVkCard.vk-direct.tsx';");
+    expect(panel).not.toContain("import EveningVkCard from './EveningVkCard.tsx';");
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

@@ -46,7 +46,21 @@ async function createBackup() {
     const integrity = db.pragma('integrity_check', { simple: true });
     if (integrity !== 'ok') throw new Error(`integrity_check returned ${String(integrity)}`);
     await db.backup(destination);
-    console.log(`[BACKUP] Created ${destination}`);
+
+    // Treat a backup as successful only after the standalone file can be opened
+    // and passes SQLite integrity_check. This catches truncated/corrupt snapshots
+    // before retention cleanup can remove older known-good copies.
+    const backupStat = fs.statSync(destination);
+    if (backupStat.size === 0) throw new Error('created backup is empty');
+    const verifyDb = new Database(destination, { readonly: true, fileMustExist: true });
+    try {
+      const backupIntegrity = verifyDb.pragma('integrity_check', { simple: true });
+      if (backupIntegrity !== 'ok') throw new Error(`backup integrity_check returned ${String(backupIntegrity)}`);
+    } finally {
+      verifyDb.close();
+    }
+
+    console.log(`[BACKUP] Created and verified ${destination}`);
     cleanupOldBackups();
   } finally {
     db.close();

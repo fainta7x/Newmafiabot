@@ -61,7 +61,7 @@ Then verify the UI path that triggered it (`EveningParticipantsWorkboard`, `Even
 Never “fix” this by:
 
 - deleting financial history;
-- resetting Turso;
+- resetting the canonical product DB;
 - importing a checkpoint;
 - weakening the unique constraint without understanding ledger identity.
 
@@ -154,17 +154,18 @@ Compare source data before patching only the final displayed number.
 
 Treat this as a data-safety incident until disproven.
 
-Do not assume `DATABASE_PATH` is production DB.
+Canonical Amvera product data is `/data/mafia_crm.sqlite`, hard-pinned by `deploy/start-web.sh`.
 
 Check:
 
-1. `src/db/index.ts` backend selection;
-2. `PROJECT_STATE` / `project:status` production contract;
-3. Turso pair configured together;
-4. runtime/startup behavior;
-5. only then local fallback/checkpoint/avatar storage.
+1. deployed `main` SHA and `deploy/start-web.sh`;
+2. startup log contains `[STORAGE] WebApp SQLite: /data/mafia_crm.sqlite`;
+3. Amvera `/data` still contains the non-empty product DB;
+4. recent app-level backups in `/data/backups/`;
+5. runtime/startup migration logs;
+6. only then checkpoint/bootstrap or legacy bot-local `mafia_crm.db`.
 
-Never restore an old checkpoint over non-empty runtime DB just to make data reappear.
+Never restore an old checkpoint or legacy bot DB over a non-empty product DB just to make data reappear.
 
 ## Deploy happened but app looks old / differs from green main
 
@@ -183,11 +184,12 @@ Green main != deployed main != runtime verified.
 
 Before any restore:
 
-1. determine selected DB backend from `src/db/index.ts`;
-2. confirm Turso pair vs local fallback;
+1. confirm deployed `deploy/start-web.sh` still hard-pins `/data/mafia_crm.sqlite`;
+2. confirm the file exists and is non-empty in Amvera persistent data;
 3. check recent live-data markers;
-4. inspect startup logs for bootstrap behavior;
-5. stop before destructive recovery unless target DB and recovery source are proven.
+4. inspect startup logs for bootstrap/migration behavior;
+5. inspect `/data/backups/` and verify a candidate with `npm run backup:verify -- <file>`;
+6. stop before destructive recovery unless target DB and recovery source are proven.
 
 ## Telegram response changes but game choices do not
 

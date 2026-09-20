@@ -2,7 +2,7 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-17
+**Status date:** 2026-09-20
 
 **Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. CRM-PAY-003 / PR #292 implements factual regular-evening pricing at 100 ₽ per actually completed game with a 400 ₽ cap, debt-free RSVP/slot planning and application-level historical reconciliation; it remains subject to review, merge, deployment and runtime/data verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
@@ -33,29 +33,30 @@ The **actual current main SHA belongs to Git**, not this document. Always read i
 - Public origin: `https://2la-noire-chagina7x.waw0.amvera.tech`.
 - The container runs nginx, Node web/API and the integrated Python Telegram bot under Supervisor.
 - `/api/health` is shallow liveness.
-- `/api/health/runtime` is the safe deep Turso/bot/Telegram check.
+- `/api/health/runtime` is the safe deep canonical-DB/bot/Telegram check.
 - Legacy Render is retained only as historical/fallback configuration, not the canonical deployment target.
 - The separate `fainta7x/mafiabot` repository is legacy and is not the source selected for the combined deployment.
 
 ### Database — critical
 
-`src/db/index.ts` owns backend selection.
+Canonical Amvera product storage is persistent SQLite:
 
-**Production-primary:** remote Turso whenever both are configured:
+`/data/mafia_crm.sqlite`
 
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
+`deploy/start-web.sh` hard-pins this path on every production start and explicitly unsets `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. The generic Turso adapter remains in source for legacy/recovery compatibility but is not the canonical production path.
 
-Existing non-empty Turso data always wins over repository checkpoint/bootstrap data.
+Existing non-empty `/data/mafia_crm.sqlite` always wins over repository checkpoint/bootstrap data. The checkpoint is used only when the canonical file is missing or empty.
 
-`DATABASE_PATH` is fallback/local storage. The Python bot may still keep legacy local state under `/data`, but that must never replace or seed canonical Turso data.
+The Python bot still has legacy local state at `/data/mafia_crm.db`; it is not the canonical product database and must never replace or seed `/data/mafia_crm.sqlite`.
 
 Repository checkpoint files are bootstrap/recovery artifacts only:
 
 - `mafia_crm.checkpoint.sqlite.gz.b64`
 - `mafia_crm.checkpoint.meta.json`
 
-Never reset/import/restore production Turso as a normal bug fix or deploy step.
+Canonical product backups are created by `deploy/backup-sqlite.cjs` into `/data/backups/` with SQLite's backup API and integrity verification. Use `npm run backup:verify -- <backup.sqlite>` for an isolated restore drill. Amvera's own `/data` snapshots are a separate platform-level safety layer.
+
+Never overwrite/reset/restore a non-empty production SQLite file as a normal bug fix or deploy step.
 
 ## Current product state
 

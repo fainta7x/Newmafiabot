@@ -2,8 +2,8 @@
 
 ## Health endpoints
 
-- `GET /api/health` is the cheap public **liveness** endpoint. It proves that nginx can reach the Node process and must not depend on Turso or Telegram.
-- `GET /api/health/runtime` is the public, non-destructive **deep runtime** endpoint. It returns HTTP 200 only when Turso, the internal Python bot service and the Telegram API/webhook are healthy; otherwise it returns HTTP 503.
+- `GET /api/health` is the cheap public **liveness** endpoint. It proves that nginx can reach the Node process and must not depend on the product database or Telegram.
+- `GET /api/health/runtime` is the public, non-destructive **deep runtime** endpoint. It returns HTTP 200 only when the canonical product database, the internal Python bot service and the Telegram API/webhook are healthy; otherwise it returns HTTP 503.
 - `POST /api/telegram-settings/actions/health` is the detailed organizer-only Telegram diagnostic used by Organizer CRM → Telegram → “Проверить связь без отправки”.
 
 No health endpoint writes to the database or sends a Telegram message. The public deep response contains only `ok`/`fail` component states and never returns tokens, database paths, webhook URLs, usernames or raw upstream errors.
@@ -15,7 +15,7 @@ The Telegram probe verifies:
 - the webhook equals `WEBHOOK_URL + /webhook` (the public ingress), while `BOT_SERVICE_URL + /health` checks the internal Python process;
 - a Telegram delivery error is considered active while updates remain queued. A recovered delivery with no pending updates is not kept unhealthy by Telegram's historical last-error field.
 
-Do not use `/api/health/runtime` as a Kubernetes liveness probe. A temporary Turso or Telegram outage must alert the organizer, not restart-loop or remove the otherwise working player site.
+Do not use `/api/health/runtime` as a Kubernetes liveness probe. A temporary database or Telegram outage must alert the organizer, not restart-loop or remove the otherwise working player site.
 
 ## Independent Telegram monitor
 

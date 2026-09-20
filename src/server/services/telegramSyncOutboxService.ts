@@ -42,6 +42,7 @@ const activeDrains = new WeakSet<object>();
 const workerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
 const DEFAULT_WORKER_INTERVAL_MS = 30_000;
 const DEFAULT_BATCH_SIZE = 8;
+const AUTOMATIC_EVENING_CREATE_WINDOW_MS = (4 * 24 * 60 * 60 * 1000) + (60 * 60 * 1000);
 
 const retryDelayMs = (attemptNumber: number) =>
   Math.min(10 * 60_000, 15_000 * (2 ** Math.max(0, attemptNumber - 1)));
@@ -58,6 +59,40 @@ const defaultDispatchDeliverer: TelegramDispatchDeliverer = async (job) => {
   if (job.kind === 'announcement') return requestBotEveningAnnouncement(job.entity_id);
   return requestBotEveningReminders(job.entity_id);
 };
+
+type AutomaticEveningSyncPolicy = { deliver: boolean; reason?: string };
+
+async function automaticEveningSyncPolicy(
+  db: DatabaseWrapper,
+  eveningId: string,
+  now: Date,
+): Promise<AutomaticEveningSyncPolicy> {
+  // Existing publications are always safe to refresh. The guard only controls
+  // first-time creation caused by automatic DB triggers.
+  const publication = await db.get(
+    'SELECT 1 AS ok FROM evening_telegram_publications WHERE evening_id = ? LIMIT 1',
+    [eveningId],
+  );
+  if (publication) return { deliver: true };
+
+  const evening = await db.get<any>(
+    'SELECT starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
+    [eveningId],
+  );
+  if (!evening) return { deliver: false, reason: 'evening_missing' };
+  if (!['published', 'active'].includes(String(evening.status || '')) || evening.settled_at) {
+    return { deliver: false, reason: 'evening_not_open' };
+  }
+
+  const startMs = new Date(String(evening.starts_at || '')).getTime();
+  if (!Number.isFinite(startMs)) return { deliver: false, reason: 'invalid_start' };
+  const delta = startMs - now.getTime();
+  if (delta < 0) return { deliver: false, reason: 'evening_started' };
+  if (delta > AUTOMATIC_EVENING_CREATE_WINDOW_MS) {
+    return { deliver: false, reason: 'before_announcement_window' };
+  }
+  return { deliver: true };
+}
 
 export async function enqueueTelegramEveningSync(db: DatabaseWrapper, eveningId: string): Promise<void> {
   const id = String(eveningId || '').trim();
@@ -201,6 +236,7 @@ export async function drainTelegramSyncOutbox(
     now?: Date;
     deliver?: TelegramSyncDeliverer;
     dispatchDeliver?: TelegramDispatchDeliverer;
+    allowEveningCreateOutsideWindow?: boolean;
   } = {},
 ): Promise<{ processed: number; succeeded: number; failed: number; skipped: boolean }> {
   if (activeDrains.has(db as object)) return { processed: 0, succeeded: 0, failed: 0, skipped: true };
@@ -236,17 +272,44 @@ export async function drainTelegramSyncOutbox(
       let result: BotSyncResult;
       try {
         if (row.source === 'sync') {
-          result = await deliver({
-            sync_key: row.job_key,
-            kind: row.kind as TelegramSyncJobKind,
-            entity_id: row.entity_id,
-            version: Number(row.version),
-            attempt_count: Number(row.attempt_count),
-            requested_at: row.requested_at,
-            last_attempt_at: row.last_attempt_at,
-            next_attempt_at: row.next_attempt_at,
-            last_error: row.last_error,
-          });
+          if (
+            row.kind === 'evening'
+            && row.entity_id
+            && !options.allowEveningCreateOutsideWindow
+          ) {
+            const policy = await automaticEveningSyncPolicy(db, String(row.entity_id), now);
+            if (!policy.deliver) {
+              result = {
+                success: true,
+                status: 200,
+                data: { skipped: true, reason: policy.reason || 'automatic_create_blocked' },
+              };
+            } else {
+              result = await deliver({
+                sync_key: row.job_key,
+                kind: row.kind as TelegramSyncJobKind,
+                entity_id: row.entity_id,
+                version: Number(row.version),
+                attempt_count: Number(row.attempt_count),
+                requested_at: row.requested_at,
+                last_attempt_at: row.last_attempt_at,
+                next_attempt_at: row.next_attempt_at,
+                last_error: row.last_error,
+              });
+            }
+          } else {
+            result = await deliver({
+              sync_key: row.job_key,
+              kind: row.kind as TelegramSyncJobKind,
+              entity_id: row.entity_id,
+              version: Number(row.version),
+              attempt_count: Number(row.attempt_count),
+              requested_at: row.requested_at,
+              last_attempt_at: row.last_attempt_at,
+              next_attempt_at: row.next_attempt_at,
+              last_error: row.last_error,
+            });
+          }
         } else {
           result = await dispatchDeliver({
             dispatch_key: row.job_key,

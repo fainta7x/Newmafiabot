@@ -97,6 +97,25 @@ describe('canonical runtime contracts', () => {
     expect(main.indexOf('admin.router')).toBeGreaterThan(main.indexOf('admin_crm.router'));
   });
 
+  it('intercepts stale Telegram business actions before legacy DB-backed routers', () => {
+    const main = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+    const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
+
+    const guardIndex = main.indexOf('legacy_retired_actions.router');
+    expect(guardIndex).toBeGreaterThan(main.indexOf('admin_crm.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('admin.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('profile.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('payment.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('booking.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('shop.router'));
+
+    expect(guard).toContain('"book_"');
+    expect(guard).toContain('"pay_now"');
+    expect(guard).toContain('"shop_buy:"');
+    expect(guard).toContain('"editgame_"');
+    expect(guard).toContain('Эта старая кнопка отключена');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

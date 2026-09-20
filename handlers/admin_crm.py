@@ -68,6 +68,13 @@ async def open_crm_command(message: Message):
     await _send_crm_entry(message)
 
 
+@router.message(Command("admin"), F.chat.type == "private")
+async def open_admin_command(message: Message):
+    # /admin used to open the legacy Python business-data panel backed by
+    # mafia_crm.db. The canonical organizer surface now lives in the WebApp CRM.
+    await _send_crm_entry(message)
+
+
 @router.message(F.text.in_(["🛠 Админ-панель", "🛠 Перейти в админ-панель"]), F.chat.type == "private")
 async def open_crm_button(message: Message):
     await _send_crm_entry(message)

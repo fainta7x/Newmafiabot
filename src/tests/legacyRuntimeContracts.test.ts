@@ -87,6 +87,16 @@ describe('canonical runtime contracts', () => {
     expect(envExample).not.toContain('DATABASE_PATH=/tmp/2la-noire-web-staging');
   });
 
+  it('routes /admin through the canonical WebApp CRM before legacy admin handlers', () => {
+    const adminCrm = fs.readFileSync(path.resolve(process.cwd(), 'handlers/admin_crm.py'), 'utf8');
+    const main = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+
+    expect(adminCrm).toContain('@router.message(Command("admin"), F.chat.type == "private")');
+    expect(adminCrm).toContain('await _send_crm_entry(message)');
+    expect(main.indexOf('admin_crm.router')).toBeGreaterThanOrEqual(0);
+    expect(main.indexOf('admin.router')).toBeGreaterThan(main.indexOf('admin_crm.router'));
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

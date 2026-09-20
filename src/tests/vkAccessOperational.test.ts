@@ -80,6 +80,21 @@ describe('VK-ACCESS-002 operational contracts', () => {
     expect(workerBody.indexOf('kickVkMessageOutbox(db)')).toBeLessThan(workerBody.indexOf('setInterval'));
   });
 
+  it('keeps direct VK evening routes authoritative and retires the old poll reconcile endpoint', () => {
+    const appSource = read('src/app.ts');
+    const direct = read('src/server/services/vkDirectIntegrationRouter.ts');
+    const legacy = read('src/server/routes/integrationRoutes.ts');
+
+    expect(appSource.indexOf("app.use('/api/integrations', vkDirectIntegrationRouter)"))
+      .toBeLessThan(appSource.indexOf("app.use('/api/integrations', integrationRoutes)"));
+    expect(direct).toContain("router.get('/vk/evenings/:eveningId'");
+    expect(direct).toContain("router.post('/vk/evenings/:eveningId/sync'");
+    expect(legacy).not.toContain('syncVkEveningPublications');
+    expect(legacy).not.toContain('reconcileVkEveningVotes');
+    expect(legacy).toContain("router.post('/vk/evenings/:eveningId/reconcile'");
+    expect(legacy).toContain("code: 'vk_poll_reconcile_retired'");
+  });
+
   it('uses configured public origin in production and never trusts Host there', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('PLAYER_APP_URL', 'https://canonical.example/some/path');

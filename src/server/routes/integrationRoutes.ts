@@ -4,12 +4,9 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import {
-  getVkEveningIntegrationState,
   linkVkIdentity,
   parseVkPollVoteCallback,
   processVkPollVoteCallback,
-  reconcileVkEveningVotes,
-  syncVkEveningPublications,
   unlinkVkIdentity,
 } from '../services/vkEveningIntegrationService.ts';
 import {
@@ -53,24 +50,6 @@ const tryRepairVkCallback = async (db: DatabaseWrapper, req: any) => {
     console.error('[VK CALLBACK REPAIR]', error);
   }
   return getVkCallbackRuntimeStatus(db);
-};
-
-const enrichEveningState = async (db: DatabaseWrapper, state: any) => {
-  const [oauth, callback] = await Promise.all([
-    getVkOAuthStatus(db),
-    getVkCallbackRuntimeStatus(db),
-  ]);
-  const runtimeCallbackReady = Boolean(callback.configured);
-  return {
-    ...state,
-    integration: {
-      ...state.integration,
-      oauth,
-      callback,
-      callback_secret_configured: runtimeCallbackReady || Boolean(state.integration?.callback_secret_configured),
-      callback_confirmation_configured: runtimeCallbackReady || Boolean(state.integration?.callback_confirmation_configured),
-    },
-  };
 };
 
 router.post('/vk/callback', async (req, res) => {
@@ -223,37 +202,11 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
   }
 });
 
-router.get('/vk/evenings/:eveningId', requireOrganizerAuth, async (req, res) => {
-  try {
-    const db = await withVkSchema(req);
-    await tryRepairVkCallback(db, req);
-    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    res.json(await enrichEveningState(db, state));
-  } catch (error: any) {
-    res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось загрузить VK-интеграцию вечера' });
-  }
-});
-
-router.post('/vk/evenings/:eveningId/sync', requireOrganizerAuth, async (req, res) => {
-  try {
-    const db = await withVkSchema(req);
-    const result = await syncVkEveningPublications(db, String(req.params.eveningId || ''));
-    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    res.json({ success: true, ...result, state: await enrichEveningState(db, state) });
-  } catch (error: any) {
-    res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось синхронизировать VK' });
-  }
-});
-
-router.post('/vk/evenings/:eveningId/reconcile', requireOrganizerAuth, async (req, res) => {
-  try {
-    const db = await withVkSchema(req);
-    const result = await reconcileVkEveningVotes(db, String(req.params.eveningId || ''));
-    const state = await getVkEveningIntegrationState(db, String(req.params.eveningId || ''));
-    res.json({ success: true, ...result, state: await enrichEveningState(db, state) });
-  } catch (error: any) {
-    res.status(Number(error?.statusCode || 500)).json({ error: error?.message || 'Не удалось забрать ответы VK' });
-  }
+router.post('/vk/evenings/:eveningId/reconcile', requireOrganizerAuth, (_req, res) => {
+  res.status(410).json({
+    code: 'vk_poll_reconcile_retired',
+    error: 'Старый опрос VK больше не является источником записи. Используется прямая запись через VK ID и общий клубный состав.',
+  });
 });
 
 router.post('/vk/identities/link', requireOrganizerAuth, async (req, res) => {

@@ -51,6 +51,7 @@ describe('VK publishing adapter', () => {
     expect(getVkIntegrationStatus()).toMatchObject({
       configured: true,
       publisher_token_source: 'community',
+      public_post_edit_supported: true,
     });
 
     const fetchMock = vi.fn()

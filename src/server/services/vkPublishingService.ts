@@ -142,7 +142,11 @@ export function getVkIntegrationStatus() {
     group_token_configured: Boolean(groupToken),
     publisher_token_configured: Boolean(publisherToken),
     publisher_token_source: groupToken ? 'community' : publisherToken ? 'legacy_user' : null,
-    public_post_edit_supported: canEditVkWallPosts(),
+    // Direct evening publishing edits public posts through the same publisher
+    // credential path used for wall.post. A community publisher token is therefore
+    // sufficient for the current wall.edit flow even though the retired legacy
+    // editVkWallPost adapter still reports user-token-only capability.
+    public_post_edit_supported: Boolean(publisherToken && publicDestination?.groupId),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,

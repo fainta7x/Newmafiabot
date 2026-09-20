@@ -177,6 +177,18 @@ describe('canonical runtime contracts', () => {
     expect(finishBlock).toContain('register_canonical_profile');
   });
 
+  it('intercepts legacy judge-management actions before the old DB-backed judge router', () => {
+    const main = fs.readFileSync(path.resolve(process.cwd(), 'main.py'), 'utf8');
+    const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
+
+    expect(main.indexOf('legacy_retired_actions.router')).toBeLessThan(main.indexOf('admin_judges.router'));
+    expect(guard).toContain('"⚖ Судьи"');
+    expect(guard).toContain('"judge_list"');
+    expect(guard).toContain('"judge_add"');
+    expect(guard).toContain('"judge_confirm_add_"');
+    expect(guard).toContain('"judge_remove_"');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

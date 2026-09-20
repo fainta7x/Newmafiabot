@@ -18,6 +18,7 @@ from game import router as game_router  # игровой роутер
 from handlers import achievements
 from handlers import admin_crm
 from handlers import admin_judges
+from handlers import legacy_retired_actions
 from handlers import booking
 from handlers import crm_booking
 from handlers import crm_evening_response
@@ -221,6 +222,9 @@ def setup_handlers():
     ordered_routers = [
         admin_judges.router,
         admin_crm.router,
+        # Intercept stale Telegram keyboards/callbacks before the legacy business
+        # routers can mutate the bot-local mafia_crm.db.
+        legacy_retired_actions.router,
         telegram_admin_tools.router,
         admin.router,
         registration.router,

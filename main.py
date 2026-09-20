@@ -220,11 +220,11 @@ def setup_handlers():
     admin.setup_admin_handlers(bot)
 
     ordered_routers = [
-        admin_judges.router,
-        admin_crm.router,
-        # Intercept stale Telegram keyboards/callbacks before the legacy business
-        # routers can mutate the bot-local mafia_crm.db.
+        # Intercept stale Telegram keyboards/callbacks before every legacy business
+        # router, including the old judge-management router backed by mafia_crm.db.
         legacy_retired_actions.router,
+        admin_crm.router,
+        admin_judges.router,
         telegram_admin_tools.router,
         admin.router,
         registration.router,

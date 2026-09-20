@@ -112,19 +112,21 @@ Do not repeatedly rerun red jobs hoping they become green.
 
 ### Backend selection
 
-`src/db/index.ts` is authoritative.
+For canonical Amvera production, `deploy/start-web.sh` is the runtime contract:
 
-- Both `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` -> remote Turso.
-- Neither -> local SQLite fallback.
-- Only one -> startup must fail.
+- `DATABASE_PATH=/data/mafia_crm.sqlite`;
+- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true`;
+- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are explicitly unset before Node starts.
 
-Never infer production persistence from `DATABASE_PATH` or `render.yaml` alone.
+`src/db/index.ts` still supports a generic Turso path for legacy/recovery/test scenarios, but ordinary Amvera production must not depend on it.
+
+Never infer production persistence from an old env screenshot, `render.yaml` or stale docs; confirm the deployed start script and the persistent `/data` mount.
 
 ### Runtime precedence
 
 A non-empty runtime database always wins over repository checkpoint data.
 
-Never overwrite, reset, clean, restore or replace an existing production/runtime DB during ordinary Git/deploy/bug-fix work.
+Never overwrite, reset, clean, restore or replace an existing non-empty `/data/mafia_crm.sqlite` during ordinary Git/deploy/bug-fix work.
 
 ### Repository checkpoint
 
@@ -142,20 +144,36 @@ npm run checkpoint:git-import
 
 The checkpoint is not production synchronization.
 
+### Canonical SQLite backups
+
+The product DB is backed up by `deploy/backup-sqlite.cjs` into `/data/backups/` using SQLite's backup API. A backup is considered successful only after the standalone file passes `integrity_check`.
+
+Restore drill (read-only with respect to production):
+
+```bash
+npm run backup:verify
+# or
+npm run backup:verify -- /data/backups/mafia_crm-<timestamp>.sqlite
+```
+
+The command copies the selected backup to an isolated temporary path, opens only the copy, runs `integrity_check` and verifies core tables. It never replaces the live DB.
+
+The Python bot's legacy `mafia_crm.db` backup is not a product-data recovery source. Production does not start the old Telegram daily-backup task; canonical backups belong to the Node SQLite worker.
+
 Before destructive data work, establish target DB, reason, backup/recovery path and explicit user approval.
 
 ## 7. Financial/payment incident procedure
 
 Payment bugs are ledger/data-safety work.
 
-If the UI says “nothing happened” or SQLite/Turso reports a unique constraint on `financial_transactions`:
+If the UI says “nothing happened” or SQLite reports a unique constraint on `financial_transactions`:
 
 1. inspect the server response/error before changing optimistic UI;
 2. trace the exact payment/reconciliation service;
 3. inspect `source_type`, `source_id`, `type` and the unique-key contract;
 4. make retries idempotent with the intended UPSERT/accumulation semantics;
 5. add a regression test with an already-existing ledger adjustment;
-6. **never delete ledger rows, reset Turso or import a checkpoint to clear the conflict**.
+6. **never delete ledger rows, reset the product DB or import a checkpoint to clear the conflict**.
 
 Canonical closed-evening paths are documented in `ARCHITECTURE` / `FEATURE_MAP`, especially:
 
@@ -184,8 +202,9 @@ Canonical target: one Docker application from `fainta7x/Newmafiabot` `main` runn
 Required runtime contract includes:
 
 - `NODE_ENV=production`;
-- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` together;
-- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true` with existing non-empty Turso still winning;
+- persistent Amvera mount `/data`;
+- `deploy/start-web.sh` hard-pinning `DATABASE_PATH=/data/mafia_crm.sqlite` and unsetting Turso variables;
+- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true` only as a first-bootstrap guard; a non-empty product DB always wins;
 - `SEED_DEMO_DATA=false`;
 - `ORGANIZER_PASSWORD`, `JWT_SECRET`, `BOT_API_SECRET`;
 - `TELEGRAM_BOT_TOKEN`;
@@ -197,7 +216,7 @@ Required runtime contract includes:
 - `BOT_SERVICE_URL=http://127.0.0.1:8081`;
 - configured Telegram destination/admin and VK/Gemini secrets where used.
 
-Do not configure local SQLite as production-primary while the Turso pair is present. Do not import a checkpoint during an ordinary deploy.
+Do not re-enable Turso variables in the canonical Amvera start path without a separate migration decision. Do not import a checkpoint during an ordinary deploy.
 
 ### After every meaningful deploy
 
@@ -207,7 +226,7 @@ Do not configure local SQLite as production-primary while the Turso pair is pres
 4. verify `/api/health/runtime` -> HTTP 200 and deep dependencies healthy;
 5. verify Telegram webhook points to `<amvera-domain>/webhook` when Telegram changed or deployment identity is uncertain;
 6. open the Mini App and confirm current player/evening data when relevant;
-7. verify one or two recent Turso-backed data markers;
+7. verify one or two recent SQLite-backed data markers and, for storage-related releases, the latest `/data/backups` snapshot;
 8. run a **targeted behavior check for the bug just fixed** (for example payment mark/unmark after a payment release), not a generic destructive smoke test.
 
 For an OBS broadcast release, additionally:
@@ -242,7 +261,7 @@ livenessProbe:
   failureThreshold: 3
 ```
 
-Do not point Kubernetes liveness/readiness at `/api/health/runtime`; external Turso/Telegram degradation must remain observable without forcing the web app into a restart loop.
+Do not point Kubernetes liveness/readiness at `/api/health/runtime`; database/Telegram degradation must remain observable without forcing the web app into a restart loop.
 
 Enable Amvera failure email as a secondary alert channel.
 
@@ -308,7 +327,7 @@ See `docs/vk-runtime-health.md`.
 
 Render configuration remains historical/fallback. It is not the canonical combined runtime.
 
-If rollback to legacy hosting is ever required, keep Turso unchanged; hosting rollback is not data rollback.
+If rollback to legacy hosting is ever required, treat hosting rollback and product-data rollback as separate operations. Do not replace the canonical SQLite file implicitly.
 
 ## 14. Dependency/security work
 

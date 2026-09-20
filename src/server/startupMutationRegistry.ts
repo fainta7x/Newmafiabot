@@ -36,7 +36,7 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 190, name: 'ensureVkIntegrationSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 200, name: 'ensureVkJoinSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
   { order: 210, name: 'ensureVkPersonalMessageSchema', kind: 'schema', idempotency: 'CREATE/ALTER IF needed' },
-  { order: 220, name: 'applyBogdanaFinalCorrection', kind: 'historical_correction', idempotency: 'state-based exact-value check', notes: 'cleanup candidate after durable completion proof' },
+  { order: 220, name: 'applyBogdanaFinalCorrection', kind: 'historical_correction', idempotency: 'migration_history durable completion marker + exact target lookup', notes: 'eligible for later removal after production marker verification' },
   { order: 230, name: 'startTelegramSyncOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 240, name: 'startTelegramMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 250, name: 'startPersonalTelegramNotificationWorker', kind: 'worker', idempotency: 'singleton in-process timer' },

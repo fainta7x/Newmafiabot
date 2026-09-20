@@ -5,6 +5,7 @@ const TOURNAMENT_DATE_PREFIX = '2026-08-01';
 const PLAYER_NICKNAME = 'Богданчик';
 const GAME_NUMBER = 10;
 const CORRECT_JUDGE_BONUS = 0.7;
+export const BOGDANA_FINAL_CORRECTION_MIGRATION = 'historical_bogdana_final_correction_v1';
 
 /**
  * Repairs one confirmed historical result without restoring any snapshot.
@@ -14,6 +15,15 @@ const CORRECT_JUDGE_BONUS = 0.7;
  * protocol, seating, Elo, tournament status or any other player's data changes.
  */
 export async function applyBogdanaFinalCorrection(db: DatabaseWrapper): Promise<void> {
+  const existingMigration = await db.get<{ status?: string }>(
+    'SELECT status FROM migration_history WHERE migration_name = ? LIMIT 1',
+    [BOGDANA_FINAL_CORRECTION_MIGRATION],
+  );
+  if (existingMigration?.status === 'completed') return;
+  if (existingMigration) {
+    throw new Error('Bogdana final correction has an unexpected existing migration status.');
+  }
+
   const tournament = await db.get<any>(
     `SELECT id, title, date
        FROM tournaments
@@ -65,16 +75,41 @@ export async function applyBogdanaFinalCorrection(db: DatabaseWrapper): Promise<
   }
 
   const currentBonus = Number(result.judge_bonus || 0);
-  if (Math.abs(currentBonus - CORRECT_JUDGE_BONUS) < 0.0001) return;
+  const alreadyCorrect = Math.abs(currentBonus - CORRECT_JUDGE_BONUS) < 0.0001;
+  const now = new Date().toISOString();
 
-  await db.run(
-    `UPDATE tournament_game_player_results
-        SET judge_bonus = ?
-      WHERE id = ?`,
-    [CORRECT_JUDGE_BONUS, result.id],
-  );
+  await db.transaction(async (tx) => {
+    if (!alreadyCorrect) {
+      await tx.run(
+        `UPDATE tournament_game_player_results
+            SET judge_bonus = ?
+          WHERE id = ?`,
+        [CORRECT_JUDGE_BONUS, result.id],
+      );
+    }
+    await tx.run(
+      `INSERT INTO migration_history
+        (id, migration_name, status, details_json, executed_at)
+       VALUES (?, ?, 'completed', ?, ?)`,
+      [
+        BOGDANA_FINAL_CORRECTION_MIGRATION,
+        BOGDANA_FINAL_CORRECTION_MIGRATION,
+        JSON.stringify({
+          tournament_id: String(tournament.id),
+          game_number: GAME_NUMBER,
+          participant_id: String(participant.id),
+          previous_judge_bonus: currentBonus,
+          target_judge_bonus: CORRECT_JUDGE_BONUS,
+          already_correct: alreadyCorrect,
+        }),
+        now,
+      ],
+    );
+  });
 
-  console.log(
-    `[DATA CORRECTION] ${TOURNAMENT_TITLE}: ${PLAYER_NICKNAME}, game #${GAME_NUMBER}, judge bonus ${currentBonus} -> ${CORRECT_JUDGE_BONUS}`,
-  );
+  if (!alreadyCorrect) {
+    console.log(
+      `[DATA CORRECTION] ${TOURNAMENT_TITLE}: ${PLAYER_NICKNAME}, game #${GAME_NUMBER}, judge bonus ${currentBonus} -> ${CORRECT_JUDGE_BONUS}`,
+    );
+  }
 }

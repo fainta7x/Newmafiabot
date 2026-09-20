@@ -103,7 +103,8 @@ describe('canonical runtime contracts', () => {
     const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
 
     const guardIndex = main.indexOf('legacy_retired_actions.router');
-    expect(guardIndex).toBeGreaterThan(main.indexOf('admin_crm.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('admin_crm.router'));
+    expect(guardIndex).toBeLessThan(main.indexOf('admin_judges.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('admin.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('profile.router'));
     expect(guardIndex).toBeLessThan(main.indexOf('payment.router'));

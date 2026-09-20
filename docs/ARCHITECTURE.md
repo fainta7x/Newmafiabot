@@ -200,7 +200,7 @@ The broadcast path is deliberately separate from final protocol persistence:
 - `src/server/routes/liveBroadcastRoutes.ts` owns authorized config/publish routes and secret read/avatar routes.
 - `src/components/public/LiveBroadcastOverlay.tsx` owns the transparent 1920×1080 OBS HUD.
 
-The phone/local scoped session remains authoritative for in-progress recovery. The relay does not write timer ticks or temporary game state to Turso. Database game/seat identity is used only to canonicalize the published display. The ordinary `/live` route stays role-safe and is not a substitute for the secret broadcast route.
+The phone/local scoped session remains authoritative for in-progress recovery. The relay does not write timer ticks or temporary game state to the canonical product database. Database game/seat identity is used only to canonicalize the published display. The ordinary `/live` route stays role-safe and is not a substitute for the secret broadcast route.
 
 ## 11. Server route ownership
 
@@ -265,26 +265,29 @@ Inspect Vite transforms before declaring `.vk-direct.*` variants unused.
 
 Primary ownership:
 
-- `src/db/index.ts` — authoritative backend selection and DB wrapper;
-- `src/db/tursoHttpDatabase.ts` — Turso HTTP adapter;
+- `deploy/start-web.sh` — production storage contract; hard-pins the Node/WebApp database to `/data/mafia_crm.sqlite` and unsets Turso variables;
+- `src/db/index.ts` — generic DB wrapper/bootstrap logic used by production SQLite and tests;
+- `src/db/tursoHttpDatabase.ts` — retained legacy adapter; it is not selected by the canonical Amvera start script;
 - `src/db/` + `drizzle/` — schema/migrations/ensure logic.
 
 ### Production backend selection
 
-`getDb()` selects storage as follows:
+Canonical Amvera production uses persistent local SQLite:
 
-1. both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` -> remote Turso;
-2. neither -> local SQLite through `DATABASE_PATH`/default path;
-3. only one Turso variable -> fail startup.
+`/data/mafia_crm.sqlite`
 
-Existing non-empty runtime data always wins over repository checkpoint data.
+`deploy/start-web.sh` explicitly sets `DATABASE_PATH=/data/mafia_crm.sqlite`, enables first-bootstrap-from-checkpoint, and unsets `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. This start script is the production override over the generic selection capability still present in `src/db/index.ts`.
+
+The repository checkpoint is used only when the canonical product DB is missing or empty. A non-empty `/data/mafia_crm.sqlite` must never be replaced during an ordinary deploy.
 
 Canonical checkpoint artifacts:
 
 - `mafia_crm.checkpoint.sqlite.gz.b64`;
 - `mafia_crm.checkpoint.meta.json`.
 
-Never restore a checkpoint over a non-empty production/runtime DB during ordinary work.
+Application-level SQLite backups are created with the SQLite backup API by `deploy/backup-sqlite.cjs` into `/data/backups/`, then verified with `integrity_check`. `npm run backup:verify -- <backup.sqlite>` performs an isolated copy/open/integrity restore drill without touching production.
+
+The Python bot still has legacy `/data/mafia_crm.db` state through `deploy/start-bot.sh`. It is not the canonical product database and must not seed/replace `/data/mafia_crm.sqlite`. Its remaining ownership is subject to PROJECT-AUDIT-001 Phase 2.
 
 ## 15. Production container topology
 
@@ -296,23 +299,25 @@ Current canonical topology:
 
 Process ownership:
 
-- `deploy/supervisord.conf` — Node/Python/nginx supervision;
+- `deploy/supervisord.conf` — Node/Python/nginx/SQLite-backup supervision;
 - `deploy/nginx.conf` — public routing;
-- `deploy/start-web.sh` — internal Node startup/config;
-- `deploy/start-bot.sh` — Python bot startup/config;
+- `deploy/start-web.sh` — internal Node startup/config and product-DB path;
+- `deploy/start-bot.sh` — Python bot startup/config and legacy bot-local DB link;
+- `deploy/backup-sqlite.cjs` — canonical product-DB backup worker;
 - `Dockerfile` — combined image;
-- `amvera.yml` — container port/persistent mount configuration.
+- `amvera.yml` — container port and persistent `/data` mount.
 
-Node/Turso owns canonical production product data. Bot local SQLite is legacy runtime state and must not replace Turso.
+Node + `/data/mafia_crm.sqlite` owns canonical production product data. The bot-local `mafia_crm.db` is legacy state only.
 
 Canonical deployment source: `fainta7x/Newmafiabot` `main`.
 
 ## 16. Runtime health
 
 - `GET /api/health` in `src/app.ts` — shallow Node liveness and Kubernetes probe target.
-- `GET /api/health/runtime` — deep read-only Turso + Python bot + Telegram runtime check.
+- `GET /api/health/runtime` — deep read-only canonical DB + Python bot + Telegram runtime check.
 - `.github/workflows/runtime-monitor.yml` — independent external monitor.
 - Supervisor restarts individual processes; Amvera may restart the container when shallow Node liveness fails.
+- Telegram webhook ownership is process-safe across rolling deploys: startup sets the canonical webhook; shutdown must not delete the shared production webhook.
 
 Do not use the deep endpoint as Kubernetes liveness/readiness.
 

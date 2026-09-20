@@ -68,6 +68,15 @@ describe('canonical runtime contracts', () => {
     expect(packageJson.scripts['backup:verify']).toBe('node deploy/verify-sqlite-backup.cjs');
   });
 
+  it('never restores a runtime database from a Telegram document', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'admin.py'), 'utf8');
+    const backupSection = source.slice(source.indexOf('# ========== БЭКАП =========='), source.indexOf('@router.message(F.text == "🔙 Назад в админ-меню")'));
+
+    expect(backupSection).not.toContain('shutil.copy2(temp_path, database.DB_NAME)');
+    expect(backupSection).not.toContain('shutil.copy2(database.DB_NAME, backup_path)');
+    expect(backupSection).toContain('Восстановление базы из Telegram отключено');
+  });
+
   it('keeps the production env example aligned with persistent Amvera SQLite', () => {
     const envExample = fs.readFileSync(path.resolve(process.cwd(), '.env.production.example'), 'utf8');
 

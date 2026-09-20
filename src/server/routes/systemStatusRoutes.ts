@@ -3,6 +3,7 @@ import type { DatabaseWrapper } from '../../db/index.ts';
 import { requireOrganizerAuth } from '../auth.ts';
 import { getTelegramSyncOutboxSummary } from '../services/telegramSyncOutboxService.ts';
 import { getBotServiceBaseUrl } from '../runtimeConfig.ts';
+import { getSqliteBackupStatus } from '../services/sqliteBackupStatusService.ts';
 
 const router = Router();
 
@@ -59,6 +60,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     };
   }
 
+  const backup = await getSqliteBackupStatus();
+
   const botServiceUrl = getBotServiceBaseUrl();
   let bot = { ok: false, latency_ms: null as number | null, error: null as string | null };
   const botStarted = Date.now();
@@ -89,7 +92,8 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
     bot,
     telegram,
     sync_queue: syncQueue,
-    overall_ok: database.ok && bot.ok && telegram.ok && syncQueue.ok,
+    backup,
+    overall_ok: database.ok && bot.ok && telegram.ok && syncQueue.ok && backup.ok,
   });
 });
 

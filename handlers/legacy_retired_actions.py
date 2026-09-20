@@ -28,6 +28,7 @@ _ADMIN_LEGACY_TEXTS = {
     "💸 Разослать счета",
     "📚 История вечеров",
     "❌ Отменить вечер",
+    "⚖ Судьи",
 }
 
 _PLAYER_LEGACY_CALLBACK_PREFIXES = (
@@ -82,6 +83,12 @@ _ADMIN_LEGACY_CALLBACK_PREFIXES = (
     "back_to_month_",
     "editgame_",
     "admin_evenings_history",
+    "judge_list",
+    "judge_add",
+    "judge_confirm_add_",
+    "judge_cancel_add",
+    "judge_remove_",
+    "judge_back",
 )
 
 

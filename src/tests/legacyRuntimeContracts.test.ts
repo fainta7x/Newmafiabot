@@ -7,6 +7,7 @@ import {
   getBotServiceBaseUrl,
   getPublicAppBaseUrl,
 } from '../server/runtimeConfig.ts';
+import { STARTUP_MUTATION_REGISTRY } from '../server/startupMutationRegistry.ts';
 
 const originalEnv = { ...process.env };
 
@@ -122,6 +123,20 @@ describe('canonical runtime contracts', () => {
     expect(source).toContain('closed_event_text(evening, cancelled=cancelled)');
     expect(source).toContain('"action": "finalized"');
     expect(source).toContain('None,');
+  });
+
+  it('keeps an observable ordered registry for startup schema/data mutations', () => {
+    const appSource = fs.readFileSync(path.resolve(process.cwd(), 'src/app.ts'), 'utf8');
+    const names = STARTUP_MUTATION_REGISTRY.map((entry) => entry.name);
+    expect(names.length).toBeGreaterThan(20);
+    expect(new Set(names).size).toBe(names.length);
+    expect(STARTUP_MUTATION_REGISTRY.map((entry) => entry.order)).toEqual(
+      [...STARTUP_MUTATION_REGISTRY].map((entry) => entry.order).sort((a, b) => a - b),
+    );
+    for (const name of names) {
+      expect(appSource).toContain(name);
+    }
+    expect(appSource).toContain('logStartupMutationRegistry()');
   });
 
   it('keeps only the canonical player creation and retired game creation contracts', () => {

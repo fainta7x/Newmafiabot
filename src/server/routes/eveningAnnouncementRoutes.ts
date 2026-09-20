@@ -84,7 +84,12 @@ router.post('/:id/sync-telegram', requireOrganizerAuth, async (req, res) => {
     const evening = await db.get('SELECT id FROM game_evenings WHERE id = ?', [String(req.params.id)]);
     if (!evening) return res.status(404).json({ error: 'Игровой вечер не найден' });
     await enqueueTelegramEveningSync(db, String(req.params.id));
-    const drain = await drainTelegramSyncOutbox(db, { limit: 50 });
+    const drain = await drainTelegramSyncOutbox(db, {
+      limit: 50,
+      // Explicit organizer action is allowed to create the first post even before
+      // the automatic weekly announcement window.
+      allowEveningCreateOutsideWindow: true,
+    });
     const queued = Boolean(await db.get(
       'SELECT sync_key FROM telegram_sync_outbox WHERE sync_key = ?',
       [`evening:${String(req.params.id)}`],

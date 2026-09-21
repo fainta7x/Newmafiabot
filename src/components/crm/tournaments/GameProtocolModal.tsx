@@ -41,6 +41,8 @@ import {
   ProtocolExitTypeConfirmDialog,
   type PendingProtocolExitTypeChange
 } from './protocol/ProtocolExitTypeConfirmDialog';
+import { ProtocolFirstKilledConfirmDialog } from './protocol/ProtocolFirstKilledConfirmDialog';
+import { ProtocolZeroRoundConfirmDialog } from './protocol/ProtocolZeroRoundConfirmDialog';
 import { useMobileKeyboardViewport } from '../../../hooks/useMobileKeyboardViewport';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import {
@@ -525,6 +527,34 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     }
 
     setPendingDisciplineAction(null);
+  };
+
+  const confirmFirstKilledChange = () => {
+    const prevId = protocol.first_killed_participant_id;
+    if (prevId) {
+      updatePlayerResult(prevId, { ci_points: 0 });
+    }
+    setProtocol((prev) => {
+      const moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'first_killed');
+      if (pendingFirstKilledId) {
+        moves.push({ participant_id: pendingFirstKilledId, source: 'first_killed', seat_numbers: [] });
+      }
+      return { ...prev, first_killed_participant_id: pendingFirstKilledId, best_moves: moves };
+    });
+    setShowCiConfirmModal(false);
+    setPendingFirstKilledId(null);
+  };
+
+  const confirmZeroRoundVotedChange = () => {
+    setProtocol((prev) => {
+      const moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'zero_round_voted');
+      if (pendingZeroRoundVotedId) {
+        moves.push({ participant_id: pendingZeroRoundVotedId, source: 'zero_round_voted', seat_numbers: [] });
+      }
+      return { ...prev, zero_round_voted_participant_id: pendingZeroRoundVotedId, best_moves: moves };
+    });
+    setShowZeroRoundConfirmModal(false);
+    setPendingZeroRoundVotedId(null);
   };
 
   // Color protocol handlers per player
@@ -1768,101 +1798,23 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         onConfirmRevert={handleRevertToDraft}
       />
 
-      {/* MODAL: CONFIRM FIRST KILLED CI RESET */}
-      {showCiConfirmModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <div className="flex items-center space-x-3 text-amber-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold">Подтверждение смены первоубиенного</h3>
-            </div>
+      <ProtocolFirstKilledConfirmDialog
+        isOpen={showCiConfirmModal}
+        onCancel={() => {
+          setShowCiConfirmModal(false);
+          setPendingFirstKilledId(null);
+        }}
+        onConfirm={confirmFirstKilledChange}
+      />
 
-            <p className="text-xs sm:text-sm text-slate-300">
-              Выбранный ЛХ и ручной Ci прежнего первоубиенного будут очищены.
-            </p>
-
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCiConfirmModal(false);
-                  setPendingFirstKilledId(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const prevId = protocol.first_killed_participant_id;
-                  if (prevId) {
-                    updatePlayerResult(prevId, { ci_points: 0 });
-                  }
-                  setProtocol((prev) => {
-                    let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'first_killed');
-                    if (pendingFirstKilledId) {
-                      moves.push({ participant_id: pendingFirstKilledId, source: 'first_killed', seat_numbers: [] });
-                    }
-                    return { ...prev, first_killed_participant_id: pendingFirstKilledId, best_moves: moves };
-                  });
-                  setShowCiConfirmModal(false);
-                  setPendingFirstKilledId(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
-              >
-                Сменить и обнулить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CONFIRM ZERO ROUND VOTED BM RESET */}
-      {showZeroRoundConfirmModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <div className="flex items-center space-x-3 text-amber-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold">Подтверждение смены игрока нулевого круга</h3>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-300">
-              Выбранные номера ЛХ прежнего игрока будут очищены.
-            </p>
-
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowZeroRoundConfirmModal(false);
-                  setPendingZeroRoundVotedId(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setProtocol((prev) => {
-                    let moves = [...(prev.best_moves || [])].filter(bm => bm.source !== 'zero_round_voted');
-                    if (pendingZeroRoundVotedId) {
-                      moves.push({ participant_id: pendingZeroRoundVotedId, source: 'zero_round_voted', seat_numbers: [] });
-                    }
-                    return { ...prev, zero_round_voted_participant_id: pendingZeroRoundVotedId, best_moves: moves };
-                  });
-                  setShowZeroRoundConfirmModal(false);
-                  setPendingZeroRoundVotedId(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
-              >
-                Сменить и очистить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProtocolZeroRoundConfirmDialog
+        isOpen={showZeroRoundConfirmModal}
+        onCancel={() => {
+          setShowZeroRoundConfirmModal(false);
+          setPendingZeroRoundVotedId(null);
+        }}
+        onConfirm={confirmZeroRoundVotedChange}
+      />
       {tournament && isExportModalOpen && (
         <ResultsImageExportModal
           isOpen={isExportModalOpen}

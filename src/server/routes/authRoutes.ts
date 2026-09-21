@@ -7,8 +7,6 @@ import {
   AuthenticatedRequest,
   checkLoginRateLimit,
   resetLoginRateLimit,
-  generateTestEnvironmentToken,
-  TEST_ENVIRONMENT_COOKIE,
 } from '../auth.ts';
 import { TelegramInitDataError, validateTelegramInitData } from '../telegramMiniAppAuth.ts';
 import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
@@ -61,20 +59,6 @@ export const setOrganizerCookie = (res: Response, organizerPlayerId?: string) =>
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   return token;
-};
-
-export const setTestEnvironmentCookie = (
-  res: Response,
-  role: 'PLAYER' | 'ORGANIZER',
-  playerId: string,
-) => {
-  res.cookie(TEST_ENVIRONMENT_COOKIE, generateTestEnvironmentToken(role, playerId), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 12 * 60 * 60 * 1000,
-  });
 };
 
 const validateTelegramRequest = (initData: unknown) => {

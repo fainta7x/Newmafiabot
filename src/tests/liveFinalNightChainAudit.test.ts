@@ -31,7 +31,10 @@ describe('final night chain audit', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
     expect(engine).toContain("if (postNightStage === 'death_protocol')");
     expect(engine).toContain("return { label: 'Завершить игру', onClick: () => handleEndGameWithWinner(winnerAfterNight) }");
-    expect(engine).toContain('localStorage.removeItem("mafia_live_session")');
+    const storage = read('src/components/LiveGameEngine/liveSessionStorage.ts');
+    expect(engine).toContain('removeLiveSession();');
+    expect(storage).toContain("LIVE_GAME_SESSION_STORAGE_KEY = 'mafia_live_session'");
+    expect(storage).toContain('storage.removeItem(LIVE_GAME_SESSION_STORAGE_KEY)');
     expect(engine).toContain('onGameFinished({');
   });
 });

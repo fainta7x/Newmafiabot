@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = 'http://127.0.0.1:4173';
+const isProductionAudit = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4173';
 
 export default defineConfig({
   testDir: './tests',
@@ -18,25 +19,26 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'npm run dev',
-    cwd: '..',
-    url: `${baseURL}/api/health`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      ...process.env,
-      // Browser E2E uses test-safe DB behavior/workers, but explicitly opts
-      // into Vite middleware so /admin renders the real browser UI.
-      NODE_ENV: 'test',
-      VITEST: '1',
-      PLAYWRIGHT_E2E: '1',
-      // Enables only the isolated role fixtures used by E2E; never set in production.
-      E2E_TEST_MODE: '1',
-      HOST: '127.0.0.1',
-      PORT: '4173',
-      DATABASE_PATH: './temp/playwright-e2e.sqlite',
-      SEED_DEMO_DATA: 'false',
-    },
-  },
+  ...(isProductionAudit
+    ? {}
+    : {
+        webServer: {
+          command: 'npm run dev',
+          cwd: '..',
+          url: `${baseURL}/api/health`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          env: {
+            ...process.env,
+            NODE_ENV: 'test',
+            VITEST: '1',
+            PLAYWRIGHT_E2E: '1',
+            E2E_TEST_MODE: '1',
+            HOST: '127.0.0.1',
+            PORT: '4173',
+            DATABASE_PATH: './temp/playwright-e2e.sqlite',
+            SEED_DEMO_DATA: 'false',
+          },
+        },
+      }),
 });

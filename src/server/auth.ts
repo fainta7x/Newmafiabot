@@ -76,23 +76,36 @@ export type TestEnvironmentSession = {
 };
 
 export function generateTestEnvironmentToken(role: TestEnvironmentSession['role'], playerId: string): string {
-  return jwt.sign({ session: 'TEST_ENVIRONMENT', role, playerId }, JWT_SECRET, { expiresIn: '12h' });
+  const payload = Buffer.from(JSON.stringify({
+    role,
+    playerId,
+    expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
 }
 
 export function getTestEnvironmentSession(req: Request): TestEnvironmentSession | null {
   const token = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
   if (!token || typeof token !== 'string') return null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      session?: string;
+    const [payload, signature, extra] = token.split('.');
+    if (!payload || !signature || extra) return null;
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
+    if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      return null;
+    }
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       role?: string;
       playerId?: string;
+      expiresAt?: number;
     };
     if (
-      decoded.session === 'TEST_ENVIRONMENT'
-      && (decoded.role === 'PLAYER' || decoded.role === 'ORGANIZER')
+      (decoded.role === 'PLAYER' || decoded.role === 'ORGANIZER')
       && typeof decoded.playerId === 'string'
       && decoded.playerId
+      && typeof decoded.expiresAt === 'number'
+      && decoded.expiresAt > Date.now()
     ) {
       return { role: decoded.role, playerId: decoded.playerId };
     }

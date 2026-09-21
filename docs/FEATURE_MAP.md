@@ -255,7 +255,7 @@ After registration/preparation, continue through the existing tournament seating
 ## Runtime health / outage alerts
 
 - Shallow liveness: `/api/health` in `src/app.ts`.
-- Safe deep endpoint: `runtimeHealthRoutes.ts` -> `runtimeReadinessService.ts` -> Turso + Telegram/bot checks.
+- Safe deep endpoint: `runtimeHealthRoutes.ts` -> `runtimeReadinessService.ts` -> canonical Amvera SQLite + Telegram/bot checks.
 - Independent monitor: `.github/workflows/runtime-monitor.yml` -> `scripts/runtimeMonitor.mjs`.
 - Amvera probe/operator procedure: `docs/RUNBOOK.md`.
 - Never use the deep endpoint for Kubernetes liveness.

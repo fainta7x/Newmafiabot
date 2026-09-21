@@ -57,6 +57,7 @@ import {
   removeLiveSession,
   writeLiveSession,
 } from "./LiveGameEngine/liveSessionStorage.js";
+import { useLiveGameClock } from "./LiveGameEngine/useLiveGameClock.js";
 import {
   getTableDecisionSelectionSnapshot,
   restoreTableDecisionSelection,
@@ -116,16 +117,22 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [bestMoveDeadlineMs, setBestMoveDeadlineMs] = useState<number | null>(null);
 
   const [toast, setToast] = useState<{ message: string; type: "error" | "warning" | "success" | "info" } | null>(null);
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [timerMax, setTimerMax] = useState(60);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const {
+    timeLeft,
+    setTimeLeft,
+    timerMax,
+    setTimerMax,
+    isTimerRunning,
+    setIsTimerRunning,
+    isMuted,
+    setIsMuted,
+    playBeep,
+  } = useLiveGameClock();
   const [activeSpeakerSlot, setActiveSpeakerSlot] = useState<number | null>(null);
   const [customTimerLabel, setCustomTimerLabel] = useState<string | null>(null);
   const [zeroNightSubPhase, setZeroNightSubPhase] = useState<"agreement" | "sheriff" | "seating" | null>(null);
   const [zeroNightMusicState, setZeroNightMusicState] = useState<ZeroNightMusicState>('pending');
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gameFinishedRef = useRef(false);
-  const [isMuted, setIsMuted] = useState(false);
 
   const [nominations, setNominations] = useState<number[]>([]);
   const [nominationsMap, setNominationsMap] = useState<Record<number, number>>({});
@@ -165,41 +172,6 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
     setToast({ message, type });
     window.setTimeout(() => setToast((current) => current?.message === message ? null : current), 3200);
   };
-
-  const playBeep = (freq: number, duration: number) => {
-    if (isMuted) return;
-    try {
-      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-      const context = new AudioContextCtor();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.frequency.value = freq;
-      gain.gain.setValueAtTime(0.06, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.004, context.currentTime + duration);
-      oscillator.start();
-      oscillator.stop(context.currentTime + duration);
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (!isTimerRunning) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-    timerRef.current = setInterval(() => {
-      setTimeLeft((value) => {
-        if (value <= 1) {
-          setIsTimerRunning(false);
-          playBeep(1000, 0.4);
-          return 0;
-        }
-        return value - 1;
-      });
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isTimerRunning, isMuted]);
 
   const takeSnapshot = (): LiveSnapshot => {
     const tableDecisionSelection = getTableDecisionSelectionSnapshot();

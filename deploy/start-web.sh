@@ -8,14 +8,14 @@ export BOT_SERVICE_URL="${BOT_SERVICE_URL:-http://127.0.0.1:8081}"
 # Amvera SQLite is the only runtime database. Production and the separately
 # deployed test application use different files on different persistent volumes.
 unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN
+export DATABASE_PATH="/data/mafia_crm.sqlite"
+export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="true"
+export SEED_DEMO_DATA="false"
+
 if [ "${APP_ENV:-production}" = "test" ]; then
   export DATABASE_PATH="/data/mafia_crm.test.sqlite"
   export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="false"
   export SEED_DEMO_DATA="true"
-else
-  export DATABASE_PATH="/data/mafia_crm.sqlite"
-  export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="true"
-  export SEED_DEMO_DATA="false"
 fi
 
 mkdir -p /data

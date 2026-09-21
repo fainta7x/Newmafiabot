@@ -68,63 +68,36 @@ export function generatePlayerSessionToken(playerId: string): string {
   return jwt.sign({ session: 'PLAYER', playerId }, JWT_SECRET, { expiresIn: '7d' });
 }
 
-export const TEST_ENVIRONMENT_COOKIE = 'test_environment_token';
+const TEST_PLAYER_SESSION_PREFIX = '__test__:';
 
-export type TestEnvironmentSession = {
-  role: 'PLAYER' | 'ORGANIZER';
-  playerId: string;
-};
-
-const testEnvironmentSessions = new Map<string, TestEnvironmentSession & { expiresAt: number }>();
-
-export function generateTestEnvironmentToken(role: TestEnvironmentSession['role'], playerId: string): string {
-  const id = crypto.randomUUID();
-  testEnvironmentSessions.set(id, {
-    role,
-    playerId,
-    expiresAt: Date.now() + 12 * 60 * 60 * 1000,
-  });
-  return id;
-}
-
-export function getTestEnvironmentSession(req: Request): TestEnvironmentSession | null {
-  const id = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
-  if (!id || typeof id !== 'string') return null;
-  const session = testEnvironmentSessions.get(id);
-  if (!session) return null;
-  if (session.expiresAt <= Date.now()) {
-    testEnvironmentSessions.delete(id);
-    return null;
-  }
-  return { role: session.role, playerId: session.playerId };
-}
-
-export function revokeTestEnvironmentSession(req: Request): void {
-  const id = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
-  if (typeof id === 'string' && id) testEnvironmentSessions.delete(id);
-}
-
-export function isTestEnvironmentRequest(req: Request): boolean {
-  return Boolean(getTestEnvironmentSession(req));
-}
-
-export function getPlayerSessionId(req: Request): string | null {
-  const testSession = getTestEnvironmentSession(req);
-  if (testSession) return testSession.playerId;
-
+function decodePlayerSession(req: Request): { playerId: string } | null {
   const token = req.cookies?.player_token;
   if (!token || typeof token !== 'string') return null;
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { session?: string; playerId?: string };
     if (decoded.session === 'PLAYER' && typeof decoded.playerId === 'string' && decoded.playerId) {
-      return decoded.playerId;
+      return { playerId: decoded.playerId };
     }
   } catch {
     // Invalid or expired player session is treated as unlinked.
   }
-
   return null;
+}
+
+export function testEnvironmentPlayerId(playerId: string): string {
+  return `${TEST_PLAYER_SESSION_PREFIX}${playerId}`;
+}
+
+export function isTestEnvironmentRequest(req: Request): boolean {
+  return Boolean(decodePlayerSession(req)?.playerId.startsWith(TEST_PLAYER_SESSION_PREFIX));
+}
+
+export function getPlayerSessionId(req: Request): string | null {
+  const decoded = decodePlayerSession(req);
+  if (!decoded) return null;
+  return decoded.playerId.startsWith(TEST_PLAYER_SESSION_PREFIX)
+    ? decoded.playerId.slice(TEST_PLAYER_SESSION_PREFIX.length)
+    : decoded.playerId;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -146,15 +119,7 @@ export function getAuthenticatedOrganizerActorId(req: AuthenticatedRequest): str
 }
 
 export async function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
-  const testSession = getTestEnvironmentSession(req);
-  if (testSession) {
-    req.testEnvironment = true;
-    req.userRole = testSession.role;
-    if (testSession.role === 'ORGANIZER') {
-      req.organizerActorId = `test-organizer:${testSession.playerId}`;
-    }
-    return next();
-  }
+  req.testEnvironment = isTestEnvironmentRequest(req);
 
   let token = req.cookies?.organizer_token;
 

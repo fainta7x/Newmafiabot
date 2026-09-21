@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../components/LiveGameEngine.tsx', import.meta.url), 'utf8');
 const toolbarSource = readFileSync(new URL('../components/LiveGameEngine/LiveGameJudgeToolbar.tsx', import.meta.url), 'utf8');
+const playerListSource = readFileSync(new URL('../components/LiveGameEngine/LiveGamePlayerList.tsx', import.meta.url), 'utf8');
 const centerSource = readFileSync(new URL('../components/LiveGameEngine/CenterPanel.tsx', import.meta.url), 'utf8');
 
 describe('live player action availability', () => {
@@ -30,7 +31,8 @@ describe('live player action availability', () => {
   });
 
   it('opens player actions from list mode too', () => {
-    expect(source).toContain('onClick={() => setActionPlayerSlot(p.slot_num)}');
-    expect(source).toContain('Открыть действия игрока');
+    expect(source).toContain('<LiveGamePlayerList activePlayers={activePlayers} onSelectPlayer={setActionPlayerSlot} />');
+    expect(playerListSource).toContain('onClick={() => onSelectPlayer(player.slot_num)}');
+    expect(playerListSource).toContain('Открыть действия игрока');
   });
 });

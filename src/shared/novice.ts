@@ -37,3 +37,6 @@ export const NOVICE_APPLICATION_SOURCES = [
 ] as const;
 
 export type NoviceApplicationSource = typeof NOVICE_APPLICATION_SOURCES[number];
+
+export const NOVICE_ENTRY_ROUTES = ['NOVICE', 'EXPERIENCED'] as const;
+export type NoviceEntryRoute = typeof NOVICE_ENTRY_ROUTES[number];

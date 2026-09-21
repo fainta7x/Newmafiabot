@@ -96,6 +96,15 @@ Focused coverage includes `src/tests/closedEveningPaymentCompatibility.test.ts` 
 
 ## Profile / club / conduct / avatars
 
+### Novice development funnel
+
+- Schema: `src/db/ensureNoviceSystemSchema.ts` (`club_stage`, `novice_applications`).
+- Rules/types: `src/shared/novice.ts`, `src/server/services/noviceService.ts`.
+- Player API: `/api/player/novice*`; organizer API: `/api/novice/*` in `src/server/routes/noviceRoutes.ts`.
+- Player entry UI: `src/components/player/PlayerEventsCalendar.tsx`.
+- Organizer CRM: `src/components/crm/NoviceDevelopmentCRM.tsx`, opened from **Ещё → Развитие**.
+- NOVICE personalized pricing is enforced in `eveningSlotPlanningService.ts`; do not duplicate it in Telegram/VK clients.
+
 - Profile/self identity: `PlayerProfileHub.tsx`, `PlayerProfileSettings.tsx`, `PlayerIdentityFields.tsx`; canonical read/write is `/api/player/me`.
 - Conduct/staff workspace: `PlayerConductCenter.tsx`.
 - Club discovery: `PlayerClubDirectory.tsx`, `PlayerClubConnections.tsx`.

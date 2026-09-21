@@ -27,6 +27,15 @@ type EventItem = {
 type Filter = 'all' | 'novice' | 'club' | 'rating' | 'tournament';
 type View = 'list' | 'calendar';
 
+type NoviceState = {
+  player: { club_stage: string; game_level: string };
+  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title?: string | null }>;
+  novice_visits: number;
+  free_visits_remaining: number;
+  next_novice_price_per_game: number;
+  can_self_register: boolean;
+};
+
 const FILTERS: Array<[Filter, string]> = [
   ['all', 'Все форматы'],
   ['novice', 'Новички'],
@@ -128,6 +137,9 @@ export default function PlayerEventsCalendar({
   const [view, setView] = useState<View>('list');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [noviceState, setNoviceState] = useState<NoviceState | null>(null);
+  const [applicationBusy, setApplicationBusy] = useState<'NOVICE' | 'EXPERIENCED' | null>(null);
+  const [applicationMessage, setApplicationMessage] = useState('');
 
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const queryEventId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('event') : null;
@@ -141,6 +153,7 @@ export default function PlayerEventsCalendar({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить календарь');
       setEvents(Array.isArray(body.events) ? body.events : []);
+      if (body?.novice_state?.player) setNoviceState(body.novice_state);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить календарь');
       setEvents([]);
@@ -225,6 +238,29 @@ export default function PlayerEventsCalendar({
     return visible.find((event) => new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000) || null;
   }, [visible]);
 
+  const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED') => {
+    setApplicationBusy(entryRoute);
+    setApplicationMessage('');
+    const expectedKind = entryRoute === 'NOVICE' ? 'novice' : 'club';
+    const target = events
+      .filter((event) => eventKind(event) === expectedKind && new Date(event.starts_at).getTime() >= Date.now() - 6 * 60 * 60 * 1000)
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
+    try {
+      const response = await fetch('/api/player/novice/applications', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_route: entryRoute, evening_id: target?.id || null }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
+      setNoviceState(body.state || noviceState);
+      setApplicationMessage(body.created ? 'Заявка отправлена организатору. После подтверждения самостоятельная запись откроется автоматически.' : 'Такая заявка уже находится на рассмотрении.');
+    } catch (submitError: any) {
+      setApplicationMessage(submitError?.message || 'Не удалось отправить заявку');
+    } finally {
+      setApplicationBusy(null);
+    }
+  };
+
   const activeFilterLabel = FILTERS.find(([id]) => id === filter)?.[1] || 'Все форматы';
 
   const openEvent = (event: EventItem) => {
@@ -254,6 +290,23 @@ export default function PlayerEventsCalendar({
           <h1 className="text-2xl font-semibold">События</h1>
           <p className="mt-1 text-sm leading-5 text-white/50">Ближайший вечер и запись — в первую очередь. Остальные события можно отфильтровать ниже.</p>
         </header>
+
+        {noviceState?.player.club_stage === 'NEW' ? <section className="mb-3 rounded-[24px] border border-sky-300/15 bg-sky-300/[0.07] p-3.5">
+          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-sky-100/60">Первый раз в 2LA Noire</div>
+          <h2 className="mt-1 text-[18px] font-semibold">Выберите подходящий путь</h2>
+          <p className="mt-1 text-[13px] leading-5 text-white/55">Первая заявка подтверждается организатором. После подтверждения вы сможете записываться самостоятельно.</p>
+          <div className="mt-3 grid gap-2">
+            <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Школа мафии · первые 2 посещения бесплатно</span></button>
+            <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
+          </div>
+          {applicationMessage ? <p className="mt-3 rounded-xl bg-black/20 p-2.5 text-[12px] leading-5 text-white/70">{applicationMessage}</p> : null}
+          {noviceState.applications.some((item) => item.status === 'NEW') ? <p className="mt-2 text-[12px] text-sky-100/75">Текущая заявка ожидает решения организатора.</p> : null}
+        </section> : null}
+
+        {noviceState?.player.club_stage === 'NOVICE_ACTIVE' ? <section className="mb-3 rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.07] p-3">
+          <strong className="text-[14px] text-emerald-100">Новичковый маршрут активен</strong>
+          <p className="mt-1 text-[12px] leading-5 text-white/55">Посещений: {noviceState.novice_visits}. {noviceState.free_visits_remaining > 0 ? `Осталось бесплатных посещений: ${noviceState.free_visits_remaining}.` : 'Следующие игры — 200 ₽ за игру.'}</p>
+        </section> : null}
 
         <section className="rounded-[24px] border border-white/[0.07] bg-white/[0.035] p-2.5">
           <div className="flex items-center justify-between gap-2">

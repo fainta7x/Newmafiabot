@@ -127,6 +127,10 @@ Main areas:
 
 Broad CRM UX redesign is product work, not an architecture prerequisite. It is currently deferred by user preference.
 
+### Novice funnel ownership
+
+The canonical first-visit/novice funnel is Node/WebApp-owned. `novice_applications` owns review state and `players.club_stage` owns the relationship with 2LA Noire; neither Telegram nor VK keeps a parallel funnel. `players.game_level` remains the independent playing-skill/access classification. Player entry lives in the events calendar, organizer decisions live in CRM **Ещё → Развитие**, and both external channels receive decisions through the existing personal notification router.
+
 ## 8. Attendance / closeout / payment ownership
 
 Quick CRM row actions should update affected local state without forcing a full evening reload.

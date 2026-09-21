@@ -2,7 +2,7 @@
 
 This file is the canonical **current-state snapshot**. It deliberately does not contain a long chronological history; Git commits and merged PRs own history.
 
-**Status date:** 2026-09-20
+**Status date:** 2026-09-21
 
 **Latest release record:** the current `main` baseline includes the completed organizer/player/Live Game UX audit through PR #268, canonical club-game betting plus durable personal/organizer/betting Telegram delivery from PR #273, profile integrity/verified awards from PR #274, and the completed three-part premium Player Profile delivery from PRs #275–#277: canonical profile core, verified awards/club history, factual player connections, organizer-curated referral history and player-to-player evening invitations. VK Player Cabinet access and personal delivery were introduced in PR #285; the operational follow-up for cabinet OAuth routing, restart-active VK outbox delivery, channel-neutral betting notifications, owner-initiated VK linking and trusted public callback URLs is implemented by VK-ACCESS-002 / PR #290 and remains subject to merge, deployment and runtime verification. CRM-PAY-003 / PR #292 implements factual regular-evening pricing at 100 ₽ per actually completed game with a 400 ₽ cap, debt-free RSVP/slot planning and application-level historical reconciliation; it remains subject to review, merge, deployment and runtime/data verification. The OBS Live Game broadcast bridge is implemented in current code and still requires deployment/runtime verification before it may be called live.
 
@@ -64,6 +64,9 @@ Never overwrite/reset/restore a non-empty production SQLite file as a normal bug
 
 Implemented and connected:
 
+- first-visit routing for actual Mafia novices versus experienced visitors, with one canonical manually reviewed application before self-registration;
+- canonical novice progression state (`club_stage`) kept separate from playing access (`game_level`), channel-neutral Telegram/VK decision notifications and player-visible novice visit/free-price state;
+
 - Telegram/session authentication and canonical Player Cabinet shell;
 - events/calendar/registration and multi-game slot planning;
 - games/history/statistics/career/replay;
@@ -114,6 +117,9 @@ Future music work should start from a concrete missing behavior or UX request, n
 ### Organizer CRM
 
 Implemented and connected:
+
+- **Ещё → Развитие** for first applications, novice/experienced routing, manual confirmation, attendance/completion tracking and manual promotion to the main club;
+- next-NOVICE operational timing for the Thursday 20:00 group check and Friday 15:00 decision, explicitly without automatic cancellation;
 
 - organizer auth/entitlement tied to canonical player identity;
 - Today/command center;

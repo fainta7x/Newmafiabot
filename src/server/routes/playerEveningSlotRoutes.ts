@@ -16,7 +16,7 @@ const requirePlayer = async (req: Request, res: Response) => {
   }
 
   const player = await req.db.get<any>(
-    'SELECT id, game_level FROM players WHERE id = ? LIMIT 1',
+    "SELECT id, game_level, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1",
     [String(playerId)],
   );
   if (!player) {
@@ -54,6 +54,9 @@ router.put('/evenings/:eveningId/slots', async (req, res) => {
     const current = await loadEveningSlotPlan(req.db, String(req.params.eveningId), String(player.id));
     if (!playerLevelAllowsEveningFormat(player.game_level, current.event.format)) {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
+    }
+    if (String(player.club_stage) === 'NEW') {
+      return res.status(403).json({ error: 'Первая заявка должна быть подтверждена организатором', code: 'first_application_required' });
     }
 
     const plan = await replacePlayerSlotSelection(

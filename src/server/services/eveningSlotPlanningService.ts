@@ -9,6 +9,20 @@ export const SLOT_PRICE = 100;
 export const CLUB_EVENING_MAX_PRICE = 400;
 export const TABLE_MIN_PLAYERS = 11;
 export const TABLE_MIN_READY_SLOTS = 4;
+export const NOVICE_PAID_GAME_PRICE = 200;
+export const NOVICE_FREE_VISITS = 2;
+
+const novicePriceForPlayer = async (db: DatabaseWrapper, playerId: string): Promise<number> => {
+  const row = await db.get<any>(
+    `SELECT COUNT(DISTINCT ep.evening_id) AS visits
+       FROM evening_participants ep
+       JOIN game_evenings e ON e.id = ep.evening_id
+      WHERE ep.player_id = ? AND ep.attendance_status = 'attended'
+        AND UPPER(COALESCE(e.format, '')) = 'NOVICE'`,
+    [playerId],
+  );
+  return Number(row?.visits || 0) < NOVICE_FREE_VISITS ? 0 : NOVICE_PAID_GAME_PRICE;
+};
 
 export const calculateEveningSelectionTotal = (format: unknown, prices: number[]): number => {
   if (normalizeEveningFormat(format) === 'CASUAL') {
@@ -218,12 +232,15 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
     for (const row of selectedRows) selectedSlotIds.add(String(row.slot_id));
   }
 
+  const personalNovicePrice = playerId && normalizeEveningFormat(evening.format) === 'NOVICE'
+    ? await novicePriceForPlayer(db, playerId)
+    : null;
   const slots = rows.map((row) => ({
     id: String(row.id),
     slot_number: Number(row.slot_number),
     starts_at: row.starts_at,
     ends_at: row.ends_at,
-    price: Number(row.price_rub || SLOT_PRICE),
+    price: personalNovicePrice == null ? Number(row.price_rub || SLOT_PRICE) : personalNovicePrice,
     target_players: Number(row.target_players || TABLE_MIN_PLAYERS),
     registered_count: Number(row.registered_count || 0),
     selected: selectedSlotIds.has(String(row.id)),
@@ -270,9 +287,12 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
   const byId = new Map(available.map(s => [String(s.id), s]));
   const ids = Array.isArray(raw) ? Array.from(new Set(raw.map(v => String(v || '').trim()).filter(Boolean))) : [];
   if (ids.some(id => !byId.has(id))) throw Object.assign(new Error('В выборе есть недоступная игра'), { statusCode: 400 });
+  const personalNovicePrice = normalizeEveningFormat(evening.format) === 'NOVICE'
+    ? await novicePriceForPlayer(db, playerId)
+    : null;
   const estimate = calculateEveningSelectionTotal(
     evening.format,
-    ids.map((id) => Number(byId.get(id)?.price_rub || 0)),
+    ids.map((id) => personalNovicePrice == null ? Number(byId.get(id)?.price_rub || 0) : personalNovicePrice),
   );
   const isCasual = normalizeEveningFormat(evening.format) === 'CASUAL';
   const now = new Date().toISOString();

@@ -1,25 +1,31 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
-import { setOrganizerCookie, setPlayerCookie } from './authRoutes.ts';
+import { getIsolatedTestDb } from '../../db/index.ts';
+import {
+  generateTestEnvironmentToken,
+  getTestEnvironmentSession,
+  TEST_ENVIRONMENT_COOKIE,
+} from '../auth.ts';
 
 const router = Router();
 const TEST_PLAYER_ID = 'p-test-1';
 
 function testEnvironmentEnabled(): boolean {
-  return process.env.APP_ENV === 'test';
+  return String(process.env.TEST_ACCESS_PASSWORD || '').length >= 12;
 }
 
 function safePasswordMatch(actual: unknown): boolean {
   const expected = String(process.env.TEST_ACCESS_PASSWORD || '');
   const received = typeof actual === 'string' ? actual : '';
-  if (!expected || expected.length < 12 || expected.length !== received.length) return false;
+  if (!testEnvironmentEnabled() || expected.length !== received.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
-router.get('/status', (_req, res) => {
+router.get('/status', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     enabled: testEnvironmentEnabled(),
+    active: Boolean(getTestEnvironmentSession(req)),
     label: testEnvironmentEnabled() ? 'ТЕСТОВАЯ ВЕРСИЯ' : null,
   });
 });
@@ -35,29 +41,37 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Выберите вход игрока или организатора' });
   }
 
-  const player = await req.db.get<{ id: string }>(
+  const testDb = await getIsolatedTestDb();
+  const player = await testDb.get<{ id: string }>(
     'SELECT id FROM players WHERE id = ? LIMIT 1',
     [TEST_PLAYER_ID],
   );
-  if (!player) {
-    return res.status(503).json({
-      error: 'Тестовый игрок не создан. Проверьте APP_ENV=test и SEED_DEMO_DATA=true.',
-    });
-  }
+  if (!player) return res.status(503).json({ error: 'Тестовый игрок не создан' });
 
-  setPlayerCookie(res, TEST_PLAYER_ID);
-  if (role === 'organizer') {
-    setOrganizerCookie(res);
-  } else {
-    res.clearCookie('organizer_token', { path: '/' });
-  }
+  const signedRole = role === 'organizer' ? 'ORGANIZER' : 'PLAYER';
+  res.cookie(
+    TEST_ENVIRONMENT_COOKIE,
+    generateTestEnvironmentToken(signedRole, TEST_PLAYER_ID),
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 12 * 60 * 60 * 1000,
+    },
+  );
 
   return res.json({
     success: true,
-    role: role === 'organizer' ? 'ORGANIZER' : 'PLAYER',
+    role: signedRole,
     playerId: TEST_PLAYER_ID,
     redirectTo: role === 'organizer' ? '/admin' : '/player',
   });
+});
+
+router.post('/logout', (_req, res) => {
+  res.clearCookie(TEST_ENVIRONMENT_COOKIE, { path: '/' });
+  return res.json({ success: true, redirectTo: '/test-login' });
 });
 
 export default router;

@@ -276,7 +276,7 @@ Optional variable if the public origin changes:
 
 - `RUNTIME_MONITOR_BASE_URL`.
 
-Use the manual test-notification input after configuration and leave the scheduled monitor enabled. The workflow also probes production on every push to `main` so a merge gets an immediate non-destructive health check even when GitHub's scheduled Actions are delayed. A push-triggered green probe proves only that the **current deployed production** is healthy at that moment; it does **not** prove that Amvera has already deployed the pushed SHA. Scheduled Actions are best-effort and their five-minute cron must not be treated as a five-minute availability SLA. See `docs/telegram-runtime-health.md`.
+Use the manual test-notification input after configuration and leave the scheduled monitor enabled. The workflow also probes production on every push to `main` so a merge gets an immediate non-destructive health check even when GitHub's scheduled Actions are delayed. A push-triggered green probe proves only that the **current deployed production** is healthy at that moment; it does **not** prove that Amvera has already deployed the pushed SHA. It uses the same incident/recovery state as the scheduled monitor rather than a second alert path. Scheduled Actions are best-effort and their five-minute cron must not be treated as a five-minute availability SLA. See `docs/telegram-runtime-health.md`.
 
 ## 10. Live Game betting runtime verification
 

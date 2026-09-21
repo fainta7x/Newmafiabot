@@ -1855,6 +1855,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
       <ProtocolCompletionDialogs
         protocol={protocol}
+        playerResults={playerResults}
         showCompleteConfirm={showCompleteConfirm}
         showRevertConfirm={showRevertConfirm}
         submitting={submitting}

@@ -8,6 +8,7 @@ describe('Database Seeding & Stability Tests', () => {
   let db: DatabaseWrapper;
   const testDbFile = path.resolve(process.cwd(), 'test_seed_temp.sqlite');
   let originalNodeEnv: string | undefined;
+  let originalAppEnv: string | undefined;
 
   beforeEach(() => {
     // Delete temp file if exists
@@ -17,6 +18,8 @@ describe('Database Seeding & Stability Tests', () => {
     // Set env variables
     process.env.SEED_DEMO_DATA = 'true';
     originalNodeEnv = process.env.NODE_ENV;
+    originalAppEnv = process.env.APP_ENV;
+    delete process.env.APP_ENV;
     process.env.NODE_ENV = 'development';
   });
 
@@ -25,6 +28,7 @@ describe('Database Seeding & Stability Tests', () => {
       try { db.sqlite.close(); } catch (_) {}
     }
     process.env.NODE_ENV = originalNodeEnv;
+    process.env.APP_ENV = originalAppEnv;
     if (fs.existsSync(testDbFile)) {
       try { fs.unlinkSync(testDbFile); } catch (_) {}
       try { fs.unlinkSync(`${testDbFile}-wal`); } catch (_) {}
@@ -71,7 +75,17 @@ describe('Database Seeding & Stability Tests', () => {
     expect(playersCount?.count).toBe(0);
   });
 
-  it('3. Running seed twice does not create duplicates', async () => {
+  it('3. Seeds a production-mode process only when APP_ENV=test uses an isolated database', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_ENV = 'test';
+    db = createDatabaseConnection(testDbFile);
+    await seedDemoData(db);
+
+    const playersCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM players');
+    expect(playersCount?.count).toBe(10);
+  });
+
+  it('4. Running seed twice does not create duplicates', async () => {
     db = createDatabaseConnection(testDbFile);
     await seedDemoData(db);
     
@@ -85,7 +99,7 @@ describe('Database Seeding & Stability Tests', () => {
     expect(tournamentsCount?.count).toBe(1);
   });
 
-  it('4. Re-initializing database preserves existing data', async () => {
+  it('5. Re-initializing database preserves existing data', async () => {
     db = createDatabaseConnection(testDbFile);
     await seedDemoData(db);
 
@@ -101,7 +115,7 @@ describe('Database Seeding & Stability Tests', () => {
     expect(tournamentsCount?.count).toBe(1);
   });
 
-  it('5. Seed does not run if SEED_DEMO_DATA is not true', async () => {
+  it('6. Seed does not run if SEED_DEMO_DATA is not true', async () => {
     process.env.SEED_DEMO_DATA = 'false';
     db = createDatabaseConnection(testDbFile);
     await seedDemoData(db);

@@ -38,7 +38,7 @@ const toSafePlayer = (player: any) => ({
   tokens: Number(player.tokens || 0),
 });
 
-const setPlayerCookie = (res: Response, playerId: string) => {
+export const setPlayerCookie = (res: Response, playerId: string) => {
   const token = generatePlayerSessionToken(playerId);
   res.cookie('player_token', token, {
     httpOnly: true,
@@ -49,7 +49,7 @@ const setPlayerCookie = (res: Response, playerId: string) => {
   });
 };
 
-const setOrganizerCookie = (res: Response, organizerPlayerId?: string) => {
+export const setOrganizerCookie = (res: Response, organizerPlayerId?: string) => {
   const token = generateOrganizerToken(organizerPlayerId);
   res.cookie('organizer_token', token, {
     httpOnly: true,

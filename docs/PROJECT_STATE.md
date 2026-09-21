@@ -43,11 +43,13 @@ Canonical Amvera product storage is persistent SQLite:
 
 `/data/mafia_crm.sqlite`
 
-`deploy/start-web.sh` hard-pins this path on every production start and explicitly unsets `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. The generic Turso adapter remains in source for legacy/recovery compatibility but is not the canonical production path.
+`deploy/start-web.sh` hard-pins this path on every production start. Turso is retired: runtime selection no longer uses it, and production startup rejects stale `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` variables.
 
 Existing non-empty `/data/mafia_crm.sqlite` always wins over repository checkpoint/bootstrap data. The checkpoint is used only when the canonical file is missing or empty.
 
 The Python bot still has legacy local state at `/data/mafia_crm.db`; it is not the canonical product database and must never replace or seed `/data/mafia_crm.sqlite`.
+
+A separately deployed manual test application uses `APP_ENV=test`, its own Amvera persistent volume and `/data/mafia_crm.test.sqlite`. It starts from an empty schema plus synthetic seed data, never from the production checkpoint. The shared UI is the real application UI; `/test-login` provides password-protected player/organizer entry, and external Telegram/VK delivery workers are disabled. The intended public hostname is `test.tournoir`, subject to Amvera app/domain configuration.
 
 Repository checkpoint files are bootstrap/recovery artifacts only:
 

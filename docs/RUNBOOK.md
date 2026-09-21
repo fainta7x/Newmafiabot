@@ -116,9 +116,20 @@ For canonical Amvera production, `deploy/start-web.sh` is the runtime contract:
 
 - `DATABASE_PATH=/data/mafia_crm.sqlite`;
 - `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true`;
-- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are explicitly unset before Node starts.
+- Turso is retired; stale `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` variables are unset and rejected.
 
-`src/db/index.ts` still supports a generic Turso path for legacy/recovery/test scenarios, but ordinary Amvera production must not depend on it.
+For the separate manual test application:
+
+- `APP_ENV=test`;
+- a separate Amvera application and persistent volume;
+- `DATABASE_PATH=/data/mafia_crm.test.sqlite`;
+- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=false`;
+- `SEED_DEMO_DATA=true`;
+- `TEST_ACCESS_PASSWORD` with at least 12 characters;
+- no Telegram/VK production credentials;
+- open `/test-login` to enter as the test player or organizer.
+
+Never attach the test deployment to the production volume or initialize it from the repository production checkpoint.
 
 Never infer production persistence from an old env screenshot, `render.yaml` or stale docs; confirm the deployed start script and the persistent `/data` mount.
 
@@ -216,7 +227,7 @@ Required runtime contract includes:
 - `BOT_SERVICE_URL=http://127.0.0.1:8081`;
 - configured Telegram destination/admin and VK/Gemini secrets where used.
 
-Do not re-enable Turso variables in the canonical Amvera start path without a separate migration decision. Do not import a checkpoint during an ordinary deploy.
+Do not configure Turso variables: Turso is no longer a supported runtime database. Do not import a checkpoint during an ordinary deploy.
 
 ### After every meaningful deploy
 

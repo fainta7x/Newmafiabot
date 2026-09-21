@@ -5,6 +5,7 @@ import JudgeGameMusicController from "./components/JudgeGameMusicController.tsx"
 import ScopedEveningDeathProtocolBridge from "./components/crm/ScopedEveningDeathProtocolBridge.tsx";
 import LiveGameResumeBridge from "./components/crm/LiveGameResumeBridge.tsx";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
+import TestEnvironmentGate from "./components/TestEnvironmentGate.tsx";
 import { initializeCrmPrimaryTitleOwnership } from "./lib/crmPrimaryTitleOwnership.ts";
 import { initializeTelegramWebAppViewport } from "./lib/telegramWebAppViewport.ts";
 import "./index.css";
@@ -28,10 +29,12 @@ initializeCrmPrimaryTitleOwnership();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <App />
+      <TestEnvironmentGate>
+        <App />
       <JudgeGameMusicController />
       <ScopedEveningDeathProtocolBridge />
       <LiveGameResumeBridge />
+      </TestEnvironmentGate>
     </AppErrorBoundary>
   </React.StrictMode>
 );

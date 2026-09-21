@@ -5,12 +5,18 @@ export HOST=127.0.0.1
 export PORT=3000
 export BOT_SERVICE_URL="${BOT_SERVICE_URL:-http://127.0.0.1:8081}"
 
-# Amvera production storage is the persistent /data volume. Hard-pin the WebApp
-# database here so stale platform variables cannot redirect it back to /tmp or
-# another ephemeral path. The previous Turso backend is intentionally disabled.
+# Amvera SQLite is the only runtime database. Production and the separately
+# deployed test application use different files on different persistent volumes.
+unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN
 export DATABASE_PATH="/data/mafia_crm.sqlite"
 export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="true"
-unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN
+export SEED_DEMO_DATA="false"
+
+if [ "${APP_ENV:-production}" = "test" ]; then
+  export DATABASE_PATH="/data/mafia_crm.test.sqlite"
+  export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="false"
+  export SEED_DEMO_DATA="true"
+fi
 
 mkdir -p /data
 

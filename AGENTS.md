@@ -109,12 +109,14 @@ Mobile Telegram WebApp is the primary release target. Treat desktop as a seconda
 
 Production data is more important than repository convenience.
 
-- The current production-primary database is **remote Turso** when both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are configured.
-- The local `DATABASE_PATH` SQLite file is a fallback/local path, not proof of production storage ownership.
-- Repository checkpoint files are bootstrap/recovery artifacts only.
+- The only supported runtime database is persistent SQLite on Amvera.
+- Canonical production storage is `/data/mafia_crm.sqlite`.
+- The isolated `APP_ENV=test` deployment uses `/data/mafia_crm.test.sqlite` on its own Amvera application/volume.
+- Turso is retired. Never add or use `TURSO_DATABASE_URL` or `TURSO_AUTH_TOKEN`; the server rejects them.
+- The test environment must never bootstrap from the production checkpoint and must never share the production `/data` volume.
+- Repository checkpoint files are production bootstrap/recovery artifacts only.
 - A non-empty runtime database always wins over repository checkpoint/bootstrap data.
 - Never reset, restore, replace, clean or overwrite production/runtime data during normal Git/deploy work.
-- Never infer that a Render deploy resets data solely because `render.yaml` contains `/tmp`; first inspect the DB selection logic in `src/db/index.ts` and current project state.
 
 Canonical repository checkpoint files:
 

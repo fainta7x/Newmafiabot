@@ -29,6 +29,7 @@ import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
+import testEnvironmentRoutes from './server/routes/testEnvironmentRoutes.ts';
 import playerJudgingRoutes from './server/routes/playerJudgingRoutes.ts';
 import playerJudgeMusicRoutes from './server/routes/playerJudgeMusicRoutes.ts';
 import musicLibraryRoutes from './server/routes/musicLibraryRoutes.ts';
@@ -150,7 +151,8 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
-  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+  const isIsolatedTestEnvironment = process.env.APP_ENV === 'test';
+  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test' || isIsolatedTestEnvironment;
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) {
     startTelegramSyncOutboxWorker(db);
@@ -168,6 +170,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
 
   app.use(parseUserSession);
 
+  app.use('/api/test-environment', testEnvironmentRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/player', playerJudgingRoutes);
   app.use('/api/player', playerJudgeMusicRoutes);

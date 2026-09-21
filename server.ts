@@ -30,19 +30,28 @@ function requireProductionSecret(name: 'ORGANIZER_PASSWORD' | 'JWT_SECRET' | 'BO
 function validateProductionEnvironment(): void {
   if (process.env.NODE_ENV !== 'production') return;
 
-  const tursoUrl = String(process.env.TURSO_DATABASE_URL || '').trim();
-  const tursoToken = String(process.env.TURSO_AUTH_TOKEN || '').trim();
-  if (Boolean(tursoUrl) !== Boolean(tursoToken)) {
-    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must either both be set or both be absent.');
+  if (process.env.TURSO_DATABASE_URL || process.env.TURSO_AUTH_TOKEN) {
+    throw new Error('Turso is retired. Remove TURSO_DATABASE_URL and TURSO_AUTH_TOKEN; Amvera SQLite is the only supported runtime database.');
   }
 
-  if (!tursoUrl) {
-    const databasePath = process.env.DATABASE_PATH;
-    if (!databasePath) {
-      throw new Error('Set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN, or DATABASE_PATH, in production.');
+  const databasePath = process.env.DATABASE_PATH;
+  if (!databasePath) {
+    throw new Error('DATABASE_PATH must be set in production.');
+  }
+  if (!path.isAbsolute(databasePath)) {
+    throw new Error('DATABASE_PATH must be an absolute path in production.');
+  }
+
+  if (process.env.APP_ENV === 'test') {
+    if (!databasePath.endsWith('.test.sqlite')) {
+      throw new Error('APP_ENV=test requires a dedicated DATABASE_PATH ending in .test.sqlite.');
     }
-    if (!path.isAbsolute(databasePath)) {
-      throw new Error('DATABASE_PATH must be an absolute path in production.');
+    if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT === 'true') {
+      throw new Error('APP_ENV=test must not bootstrap from the production checkpoint.');
+    }
+    const testPassword = String(process.env.TEST_ACCESS_PASSWORD || '');
+    if (testPassword.length < 12) {
+      throw new Error('TEST_ACCESS_PASSWORD must be at least 12 characters for APP_ENV=test.');
     }
   }
 

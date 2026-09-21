@@ -280,7 +280,7 @@ Canonical Amvera production uses persistent local SQLite:
 
 `/data/mafia_crm.sqlite`
 
-`deploy/start-web.sh` explicitly sets `DATABASE_PATH=/data/mafia_crm.sqlite`, enables first-bootstrap-from-checkpoint, and unsets `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. This start script is the production override over the generic selection capability still present in `src/db/index.ts`.
+`deploy/start-web.sh` explicitly sets `DATABASE_PATH=/data/mafia_crm.sqlite` and enables guarded first-bootstrap-from-checkpoint. Turso is retired and rejected by production validation. A separate `APP_ENV=test` Amvera application uses its own volume, `/data/mafia_crm.test.sqlite`, an empty-schema bootstrap with synthetic seed data, and no production messaging workers or checkpoint import.
 
 The repository checkpoint is used only when the canonical product DB is missing or empty. A non-empty `/data/mafia_crm.sqlite` must never be replaced during an ordinary deploy.
 

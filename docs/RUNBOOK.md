@@ -118,18 +118,14 @@ For canonical Amvera production, `deploy/start-web.sh` is the runtime contract:
 - `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true`;
 - Turso is retired; stale `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` variables are unset and rejected.
 
-For the separate manual test application:
+For the in-app manual sandbox:
 
-- `APP_ENV=test`;
-- a separate Amvera application and persistent volume;
-- `DATABASE_PATH=/data/mafia_crm.test.sqlite`;
-- `DATABASE_BOOTSTRAP_FROM_CHECKPOINT=false`;
-- `SEED_DEMO_DATA=true`;
-- `TEST_ACCESS_PASSWORD` with at least 12 characters;
-- no Telegram/VK production credentials;
-- open `/test-login` to enter as the test player or organizer.
-
-Never attach the test deployment to the production volume or initialize it from the repository production checkpoint.
+- keep the existing single Amvera application;
+- set `TEST_ACCESS_PASSWORD` as an Amvera secret with at least 12 characters;
+- `deploy/start-web.sh` pins `TEST_DATABASE_PATH=/data/mafia_crm.test.sqlite`;
+- open `/test-login` to enter as the test player or organizer;
+- the signed test cookie selects the sandbox database per request;
+- never initialize the sandbox from the production checkpoint or point `TEST_DATABASE_PATH` at `DATABASE_PATH`.
 
 Never infer production persistence from an old env screenshot, `render.yaml` or stale docs; confirm the deployed start script and the persistent `/data` mount.
 

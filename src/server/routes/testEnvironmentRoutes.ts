@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import { getIsolatedTestDb } from '../../db/index.ts';
 import {
+  checkLoginRateLimit,
   getTestEnvironmentSession,
+  resetLoginRateLimit,
   TEST_ENVIRONMENT_COOKIE,
 } from '../auth.ts';
 import { setTestEnvironmentCookie } from './authRoutes.ts';
@@ -32,6 +34,10 @@ router.get('/status', (req, res) => {
 
 router.post('/login', async (req, res) => {
   if (!testEnvironmentEnabled()) return res.status(404).json({ error: 'Not found' });
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkLoginRateLimit(`test:${clientIp}`)) {
+    return res.status(429).json({ error: 'Слишком много попыток. Попробуйте снова через 15 минут.' });
+  }
   if (!safePasswordMatch(req.body?.password)) {
     return res.status(401).json({ error: 'Неверный пароль тестовой версии' });
   }
@@ -48,6 +54,7 @@ router.post('/login', async (req, res) => {
   );
   if (!player) return res.status(503).json({ error: 'Тестовый игрок не создан' });
 
+  resetLoginRateLimit(`test:${clientIp}`);
   const signedRole = role === 'organizer' ? 'ORGANIZER' : 'PLAYER';
   setTestEnvironmentCookie(res, signedRole, TEST_PLAYER_ID);
 

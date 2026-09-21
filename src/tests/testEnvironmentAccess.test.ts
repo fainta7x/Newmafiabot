@@ -36,7 +36,7 @@ describe('single-app isolated test environment access', () => {
     expect(response.body).toMatchObject({ enabled: true, active: false });
   });
 
-  it('creates one isolated player session cookie', async () => {
+  it('switches the current browser session to the isolated player', async () => {
     const response = await request(app())
       .post('/api/test-environment/login')
       .send({ password: 'safe-test-password', role: 'player' });
@@ -44,19 +44,20 @@ describe('single-app isolated test environment access', () => {
     expect(response.status).toBe(200);
     expect(response.body.redirectTo).toBe('/player');
     const cookies = String(response.headers['set-cookie']);
-    expect(cookies).toContain('test_environment_token=');
-    expect(cookies).not.toContain('player_token=');
-    expect(cookies).not.toContain('organizer_token=');
+    expect(cookies).toContain('player_token=');
+    expect(cookies).toContain('organizer_token=;');
   });
 
-  it('creates an organizer sandbox session without replacing production cookies', async () => {
+  it('switches the current browser session to the isolated organizer', async () => {
     const response = await request(app())
       .post('/api/test-environment/login')
       .send({ password: 'safe-test-password', role: 'organizer' });
 
     expect(response.status).toBe(200);
     expect(response.body.redirectTo).toBe('/admin');
-    expect(String(response.headers['set-cookie'])).toContain('test_environment_token=');
+    const cookies = String(response.headers['set-cookie']);
+    expect(cookies).toContain('player_token=');
+    expect(cookies).toContain('organizer_token=');
   });
 
   it('stays unavailable when no sandbox password is configured', async () => {

@@ -151,8 +151,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
-  const isIsolatedTestEnvironment = process.env.APP_ENV === 'test';
-  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test' || isIsolatedTestEnvironment;
+  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) {
     startTelegramSyncOutboxWorker(db);

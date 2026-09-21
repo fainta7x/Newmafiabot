@@ -2,7 +2,7 @@ import { DatabaseWrapper } from './index.ts';
 
 export async function seedDemoData(db: DatabaseWrapper, options: { isolatedTest?: boolean } = {}): Promise<void> {
   // Production club data is never seeded. The only production-mode exception is
-  // the separately deployed APP_ENV=test instance with its own Amvera volume.
+  // the explicitly isolated in-app sandbox database.
   if (process.env.NODE_ENV === 'production' && !options.isolatedTest) {
     return;
   }

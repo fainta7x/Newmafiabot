@@ -75,44 +75,28 @@ export type TestEnvironmentSession = {
   playerId: string;
 };
 
+const testEnvironmentSessions = new Map<string, TestEnvironmentSession & { expiresAt: number }>();
+
 export function generateTestEnvironmentToken(role: TestEnvironmentSession['role'], playerId: string): string {
-  const payload = Buffer.from(JSON.stringify({
+  const id = crypto.randomUUID();
+  testEnvironmentSessions.set(id, {
     role,
     playerId,
     expiresAt: Date.now() + 12 * 60 * 60 * 1000,
-  })).toString('base64url');
-  const signature = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
-  return `${payload}.${signature}`;
+  });
+  return id;
 }
 
 export function getTestEnvironmentSession(req: Request): TestEnvironmentSession | null {
-  const token = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
-  if (!token || typeof token !== 'string') return null;
-  try {
-    const [payload, signature, extra] = token.split('.');
-    if (!payload || !signature || extra) return null;
-    const expected = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('base64url');
-    if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-      return null;
-    }
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-      role?: string;
-      playerId?: string;
-      expiresAt?: number;
-    };
-    if (
-      (decoded.role === 'PLAYER' || decoded.role === 'ORGANIZER')
-      && typeof decoded.playerId === 'string'
-      && decoded.playerId
-      && typeof decoded.expiresAt === 'number'
-      && decoded.expiresAt > Date.now()
-    ) {
-      return { role: decoded.role, playerId: decoded.playerId };
-    }
-  } catch {
-    // Invalid or expired test session is not allowed to select the test database.
+  const id = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
+  if (!id || typeof id !== 'string') return null;
+  const session = testEnvironmentSessions.get(id);
+  if (!session) return null;
+  if (session.expiresAt <= Date.now()) {
+    testEnvironmentSessions.delete(id);
+    return null;
   }
-  return null;
+  return { role: session.role, playerId: session.playerId };
 }
 
 export function isTestEnvironmentRequest(req: Request): boolean {

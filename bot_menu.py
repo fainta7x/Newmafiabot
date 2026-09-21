@@ -10,6 +10,7 @@ APP_BUTTON_TEXT = "🎭 Открыть 2LA Noire"
 CABINET_BUTTON_TEXT = "Личный кабинет"
 CLUB_ACCESS_BUTTON_TEXT = "🎟 Доступ в клуб"
 REGULATIONS_BUTTON_TEXT = "📋 РЕГЛАМЕНТ"
+STATUS_BUTTON_TEXT = "🩺 Проверить состояние приложения"
 
 
 def player_app_url(path: str = "/player") -> str | None:
@@ -17,15 +18,12 @@ def player_app_url(path: str = "/player") -> str | None:
     if not base:
         return None
     suffix = "/" + str(path or "/player").lstrip("/")
-
-    # PLAYER_APP_URL may be configured either as the site origin or as /player itself.
     if base.endswith("/player") and suffix.startswith("/player"):
         base = base[:-len("/player")]
     return f"{base}{suffix}"
 
 
 def cabinet_app_url() -> str | None:
-    """Return the configured WebApp origin without adding a player route."""
     base = str(config.PLAYER_APP_URL or "").strip().rstrip("/")
     return base or None
 
@@ -36,7 +34,6 @@ def event_app_path(evening_id: str) -> str:
 
 
 def main_menu_for_user(*, is_admin: bool, is_judge: bool):
-    """Compact bot shell: the Mini App owns player-facing product navigation."""
     builder = ReplyKeyboardBuilder()
     app_url = player_app_url()
     if app_url:
@@ -51,6 +48,7 @@ def main_menu_for_user(*, is_admin: bool, is_judge: bool):
 
     if is_admin:
         builder.row(KeyboardButton(text="🛠 Админ-панель"))
+        builder.row(KeyboardButton(text=STATUS_BUTTON_TEXT))
     elif is_judge:
         builder.row(KeyboardButton(text="⚖ Панель судьи"))
 

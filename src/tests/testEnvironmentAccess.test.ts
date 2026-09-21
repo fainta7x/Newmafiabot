@@ -47,8 +47,8 @@ describe('isolated Amvera test environment access', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.redirectTo).toBe('/player');
-    expect(response.headers['set-cookie'].join(';')).toContain('player_token=');
-    expect(response.headers['set-cookie'].join(';')).toContain('organizer_token=;');
+    expect(String(response.headers['set-cookie'])).toContain('player_token=');
+    expect(String(response.headers['set-cookie'])).toContain('organizer_token=;');
   });
 
   it('creates both player and organizer sessions for organizer entry', async () => {
@@ -58,7 +58,7 @@ describe('isolated Amvera test environment access', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.redirectTo).toBe('/admin');
-    const cookies = response.headers['set-cookie'].join(';');
+    const cookies = String(response.headers['set-cookie']);
     expect(cookies).toContain('player_token=');
     expect(cookies).toContain('organizer_token=');
   });

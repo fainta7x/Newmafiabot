@@ -52,6 +52,12 @@ import {
   normalizeLiveSnapshotForRestore,
 } from "./LiveGameEngine/engineStateModel.js";
 import {
+  type PersistedLiveSession,
+  readRestorableLiveSession,
+  removeLiveSession,
+  writeLiveSession,
+} from "./LiveGameEngine/liveSessionStorage.js";
+import {
   getTableDecisionSelectionSnapshot,
   restoreTableDecisionSelection,
 } from "./LiveGameEngine/tableDecisionSelectionStore.js";
@@ -143,7 +149,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   const [protocolNotes, setProtocolNotes] = useState("");
 
   const [historyStack, setHistoryStack] = useState<LiveSnapshot[]>([]);
-  const [restorableSession, setRestorableSession] = useState<any | null>(null);
+  const [restorableSession, setRestorableSession] = useState<PersistedLiveSession | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "list">("table");
   const [showRolesOnTable, setShowRolesOnTable] = useState(false);
   const rolesAreVisible = rolesHidden === undefined ? showRolesOnTable : !rolesHidden;
@@ -356,12 +362,8 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("mafia_live_session");
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed?.phase && parsed.phase !== 'setup' && parsed.activePlayers?.length === 10) setRestorableSession(parsed);
-    } catch {}
+    const storedSession = readRestorableLiveSession();
+    if (storedSession) setRestorableSession(storedSession);
   }, []);
 
   useEffect(() => {
@@ -377,7 +379,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       historyStack: historyStack.slice(-20).map(cloneLiveSnapshot),
       savedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     };
-    try { localStorage.setItem("mafia_live_session", JSON.stringify(data)); } catch {}
+    writeLiveSession(data);
   }, [
     activePlayers, nominations, nominationsMap, phase, roundNumber, dayStarterSlot, nightSubPhase, postNightStage, protocolMarkers,
     activeBestMoveSource, activeBestMoveSlot, pendingBestMoveSeats, bestMoveDeadlineMs, votingRounds, activeVotingRoundIndex,
@@ -389,7 +391,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
 
   const handleRestoreSession = () => {
     if (!restorableSession) return;
-    const restored = normalizeLiveSnapshotForRestore(restorableSession as LiveSnapshot);
+    const restored = normalizeLiveSnapshotForRestore(restorableSession);
     const recoverySnapshot = restored.phase === 'zero_night' && restored.zeroNightMusicState === 'playing'
       ? { ...restored, zeroNightMusicState: 'pending' as const }
       : restored;
@@ -412,7 +414,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
   };
 
   const handleDiscardSavedSession = () => {
-    localStorage.removeItem("mafia_live_session");
+    removeLiveSession();
     setRestorableSession(null);
   };
 
@@ -533,7 +535,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       id: String(p.slot_num),
       team: p.team === 'Чёрные' ? 'black' : 'red',
     }))));
-    localStorage.removeItem("mafia_live_session");
+    removeLiveSession();
     setZeroNightMusicState('pending');
     setPhase('zero_night');
   };
@@ -1358,7 +1360,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
       major_tech_fouls: p.major_tech_fouls || 0,
       removal_reason: p.removal_reason || null,
     } as any));
-    localStorage.removeItem("mafia_live_session");
+    removeLiveSession();
     onGameFinished({
       winning_team: winner,
       protocol_text: `Спортивная игра ФСМ. Победили ${winner}.${protocolNotes.trim() ? ` Примечания: ${protocolNotes.trim()}` : ''}`,

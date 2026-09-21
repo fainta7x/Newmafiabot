@@ -3,12 +3,11 @@ import { Router } from 'express';
 import { getIsolatedTestDb } from '../../db/index.ts';
 import {
   checkLoginRateLimit,
-  getTestEnvironmentSession,
+  isTestEnvironmentRequest,
   resetLoginRateLimit,
-  revokeTestEnvironmentSession,
-  TEST_ENVIRONMENT_COOKIE,
+  testEnvironmentPlayerId,
 } from '../auth.ts';
-import { setTestEnvironmentCookie } from './authRoutes.ts';
+import { setOrganizerCookie, setPlayerCookie } from './authRoutes.ts';
 
 const router = Router();
 const TEST_PLAYER_ID = 'p-test-1';
@@ -28,7 +27,7 @@ router.get('/status', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     enabled: testEnvironmentEnabled(),
-    active: Boolean(getTestEnvironmentSession(req)),
+    active: isTestEnvironmentRequest(req),
     label: testEnvironmentEnabled() ? 'ТЕСТОВАЯ ВЕРСИЯ' : null,
   });
 });
@@ -49,27 +48,25 @@ router.post('/login', async (req, res) => {
   }
 
   const testDb = await getIsolatedTestDb();
-  const player = await testDb.get<{ id: string }>(
-    'SELECT id FROM players WHERE id = ? LIMIT 1',
-    [TEST_PLAYER_ID],
-  );
+  const player = await testDb.get<{ id: string }>('SELECT id FROM players WHERE id = ? LIMIT 1', [TEST_PLAYER_ID]);
   if (!player) return res.status(503).json({ error: 'Тестовый игрок не создан' });
 
   resetLoginRateLimit(`test:${clientIp}`);
-  const signedRole = role === 'organizer' ? 'ORGANIZER' : 'PLAYER';
-  setTestEnvironmentCookie(res, signedRole, TEST_PLAYER_ID);
+  setPlayerCookie(res, testEnvironmentPlayerId(TEST_PLAYER_ID));
+  if (role === 'organizer') setOrganizerCookie(res);
+  else res.clearCookie('organizer_token', { path: '/' });
 
   return res.json({
     success: true,
-    role: signedRole,
+    role: role === 'organizer' ? 'ORGANIZER' : 'PLAYER',
     playerId: TEST_PLAYER_ID,
     redirectTo: role === 'organizer' ? '/admin' : '/player',
   });
 });
 
-router.post('/logout', (req, res) => {
-  revokeTestEnvironmentSession(req);
-  res.clearCookie(TEST_ENVIRONMENT_COOKIE, { path: '/' });
+router.post('/logout', (_req, res) => {
+  res.clearCookie('player_token', { path: '/' });
+  res.clearCookie('organizer_token', { path: '/' });
   return res.json({ success: true, redirectTo: '/test-login' });
 });
 

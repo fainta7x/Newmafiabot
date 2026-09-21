@@ -70,7 +70,7 @@ export const setTestEnvironmentCookie = (
 ) => {
   res.cookie(TEST_ENVIRONMENT_COOKIE, generateTestEnvironmentToken(role, playerId), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     sameSite: 'lax',
     path: '/',
     maxAge: 12 * 60 * 60 * 1000,

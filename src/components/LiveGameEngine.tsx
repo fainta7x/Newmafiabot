@@ -31,6 +31,7 @@ import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
 import LiveGameJudgeToolbar from "./LiveGameEngine/LiveGameJudgeToolbar.js";
+import LiveGamePlayerList from "./LiveGameEngine/LiveGamePlayerList.js";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
   BestMoveProtocolOverlay,
@@ -1610,22 +1611,7 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
           {effectiveViewMode === 'table' ? renderTable() : (
             <div className="space-y-3">
               <CenterPanel {...centerPanelProps()} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {activePlayers.map((p) => (
-                  <button
-                    key={p.slot_num}
-                    type="button"
-                    onClick={() => setActionPlayerSlot(p.slot_num)}
-                    className={`p-3 rounded-xl border text-left ${p.alive ? 'bg-slate-900/50 border-slate-800' : 'bg-rose-950/20 border-rose-950 opacity-70'}`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <strong className="text-sm text-white">#{p.slot_num} {p.nickname}</strong>
-                      <span className="text-[10px] text-slate-500">{p.alive ? 'Жив' : p.eliminated_phase}</span>
-                    </div>
-                    <div className="mt-2 text-[9px] font-bold text-slate-500">Открыть действия игрока</div>
-                  </button>
-                ))}
-              </div>
+              <LiveGamePlayerList activePlayers={activePlayers} onSelectPlayer={setActionPlayerSlot} />
             </div>
           )}
 

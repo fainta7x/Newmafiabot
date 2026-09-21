@@ -1,6 +1,6 @@
 # PROJECT-AUDIT-001 — Phase 4 functional audit matrix
 
-Status: initial automated-evidence pass  
+Status: automated-evidence pass complete; first deployed runtime foundation probe verified  
 Parent: #330  
 Phase issue: #346
 
@@ -14,8 +14,23 @@ Automated evidence:
 - **GAP** — no meaningful automated flow coverage found in the current test inventory.
 
 Runtime:
-- **NOT YET VERIFIED** — no live production claim is made in this pass.
-- Later passes will use PASS / PARTIAL / FAIL only after deployed verification.
+- **NOT YET VERIFIED** — the individual product flow has not yet been exercised against the deployed app.
+- **PASS / PARTIAL / FAIL** are assigned only after deployed verification of that flow.
+
+## Deployed runtime evidence — pass 1
+
+On 2026-09-21, after hotfix #365 was merged, the current `scripts/runtimeMonitor.mjs` was executed from an isolated audit branch against the canonical production URL.
+
+Evidence:
+- GitHub Actions run `35576257748` completed successfully;
+- the repository/runtime-monitor URL variables were empty, so the script used its canonical Amvera default target;
+- Telegram alert-delivery secrets were intentionally absent;
+- the script logged `Telegram notifications are not armed; runtime probing and GitHub incidents remain active.`;
+- it then logged `Runtime is healthy.`.
+
+Because `probeRuntime()` only returns healthy when both `/api/health` and `/api/health/runtime` pass, this is direct deployed evidence that the public web health endpoint and the runtime readiness checks for database, bot service and Telegram were healthy at that time.
+
+This verifies the **runtime foundation**, not the 24 user/product flows below. Those remain NOT YET VERIFIED until each flow is exercised.
 
 ## Initial matrix
 
@@ -74,27 +89,25 @@ The main remaining risk is not lack of tests but interaction with:
 
 ### Integrations
 
-Telegram and VK now have durable publication/delivery state and focused regression coverage. Remaining lifecycle issues are tracked separately:
-- #344 close/cancel finalization;
-- #345 obsolete/shadowed VK paths.
+Telegram and VK now have durable publication/delivery state and focused regression coverage. The two Phase 3 lifecycle follow-ups are now completed:
+- #344 finalizes Telegram/VK evening publications on close/cancel;
+- #345 retires the shadowed legacy VK publishing paths.
 
 ## Current functional risks
 
-### A. Active dual-generation Telegram shell
+### A. Legacy Telegram source remains, but current write entrypoints are contained
 
-The current compact shell is canonical-first, but old Python handlers are still mounted. Old messages/callback buttons can therefore potentially invoke legacy business writes even when the current main menu no longer exposes them.
+The legacy Python handler source and `mafia_crm.db` still exist for compatibility/rollback evidence, but current and stale Telegram business-write entrypoints are intercepted by the retirement guard before legacy routers.
 
-Tracked in #342.
+This containment is documented in `PROJECT_AUDIT_001_LEGACY_DB_CONTAINMENT.md` and completed through #357, #359, #362, #363 and #364. Runtime deletion of the old source/tables is a later Phase 7 task, not a current source-of-truth blocker.
 
-### B. Completed-game editing has two generations
+### B. Completed-game correction still lacks a full deployed canonical flow check
 
-Canonical WebApp protocol/editing is tested. Legacy Python `handlers/profile.py` still contains extensive game-history editing callbacks backed by the legacy DB.
+Canonical WebApp protocol/editing is tested, and stale legacy Python game-edit callbacks are now blocked before they can mutate the legacy DB. The remaining reason for classifying completed-game correction as PARTIAL is the lack of one end-to-end deployed canonical correction verification.
 
-Until those callbacks are retired or bridged, completed-game correction is classified PARTIAL rather than fully clean.
+### C. Tokens/betting/shop still need canonical end-to-end verification
 
-### C. Tokens/betting/shop have legacy overlap
-
-Canonical betting/token ledger has good automated coverage, but old Python bet/shop handlers still exist and use bot-local state. The canonical WebApp flow needs a full E2E pass before this area can be called clean.
+Canonical betting/token ledger has good automated coverage, and stale legacy Telegram betting/shop writes are now intercepted. The remaining gap is a complete canonical WebApp E2E/runtime pass, especially for shop behavior and test-mode product boundaries.
 
 ### D. Backup restore is not yet proven against a real production snapshot
 
@@ -102,9 +115,9 @@ The repository now has an isolated restore verifier, but Phase 4 still needs one
 
 ## Runtime verification queue
 
-After the next deployment containing the current audit fixes, verify these in a non-destructive order:
+Continue deployed verification in this non-destructive order:
 
-1. `/api/health` and `/api/health/runtime`.
+1. **DONE 2026-09-21:** `/api/health` and `/api/health/runtime` via runtime-monitor run `35576257748`.
 2. Open Player Cabinet as an already-linked player.
 3. Open organizer CRM via Telegram `/admin` and `/crm`; both must land in canonical CRM.
 4. Open current evening and change one player's exact slot selection; confirm one Telegram post edit and no new post.
@@ -117,11 +130,11 @@ After the next deployment containing the current audit fixes, verify these in a 
 
 ## Next implementation slice
 
-The next code-oriented audit slice should focus on **legacy callback containment**:
+Legacy callback containment is now complete at current Telegram entrypoints. The next safe code-oriented slice is **Phase 5 release-gate hardening**:
 
-- identify legacy write callback prefixes from old Telegram messages;
-- fail closed or redirect those that now duplicate canonical CRM behavior;
-- keep only required compatibility/registration/read-only commands;
-- add contract tests preventing current bot entrypoints from mutating `mafia_crm.db` business state.
+- make the existing `smoke`, `crm`, `live-game`, `telegram`, `vk` and `regression` test groups explicit release-gate evidence;
+- keep a non-destructive production health probe separate from deploy/build success;
+- preserve the distinction between CI success, deployed Amvera runtime and real user-flow verification;
+- after the release gate is explicit, begin targeted refactoring with the best-covered large module, `LiveGameEngine.tsx`, in behavior-preserving PR-sized slices.
 
-After that, perform the first deployed runtime verification pass and update this matrix from NOT YET VERIFIED to PASS/PARTIAL/FAIL with evidence.
+No big-bang rewrite and no production DB edits.

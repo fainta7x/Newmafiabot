@@ -16,8 +16,8 @@ describe('player evening slot route hotfix', () => {
 
     await db.run(
       `INSERT INTO players
-       (id,nickname,lifecycle_status,source,elo,tokens,game_level,created_at,updated_at)
-       VALUES ('slot-player','Slot Player','normal','test',1000,0,'club',?,?)`,
+       (id,nickname,lifecycle_status,source,elo,tokens,game_level,club_stage,created_at,updated_at)
+       VALUES ('slot-player','Slot Player','normal','test',1000,0,'club','CLUB_PLAYER',?,?)`,
       [now, now],
     );
     await db.run(

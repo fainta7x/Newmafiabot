@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPlayerSessionId } from '../auth.ts';
 import { playerLevelAllowsEveningFormat } from '../../db/ensureInviteAudienceSchema.ts';
 import { ensureSlotsForEvening, loadEveningSlotPlan, replacePlayerSlotSelection, TABLE_MIN_PLAYERS, TABLE_MIN_READY_SLOTS } from '../services/eveningSlotPlanningService.ts';
+import { getNovicePlayerState } from '../services/noviceService.ts';
 
 const router = Router();
 const requirePlayer = (req:any,res:any) => { const id=getPlayerSessionId(req); if(!id){res.status(401).json({error:'Player authentication required.'});return null;} return id; };
@@ -37,7 +38,7 @@ router.get('/calendar', async (req,res) => {
       }
     }
     events.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
-    return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events});
+    return res.json({month:bounds.key,rules:{price_per_game:100,required_slots:TABLE_MIN_READY_SLOTS,required_players_per_slot:TABLE_MIN_PLAYERS},events,novice_state:await getNovicePlayerState(db,playerId)});
   }catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось загрузить календарь'});}
 });
 
@@ -48,7 +49,7 @@ router.get('/evenings/:eveningId/slots', async (req,res)=>{
 
 router.post('/evenings/:eveningId/slots', async (req,res)=>{
   const playerId=requirePlayer(req,res);if(!playerId)return;const db=req.db;
-  try{const player=await db.get('SELECT game_level FROM players WHERE id = ? LIMIT 1',[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});const plan=await replacePlayerSlotSelection(db,String(req.params.eveningId),playerId,req.body?.slot_ids);return res.json({success:true,...plan});}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось сохранить запись на игры'});}
+  try{const player=await db.get("SELECT game_level, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1",[playerId]);const {evening}=await ensureSlotsForEvening(db,String(req.params.eveningId));if(!player||!playerLevelAllowsEveningFormat(player.game_level,evening.format))return res.status(403).json({error:'Этот формат события недоступен'});if(String(player.club_stage)==='NEW')return res.status(403).json({error:'Первая заявка должна быть подтверждена организатором',code:'first_application_required'});const plan=await replacePlayerSlotSelection(db,String(req.params.eveningId),playerId,req.body?.slot_ids);return res.json({success:true,...plan});}catch(error:any){return res.status(Number(error?.statusCode||500)).json({error:error?.message||'Не удалось сохранить запись на игры'});}
 });
 
 export default router;

@@ -24,6 +24,7 @@ import { ensureTournamentGameTokenSchema } from './db/ensureTournamentGameTokenS
 import { ensureVkIntegrationSchema } from './db/ensureVkIntegrationSchema.ts';
 import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
 import { ensureVkPersonalMessageSchema } from './db/ensureVkPersonalMessageSchema.ts';
+import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
 import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
@@ -84,6 +85,7 @@ import botTelegramRoutes from './server/routes/botTelegramRoutes.ts';
 import botOrganizerAlertsRoutes from './server/routes/botOrganizerAlertsRoutes.ts';
 import telegramSettingsRoutes from './server/routes/telegramSettingsRoutes.ts';
 import systemStatusRoutes from './server/routes/systemStatusRoutes.ts';
+import { noviceOrganizerRoutes, novicePlayerRoutes } from './server/routes/noviceRoutes.ts';
 import runtimeHealthRoutes from './server/routes/runtimeHealthRoutes.ts';
 import integrationRoutes from './server/routes/integrationRoutes.ts';
 import vkPlayerStartRouter from './server/services/vkPlayerStartRouter.ts';
@@ -146,6 +148,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkIntegrationSchema(db);
   await ensureVkJoinSchema(db);
   await ensureVkPersonalMessageSchema(db);
+  await ensureNoviceSystemSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
   const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
@@ -186,6 +189,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/player', playerReplayRoutes);
   app.use('/api/player/speech-recordings', playerSpeechRecordingRoutes);
   app.use('/api/player', playerEveningJourneyRoutes);
+  app.use('/api/player', novicePlayerRoutes);
   app.use('/api/admin-data', adminDataRoutes);
   app.use('/api/commerce', commerceAdminRoutes);
   app.use('/api/telegram-settings', telegramSettingsRoutes);
@@ -200,6 +204,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/crm/test-mode', developerTestModeRoutes);
   app.use('/api/crm', crmRoutes);
   app.use('/api/crm', tableScoutingRoutes);
+  app.use('/api/novice', noviceOrganizerRoutes);
   app.use('/api/public', vkJoinStartRouter);
   app.use('/api/public', vkJoinRespondRouter);
   app.use('/api/public', vkJoinStateRouter);

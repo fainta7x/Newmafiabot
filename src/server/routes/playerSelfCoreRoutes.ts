@@ -337,7 +337,7 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     }
 
     const player = await db.get(
-      'SELECT id, nickname, game_level FROM players WHERE id = ? LIMIT 1',
+      "SELECT id, nickname, game_level, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1",
       [playerId],
     );
     if (!player) return res.status(404).json({ error: 'Player not found.' });
@@ -354,6 +354,9 @@ router.post('/evenings/:eveningId/respond', async (req, res) => {
     }
     if (!playerLevelAllowsEveningFormat(player.game_level, evening.format)) {
       return res.status(403).json({ error: 'Этот формат вечера недоступен для вашего игрового уровня' });
+    }
+    if (String(player.club_stage) === 'NEW') {
+      return res.status(403).json({ error: 'Первая заявка должна быть подтверждена организатором', code: 'first_application_required' });
     }
 
     const existingParticipant = await db.get(

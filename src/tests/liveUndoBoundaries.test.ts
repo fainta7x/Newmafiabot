@@ -46,7 +46,7 @@ describe('live-game undo boundaries', () => {
   it('restores the revote-entry boundary even after newer history actions', () => {
     const restoreBlock = sliceFunction(
       'const handleBackFromRevoteSpeeches = () => {',
-      'useEffect(() => {\n    try {'
+      '  useEffect(() => {'
     );
     expect(restoreBlock).toContain("snapshot.votingStage === 'round_result'");
     expect(restoreBlock).toContain('snapshot.activeVotingRoundIndex === activeVotingRoundIndex');

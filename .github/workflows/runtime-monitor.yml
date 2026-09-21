@@ -1,6 +1,8 @@
 name: Production runtime monitor
 
 on:
+  push:
+    branches: [main]
   schedule:
     # Avoid the top of the hour, when scheduled GitHub Actions are most likely to queue.
     - cron: '3-58/5 * * * *'

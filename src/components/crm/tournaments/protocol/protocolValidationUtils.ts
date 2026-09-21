@@ -298,6 +298,7 @@ const generalValidationError = (errorMsg: string): ProtocolCompletionValidationR
   source: 'general',
 });
 
+// Pure completion validation: React owns only presentation/focus side effects around this result.
 export const validateProtocolCompletion = (
   protocol: TournamentGameProtocolData,
   playerResults: PlayerResultData[],

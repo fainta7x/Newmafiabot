@@ -73,7 +73,7 @@ describe('Live Game judge toolbar', () => {
     fireEvent.click(extension);
     expect(onSpeechExtension).not.toHaveBeenCalled();
 
-    expect(screen.getByRole('button', { name: /Отмена \(0\)/ })).toBeDisabled();
+    expect((screen.getByRole('button', { name: /Отмена \(0\)/ }) as HTMLButtonElement).disabled).toBe(true);
 
     const lockedView = screen.getByRole('button', { name: 'Стол для голосования' });
     expect((lockedView as HTMLButtonElement).disabled).toBe(true);

@@ -202,6 +202,14 @@ describe('canonical runtime contracts', () => {
     }
   });
 
+  it('intercepts stale profile and judge-panel write entrypoints', () => {
+    const guard = fs.readFileSync(path.resolve(process.cwd(), 'handlers/legacy_retired_actions.py'), 'utf8');
+
+    expect(guard).toContain('"edit_nickname"');
+    expect(guard).toContain('"profile_pay"');
+    expect(guard).toContain('"⚖ Панель судьи"');
+  });
+
   it('keeps only the canonical player creation and retired game creation contracts', () => {
     const playersBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/playersRoutes.ts'), 'utf8');
     const gamesBase = fs.readFileSync(path.resolve(process.cwd(), 'src/server/routes/gamesRoutesBase.ts'), 'utf8');

@@ -17,6 +17,7 @@ _PLAYER_LEGACY_TEXTS = {
     "🏆 Рейтинг",
     "🏆 Рейтинг (старый)",
     "🛒 Магазин",
+    "⚖ Панель судьи",
     "/shop",
     "✏️ Редактировать",
 }
@@ -53,6 +54,8 @@ _PLAYER_LEGACY_CALLBACK_PREFIXES = (
     "shop_my_tokens",
     "shop_back",
     "shop_close",
+    "edit_nickname",
+    "profile_pay",
     "edit_slot_",
     "role_set_",
     "team_set_",

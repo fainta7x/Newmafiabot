@@ -8,8 +8,12 @@ import {
   getProtocolBackupKey,
   hasUnclassifiedTechFouls,
   parseRestorableProtocolBackup,
+  readProtocolLocalBackup,
+  removeProtocolLocalBackup,
   serializeBlockedProtocolBackup,
-  serializeProtocolLocalBackup
+  serializeProtocolLocalBackup,
+  writeBlockedProtocolLocalBackup,
+  writeProtocolLocalBackup
 } from '../components/crm/tournaments/protocol/protocolPersistenceUtils';
 
 const protocol = {
@@ -80,6 +84,35 @@ describe('protocol persistence utilities', () => {
     expect(
       parseRestorableProtocolBackup('{broken', 'draft', null)
     ).toBeNull();
+  });
+
+  it('encapsulates ordinary and blocked browser backup storage without changing schemas', () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); }
+    };
+    const players = [createPlayer('p-1', 1, 0, 0)];
+
+    writeProtocolLocalBackup('game-42', protocol, players, storage);
+    const ordinary = readProtocolLocalBackup('game-42', storage);
+    expect(ordinary).not.toBeNull();
+    expect(JSON.parse(ordinary || '{}')).toMatchObject({
+      protocol,
+      playerResults: players
+    });
+
+    writeBlockedProtocolLocalBackup('game-42', protocol, players, storage);
+    const blocked = readProtocolLocalBackup('game-42', storage);
+    expect(JSON.parse(blocked || '{}')).toMatchObject({
+      protocol,
+      player_results: players,
+      version: '1.0'
+    });
+
+    removeProtocolLocalBackup('game-42', storage);
+    expect(readProtocolLocalBackup('game-42', storage)).toBeNull();
   });
 
   it('finds only unclassified technical fouls', () => {

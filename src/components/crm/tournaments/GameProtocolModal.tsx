@@ -69,11 +69,12 @@ import {
 import {
   type ProtocolLocalBackup,
   findUnclassifiedTechFouls,
-  getProtocolBackupKey,
   hasUnclassifiedTechFouls,
   parseRestorableProtocolBackup,
-  serializeBlockedProtocolBackup,
-  serializeProtocolLocalBackup
+  readProtocolLocalBackup,
+  removeProtocolLocalBackup,
+  writeBlockedProtocolLocalBackup,
+  writeProtocolLocalBackup
 } from './protocol/protocolPersistenceUtils';
 import {
   getProtocolPlayerPresentation
@@ -242,10 +243,9 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         dirtyRevision.current = 0;
         lastSavedRevision.current = 0;
 
-        // Restore backup from localStorage if available and draft is newer
-        const backupKey = getProtocolBackupKey(gameId);
+        // Emergency browser backup is inspected, but never replayed over canonical server data.
         const restoredBackup = parseRestorableProtocolBackup(
-          localStorage.getItem(backupKey),
+          readProtocolLocalBackup(gameId),
           res.protocol.status,
           res.protocol.updated_at
         );
@@ -309,11 +309,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     dirtyRevision.current++;
     setSaveStatus('unsaved');
 
-    // Save backup to localStorage immediately
-    localStorage.setItem(
-      getProtocolBackupKey(gameId),
-      serializeProtocolLocalBackup(protocol, playerResults)
-    );
+    // Save the emergency browser backup immediately.
+    writeProtocolLocalBackup(gameId, protocol, playerResults);
 
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
 
@@ -359,11 +356,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
           if (hasUnclassifiedTechFouls(currentResults)) {
             setSaveStatus('unsaved');
             setSaveErrorMessage('Сначала классифицируйте старые техфолы');
-            // Backup locally anyway
-            localStorage.setItem(
-              getProtocolBackupKey(gameId),
-              serializeBlockedProtocolBackup(currentProto, currentResults)
-            );
+            // Keep the emergency browser artifact even while server save is blocked.
+            writeBlockedProtocolLocalBackup(gameId, currentProto, currentResults);
             break;
           }
 
@@ -1301,9 +1295,8 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         alert('Протокол завершён, но возникла ошибка при создании резервной копии базы данных:\n\n' + res.checkpoint_warning);
       }
 
-      // Clear localStorage backup for this game upon successful protocol completion
-      const protocolBackupKey = getProtocolBackupKey(gameId);
-      localStorage.removeItem(protocolBackupKey);
+      // Clear the emergency browser backup after successful completion.
+      removeProtocolLocalBackup(gameId);
 
       if (onProtocolUpdated) onProtocolUpdated();
     } catch (err: any) {

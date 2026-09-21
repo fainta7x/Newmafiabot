@@ -12,6 +12,11 @@ export interface ProtocolLocalBackup {
 export const getProtocolBackupKey = (gameId: string): string =>
   `tournament_protocol_backup_${gameId}`;
 
+
+type ProtocolBackupStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+const browserProtocolBackupStorage = (): ProtocolBackupStorage => localStorage;
+
 export const findUnclassifiedTechFouls = (
   playerResults: PlayerResultData[]
 ): Record<string, number> => {
@@ -75,4 +80,42 @@ export const parseRestorableProtocolBackup = (
   // roll corrected scores back. Keep local backups only as an emergency artifact;
   // never apply them automatically over data returned by the server.
   return null;
+};
+
+
+export const readProtocolLocalBackup = (
+  gameId: string,
+  storage: ProtocolBackupStorage = browserProtocolBackupStorage()
+): string | null =>
+  storage.getItem(getProtocolBackupKey(gameId));
+
+export const writeProtocolLocalBackup = (
+  gameId: string,
+  protocol: TournamentGameProtocolData,
+  playerResults: PlayerResultData[],
+  storage: ProtocolBackupStorage = browserProtocolBackupStorage()
+): void => {
+  storage.setItem(
+    getProtocolBackupKey(gameId),
+    serializeProtocolLocalBackup(protocol, playerResults)
+  );
+};
+
+export const writeBlockedProtocolLocalBackup = (
+  gameId: string,
+  protocol: TournamentGameProtocolData,
+  playerResults: PlayerResultData[],
+  storage: ProtocolBackupStorage = browserProtocolBackupStorage()
+): void => {
+  storage.setItem(
+    getProtocolBackupKey(gameId),
+    serializeBlockedProtocolBackup(protocol, playerResults)
+  );
+};
+
+export const removeProtocolLocalBackup = (
+  gameId: string,
+  storage: ProtocolBackupStorage = browserProtocolBackupStorage()
+): void => {
+  storage.removeItem(getProtocolBackupKey(gameId));
 };

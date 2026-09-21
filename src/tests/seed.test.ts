@@ -75,11 +75,10 @@ describe('Database Seeding & Stability Tests', () => {
     expect(playersCount?.count).toBe(0);
   });
 
-  it('3. Seeds a production-mode process only when APP_ENV=test uses an isolated database', async () => {
+  it('3. Seeds a production-mode process only with the explicit isolated-test option', async () => {
     process.env.NODE_ENV = 'production';
-    process.env.APP_ENV = 'test';
-    db = createDatabaseConnection(testDbFile);
-    await seedDemoData(db);
+    db = createDatabaseConnection(testDbFile, { isolatedTest: true });
+    await seedDemoData(db, { isolatedTest: true });
 
     const playersCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM players');
     expect(playersCount?.count).toBe(10);

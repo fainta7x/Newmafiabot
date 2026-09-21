@@ -1,31 +1,43 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
+import { getIsolatedTestDb } from '../../db/index.ts';
+import {
+  checkLoginRateLimit,
+  isTestEnvironmentRequest,
+  resetLoginRateLimit,
+  testEnvironmentPlayerId,
+} from '../auth.ts';
 import { setOrganizerCookie, setPlayerCookie } from './authRoutes.ts';
 
 const router = Router();
 const TEST_PLAYER_ID = 'p-test-1';
 
 function testEnvironmentEnabled(): boolean {
-  return process.env.APP_ENV === 'test';
+  return String(process.env.TEST_ACCESS_PASSWORD || '').length >= 12;
 }
 
 function safePasswordMatch(actual: unknown): boolean {
   const expected = String(process.env.TEST_ACCESS_PASSWORD || '');
   const received = typeof actual === 'string' ? actual : '';
-  if (!expected || expected.length < 12 || expected.length !== received.length) return false;
+  if (!testEnvironmentEnabled() || expected.length !== received.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
-router.get('/status', (_req, res) => {
+router.get('/status', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     enabled: testEnvironmentEnabled(),
+    active: isTestEnvironmentRequest(req),
     label: testEnvironmentEnabled() ? 'ТЕСТОВАЯ ВЕРСИЯ' : null,
   });
 });
 
 router.post('/login', async (req, res) => {
   if (!testEnvironmentEnabled()) return res.status(404).json({ error: 'Not found' });
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkLoginRateLimit(`test:${clientIp}`)) {
+    return res.status(429).json({ error: 'Слишком много попыток. Попробуйте снова через 15 минут.' });
+  }
   if (!safePasswordMatch(req.body?.password)) {
     return res.status(401).json({ error: 'Неверный пароль тестовой версии' });
   }
@@ -35,22 +47,14 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Выберите вход игрока или организатора' });
   }
 
-  const player = await req.db.get<{ id: string }>(
-    'SELECT id FROM players WHERE id = ? LIMIT 1',
-    [TEST_PLAYER_ID],
-  );
-  if (!player) {
-    return res.status(503).json({
-      error: 'Тестовый игрок не создан. Проверьте APP_ENV=test и SEED_DEMO_DATA=true.',
-    });
-  }
+  const testDb = await getIsolatedTestDb();
+  const player = await testDb.get<{ id: string }>('SELECT id FROM players WHERE id = ? LIMIT 1', [TEST_PLAYER_ID]);
+  if (!player) return res.status(503).json({ error: 'Тестовый игрок не создан' });
 
-  setPlayerCookie(res, TEST_PLAYER_ID);
-  if (role === 'organizer') {
-    setOrganizerCookie(res);
-  } else {
-    res.clearCookie('organizer_token', { path: '/' });
-  }
+  resetLoginRateLimit(`test:${clientIp}`);
+  setPlayerCookie(res, testEnvironmentPlayerId(TEST_PLAYER_ID));
+  if (role === 'organizer') setOrganizerCookie(res);
+  else res.clearCookie('organizer_token', { path: '/' });
 
   return res.json({
     success: true,
@@ -58,6 +62,12 @@ router.post('/login', async (req, res) => {
     playerId: TEST_PLAYER_ID,
     redirectTo: role === 'organizer' ? '/admin' : '/player',
   });
+});
+
+router.post('/logout', (_req, res) => {
+  res.clearCookie('player_token', { path: '/' });
+  res.clearCookie('organizer_token', { path: '/' });
+  return res.json({ success: true, redirectTo: '/test-login' });
 });
 
 export default router;

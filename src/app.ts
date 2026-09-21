@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
-import { DatabaseWrapper, getDb } from './db/index.ts';
+import { DatabaseWrapper, getDb, getIsolatedTestDb } from './db/index.ts';
 import { ensureAdminDataSchema } from './db/ensureAdminDataSchema.ts';
 import { ensureClubOperationsSchema } from './db/ensureClubOperationsSchema.ts';
 import { ensureCanonicalEveningParticipantState } from './db/ensureCanonicalEveningParticipantState.ts';
@@ -26,7 +26,7 @@ import { ensureVkJoinSchema } from './db/ensureVkJoinSchema.ts';
 import { ensureVkPersonalMessageSchema } from './db/ensureVkPersonalMessageSchema.ts';
 import { ensureNoviceSystemSchema } from './db/ensureNoviceSystemSchema.ts';
 import { applyBogdanaFinalCorrection } from './db/applyBogdanaFinalCorrection.ts';
-import { parseUserSession, requireOrganizerAuth } from './server/auth.ts';
+import { isTestEnvironmentRequest, parseUserSession, requireOrganizerAuth } from './server/auth.ts';
 
 import authRoutes from './server/routes/authRoutes.ts';
 import testEnvironmentRoutes from './server/routes/testEnvironmentRoutes.ts';
@@ -151,8 +151,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   await ensureVkPersonalMessageSchema(db);
   await ensureNoviceSystemSchema(db);
   try { await applyBogdanaFinalCorrection(db); } catch (error) { console.error('[DATA CORRECTION] Bogdana final result correction failed:', error); }
-  const isIsolatedTestEnvironment = process.env.APP_ENV === 'test';
-  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test' || isIsolatedTestEnvironment;
+  const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) {
     startTelegramSyncOutboxWorker(db);
@@ -164,7 +163,14 @@ export async function createApp(customDb?: DatabaseWrapper) {
   try { await reconcileAllTournamentGameTokenSettlements(db); } catch (error) { console.error('[TOKENS] Tournament settlement backfill failed:', error); }
   try { await reconcileAllBettingPools(db); } catch (error) { console.error('[BETS] Betting reconciliation failed:', error); }
   try { await reconcileAllPlayerAchievements(db); } catch (error) { console.error('[ACHIEVEMENTS] Backfill reconciliation failed:', error); }
-  app.use((req, _res, next) => { req.db = db; next(); });
+  app.use(async (req, _res, next) => {
+    try {
+      req.db = isTestEnvironmentRequest(req) ? await getIsolatedTestDb() : db;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.use('/api/health', runtimeHealthRoutes);
 

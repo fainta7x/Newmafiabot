@@ -68,20 +68,36 @@ export function generatePlayerSessionToken(playerId: string): string {
   return jwt.sign({ session: 'PLAYER', playerId }, JWT_SECRET, { expiresIn: '7d' });
 }
 
-export function getPlayerSessionId(req: Request): string | null {
+const TEST_PLAYER_SESSION_PREFIX = '__test__:';
+
+function decodePlayerSession(req: Request): { playerId: string } | null {
   const token = req.cookies?.player_token;
   if (!token || typeof token !== 'string') return null;
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { session?: string; playerId?: string };
     if (decoded.session === 'PLAYER' && typeof decoded.playerId === 'string' && decoded.playerId) {
-      return decoded.playerId;
+      return { playerId: decoded.playerId };
     }
   } catch {
     // Invalid or expired player session is treated as unlinked.
   }
-
   return null;
+}
+
+export function testEnvironmentPlayerId(playerId: string): string {
+  return `${TEST_PLAYER_SESSION_PREFIX}${playerId}`;
+}
+
+export function isTestEnvironmentRequest(req: Request): boolean {
+  return Boolean(decodePlayerSession(req)?.playerId.startsWith(TEST_PLAYER_SESSION_PREFIX));
+}
+
+export function getPlayerSessionId(req: Request): string | null {
+  const decoded = decodePlayerSession(req);
+  if (!decoded) return null;
+  return decoded.playerId.startsWith(TEST_PLAYER_SESSION_PREFIX)
+    ? decoded.playerId.slice(TEST_PLAYER_SESSION_PREFIX.length)
+    : decoded.playerId;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -90,6 +106,7 @@ export interface AuthenticatedRequest extends Request {
   delegatedPlayerId?: string;
   organizerActorId?: string;
   organizerPlayerId?: string;
+  testEnvironment?: boolean;
 }
 
 const organizerSessionActorId = (token: string) =>
@@ -102,6 +119,8 @@ export function getAuthenticatedOrganizerActorId(req: AuthenticatedRequest): str
 }
 
 export async function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+  req.testEnvironment = isTestEnvironmentRequest(req);
+
   let token = req.cookies?.organizer_token;
 
   if (!token) {

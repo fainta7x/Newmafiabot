@@ -269,7 +269,7 @@ Inspect Vite transforms before declaring `.vk-direct.*` variants unused.
 
 Primary ownership:
 
-- `deploy/start-web.sh` — production storage contract; hard-pins the Node/WebApp database to `/data/mafia_crm.sqlite` and unsets Turso variables;
+- `deploy/start-web.sh` — storage contract; pins production to `/data/mafia_crm.sqlite` and the in-app sandbox to `/data/mafia_crm.test.sqlite`;
 - `src/db/index.ts` — generic DB wrapper/bootstrap logic used by production SQLite and tests;
 - `src/db/tursoHttpDatabase.ts` — retained legacy adapter; it is not selected by the canonical Amvera start script;
 - `src/db/` + `drizzle/` — schema/migrations/ensure logic.
@@ -280,7 +280,7 @@ Canonical Amvera production uses persistent local SQLite:
 
 `/data/mafia_crm.sqlite`
 
-`deploy/start-web.sh` explicitly sets `DATABASE_PATH=/data/mafia_crm.sqlite` and enables guarded first-bootstrap-from-checkpoint. Turso is retired and rejected by production validation. A separate `APP_ENV=test` Amvera application uses its own volume, `/data/mafia_crm.test.sqlite`, an empty-schema bootstrap with synthetic seed data, and no production messaging workers or checkpoint import.
+`deploy/start-web.sh` explicitly sets `DATABASE_PATH=/data/mafia_crm.sqlite` and enables guarded first-bootstrap-from-checkpoint. Turso is retired and rejected by production validation. A password-protected sandbox in the same application uses `/data/mafia_crm.test.sqlite`, an empty-schema bootstrap with synthetic seed data, and a signed cookie to select the database per request. Background workers continue to read only the production database.
 
 The repository checkpoint is used only when the canonical product DB is missing or empty. A non-empty `/data/mafia_crm.sqlite` must never be replaced during an ordinary deploy.
 

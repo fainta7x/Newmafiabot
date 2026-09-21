@@ -42,17 +42,16 @@ function validateProductionEnvironment(): void {
     throw new Error('DATABASE_PATH must be an absolute path in production.');
   }
 
-  if (process.env.APP_ENV === 'test') {
-    if (!databasePath.endsWith('.test.sqlite')) {
-      throw new Error('APP_ENV=test requires a dedicated DATABASE_PATH ending in .test.sqlite.');
-    }
-    if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT === 'true') {
-      throw new Error('APP_ENV=test must not bootstrap from the production checkpoint.');
-    }
-    const testPassword = String(process.env.TEST_ACCESS_PASSWORD || '');
-    if (testPassword.length < 12) {
-      throw new Error('TEST_ACCESS_PASSWORD must be at least 12 characters for APP_ENV=test.');
-    }
+  const testPassword = String(process.env.TEST_ACCESS_PASSWORD || '');
+  if (testPassword && testPassword.length < 12) {
+    throw new Error('TEST_ACCESS_PASSWORD must be at least 12 characters when the in-app sandbox is enabled.');
+  }
+  const testDatabasePath = String(process.env.TEST_DATABASE_PATH || '').trim();
+  if (testDatabasePath && !path.isAbsolute(testDatabasePath)) {
+    throw new Error('TEST_DATABASE_PATH must be absolute when configured.');
+  }
+  if (testDatabasePath && path.resolve(testDatabasePath) === path.resolve(databasePath)) {
+    throw new Error('TEST_DATABASE_PATH must not equal the production DATABASE_PATH.');
   }
 
   requireProductionSecret('ORGANIZER_PASSWORD', 12);

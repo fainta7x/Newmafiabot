@@ -11,12 +11,7 @@ unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN
 export DATABASE_PATH="/data/mafia_crm.sqlite"
 export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="true"
 export SEED_DEMO_DATA="false"
-
-if [ "${APP_ENV:-production}" = "test" ]; then
-  export DATABASE_PATH="/data/mafia_crm.test.sqlite"
-  export DATABASE_BOOTSTRAP_FROM_CHECKPOINT="false"
-  export SEED_DEMO_DATA="true"
-fi
+export TEST_DATABASE_PATH="${TEST_DATABASE_PATH:-/data/mafia_crm.test.sqlite}"
 
 mkdir -p /data
 

@@ -1,57 +1,54 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../db/index.ts', () => ({
+  getIsolatedTestDb: async () => ({
+    get: async () => ({ id: 'p-test-1' }),
+  }),
+}));
+
 import testEnvironmentRoutes from '../server/routes/testEnvironmentRoutes.ts';
 
-describe('isolated Amvera test environment access', () => {
-  const previous = {
-    appEnv: process.env.APP_ENV,
-    password: process.env.TEST_ACCESS_PASSWORD,
-  };
+describe('single-app isolated test environment access', () => {
+  const previousPassword = process.env.TEST_ACCESS_PASSWORD;
 
   beforeEach(() => {
-    process.env.APP_ENV = 'test';
     process.env.TEST_ACCESS_PASSWORD = 'safe-test-password';
   });
 
   afterEach(() => {
-    process.env.APP_ENV = previous.appEnv;
-    process.env.TEST_ACCESS_PASSWORD = previous.password;
+    process.env.TEST_ACCESS_PASSWORD = previousPassword;
   });
 
-  function app(playerExists = true) {
+  function app() {
     const instance = express();
     instance.use(express.json());
     instance.use(cookieParser());
-    instance.use((req, _res, next) => {
-      req.db = {
-        get: async () => playerExists ? { id: 'p-test-1' } : null,
-      } as any;
-      next();
-    });
     instance.use('/api/test-environment', testEnvironmentRoutes);
     return instance;
   }
 
-  it('reports the explicitly enabled test environment', async () => {
+  it('reports the configured sandbox', async () => {
     const response = await request(app()).get('/api/test-environment/status');
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ enabled: true, label: 'ТЕСТОВАЯ ВЕРСИЯ' });
+    expect(response.body).toMatchObject({ enabled: true, active: false });
   });
 
-  it('creates a player-only session without organizer access', async () => {
+  it('switches the current browser session to the isolated player', async () => {
     const response = await request(app())
       .post('/api/test-environment/login')
       .send({ password: 'safe-test-password', role: 'player' });
 
     expect(response.status).toBe(200);
     expect(response.body.redirectTo).toBe('/player');
-    expect(String(response.headers['set-cookie'])).toContain('player_token=');
-    expect(String(response.headers['set-cookie'])).toContain('organizer_token=;');
+    const cookies = String(response.headers['set-cookie']);
+    expect(cookies).toContain('player_token=');
+    expect(cookies).toContain('organizer_token=;');
   });
 
-  it('creates both player and organizer sessions for organizer entry', async () => {
+  it('switches the current browser session to the isolated organizer', async () => {
     const response = await request(app())
       .post('/api/test-environment/login')
       .send({ password: 'safe-test-password', role: 'organizer' });
@@ -63,8 +60,8 @@ describe('isolated Amvera test environment access', () => {
     expect(cookies).toContain('organizer_token=');
   });
 
-  it('stays unavailable outside APP_ENV=test', async () => {
-    process.env.APP_ENV = 'production';
+  it('stays unavailable when no sandbox password is configured', async () => {
+    delete process.env.TEST_ACCESS_PASSWORD;
     const response = await request(app())
       .post('/api/test-environment/login')
       .send({ password: 'safe-test-password', role: 'player' });

@@ -40,7 +40,7 @@ npm run project:status -- --check --json
 - React + TypeScript + Vite.
 - Tailwind CSS.
 - Express Node API.
-- Database wrapper with **remote Turso as production-primary storage when both Turso credentials are configured**, and local `better-sqlite3` SQLite as fallback/development storage.
+- Persistent `better-sqlite3` SQLite on the Amvera volume (`/data/mafia_crm.sqlite`) as the only supported production database.
 - Python Telegram bot integrated in the combined production container.
 - Telegram WebApp and VK integrations.
 - Vitest + mobile Playwright evidence suites.
@@ -67,11 +67,7 @@ Do not treat Player↔CRM integration or the music subsystem as “not built” 
 
 ## Database safety
 
-Authoritative backend selection lives in `src/db/index.ts`:
-
-- both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` -> remote Turso;
-- neither -> local SQLite fallback;
-- only one -> startup error.
+Canonical production storage is `/data/mafia_crm.sqlite` on the persistent Amvera volume. Turso is retired; production startup rejects stale Turso credentials. The optional in-app test sandbox uses a separate `/data/mafia_crm.test.sqlite` file.
 
 A non-empty runtime database always wins over repository bootstrap/checkpoint data.
 
@@ -125,7 +121,7 @@ GitHub CI is the authoritative ordinary merge gate. Mobile Playwright is preserv
 - `src/components/LiveGameEngine.tsx` + `src/components/LiveGameEngine/` — judge game engine/state/models.
 - `src/components/JudgeGameMusicController.tsx` — conducted-game music playback control.
 - `src/server/` — Express routes/services/integrations.
-- `src/db/` — database wrapper, Turso adapter, schema/recovery logic.
+- `src/db/` — SQLite database wrapper, schema/recovery logic, and retired compatibility code.
 - `src/tests/` — Vitest coverage.
 - `e2e/` — isolated browser evidence/smoke tests.
 - `docs/` — canonical project guidance plus historical/reference material.

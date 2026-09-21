@@ -49,7 +49,7 @@ Existing non-empty `/data/mafia_crm.sqlite` always wins over repository checkpoi
 
 The Python bot still has legacy local state at `/data/mafia_crm.db`; it is not the canonical product database and must never replace or seed `/data/mafia_crm.sqlite`.
 
-A separately deployed manual test application uses `APP_ENV=test`, its own Amvera persistent volume and `/data/mafia_crm.test.sqlite`. It starts from an empty schema plus synthetic seed data, never from the production checkpoint. The shared UI is the real application UI; `/test-login` provides password-protected player/organizer entry, and external Telegram/VK delivery workers are disabled. The intended public hostname is `test.tournoir`, subject to Amvera app/domain configuration.
+The production application contains a password-protected manual sandbox at `/test-login`. A signed test-session cookie switches requests from `/data/mafia_crm.sqlite` to the separate `/data/mafia_crm.test.sqlite` file while reusing the real Player Cabinet, CRM and Live Game UI. The sandbox starts from an empty schema plus synthetic seed data, never from the production checkpoint. Production sessions and background delivery workers remain attached only to the production database.
 
 Repository checkpoint files are bootstrap/recovery artifacts only:
 

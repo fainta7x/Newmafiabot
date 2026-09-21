@@ -2,9 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const isTestEnvironment = process.env.APP_ENV === 'test';
-const sourcePath = isTestEnvironment ? '/data/mafia_crm.test.sqlite' : '/data/mafia_crm.sqlite';
-const backupDir = process.env.SQLITE_BACKUP_DIR || (isTestEnvironment ? '/data/test-backups' : '/data/backups');
+const sourcePath = '/data/mafia_crm.sqlite';
+const backupDir = process.env.SQLITE_BACKUP_DIR || '/data/backups';
 const intervalMs = Math.max(60 * 60 * 1000, Number(process.env.SQLITE_BACKUP_INTERVAL_MS || 6 * 60 * 60 * 1000));
 const keepCount = Math.max(3, Number(process.env.SQLITE_BACKUP_KEEP || 30));
 const firstDelayMs = Math.max(30_000, Number(process.env.SQLITE_BACKUP_FIRST_DELAY_MS || 120_000));
@@ -41,8 +40,7 @@ async function createBackup() {
   }
 
   fs.mkdirSync(backupDir, { recursive: true });
-  const prefix = isTestEnvironment ? 'mafia_crm_test' : 'mafia_crm';
-  const destination = path.join(backupDir, `${prefix}-${stamp()}.sqlite`);
+  const destination = path.join(backupDir, `mafia_crm-${stamp()}.sqlite`);
   const db = new Database(sourcePath, { readonly: true, fileMustExist: true });
   try {
     const integrity = db.pragma('integrity_check', { simple: true });

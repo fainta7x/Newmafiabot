@@ -68,7 +68,48 @@ export function generatePlayerSessionToken(playerId: string): string {
   return jwt.sign({ session: 'PLAYER', playerId }, JWT_SECRET, { expiresIn: '7d' });
 }
 
+export const TEST_ENVIRONMENT_COOKIE = 'test_environment_token';
+
+export type TestEnvironmentSession = {
+  role: 'PLAYER' | 'ORGANIZER';
+  playerId: string;
+};
+
+export function generateTestEnvironmentToken(role: TestEnvironmentSession['role'], playerId: string): string {
+  return jwt.sign({ session: 'TEST_ENVIRONMENT', role, playerId }, JWT_SECRET, { expiresIn: '12h' });
+}
+
+export function getTestEnvironmentSession(req: Request): TestEnvironmentSession | null {
+  const token = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      session?: string;
+      role?: string;
+      playerId?: string;
+    };
+    if (
+      decoded.session === 'TEST_ENVIRONMENT'
+      && (decoded.role === 'PLAYER' || decoded.role === 'ORGANIZER')
+      && typeof decoded.playerId === 'string'
+      && decoded.playerId
+    ) {
+      return { role: decoded.role, playerId: decoded.playerId };
+    }
+  } catch {
+    // Invalid or expired test session is not allowed to select the test database.
+  }
+  return null;
+}
+
+export function isTestEnvironmentRequest(req: Request): boolean {
+  return Boolean(getTestEnvironmentSession(req));
+}
+
 export function getPlayerSessionId(req: Request): string | null {
+  const testSession = getTestEnvironmentSession(req);
+  if (testSession) return testSession.playerId;
+
   const token = req.cookies?.player_token;
   if (!token || typeof token !== 'string') return null;
 
@@ -90,6 +131,7 @@ export interface AuthenticatedRequest extends Request {
   delegatedPlayerId?: string;
   organizerActorId?: string;
   organizerPlayerId?: string;
+  testEnvironment?: boolean;
 }
 
 const organizerSessionActorId = (token: string) =>
@@ -102,6 +144,16 @@ export function getAuthenticatedOrganizerActorId(req: AuthenticatedRequest): str
 }
 
 export async function parseUserSession(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+  const testSession = getTestEnvironmentSession(req);
+  if (testSession) {
+    req.testEnvironment = true;
+    req.userRole = testSession.role;
+    if (testSession.role === 'ORGANIZER') {
+      req.organizerActorId = `test-organizer:${testSession.playerId}`;
+    }
+    return next();
+  }
+
   let token = req.cookies?.organizer_token;
 
   if (!token) {

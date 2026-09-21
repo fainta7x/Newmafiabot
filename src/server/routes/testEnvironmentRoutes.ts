@@ -5,6 +5,7 @@ import {
   checkLoginRateLimit,
   getTestEnvironmentSession,
   resetLoginRateLimit,
+  revokeTestEnvironmentSession,
   TEST_ENVIRONMENT_COOKIE,
 } from '../auth.ts';
 import { setTestEnvironmentCookie } from './authRoutes.ts';
@@ -66,7 +67,8 @@ router.post('/login', async (req, res) => {
   });
 });
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', (req, res) => {
+  revokeTestEnvironmentSession(req);
   res.clearCookie(TEST_ENVIRONMENT_COOKIE, { path: '/' });
   return res.json({ success: true, redirectTo: '/test-login' });
 });

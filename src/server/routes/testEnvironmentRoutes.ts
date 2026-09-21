@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Router, type Response } from 'express';
+import { Router } from 'express';
 import {
   generateOrganizerToken,
   generatePlayerSessionToken,

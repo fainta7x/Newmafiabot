@@ -10,7 +10,7 @@ describe('ProtocolFirstKilledConfirmDialog', () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();
 
-    render(<ProtocolFirstKilledConfirmDialog isOpen onCancel={onCancel} onConfirm={onConfirm} />);
+    render(<ProtocolFirstKilledConfirmDialog open onCancel={onCancel} onConfirm={onConfirm} />);
 
     expect(screen.getByText('Подтверждение смены первоубиенного')).toBeTruthy();
     expect(screen.getByText('Выбранный ЛХ и ручной Ci прежнего первоубиенного будут очищены.')).toBeTruthy();
@@ -24,7 +24,7 @@ describe('ProtocolFirstKilledConfirmDialog', () => {
 
   it('renders nothing when closed', () => {
     const { container } = render(
-      <ProtocolFirstKilledConfirmDialog isOpen={false} onCancel={vi.fn()} onConfirm={vi.fn()} />,
+      <ProtocolFirstKilledConfirmDialog open={false} onCancel={vi.fn()} onConfirm={vi.fn()} />,
     );
     expect(container.firstChild).toBeNull();
   });

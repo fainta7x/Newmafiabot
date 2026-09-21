@@ -1,9 +1,10 @@
 import { FileCheck, RotateCcw } from 'lucide-react';
-import type { TournamentGameProtocolData } from '../../../../lib/api';
+import type { PlayerResultData, TournamentGameProtocolData } from '../../../../lib/api';
 import { calculateGuessedBlacks } from './protocolStateUtils';
 
 type ProtocolCompletionDialogsProps = {
   protocol: TournamentGameProtocolData;
+  playerResults: PlayerResultData[];
   showCompleteConfirm: boolean;
   showRevertConfirm: boolean;
   submitting: boolean;
@@ -15,6 +16,7 @@ type ProtocolCompletionDialogsProps = {
 
 export function ProtocolCompletionDialogs({
   protocol,
+  playerResults,
   showCompleteConfirm,
   showRevertConfirm,
   submitting,
@@ -41,7 +43,7 @@ export function ProtocolCompletionDialogs({
                 </strong>
               </p>
               {protocol.best_moves && protocol.best_moves.map((bestMove) => {
-                const bestMoveInfo = calculateGuessedBlacks(bestMove.seat_numbers);
+                const bestMoveInfo = calculateGuessedBlacks(bestMove.seat_numbers, playerResults);
                 const title = bestMove.source === 'first_killed'
                   ? 'ЛХ Первого убитого'
                   : 'ЛХ Заголосованного в 0 круг';

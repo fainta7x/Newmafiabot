@@ -1,4 +1,4 @@
-import type { PlayerResultData } from '../../../../lib/api';
+import type { PlayerResultData, TournamentGameProtocolData } from '../../../../lib/api';
 import {
   determineVotingResult,
   validateVotingHierarchy,
@@ -299,7 +299,7 @@ const generalValidationError = (errorMsg: string): ProtocolCompletionValidationR
 });
 
 export const validateProtocolCompletion = (
-  protocol: import('../../../../lib/api').TournamentGameProtocolData,
+  protocol: TournamentGameProtocolData,
   playerResults: PlayerResultData[],
   hasUnclassifiedLegacyTechFouls: boolean,
 ): ProtocolCompletionValidationResult => {

@@ -67,14 +67,21 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
   if (isProductionConfiguredRuntime && resolvedDbPath !== ':memory:' && !resolvedDbPath.startsWith('file:')) {
     const runtimeMissingOrEmpty = !fs.existsSync(resolvedDbPath) || fs.statSync(resolvedDbPath).size === 0;
     if (runtimeMissingOrEmpty) {
-      if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT !== 'true') {
-        throw new Error('Production database is missing or empty. Set DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true for the first canonical bootstrap.');
+      if (process.env.APP_ENV === 'test') {
+        if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT === 'true') {
+          throw new Error('The isolated test environment must never bootstrap from the production checkpoint.');
+        }
+        console.log('[TEST ENV] Initializing a new isolated SQLite database.');
+      } else {
+        if (process.env.DATABASE_BOOTSTRAP_FROM_CHECKPOINT !== 'true') {
+          throw new Error('Production database is missing or empty. Set DATABASE_BOOTSTRAP_FROM_CHECKPOINT=true for the first canonical bootstrap.');
+        }
+        const bootstrap = initializeProductionRuntimeFromCanonical(resolvedDbPath, process.cwd());
+        if (!bootstrap.initialized) {
+          throw new Error('Production database bootstrap did not initialize the target database.');
+        }
+        console.log('Initialized production database from the canonical repository checkpoint.');
       }
-      const bootstrap = initializeProductionRuntimeFromCanonical(resolvedDbPath, process.cwd());
-      if (!bootstrap.initialized) {
-        throw new Error('Production database bootstrap did not initialize the target database.');
-      }
-      console.log('Initialized production database from the canonical repository checkpoint.');
     }
   }
 
@@ -214,7 +221,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
 
   // These three steps migrate specific real 2LA Noire player identities/links/baselines.
   // Generic Vitest databases (including temporary SQLite files) must contain only test fixtures.
-  if (!process.env.VITEST) {
+  if (!process.env.VITEST && process.env.APP_ENV !== 'test') {
     applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
     applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
     applyApprovedEloBaselineMigration(dbWrapper);

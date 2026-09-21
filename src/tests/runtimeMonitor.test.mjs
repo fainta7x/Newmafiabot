@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { normalizeBaseUrl, parseChatIds, probeRuntime } from '../../scripts/runtimeMonitor.mjs';
 
@@ -11,6 +13,14 @@ describe('external runtime monitor', () => {
   it('normalizes configuration without leaking empty recipients', () => {
     expect(normalizeBaseUrl('https://club.example.com///')).toBe('https://club.example.com');
     expect(parseChatIds(' 123, ,456 ')).toEqual(['123', '456']);
+  });
+
+  it('does not disable health probing when Telegram notification secrets are absent', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'scripts/runtimeMonitor.mjs'), 'utf8');
+
+    expect(source).toContain('runtime probing and GitHub incidents remain active');
+    expect(source).not.toContain("console.log('[monitor] Not armed: configure TELEGRAM_MONITOR_BOT_TOKEN and TELEGRAM_MONITOR_CHAT_IDS.');\n    return;");
+    expect(source).toContain('if (telegramArmed && !String(incident.body || \'\').includes(DOWN_MARKER))');
   });
 
   it('passes only when both public health endpoints pass', async () => {

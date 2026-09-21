@@ -1,3 +1,4 @@
+// Presentation-only list mode; LiveGameEngine remains the owner of player-action state.
 import type { ActivePlayerState } from './types.js';
 
 type LiveGamePlayerListProps = {

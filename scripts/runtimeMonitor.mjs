@@ -218,13 +218,10 @@ export async function main() {
   const chatIds = parseChatIds(process.env.TELEGRAM_MONITOR_CHAT_IDS);
   const testNotification = String(process.env.MONITOR_TEST_NOTIFICATION || '').toLowerCase() === 'true';
 
-  if (!telegramToken || chatIds.length === 0) {
-    if (testNotification) throw new Error('Telegram monitor secrets are not configured');
-    console.log('[monitor] Not armed: configure TELEGRAM_MONITOR_BOT_TOKEN and TELEGRAM_MONITOR_CHAT_IDS.');
-    return;
-  }
+  const telegramArmed = Boolean(telegramToken && chatIds.length > 0);
 
   if (testNotification) {
+    if (!telegramArmed) throw new Error('Telegram monitor secrets are not configured');
     await sendTelegram(
       telegramToken,
       chatIds,
@@ -234,13 +231,17 @@ export async function main() {
     return;
   }
 
+  if (!telegramArmed) {
+    console.warn('[monitor] Telegram notifications are not armed; runtime probing and GitHub incidents remain active.');
+  }
+
   const checkedAt = new Date().toISOString();
   const result = await probeRuntime(baseUrl);
   let incident = await findOpenIncident();
 
   if (!result.ok) {
     if (!incident) incident = await createIncident(baseUrl, result, checkedAt);
-    if (!String(incident.body || '').includes(DOWN_MARKER)) {
+    if (telegramArmed && !String(incident.body || '').includes(DOWN_MARKER)) {
       await sendTelegram(telegramToken, chatIds, downMessage(baseUrl, result, checkedAt));
       incident = await appendMarker(incident, DOWN_MARKER);
     }
@@ -254,7 +255,7 @@ export async function main() {
     return;
   }
 
-  if (!String(incident.body || '').includes(RECOVERY_MARKER)) {
+  if (telegramArmed && !String(incident.body || '').includes(RECOVERY_MARKER)) {
     await sendTelegram(
       telegramToken,
       chatIds,

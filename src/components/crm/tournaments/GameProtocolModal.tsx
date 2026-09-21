@@ -74,7 +74,7 @@ import {
   writeBlockedProtocolLocalBackup,
   writeProtocolLocalBackup
 } from './protocol/protocolPersistenceUtils';
-import { validateProtocolVoting } from './protocol/protocolValidationUtils';
+import { validateProtocolCompletion } from './protocol/protocolValidationUtils';
 import {
   getProtocolPlayerPresentation
 } from './protocol/protocolPlayerPresentationUtils';
@@ -926,80 +926,25 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
 
   // Validate protocol on client side before completing
   const validateBeforeComplete = (): string | null => {
-    if (!protocol.winner_team || !['red', 'black'].includes(protocol.winner_team)) {
-      return 'Необходимо выбрать победившую команду (Красные или Чёрные)';
-    }
+    const validation = validateProtocolCompletion(
+      protocol,
+      playerResults,
+      Object.keys(oldTechFoulsToFix).length > 0
+    );
 
-    if (!playerResults || playerResults.length !== 10) {
-      return 'В протоколе должно быть ровно 10 игроков';
-    }
-
-    // Role check: 6 citizen, 1 sheriff, 2 mafia, 1 don
-    const roleCounts: Record<string, number> = { citizen: 0, sheriff: 0, mafia: 0, don: 0 };
-    for (const pr of playerResults) {
-      const r = (pr.role || '').toLowerCase();
-      if (r === 'мирянин' || r === 'мирный') roleCounts.citizen++;
-      else if (r === 'шериф') roleCounts.sheriff++;
-      else if (r === 'мафия') roleCounts.mafia++;
-      else if (r === 'дон') roleCounts.don++;
-      else if (roleCounts[r] !== undefined) roleCounts[r]++;
-    }
-    if (roleCounts.citizen !== 6 || roleCounts.sheriff !== 1 || roleCounts.mafia !== 2 || roleCounts.don !== 1) {
-      return 'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)';
-    }
-
-    if (protocol.first_killed_participant_id) {
-      const fkPlayer = playerResults.find((p) => p.participant_id === protocol.first_killed_participant_id);
-      if (fkPlayer && fkPlayer.exit_type !== 'killed') {
-        return 'Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)';
-      }
-    }
-
-    if (protocol.zero_round_voted_participant_id) {
-      const zrPlayer = playerResults.find((p) => p.participant_id === protocol.zero_round_voted_participant_id);
-      if (zrPlayer && zrPlayer.exit_type !== 'voted_zero_round') {
-        return 'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"';
-      }
-    }
-
-    if (protocol.first_killed_participant_id && protocol.zero_round_voted_participant_id && protocol.first_killed_participant_id === protocol.zero_round_voted_participant_id) {
-      return 'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком';
-    }
-
-    if (protocol.best_moves && protocol.best_moves.length > 0) {
-      const seenParticipants = new Set<string>();
-      const seenSources = new Set<string>();
-      for (const bm of protocol.best_moves) {
-        if (seenParticipants.has(bm.participant_id)) return 'Один участник не может иметь два ЛХ';
-        seenParticipants.add(bm.participant_id);
-
-        if (seenSources.has(bm.source)) return 'Источник ЛХ не может повторяться';
-        seenSources.add(bm.source);
-
-        if (bm.source === 'first_killed' && bm.participant_id !== protocol.first_killed_participant_id) {
-          return 'Для ЛХ первого убитого участник обязан совпадать с первоубиенным';
-        }
-        if (bm.source === 'zero_round_voted' && bm.participant_id !== protocol.zero_round_voted_participant_id) {
-          return 'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг';
-        }
-      }
-    }
-
-    // Check for unclassified tech fouls
-    if (Object.keys(oldTechFoulsToFix).length > 0) {
-      return 'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)';
-    }
-
-    const votingVal = validateProtocolVoting(protocol.votes || [], playerResults, protocol.zero_round_voted_participant_id);
-    if (votingVal.errorMsg) {
+    if (validation.source === 'voting' && validation.errorMsg) {
       setActiveTab('votes');
-      if (votingVal.roundIndexWithError !== null) {
-        setHighlightedRoundIdx(votingVal.roundIndexWithError);
+      if (validation.roundIndexWithError !== null) {
+        setHighlightedRoundIdx(validation.roundIndexWithError);
       }
-      return votingVal.errorMsg;
+      return validation.errorMsg;
     }
-    setHighlightedRoundIdx(null);
 
+    if (validation.errorMsg) {
+      return validation.errorMsg;
+    }
+
+    setHighlightedRoundIdx(null);
     return null;
   };
 

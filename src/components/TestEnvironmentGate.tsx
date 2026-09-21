@@ -1,4 +1,4 @@
-import React, { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 
 type TestStatus = { enabled: boolean; label?: string | null };
 type Role = 'player' | 'organizer';

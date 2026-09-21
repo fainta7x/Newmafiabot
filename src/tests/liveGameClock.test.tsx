@@ -36,7 +36,7 @@ describe('Live Game clock', () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
-    delete (window as Window & { AudioContext?: typeof AudioContext }).AudioContext;
+    delete (window as unknown as { AudioContext?: unknown }).AudioContext;
   });
 
   it('preserves initial clock state and stops exactly at zero', () => {

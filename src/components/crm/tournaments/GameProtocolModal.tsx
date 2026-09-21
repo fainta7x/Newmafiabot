@@ -37,6 +37,10 @@ import {
   ProtocolDisciplineConfirmDialog,
   type PendingProtocolDisciplineAction
 } from './protocol/ProtocolDisciplineConfirmDialog';
+import {
+  ProtocolExitTypeConfirmDialog,
+  type PendingProtocolExitTypeChange
+} from './protocol/ProtocolExitTypeConfirmDialog';
 import { useMobileKeyboardViewport } from '../../../hooks/useMobileKeyboardViewport';
 import { PlayerAvatar } from '../../ui/PlayerAvatar.tsx';
 import {
@@ -197,12 +201,7 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
     Record<string, ColorMarkEditState | null>
   >({});
 
-  const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<{
-    participantId: string;
-    newExitType: PlayerResultData['exit_type'];
-    playerName: string;
-    seatNum: number;
-  } | null>(null);
+  const [pendingExitTypeConfirm, setPendingExitTypeConfirm] = useState<PendingProtocolExitTypeChange | null>(null);
 
   // Discipline confirmations
   const [pendingDisciplineAction, setPendingDisciplineAction] = useState<PendingProtocolDisciplineAction | null>(null);
@@ -1751,38 +1750,11 @@ export const GameProtocolModal: React.FC<GameProtocolModalProps> = ({
         onConfirm={confirmDisciplineAction}
       />
 
-      {/* MODAL: CONFIRM EXIT TYPE CHANGE WHEN COLOR PROTOCOL EXISTS */}
-      {pendingExitTypeConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <div className="flex items-center space-x-3 text-amber-400">
-              <AlertTriangle className="w-6 h-6 text-amber-400" />
-              <h3 className="text-base font-bold">Очистить оставленный протокол?</h3>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-300">
-              У игрока #{pendingExitTypeConfirm.seatNum} ({pendingExitTypeConfirm.playerName}) есть сохранённый цветовой протокол. Изменение статуса ухода с «Убит» удалит эти записи.
-            </p>
-
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setPendingExitTypeConfirm(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={confirmExitTypeChange}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
-              >
-                Удалить и изменить статус
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProtocolExitTypeConfirmDialog
+        pending={pendingExitTypeConfirm}
+        onCancel={() => setPendingExitTypeConfirm(null)}
+        onConfirm={confirmExitTypeChange}
+      />
 
       <ProtocolCompletionDialogs
         protocol={protocol}

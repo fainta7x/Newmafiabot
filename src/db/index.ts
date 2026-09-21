@@ -14,6 +14,7 @@ import { applyFandorinAug28GameIdentityMigration } from './fixFandorinAug28GameI
 import { applySep4ChaginGameIdentityMigration } from './fixSep4ChaginGameIdentityMigration.ts';
 import { ensureJudgeAuthoritySchema } from './ensureJudgeAuthoritySchema.ts';
 import { ensureClubOperationsSchema } from './ensureClubOperationsSchema.ts';
+import { ensureIsolatedTestRuntimeSchema } from './ensureIsolatedTestRuntimeSchema.ts';
 
 export interface DatabaseWrapper {
   sqlite: Database.Database;
@@ -141,6 +142,7 @@ export async function getIsolatedTestDb(): Promise<DatabaseWrapper> {
       throw new Error('Test database path must be different from the production database path.');
     }
     isolatedTestDbInstance = createDatabaseConnection(testPath, { isolatedTest: true });
+    await ensureIsolatedTestRuntimeSchema(isolatedTestDbInstance);
     await seedDemoData(isolatedTestDbInstance, { isolatedTest: true });
     console.log(`[TEST ENV] Isolated SQLite ready: ${isolatedTestDbInstance.dbPath}`);
   }

@@ -82,9 +82,11 @@ describe('live engine native wiring', () => {
 
   it('keeps the selectable table visible while seat cards are the voting input', () => {
     const engine = read('src/components/LiveGameEngine.tsx');
+    const toolbar = read('src/components/LiveGameEngine/LiveGameJudgeToolbar.tsx');
     expect(engine).toContain("votingStage === 'collecting' || votingStage === 'table_decision'");
     expect(engine).toContain("const effectiveViewMode = requiresTableSeatVoting ? 'table' : viewMode");
-    expect(engine).toContain('disabled={requiresTableSeatVoting}');
+    expect(engine).toContain('requiresTableSeatVoting={requiresTableSeatVoting}');
+    expect(toolbar).toContain('disabled={requiresTableSeatVoting}');
     expect(engine).toContain("effectiveViewMode === 'table' ? renderTable()");
   });
 });

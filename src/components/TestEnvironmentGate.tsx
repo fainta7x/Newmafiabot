@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 
-type TestStatus = { enabled: boolean; label?: string | null };
+type TestStatus = { enabled: boolean; active?: boolean; label?: string | null };
 type Role = 'player' | 'organizer';
 
 export default function TestEnvironmentGate({ children }: { children: ReactNode }) {
@@ -38,6 +38,11 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
     }
   };
 
+  const leaveTestMode = async () => {
+    await fetch('/api/test-environment/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => null);
+    window.location.assign('/test-login');
+  };
+
   if (isLoginPage && status?.enabled) {
     return (
       <main className="min-h-screen bg-[#0a0a0c] px-4 py-8 text-white">
@@ -72,12 +77,13 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
 
   return (
     <>
-      {status?.enabled ? (
-        <div className="fixed inset-x-0 top-0 z-[10000] bg-amber-400 px-3 py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-black">
-          Тестовая версия · отдельная база Amvera
+      {status?.active ? (
+        <div className="fixed inset-x-0 top-0 z-[10000] flex min-h-6 items-center justify-center gap-3 bg-amber-400 px-3 py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-black">
+          <span>Тестовая версия · отдельная база</span>
+          <button type="button" onClick={() => void leaveTestMode()} className="rounded bg-black/15 px-2 py-0.5 normal-case tracking-normal">Выйти</button>
         </div>
       ) : null}
-      <div className={status?.enabled ? 'pt-6' : undefined}>{children}</div>
+      <div className={status?.active ? 'pt-6' : undefined}>{children}</div>
     </>
   );
 }

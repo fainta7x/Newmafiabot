@@ -27,6 +27,7 @@ export interface DatabaseWrapper {
 }
 
 let defaultDbInstance: DatabaseWrapper | null = null;
+let isolatedTestDbInstance: DatabaseWrapper | null = null;
 
 export function verifySqliteIntegrity(file: string): boolean { return verifySqliteFile(file); }
 
@@ -45,7 +46,7 @@ export function ensureValidCheckpoint(targetPath: string): boolean {
   return restoreCheckpointFromGzB64(targetPath);
 }
 
-export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapper {
+export function createDatabaseConnection(dbPathOrMemory?: string, options: { isolatedTest?: boolean } = {}): DatabaseWrapper {
   const configuredDatabasePath = process.env.DATABASE_PATH;
   let dbPath = dbPathOrMemory || configuredDatabasePath;
   if (!dbPath || dbPath === './mafia_crm.sqlite' || dbPath === 'mafia_crm.sqlite') {
@@ -102,7 +103,7 @@ export function createDatabaseConnection(dbPathOrMemory?: string): DatabaseWrapp
       catch (err) { try { sqlite.exec('ROLLBACK'); } catch (_) {} throw err; }
     },
   };
-  initializeDatabase(wrapper);
+  initializeDatabase(wrapper, options);
   return wrapper;
 }
 
@@ -138,14 +139,33 @@ export async function getDb(): Promise<DatabaseWrapper> {
   return defaultDbInstance;
 }
 
+export async function getIsolatedTestDb(): Promise<DatabaseWrapper> {
+  if (!isolatedTestDbInstance) {
+    const productionDb = await getDb();
+    const configuredPath = String(process.env.TEST_DATABASE_PATH || '').trim();
+    const testPath = configuredPath || path.join(path.dirname(productionDb.dbPath), 'mafia_crm.test.sqlite');
+    if (path.resolve(testPath) === path.resolve(productionDb.dbPath)) {
+      throw new Error('Test database path must be different from the production database path.');
+    }
+    isolatedTestDbInstance = createDatabaseConnection(testPath, { isolatedTest: true });
+    await seedDemoData(isolatedTestDbInstance, { isolatedTest: true });
+    console.log(`[TEST ENV] Isolated SQLite ready: ${isolatedTestDbInstance.dbPath}`);
+  }
+  return isolatedTestDbInstance;
+}
+
 export function resetDbInstanceForTesting() {
   if (defaultDbInstance) {
     try { (defaultDbInstance.sqlite as any)?.close?.(); } catch (_) {}
     defaultDbInstance = null;
   }
+  if (isolatedTestDbInstance) {
+    try { (isolatedTestDbInstance.sqlite as any)?.close?.(); } catch (_) {}
+    isolatedTestDbInstance = null;
+  }
 }
 
-export function initializeDatabase(dbWrapper: DatabaseWrapper) {
+export function initializeDatabase(dbWrapper: DatabaseWrapper, options: { isolatedTest?: boolean } = {}) {
   const migrationSqlPath = path.join(process.cwd(), 'drizzle', '0000_initial.sql');
   if (fs.existsSync(migrationSqlPath)) dbWrapper.sqlite.exec(fs.readFileSync(migrationSqlPath, 'utf8'));
   const addColumnIfNotExists = (tableName: string, columnName: string, colDef: string) => {
@@ -182,7 +202,7 @@ export function initializeDatabase(dbWrapper: DatabaseWrapper) {
 
   // These three steps migrate specific real 2LA Noire player identities/links/baselines.
   // Generic Vitest databases (including temporary SQLite files) must contain only test fixtures.
-  if (!process.env.VITEST && process.env.APP_ENV !== 'test') {
+  if (!process.env.VITEST && !options.isolatedTest) {
     applyConfirmedTelegramPlayerLinksMigration(dbWrapper);
     applyImportLegacyPlayerIdentitiesMigration(dbWrapper);
     applyApprovedEloBaselineMigration(dbWrapper);

@@ -2,10 +2,10 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import { getIsolatedTestDb } from '../../db/index.ts';
 import {
-  generateTestEnvironmentToken,
   getTestEnvironmentSession,
   TEST_ENVIRONMENT_COOKIE,
 } from '../auth.ts';
+import { setTestEnvironmentCookie } from './authRoutes.ts';
 
 const router = Router();
 const TEST_PLAYER_ID = 'p-test-1';
@@ -49,17 +49,7 @@ router.post('/login', async (req, res) => {
   if (!player) return res.status(503).json({ error: 'Тестовый игрок не создан' });
 
   const signedRole = role === 'organizer' ? 'ORGANIZER' : 'PLAYER';
-  res.cookie(
-    TEST_ENVIRONMENT_COOKIE,
-    generateTestEnvironmentToken(signedRole, TEST_PLAYER_ID),
-    {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 12 * 60 * 60 * 1000,
-    },
-  );
+  setTestEnvironmentCookie(res, signedRole, TEST_PLAYER_ID);
 
   return res.json({
     success: true,

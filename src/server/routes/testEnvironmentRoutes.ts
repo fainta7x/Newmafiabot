@@ -12,16 +12,6 @@ function testEnvironmentEnabled(): boolean {
   return process.env.APP_ENV === 'test';
 }
 
-function setSessionCookie(res: Response, name: string, token: string) {
-  res.cookie(name, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-}
-
 function safePasswordMatch(actual: unknown): boolean {
   const expected = String(process.env.TEST_ACCESS_PASSWORD || '');
   const received = typeof actual === 'string' ? actual : '';
@@ -58,9 +48,16 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  setSessionCookie(res, 'player_token', generatePlayerSessionToken(TEST_PLAYER_ID));
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+  res.cookie('player_token', generatePlayerSessionToken(TEST_PLAYER_ID), cookieOptions);
   if (role === 'organizer') {
-    setSessionCookie(res, 'organizer_token', generateOrganizerToken());
+    res.cookie('organizer_token', generateOrganizerToken(), cookieOptions);
   } else {
     res.clearCookie('organizer_token', { path: '/' });
   }

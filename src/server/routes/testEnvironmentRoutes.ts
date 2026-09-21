@@ -1,9 +1,6 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
-import {
-  generateOrganizerToken,
-  generatePlayerSessionToken,
-} from '../auth.ts';
+import { setOrganizerCookie, setPlayerCookie } from './authRoutes.ts';
 
 const router = Router();
 const TEST_PLAYER_ID = 'p-test-1';
@@ -48,16 +45,9 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  };
-  res.cookie('player_token', generatePlayerSessionToken(TEST_PLAYER_ID), cookieOptions);
+  setPlayerCookie(res, TEST_PLAYER_ID);
   if (role === 'organizer') {
-    res.cookie('organizer_token', generateOrganizerToken(), cookieOptions);
+    setOrganizerCookie(res);
   } else {
     res.clearCookie('organizer_token', { path: '/' });
   }

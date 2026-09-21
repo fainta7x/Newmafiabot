@@ -2,13 +2,15 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../components/LiveGameEngine.tsx', import.meta.url), 'utf8');
+const toolbarSource = readFileSync(new URL('../components/LiveGameEngine/LiveGameJudgeToolbar.tsx', import.meta.url), 'utf8');
 const centerSource = readFileSync(new URL('../components/LiveGameEngine/CenterPanel.tsx', import.meta.url), 'utf8');
 
 describe('live player action availability', () => {
   it('keeps an explicit player-actions entry point throughout an active game', () => {
-    expect(source).toContain('data-testid="live-player-actions-selector"');
-    expect(source).toContain('aria-label="Действия игрока"');
-    expect(source).toContain('if (slot) setActionPlayerSlot(slot);');
+    expect(toolbarSource).toContain('data-testid="live-player-actions-selector"');
+    expect(toolbarSource).toContain('aria-label="Действия игрока"');
+    expect(toolbarSource).toContain('if (slot) onSelectPlayer(slot);');
+    expect(source).toContain('onSelectPlayer={setActionPlayerSlot}');
     expect(source).toContain('onOpenPlayerActions: setActionPlayerSlot');
     expect(centerSource).toContain('data-testid="live-player-actions-center-selector"');
     expect(centerSource).toContain("phase === 'day_speeches' || phase === 'day_voting'");

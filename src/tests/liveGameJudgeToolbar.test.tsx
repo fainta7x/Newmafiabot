@@ -68,7 +68,7 @@ describe('Live Game judge toolbar', () => {
     );
 
     const extension = screen.getByTestId('live-speech-extension');
-    expect(extension).toBeDisabled();
+    expect((extension as HTMLButtonElement).disabled).toBe(true);
     expect(extension.getAttribute('title')).toBe('Сейчас никто не говорит');
     fireEvent.click(extension);
     expect(onSpeechExtension).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe('Live Game judge toolbar', () => {
     expect(screen.getByRole('button', { name: /Отмена \(0\)/ })).toBeDisabled();
 
     const lockedView = screen.getByRole('button', { name: 'Стол для голосования' });
-    expect(lockedView).toBeDisabled();
+    expect((lockedView as HTMLButtonElement).disabled).toBe(true);
     expect(lockedView.getAttribute('title')).toBe('Во время голосования используется стол');
     fireEvent.click(lockedView);
     expect(onToggleView).not.toHaveBeenCalled();

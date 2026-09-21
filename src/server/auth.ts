@@ -99,6 +99,11 @@ export function getTestEnvironmentSession(req: Request): TestEnvironmentSession 
   return { role: session.role, playerId: session.playerId };
 }
 
+export function revokeTestEnvironmentSession(req: Request): void {
+  const id = req.cookies?.[TEST_ENVIRONMENT_COOKIE];
+  if (typeof id === 'string' && id) testEnvironmentSessions.delete(id);
+}
+
 export function isTestEnvironmentRequest(req: Request): boolean {
   return Boolean(getTestEnvironmentSession(req));
 }

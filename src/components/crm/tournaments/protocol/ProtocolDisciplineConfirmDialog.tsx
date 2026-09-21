@@ -16,6 +16,7 @@ type ProtocolDisciplineConfirmDialogProps = {
   onConfirm: () => void;
 };
 
+// Presentation-only confirmation; GameProtocolModal remains the owner of discipline mutations.
 export function ProtocolDisciplineConfirmDialog({
   pending,
   winnerTeam,

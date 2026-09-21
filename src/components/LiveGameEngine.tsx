@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, RotateCcw, Shield } from "lucide-react";
 import { GameSlot } from "../types.js";
 import {
   VotingRound,
@@ -31,6 +30,7 @@ import SetupPhase from "./LiveGameEngine/SetupPhase.js";
 import EventsPanel from "./LiveGameEngine/EventsPanel.js";
 import SeatCard from "./LiveGameEngine/SeatCard.js";
 import CenterPanel from "./LiveGameEngine/CenterPanel.js";
+import LiveGameJudgeToolbar from "./LiveGameEngine/LiveGameJudgeToolbar.js";
 import { requestJudgeGameMusicStop } from "./JudgeGameMusicController.js";
 import {
   BestMoveProtocolOverlay,
@@ -1593,49 +1593,19 @@ export default function LiveGameEngine({ players, initialJudgeId, onGameFinished
         />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap justify-between gap-2 items-center bg-slate-900/60 p-3 border border-slate-800 rounded-2xl">
-            <span className="text-[10px] text-slate-300 font-black uppercase flex items-center gap-1.5"><Shield className="w-4 h-4 text-rose-500" />Панель судейства</span>
-            <div className="flex flex-wrap justify-end gap-2">
-              <select
-                data-testid="live-player-actions-selector"
-                aria-label="Действия игрока"
-                value=""
-                onChange={(event) => {
-                  const slot = Number(event.target.value);
-                  if (slot) setActionPlayerSlot(slot);
-                }}
-                className="max-w-[150px] px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-200 text-[10px] font-bold"
-              >
-                <option value="">Действия игрока</option>
-                {activePlayers.map((player) => (
-                  <option key={player.slot_num} value={player.slot_num}>
-                    #{player.slot_num} {player.nickname || `Игрок ${player.slot_num}`}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                data-testid="live-speech-extension"
-                disabled={!speechExtensionAvailability.allowed}
-                title={speechExtensionAvailability.allowed ? 'Добавить 30 секунд текущей речи ценой двух обычных фолов' : speechExtensionAvailability.reason}
-                onClick={handleExchangeFoulsForSpeech}
-                className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-700 text-amber-200 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                +30с за 2 фола
-              </button>
-              <button type="button" onClick={handleUndoAction} disabled={!historyStack.length} className="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-bold disabled:opacity-30"><RotateCcw className="w-3 h-3 inline mr-1" />Отмена ({historyStack.length})</button>
-              <button type="button" onClick={toggleRolesOnTable} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold">{rolesAreVisible ? <EyeOff className="w-3 h-3 inline mr-1" /> : <Eye className="w-3 h-3 inline mr-1" />}{rolesAreVisible ? 'Скрыть роли' : 'Показать роли'}</button>
-              <button
-                type="button"
-                onClick={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
-                disabled={requiresTableSeatVoting}
-                title={requiresTableSeatVoting ? 'Во время голосования используется стол' : undefined}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {requiresTableSeatVoting ? 'Стол для голосования' : viewMode === 'table' ? 'Список' : 'Стол'}
-              </button>
-            </div>
-          </div>
+          <LiveGameJudgeToolbar
+            activePlayers={activePlayers}
+            onSelectPlayer={setActionPlayerSlot}
+            speechExtensionAvailability={speechExtensionAvailability}
+            onSpeechExtension={handleExchangeFoulsForSpeech}
+            historyLength={historyStack.length}
+            onUndo={handleUndoAction}
+            rolesAreVisible={rolesAreVisible}
+            onToggleRoles={toggleRolesOnTable}
+            viewMode={viewMode}
+            onToggleView={() => setViewMode(viewMode === 'table' ? 'list' : 'table')}
+            requiresTableSeatVoting={requiresTableSeatVoting}
+          />
 
           {effectiveViewMode === 'table' ? renderTable() : (
             <div className="space-y-3">

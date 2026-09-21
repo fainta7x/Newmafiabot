@@ -10,7 +10,7 @@ describe('ProtocolZeroRoundConfirmDialog', () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();
 
-    render(<ProtocolZeroRoundConfirmDialog open onCancel={onCancel} onConfirm={onConfirm} />);
+    render(<ProtocolZeroRoundConfirmDialog isOpen onCancel={onCancel} onConfirm={onConfirm} />);
 
     expect(screen.getByText('Подтверждение смены игрока нулевого круга')).toBeTruthy();
     expect(screen.getByText('Выбранные номера ЛХ прежнего игрока будут очищены.')).toBeTruthy();
@@ -24,7 +24,7 @@ describe('ProtocolZeroRoundConfirmDialog', () => {
 
   it('renders nothing when closed', () => {
     const { container } = render(
-      <ProtocolZeroRoundConfirmDialog open={false} onCancel={vi.fn()} onConfirm={vi.fn()} />,
+      <ProtocolZeroRoundConfirmDialog isOpen={false} onCancel={vi.fn()} onConfirm={vi.fn()} />,
     );
     expect(container.firstChild).toBeNull();
   });

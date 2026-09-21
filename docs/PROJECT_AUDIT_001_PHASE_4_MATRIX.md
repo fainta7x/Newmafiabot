@@ -44,7 +44,7 @@ Runtime:
 | 21 | OBS / live broadcast | COVERED | NOT YET VERIFIED | live broadcast + overlay/state integration tests |
 | 22 | Backup + isolated restore | PARTIAL | NOT YET VERIFIED | backup verifier exists and contract tests protect wiring; real production-generated snapshot restore drill still required |
 | 23 | Mobile Telegram WebApp viewport / keyboard | COVERED | NOT YET VERIFIED | Telegram viewport, keyboard, compact Live Game E2E/tests |
-| 24 | Legacy Telegram shell cannot fork canonical state | PARTIAL | NOT YET VERIFIED | compact menu + canonical /admin now protected; stale legacy callbacks/writes still mounted (#342) |
+| 24 | Legacy Telegram shell cannot fork canonical state | COVERED | NOT YET VERIFIED | canonical /admin, registration write removal and guard-first containment cover stale legacy write families; source-retained handlers await deployed verification |
 
 ## Strongest covered areas
 

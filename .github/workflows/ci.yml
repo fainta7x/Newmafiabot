@@ -46,6 +46,12 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Release test group manifest
+        run: |
+          for group in smoke crm live-game telegram vk regression; do
+            npx tsx src/scripts/runTestGroup.ts "$group" --list-only
+          done
+
       - name: Tests
         run: npm test
 
@@ -108,3 +114,25 @@ jobs:
 
           echo 'Production server did not become healthy' >&2
           exit 1
+
+  release-gate:
+    name: Release gate
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    needs:
+      - web
+      - bot-syntax
+      - combined-container
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all release checks
+        env:
+          WEB_RESULT: ${{ needs.web.result }}
+          BOT_RESULT: ${{ needs.bot-syntax.result }}
+          CONTAINER_RESULT: ${{ needs.combined-container.result }}
+        run: |
+          echo "web=$WEB_RESULT"
+          echo "bot-syntax=$BOT_RESULT"
+          echo "combined-container=$CONTAINER_RESULT"
+          test "$WEB_RESULT" = "success"
+          test "$BOT_RESULT" = "success"
+          test "$CONTAINER_RESULT" = "success"

@@ -7,8 +7,10 @@ export async function seedDemoData(db: DatabaseWrapper, options: { isolatedTest?
     return;
   }
 
-  // Only seed if SEED_DEMO_DATA is explicitly true
-  if (process.env.SEED_DEMO_DATA !== 'true') {
+  // Ordinary development/demo databases remain opt-in. The isolated in-app
+  // sandbox is explicitly selected by getIsolatedTestDb(), so it must always
+  // bootstrap its synthetic fixtures without relying on a production env flag.
+  if (!options.isolatedTest && process.env.SEED_DEMO_DATA !== 'true') {
     return;
   }
 

@@ -122,4 +122,14 @@ describe('Database Seeding & Stability Tests', () => {
     const playersCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM players');
     expect(playersCount?.count).toBe(0);
   });
+
+  it('7. Explicit isolated sandbox seeding does not require SEED_DEMO_DATA', async () => {
+    process.env.SEED_DEMO_DATA = 'false';
+    process.env.NODE_ENV = 'production';
+    db = createDatabaseConnection(testDbFile, { isolatedTest: true });
+    await seedDemoData(db, { isolatedTest: true });
+
+    const player = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', ['p-test-1']);
+    expect(player?.id).toBe('p-test-1');
+  });
 });

@@ -1,4 +1,4 @@
-import type { PlayerResultData } from '../../../../lib/api';
+import type { PlayerResultData, TournamentGameProtocolData } from '../../../../lib/api';
 import {
   determineVotingResult,
   validateVotingHierarchy,
@@ -285,4 +285,137 @@ export const validateProtocolVoting = (
   }
 
   return { errorMsg: null, roundIndexWithError: null };
+};
+
+
+export interface ProtocolCompletionValidationResult extends ProtocolVotingValidationResult {
+  source: 'general' | 'voting' | null;
+}
+
+const generalValidationError = (errorMsg: string): ProtocolCompletionValidationResult => ({
+  errorMsg,
+  roundIndexWithError: null,
+  source: 'general',
+});
+
+// Pure completion validation: React owns only presentation/focus side effects around this result.
+export const validateProtocolCompletion = (
+  protocol: TournamentGameProtocolData,
+  playerResults: PlayerResultData[],
+  hasUnclassifiedLegacyTechFouls: boolean,
+): ProtocolCompletionValidationResult => {
+  if (!protocol.winner_team || !['red', 'black'].includes(protocol.winner_team)) {
+    return generalValidationError('Необходимо выбрать победившую команду (Красные или Чёрные)');
+  }
+
+  if (!playerResults || playerResults.length !== 10) {
+    return generalValidationError('В протоколе должно быть ровно 10 игроков');
+  }
+
+  const roleCounts: Record<string, number> = { citizen: 0, sheriff: 0, mafia: 0, don: 0 };
+  for (const player of playerResults) {
+    const role = (player.role || '').toLowerCase();
+    if (role === 'мирянин' || role === 'мирный') roleCounts.citizen++;
+    else if (role === 'шериф') roleCounts.sheriff++;
+    else if (role === 'мафия') roleCounts.mafia++;
+    else if (role === 'дон') roleCounts.don++;
+    else if (roleCounts[role] !== undefined) roleCounts[role]++;
+  }
+  if (
+    roleCounts.citizen !== 6 ||
+    roleCounts.sheriff !== 1 ||
+    roleCounts.mafia !== 2 ||
+    roleCounts.don !== 1
+  ) {
+    return generalValidationError(
+      'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)',
+    );
+  }
+
+  if (protocol.first_killed_participant_id) {
+    const firstKilled = playerResults.find(
+      (player) => player.participant_id === protocol.first_killed_participant_id,
+    );
+    if (firstKilled && firstKilled.exit_type !== 'killed') {
+      return generalValidationError('Первоубиенный игрок должен иметь тип ухода "killed" (убит ночью)');
+    }
+  }
+
+  if (protocol.zero_round_voted_participant_id) {
+    const zeroRoundVoted = playerResults.find(
+      (player) => player.participant_id === protocol.zero_round_voted_participant_id,
+    );
+    if (zeroRoundVoted && zeroRoundVoted.exit_type !== 'voted_zero_round') {
+      return generalValidationError(
+        'Заголосованный в нулевой круг игрок должен иметь тип ухода "voted_zero_round"',
+      );
+    }
+  }
+
+  if (
+    protocol.first_killed_participant_id &&
+    protocol.zero_round_voted_participant_id &&
+    protocol.first_killed_participant_id === protocol.zero_round_voted_participant_id
+  ) {
+    return generalValidationError(
+      'Первоубиенный игрок и заголосованный в нулевой круг не могут быть одним и тем же игроком',
+    );
+  }
+
+  if (protocol.best_moves && protocol.best_moves.length > 0) {
+    const seenParticipants = new Set<string>();
+    const seenSources = new Set<string>();
+    for (const bestMove of protocol.best_moves) {
+      if (seenParticipants.has(bestMove.participant_id)) {
+        return generalValidationError('Один участник не может иметь два ЛХ');
+      }
+      seenParticipants.add(bestMove.participant_id);
+
+      if (seenSources.has(bestMove.source)) {
+        return generalValidationError('Источник ЛХ не может повторяться');
+      }
+      seenSources.add(bestMove.source);
+
+      if (
+        bestMove.source === 'first_killed' &&
+        bestMove.participant_id !== protocol.first_killed_participant_id
+      ) {
+        return generalValidationError(
+          'Для ЛХ первого убитого участник обязан совпадать с первоубиенным',
+        );
+      }
+      if (
+        bestMove.source === 'zero_round_voted' &&
+        bestMove.participant_id !== protocol.zero_round_voted_participant_id
+      ) {
+        return generalValidationError(
+          'Для ЛХ выбывшего в 0 круге участник обязан совпадать с заголосованным в 0 круг',
+        );
+      }
+    }
+  }
+
+  if (hasUnclassifiedLegacyTechFouls) {
+    return generalValidationError(
+      'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)',
+    );
+  }
+
+  const voting = validateProtocolVoting(
+    protocol.votes || [],
+    playerResults,
+    protocol.zero_round_voted_participant_id,
+  );
+  if (voting.errorMsg) {
+    return {
+      ...voting,
+      source: 'voting',
+    };
+  }
+
+  return {
+    errorMsg: null,
+    roundIndexWithError: null,
+    source: null,
+  };
 };

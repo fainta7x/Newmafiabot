@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PlayerResultData } from '../lib/api';
-import { validateProtocolVoting } from '../components/crm/tournaments/protocol/protocolValidationUtils';
+import type { PlayerResultData, TournamentGameProtocolData } from '../lib/api';
+import { validateProtocolCompletion, validateProtocolVoting } from '../components/crm/tournaments/protocol/protocolValidationUtils';
 
 const player = (
   participantId: string,
@@ -98,5 +98,100 @@ describe('protocol voting completion validation', () => {
       [player('p-3', 3, 'voted_zero_round')],
       'other-player',
     ).errorMsg).toBe('Игрок в поле "Заголосованный в нулевой круг" должен совпадать с выбывшим игроком #3.');
+  });
+});
+
+
+const validPlayers = (): PlayerResultData[] => {
+  const roles = ['citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'sheriff', 'mafia', 'mafia', 'don'];
+  return roles.map((role, index) => ({
+    participant_id: `p-${index + 1}`,
+    seat_number: index + 1,
+    role,
+    exit_type: 'alive',
+  } as PlayerResultData));
+};
+
+const validProtocol = (): TournamentGameProtocolData => ({
+  game_id: 'game-1',
+  status: 'draft',
+  winner_team: 'red',
+  first_killed_participant_id: null,
+  zero_round_voted_participant_id: null,
+  best_move_participant_id: null,
+  best_move_source: null,
+  best_move_seats: [],
+  best_moves: [],
+  votes: [],
+  shots: [],
+  replacement: null,
+  judge_notes: null,
+  best_move_score: 0,
+} as TournamentGameProtocolData);
+
+describe('protocol completion validation', () => {
+  it('keeps general validation failures distinct from voting focus', () => {
+    expect(validateProtocolCompletion(
+      { ...validProtocol(), winner_team: null },
+      validPlayers(),
+      false,
+    )).toEqual({
+      errorMsg: 'Необходимо выбрать победившую команду (Красные или Чёрные)',
+      roundIndexWithError: null,
+      source: 'general',
+    });
+  });
+
+  it('preserves canonical role distribution and legacy tech-foul requirements', () => {
+    const invalidRoles = validPlayers();
+    invalidRoles[0] = { ...invalidRoles[0], role: 'mafia' };
+
+    expect(validateProtocolCompletion(
+      validProtocol(),
+      invalidRoles,
+      false,
+    ).errorMsg).toBe(
+      'Не все роли участников корректно распределены (требуется: 6 мирных, 1 Шериф, 2 Мафии, 1 Дон)',
+    );
+
+    expect(validateProtocolCompletion(
+      validProtocol(),
+      validPlayers(),
+      true,
+    ).errorMsg).toBe(
+      'Необходимо классифицировать старые техфолы для всех игроков (малый/большой)',
+    );
+  });
+
+  it('returns voting failures with the failing round for modal UI focus', () => {
+    const protocol = {
+      ...validProtocol(),
+      votes: [{
+        round_number: 2,
+        day_number: 1,
+        nominated_seats: [],
+        vote_counts: {},
+        eligible_voters: 8,
+        outcome: 'pending',
+        eliminated_seats: [],
+      }],
+    } as TournamentGameProtocolData;
+
+    const result = validateProtocolCompletion(protocol, validPlayers(), false);
+    expect(result.source).toBe('voting');
+    expect(result.roundIndexWithError).toBe(0);
+    expect(result.errorMsg).toContain('пустым кругом голосования');
+  });
+
+  it('returns a clean result when all completion checks pass', () => {
+    expect(validateProtocolCompletion(
+      validProtocol(),
+      validPlayers(),
+      false,
+    )).toEqual({
+      errorMsg: null,
+      roundIndexWithError: null,
+      source: null,
+    });
   });
 });

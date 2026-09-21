@@ -1,6 +1,9 @@
 name: Production runtime monitor
 
 on:
+  # Immediate current-production smoke after main changes; this does not prove Amvera deployed that SHA.
+  push:
+    branches: [main]
   schedule:
     # Avoid the top of the hour, when scheduled GitHub Actions are most likely to queue.
     - cron: '3-58/5 * * * *'

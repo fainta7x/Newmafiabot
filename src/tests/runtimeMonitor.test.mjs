@@ -23,6 +23,14 @@ describe('external runtime monitor', () => {
     expect(source).toContain('if (telegramArmed && !String(incident.body || \'\').includes(DOWN_MARKER))');
   });
 
+  it('keeps main-push, scheduled and manual runtime-monitor triggers', () => {
+    const workflow = fs.readFileSync(path.resolve(process.cwd(), '.github/workflows/runtime-monitor.yml'), 'utf8');
+
+    expect(workflow).toContain('push:\n    branches: [main]');
+    expect(workflow).toContain("cron: '3-58/5 * * * *'");
+    expect(workflow).toContain('workflow_dispatch:');
+  });
+
   it('passes only when both public health endpoints pass', async () => {
     const fetcher = vi.fn(async (url) => {
       if (String(url).endsWith('/api/health/runtime')) {

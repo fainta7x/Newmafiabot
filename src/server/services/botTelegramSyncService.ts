@@ -5,10 +5,24 @@ const botServiceConfig = () => ({
   secret: String(process.env.BOT_API_SECRET || '').trim(),
 });
 
+const botFailureMessage = (data: any, fallback: string) => {
+  const direct = String(data?.error || data?.message || '').trim();
+  if (direct) return direct;
+  const item = Array.isArray(data?.results)
+    ? data.results.find((entry: any) => entry && entry.success === false && String(entry.error || '').trim())
+    : null;
+  if (item?.error) return String(item.error);
+  const routerError = String(data?.public_router?.error || '').trim();
+  if (routerError) return `Public router: ${routerError}`;
+  return fallback;
+};
+
 async function postToBot(path: string): Promise<{ success: boolean; status: number; data?: any; error?: string }> {
   const { baseUrl, secret } = botServiceConfig();
   if (!baseUrl || !secret) return { success: false, status: 503, error: 'Связь web → bot ещё не настроена' };
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
@@ -16,6 +30,7 @@ async function postToBot(path: string): Promise<{ success: boolean; status: numb
         'X-Bot-Token': secret,
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
@@ -23,12 +38,18 @@ async function postToBot(path: string): Promise<{ success: boolean; status: numb
         success: false,
         status: response.status,
         data,
-        error: String(data?.error || data?.message || `Bot HTTP ${response.status}`),
+        error: botFailureMessage(data, `Bot HTTP ${response.status}`),
       };
     }
     return { success: true, status: response.status, data };
   } catch (error: any) {
-    return { success: false, status: 502, error: error?.message || 'Не удалось связаться с Telegram-ботом' };
+    return {
+      success: false,
+      status: 502,
+      error: error?.name === 'AbortError' ? 'Telegram bot request timed out' : error?.message || 'Не удалось связаться с Telegram-ботом',
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

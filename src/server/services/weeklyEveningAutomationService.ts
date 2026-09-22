@@ -18,6 +18,8 @@ import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HORIZON_DAYS = 35;
 const STALE_RUN_MS = 30 * 60 * 1000;
+const WORKER_INTERVAL_MS = 30 * 60 * 1000;
+const workerTimers = new WeakMap<object, ReturnType<typeof setInterval>>();
 
 const MONTHS_RU = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
@@ -296,4 +298,25 @@ export async function reconcileWeeklyEveningAutomation(
   const calendar = await ensureRollingFridayCalendar(db, now);
   const announcements = await runDueWeeklyAnnouncements(db, { ...options, now });
   return { success: announcements.every((item) => item.status !== 'error'), calendar, announcements };
+}
+
+// Publishing must recover even when nobody opens the Telegram bot menu.
+export function startWeeklyEveningAutomationWorker(db: DatabaseWrapper): void {
+  if (workerTimers.has(db as object)) return;
+  const run = () => {
+    void reconcileWeeklyEveningAutomation(db).catch((error) => {
+      console.error('[WEEKLY EVENING AUTOMATION] Background reconcile failed:', error);
+    });
+  };
+  run();
+  const timer = setInterval(run, WORKER_INTERVAL_MS);
+  (timer as any).unref?.();
+  workerTimers.set(db as object, timer);
+}
+
+export function stopWeeklyEveningAutomationWorker(db: DatabaseWrapper): void {
+  const timer = workerTimers.get(db as object);
+  if (!timer) return;
+  clearInterval(timer);
+  workerTimers.delete(db as object);
 }

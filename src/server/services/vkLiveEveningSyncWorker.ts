@@ -4,8 +4,8 @@ import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
 
-const DEFAULT_INTERVAL_MS = 10 * 60 * 1000;
-const DEFAULT_INITIAL_DELAY_MS = 30 * 1000;
+const DEFAULT_INTERVAL_MS = 60 * 1000;
+const DEFAULT_INITIAL_DELAY_MS = 15 * 1000;
 let workerTimer: ReturnType<typeof setInterval> | null = null;
 let initialTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshInFlight = false;

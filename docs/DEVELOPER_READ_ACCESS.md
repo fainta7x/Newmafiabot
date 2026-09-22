@@ -44,4 +44,4 @@ curl -X POST \
 
 ## Deployment/runtime note
 
-A merged Git commit does not make the endpoint available in the running service. Deploy the intended main SHA first, then verify the endpoint against the live Turso-backed runtime. Do not restore or import a repository checkpoint for this purpose.
+A merged Git commit does not make the endpoint available in the running service. Deploy the intended main SHA first, then verify the endpoint against the live Amvera-backed SQLite runtime. Do not restore or import a repository checkpoint for this purpose.

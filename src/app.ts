@@ -68,6 +68,8 @@ import analyticsRoutes from './server/routes/analyticsRoutes.ts';
 import gamesRoutes from './server/routes/gamesRoutes.ts';
 import crmRoutes from './server/routes/crmRoutes.ts';
 import developerTestModeRoutes from './server/routes/developerTestModeRoutes.ts';
+import developerReadRoutes from './server/routes/developerReadRoutes.ts';
+import developerOpsRoutes from './server/routes/developerOpsRoutes.ts';
 import tableScoutingRoutes from './server/routes/tableScoutingRoutes.ts';
 import publicRoutes from './server/routes/publicRoutes.ts';
 import publicLiveRoutes from './server/routes/publicLiveRoutes.ts';
@@ -250,6 +252,11 @@ export async function createApp(customDb?: DatabaseWrapper) {
   app.use('/api/bot', botAnnouncementRoutes);
   app.use('/api/bot', botTelegramRoutes);
   app.use('/api/bot', botOrganizerAlertsRoutes);
+
+  // These routes are intentionally outside /api: read-only diagnostics and
+  // narrowly scoped developer actions, protected by separate environment keys.
+  app.use('/__developer-read', developerReadRoutes);
+  app.use('/__developer', developerOpsRoutes);
 
   app.use('/api/{*splat}', (_req, res) => res.status(404).json({ error: 'API endpoint not found' }));
   app.use('/api/{*splat}', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

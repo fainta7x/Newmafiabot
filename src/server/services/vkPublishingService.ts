@@ -220,17 +220,8 @@ export async function createVkPoll(groupId: string, question: string, answers: s
   });
 }
 
-const requireVkGroupChannel = async (peerId: number): Promise<void> => {
-  const result = await vkChannelApi<any>('messages.getConversationsById', {
-    peer_ids: String(peerId),
-  });
-  const conversation = Array.isArray(result?.items) ? result.items[0] : null;
-  if (!conversation) throw new Error(`VK-канал ${peerId} не найден или недоступен текущему токену`);
-  if (conversation?.chat_settings?.is_group_channel !== true) {
-    throw new Error(`VK peer ${peerId} не подтверждён API как group channel`);
-  }
-};
-
+// VK does not expose messages.getConversationsById for community tokens.
+ // The configured peer is therefore validated by the send/edit call itself.
 const parseSentMessageId = (value: any): number => {
   const candidate = typeof value === 'number'
     ? value
@@ -245,7 +236,6 @@ const createVkChannelMessage = async (input: {
   message: string;
   attachments?: string[];
 }): Promise<VkPublishResult> => {
-  await requireVkGroupChannel(input.peerId);
   const response = await vkChannelApi<any>('messages.send', {
     peer_id: input.peerId,
     random_id: Math.floor(Math.random() * 2_000_000_000) + 1,
@@ -267,7 +257,6 @@ const editVkChannelMessage = async (input: {
   message: string;
   attachments?: string[];
 }): Promise<void> => {
-  await requireVkGroupChannel(input.peerId);
   await vkChannelApi<boolean | number>('messages.edit', {
     peer_id: input.peerId,
     message_id: input.messageId,

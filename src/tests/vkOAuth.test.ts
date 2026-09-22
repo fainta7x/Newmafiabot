@@ -17,8 +17,8 @@ describe('VK OAuth helpers', () => {
     else process.env.VK_APP_ID = previous;
   });
 
-  it('requests only the API scopes required for publishing and community access', () => {
-    expect(getVkOAuthScopes()).toEqual(['wall', 'groups']);
+  it('requests the API scopes required for wall and channel publishing', () => {
+    expect(getVkOAuthScopes()).toEqual(['wall', 'groups', 'messages']);
   });
 
   it('uses the same verifier for VK ID PKCE challenge and token exchange', () => {

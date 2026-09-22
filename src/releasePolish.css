@@ -114,7 +114,7 @@
 }
 
 [data-test-environment="active"] button[aria-label="Уведомления"] {
-  top: 3.75rem !important;
+  top: 2.25rem !important;
 }
 
 /* The active-evening launcher used to be a fixed floating card above every

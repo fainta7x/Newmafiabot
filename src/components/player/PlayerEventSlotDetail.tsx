@@ -119,6 +119,7 @@ export default function PlayerEventSlotDetail({
 
   const price = plan?.slots[0]?.price ?? 100;
   const maxEveningPrice = Number(plan?.event.max_evening_price || 0);
+  const clearSelectionLabel = plan?.selection.slot_ids.length ? 'Отменить запись' : 'Очистить выбор';
 
   return (
     <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
@@ -151,7 +152,7 @@ export default function PlayerEventSlotDetail({
 
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => { setSaved(false); setDraft(plan.slots.map((slot) => slot.id)); }} className="min-h-10 rounded-xl bg-white/[0.07] text-xs font-semibold text-white/60">Весь вечер</button>
-              <button type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">Ни одной игры</button>
+              <button type="button" onClick={() => { setSaved(false); setDraft([]); }} className="min-h-10 rounded-xl bg-white/[0.035] text-xs font-semibold text-white/35">{clearSelectionLabel}</button>
             </div>
 
             <div className="mt-3 space-y-2">

@@ -7,6 +7,13 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 vi.mock('../components/crm/EveningGameRegistrationDashboard', () => ({
   default: () => <div data-testid="game-registration-dashboard">Ответы и игры</div>,
 }));
+vi.mock('../components/crm/EveningPersonalInvites', () => ({
+  default: () => <div data-testid="personal-invites">Приглашения</div>,
+}));
+vi.mock('../components/crm/EveningAnnouncementSettings', () => ({
+  default: () => <div data-testid="announcement-settings">Настройки анонса</div>,
+}));
+
 vi.mock('../components/crm/EveningInviteAudienceManager', () => ({
   default: () => <div data-testid="invite-audience-manager">База рассылки</div>,
 }));

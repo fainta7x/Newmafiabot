@@ -125,7 +125,7 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
           <button type="button" onClick={() => void leaveTestMode()} className="rounded bg-black/15 px-2 py-0.5 normal-case tracking-normal">Выйти</button>
         </div>
       ) : null}
-      <div className={status?.active ? 'pt-6' : undefined}>{children}</div>
+      <div data-test-environment={status?.active ? 'active' : undefined} className={status?.active ? 'pt-6' : undefined}>{children}</div>
     </>
   );
 }

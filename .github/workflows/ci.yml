@@ -53,7 +53,7 @@ jobs:
           done
 
       - name: Tests
-        run: npm test
+        run: npm test -- --pool=forks --maxWorkers=1
 
       - name: Production build
         run: npm run build

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+// VK API-compatible OAuth is exposed separately from VK ID login.
 import { AlertTriangle, CheckCircle2, ExternalLink, Link2, RefreshCw, Users } from 'lucide-react';
 
 type VkDestination = {

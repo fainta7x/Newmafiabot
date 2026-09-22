@@ -153,7 +153,15 @@ export default function PlayerEventsCalendar({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить календарь');
       setEvents(Array.isArray(body.events) ? body.events : []);
-      if (body?.novice_state?.player) setNoviceState(body.novice_state);
+      if (body?.novice_state?.player) {
+        setNoviceState(body.novice_state);
+      } else {
+        // Keep the onboarding CTA available even when an older runtime returns
+        // the calendar without the optional novice_state envelope.
+        const noviceResponse = await fetch('/api/player/novice', { credentials: 'include', cache: 'no-store' });
+        const noviceBody = await noviceResponse.json().catch(() => ({}));
+        if (noviceResponse.ok && noviceBody?.player) setNoviceState(noviceBody);
+      }
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить календарь');
       setEvents([]);

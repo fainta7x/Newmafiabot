@@ -140,7 +140,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
     const errorDescription = String(req.query?.error_description || errorCode || '').trim();
     if (errorCode) {
       await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
-      return res.redirect(302, vkOAuthService.vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
+      return res.redirect(302, vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
     }
     if (pending.verifier === 'legacy-api') {
       const returnTo = JSON.stringify(pending.return_to || '/cabinet');

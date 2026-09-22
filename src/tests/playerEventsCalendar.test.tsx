@@ -42,6 +42,46 @@ describe('PlayerEventsCalendar', () => {
     expect(await screen.findByText('DETAIL:Пятничная игра')).toBeTruthy();
   });
 
+  it('shows the novice onboarding action from calendar state', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [],
+        novice_state: {
+          player: { club_stage: 'NEW', game_level: 'unrated' },
+          applications: [],
+          novice_visits: 0,
+          free_visits_remaining: 2,
+          next_novice_price_per_game: 200,
+          can_self_register: false,
+        },
+      }),
+    } as Response);
+
+    render(<PlayerEventsCalendar />);
+    expect(await screen.findByRole('button', { name: /Я новичок или почти не играл/ })).toBeTruthy();
+  });
+
+  it('loads novice state separately when the calendar omits the optional envelope', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(calendarResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          player: { club_stage: 'NEW', game_level: 'unrated' },
+          applications: [],
+          novice_visits: 0,
+          free_visits_remaining: 2,
+          next_novice_price_per_game: 200,
+          can_self_register: false,
+        }),
+      } as Response);
+
+    render(<PlayerEventsCalendar />);
+    expect(await screen.findByRole('button', { name: /Я новичок или почти не играл/ })).toBeTruthy();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps a manually opened event selected after calendar refresh', async () => {
     let resolveRefresh: ((response: Response) => void) | null = null;
     const fetchSpy = vi.spyOn(globalThis, 'fetch')

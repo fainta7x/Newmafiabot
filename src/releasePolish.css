@@ -107,6 +107,16 @@
   }
 }
 
+/* Test-mode banner is fixed above the app. Keep player chrome and alerts
+   below it so the banner never hides navigation or notification controls. */
+[data-test-environment="active"] .ds-chrome-top {
+  top: 1.5rem !important;
+}
+
+[data-test-environment="active"] button[aria-label="Уведомления"] {
+  top: 2.25rem !important;
+}
+
 /* The active-evening launcher used to be a fixed floating card above every
    player screen. Keep the useful live state, but let it occupy real layout
    space directly below the top chrome so it can never cover working content. */

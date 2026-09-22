@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ensureNoviceSystemSchema } from '../../db/ensureNoviceSystemSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
+import { ensureSlotsForEvening } from '../services/eveningSlotPlanningService.ts';
 import {
   convertNoviceToClubPlayer,
   createNoviceApplication,
@@ -40,6 +41,7 @@ playerRouter.post('/novice/applications', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Проверьте маршрут и комментарий к заявке' });
   await ensureNoviceSystemSchema(req.db);
   if (parsed.data.evening_id) {
+    await ensureSlotsForEvening(req.db, parsed.data.evening_id);
     const evening = await req.db.get<any>(
       `SELECT id, format, status, starts_at FROM game_evenings WHERE id = ? LIMIT 1`,
       [parsed.data.evening_id],

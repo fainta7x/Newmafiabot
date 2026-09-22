@@ -53,7 +53,7 @@ const normalizeUrl = (value: unknown): string | null => {
 
 const getVkToken = () => runtimeVkUserToken || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
-const getVkLegacyUserToken = () => String(process.env.VK_ACCESS_TOKEN || '').trim();
+const getVkLegacyUserToken = () => getVkToken();
 const getVkPublisherToken = () => getVkGroupToken() || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkVersion = () => String(process.env.VK_API_VERSION || '5.199').trim() || '5.199';
 const getPublicGroupId = () => normalizeGroupId(process.env.VK_GROUP_ID || DEFAULT_PUBLIC_GROUP_ID);

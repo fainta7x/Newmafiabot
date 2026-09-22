@@ -54,7 +54,7 @@ describe('VK publishing adapter', () => {
     expect(getVkIntegrationStatus()).toMatchObject({
       configured: true,
       publisher_token_source: 'community',
-      public_post_edit_supported: true,
+      public_post_edit_supported: false,
     });
 
     const fetchMock = vi.fn()
@@ -97,19 +97,9 @@ describe('VK publishing adapter', () => {
   });
 
   it('finalizes an existing VK post in place when the evening is cancelled', async () => {
-    delete process.env.VK_ACCESS_TOKEN;
+    process.env.VK_ACCESS_TOKEN = 'user-token';
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        response: {
-          items: [{
-            conversation: {
-              peer: { id: 2000000042 },
-              chat_settings: { is_group_channel: true },
-            },
-          }],
-        },
-      }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ response: 1 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -166,8 +156,8 @@ describe('VK publishing adapter', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('updates an existing public post with the community publisher token', async () => {
-    delete process.env.VK_ACCESS_TOKEN;
+  it('updates an existing public post with the configured user token', async () => {
+    process.env.VK_ACCESS_TOKEN = 'user-token';
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ response: 1 }), { status: 200 }),
@@ -203,7 +193,7 @@ describe('VK publishing adapter', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.vk.com/method/wall.edit');
     const body = init?.body as URLSearchParams;
-    expect(body.get('access_token')).toBe('community-token');
+    expect(body.get('access_token')).toBe('user-token');
     expect(body.get('owner_id')).toBe('-212761164');
     expect(body.get('post_id')).toBe('77');
   });
@@ -239,16 +229,6 @@ describe('VK publishing adapter', () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
     process.env.VK_CHANNEL_API_PEER_ID = '-233806277';
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        response: {
-          items: [{
-            conversation: {
-              peer: { id: 2000000042 },
-              chat_settings: { is_group_channel: true },
-            },
-          }],
-        },
-      }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ response: 321 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -262,15 +242,13 @@ describe('VK publishing adapter', () => {
       ownerId: -233806277,
       groupId: '-233806277',
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [discoverUrl, discoverInit] = fetchMock.mock.calls[0];
-    expect(String(discoverUrl)).toBe('https://api.vk.com/method/messages.getConversations');
-    expect((discoverInit?.body as URLSearchParams).get('group_id')).toBe('233806277');
-    const [url, init] = fetchMock.mock.calls[1];
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.vk.com/method/messages.send');
     const body = init?.body as URLSearchParams;
     expect(body.get('access_token')).toBe('community-token');
-    expect(body.get('peer_id')).toBe('2000000042');
+    expect(body.get('peer_id')).toBe('-233806277');
+    expect(body.get('group_id')).toBe('212761164');
     expect(body.get('message')).toBe('Тестовый анонс канала');
   });
 
@@ -288,15 +266,13 @@ describe('VK publishing adapter', () => {
       message: 'Обновлённый анонс канала',
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [discoverUrl, discoverInit] = fetchMock.mock.calls[0];
-    expect(String(discoverUrl)).toBe('https://api.vk.com/method/messages.getConversations');
-    expect((discoverInit?.body as URLSearchParams).get('group_id')).toBe('233806277');
-    const [url, init] = fetchMock.mock.calls[1];
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.vk.com/method/messages.edit');
     const body = init?.body as URLSearchParams;
     expect(body.get('access_token')).toBe('community-token');
-    expect(body.get('peer_id')).toBe('2000000042');
+    expect(body.get('peer_id')).toBe('-233806277');
+    expect(body.get('group_id')).toBe('212761164');
     expect(body.get('message_id')).toBe('321');
     expect(body.get('message')).toBe('Обновлённый анонс канала');
   });

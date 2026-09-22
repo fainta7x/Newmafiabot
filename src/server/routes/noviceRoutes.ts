@@ -59,11 +59,18 @@ playerRouter.post('/novice/applications', async (req, res) => {
     [playerId],
   );
   const source = !identity?.telegram_user_id && Number(identity?.has_vk || 0) ? 'VK' : 'TELEGRAM';
-  const result = await createNoviceApplication(req.db, {
-    playerId, eveningId: parsed.data.evening_id, source,
-    entryRoute: parsed.data.entry_route, notes: parsed.data.notes,
-  });
-  return res.status(result.created ? 201 : 200).json({ success: true, ...result, state: await getNovicePlayerState(req.db, playerId) });
+  try {
+    const result = await createNoviceApplication(req.db, {
+      playerId, eveningId: parsed.data.evening_id, source,
+      entryRoute: parsed.data.entry_route, notes: parsed.data.notes,
+    });
+    return res.status(result.created ? 201 : 200).json({ success: true, ...result, state: await getNovicePlayerState(req.db, playerId) });
+  } catch (error: any) {
+    if (Number(error?.statusCode || 0) === 409) {
+      return res.status(409).json({ error: error.message, code: error.code, reservation: error.reservation });
+    }
+    throw error;
+  }
 });
 
 organizerRouter.use(requireOrganizerAuth);

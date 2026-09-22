@@ -67,14 +67,6 @@ async function automaticEveningSyncPolicy(
   eveningId: string,
   now: Date,
 ): Promise<AutomaticEveningSyncPolicy> {
-  // Existing publications are always safe to refresh. The guard only controls
-  // first-time creation caused by automatic DB triggers.
-  const publication = await db.get(
-    'SELECT 1 AS ok FROM evening_telegram_publications WHERE evening_id = ? LIMIT 1',
-    [eveningId],
-  );
-  if (publication) return { deliver: true };
-
   const evening = await db.get<any>(
     'SELECT starts_at, status, settled_at FROM game_evenings WHERE id = ? LIMIT 1',
     [eveningId],
@@ -93,6 +85,8 @@ async function automaticEveningSyncPolicy(
   const delta = startMs - now.getTime();
   if (delta < 0) return { deliver: false, reason: 'evening_started' };
   if (delta > AUTOMATIC_EVENING_CREATE_WINDOW_MS) {
+    // Do not refresh or create a post for a distant Friday merely because a
+    // stale publication row exists from an older deployment.
     return { deliver: false, reason: 'before_announcement_window' };
   }
   return { deliver: true };

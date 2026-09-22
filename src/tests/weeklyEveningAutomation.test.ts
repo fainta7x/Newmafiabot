@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
+import { ensureWeeklyEveningAutomationSchema } from '../db/ensureWeeklyEveningAutomationSchema.ts';
 import {
   ensureRollingFridayCalendar,
   reconcileWeeklyEveningAutomation,
@@ -95,6 +96,7 @@ describe('weekly Friday evening automation', () => {
   it('retries a completed weekly run when the Telegram channel publication is still missing', async () => {
     const db = createDb();
     await ensureRollingFridayCalendar(db, new Date('2026-08-22T10:00:00.000Z'));
+    await ensureWeeklyEveningAutomationSchema(db);
     const target = await db.get<any>("SELECT id FROM game_evenings WHERE substr(starts_at,1,10)='2026-08-28'");
     const now = new Date('2026-08-24T16:01:00.000Z');
     await db.run(

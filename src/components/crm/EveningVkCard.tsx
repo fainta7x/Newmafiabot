@@ -224,7 +224,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       ) : (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">
           <span className="min-w-0 flex-1">VK подключён{state.integration.oauth?.managed_connected ? ' через VK ID' : ''}. Анонсы и опросы готовы к публикации.</span>
-          {state.integration.oauth?.managed_connected ? <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-success/15 px-2 py-1.5 text-[9px] font-black text-success disabled:opacity-40">{busy === 'connect' ? 'Открываем…' : 'Переподключить VK'}</button> : null}
+          <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-success/15 px-2 py-1.5 text-[9px] font-black text-success disabled:opacity-40">{busy === 'connect' ? 'Открываем…' : state.integration.oauth?.managed_connected ? 'Переподключить VK' : 'Подключить VK'}</button>
         </div>
       )}
       {state.integration.configured && !callbackReady ? (

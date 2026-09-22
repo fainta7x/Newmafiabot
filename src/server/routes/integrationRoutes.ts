@@ -13,6 +13,8 @@ import {
 } from '../services/vkPublishingService.ts';
 import {
   appendVkOAuthResult,
+  completeVkOAuth,
+  createVkOAuthStart,
   disconnectVkOAuth,
   getVkOAuthStatus,
 } from '../services/vkOAuthService.ts';
@@ -81,27 +83,59 @@ router.post('/vk/callback', async (req, res) => {
   }
 });
 
-router.post('/vk/oauth/start', requireOrganizerAuth, (_req, res) => {
-  res.status(410).json({
-    code: 'vk_organizer_oauth_retired',
-    error: 'Организаторский VK OAuth больше не используется. Публикация работает через серверный ключ сообщества.',
-  });
-});
+const startOrganizerVkOAuth = async (req: any, res: any) => {
+  try {
+    const db = await withVkSchema(req);
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
+    const result = await createVkOAuthStart(db, {
+      redirectUri,
+      returnTo: req.body?.return_to || req.query?.return_to || '/cabinet',
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(Number(error?.statusCode || 500)).json({
+      error: error?.message || 'Не удалось начать подключение VK',
+      code: error?.code || 'vk_oauth_start_failed',
+    });
+  }
+};
+
+// VK ID Web applications use Authorization Code + PKCE. Keep both verbs so the
+// existing organizer UI and a direct browser link can start the same flow.
+router.post('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);
+router.get('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);
 
 router.get('/vk/oauth/callback', async (req, res, next) => {
-  // Player Cabinet and public join OAuth callbacks are handled by
-  // vkJoinRegistrationCallbackRouter earlier in the mount order. Reaching this
-  // route means the state belongs to the retired organizer OAuth flow or is unknown.
   const state = String(req.query?.state || '').trim();
   if (!state) return next();
   const db = req.db as DatabaseWrapper;
   await ensureVkIntegrationSchema(db);
-  const pending = await db.get<{ return_to: string }>(
-    'SELECT return_to FROM vk_oauth_states WHERE state = ? LIMIT 1',
+  const pending = await db.get<{ verifier: string; return_to: string }>(
+    'SELECT verifier, return_to FROM vk_oauth_states WHERE state = ? LIMIT 1',
     [state],
   );
   if (!pending) return next();
-  return res.redirect(302, appendVkOAuthResult(pending.return_to || '/', 'vk_error', 'vk_organizer_oauth_retired'));
+
+  try {
+    const errorCode = String(req.query?.error || '').trim();
+    const errorDescription = String(req.query?.error_description || errorCode || '').trim();
+    if (errorCode) {
+      await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
+      return res.redirect(302, appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
+    }
+    const result = await completeVkOAuth(db, {
+      code: req.query?.code,
+      deviceId: req.query?.device_id,
+      state,
+    });
+    const resultValue = result.api_compatible ? 'connected' : 'connected_vkid_only';
+    return res.redirect(302, appendVkOAuthResult(result.return_to || '/cabinet', 'vk_connected', resultValue));
+  } catch (error: any) {
+    console.error('[VK OAUTH CALLBACK]', error);
+    await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
+    return res.redirect(302, appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', String(error?.message || 'oauth_callback_failed')));
+  }
 });
 
 router.post('/vk/callback/setup', requireOrganizerAuth, (_req, res) => {

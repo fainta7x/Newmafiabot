@@ -8,6 +8,16 @@ vi.mock('../db/index.ts', () => ({
     get: async () => ({ id: 'p-test-1' }),
   }),
 }));
+vi.mock('../server/services/playerRegistrationService.ts', () => ({
+  PlayerRegistrationError: class PlayerRegistrationError extends Error {
+    status = 400;
+    code = 'test_error';
+  },
+  registerNewPlayer: vi.fn(async () => ({
+    created: true,
+    player: { id: 'p-new-test', nickname: 'Новый тест' },
+  })),
+}));
 
 import testEnvironmentRoutes from '../server/routes/testEnvironmentRoutes.ts';
 
@@ -58,6 +68,17 @@ describe('single-app isolated test environment access', () => {
     const cookies = String(response.headers['set-cookie']);
     expect(cookies).toContain('player_token=');
     expect(cookies).toContain('organizer_token=');
+  });
+
+  it('registers a new player inside the isolated sandbox', async () => {
+    const response = await request(app())
+      .post('/api/test-environment/register')
+      .send({ password: 'safe-test-password', nickname: 'Новый новичок', fullName: 'Тестовый новичок' });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ created: true, redirectTo: '/player' });
+    expect(String(response.headers['set-cookie'])).toContain('player_token=');
+    expect(String(response.headers['set-cookie'])).toContain('organizer_token=;');
   });
 
   it('stays unavailable when no sandbox password is configured', async () => {

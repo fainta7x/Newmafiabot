@@ -220,8 +220,39 @@ export async function createVkPoll(groupId: string, question: string, answers: s
   });
 }
 
-// VK does not expose messages.getConversationsById for community tokens.
- // The configured peer is therefore validated by the send/edit call itself.
+const vkChannelPeerCache = new Map<string, number>();
+
+export const resetVkChannelPeerDiscoveryCache = () => {
+  vkChannelPeerCache.clear();
+};
+
+// A public channel URL contains the channel community ID, not the conversation
+// peer_id required by messages.send/messages.edit. Resolve that community ID
+// through the community's own conversations when the configured value is negative.
+const resolveVkChannelPeerId = async (configuredPeerId: number): Promise<number> => {
+  if (configuredPeerId >= 2_000_000_000) return configuredPeerId;
+
+  const cacheKey = String(configuredPeerId);
+  const cached = vkChannelPeerCache.get(cacheKey);
+  if (cached) return cached;
+
+  const groupId = Math.abs(configuredPeerId);
+  const response = await vkChannelApi<any>('messages.getConversations', {
+    group_id: groupId,
+    count: 200,
+    filter: 'all',
+    extended: 1,
+  });
+  const items = Array.isArray(response?.items) ? response.items : [];
+  const channelConversation = items.find((item: any) => item?.conversation?.chat_settings?.is_group_channel === true);
+  const peerId = Number(channelConversation?.conversation?.peer?.id);
+  if (!Number.isFinite(peerId) || peerId < 2_000_000_000) {
+    throw new Error(`VK не вернул API peer_id для канала сообщества ${groupId}`);
+  }
+
+  vkChannelPeerCache.set(cacheKey, peerId);
+  return peerId;
+};
 const parseSentMessageId = (value: any): number => {
   const candidate = typeof value === 'number'
     ? value
@@ -236,8 +267,9 @@ const createVkChannelMessage = async (input: {
   message: string;
   attachments?: string[];
 }): Promise<VkPublishResult> => {
+  const peerId = await resolveVkChannelPeerId(input.peerId);
   const response = await vkChannelApi<any>('messages.send', {
-    peer_id: input.peerId,
+    peer_id: peerId,
     random_id: Math.floor(Math.random() * 2_000_000_000) + 1,
     message: input.message,
     attachment: input.attachments?.filter(Boolean).join(',') || undefined,
@@ -245,7 +277,7 @@ const createVkChannelMessage = async (input: {
   const messageId = parseSentMessageId(response);
   return {
     postId: messageId,
-    ownerId: input.peerId,
+    ownerId: peerId,
     externalUrl: getChannelUrl(),
     groupId: String(input.peerId),
   };
@@ -257,8 +289,9 @@ const editVkChannelMessage = async (input: {
   message: string;
   attachments?: string[];
 }): Promise<void> => {
+  const peerId = await resolveVkChannelPeerId(input.peerId);
   await vkChannelApi<boolean | number>('messages.edit', {
-    peer_id: input.peerId,
+    peer_id: peerId,
     message_id: input.messageId,
     message: input.message,
     attachment: input.attachments?.filter(Boolean).join(',') || undefined,

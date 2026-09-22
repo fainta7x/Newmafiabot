@@ -161,11 +161,11 @@ export default function EveningPaymentsPanel({ eveningId }: { eveningId: string 
                     <span className="shrink-0 rounded-[9px] bg-surface-1 px-2.5 py-1.5 text-[9px] font-bold text-text-muted">0 ₽</span>
                   ) : paid ? (
                     <button type="button" disabled={busy} onClick={() => void setPaid(participant, false)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-success-soft px-2.5 text-[9px] font-black text-success disabled:opacity-40">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Оплатил
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Снять оплату
                     </button>
                   ) : (
                     <button type="button" disabled={busy} onClick={() => void setPaid(participant, true)} className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-[9px] bg-danger-soft px-2.5 text-[9px] font-black text-danger disabled:opacity-40">
-                      <XCircle className="h-3.5 w-3.5" /> Не оплатил
+                      <XCircle className="h-3.5 w-3.5" /> Принять оплату
                     </button>
                   )}
                 </div>

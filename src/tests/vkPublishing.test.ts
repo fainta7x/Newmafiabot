@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDatabaseConnection } from '../db/index.ts';
 import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
 import { finalizeExistingVkEveningPublications, syncDirectVkEveningPublications } from '../server/services/vkDirectJoinPublishingService.ts';
+import { refreshExistingVkEveningPosts } from '../server/services/vkLiveEveningSyncWorker.ts';
 import {
   canEditVkWallPosts,
   createVkWallPost,
@@ -194,5 +195,33 @@ describe('VK publishing adapter', () => {
     expect(body.get('access_token')).toBe('community-token');
     expect(body.get('owner_id')).toBe('-212761164');
     expect(body.get('post_id')).toBe('77');
+  });
+
+  it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ response: { post_id: 88 } }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date();
+    const createdAt = now.toISOString();
+    const startsAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    await db.run(`
+      INSERT INTO game_evenings (
+        id, title, starts_at, format, status, default_price, created_at, updated_at
+      ) VALUES ('evening-auto-publish', 'Пятничная игра', ?, 'CASUAL', 'published', 100, ?, ?)
+    `, [startsAt, createdAt, createdAt]);
+
+    const result = await refreshExistingVkEveningPosts(db, { now, baseUrl: 'https://example.test' });
+    expect(result).toEqual([{ evening_id: 'evening-auto-publish', success: true }]);
+    expect(await db.get<any>(`
+      SELECT destination_key, post_id, status
+        FROM vk_evening_publications
+       WHERE evening_id='evening-auto-publish' AND destination_key='public'
+    `)).toEqual({ destination_key: 'public', post_id: 88, status: 'published' });
+    expect(fetchMock).toHaveBeenCalledWith('https://api.vk.com/method/wall.post', expect.anything());
   });
 });

@@ -146,7 +146,7 @@ export function getVkIntegrationStatus() {
     // credential path used for wall.post. A community publisher token is therefore
     // sufficient for the current wall.edit flow even though the retired legacy
     // editVkWallPost adapter still reports user-token-only capability.
-    public_post_edit_supported: Boolean(publisherToken && publicDestination?.groupId),
+    public_post_edit_supported: Boolean(getVkLegacyUserToken() && publicDestination?.groupId),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,
@@ -220,52 +220,16 @@ export async function createVkPoll(groupId: string, question: string, answers: s
   });
 }
 
-const vkChannelPeerCache = new Map<string, number>();
+// Kept for test/runtime compatibility. Community channel routes do not need
+// conversation discovery: VK exposes their destination as the negative channel ID.
+export const resetVkChannelPeerDiscoveryCache = () => {};
 
-export const resetVkChannelPeerDiscoveryCache = () => {
-  vkChannelPeerCache.clear();
-};
-
-// A public channel URL contains the channel community ID, not the conversation
-// peer_id required by messages.send/messages.edit. Resolve that community ID
-// through the community's own conversations when the configured value is negative.
 const resolveVkChannelPeerId = async (configuredPeerId: number): Promise<number> => {
-  if (configuredPeerId >= 2_000_000_000) return configuredPeerId;
-
-  const cacheKey = String(configuredPeerId);
-  const cached = vkChannelPeerCache.get(cacheKey);
-  if (cached) return cached;
-
-  const configuredGroupId = Math.abs(configuredPeerId);
-  const publicGroupId = Number(getPublicGroupId() || 0);
-  const candidateGroupIds = Array.from(new Set(
-    [configuredGroupId, publicGroupId].filter((value) => Number.isFinite(value) && value > 0),
-  ));
-  let lastError: unknown = null;
-
-  for (const groupId of candidateGroupIds) {
-    try {
-      const response = await vkChannelApi<any>('messages.getConversations', {
-        group_id: groupId,
-        count: 200,
-        filter: 'all',
-        extended: 1,
-      });
-      const items = Array.isArray(response?.items) ? response.items : [];
-      const channelConversation = items.find((item: any) => item?.conversation?.chat_settings?.is_group_channel === true);
-      const peerId = Number(channelConversation?.conversation?.peer?.id);
-      if (!Number.isFinite(peerId) || peerId < 2_000_000_000) continue;
-
-      vkChannelPeerCache.set(cacheKey, peerId);
-      return peerId;
-    } catch (error) {
-      lastError = error;
-    }
+  if (!Number.isFinite(configuredPeerId) || configuredPeerId === 0) {
+    throw new Error('Некорректный VK peer_id канала сообщества');
   }
-
-  if (lastError instanceof Error) throw lastError;
-  throw new Error(`VK не вернул API peer_id для канала сообщества ${configuredGroupId}`);
-}
+  return configuredPeerId;
+};
 const parseSentMessageId = (value: any): number => {
   const candidate = typeof value === 'number'
     ? value
@@ -283,6 +247,7 @@ const createVkChannelMessage = async (input: {
   const peerId = await resolveVkChannelPeerId(input.peerId);
   const response = await vkChannelApi<any>('messages.send', {
     peer_id: peerId,
+    group_id: Number(getPublicGroupId() || 0) || undefined,
     random_id: Math.floor(Math.random() * 2_000_000_000) + 1,
     message: input.message,
     attachment: input.attachments?.filter(Boolean).join(',') || undefined,
@@ -305,6 +270,7 @@ const editVkChannelMessage = async (input: {
   const peerId = await resolveVkChannelPeerId(input.peerId);
   await vkChannelApi<boolean | number>('messages.edit', {
     peer_id: peerId,
+    group_id: Number(getPublicGroupId() || 0) || undefined,
     message_id: input.messageId,
     message: input.message,
     attachment: input.attachments?.filter(Boolean).join(',') || undefined,

@@ -236,23 +236,36 @@ const resolveVkChannelPeerId = async (configuredPeerId: number): Promise<number>
   const cached = vkChannelPeerCache.get(cacheKey);
   if (cached) return cached;
 
-  const groupId = Math.abs(configuredPeerId);
-  const response = await vkChannelApi<any>('messages.getConversations', {
-    group_id: groupId,
-    count: 200,
-    filter: 'all',
-    extended: 1,
-  });
-  const items = Array.isArray(response?.items) ? response.items : [];
-  const channelConversation = items.find((item: any) => item?.conversation?.chat_settings?.is_group_channel === true);
-  const peerId = Number(channelConversation?.conversation?.peer?.id);
-  if (!Number.isFinite(peerId) || peerId < 2_000_000_000) {
-    throw new Error(`VK не вернул API peer_id для канала сообщества ${groupId}`);
+  const configuredGroupId = Math.abs(configuredPeerId);
+  const publicGroupId = Number(getPublicGroupId() || 0);
+  const candidateGroupIds = Array.from(new Set(
+    [configuredGroupId, publicGroupId].filter((value) => Number.isFinite(value) && value > 0),
+  ));
+  let lastError: unknown = null;
+
+  for (const groupId of candidateGroupIds) {
+    try {
+      const response = await vkChannelApi<any>('messages.getConversations', {
+        group_id: groupId,
+        count: 200,
+        filter: 'all',
+        extended: 1,
+      });
+      const items = Array.isArray(response?.items) ? response.items : [];
+      const channelConversation = items.find((item: any) => item?.conversation?.chat_settings?.is_group_channel === true);
+      const peerId = Number(channelConversation?.conversation?.peer?.id);
+      if (!Number.isFinite(peerId) || peerId < 2_000_000_000) continue;
+
+      vkChannelPeerCache.set(cacheKey, peerId);
+      return peerId;
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  vkChannelPeerCache.set(cacheKey, peerId);
-  return peerId;
-};
+  if (lastError instanceof Error) throw lastError;
+  throw new Error(`VK не вернул API peer_id для канала сообщества ${configuredGroupId}`);
+}
 const parseSentMessageId = (value: any): number => {
   const candidate = typeof value === 'number'
     ? value

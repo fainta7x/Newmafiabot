@@ -161,7 +161,10 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
           Запись игроков через VK ID работает. Автопубликации в паблик нужен серверный ключ сообщества; до его подключения анонс можно подготовить и разместить вручную ниже.
         </div>
       ) : (
-        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Публикация новых анонсов в паблик подключена. Запись игроков работает через VK ID.</div>
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">
+          <span className="min-w-0 flex-1"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Публикация новых анонсов в паблик подключена. Запись игроков работает через VK ID.</span>
+          <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-success/15 px-2 py-1.5 text-[9px] font-black text-success disabled:opacity-40">{busy === 'oauth' ? 'Открываем…' : 'Переподключить VK'}</button>
+        </div>
       )}
       {!oauthConnected ? <div className="mt-3 flex items-center gap-2 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
         <span className="min-w-0 flex-1">Для автоматического обновления уже опубликованного поста и канала нужен ваш VK-токен.</span>

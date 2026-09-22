@@ -6,8 +6,10 @@ const DEFAULT_VK_APP_ID = '54719021';
 const OAUTH_CREDENTIAL_KEY = 'user';
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const REFRESH_EARLY_MS = 2 * 60 * 1000;
-const VK_SCOPES = ['wall', 'groups'] as const;
-const VK_LEGACY_SCOPES = ['wall', 'groups', 'offline'] as const;
+// `messages` is required for VK community-channel posts (`messages.send`/`messages.edit`).
+// Keep `wall` and `groups` for public-wall publishing and group discovery.
+const VK_SCOPES = ['wall', 'groups', 'messages'] as const;
+const VK_LEGACY_SCOPES = ['wall', 'groups', 'messages', 'offline'] as const;
 const LEGACY_DEVICE_ID = 'legacy-api';
 
 type OAuthStateRow = {

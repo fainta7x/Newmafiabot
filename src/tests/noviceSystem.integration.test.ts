@@ -42,6 +42,50 @@ describe('NOVICE-001 funnel', () => {
     expect(confirmed.body.state.can_self_register).toBe(true);
   });
 
+  it('temporarily reserves an evening place for a pending novice application', async () => {
+    const db = makeDb();
+    const app = await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at)
+       VALUES ('reservation-evening','Тестовая бронь',?,'NOVICE','published',100,?,?)`,
+      [new Date(Date.now() + 86400000).toISOString(), now, now],
+    );
+    await ensureSlotsForEvening(db, 'reservation-evening');
+    await db.run('UPDATE evening_slot_settings SET ready_players_per_slot = 1 WHERE evening_id = ?', ['reservation-evening']);
+
+    const first = await registerNewPlayer(db, { telegramUserId: '774', nickname: 'Первый новичок' });
+    const second = await registerNewPlayer(db, { telegramUserId: '775', nickname: 'Второй новичок' });
+
+    const applied = await request(app)
+      .post('/api/player/novice/applications')
+      .set('Cookie', playerCookie(first.player.id))
+      .send({ entry_route: 'NOVICE', evening_id: 'reservation-evening' });
+    expect(applied.status).toBe(201);
+    expect(applied.body.reservation).toMatchObject({ reserved: true, reserved_count: 1, capacity: 1, available_places: 0 });
+    expect(applied.body.state.applications[0]).toMatchObject({ status: 'NEW', reservation_status: 'reserved' });
+
+    const blocked = await request(app)
+      .post('/api/player/novice/applications')
+      .set('Cookie', playerCookie(second.player.id))
+      .send({ entry_route: 'NOVICE', evening_id: 'reservation-evening' });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body).toMatchObject({ code: 'evening_full' });
+
+    const released = await request(app)
+      .patch(`/api/novice/applications/${applied.body.id}`)
+      .set('Cookie', organizerCookie())
+      .send({ status: 'CANCELLED' });
+    expect(released.status).toBe(200);
+
+    const retried = await request(app)
+      .post('/api/player/novice/applications')
+      .set('Cookie', playerCookie(second.player.id))
+      .send({ entry_route: 'NOVICE', evening_id: 'reservation-evening' });
+    expect(retried.status).toBe(201);
+    expect(retried.body.reservation).toMatchObject({ reserved: true, reserved_count: 1, available_places: 0 });
+  });
+
   it('keeps an experienced visitor separate from a mafia novice', async () => {
     const db = makeDb();
     const app = await createApp(db);

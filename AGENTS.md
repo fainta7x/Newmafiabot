@@ -94,6 +94,26 @@ Before merge:
 - inspect the exact failing job before rerunning;
 - for visual work, **green CI is not visual approval**: inspect fresh Playwright screenshots when browser verification is explicitly requested.
 
+## Amvera access and asynchronous deploy checks
+
+The assistant has configured browser automation access to the Amvera project for this repository and may:
+
+- inspect the current Amvera project status and logs;
+- start a manual build/deploy of the latest synchronized repository revision;
+- verify the deployed runtime with the application health endpoints and a focused WebApp check.
+
+A manual Amvera build/deploy is an external runtime action, but it is authorized when it is part of the user's requested repository verification or release workflow. Do not ask the user to start the deploy if the configured Amvera access is available.
+
+Amvera builds can take a long time. After starting a build/deploy:
+
+1. Do not wait synchronously for the build to finish.
+2. Record that the build was started and continue with local/repository verification or end the turn.
+3. On the next relevant user request, perform one status check only: inspect the Amvera project state, check the latest build/application log for errors, and call `/api/health` (plus `/api/health/runtime` when relevant).
+4. If the previous build is still running, do not start another build. Report the current status and continue with other useful work.
+5. Only after the build is no longer running, perform focused live WebApp verification. Distinguish clearly between `green main`, `deployed main`, and `runtime verified`.
+
+Do not expose Amvera credentials, tokens, session data or internal control URLs in chat.
+
 ## Mobile-first Telegram WebApp contract
 
 Mobile Telegram WebApp is the primary release target. Treat desktop as a secondary layout, not the baseline.

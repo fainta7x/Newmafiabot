@@ -213,12 +213,44 @@ export async function loadEveningSlotPlan(db: DatabaseWrapper, eveningId: string
       ORDER BY s.slot_number, p.nickname COLLATE NOCASE`,
     [eveningId],
   );
+
+  // Legacy Telegram/VK answers such as «Буду» create an evening participant
+  // without slot registrations. Treat those players as registered for every
+  // game until they choose an exact slot plan, so public announcements do not
+  // show 0 after a successful whole-evening registration.
+  const legacyWholeEveningRows = await db.all<any>(
+    `SELECT ep.id AS participant_id, p.id, p.nickname
+       FROM evening_participants ep
+       JOIN players p ON p.id = ep.player_id
+      WHERE ep.evening_id = ?
+        AND ep.response_status IN ('going', 'late')
+        AND NOT EXISTS (
+          SELECT 1
+            FROM evening_slot_registrations existing
+            JOIN evening_game_slots existing_slot ON existing_slot.id = existing.slot_id
+           WHERE existing.participant_id = ep.id
+             AND existing_slot.evening_id = ?
+        )
+      ORDER BY p.nickname COLLATE NOCASE`,
+    [eveningId, eveningId],
+  );
   const peopleBySlot = new Map<string, Array<{ id: string; nickname: string }>>();
   for (const person of peopleRows) {
     const slotId = String(person.slot_id);
     const group = peopleBySlot.get(slotId) || [];
     group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок') });
     peopleBySlot.set(slotId, group);
+  }
+  if (legacyWholeEveningRows.length) {
+    for (const slot of rows) {
+      const slotId = String(slot.id);
+      const group = peopleBySlot.get(slotId) || [];
+      for (const person of legacyWholeEveningRows) {
+        group.push({ id: String(person.id), nickname: String(person.nickname || 'Игрок') });
+      }
+      peopleBySlot.set(slotId, group);
+      slot.registered_count = Number(slot.registered_count || 0) + legacyWholeEveningRows.length;
+    }
   }
 
   const selectedSlotIds = new Set<string>();

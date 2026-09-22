@@ -23,7 +23,7 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Отменён',
 };
 
-export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack }) => {
+export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack, onOpenSection }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -84,6 +84,18 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
         </div> : null}
         {message ? <p className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
+      </section>
+
+      <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3.5">
+        <div className="mb-3">
+          <h3 className="text-[13px] font-black text-text-primary">Следующие шаги</h3>
+          <p className="mt-1 text-[11px] leading-4 text-text-muted">Переходи к нужному разделу прямо из карточки вечера.</p>
+        </div>
+        <div className="grid gap-2">
+          <button type="button" onClick={() => onOpenSection('participants')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Ответы участников</button>
+          <button type="button" onClick={() => onOpenSection('management')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Сам вечер</button>
+          <button type="button" onClick={() => onOpenSection('games')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Игры</button>
+        </div>
       </section>
 
       <EveningPersonalInvites eveningId={eveningId} />

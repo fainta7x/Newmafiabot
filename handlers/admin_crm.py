@@ -1,3 +1,5 @@
+import time
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
@@ -22,9 +24,9 @@ def _public_app_url() -> str:
 
 
 def _crm_url() -> str:
-    # Telegram keeps a WebApp document cached by URL. Bump this value when the
-    # CRM frontend must be refreshed immediately after a production deploy.
-    return f"{_public_app_url()}/admin?build=vk-channel-v2"
+    # Telegram caches WebApps by URL. A unique query prevents stale CRM bundles
+    # after production deploys without requiring users to clear Telegram cache.
+    return f"{_public_app_url()}/admin?tg_refresh={int(time.time())}"
 
 
 async def _send_crm_entry(message: Message) -> None:

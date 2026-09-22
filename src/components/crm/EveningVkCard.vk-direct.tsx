@@ -88,6 +88,8 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const supported = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
   const canPublish = !readonly && ['published', 'active'].includes(status);
   const publicDestination = state?.destinations.find((item) => item.key === 'public');
+  const channelDestination = state?.destinations.find((item) => item.key === 'channel');
+  const channelAutoAvailable = Boolean(state.integration.configured && channelDestination?.active && channelDestination?.supported);
   const publicNeedsManualEdit = Boolean(
     publicDestination?.published
     && state?.integration.publisher_token_source === 'community'
@@ -182,12 +184,14 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
         {publicNeedsManualEdit && publicDestination?.external_url
           ? <a href={publicDestination.external_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('public')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white"><Copy className="h-3.5 w-3.5" />Обновить пост</a>
           : <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>}
-        {draft?.channel_url && canPublish
-          ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('channel')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
-          : <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary opacity-40"><Copy className="h-3.5 w-3.5" />В канал</button>}
+        {channelAutoAvailable && canPublish
+          ? <button type="button" disabled={Boolean(busy)} onClick={() => void sync()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary disabled:opacity-40">{busy === 'sync' ? 'Синхронизируем…' : channelDestination?.published ? 'Обновить канал' : 'Опубликовать в канал'}</button>
+          : draft?.channel_url && canPublish
+            ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('channel')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал вручную</a>
+            : <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary opacity-40"><Copy className="h-3.5 w-3.5" />В канал</button>}
       </div>
-      {publicNeedsManualEdit ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Живой список игроков обновляется на странице записи. Для изменения текста уже опубликованного поста кнопка скопирует свежую версию и откроет его в VK.</p> : null}
-      {canPublish ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">VK пока не открыл автопубликацию для каналов: кнопка копирует готовый анонс и открывает канал. В VK останется нажать «Отправить».</p> : null}
+      {publicNeedsManualEdit ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Живой список игроков обновляется автоматически, но VK не разрешил редактирование этого поста. Кнопка выше скопирует свежую версию для ручного обновления.</p> : null}
+      {canPublish && !channelAutoAvailable ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Автопубликация канала пока не настроена: можно открыть канал и отправить подготовленный текст вручную.</p> : null}
       {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>
   );

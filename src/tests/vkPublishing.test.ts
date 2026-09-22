@@ -224,4 +224,55 @@ describe('VK publishing adapter', () => {
     `)).toEqual({ destination_key: 'public', post_id: 88, status: 'published' });
     expect(fetchMock).toHaveBeenCalledWith('https://api.vk.com/method/wall.post', expect.anything());
   });
+  it('sends a channel message with the community publisher token', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    process.env.VK_CHANNEL_API_PEER_ID = '-233806277';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ response: 321 }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await createVkWallPost({
+      groupId: '-233806277',
+      message: 'Тестовый анонс канала',
+    });
+
+    expect(result).toMatchObject({
+      postId: 321,
+      ownerId: -233806277,
+      groupId: '-233806277',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.vk.com/method/messages.send');
+    const body = init?.body as URLSearchParams;
+    expect(body.get('access_token')).toBe('community-token');
+    expect(body.get('peer_id')).toBe('-233806277');
+    expect(body.get('message')).toBe('Тестовый анонс канала');
+  });
+
+  it('edits an existing channel message with the community publisher token', async () => {
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    process.env.VK_CHANNEL_API_PEER_ID = '-233806277';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ response: 1 }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await editVkWallPost({
+      groupId: '-233806277',
+      postId: 321,
+      message: 'Обновлённый анонс канала',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.vk.com/method/messages.edit');
+    const body = init?.body as URLSearchParams;
+    expect(body.get('access_token')).toBe('community-token');
+    expect(body.get('peer_id')).toBe('-233806277');
+    expect(body.get('message_id')).toBe('321');
+    expect(body.get('message')).toBe('Обновлённый анонс канала');
+  });
+
 });

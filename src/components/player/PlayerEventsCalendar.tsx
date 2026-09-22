@@ -29,7 +29,7 @@ type View = 'list' | 'calendar';
 
 type NoviceState = {
   player: { club_stage: string; game_level: string };
-  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title?: string | null }>;
+  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title?: string | null; reservation_status?: string | null }>;
   novice_visits: number;
   free_visits_remaining: number;
   next_novice_price_per_game: number;
@@ -253,7 +253,7 @@ export default function PlayerEventsCalendar({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось отправить заявку');
       setNoviceState(body.state || noviceState);
-      setApplicationMessage(body.created ? 'Заявка отправлена организатору. После подтверждения самостоятельная запись откроется автоматически.' : 'Такая заявка уже находится на рассмотрении.');
+      setApplicationMessage(body.created ? (body.reservation?.reserved ? 'Заявка отправлена организатору. Место на выбранный вечер временно зарезервировано до решения.' : 'Заявка отправлена организатору. После подтверждения самостоятельная запись откроется автоматически.') : 'Такая заявка уже находится на рассмотрении.');
     } catch (submitError: any) {
       setApplicationMessage(submitError?.message || 'Не удалось отправить заявку');
     } finally {
@@ -300,7 +300,7 @@ export default function PlayerEventsCalendar({
             <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
           </div>
           {applicationMessage ? <p className="mt-3 rounded-xl bg-black/20 p-2.5 text-[12px] leading-5 text-white/70">{applicationMessage}</p> : null}
-          {noviceState.applications.some((item) => item.status === 'NEW') ? <p className="mt-2 text-[12px] text-sky-100/75">Текущая заявка ожидает решения организатора.</p> : null}
+          {noviceState.applications.some((item) => item.status === 'NEW') ? <p className="mt-2 text-[12px] text-sky-100/75">Текущая заявка ожидает решения организатора{noviceState.applications.some((item) => item.status === 'NEW' && item.reservation_status === 'reserved' && item.evening_title) ? ' · место на вечер временно зарезервировано.' : '.'}</p> : null}
         </section> : null}
 
         {noviceState?.player.club_stage === 'NOVICE_ACTIVE' ? <section className="mb-3 rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.07] p-3">

@@ -22,7 +22,9 @@ def _public_app_url() -> str:
 
 
 def _crm_url() -> str:
-    return f"{_public_app_url()}/admin"
+    # Telegram keeps a WebApp document cached by URL. Bump this value when the
+    # CRM frontend must be refreshed immediately after a production deploy.
+    return f"{_public_app_url()}/admin?build=vk-channel-v2"
 
 
 async def _send_crm_entry(message: Message) -> None:

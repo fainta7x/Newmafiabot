@@ -14,7 +14,6 @@ export const NOVICE_APPLICATION_STATUSES = {
 
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
-const ACTIVE_RESERVATION_STATUSES = ['NEW', 'CONFIRMED'] as const;
 
 async function getEveningReservationInfo(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
   const settings = await db.get<any>(

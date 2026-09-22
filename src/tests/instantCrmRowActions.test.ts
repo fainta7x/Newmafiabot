@@ -43,6 +43,17 @@ describe('instant CRM row actions', () => {
     expect(activeRoster).toContain('const rowBusy = busyIds.has(participant.id)');
   });
 
+  it('uses action labels that match the payment mutation', () => {
+    const source = read('src/components/crm/EveningPaymentsPanel.tsx');
+
+    expect(source).toContain('onClick={() => void setPaid(participant, false)}');
+    expect(source).toContain('Снять оплату');
+    expect(source).toContain('onClick={() => void setPaid(participant, true)}');
+    expect(source).toContain('Принять оплату');
+    expect(source).not.toContain('> Оплатил</button>');
+    expect(source).not.toContain('> Не оплатил</button>');
+  });
+
   it('preserves the already-instant dedicated payment panel behavior', () => {
     const source = read('src/components/crm/EveningPaymentsPanel.tsx');
     const setPaid = sliceBetween(source, 'const setPaid = async', 'const summary');

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createDatabaseConnection, DatabaseWrapper } from '../db/index.ts';
 import { seedDemoData } from '../db/seed.ts';
+import { ensureIsolatedTestRuntimeSchema } from '../db/ensureIsolatedTestRuntimeSchema.ts';
 
 describe('Database Seeding & Stability Tests', () => {
   let db: DatabaseWrapper;
@@ -131,5 +132,22 @@ describe('Database Seeding & Stability Tests', () => {
 
     const player = await db.get<{ id: string }>('SELECT id FROM players WHERE id = ?', ['p-test-1']);
     expect(player?.id).toBe('p-test-1');
+  });
+
+  it('8. Isolated sandbox receives the runtime schemas required by the player profile', async () => {
+    process.env.SEED_DEMO_DATA = 'false';
+    process.env.NODE_ENV = 'production';
+    db = createDatabaseConnection(testDbFile, { isolatedTest: true });
+    await ensureIsolatedTestRuntimeSchema(db);
+    await seedDemoData(db, { isolatedTest: true });
+
+    const requiredTables = ['achievement_definitions', 'player_achievement_overrides', 'game_evenings'];
+    for (const table of requiredTables) {
+      const row = await db.get<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        [table],
+      );
+      expect(row?.name).toBe(table);
+    }
   });
 });

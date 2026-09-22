@@ -4,6 +4,7 @@ import { ensureEveningSlotsSchema } from '../../db/ensureEveningSlotsSchema.ts';
 import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 import { setParticipantResponse } from './eveningParticipantState.ts';
 import { enqueueTelegramEveningSync } from './telegramSyncOutboxService.ts';
+import { kickVkLiveEveningSync } from './vkLiveEveningSyncWorker.ts';
 
 export const SLOT_PRICE = 100;
 export const CLUB_EVENING_MAX_PRICE = 400;
@@ -315,5 +316,8 @@ export async function replacePlayerSlotSelection(db: DatabaseWrapper, eveningId:
     await setParticipantResponse(tx as DatabaseWrapper, String(participant.id), ids.length ? 'going' : 'declined');
   });
   await enqueueTelegramEveningSync(db, eveningId);
+  // Keep the existing VK announcement current immediately after a player changes
+  // their exact game plan; the periodic worker remains the recovery path.
+  kickVkLiveEveningSync(db);
   return loadEveningSlotPlan(db, eveningId, playerId);
 }

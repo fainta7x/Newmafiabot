@@ -22,19 +22,18 @@ export async function refreshExistingVkEveningPosts(
   const rows = await db.all<{ id: string }>(`
     SELECT DISTINCT e.id
       FROM game_evenings e
-      JOIN vk_evening_publications p ON p.evening_id = e.id
+      LEFT JOIN vk_evening_publications p ON p.evening_id = e.id
      WHERE e.status IN ('published', 'active')
        AND e.settled_at IS NULL
        AND datetime(e.starts_at) > datetime(?)
-       AND p.post_id IS NOT NULL
-       AND p.post_id > 0
+       AND datetime(e.starts_at) <= datetime(?, '+4 days', '+1 hour')
      ORDER BY datetime(e.starts_at) ASC
-  `, [now.toISOString()]);
+  `, [now.toISOString(), now.toISOString()]);
 
   const results: Array<{ evening_id: string; success: boolean; error?: string }> = [];
   for (const row of rows) {
     try {
-      const sync = await syncDirectVkEveningPublications(db, String(row.id), baseUrl, { onlyExisting: true });
+      const sync = await syncDirectVkEveningPublications(db, String(row.id), baseUrl);
       const failures = sync.results.filter((item) => !item.success && !item.skipped);
       if (failures.length) {
         results.push({

@@ -7,6 +7,7 @@ import {
   resetLoginRateLimit,
   testEnvironmentPlayerId,
 } from '../auth.ts';
+import { PlayerRegistrationError, registerNewPlayer } from '../services/playerRegistrationService.ts';
 import { setOrganizerCookie, setPlayerCookie } from './authRoutes.ts';
 
 const router = Router();
@@ -62,6 +63,49 @@ router.post('/login', async (req, res) => {
     playerId: TEST_PLAYER_ID,
     redirectTo: role === 'organizer' ? '/admin' : '/player',
   });
+});
+
+router.post('/register', async (req, res) => {
+  if (!testEnvironmentEnabled()) return res.status(404).json({ error: 'Not found' });
+  if (!safePasswordMatch(req.body?.password)) {
+    return res.status(401).json({ error: 'Неверный пароль тестовой версии' });
+  }
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkLoginRateLimit(`test-register:${clientIp}`)) {
+    return res.status(429).json({ error: 'Слишком много попыток. Попробуйте снова через 15 минут.' });
+  }
+
+  const nickname = String(req.body?.nickname || '').trim();
+  const fullName = String(req.body?.fullName || '').trim() || null;
+  if (!nickname) return res.status(400).json({ error: 'Введите игровой ник' });
+
+  try {
+    const testDb = await getIsolatedTestDb();
+    // The synthetic identity is deliberately local to the isolated database.
+    // It is never sent to Telegram and cannot collide with a production user.
+    const syntheticTelegramId = `9${Date.now()}${crypto.randomInt(1000, 9999)}`;
+    const result = await registerNewPlayer(testDb, {
+      telegramUserId: syntheticTelegramId,
+      telegramUsername: null,
+      fullName,
+      nickname,
+      source: 'test_environment_registration',
+    });
+    resetLoginRateLimit(`test-register:${clientIp}`);
+    setPlayerCookie(res, testEnvironmentPlayerId(result.player.id));
+    res.clearCookie('organizer_token', { path: '/' });
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      created: result.created,
+      player: { id: result.player.id, nickname: result.player.nickname },
+      redirectTo: '/player',
+    });
+  } catch (error: any) {
+    if (error instanceof PlayerRegistrationError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    return res.status(500).json({ error: error?.message || 'Не удалось создать тестовый профиль' });
+  }
 });
 
 router.post('/logout', (_req, res) => {

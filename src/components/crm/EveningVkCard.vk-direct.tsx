@@ -90,6 +90,7 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const publicDestination = state?.destinations.find((item) => item.key === 'public');
   const channelDestination = state?.destinations.find((item) => item.key === 'channel');
   const channelAutoAvailable = Boolean(state.integration.configured && channelDestination?.active && channelDestination?.supported);
+  const oauthConnected = Boolean(state.integration.oauth?.managed_connected);
   const publicNeedsManualEdit = Boolean(
     publicDestination?.published
     && state?.integration.publisher_token_source === 'community'
@@ -112,6 +113,19 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
         ? 'Свежий текст скопирован. В открытом посте выбери «Редактировать» и вставь его.'
         : 'Текст скопирован. В открытом канале осталось вставить его и нажать «Отправить».'))
       .catch(() => setMessage(fallback));
+  };
+
+  const connectVk = async () => {
+    if (busy) return;
+    setBusy('oauth'); setError(null); setMessage(null);
+    try {
+      const result = await request(`/api/integrations/vk/oauth/start?return_to=${encodeURIComponent(window.location.pathname)}`);
+      if (!result?.authorize_url) throw new Error('VK не вернул ссылку авторизации');
+      window.location.assign(result.authorize_url);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось открыть авторизацию VK');
+      setBusy(null);
+    }
   };
 
   const sync = async () => {
@@ -149,6 +163,10 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
       ) : (
         <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Публикация новых анонсов в паблик подключена. Запись игроков работает через VK ID.</div>
       )}
+      {!oauthConnected ? <div className="mt-3 flex items-center gap-2 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
+        <span className="min-w-0 flex-1">Для автоматического обновления уже опубликованного поста и канала нужен ваш VK-токен.</span>
+        <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-accent px-2.5 py-2 text-[9px] font-black text-white disabled:opacity-40">{busy === 'oauth' ? 'Открываем…' : 'Подключить VK'}</button>
+      </div> : null}
 
       <div className="mt-3 space-y-1.5">
         {state.destinations.map((destination) => {

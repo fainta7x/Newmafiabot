@@ -173,7 +173,7 @@ describe('Telegram publishing destinations', () => {
     expect(await db.get("SELECT sync_key FROM telegram_sync_outbox WHERE sync_key='evening:ev-auto-future'")).toBeNull();
   });
 
-  it('refreshes an existing Telegram publication even when the evening is far in the future', async () => {
+  it('does not refresh an existing Telegram publication when the evening is far in the future', async () => {
     db = createDatabaseConnection(':memory:');
     await ensureTelegramPublishingSchema(db);
     const now = new Date('2030-01-01T12:00:00.000Z');
@@ -199,7 +199,7 @@ describe('Telegram publishing destinations', () => {
       },
     });
 
-    expect(deliveries).toBe(1);
+    expect(deliveries).toBe(0);
     expect(drained).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });
   });
 

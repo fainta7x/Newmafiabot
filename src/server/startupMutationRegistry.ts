@@ -42,7 +42,7 @@ export const STARTUP_MUTATION_REGISTRY: StartupMutationEntry[] = [
   { order: 240, name: 'startWeeklyEveningAutomationWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 250, name: 'startTelegramMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 260, name: 'startPersonalTelegramNotificationWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
-  { order: 270, name: 'startVkMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
+  { order: 265, name: 'startVkMessageOutboxWorker', kind: 'worker', idempotency: 'singleton in-process timer' },
   { order: 270, name: 'reconcileTokenOpeningBalances', kind: 'continuous_reconciliation', idempotency: 'ledger uniqueness / source markers' },
   { order: 280, name: 'reconcileAllTournamentGameTokenSettlements', kind: 'continuous_reconciliation', idempotency: 'settlement uniqueness' },
   { order: 290, name: 'reconcileAllBettingPools', kind: 'continuous_reconciliation', idempotency: 'pool/settlement state guards' },

@@ -140,7 +140,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
     const errorDescription = String(req.query?.error_description || errorCode || '').trim();
     if (errorCode) {
       await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
-      return res.redirect(302, vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
+      return res.redirect(302, vkOAuthService.vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
     }
     if (pending.verifier === 'legacy-api') {
       const returnTo = JSON.stringify(pending.return_to || '/cabinet');
@@ -152,17 +152,17 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         try{const r=await fetch('/api/integrations/vk/oauth/legacy/complete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({access_token:accessToken,expires_in:hash.get('expires_in'),user_id:hash.get('user_id'),state})});const body=await r.json();location.replace(body.return_to||${returnTo});}catch(e){location.replace(${returnTo});}})();
       </script>`);
     }
-    const result = await vkOAuthService['completeVk' + 'OAuth'](db, {
+    const result = await (vkOAuthService as any)['completeVk' + 'OAuth'](db, {
       code: req.query?.code,
       deviceId: req.query?.device_id,
       state,
     });
     const resultValue = result.api_compatible ? 'connected' : 'connected_vkid_only';
-    return res.redirect(302, appendVkOAuthResult(result.return_to || '/cabinet', 'vk_connected', resultValue));
+    return res.redirect(302, vkOAuthService.appendVkOAuthResult(result.return_to || '/cabinet', 'vk_connected', resultValue));
   } catch (error: any) {
     console.error('[VK OAUTH CALLBACK]', error);
     await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
-    return res.redirect(302, appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', String(error?.message || 'oauth_callback_failed')));
+    return res.redirect(302, vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', String(error?.message || 'oauth_callback_failed')));
   }
 });
 

@@ -222,7 +222,10 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
           {!readonly ? <button type="button" disabled={Boolean(busy)} onClick={() => void connectVk()} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-[#2688eb] px-3 text-[10px] font-bold text-white disabled:opacity-40"><Link2 className="h-3.5 w-3.5" />{busy === 'connect' ? 'Открываем VK…' : 'Подключить VK'}</button> : null}
         </div>
       ) : (
-        <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">VK подключён{state.integration.oauth?.managed_connected ? ' через VK ID' : ''}. Анонсы и опросы готовы к публикации.</div>
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">
+          <span className="min-w-0 flex-1">VK подключён{state.integration.oauth?.managed_connected ? ' через VK ID' : ''}. Анонсы и опросы готовы к публикации.</span>
+          {state.integration.oauth?.managed_connected ? <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-success/15 px-2 py-1.5 text-[9px] font-black text-success disabled:opacity-40">{busy === 'connect' ? 'Открываем…' : 'Переподключить VK'}</button> : null}
+        </div>
       )}
       {state.integration.configured && !callbackReady ? (
         <div className={`mt-2 rounded-xl px-3 py-2.5 text-[10px] leading-4 ${callbackError ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-secondary'}`}>

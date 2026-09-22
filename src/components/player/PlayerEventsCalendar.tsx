@@ -29,7 +29,7 @@ type View = 'list' | 'calendar';
 
 type NoviceState = {
   player: { club_stage: string; game_level: string };
-  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title?: string | null; reservation_status?: string | null }>;
+  applications: Array<{ id: string; status: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_id?: string | null; evening_title?: string | null; reservation_status?: string | null }>;
   novice_visits: number;
   free_visits_remaining: number;
   next_novice_price_per_game: number;
@@ -246,6 +246,8 @@ export default function PlayerEventsCalendar({
     return visible.find((event) => new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000) || null;
   }, [visible]);
 
+  const pendingApplication = noviceState?.applications.find((application) => application.status === 'NEW') || null;
+
   const submitFirstApplication = async (entryRoute: 'NOVICE' | 'EXPERIENCED') => {
     setApplicationBusy(entryRoute);
     setApplicationMessage('');
@@ -301,14 +303,27 @@ export default function PlayerEventsCalendar({
 
         {noviceState?.player.club_stage === 'NEW' ? <section className="mb-3 rounded-[24px] border border-sky-300/15 bg-sky-300/[0.07] p-3.5">
           <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-sky-100/60">Первый раз в 2LA Noire</div>
-          <h2 className="mt-1 text-[18px] font-semibold">Выберите подходящий путь</h2>
-          <p className="mt-1 text-[13px] leading-5 text-white/55">Первая заявка подтверждается организатором. После подтверждения вы сможете записываться самостоятельно.</p>
-          <div className="mt-3 grid gap-2">
-            <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Школа мафии · первые 2 посещения бесплатно</span></button>
-            <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
-          </div>
+          {pendingApplication ? (
+            <>
+              <h2 className="mt-1 text-[18px] font-semibold">Заявка отправлена</h2>
+              <p className="mt-1 text-[13px] leading-5 text-white/55">Организатор должен подтвердить первый визит. После подтверждения самостоятельная запись откроется автоматически.</p>
+              <div className="mt-3 rounded-2xl border border-sky-200/10 bg-black/20 px-3 py-3 text-[13px] leading-5 text-sky-100/80">
+                {pendingApplication.evening_title
+                  ? <>Вечер: <strong>{pendingApplication.evening_title}</strong>{pendingApplication.reservation_status === 'reserved' ? ' · место временно зарезервировано.' : '.'}</>
+                  : 'Заявка пока не привязана к конкретному вечеру.'}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="mt-1 text-[18px] font-semibold">Выберите подходящий путь</h2>
+              <p className="mt-1 text-[13px] leading-5 text-white/55">Первая заявка подтверждается организатором. После подтверждения вы сможете записываться самостоятельно.</p>
+              <div className="mt-3 grid gap-2">
+                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('NOVICE')} className="min-h-[52px] rounded-2xl bg-white text-left px-3 text-black"><strong className="block text-[14px]">Я новичок или почти не играл</strong><span className="text-[12px] text-black/55">Школа мафии · первые 2 посещения бесплатно</span></button>
+                <button disabled={applicationBusy !== null} type="button" onClick={() => void submitFirstApplication('EXPERIENCED')} className="min-h-[52px] rounded-2xl border border-white/10 bg-black/20 px-3 text-left"><strong className="block text-[14px]">Я уже умею играть</strong><span className="text-[12px] text-white/45">Первая заявка в основной клуб · уровень подтвердит организатор</span></button>
+              </div>
+            </>
+          )}
           {applicationMessage ? <p className="mt-3 rounded-xl bg-black/20 p-2.5 text-[12px] leading-5 text-white/70">{applicationMessage}</p> : null}
-          {noviceState.applications.some((item) => item.status === 'NEW') ? <p className="mt-2 text-[12px] text-sky-100/75">Текущая заявка ожидает решения организатора{noviceState.applications.some((item) => item.status === 'NEW' && item.reservation_status === 'reserved' && item.evening_title) ? ' · место на вечер временно зарезервировано.' : '.'}</p> : null}
         </section> : null}
 
         {noviceState?.player.club_stage === 'NOVICE_ACTIVE' ? <section className="mb-3 rounded-[20px] border border-emerald-300/15 bg-emerald-300/[0.07] p-3">

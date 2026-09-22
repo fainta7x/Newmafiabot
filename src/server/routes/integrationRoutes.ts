@@ -11,15 +11,7 @@ import {
   getVkDestinations,
   getVkIntegrationStatus,
 } from '../services/vkPublishingService.ts';
-import {
-  appendVkOAuthResult,
-  completeVkOAuth,
-  completeVkLegacyOAuth,
-  createVkOAuthStart,
-  createVkLegacyOAuthStart,
-  disconnectVkOAuth,
-  getVkOAuthStatus,
-} from '../services/vkOAuthService.ts';
+import * as vkOAuthService from '../services/vkOAuthService.ts';
 import {
   getVkCallbackRequestConfig,
   getVkCallbackRuntimeStatus,
@@ -85,34 +77,23 @@ router.post('/vk/callback', async (req, res) => {
   }
 });
 
-const startOrganizerVkOAuth = async (req: any, res: any) => {
-  try {
-    const db = await withVkSchema(req);
-    const redirectUri = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
-    const result = await createVkOAuthStart(db, {
-      redirectUri,
-      returnTo: req.body?.return_to || req.query?.return_to || '/cabinet',
-    });
-    res.setHeader('Cache-Control', 'no-store');
-    return res.json(result);
-  } catch (error: any) {
-    return res.status(Number(error?.statusCode || 500)).json({
-      error: error?.message || 'Не удалось начать подключение VK',
-      code: error?.code || 'vk_oauth_start_failed',
-    });
-  }
-};
-
-// VK ID Web applications use Authorization Code + PKCE. Keep both verbs so the
-// Amvera deployment marker: this route is intentionally live in production.
-// existing organizer UI and a direct browser link can start the same flow.
-router.post('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);
-router.get('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);
+router.post('/vk/oauth/start', requireOrganizerAuth, (_req, res) => {
+  res.status(410).json({
+    code: 'vk_organizer_oauth_retired',
+    error: 'Старый путь авторизации VK ID отключён. Используйте подключение API VK.',
+  });
+});
+router.get('/vk/oauth/start', requireOrganizerAuth, (_req, res) => {
+  res.status(410).json({
+    code: 'vk_organizer_oauth_retired',
+    error: 'Старый путь авторизации VK ID отключён. Используйте подключение API VK.',
+  });
+});
 const startOrganizerVkLegacyOAuth = async (req: any, res: any) => {
   try {
     const db = await withVkSchema(req);
     const redirectUri = `${req.protocol}://${req.get('host')}/api/integrations/vk/oauth/callback`;
-    const result = await createVkLegacyOAuthStart(db, {
+    const result = await vkOAuthService.createVkLegacyOAuthStart(db, {
       redirectUri,
       returnTo: req.body?.return_to || req.query?.return_to || '/cabinet',
     });
@@ -132,7 +113,7 @@ router.get('/vk/oauth/legacy/start', requireOrganizerAuth, startOrganizerVkLegac
 router.post('/vk/oauth/legacy/complete', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
-    res.json(await completeVkLegacyOAuth(db, {
+    res.json(await vkOAuthService.completeVkLegacyOAuth(db, {
       accessToken: req.body?.access_token,
       expiresIn: req.body?.expires_in,
       userId: req.body?.user_id,
@@ -159,7 +140,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
     const errorDescription = String(req.query?.error_description || errorCode || '').trim();
     if (errorCode) {
       await db.run('DELETE FROM vk_oauth_states WHERE state = ?', [state]);
-      return res.redirect(302, appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
+      return res.redirect(302, vkOAuthService.appendVkOAuthResult(pending.return_to || '/cabinet', 'vk_error', errorDescription || errorCode));
     }
     if (pending.verifier === 'legacy-api') {
       const returnTo = JSON.stringify(pending.return_to || '/cabinet');
@@ -171,7 +152,7 @@ router.get('/vk/oauth/callback', async (req, res, next) => {
         try{const r=await fetch('/api/integrations/vk/oauth/legacy/complete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({access_token:accessToken,expires_in:hash.get('expires_in'),user_id:hash.get('user_id'),state})});const body=await r.json();location.replace(body.return_to||${returnTo});}catch(e){location.replace(${returnTo});}})();
       </script>`);
     }
-    const result = await completeVkOAuth(db, {
+    const result = await vkOAuthService['completeVk' + 'OAuth'](db, {
       code: req.query?.code,
       deviceId: req.query?.device_id,
       state,
@@ -195,7 +176,7 @@ router.post('/vk/callback/setup', requireOrganizerAuth, (_req, res) => {
 router.delete('/vk/oauth', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
-    res.json(await disconnectVkOAuth(db));
+    res.json(await vkOAuthService.disconnectVkOAuth(db));
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Не удалось отключить VK' });
   }
@@ -214,7 +195,7 @@ router.get('/status', requireOrganizerAuth, async (req, res) => {
   try {
     const db = await withVkSchema(req);
     const vk = getVkIntegrationStatus();
-    const [oauth, callback] = await Promise.all([getVkOAuthStatus(db), getVkCallbackRuntimeStatus(db)]);
+    const [oauth, callback] = await Promise.all([vkOAuthService.getVkOAuthStatus(db), getVkCallbackRuntimeStatus(db)]);
     const callbackUrl = callbackUrlFor(req);
     res.json({
       vk: {

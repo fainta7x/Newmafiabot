@@ -32,13 +32,13 @@ def _event_link_keyboard(evening_id: str, url: str | None) -> InlineKeyboardMark
     return crm_evening_response_kb(evening_id, event_url=url)
 
 
-async def _edit_message(
+async def _edit_message_status(
     bot: Bot,
     chat_id: str | int,
     message_id: int,
     text: str,
     reply_markup: InlineKeyboardMarkup | None,
-) -> bool:
+) -> str:
     try:
         await bot.edit_message_text(
             chat_id=chat_id,
@@ -48,15 +48,27 @@ async def _edit_message(
             reply_markup=reply_markup,
             disable_web_page_preview=True,
         )
-        return True
+        return "ok"
     except TelegramBadRequest as exc:
         if "message is not modified" in str(exc).lower():
-            return True
+            return "ok"
+        if "message" in str(exc).lower() and "not found" in str(exc).lower():
+            return "missing"
         print(f"[TELEGRAM PUBLISH] Failed to edit {chat_id}/{message_id}: {exc}")
-        return False
+        return "failed"
     except Exception as exc:
         print(f"[TELEGRAM PUBLISH] Failed to edit {chat_id}/{message_id}: {exc}")
-        return False
+        return "failed"
+
+
+async def _edit_message(
+    bot: Bot,
+    chat_id: str | int,
+    message_id: int,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None,
+) -> bool:
+    return (await _edit_message_status(bot, chat_id, message_id, text, reply_markup)) == "ok"
 
 
 async def _delete_message(bot: Bot, chat_id: str | int, message_id: int) -> bool:
@@ -105,7 +117,10 @@ async def _cleanup_public_event_post(bot: Bot, publication: dict | None) -> bool
     message_id = publication.get("message_id")
     if not chat_id or not message_id:
         return True
-    return await _delete_message(bot, chat_id, int(message_id))
+    try:
+        return await _delete_message(bot, chat_id, int(message_id))
+    except Exception:
+        return False
 
 
 async def _cleanup_current_public_event_posts(bot: Bot, evenings: list[dict | None]) -> list[dict]:
@@ -169,7 +184,7 @@ async def sync_evening_telegram(
     for destination_id, publication in publications.items():
         if destination_id == "public" or destination_id in desired:
             continue
-        ok = await _edit_message(
+        edit_status = await _edit_message_status(
             bot,
             publication.get("chat_id"),
             int(publication.get("message_id")),
@@ -179,7 +194,9 @@ async def sync_evening_telegram(
         results.append({
             "destination_id": destination_id,
             "action": "finalized",
-            "success": ok,
+            # A deleted historical post is already finalized; do not keep the
+            # durable outbox in a permanent 502 retry loop for it.
+            "success": edit_status in {"ok", "missing"},
         })
 
     event_url = await _bot_url(bot, f"event_{evening_id}")
@@ -191,15 +208,23 @@ async def sync_evening_telegram(
         text = thematic_event_text(evening, slots)
 
         if publication:
-            ok = await _edit_message(
+            edit_status = await _edit_message_status(
                 bot,
                 publication.get("chat_id"),
                 int(publication.get("message_id")),
                 text,
                 event_keyboard,
             )
-            results.append({"destination_id": destination_id, "action": "edited", "success": ok})
-            continue
+            if edit_status == "ok":
+                results.append({"destination_id": destination_id, "action": "edited", "success": True})
+                continue
+            if edit_status != "missing":
+                results.append({"destination_id": destination_id, "action": "edit_failed", "success": False})
+                continue
+            # Telegram may have pruned the old message while our DB still
+            # points to it. Recreate the post and let the upserted publication
+            # row become the new source of truth.
+            print(f"[TELEGRAM PUBLISH] Recreating missing {destination_id} post for {evening_id}")
 
         if not allow_create or not destination.get("active") or not str(destination.get("chat_id") or "").strip():
             results.append({"destination_id": destination_id, "action": "skipped", "success": True})
@@ -357,3 +382,4 @@ async def test_telegram_destination(bot: Bot, destination_id: str) -> dict:
         return {"success": True, "message_id": message.message_id, "destination_id": destination_id}
     except Exception as exc:
         return {"success": False, "error": str(exc), "destination_id": destination_id}
+

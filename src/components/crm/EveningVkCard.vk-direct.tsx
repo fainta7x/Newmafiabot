@@ -89,8 +89,8 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
   const canPublish = !readonly && ['published', 'active'].includes(status);
   const publicDestination = state?.destinations.find((item) => item.key === 'public');
   const channelDestination = state?.destinations.find((item) => item.key === 'channel');
-  const channelAutoAvailable = Boolean(state.integration.configured && channelDestination?.active && channelDestination?.supported);
-  const oauthConnected = Boolean(state.integration.oauth?.managed_connected);
+  const channelAutoAvailable = Boolean(state?.integration.configured && channelDestination?.active && channelDestination?.supported);
+  const oauthConnected = Boolean(state?.integration.oauth?.managed_connected);
   const publicNeedsManualEdit = Boolean(
     publicDestination?.published
     && state?.integration.publisher_token_source === 'community'

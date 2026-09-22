@@ -37,6 +37,7 @@ const STATE_LABELS: Record<RegistrationState, string> = {
 };
 
 const stateFor = (responseStatus: string, slots: Slot[]): RegistrationState => {
+  if (responseStatus === 'declined') return 'declined';
   if (slots.length) return 'games';
   if (responseStatus === 'going' || responseStatus === 'late') return 'coming';
   if (responseStatus === 'thinking') return 'thinking';

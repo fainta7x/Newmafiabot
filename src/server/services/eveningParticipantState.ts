@@ -49,6 +49,15 @@ export async function setParticipantResponse(db: DatabaseWrapper, participantId:
       WHERE id = ?`,
     [status, status, confirmedAt, now, participantId],
   );
+
+  if (status === 'declined') {
+    await db.run(
+      `DELETE FROM evening_slot_registrations
+        WHERE participant_id = ?
+          AND slot_id IN (SELECT id FROM evening_game_slots WHERE evening_id = (SELECT evening_id FROM evening_participants WHERE id = ?))`,
+      [participantId, participantId],
+    );
+  }
 }
 
 export async function setParticipantAttendance(db: DatabaseWrapper, participantId: string, fact: EveningAttendanceFact) {

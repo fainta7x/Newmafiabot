@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { loadEveningSlotPlan } from '../server/services/eveningSlotPlanningService.ts';
 import { replaceOrganizerPlayerSlotSelection } from '../server/services/organizerEveningSlotSelectionService.ts';
+import { setParticipantResponse } from '../server/services/eveningParticipantState.ts';
 
 let db: DatabaseWrapper | null = null;
 
@@ -49,6 +50,18 @@ describe('organizer evening slot selection', () => {
     expect(participant?.response_status).toBe('going');
     expect(Number(participant?.amount_due)).toBe(400);
     expect(participant?.payment_status).toBe('unpaid');
+
+    await setParticipantResponse(db, String((await db.get<any>(
+      `SELECT id FROM evening_participants
+         WHERE evening_id='ev-organizer-slots' AND player_id='player-organizer-slots'`,
+    ))?.id), 'declined');
+    const afterDecline = await db.get<any>(
+      `SELECT COUNT(*) AS count
+         FROM evening_slot_registrations r
+         JOIN evening_participants ep ON ep.id = r.participant_id
+        WHERE ep.evening_id='ev-organizer-slots' AND ep.player_id='player-organizer-slots'`,
+    );
+    expect(Number(afterDecline?.count)).toBe(0);
 
     await db.run(
       `UPDATE evening_participants

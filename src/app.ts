@@ -102,6 +102,7 @@ import { startTelegramMessageOutboxWorker } from './server/services/telegramMess
 import { reconcileTokenOpeningBalances } from './server/services/tokenLedgerService.ts';
 import { reconcileAllTournamentGameTokenSettlements } from './server/services/tournamentGameTokenSettlementService.ts';
 import { startTelegramSyncOutboxWorker } from './server/services/telegramSyncOutboxService.ts';
+import { startWeeklyEveningAutomationWorker } from './server/services/weeklyEveningAutomationService.ts';
 import { logStartupMutationRegistry } from './server/startupMutationRegistry.ts';
 import { startVkMessageOutboxWorker } from './server/services/vkMessageOutboxService.ts';
 
@@ -155,6 +156,7 @@ export async function createApp(customDb?: DatabaseWrapper) {
   const isBrowserE2E = process.env.PLAYWRIGHT_E2E === '1';
   if (!isTest) {
     startTelegramSyncOutboxWorker(db);
+    startWeeklyEveningAutomationWorker(db);
     startTelegramMessageOutboxWorker(db);
     startPersonalTelegramNotificationWorker(db);
     startVkMessageOutboxWorker(db);

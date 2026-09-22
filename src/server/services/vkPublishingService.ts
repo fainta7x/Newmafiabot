@@ -146,7 +146,7 @@ export function getVkIntegrationStatus() {
     // credential path used for wall.post. A community publisher token is therefore
     // sufficient for the current wall.edit flow even though the retired legacy
     // editVkWallPost adapter still reports user-token-only capability.
-    public_post_edit_supported: Boolean(getVkLegacyUserToken() && publicDestination?.groupId),
+    public_post_edit_supported: Boolean(getVkLegacyUserToken() && !groupToken && publicDestination?.groupId),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,

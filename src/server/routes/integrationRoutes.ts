@@ -102,6 +102,7 @@ const startOrganizerVkOAuth = async (req: any, res: any) => {
 };
 
 // VK ID Web applications use Authorization Code + PKCE. Keep both verbs so the
+// Amvera deployment marker: this route is intentionally live in production.
 // existing organizer UI and a direct browser link can start the same flow.
 router.post('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);
 router.get('/vk/oauth/start', requireOrganizerAuth, startOrganizerVkOAuth);

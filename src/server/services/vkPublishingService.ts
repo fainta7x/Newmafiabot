@@ -195,8 +195,17 @@ export async function vkPublisherApi<T>(method: string, params: Record<string, s
 }
 
 const vkChannelApi = async <T>(method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
-  const token = getVkPublisherToken();
-  return callVkApi<T>(token, method, params);
+  const communityToken = getVkGroupToken();
+  const userToken = getVkToken();
+  if (!communityToken) return callVkApi<T>(userToken, method, params);
+  try {
+    return await callVkApi<T>(communityToken, method, params);
+  } catch (communityError) {
+    // VK may reject messages.send/messages.edit for the community key even when
+    // the community has channel access. Retry with the connected organizer token.
+    if (!userToken || userToken === communityToken) throw communityError;
+    return callVkApi<T>(userToken, method, params);
+  }
 };
 
 const rawOwnerIdForGroup = (groupId: string) => -Math.abs(Number(groupId));

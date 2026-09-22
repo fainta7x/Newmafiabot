@@ -13,6 +13,7 @@ import {
 import { syncDirectVkEveningPublications } from './vkDirectJoinPublishingService.ts';
 import { hydrateVkOAuthAccessToken } from './vkOAuthService.ts';
 import { getPublicAppBaseUrl } from '../runtimeConfig.ts';
+import { normalizeEveningFormat } from '../../lib/eveningFormat.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HORIZON_DAYS = 35;
@@ -150,7 +151,14 @@ export async function ensureRollingFridayCalendar(db: DatabaseWrapper, now: Date
   return { created, existing, horizon_days: HORIZON_DAYS };
 }
 
-async function acquireRun(db: DatabaseWrapper, key: string, eveningId: string, dueAt: string, now: Date) {
+async function acquireRun(
+  db: DatabaseWrapper,
+  key: string,
+  eveningId: string,
+  dueAt: string,
+  now: Date,
+  retryCompleted = false,
+) {
   const nowIso = now.toISOString();
   const staleBefore = new Date(now.getTime() - STALE_RUN_MS).toISOString();
   const result = await db.run(`
@@ -160,13 +168,38 @@ async function acquireRun(db: DatabaseWrapper, key: string, eveningId: string, d
     ) VALUES (?, ?, 'weekly_announcement', 'running', ?, NULL, NULL, ?, ?)
     ON CONFLICT(automation_key) DO UPDATE SET
       status='running', last_error=NULL, updated_at=excluded.updated_at
-    WHERE club_weekly_automation_runs.status != 'done'
+    WHERE (club_weekly_automation_runs.status != 'done' OR ? = 1)
       AND (
+        ? = 1
+        OR
         club_weekly_automation_runs.status != 'running'
         OR club_weekly_automation_runs.updated_at < ?
       )
-  `, [key, eveningId, dueAt, nowIso, nowIso, staleBefore]);
+  `, [key, eveningId, dueAt, nowIso, nowIso, retryCompleted ? 1 : 0, retryCompleted ? 1 : 0, staleBefore]);
   return result.changes > 0;
+}
+
+const channelDestinationForFormat = (format: unknown): 'novice' | 'club' | 'rating' => {
+  const normalized = normalizeEveningFormat(format);
+  if (normalized === 'NOVICE') return 'novice';
+  if (normalized === 'CASUAL') return 'club';
+  return 'rating';
+};
+
+async function telegramChannelPublicationState(db: DatabaseWrapper, evening: any) {
+  const destinationId = channelDestinationForFormat(evening.format);
+  const destination = await db.get<any>(
+    'SELECT chat_id, active FROM telegram_destinations WHERE id = ? LIMIT 1',
+    [destinationId],
+  );
+  const ready = Boolean(Number(destination?.active || 0) === 1 && String(destination?.chat_id || '').trim());
+  const publication = ready
+    ? await db.get(
+        'SELECT 1 AS ok FROM evening_telegram_publications WHERE evening_id = ? AND destination_id = ? LIMIT 1',
+        [String(evening.id), destinationId],
+      )
+    : null;
+  return { destinationId, ready, published: Boolean(publication) };
 }
 
 async function finishRun(db: DatabaseWrapper, key: string, now: Date, error?: unknown) {
@@ -200,7 +233,7 @@ export async function runDueWeeklyAnnouncements(
   const baseUrl = String(options.baseUrl || getPublicAppBaseUrl()).replace(/\/+$/, '');
   const delivery: DeliveryAdapters = { ...defaultDelivery, ...(options.delivery || {}) };
   const rows = await db.all<any>(`
-    SELECT id, title, starts_at, status, settled_at
+    SELECT id, title, starts_at, format, status, settled_at
       FROM game_evenings
      WHERE status IN ('published', 'active')
        AND settled_at IS NULL
@@ -215,7 +248,16 @@ export async function runDueWeeklyAnnouncements(
     if (nowMs < dueMs) continue;
 
     const key = `weekly-announcement:${String(evening.id)}`;
-    const acquired = await acquireRun(db, key, String(evening.id), new Date(dueMs).toISOString(), now);
+    const channelBefore = await telegramChannelPublicationState(db, evening);
+    const retryMissingTelegram = channelBefore.ready && !channelBefore.published;
+    const acquired = await acquireRun(
+      db,
+      key,
+      String(evening.id),
+      new Date(dueMs).toISOString(),
+      now,
+      retryMissingTelegram,
+    );
     if (!acquired) {
       results.push({ evening_id: String(evening.id), status: 'skipped' });
       continue;
@@ -224,7 +266,16 @@ export async function runDueWeeklyAnnouncements(
     try {
       await delivery.enqueueTelegramChannel(db, String(evening.id));
       await delivery.enqueueTelegramDm(db, String(evening.id));
-      await delivery.drainTelegram(db);
+      const telegramDrain: any = await delivery.drainTelegram(db);
+      if (Number(telegramDrain?.failed || 0) > 0) {
+        throw new Error(`Telegram delivery failed for ${telegramDrain.failed} queued job(s)`);
+      }
+      if (channelBefore.ready) {
+        const channelAfter = await telegramChannelPublicationState(db, evening);
+        if (!channelAfter.published) {
+          throw new Error(`Telegram publication missing for destination ${channelBefore.destinationId}`);
+        }
+      }
       await delivery.syncVk(db, String(evening.id), baseUrl);
       await finishRun(db, key, now);
       results.push({ evening_id: String(evening.id), status: 'done' });

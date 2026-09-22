@@ -62,6 +62,24 @@ describe('player evening slot route hotfix', () => {
     );
     expect(participant?.response_status).toBe('going');
     expect(Number(participant?.amount_due || 0)).toBe(0);
+
+    const cancelled = await request(app)
+      .put('/api/player/evenings/slot-evening/slots')
+      .set(auth())
+      .send({ slot_ids: [] });
+
+    expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
+    expect(cancelled.body.selection.slot_ids).toEqual([]);
+    expect(cancelled.body.selection.games).toBe(0);
+
+    const reselected = await request(app)
+      .put('/api/player/evenings/slot-evening/slots')
+      .set(auth())
+      .send({ slot_ids: [selectedId] });
+
+    expect(reselected.status, JSON.stringify(reselected.body)).toBe(200);
+    expect(reselected.body.selection.slot_ids).toEqual([selectedId]);
+    expect(reselected.body.selection.games).toBe(1);
   });
 
   it('returns player-auth errors from the mounted route instead of the API catch-all 404', async () => {

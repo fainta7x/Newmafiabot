@@ -62,6 +62,29 @@ describe('PlayerEventsCalendar', () => {
     expect(await screen.findByRole('button', { name: /Я новичок или почти не играл/ })).toBeTruthy();
   });
 
+  it('replaces the first-application choices with a single pending status', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [],
+        novice_state: {
+          player: { club_stage: 'NEW', game_level: 'unrated' },
+          applications: [{ id: 'application-1', status: 'NEW', entry_route: 'NOVICE', evening_title: 'Пятничная игра', reservation_status: 'reserved' }],
+          novice_visits: 0,
+          free_visits_remaining: 2,
+          next_novice_price_per_game: 200,
+          can_self_register: false,
+        },
+      }),
+    } as Response);
+
+    render(<PlayerEventsCalendar />);
+    expect(await screen.findByRole('heading', { name: 'Заявка отправлена' })).toBeTruthy();
+    expect(screen.getByText(/место временно зарезервировано/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Я новичок или почти не играл/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Я уже умею играть/ })).toBeNull();
+  });
+
   it('loads novice state separately when the calendar omits the optional envelope', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(calendarResponse())

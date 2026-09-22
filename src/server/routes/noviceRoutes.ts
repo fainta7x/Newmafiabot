@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ensureNoviceSystemSchema } from '../../db/ensureNoviceSystemSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
+import { ensureSlotsForEvening } from '../services/eveningSlotPlanningService.ts';
 import {
   convertNoviceToClubPlayer,
   createNoviceApplication,
@@ -40,6 +41,7 @@ playerRouter.post('/novice/applications', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Проверьте маршрут и комментарий к заявке' });
   await ensureNoviceSystemSchema(req.db);
   if (parsed.data.evening_id) {
+    await ensureSlotsForEvening(req.db, parsed.data.evening_id);
     const evening = await req.db.get<any>(
       `SELECT id, format, status, starts_at FROM game_evenings WHERE id = ? LIMIT 1`,
       [parsed.data.evening_id],
@@ -59,11 +61,18 @@ playerRouter.post('/novice/applications', async (req, res) => {
     [playerId],
   );
   const source = !identity?.telegram_user_id && Number(identity?.has_vk || 0) ? 'VK' : 'TELEGRAM';
-  const result = await createNoviceApplication(req.db, {
-    playerId, eveningId: parsed.data.evening_id, source,
-    entryRoute: parsed.data.entry_route, notes: parsed.data.notes,
-  });
-  return res.status(result.created ? 201 : 200).json({ success: true, ...result, state: await getNovicePlayerState(req.db, playerId) });
+  try {
+    const result = await createNoviceApplication(req.db, {
+      playerId, eveningId: parsed.data.evening_id, source,
+      entryRoute: parsed.data.entry_route, notes: parsed.data.notes,
+    });
+    return res.status(result.created ? 201 : 200).json({ success: true, ...result, state: await getNovicePlayerState(req.db, playerId) });
+  } catch (error: any) {
+    if (Number(error?.statusCode || 0) === 409) {
+      return res.status(409).json({ error: error.message, code: error.code, reservation: error.reservation });
+    }
+    throw error;
+  }
 });
 
 organizerRouter.use(requireOrganizerAuth);

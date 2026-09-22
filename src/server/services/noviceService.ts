@@ -14,6 +14,46 @@ export const NOVICE_APPLICATION_STATUSES = {
 
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
+const ACTIVE_RESERVATION_STATUSES = ['NEW', 'CONFIRMED'] as const;
+
+async function getEveningReservationInfo(db: DatabaseWrapper, eveningId: string, playerId?: string | null) {
+  const settings = await db.get<any>(
+    'SELECT ready_players_per_slot FROM evening_slot_settings WHERE evening_id = ? LIMIT 1',
+    [eveningId],
+  );
+  const capacity = Math.max(1, Number(settings?.ready_players_per_slot || 11));
+  const reserved = await db.get<any>(
+    `SELECT COUNT(*) AS reserved_count FROM (
+       SELECT DISTINCT ep.player_id
+         FROM evening_slot_registrations r
+         JOIN evening_game_slots s ON s.id = r.slot_id
+         JOIN evening_participants ep ON ep.id = r.participant_id
+        WHERE s.evening_id = ? AND ep.player_id IS NOT NULL
+       UNION
+       SELECT DISTINCT na.player_id
+         FROM novice_applications na
+        WHERE na.evening_id = ? AND na.player_id IS NOT NULL
+          AND na.status IN ('NEW', 'CONFIRMED')
+     ) reserved_players`,
+    [eveningId, eveningId],
+  );
+  const playerReservation = playerId
+    ? await db.get<any>(
+        `SELECT id, status FROM novice_applications
+          WHERE evening_id = ? AND player_id = ? AND status IN ('NEW', 'CONFIRMED')
+          ORDER BY datetime(created_at) DESC LIMIT 1`,
+        [eveningId, playerId],
+      )
+    : null;
+  const reservedCount = Number(reserved?.reserved_count || 0);
+  return {
+    capacity,
+    reserved_count: reservedCount,
+    available_places: Math.max(0, capacity - reservedCount),
+    reserved: Boolean(playerReservation),
+    reservation_status: playerReservation ? String(playerReservation.status).toLowerCase() : null,
+  };
+}
 
 const normalizeRoute = (value: unknown): NoviceEntryRoute =>
   String(value || '').toUpperCase() === 'EXPERIENCED' ? 'EXPERIENCED' : 'NOVICE';
@@ -26,7 +66,8 @@ export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string
   );
   if (!player) return null;
   const applications = await db.all<any>(
-    `SELECT na.*, e.title AS evening_title, e.starts_at AS evening_starts_at
+    `SELECT na.*, e.title AS evening_title, e.starts_at AS evening_starts_at,
+              CASE WHEN na.evening_id IS NOT NULL AND na.status IN ('NEW', 'CONFIRMED') THEN 'reserved' ELSE NULL END AS reservation_status
        FROM novice_applications na
        LEFT JOIN game_evenings e ON e.id = na.evening_id
       WHERE na.player_id = ?
@@ -59,33 +100,56 @@ export async function createNoviceApplication(
   db: DatabaseWrapper,
   input: { playerId: string; eveningId?: string | null; source?: string; entryRoute?: NoviceEntryRoute; notes?: string },
 ) {
-  const existing = await db.get<any>(
-    `SELECT id, status FROM novice_applications
-      WHERE player_id = ? AND COALESCE(evening_id, '') = COALESCE(?, '')
-        AND status NOT IN ('CANCELLED', 'CONVERTED')
-      ORDER BY datetime(created_at) DESC LIMIT 1`,
-    [input.playerId, input.eveningId ?? null],
-  );
-  if (existing) return { id: String(existing.id), created: false };
   const timestamp = now();
   const applicationId = id();
   const entryRoute = normalizeRoute(input.entryRoute);
+  let result: { id: string; created: boolean; reservation?: Awaited<ReturnType<typeof getEveningReservationInfo>> };
 
-  await db.run(
-    `INSERT INTO novice_applications
-      (id, player_id, evening_id, source, entry_route, status, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'NEW', ?, ?, ?)`,
-    [
-      applicationId,
-      input.playerId,
-      input.eveningId ?? null,
-      String(input.source || 'ORGANIZER').toUpperCase(),
-      entryRoute,
-      input.notes ?? null,
-      timestamp,
-      timestamp,
-    ],
-  );
+  await db.transaction(async (tx) => {
+    const existing = await tx.get<any>(
+      `SELECT id, status FROM novice_applications
+        WHERE player_id = ? AND COALESCE(evening_id, '') = COALESCE(?, '')
+          AND status NOT IN ('CANCELLED', 'CONVERTED')
+        ORDER BY datetime(created_at) DESC LIMIT 1`,
+      [input.playerId, input.eveningId ?? null],
+    );
+    if (existing) {
+      result = {
+        id: String(existing.id),
+        created: false,
+        reservation: input.eveningId ? await getEveningReservationInfo(tx, input.eveningId, input.playerId) : undefined,
+      };
+      return;
+    }
+
+    const reservation = input.eveningId
+      ? await getEveningReservationInfo(tx, input.eveningId, input.playerId)
+      : undefined;
+    if (reservation && !reservation.reserved && reservation.reserved_count >= reservation.capacity) {
+      throw Object.assign(new Error('На этот вечер больше нет свободных мест для заявки'), {
+        statusCode: 409,
+        code: 'evening_full',
+        reservation,
+      });
+    }
+
+    await tx.run(
+      `INSERT INTO novice_applications
+        (id, player_id, evening_id, source, entry_route, status, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'NEW', ?, ?, ?)`,
+      [
+        applicationId,
+        input.playerId,
+        input.eveningId ?? null,
+        String(input.source || 'ORGANIZER').toUpperCase(),
+        entryRoute,
+        input.notes ?? null,
+        timestamp,
+        timestamp,
+      ],
+    );
+    result = { id: applicationId, created: true, reservation };
+  });
 
   const player = await db.get<any>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [input.playerId]);
   await enqueueOrganizerNotification(db, {
@@ -94,7 +158,7 @@ export async function createNoviceApplication(
     entityId: applicationId,
     text: `🌱 Новая заявка: ${String(player?.nickname || 'игрок')} · ${entryRoute === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}.`,
   });
-  return { id: applicationId, created: true };
+  return result!;
 }
 
 export async function updateNoviceApplicationStatus(

@@ -7,6 +7,10 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
   const [status, setStatus] = useState<TestStatus | null>(null);
   const [password, setPassword] = useState('');
   const [busyRole, setBusyRole] = useState<Role | null>(null);
+  const [newPlayerOpen, setNewPlayerOpen] = useState(false);
+  const [newNickname, setNewNickname] = useState('');
+  const [newFullName, setNewFullName] = useState('');
+  const [registering, setRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isLoginPage = window.location.pathname === '/test-login';
 
@@ -43,6 +47,27 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
     window.location.assign('/test-login');
   };
 
+  const registerTestPlayer = async (event: FormEvent) => {
+    event.preventDefault();
+    if (registering || !newNickname.trim()) return;
+    setRegistering(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/test-environment/register', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, nickname: newNickname, fullName: newFullName }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось создать тестовый профиль');
+      window.location.assign(body.redirectTo || '/player');
+    } catch (registerError: any) {
+      setError(registerError?.message || 'Не удалось создать тестовый профиль');
+      setRegistering(false);
+    }
+  };
+
   if (isLoginPage && status?.enabled) {
     return (
       <main className="min-h-screen bg-[#0a0a0c] px-4 py-8 text-white">
@@ -66,6 +91,23 @@ export default function TestEnvironmentGate({ children }: { children: ReactNode 
             <button type="submit" onClick={(event) => void login(event, 'player')} disabled={!password || Boolean(busyRole)} className="min-h-12 w-full rounded-xl bg-white px-4 font-semibold text-black disabled:opacity-40">
               {busyRole === 'player' ? 'Входим…' : 'Войти как тестовый игрок'}
             </button>
+            <button type="button" onClick={() => { setNewPlayerOpen((value) => !value); setError(null); }} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-white/80">
+              {newPlayerOpen ? 'Скрыть регистрацию' : 'Зарегистрировать нового игрока'}
+            </button>
+            {newPlayerOpen ? (
+              <div className="rounded-2xl border border-sky-300/20 bg-sky-300/[0.07] p-3">
+                <p className="text-xs leading-5 text-white/55">Создастся новый профиль только в тестовой базе. Telegram и реальные игроки не затрагиваются.</p>
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs font-semibold text-white/60" htmlFor="test-new-nickname">Игровой ник</label>
+                  <input id="test-new-nickname" required value={newNickname} onChange={(event) => setNewNickname(event.target.value)} autoComplete="off" className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-sky-300/60" />
+                  <label className="block text-xs font-semibold text-white/60" htmlFor="test-new-full-name">Имя (необязательно)</label>
+                  <input id="test-new-full-name" value={newFullName} onChange={(event) => setNewFullName(event.target.value)} autoComplete="off" className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-sky-300/60" />
+                  <button type="button" onClick={(event) => void registerTestPlayer(event)} disabled={!newNickname.trim() || registering} className="min-h-11 w-full rounded-xl bg-sky-200 px-4 font-semibold text-black disabled:opacity-40">
+                    {registering ? 'Создаём профиль…' : 'Начать путь нового игрока'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <button type="submit" onClick={(event) => void login(event, 'organizer')} disabled={!password || Boolean(busyRole)} className="min-h-12 w-full rounded-xl bg-amber-400 px-4 font-semibold text-black disabled:opacity-40">
               {busyRole === 'organizer' ? 'Входим…' : 'Войти как организатор'}
             </button>

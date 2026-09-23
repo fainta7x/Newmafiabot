@@ -4,7 +4,7 @@ import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
 import { generateOrganizerToken, generatePlayerSessionToken } from '../server/auth.ts';
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
-import { ensureSlotsForEvening, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
+import { ensureSlotsForEvening, reconcileNoviceEveningCharges, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
 import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
@@ -194,6 +194,32 @@ describe('NOVICE-001 funnel', () => {
     expect(result.selection).toMatchObject({ games: 2, total: 400 });
     const participant = await db.get<any>('SELECT amount_due, payment_status FROM evening_participants WHERE evening_id=? AND player_id=?', ['nv3', playerId]);
     expect(participant).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
+  });
+
+  it('prices each novice evening by the visits before it, even when attendance is marked on it or it was booked early', async () => {
+    const db = makeDb();
+    await createApp(db);
+    const { player } = await registerNewPlayer(db, { telegramUserId: '774', nickname: 'Ранняя запись' });
+    await db.run("UPDATE players SET club_stage='NOVICE_ACTIVE', game_level='novice' WHERE id=?", [player.id]);
+    const now = new Date().toISOString();
+    for (let index = 1; index <= 3; index += 1) {
+      await db.run(`INSERT INTO game_evenings (id,title,starts_at,format,status,default_price,created_at,updated_at) VALUES (?,?,?,'NOVICE','published',200,?,?)`, [`nb${index}`, `Новички ${index}`, new Date(Date.now() + index * 86400000).toISOString(), now, now]);
+    }
+    // First visit already happened; evenings 2 and 3 are both booked in advance.
+    await db.run(`INSERT INTO evening_participants (id,evening_id,player_id,response_status,registration_status,attendance_status,arrival_status,payment_status,amount_due,amount_paid,created_at,updated_at) VALUES ('eb1','nb1',?,'going','going','attended','on_time','waived',0,0,?,?)`, [player.id, now, now]);
+    for (const eveningId of ['nb2', 'nb3']) {
+      const plan = await ensureSlotsForEvening(db, eveningId);
+      await replacePlayerSlotSelection(db, eveningId, player.id, plan.slots.slice(0, 2).map((slot: any) => String(slot.id)));
+    }
+    const due = (eveningId: string) => db.get<any>('SELECT amount_due, payment_status FROM evening_participants WHERE evening_id=? AND player_id=?', [eveningId, player.id]);
+    expect(await due('nb3')).toMatchObject({ amount_due: 0, payment_status: 'waived' }); // estimate made before visit 2
+
+    // Visit 2 is marked: it stays free, and evening 3 becomes the paid third visit.
+    await db.run("UPDATE evening_participants SET attendance_status='attended' WHERE evening_id='nb2' AND player_id=?", [player.id]);
+    await reconcileNoviceEveningCharges(db, 'nb2');
+    await reconcileNoviceEveningCharges(db, 'nb3');
+    expect(await due('nb2')).toMatchObject({ amount_due: 0, payment_status: 'waived' });
+    expect(await due('nb3')).toMatchObject({ amount_due: 400, payment_status: 'unpaid' });
   });
 
   it('migrates the established roster to CLUB_PLAYER without changing skill level', async () => {

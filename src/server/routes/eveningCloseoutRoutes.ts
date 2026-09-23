@@ -5,11 +5,13 @@ import {
   loadEveningCloseout,
   settleEveningFromCloseout,
 } from '../services/eveningCloseoutService.ts';
+import { reconcileNoviceEveningCharges } from '../services/eveningSlotPlanningService.ts';
 
 const router = Router();
 
 router.get('/:id/closeout', requireOrganizerAuth, async (req, res) => {
   try {
+    await reconcileNoviceEveningCharges(req.db, String(req.params.id));
     return res.json(await loadEveningCloseout(req.db, String(req.params.id)));
   } catch (error: any) {
     return res.status(Number(error?.statusCode || 500)).json({

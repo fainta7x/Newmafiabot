@@ -186,13 +186,17 @@ const syncDestination = async (
   let postId = Number(existing?.post_id || 0);
   let externalUrl = existing?.external_url || destination.configuredUrl || null;
 
+  // Fingerprint of the text actually on VK; it advances only when a write succeeds.
+  let deliveredHash: string | null = hash;
   if (postId > 0) {
     try {
       await editVkWallPostWithPublisher({ groupId: destination.groupId, postId, message });
     } catch (error: any) {
       // Without an organizer API token the published post simply stays as is;
       // the live state is on the linked public page, so this is not a failure.
+      // Keep the old fingerprint so a later-connected token still applies the edit.
       if (error?.code !== 'vk_wall_edit_unavailable') throw error;
+      deliveredHash = existing?.last_message_hash ?? null;
     }
     if (destination.key === 'public') {
       postOwnerId = -Math.abs(Number(destination.groupId));
@@ -224,7 +228,7 @@ const syncDestination = async (
       updated_at=excluded.updated_at,
       last_error=NULL,
       last_message_hash=excluded.last_message_hash
-  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now, hash]);
+  `, [evening.id, destination.key, destination.groupId, postOwnerId, postId, externalUrl, existing?.published_at || now, now, deliveredHash]);
 
   return { publication: await getPublication(db, evening.id, destination.key), skipped: false };
 };

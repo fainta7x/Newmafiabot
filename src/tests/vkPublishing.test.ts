@@ -256,8 +256,15 @@ describe('VK publishing adapter', () => {
     const result = await syncDirectVkEveningPublications(db, 'evening-static', 'https://example.test');
     expect(result.results).toEqual([expect.objectContaining({ destination: 'public', success: true })]);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(await db.get<any>(`SELECT status, post_id, last_error FROM vk_evening_publications WHERE evening_id='evening-static'`))
-      .toEqual({ status: 'published', post_id: 55, last_error: null });
+    expect(await db.get<any>(`SELECT status, post_id, last_error, last_message_hash FROM vk_evening_publications WHERE evening_id='evening-static'`))
+      .toEqual({ status: 'published', post_id: 55, last_error: null, last_message_hash: null });
+
+    // Once an organizer API token appears, the skipped text is still delivered.
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ response: 1 }), { status: 200 }));
+    await syncDirectVkEveningPublications(db, 'evening-static', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.vk.com/method/wall.edit');
   });
 
   it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {

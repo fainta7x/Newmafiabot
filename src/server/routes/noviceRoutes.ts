@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { ensureNoviceSystemSchema } from '../../db/ensureNoviceSystemSchema.ts';
+import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { getPlayerSessionId, requireOrganizerAuth } from '../auth.ts';
 import { ensureSlotsForEvening } from '../services/eveningSlotPlanningService.ts';
 import {
+  admitPlayerWithoutApplication,
   convertNoviceToClubPlayer,
   createNoviceApplication,
   getNovicePlayerState,
+  listPlayersAwaitingFirstDecision,
   updateNoviceApplicationStatus,
 } from '../services/noviceService.ts';
 import { CLUB_STAGES, NOVICE_APPLICATION_STATUSES, NOVICE_ENTRY_ROUTES } from '../../shared/novice.ts';
@@ -114,8 +117,11 @@ organizerRouter.get('/applications', async (req, res) => {
   }
   const fridayDecisionAt = startsAt ? new Date(startsAt.getTime()) : null;
   if (fridayDecisionAt) fridayDecisionAt.setHours(15, 0, 0, 0);
+  await ensureVkIntegrationSchema(req.db);
+  const awaitingPlayers = await listPlayersAwaitingFirstDecision(req.db);
   return res.json({
     applications,
+    awaiting_players: awaitingPlayers.map((row: any) => ({ ...row, has_vk: Boolean(Number(row.has_vk || 0)) })),
     summary: Object.fromEntries(summary.map((row: any) => [row.status, Number(row.count || 0)])),
     operations: nextEvening ? {
       next_evening: { ...nextEvening, registered_count: Number(nextEvening.registered_count || 0) },
@@ -147,6 +153,22 @@ organizerRouter.post('/players/:playerId/convert', async (req, res) => {
   if (!player) return res.status(404).json({ error: 'Игрок не найден' });
   await convertNoviceToClubPlayer(req.db, String(req.params.playerId));
   return res.json({ success: true, state: await getNovicePlayerState(req.db, String(req.params.playerId)) });
+});
+
+organizerRouter.post('/players/:playerId/admit', async (req, res) => {
+  const entryRoute = String(req.body?.entry_route || '').toUpperCase();
+  if (!NOVICE_ENTRY_ROUTES.includes(entryRoute as any)) return res.status(400).json({ error: 'Укажите: новичок или опытный игрок' });
+  await ensureNoviceSystemSchema(req.db);
+  const player = await req.db.get<any>(`SELECT id, COALESCE(club_stage, 'NEW') AS club_stage FROM players WHERE id = ? LIMIT 1`, [String(req.params.playerId)]);
+  if (!player) return res.status(404).json({ error: 'Игрок не найден' });
+  if (player.club_stage !== 'NEW') return res.status(409).json({ error: 'Уровень этого игрока уже определён' });
+  try {
+    const state = await admitPlayerWithoutApplication(req.db, String(player.id), entryRoute as 'NOVICE' | 'EXPERIENCED');
+    return res.json({ success: true, state });
+  } catch (error: any) {
+    if (error?.code === 'application_exists') return res.status(409).json({ error: error.message, code: error.code });
+    throw error;
+  }
 });
 
 organizerRouter.patch('/players/:playerId/stage', async (req, res) => {

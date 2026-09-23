@@ -17,6 +17,14 @@ type Application = {
   created_at: string;
 };
 
+type AwaitingPlayer = {
+  id: string;
+  nickname: string | null;
+  telegram_username: string | null;
+  has_vk: boolean;
+  created_at: string;
+};
+
 const statusLabel: Record<string, string> = {
   NEW: 'Новая', CONFIRMED: 'Подтверждена', ATTENDED: 'Посетил', COMPLETED: 'Этап завершён',
   CONVERTED: 'В основном клубе', CANCELLED: 'Отменена',
@@ -33,6 +41,7 @@ export function NoviceDevelopmentCRM() {
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [operations, setOperations] = useState<any>(null);
+  const [awaiting, setAwaiting] = useState<AwaitingPlayer[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +52,7 @@ export function NoviceDevelopmentCRM() {
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить воронку');
       setApplications(Array.isArray(body.applications) ? body.applications : []);
       setOperations(body.operations || null);
+      setAwaiting(Array.isArray(body.awaiting_players) ? body.awaiting_players : []);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить воронку');
     } finally {
@@ -87,10 +97,28 @@ export function NoviceDevelopmentCRM() {
     }
   };
 
+  const admit = async (player: AwaitingPlayer, entryRoute: 'NOVICE' | 'EXPERIENCED') => {
+    setBusy(player.id);
+    setError('');
+    try {
+      const response = await fetch(`/api/novice/players/${encodeURIComponent(player.id)}/admit`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_route: entryRoute }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить решение');
+      await load();
+    } catch (admitError: any) {
+      setError(admitError?.message || 'Не удалось сохранить решение');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const visible = useMemo(() => filter === 'all'
     ? applications
     : applications.filter((item) => !['CANCELLED', 'CONVERTED'].includes(item.status)), [applications, filter]);
-  const newCount = applications.filter((item) => item.status === 'NEW').length;
+  const newCount = applications.filter((item) => item.status === 'NEW').length + awaiting.length;
   const readyCount = applications.filter((item) => item.status === 'COMPLETED').length;
 
   return <div className="space-y-3">
@@ -114,7 +142,19 @@ export function NoviceDevelopmentCRM() {
     </div>
 
     {error ? <div className="rounded-2xl border border-rose-300/20 bg-rose-300/[0.08] p-3 text-[12px] text-rose-100">{error}</div> : null}
-    {!loading && !visible.length ? <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 text-center text-sm text-white/45">Заявок пока нет</div> : null}
+    {!loading && !visible.length && !awaiting.length ? <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 text-center text-sm text-white/45">Заявок пока нет</div> : null}
+
+    {awaiting.length ? <section className="space-y-2" aria-label="Новые игроки без заявки">
+      <h3 className="px-1 text-[13px] font-semibold text-amber-100">Зарегистрировались, ждут решения · {awaiting.length}</h3>
+      {awaiting.map((player) => <article key={player.id} className="rounded-[20px] border border-amber-300/20 bg-amber-300/[0.06] p-3">
+        <h4 className="truncate text-[15px] font-semibold">{player.nickname || 'Игрок'}</h4>
+        <p className="mt-1 text-[12px] text-white/45">{player.telegram_username ? `@${player.telegram_username}` : player.has_vk ? 'VK' : 'Telegram'} · {dateLabel(player.created_at)}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'EXPERIENCED')} className="min-h-11 rounded-xl bg-emerald-300/15 text-[12px] font-semibold text-emerald-100"><UserRoundCheck className="mr-1 inline h-4 w-4" />Опытный — в клуб</button>
+          <button disabled={busy === player.id} type="button" onClick={() => void admit(player, 'NOVICE')} className="min-h-11 rounded-xl bg-sky-300/10 text-[12px] font-semibold text-sky-100"><Check className="mr-1 inline h-4 w-4" />Новичок</button>
+        </div>
+      </article>)}
+    </section> : null}
 
     <div className="space-y-2">
       {visible.map((application) => <article key={application.id} className="rounded-[20px] border border-white/10 bg-white/[0.035] p-3">

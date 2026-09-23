@@ -97,7 +97,7 @@ export async function getNovicePlayerState(db: DatabaseWrapper, playerId: string
 
 export async function createNoviceApplication(
   db: DatabaseWrapper,
-  input: { playerId: string; eveningId?: string | null; source?: string; entryRoute?: NoviceEntryRoute; notes?: string },
+  input: { playerId: string; eveningId?: string | null; source?: string; entryRoute?: NoviceEntryRoute; notes?: string; notifyOrganizer?: boolean },
 ) {
   const timestamp = now();
   const applicationId = id();
@@ -155,6 +155,7 @@ export async function createNoviceApplication(
     };
   });
 
+  if (input.notifyOrganizer === false) return result!;
   const player = await db.get<any>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [input.playerId]);
   await enqueueOrganizerNotification(db, {
     messageKey: `novice-application:${applicationId}`,
@@ -185,6 +186,15 @@ export async function updateNoviceApplicationStatus(
     await db.run(
       `UPDATE players SET club_stage = ?, game_level = CASE WHEN ? = 'NOVICE' AND game_level = 'unrated' THEN 'novice' ELSE game_level END WHERE id = ?`,
       [route === 'NOVICE' ? 'NOVICE_ACTIVE' : 'CLUB_PLAYER', route, application.player_id],
+    );
+  }
+  if (application.player_id && ['CONFIRMED', 'CANCELLED'].includes(status)) {
+    // The organizer has decided on the newcomer, so the registration follow-up is done.
+    const tasksTable = await db.get<any>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'organizer_tasks'");
+    if (tasksTable) await db.run(
+      `UPDATE organizer_tasks SET status = 'done', completed_at = ?, updated_at = ?
+        WHERE automation_key = ? AND status NOT IN ('done', 'cancelled')`,
+      [timestamp, timestamp, `verified-onboarding:new-player:${application.player_id}`],
     );
   }
   if (application.player_id && status === 'COMPLETED') {
@@ -223,4 +233,37 @@ export async function convertNoviceToClubPlayer(
         AND status != 'CONVERTED'`,
     [timestamp, playerId],
   );
+}
+
+/** Newly registered accounts that have neither applied nor been reviewed yet. */
+export async function listPlayersAwaitingFirstDecision(db: DatabaseWrapper) {
+  return db.all<any>(
+    `SELECT p.id, p.nickname, p.telegram_username, p.source, p.created_at,
+            EXISTS(SELECT 1 FROM player_external_identities i WHERE i.player_id = p.id AND i.platform = 'vk') AS has_vk
+       FROM players p
+      WHERE COALESCE(p.club_stage, 'NEW') = 'NEW'
+        AND (p.telegram_user_id IS NOT NULL
+             OR EXISTS(SELECT 1 FROM player_external_identities i WHERE i.player_id = p.id AND i.platform = 'vk'))
+        -- Any application, including a rejected one, means the organizer already has it in the queue below.
+        AND NOT EXISTS(SELECT 1 FROM novice_applications na WHERE na.player_id = p.id)
+      ORDER BY datetime(p.created_at) DESC
+      LIMIT 50`,
+  );
+}
+
+/** Organizer decision for a registered player who has not applied themselves. */
+export async function admitPlayerWithoutApplication(db: DatabaseWrapper, playerId: string, entryRoute: NoviceEntryRoute) {
+  const applicationConflict = () => Object.assign(
+    new Error('Игрок уже подал заявку — решение принимается в списке заявок'),
+    { statusCode: 409, code: 'application_exists' },
+  );
+  const existing = await db.get<any>('SELECT id FROM novice_applications WHERE player_id = ? LIMIT 1', [playerId]);
+  if (existing) throw applicationConflict();
+  const application = await createNoviceApplication(db, {
+    playerId, source: 'ORGANIZER', entryRoute, notifyOrganizer: false,
+  });
+  // createNoviceApplication returns a concurrent player application instead of
+  // inserting; never confirm that one with the organizer's route.
+  if (!application.created) throw applicationConflict();
+  return updateNoviceApplicationStatus(db, application.id, 'CONFIRMED');
 }

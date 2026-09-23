@@ -5,6 +5,7 @@ import { ensureJudgeAuthoritySchema } from '../../db/ensureJudgeAuthoritySchema.
 import { ensureEloSeedSchema } from '../../db/ensureEloSeedSchema.ts';
 import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
 import { recordNewPlayerOnboardingNotification } from './playerOnboardingOrganizerService.ts';
+import { enqueueOrganizerNotification } from './organizerNotificationService.ts';
 
 export class PlayerRegistrationError extends Error {
   code: string;
@@ -119,7 +120,8 @@ export async function registerVerifiedPlayerIdentity(
     throw new PlayerRegistrationError('nickname_taken', 'Игрок с таким ником уже есть в клубе. Его нужно привязать, а не создавать заново.', 409);
   }
 
-  return db.transaction(async (tx) => {
+  const source = input.source || `${input.platform}_verified_onboarding`;
+  const result = await db.transaction(async (tx) => {
     const linkedAgain = input.platform === 'telegram'
       ? await getPlayerByTelegramId(tx, externalUserId)
       : await tx.get<{ player_id: string }>(`SELECT player_id FROM player_external_identities WHERE platform='vk' AND external_user_id=? LIMIT 1`, [externalUserId])
@@ -135,7 +137,6 @@ export async function registerVerifiedPlayerIdentity(
     const fullName = normalizeFullName(input.fullName);
     const telegramUserId = input.platform === 'telegram' ? externalUserId : null;
     const telegramUsername = input.platform === 'telegram' ? username : null;
-    const source = input.source || `${input.platform}_verified_onboarding`;
 
     await tx.run(
       `INSERT INTO players (
@@ -155,12 +156,27 @@ export async function registerVerifiedPlayerIdentity(
       `, [externalUserId, playerId, username, fullName, now, now]);
     }
 
-    if (source === `${input.platform}_verified_onboarding`) {
-      await recordNewPlayerOnboardingNotification(tx, { playerId, nickname, platform: input.platform });
-    }
+    // Every self-registration path (bot, WebApp, VK, verified onboarding) needs an
+    // organizer decision on the player's level before they can self-register.
+    await recordNewPlayerOnboardingNotification(tx, { playerId, nickname, platform: input.platform });
 
     return { created: true, player: await selectPlayer(tx, playerId) };
   });
+
+  if (result.created && !source.startsWith('test_environment')) {
+    try {
+      await enqueueOrganizerNotification(db, {
+        messageKey: `new-player-registered:${result.player.id}`,
+        eventType: 'new_player_registered',
+        entityId: String(result.player.id),
+        text: `🆕 Новый игрок: ${nickname} (${input.platform === 'telegram' ? 'Telegram' : 'VK'}).\nПодтвердите уровень: CRM → Ещё → Развитие.`,
+      });
+    } catch (error) {
+      // Registration must not fail because the organizer alert could not be queued.
+      console.error('[REGISTRATION] organizer notification failed:', error instanceof Error ? error.message : String(error));
+    }
+  }
+  return result;
 }
 
 export async function registerNewPlayer(

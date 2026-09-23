@@ -8,7 +8,7 @@ const parseIds = (value: unknown): string[] => Array.from(new Set(
 
 const enabled = (value: unknown) => ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
 
-export type OrganizerRecipientSource = 'ORGANIZER_NOTIFICATION_IDS' | 'ORGANIZER_CHAT_ID' | 'BACKUP_ADMIN_ID' | 'none';
+export type OrganizerRecipientSource = 'ORGANIZER_NOTIFICATION_IDS' | 'ORGANIZER_CHAT_ID' | 'BACKUP_ADMIN_ID' | 'ORGANIZER_ACCESS' | 'none';
 
 export function resolveOrganizerNotificationRecipients(env: NodeJS.ProcessEnv = process.env) {
   const direct = parseIds(env.ORGANIZER_NOTIFICATION_IDS);
@@ -22,8 +22,31 @@ export function resolveOrganizerNotificationRecipients(env: NodeJS.ProcessEnv = 
   return { recipients: [], source: 'none' as const, fallback: false };
 }
 
+/**
+ * Explicit env configuration wins. Without it, organizers who hold CRM access
+ * and have a linked Telegram account receive the alerts, so notifications work
+ * on a fresh deployment without extra variables.
+ */
+export async function resolveOrganizerNotificationRecipientsWithAccess(db: DatabaseWrapper, env: NodeJS.ProcessEnv = process.env) {
+  const configured = resolveOrganizerNotificationRecipients(env);
+  if (configured.recipients.length) return configured;
+  try {
+    const rows = await db.all<{ telegram_user_id: string | null }>(`
+      SELECT p.telegram_user_id
+        FROM organizer_player_access a
+        JOIN players p ON p.id = a.player_id
+       WHERE p.telegram_user_id IS NOT NULL
+    `);
+    const recipients = parseIds(rows.map((row) => String(row.telegram_user_id || '')).join(','));
+    if (recipients.length) return { recipients, source: 'ORGANIZER_ACCESS' as const, fallback: false };
+  } catch {
+    // Missing access storage means no organizer identities to notify.
+  }
+  return configured;
+}
+
 export async function getOrganizerNotificationDiagnostics(db: DatabaseWrapper) {
-  const config = resolveOrganizerNotificationRecipients();
+  const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   const delivery = await getTelegramMessageDiagnostics(db);
   return {
     configured_recipient_count: config.recipients.length,
@@ -41,7 +64,7 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
   entityId: string;
   text: string;
 }) {
-  const config = resolveOrganizerNotificationRecipients();
+  const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   for (const chatId of config.recipients) {
     await enqueueTelegramMessage(db, {
       messageKey: `${input.messageKey}:${chatId}`,
@@ -57,7 +80,7 @@ export async function enqueueOrganizerNotification(db: DatabaseWrapper, input: {
 }
 
 export async function enqueueOrganizerTestNotification(db: DatabaseWrapper) {
-  const config = resolveOrganizerNotificationRecipients();
+  const config = await resolveOrganizerNotificationRecipientsWithAccess(db);
   if (!config.recipients.length) throw new Error('Организаторы для Telegram-уведомлений не настроены');
   const eventId = randomUUID();
   const stamp = new Date().toLocaleString('ru-RU');

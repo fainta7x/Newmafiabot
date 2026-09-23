@@ -20,8 +20,9 @@ let sessionKey = '';
 let installed = false;
 
 const randomKey = () => {
-  try { if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID(); } catch { /* fall through */ }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
 const getSessionKey = () => {
@@ -30,7 +31,7 @@ const getSessionKey = () => {
     sessionKey = sessionStorage.getItem('ui_session_key') || '';
     if (!sessionKey) { sessionKey = randomKey(); sessionStorage.setItem('ui_session_key', sessionKey); }
   } catch {
-    sessionKey = sessionKey || randomKey();
+    try { sessionKey = sessionKey || randomKey(); } catch { sessionKey = ''; }
   }
   return sessionKey;
 };
@@ -49,7 +50,7 @@ const actionName = (value: string) => value.trim().toLowerCase().replace(/[^a-z0
 
 const flush = (useBeacon = false) => {
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-  if (!queue.length || !queueSurface) return;
+  if (!queue.length || !queueSurface || !getSessionKey()) { queue = []; return; }
   const payload = JSON.stringify({ session: getSessionKey(), surface: queueSurface, events: queue });
   queue = [];
   try {

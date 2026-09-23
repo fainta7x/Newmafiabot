@@ -6,6 +6,7 @@ import { VotingRound, determineVotingResult } from "../../shared/tournamentVotin
 import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import "../crm/liveGameEveningBugfixes.css";
+import "../crm/liveGameHudReadability.css";
 import {
   BEST_MOVE_SECONDS,
   DEATH_PROTOCOL_SECONDS,
@@ -501,7 +502,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               onClick={() => handleUndoLastVote?.()}
               className="live-judge-stat live-judge-vote-undo"
             >
-              <span className="live-judge-stat__label">Отмена</span>
+              <span className="live-judge-stat__label">Отменить</span>
               <span className="live-judge-vote-undo__value"><RotateCcw />голос</span>
             </button>
           </div>
@@ -737,6 +738,7 @@ export default function CenterPanel(props: CenterPanelProps) {
               <select
                 data-testid="live-player-actions-center-selector"
                 aria-label="Быстрые действия игрока"
+                title="Действия игрока"
                 value=""
                 onChange={(event) => {
                   const slot = Number(event.target.value);

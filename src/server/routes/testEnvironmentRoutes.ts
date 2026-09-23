@@ -54,7 +54,7 @@ router.post('/login', async (req, res) => {
 
   resetLoginRateLimit(`test:${clientIp}`);
   setPlayerCookie(res, testEnvironmentPlayerId(TEST_PLAYER_ID));
-  if (role === 'organizer') setOrganizerCookie(res);
+  if (role === 'organizer') setOrganizerCookie(res, undefined, { sandbox: true });
   else res.clearCookie('organizer_token', { path: '/' });
 
   return res.json({

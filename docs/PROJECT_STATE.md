@@ -49,7 +49,7 @@ Existing non-empty `/data/mafia_crm.sqlite` always wins over repository checkpoi
 
 The Python bot still has legacy local state at `/data/mafia_crm.db`; it is not the canonical product database and must never replace or seed `/data/mafia_crm.sqlite`.
 
-The production application contains a password-protected manual sandbox at `/test-login`. A signed test-session cookie switches requests from `/data/mafia_crm.sqlite` to the separate `/data/mafia_crm.test.sqlite` file while reusing the real Player Cabinet, CRM and Live Game UI. The sandbox starts from an empty schema plus synthetic seed data, never from the production checkpoint. Production sessions and background delivery workers remain attached only to the production database.
+The production application contains a password-protected manual sandbox at `/test-login`. A signed test-session cookie switches requests from `/data/mafia_crm.sqlite` to the separate `/data/mafia_crm.test.sqlite` file while reusing the real Player Cabinet, CRM and Live Game UI. The sandbox starts from an empty schema plus synthetic seed data, never from the production checkpoint. Production sessions and background delivery workers remain attached only to the production database. A sandbox organizer login issues a `test_sandbox` organizer session that is honoured only together with the sandbox player session; it never authorizes production CRM routes (organizer session version 3 revoked all earlier tokens).
 
 Repository checkpoint files are bootstrap/recovery artifacts only:
 

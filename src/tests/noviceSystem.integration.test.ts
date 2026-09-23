@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.ts';
 import { createDatabaseConnection, type DatabaseWrapper } from '../db/index.ts';
@@ -12,7 +12,7 @@ const makeDb = () => { const db = createDatabaseConnection(':memory:'); opened.p
 const organizerCookie = () => `organizer_token=${generateOrganizerToken()}`;
 const playerCookie = (id: string) => `player_token=${generatePlayerSessionToken(id)}`;
 
-afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); });
+afterEach(() => { while (opened.length) opened.pop()?.sqlite.close(); vi.unstubAllEnvs(); });
 
 describe('NOVICE-001 funnel', () => {
   it('keeps a first-time profile pending until organizer confirmation', async () => {
@@ -40,6 +40,38 @@ describe('NOVICE-001 funnel', () => {
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.state.player).toMatchObject({ club_stage: 'NOVICE_ACTIVE', game_level: 'novice' });
     expect(confirmed.body.state.can_self_register).toBe(true);
+  });
+
+  it('surfaces a bot-registered player without an application and lets the organizer admit them', async () => {
+    vi.stubEnv('ORGANIZER_NOTIFICATION_IDS', '5550001');
+    const db = makeDb();
+    const app = await createApp(db);
+    // Same source the Telegram bot's /api/bot/players/register route passes.
+    const { player } = await registerNewPlayer(db, {
+      telegramUserId: '778', telegramUsername: 'veteran', nickname: 'Опытный из бота', source: 'telegram_bot_registration',
+    });
+
+    const alert = await db.get<any>('SELECT chat_id, text FROM telegram_message_outbox WHERE message_key = ?', [`new-player-registered:${player.id}:5550001`]);
+    expect(alert?.text).toContain('Опытный из бота');
+    expect(await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key = ?', [`verified-onboarding:new-player:${player.id}`]))
+      .toMatchObject({ status: 'todo' });
+
+    const queue = await request(app).get('/api/novice/applications').set('Cookie', organizerCookie());
+    expect(queue.body.awaiting_players).toEqual([expect.objectContaining({ id: player.id, nickname: 'Опытный из бота', telegram_username: 'veteran' })]);
+
+    const admitted = await request(app).post(`/api/novice/players/${player.id}/admit`)
+      .set('Cookie', organizerCookie()).send({ entry_route: 'EXPERIENCED' });
+    expect(admitted.status).toBe(200);
+    expect(admitted.body.state.player.club_stage).toBe('CLUB_PLAYER');
+    expect(admitted.body.state.can_self_register).toBe(true);
+    expect(await db.get<any>('SELECT status FROM organizer_tasks WHERE automation_key = ?', [`verified-onboarding:new-player:${player.id}`]))
+      .toMatchObject({ status: 'done' });
+
+    const after = await request(app).get('/api/novice/applications').set('Cookie', organizerCookie());
+    expect(after.body.awaiting_players).toEqual([]);
+    const again = await request(app).post(`/api/novice/players/${player.id}/admit`)
+      .set('Cookie', organizerCookie()).send({ entry_route: 'NOVICE' });
+    expect(again.status).toBe(409);
   });
 
   it('temporarily reserves an evening place for a pending novice application', async () => {

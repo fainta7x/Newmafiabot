@@ -197,11 +197,14 @@ export default function PlayerCabinetV2({
   canOpenAdmin = false,
   initialTab = 'home',
   onTabChange,
+  embedded = false,
 }: {
   data: PlayerMeResponse;
   canOpenAdmin?: boolean;
   initialTab?: PlayerTab;
   onTabChange?: (tab: PlayerTab) => void;
+  /** Rendered inside the Player Cabinet shell, which owns the page heading and bottom navigation. */
+  embedded?: boolean;
 }) {
   const { tournaments, games } = data;
   const [player, setPlayer] = useState(data.player);
@@ -375,14 +378,14 @@ export default function PlayerCabinetV2({
         {tokensOpen && (
           <>
             <button type="button" onClick={() => setTokensOpen(false)} className="self-start rounded-xl bg-white/[0.06] px-3 py-2 text-sm text-white/60">← На главную</button>
-            <PageHeading title="Жетоны" subtitle="Кошелёк, магазин, ставки и история операций" />
+            {!embedded && <PageHeading title="Жетоны" subtitle="Кошелёк, магазин, ставки и история операций" />}
             <PlayerEconomy onBalanceChange={setTokenBalance} />
           </>
         )}
 
         {!tokensOpen && tab === 'home' && (
           <>
-            <PageHeading title="Главная" subtitle={`Привет, ${player.nickname}`} />
+            {!embedded && <PageHeading title="Главная" subtitle={`Привет, ${player.nickname}`} />}
             <button
               type="button"
               onClick={() => setTokensOpen(true)}
@@ -424,7 +427,7 @@ export default function PlayerCabinetV2({
             />
           ) : (
             <>
-              <PageHeading title="Игры" subtitle="Личная история и общий архив клуба" />
+              {!embedded && <PageHeading title="Игры" subtitle="Личная история и общий архив клуба" />}
               <Toggle<GameScope> value={gameScope} onChange={setGameScope} items={[{ value: 'mine', label: 'Мои игры' }, { value: 'all', label: 'Все игры' }]} />
               {gameScope === 'mine' ? (
                 <Section title="Моя история">
@@ -434,7 +437,7 @@ export default function PlayerCabinetV2({
                     const eloChange = eloGames?.[game.id];
                     return <button key={game.id} type="button" onClick={() => void openGameDetail(game.id)} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">
                       <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{game.title}</div><div className="mt-1 text-xs text-white/40">{formatDate(game.date)} · {game.source === 'tournament' ? 'Турнир' : 'Клуб'}{game.game_number ? ` · Игра №${game.game_number}` : ''}</div></div><span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-1 text-xs text-white/65">{game.status !== 'completed' ? 'Не завершена' : game.won === true ? 'Победа' : game.won === false ? 'Поражение' : 'Результат'}</span></div>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>{game.seat_number > 0 && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">место {game.seat_number}</span>}{game.first_killed && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ПУ</span>}{game.best_move && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ЛХ</span>}{points.map((part) => <span key={String(part)} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}</div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/70">{roleLabel(game.role)}</span>{game.seat_number > 0 && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">№{game.seat_number} за столом</span>}{game.first_killed && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ПУ</span>}{game.best_move && <span className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">ЛХ</span>}{points.map((part) => <span key={String(part)} className="rounded-full bg-white/[0.07] px-2 py-1 text-white/55">{part}</span>)}</div>
                       <div className="mt-3 flex items-end justify-between gap-3 border-t border-white/[0.06] pt-2">
                         <div className="min-w-0 text-[11px] text-white/30">{[game.table_name, game.judge_name ? `судья ${game.judge_name}` : null].filter(Boolean).join(' · ') || 'Нажмите, чтобы открыть игру'}</div>
                         <div className="shrink-0 text-right"><div className={`text-xs font-semibold ${eloDeltaClass(eloChange?.elo_delta)}`}>{eloGamesError ? 'Elo недоступно' : eloGames === null ? 'Elo…' : formatEloDelta(eloChange?.elo_delta)}</div><div className="mt-0.5 text-[10px] text-white/25">Подробнее ›</div></div>
@@ -459,7 +462,7 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'rating' && (
           <>
-            <PageHeading title="Рейтинг" subtitle="Рейтинговые периоды и общий Elo клуба" />
+            {!embedded && <PageHeading title="Рейтинг" subtitle="Рейтинговые периоды и общий Elo клуба" />}
             <PlayerRatingPeriods
               playerId={player.id}
               onOpenGame={(gameKey) => {
@@ -476,7 +479,7 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'stats' && (
           <>
-            <PageHeading title="Статистика" subtitle="Игровые показатели и турнирные награды" />
+            {!embedded && <PageHeading title="Статистика" subtitle="Игровые показатели и турнирные награды" />}
             <Section title="Игровая статистика">
               <div className="grid grid-cols-3 gap-2"><StatCard value={stats.completedGames} label="игр" /><StatCard value={stats.wins} label="побед" /><StatCard value={`${stats.winRate}%`} label="винрейт" /></div>
               <div className="mt-2 grid grid-cols-2 gap-2"><StatCard value={stats.redGames} label="за красных" /><StatCard value={stats.blackGames} label="за чёрных" /></div>
@@ -493,7 +496,7 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'club' && (
           <>
-            <PageHeading title="Клуб" subtitle="Текущая форма, серии, связи и жизнь 2LA Noire" />
+            {!embedded && <PageHeading title="Клуб" subtitle="Текущая форма, серии, связи и жизнь 2LA Noire" />}
             <PlayerClubSection games={games.all} />
           </>
         )}
@@ -502,7 +505,7 @@ export default function PlayerCabinetV2({
 
         {!tokensOpen && tab === 'profile' && (
           <>
-            <PageHeading title="Профиль" subtitle="Мой аккаунт и игроки клуба" />
+            {!embedded && <PageHeading title="Профиль" subtitle="Мой аккаунт и игроки клуба" />}
             <Toggle<ProfileScope> value={profileScope} onChange={(value) => { setProfileScope(value); if (value === 'self') setSelectedProfile(null); }} items={[{ value: 'self', label: 'Мой профиль' }, { value: 'players', label: 'Игроки клуба' }]} />
             {profileScope === 'self' ? (
               <>
@@ -538,7 +541,7 @@ export default function PlayerCabinetV2({
         )}
       </div>
 
-      {!tokensOpen && <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-1.5 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
+      {!embedded && !tokensOpen && <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0b0c10]/95 px-1.5 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-[430px] grid-cols-7 gap-0.5">{NAV_ITEMS.map((item) => {
           const active = item.id === tab;
           return <button key={item.id} type="button" onClick={() => { setTab(item.id); onTabChange?.(item.id); if (item.id !== 'games') closeGameDetail(); }} className={`flex min-h-14 min-w-0 flex-col items-center justify-center rounded-xl px-0.5 text-[9px] transition ${active ? 'bg-white/[0.09] text-white' : 'text-white/40'}`}><span className="text-base leading-none">{item.icon}</span><span className="mt-1 max-w-full truncate">{item.label}</span></button>;

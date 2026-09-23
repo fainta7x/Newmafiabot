@@ -152,9 +152,9 @@ export default function PlayerHomeDashboard({
           <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Твоя игра</div>
           <div className="mt-3 grid grid-cols-4 gap-1.5">
             <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{data.player.elo}</div><div className="mt-1 text-[12px] text-white/50">Elo</div></div>
-            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{selfRating ? `#${selfRating.place}` : '—'}</div><div className="mt-1 text-[12px] text-white/50">место</div></div>
-            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.completedGames}</div><div className="mt-1 text-[12px] text-white/50">игр</div></div>
-            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.winRate}%</div><div className="mt-1 text-[12px] text-white/50">побед</div></div>
+            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{selfRating ? `#${selfRating.place}` : '—'}</div><div className="mt-1 text-[12px] text-white/50">Место</div></div>
+            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.completedGames}</div><div className="mt-1 text-[12px] text-white/50">Игры</div></div>
+            <div className="min-w-0 rounded-2xl bg-black/20 px-2 py-3"><div className="text-lg font-semibold tabular-nums">{stats.winRate}%</div><div className="mt-1 text-[12px] text-white/50">Победы</div></div>
           </div>
           {(currentStreak || recentResult) ? (
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 rounded-2xl bg-black/15 px-3 py-2 text-[12px] text-white/55">

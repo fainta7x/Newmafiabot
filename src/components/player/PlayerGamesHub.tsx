@@ -80,15 +80,11 @@ export default function PlayerGamesHub({
         <PlayerEveningSummaries initialEveningId={target} embedded />
       ) : (
         <div className="player-games-v2">
-          <style>{`
-            .player-games-v2 nav.fixed{display:none!important}
-            .player-games-v2 main > div > div[class*="px-1"][class*="pb-1"][class*="pt-2"]{display:none!important}
-            .player-games-v2 main{padding-top:.5rem!important}
-          `}</style>
           <PlayerHistoryStatsView
             data={data}
             canOpenAdmin={canOpenAdmin}
             initialTab={section}
+            embedded
             onTabChange={(next) => {
               if (next === 'games' || next === 'stats') onOpen(next);
             }}

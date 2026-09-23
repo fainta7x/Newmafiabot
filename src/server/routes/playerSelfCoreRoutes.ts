@@ -118,6 +118,8 @@ router.get('/players', async (req, res) => {
              EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
         FROM players p
        WHERE TRIM(COALESCE(p.nickname, '')) <> ''
+         -- Archived rows of migrated guests are not players (GUEST-PLAYER-001).
+         AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
        ORDER BY p.nickname COLLATE NOCASE ASC
     `);
 
@@ -181,7 +183,7 @@ router.get('/players/:playerId', async (req, res) => {
               EXISTS(SELECT 1 FROM player_avatars pa WHERE pa.player_id = p.id) AS has_db_avatar,
               EXISTS(SELECT 1 FROM player_avatar_repository_suppression s WHERE s.player_id = p.id) AS avatar_suppressed
          FROM players p
-        WHERE p.id = ?
+        WHERE p.id = ? AND COALESCE(p.source, '') <> 'legacy_guest_migrated'
         LIMIT 1`,
       [targetId],
     );

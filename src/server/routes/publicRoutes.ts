@@ -28,7 +28,7 @@ router.get('/players/:id/profile', async (req:Request, res:Response) => {
   try {
     const db=req.db||(await getDb());
     await ensurePlayerProfileVisibilitySchema(db);
-    const player=await db.get<any>('SELECT id,nickname,full_name,game_level,elo,birth_day,birth_month,birth_year,birthday_visibility,profile_visibility_json FROM players WHERE id=? LIMIT 1',[req.params.id]);
+    const player=await db.get<any>("SELECT id,nickname,full_name,game_level,elo,birth_day,birth_month,birth_year,birthday_visibility,profile_visibility_json FROM players WHERE id=? AND COALESCE(source,'')<>'legacy_guest_migrated' LIMIT 1",[req.params.id]);
     if(!player)return res.status(404).json({error:'Игрок не найден'});
     const visibility=parsePlayerProfileVisibility(player.profile_visibility_json,player.birthday_visibility);
     await syncTrustedTournamentAwards(db,String(player.id));

@@ -111,7 +111,7 @@ export default function PlayerSeasonsPanel() {
       <section className="rounded-[26px] border border-sky-200/10 bg-gradient-to-br from-sky-300/[0.055] to-white/[0.02] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100/45">Текущий сезон</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100/45">Итоги сезона</div>
             <div className="mt-1 text-xl font-black">{data.season.label}</div>
             <div className="mt-1 text-[10px] text-white/30">{data.season.games} игр · {data.season.players} игроков</div>
           </div>

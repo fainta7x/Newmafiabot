@@ -3,6 +3,7 @@ import { getPlayerSessionId } from '../auth.ts';
 import careerProfileRoutes from './playerCareerProfileRoutes.ts';
 import clubWorldRoutes from './playerClubWorldRoutes.ts';
 import notificationsRoutes from './playerNotificationsRoutes.ts';
+import tournamentResultsRoutes from './playerTournamentResultsRoutes.ts';
 import { loadCompletedGameSnapshots } from '../services/clubGameAnalyticsService.ts';
 import { loadPlayerEloHistory } from '../services/playerEloHistoryService.ts';
 import { calculateCanonicalEloGame, DEFAULT_ELO, type EloTeam } from '../services/eloRatingService.ts';
@@ -13,6 +14,7 @@ const router = Router();
 router.use(careerProfileRoutes);
 router.use(clubWorldRoutes);
 router.use(notificationsRoutes);
+router.use(tournamentResultsRoutes);
 
 const requirePlayerId = (req: any, res: any): string | null => {
   const playerId = getPlayerSessionId(req);

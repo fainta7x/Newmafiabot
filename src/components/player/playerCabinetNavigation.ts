@@ -8,6 +8,7 @@ export type PlayerCabinetSection =
   | 'rating'
   | 'elo'
   | 'ratingperiods'
+  | 'ratingtournaments'
   | 'clubworld'
   | 'club'
   | 'wallet'
@@ -27,7 +28,7 @@ export const PLAYER_CABINET_NAV: ReadonlyArray<{ id: PlayerCabinetNavId; label: 
 ];
 
 const GAME_SECTIONS = new Set<PlayerCabinetSection>(['games', 'stats', 'career', 'recaps']);
-const RATING_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'clubworld']);
+const RATING_SECTIONS = new Set<PlayerCabinetSection>(['rating', 'elo', 'ratingperiods', 'ratingtournaments']);
 
 export const normalizePlayerCabinetSection = (section: PlayerCabinetSection): PlayerCabinetSection => {
   if (section === 'more') return 'club';
@@ -46,5 +47,7 @@ export const isPlayerCabinetNavActive = (
   const normalized = normalizePlayerCabinetSection(section);
   if (navId === 'games') return isPlayerGameSection(normalized);
   if (navId === 'rating') return isPlayerRatingSection(normalized);
+  // Calendar seasons are club statistics, not a rating (see PlayerClubHub).
+  if (navId === 'club') return normalized === 'club' || normalized === 'clubworld';
   return normalized === navId;
 };

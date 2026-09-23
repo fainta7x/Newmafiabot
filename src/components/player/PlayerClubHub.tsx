@@ -4,6 +4,7 @@ import { SegmentedControl } from '../ui/SegmentedControl.tsx';
 import PlayerClubActivity from './PlayerClubActivity.tsx';
 import PlayerClubConnections from './PlayerClubConnections.tsx';
 import PlayerClubDirectory from './PlayerClubDirectory.tsx';
+import PlayerSeasonsPanel from './PlayerSeasonsPanel.tsx';
 
 type ClubView = 'players' | 'activity' | 'connections';
 
@@ -13,8 +14,8 @@ const NAV: Array<{ value: ClubView; label: string }> = [
   { value: 'connections', label: 'Связи' },
 ];
 
-export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
-  const [view, setView] = useState<ClubView>('players');
+export default function PlayerClubHub({ data, initialView = 'players' }: { data: PlayerMeResponse; initialView?: ClubView }) {
+  const [view, setView] = useState<ClubView>(initialView);
 
   return (
     <main className="min-h-[var(--tg-viewport-stable-height,100dvh)] bg-[#090a0d] px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 text-white">
@@ -32,7 +33,7 @@ export default function PlayerClubHub({ data }: { data: PlayerMeResponse }) {
         />
 
         {view === 'players' && <PlayerClubDirectory selfId={data.player.id} />}
-        {view === 'activity' && <PlayerClubActivity />}
+        {view === 'activity' && <><PlayerClubActivity /><PlayerSeasonsPanel /></>}
         {view === 'connections' && <PlayerClubConnections />}
       </div>
     </main>

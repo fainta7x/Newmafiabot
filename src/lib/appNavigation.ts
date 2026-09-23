@@ -5,6 +5,7 @@ export type PlayerRouteSection =
   | 'conduct'
   | 'rating'
   | 'ratingperiods'
+  | 'ratingtournaments'
   | 'stats'
   | 'club'
   | 'payments'
@@ -38,6 +39,7 @@ export const playerPathForSection = (section: PlayerRouteSection, target?: strin
     conduct: target === 'music' ? '/player/conduct/music' : '/player/conduct',
     rating: '/player/rating',
     ratingperiods: '/player/rating/periods',
+    ratingtournaments: '/player/rating/tournaments',
     stats: '/player/stats',
     club: '/player/club',
     payments: '/player/wallet',
@@ -80,6 +82,7 @@ export const parsePlayerRoute = (pathname: string): ParsedPlayerRoute => {
     return { section: 'recaps', target, replayGameKey: null, canonicalPath: playerPathForSection('recaps', target) };
   }
   if (parts[1] === 'rating' && parts[2] === 'periods') return { section: 'ratingperiods', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingperiods') };
+  if (parts[1] === 'rating' && parts[2] === 'tournaments') return { section: 'ratingtournaments', target: null, replayGameKey: null, canonicalPath: playerPathForSection('ratingtournaments') };
   if (parts[1] === 'more') return { section: 'club', target: null, replayGameKey: null, canonicalPath: playerPathForSection('club') };
   if (parts[1] === 'payments') return { section: 'wallet', target: null, replayGameKey: null, canonicalPath: playerPathForSection('wallet') };
 
@@ -103,7 +106,8 @@ export const appBackTarget = (pathname: string): string | null => {
     if (parts[1] === 'events' && parts.length > 2) return '/player/events';
     if (parts[1] === 'recaps' && parts.length > 2) return '/player/recaps';
     if (parts[1] === 'stats' || parts[1] === 'career' || parts[1] === 'recaps') return '/player/games';
-    if ((parts[1] === 'rating' && parts[2] === 'periods') || parts[1] === 'elo' || parts[1] === 'seasons') return '/player/rating';
+    if ((parts[1] === 'rating' && (parts[2] === 'periods' || parts[2] === 'tournaments')) || parts[1] === 'elo') return '/player/rating';
+    if (parts[1] === 'seasons') return '/player/club';
     if (parts[1] === 'conduct' && parts[2] === 'music') return '/player/conduct';
     if (parts[1] === 'conduct' || parts[1] === 'judging' || parts[1] === 'host' || parts[1] === 'table') return '/player';
     return '/player';

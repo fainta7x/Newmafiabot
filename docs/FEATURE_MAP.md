@@ -52,8 +52,8 @@ Current invariant: stale local gameplay data may be rebased **by seat** onto the
 
 ## Rating / Elo
 
-- UI: `src/components/player/PlayerRatingHub.tsx`, `PlayerRatingTable.tsx`.
-- API: `ratingRoutes.ts`, `ratingPeriodRoutes.ts`, `ratingPeriodStandingsRoutes.ts`, `eloSeedAdminRoutes.ts`.
+- UI: `src/components/player/PlayerRatingHub.tsx` (Elo · Сезон · Турниры), `PlayerRatingTable.tsx`, `PlayerRatingPeriods.tsx`, `PlayerTournamentResults.tsx`; calendar «Итоги сезона» = `PlayerSeasonsPanel.tsx` under `PlayerClubHub.tsx`.
+- API: `ratingRoutes.ts`, `ratingPeriodRoutes.ts`, `ratingPeriodStandingsRoutes.ts`, `playerTournamentResultsRoutes.ts`, `eloSeedAdminRoutes.ts`.
 - Formula work: `npm run project:find -- "elo expected rating"` before changing output.
 
 ## Wallet / tokens / shop / payments

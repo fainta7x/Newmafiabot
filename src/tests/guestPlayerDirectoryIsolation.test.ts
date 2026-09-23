@@ -24,6 +24,11 @@ describe('GUEST-PLAYER-001 directory and profile isolation', () => {
 
     expect((await request(app).get(`/api/player/players/${guest.id}`).set('Cookie', cookie)).status).toBe(404);
     expect((await request(app).get(`/api/public/players/${guest.id}/profile`)).status).toBe(404);
+    for (const section of ['summary', 'games', 'roles', 'elo', 'showcase', 'connections', 'birthday']) {
+      const response = await request(app).get(`/api/player/profiles/${guest.id}/${section}`).set('Cookie', cookie);
+      expect([section, response.status]).toEqual([section, 404]);
+    }
+    expect((await request(app).get(`/api/player/profiles/${viewer.id}/summary`).set('Cookie', cookie)).status).toBe(200);
     expect((await request(app).get(`/api/public/players/${viewer.id}/profile`)).status).toBe(200);
   });
 });

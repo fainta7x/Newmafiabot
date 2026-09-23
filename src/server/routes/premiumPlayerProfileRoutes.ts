@@ -45,8 +45,9 @@ const canViewPlayer = async (db: any, playerId: string) => {
   await ensurePlayerProfileVisibilitySchema(db);
   const row = await db.get(`
     SELECT id, COALESCE(contact_status,lifecycle_status,'normal') AS status, profile_visibility_json
-      FROM players WHERE id=? LIMIT 1
+      FROM players WHERE id=? AND COALESCE(source,'')<>'legacy_guest_migrated' LIMIT 1
   `, [playerId]);
+  // Archived rows of migrated guests are not players and have no profile (GUEST-PLAYER-001).
   if (!row) return { ok: false as const, status: 404, error: 'Игрок не найден' };
   return { ok: true as const, row };
 };

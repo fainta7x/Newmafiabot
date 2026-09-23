@@ -23,9 +23,13 @@ router.get('/', requireOrganizerAuth, async (req, res) => {
   let telegram = { ok: false, configured: 0, active: 0, total: 4, error: null as string | null };
   try {
     const rows = await db.all<any>('SELECT id, chat_id, active FROM telegram_destinations');
-    const configured = rows.filter((row: any) => String(row.chat_id || '').trim()).length;
-    const active = rows.filter((row: any) => Number(row.active || 0) === 1).length;
-    telegram = { ok: configured === 4 && active === 4, configured, active, total: 4, error: null };
+    const hasChat = (row: any) => Boolean(String(row.chat_id || '').trim());
+    const configured = rows.filter(hasChat).length;
+    const activeRows = rows.filter((row: any) => Number(row.active || 0) === 1);
+    // Optional destinations may stay switched off; only an enabled destination
+    // without a chat, or no enabled destination at all, is a real problem.
+    const ok = activeRows.length > 0 && activeRows.every(hasChat);
+    telegram = { ok, configured, active: activeRows.length, total: 4, error: null };
   } catch (error: any) {
     telegram = { ok: false, configured: 0, active: 0, total: 4, error: error?.message || 'Telegram settings unavailable' };
   }

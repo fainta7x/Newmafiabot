@@ -233,6 +233,7 @@ Do not configure Turso variables: Turso is no longer a supported runtime databas
 2. verify Amvera deployment logs show web/bot/nginx running;
 3. verify `/api/health` -> HTTP 200 / `status=ok`;
 4. verify `/api/health/runtime` -> HTTP 200 and deep dependencies healthy;
+   - `build.sha` in the same response must equal the `main` SHA you meant to deploy (`build.source: unknown` means the image was built without `.git/HEAD`/refs; see `.dockerignore`);
 5. verify Telegram webhook points to `<amvera-domain>/webhook` when Telegram changed or deployment identity is uncertain;
 6. open the Mini App and confirm current player/evening data when relevant;
 7. verify one or two recent SQLite-backed data markers and, for storage-related releases, the latest `/data/backups` snapshot;

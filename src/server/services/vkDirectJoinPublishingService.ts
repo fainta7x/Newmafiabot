@@ -197,7 +197,12 @@ const syncDestination = async (
   }
 
   const hash = messageHash(message);
-  if (Number(existing?.post_id || 0) > 0 && existing?.status === 'published' && existing.last_message_hash === hash) {
+  if (
+    Number(existing?.post_id || 0) > 0
+    && existing?.status === 'published'
+    && existing.group_id === destination.groupId
+    && existing.last_message_hash === hash
+  ) {
     return { publication: existing, skipped: false };
   }
 

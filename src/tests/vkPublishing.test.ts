@@ -225,6 +225,11 @@ describe('VK publishing adapter', () => {
     await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1][0])).toBe('https://api.vk.com/method/wall.edit');
+
+    // Same text but the stored post belongs to another community: do not trust the cache.
+    await db.run(`UPDATE vk_evening_publications SET group_id='999' WHERE evening_id='evening-stable'`);
+    await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {

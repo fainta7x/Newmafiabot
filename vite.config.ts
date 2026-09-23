@@ -13,13 +13,6 @@ const directVkEntry: Plugin = {
       );
     }
 
-    if (id.endsWith("/src/components/crm/EveningAnnouncementPanel.tsx")) {
-      return code.replace(
-        "./EveningVkCard.tsx",
-        "./EveningVkCard.vk-direct.tsx",
-      );
-    }
-
     return null;
   },
 };

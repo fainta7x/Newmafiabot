@@ -1,37 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, RefreshCw, Send } from 'lucide-react';
 
 type VkDestination = {
   key: string;
   name: string;
   active: boolean;
   supported: boolean;
-  reason: string | null;
-  configured_url: string | null;
   published: boolean;
-  status: string;
   external_url: string | null;
+  configured_url: string | null;
   post_id: number | null;
   last_error: string | null;
 };
 
 type VkState = {
-  integration: {
-    configured: boolean;
-    oauth?: { managed_connected: boolean; api_compatible?: boolean; token_source?: string | null };
-    publisher_token_configured?: boolean;
-    publisher_token_source?: 'community' | 'legacy_user' | null;
-    public_post_edit_supported?: boolean;
-    mode?: string;
-  };
+  integration: { configured: boolean };
   destinations: VkDestination[];
 };
 
 type VkDraft = {
   message: string;
   join_url: string;
-  share_url: string;
-  public_url: string | null;
   channel_url: string | null;
 };
 
@@ -48,12 +37,18 @@ const request = async (url: string, options?: RequestInit) => {
   return body;
 };
 
+/**
+ * VK for one evening. What VK actually allows (verified 2026-09-23):
+ * the community key publishes a static wall post that links to the live
+ * public evening page; VK channels have no API, so the channel is posted
+ * manually from a copied announcement.
+ */
 export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) => {
   const [state, setState] = useState<VkState | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [draft, setDraft] = useState<VkDraft | null>(null);
+  const [busy, setBusy] = useState<'load' | 'publish' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [draft, setDraft] = useState<VkDraft | null>(null);
   const [showDraft, setShowDraft] = useState(false);
 
   const load = async (silent = false) => {
@@ -73,147 +68,81 @@ export const EveningVkCard: React.FC<Props> = ({ eveningId, status, readonly }) 
     }
   };
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const connected = url.searchParams.has('vk_connected');
-    const oauthError = url.searchParams.has('vk_error');
-    if (connected || oauthError) {
-      url.searchParams.delete('vk_connected');
-      url.searchParams.delete('vk_error');
-      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-    }
-    void load();
-  }, [eveningId]);
+  useEffect(() => { void load(); }, [eveningId]);
 
-  const supported = useMemo(() => state?.destinations.filter((item) => item.active && item.supported) || [], [state]);
   const canPublish = !readonly && ['published', 'active'].includes(status);
-  const publicDestination = state?.destinations.find((item) => item.key === 'public');
-  const channelDestination = state?.destinations.find((item) => item.key === 'channel');
-  const channelAutoAvailable = Boolean(state?.integration.configured && channelDestination?.active && channelDestination?.supported);
-  const oauthConnected = Boolean(state?.integration.oauth?.managed_connected);
-  const publicNeedsManualEdit = Boolean(
-    publicDestination?.published
-    && state?.integration.publisher_token_source === 'community'
-    && !state?.integration.public_post_edit_supported,
-  );
+  const post = state?.destinations.find((item) => item.key === 'public') || null;
+  const postUrl = post?.external_url || post?.configured_url || null;
 
-  const copyDraft = (target: 'public' | 'channel') => {
+  const publish = async () => {
+    if (busy || !canPublish) return;
+    setBusy('publish'); setError(null); setMessage(null);
+    try {
+      await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/sync`, { method: 'POST' });
+      await load(true);
+      setMessage('Пост в паблике опубликован.');
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось опубликовать в VK');
+    } finally { setBusy(null); }
+  };
+
+  const copyForChannel = () => {
     if (!draft) return;
     setShowDraft(true);
     setError(null);
-    const fallback = target === 'public'
-      ? 'Пост открыт. Скопируй подготовленный текст ниже и вставь его через «Редактировать» в VK.'
-      : 'Канал открыт. Скопируй подготовленный текст из поля ниже и нажми «Отправить» в VK.';
-    if (!navigator.clipboard?.writeText) {
-      setMessage(fallback);
-      return;
-    }
+    const fallback = 'Канал открыт. Скопируй текст из поля ниже, вставь его в канал и нажми «Отправить».';
+    if (!navigator.clipboard?.writeText) { setMessage(fallback); return; }
     void navigator.clipboard.writeText(draft.message)
-      .then(() => setMessage(target === 'public'
-        ? 'Свежий текст скопирован. В открытом посте выбери «Редактировать» и вставь его.'
-        : 'Текст скопирован. В открытом канале осталось вставить его и нажать «Отправить».'))
+      .then(() => setMessage('Анонс скопирован. В открытом канале вставь его и нажми «Отправить».'))
       .catch(() => setMessage(fallback));
-  };
-
-  const connectVk = async () => {
-    if (busy) return;
-    setBusy('oauth'); setError(null); setMessage(null);
-    try {
-      const result = await request(`/api/integrations/vk/oauth/start?return_to=${encodeURIComponent(window.location.pathname)}`);
-      if (!result?.authorize_url) throw new Error('VK не вернул ссылку авторизации');
-      window.location.assign(result.authorize_url);
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось открыть авторизацию VK');
-      setBusy(null);
-    }
-  };
-
-  const sync = async () => {
-    if (busy || !canPublish) return;
-    setBusy('sync'); setError(null); setMessage(null);
-    try {
-      const body = await request(`/api/integrations/vk/evenings/${encodeURIComponent(eveningId)}/sync`, { method: 'POST' });
-      if (body?.state) setState(body.state);
-      else await load(true);
-      const ok = Array.isArray(body?.results) ? body.results.filter((item: any) => item.success && !item.skipped).length : supported.length;
-      setMessage(`VK синхронизирован${ok ? `: ${ok} направл.` : ''}`);
-    } catch (err: any) {
-      setError(err?.message || 'Не удалось синхронизировать VK');
-    } finally { setBusy(null); }
   };
 
   if (!state && busy === 'load') return <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3 text-[11px] text-text-muted"><RefreshCw className="mr-2 inline h-4 w-4 animate-spin" />Загружаем VK…</section>;
   if (!state) return <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3 text-[11px] text-danger">{error || 'VK недоступен'}</section>;
 
   return (
-    <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3">
-      <div className="flex items-start gap-3">
+    <section className="rounded-[14px] border border-border-soft bg-surface-2 p-3" data-testid="evening-vk-card">
+      <div className="flex items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#2688eb]/10 text-[12px] font-black text-[#2688eb]">VK</span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-black text-text-primary">VK · анонс и запись</h3>
-          <p className="mt-1 text-[10px] leading-4 text-text-muted">Анонс ведёт на страницу 2LA Noire. Игрок подтверждает себя через VK ID, выбирает ответ — и он сразу попадает в общую БД.</p>
+          <h3 className="text-[13px] font-black text-text-primary">VK · анонс вечера</h3>
+          <p className="mt-0.5 text-[10px] leading-4 text-text-muted">Пост ведёт на страницу вечера, где видно, кто записан, и можно записаться.</p>
         </div>
-        <button type="button" onClick={() => void load()} disabled={Boolean(busy)} className="rounded-full bg-surface-1 p-2 text-text-muted disabled:opacity-40" aria-label="Обновить VK"><RefreshCw className={`h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} /></button>
+        <button type="button" onClick={() => void load()} disabled={Boolean(busy)} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface-1 text-text-muted disabled:opacity-40" aria-label="Обновить VK"><RefreshCw className={`h-4 w-4 ${busy === 'load' ? 'animate-spin' : ''}`} /></button>
       </div>
 
       {!state.integration.configured ? (
-        <div className="mt-3 rounded-xl bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
-          Запись игроков через VK ID работает. Автопубликации в паблик нужен серверный ключ сообщества; до его подключения анонс можно подготовить и разместить вручную ниже.
+        <div className="mt-3 flex gap-2 rounded-xl bg-warning-soft px-3 py-2.5 text-[11px] leading-4 text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Ключ сообщества VK не настроен на сервере — автопубликация в паблик недоступна. Анонс можно отправить вручную через «В канал».</span>
         </div>
       ) : (
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">
-          <span className="min-w-0 flex-1"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Публикация новых анонсов в паблик подключена. Запись игроков работает через VK ID.</span>
-          <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-success/15 px-2 py-1.5 text-[9px] font-black text-success disabled:opacity-40">{busy === 'oauth' ? 'Открываем…' : 'Переподключить VK'}</button>
+        <div className="mt-3 rounded-xl border border-border-soft bg-surface-1 px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            {post?.published ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : <Send className="h-4 w-4 shrink-0 text-text-muted" />}
+            <strong className="min-w-0 flex-1 text-[12px] text-text-primary">Паблик: {post?.published ? 'пост опубликован' : 'пост ещё не опубликован'}</strong>
+            {post?.published && postUrl ? <a href={postUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-surface-2 px-2.5 text-[10px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
+          </div>
+          {post?.last_error ? <p className="mt-1 text-[10px] leading-4 text-danger">{post.last_error}</p> : null}
         </div>
       )}
-      {!oauthConnected ? <div className="mt-3 flex items-center gap-2 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2.5 text-[10px] leading-4 text-warning">
-        <span className="min-w-0 flex-1">Для автоматического обновления уже опубликованного поста и канала нужен ваш VK-токен.</span>
-        <button type="button" disabled={Boolean(busy) || readonly} onClick={() => void connectVk()} className="shrink-0 rounded-lg bg-accent px-2.5 py-2 text-[9px] font-black text-white disabled:opacity-40">{busy === 'oauth' ? 'Открываем…' : 'Подключить VK'}</button>
-      </div> : null}
 
-      <div className="mt-3 space-y-1.5">
-        {state.destinations.map((destination) => {
-          const openUrl = destination.external_url || destination.configured_url;
-          const publicationLabel = destination.key === 'channel' ? 'Сообщение' : 'Пост';
-          return <div key={destination.key} className="rounded-xl border border-border-soft bg-surface-1 px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              {destination.published
-                ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                : destination.supported
-                  ? <RefreshCw className="h-4 w-4 shrink-0 text-accent" />
-                  : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />}
-              <strong className="min-w-0 flex-1 text-[11px] text-text-primary">{destination.name}</strong>
-              {openUrl ? <a href={openUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-surface-2 px-2 text-[9px] font-bold text-accent">Открыть <ExternalLink className="h-3 w-3" /></a> : null}
-            </div>
-            <div className={`mt-1 text-[9px] leading-4 ${destination.last_error ? 'text-danger' : 'text-text-muted'}`}>{destination.last_error || (destination.published ? `${publicationLabel} #${destination.post_id} · ссылка на запись активна` : destination.reason || 'Готово к публикации')}</div>
-          </div>;
-        })}
-      </div>
+      {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[11px] leading-4 text-danger">{error}</div> : null}
+      {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[11px] leading-4 text-success">{message}</div> : null}
 
-      {error ? <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[10px] leading-4 text-danger">{error}</div> : null}
-      {message ? <div className="mt-3 rounded-xl bg-success-soft px-3 py-2 text-[10px] leading-4 text-success">{message}</div> : null}
-
-      {draft && showDraft ? <div className="mt-3 rounded-xl border border-border-soft bg-surface-1 p-2.5">
-        <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="w-full resize-none rounded-lg border border-border-soft bg-surface-2 p-2 text-[10px] leading-4 text-text-primary" />
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <a href={draft.share_url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1 rounded-[10px] bg-[#2688eb] px-2 text-center text-[9px] font-bold text-white">Открыть публикацию <ExternalLink className="h-3 w-3" /></a>
-          {draft.channel_url ? <a href={draft.channel_url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center justify-center gap-1 rounded-[10px] bg-surface-2 px-2 text-center text-[9px] font-bold text-accent">Открыть канал <ExternalLink className="h-3 w-3" /></a> : null}
-        </div>
-      </div> : null}
+      {draft && showDraft ? <textarea readOnly value={draft.message} rows={7} onFocus={(event) => event.currentTarget.select()} className="mt-3 w-full resize-none rounded-lg border border-border-soft bg-surface-1 p-2 text-[11px] leading-4 text-text-primary" aria-label="Текст анонса" /> : null}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        {publicNeedsManualEdit && publicDestination?.external_url
-          ? <a href={publicDestination.external_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('public')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white"><Copy className="h-3.5 w-3.5" />Обновить пост</a>
-          : <button type="button" disabled={Boolean(busy) || !state.integration.configured || !canPublish} onClick={() => void sync()} className="min-h-11 rounded-[12px] bg-accent px-3 text-[10px] font-black text-white disabled:opacity-40">{busy === 'sync' ? 'Публикуем…' : 'В паблик'}</button>}
-        {channelAutoAvailable && canPublish
-          ? <button type="button" disabled={Boolean(busy)} onClick={() => void sync()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary disabled:opacity-40">{busy === 'sync' ? 'Синхронизируем…' : channelDestination?.published ? 'Обновить канал' : 'Опубликовать в канал'}</button>
-          : draft?.channel_url && canPublish
-            ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={() => copyDraft('channel')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал вручную</a>
-            : <button type="button" disabled className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[10px] font-black text-text-primary opacity-40"><Copy className="h-3.5 w-3.5" />В канал</button>}
+        {state.integration.configured && !post?.published
+          ? <button type="button" disabled={Boolean(busy) || !canPublish} onClick={() => void publish()} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] bg-accent px-3 text-[11px] font-black text-white disabled:opacity-40"><Send className="h-3.5 w-3.5" />{busy === 'publish' ? 'Публикуем…' : 'Опубликовать'}</button>
+          : draft?.join_url
+            ? <a href={draft.join_url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[11px] font-black text-text-primary"><ExternalLink className="h-3.5 w-3.5" />Страница вечера</a>
+            : <span />}
+        {draft?.channel_url && canPublish
+          ? <a href={draft.channel_url} target="_blank" rel="noreferrer" onClick={copyForChannel} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[12px] border border-border-soft bg-surface-1 px-3 text-[11px] font-black text-text-primary"><Copy className="h-3.5 w-3.5" />В канал</a>
+          : null}
       </div>
-      {publicNeedsManualEdit ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Живой список игроков обновляется автоматически, но VK не разрешил редактирование этого поста. Кнопка выше скопирует свежую версию для ручного обновления.</p> : null}
-      {canPublish && !channelAutoAvailable ? <p className="mt-2 text-center text-[9px] leading-4 text-text-muted">Автопубликация канала пока не настроена: можно открыть канал и отправить подготовленный текст вручную.</p> : null}
-      {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[9px] text-text-muted">Сначала опубликуй вечер.</p> : null}
+      {!canPublish && status === 'draft' ? <p className="mt-2 text-center text-[10px] text-text-muted">Сначала опубликуй вечер.</p> : null}
     </section>
   );
 };

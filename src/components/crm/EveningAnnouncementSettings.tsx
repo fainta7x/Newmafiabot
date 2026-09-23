@@ -1,5 +1,5 @@
 import EveningTelegramCard from './EveningTelegramCard.tsx';
-import EveningVkCard from './EveningVkCard.tsx';
+import EveningVkCard from './EveningVkCard.vk-direct.tsx';
 
 export default function EveningAnnouncementSettings({
   eveningId,

@@ -49,8 +49,8 @@ export const setPlayerCookie = (res: Response, playerId: string) => {
   });
 };
 
-export const setOrganizerCookie = (res: Response, organizerPlayerId?: string) => {
-  const token = generateOrganizerToken(organizerPlayerId);
+export const setOrganizerCookie = (res: Response, organizerPlayerId?: string, options: { sandbox?: boolean } = {}) => {
+  const token = generateOrganizerToken(organizerPlayerId, options);
   res.cookie('organizer_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

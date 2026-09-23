@@ -15,7 +15,9 @@ if (process.env.NODE_ENV === 'production') {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret-key-for-local-testing';
 const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'adminpass';
-const ORGANIZER_SESSION_VERSION = 2;
+// v3: sandbox organizer logins were previously issued as production root
+// sessions; bumping the version revokes every token minted before the fix.
+const ORGANIZER_SESSION_VERSION = 3;
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -45,7 +47,15 @@ export function verifyOrganizerPassword(password: string): boolean {
   return password === ORGANIZER_PASSWORD;
 }
 
-export function generateOrganizerToken(organizerPlayerId?: string): string {
+export function generateOrganizerToken(organizerPlayerId?: string, options: { sandbox?: boolean } = {}): string {
+  if (options.sandbox) {
+    // Valid only together with a sandbox player session (isolated test DB).
+    return jwt.sign(
+      { role: 'ORGANIZER', organizerSessionType: 'test_sandbox', organizerSessionVersion: ORGANIZER_SESSION_VERSION },
+      JWT_SECRET,
+      { expiresIn: '1d' },
+    );
+  }
   return jwt.sign(
     organizerPlayerId
       ? {
@@ -160,6 +170,11 @@ export async function parseUserSession(req: AuthenticatedRequest, _res: Response
             }
           }
         } else if (decoded.organizerSessionType === 'root_password' && !organizerPlayerId) {
+          req.userRole = 'ORGANIZER';
+          req.organizerActorId = organizerSessionActorId(token);
+          return next();
+        } else if (decoded.organizerSessionType === 'test_sandbox' && isTestEnvironmentRequest(req)) {
+          // A sandbox organizer never reaches the production database.
           req.userRole = 'ORGANIZER';
           req.organizerActorId = organizerSessionActorId(token);
           return next();

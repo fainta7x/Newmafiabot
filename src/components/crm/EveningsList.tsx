@@ -128,14 +128,20 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
     if (!response.ok) throw new Error(body?.error || 'Не удалось настроить игровые слоты');
   };
 
+  const suggestedTitle = (() => {
+    const time = startsAt ? new Date(startsAt).getTime() : NaN;
+    const date = Number.isFinite(time) ? new Date(time) : new Date();
+    return `Игровой вечер — ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`;
+  })();
+
   const create = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving || !title.trim() || !startsAt) return;
+    if (saving || !startsAt) return;
     setSaving(true); setError('');
     let createdId = '';
     try {
       const start = moscowIso(startsAt);
-      const created = await api.createEvening({ title: title.trim(), starts_at: start, timezone: 'Europe/Moscow', format, status: 'draft', default_price: price, venue: venue.trim() || 'Суп с Котом', notes: notes.trim() });
+      const created = await api.createEvening({ title: title.trim() || suggestedTitle, starts_at: start, timezone: 'Europe/Moscow', format, status: 'draft', default_price: price, venue: venue.trim() || 'Суп с Котом', notes: notes.trim() });
       createdId = created.id;
       await configureSlots(created.id, start, slotCount, duration, price);
       setOpen(false); reset(); onOpenEvening(created.id);
@@ -189,10 +195,10 @@ export const EveningsList: React.FC<Props> = ({ evenings, onOpenEvening, initial
       {timeView === 'history' ? <section data-testid="crm-events-history" className="space-y-3"><div className="px-0.5"><h3 className="text-[14px] font-semibold text-white">История</h3><p className="mt-0.5 text-[12px] text-white/40">Завершённые и отменённые события отдельно от текущей работы</p></div>{clusters.history.length ? <div className="overflow-hidden rounded-[18px] border border-white/[0.08] bg-white/[0.03]">{clusters.history.map((evening) => <EventRow key={evening.id} evening={evening} onOpenEvening={onOpenEvening} history />)}</div> : <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] p-5 text-center text-[13px] text-white/45">История пока пустая.</div>}</section> : null}
     </>}
 
-    <MobileSheet open={open} title="Новый игровой вечер" subtitle="Сразу задай расписание: первую игру, количество, длительность и цену." onClose={() => !saving && setOpen(false)} widthClass="sm:max-w-lg" footer={<div className="grid grid-cols-[auto_1fr] gap-2"><button disabled={saving} onClick={() => setOpen(false)} className="min-h-12 rounded-2xl bg-white/[0.06] px-4 text-[14px] font-medium text-white/60">Отмена</button><button form="new-evening-v2" type="submit" disabled={saving || !title.trim() || !startsAt} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{saving ? 'Сохраняем…' : 'Создать черновик'}</button></div>}>
+    <MobileSheet open={open} title="Новый игровой вечер" subtitle="Сразу задай расписание: первую игру, количество, длительность и цену." onClose={() => !saving && setOpen(false)} widthClass="sm:max-w-lg" footer={<div className="grid grid-cols-[auto_1fr] gap-2"><button disabled={saving} onClick={() => setOpen(false)} className="min-h-12 rounded-2xl bg-white/[0.06] px-4 text-[14px] font-medium text-white/60">Отмена</button><button form="new-evening-v2" type="submit" disabled={saving || !startsAt} className="min-h-12 rounded-2xl bg-white px-4 text-[14px] font-semibold text-[#090a0d] disabled:bg-white/[0.06] disabled:text-white/30">{saving ? 'Сохраняем…' : 'Создать черновик'}</button></div>}>
       <form id="new-evening-v2" onSubmit={create} className="space-y-4">
         {error ? <div className="rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2 text-[13px] text-rose-100/80">{error}</div> : null}
-        <label className="block"><span className={label}>Название</span><input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Игровой вечер — 14 августа" className={field} /></label>
+        <label className="block"><span className={label}>Название</span><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={suggestedTitle} className={field} /></label>
         <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className={label}>Первая игра · Москва</span><input type="datetime-local" required value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={`${field} font-mono`} /></label><label className="block"><span className={label}>Формат</span><select value={format} onChange={(e) => setFormat(e.target.value as EveningFormat)} className={field}><option value="NOVICE">Для новичков</option><option value="CASUAL">Клубный</option><option value="RATING">Рейтинговый</option><option value="TOURNAMENT">Турнир</option></select><p className="mt-2 text-[12px] leading-4 text-white/40">{EVENING_FORMAT_DESCRIPTIONS[format]}</p></label></div>
         <div className="grid grid-cols-2 gap-3"><label><span className={label}>Количество игр</span><select value={slotCount} onChange={(e) => setSlotCount(Number(e.target.value))} className={`${field} font-mono`}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}</select></label><label><span className={label}>Минут на игру</span><input type="number" min="15" max="180" step="5" value={duration} onChange={(e) => setDuration(Math.max(15, Math.min(180, Number(e.target.value || 60))))} className={`${field} font-mono`} /></label></div>
         <div className="grid gap-3 sm:grid-cols-2"><label><span className={label}>Цена за игру, ₽</span><input type="number" min="0" value={price} onChange={(e) => setPrice(Math.max(0, Number(e.target.value || 0)))} className={`${field} font-mono`} /></label><label><span className={label}>Локация</span><input value={venue} onChange={(e) => setVenue(e.target.value)} className={field} /></label></div>

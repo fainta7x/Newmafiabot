@@ -6,8 +6,7 @@ import EveningPersonalInvites from './EveningPersonalInvites.tsx';
 
 interface EveningOverviewViewProps {
   eveningId: string;
-  onBack: () => void;
-  onOpenSection: (section: 'participants' | 'management' | 'games') => void;
+  onStatusChange?: () => void;
 }
 
 type EveningData = GameEvening & {
@@ -15,15 +14,8 @@ type EveningData = GameEvening & {
   games?: Array<{ id: number | string; status?: string | null; protocol_status?: string | null; winner_team?: string | null }>;
 };
 
-const statusLabel: Record<string, string> = {
-  draft: 'Черновик',
-  published: 'Опубликован',
-  active: 'Идёт сейчас',
-  completed: 'Завершён',
-  cancelled: 'Отменён',
-};
 
-export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onBack, onOpenSection }) => {
+export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ eveningId, onStatusChange }) => {
   const [evening, setEvening] = useState<EveningData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -54,6 +46,7 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
       const updated = await api.updateEvening(eveningId, { status });
       setEvening((current) => current ? { ...current, ...updated } : current);
       setMessage(status === 'published' ? 'Вечер опубликован.' : 'Вечер переведён в активный режим.');
+      onStatusChange?.();
     } catch (err: any) {
       setError(err?.message || 'Не удалось изменить статус вечера');
     } finally {
@@ -68,35 +61,15 @@ export const EveningOverviewView: React.FC<EveningOverviewViewProps> = ({ evenin
 
   return (
     <div className="space-y-3.5 pb-4">
-      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <button type="button" onClick={onBack} className="mb-3 text-[11px] font-bold text-text-muted">← К событиям</button>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="break-words text-[20px] font-black leading-tight text-text-primary">{evening.title}</h2>
-            <p className="mt-1 text-[12px] text-text-secondary">{new Date(evening.starts_at).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}{evening.venue ? ` · ${evening.venue}` : ''}</p>
-          </div>
-          <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold ${evening.status === 'active' ? 'bg-success-soft text-success' : evening.status === 'completed' ? 'bg-surface-2 text-text-secondary' : evening.status === 'cancelled' ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-text-primary'}`}>{statusLabel[evening.status] || evening.status}</span>
-        </div>
-
-        {!readonly && evening.status !== 'cancelled' ? <div className="mt-4">
+      {(!readonly && ['draft', 'published'].includes(evening.status)) || message || error ? <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
+        {!readonly && evening.status !== 'cancelled' ? <div>
           {evening.status === 'draft' ? <button disabled={busy} onClick={() => void updateStatus('published')} className="min-h-[46px] w-full rounded-[12px] bg-accent text-[12px] font-bold text-white disabled:opacity-50">Опубликовать вечер</button> : null}
           {evening.status === 'published' ? <button disabled={busy} onClick={() => void updateStatus('active')} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[12px] bg-success text-[12px] font-bold text-white disabled:opacity-50"><Play className="h-4 w-4" /> Начать вечер</button> : null}
         </div> : null}
         {message ? <p className="mt-3 rounded-[12px] bg-success-soft px-3 py-2 text-[11px] text-success">{message}</p> : null}
         {error ? <p className="mt-3 rounded-[12px] bg-danger-soft px-3 py-2 text-[11px] text-danger">{error}</p> : null}
-      </section>
+      </section> : null}
 
-      <section className="rounded-[16px] border border-border-soft bg-surface-1 p-3.5">
-        <div className="mb-3">
-          <h3 className="text-[13px] font-black text-text-primary">Следующие шаги</h3>
-          <p className="mt-1 text-[11px] leading-4 text-text-muted">Переходи к нужному разделу прямо из карточки вечера.</p>
-        </div>
-        <div className="grid gap-2">
-          <button type="button" onClick={() => onOpenSection('participants')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Ответы участников</button>
-          <button type="button" onClick={() => onOpenSection('management')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Сам вечер</button>
-          <button type="button" onClick={() => onOpenSection('games')} className="min-h-[44px] rounded-[12px] border border-border-soft bg-surface-2 px-3 text-left text-[12px] font-bold text-text-primary">Игры</button>
-        </div>
-      </section>
 
       <EveningPersonalInvites eveningId={eveningId} />
 

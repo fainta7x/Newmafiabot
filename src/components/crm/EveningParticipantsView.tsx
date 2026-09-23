@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import EveningInviteAudienceManager from './EveningInviteAudienceManager.tsx';
 import EveningGameRegistrationDashboard from './EveningGameRegistrationDashboard.tsx';
 
@@ -18,15 +18,6 @@ export const EveningParticipantsView: React.FC<EveningParticipantsViewProps> = (
 
   return (
     <div className="min-w-0 space-y-4 overflow-x-hidden">
-      <section className="rounded-[20px] border border-border-soft bg-surface-1 p-4">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Users className="h-5 w-5" /></span>
-          <div>
-            <h2 className="text-[17px] font-black text-text-primary">Кого пригласил</h2>
-            <p className="mt-1 text-[11px] leading-5 text-text-secondary">Проверяй ответы и запись на игры до вечера. Явка, оплата, гости и ручные правки — в разделе «Сам вечер».</p>
-          </div>
-        </div>
-      </section>
 
       <EveningGameRegistrationDashboard eveningId={eveningId} refreshKey={refreshKey} onChanged={refresh} />
 

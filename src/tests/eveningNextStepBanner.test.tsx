@@ -23,11 +23,11 @@ describe('EveningNextStepBanner', () => {
   it('stays hidden while games are unfinished or the evening is not running', async () => {
     mockCloseout({ total: 3, completed: 2, unfinished: [{ id: 1 }] });
     const { container, rerender } = render(<EveningNextStepBanner eveningId="e1" status="active" onOpenCloseout={() => undefined} />);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => { setTimeout(resolve, 20); });
     expect(container.textContent).toBe('');
     mockCloseout({ total: 3, completed: 3, unfinished: [] });
     rerender(<EveningNextStepBanner eveningId="e1" status="published" onOpenCloseout={() => undefined} />);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => { setTimeout(resolve, 20); });
     expect(container.textContent).toBe('');
   });
 

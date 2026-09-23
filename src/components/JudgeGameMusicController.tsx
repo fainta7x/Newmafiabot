@@ -102,6 +102,8 @@ const resolveEveningId = (): string => {
 };
 
 export default function JudgeGameMusicController() {
+  // The empty-playlist flag belongs to the game this controller serves; forget it when the game closes.
+  useEffect(() => () => setMusicKnownEmpty(false), []);
   const music = useJudgeGameMusic();
   const manualRef = useRef(false);
   const manualTrackRef = useRef<string | undefined>(undefined);
@@ -139,6 +141,7 @@ export default function JudgeGameMusicController() {
   };
 
   const startLocal = (entryOrTrackId: PoolEntry | string, kind: MusicStartKind) => {
+    setMusicKnownEmpty(false);
     const entry = typeof entryOrTrackId === 'string' ? findLocalEntry(entryOrTrackId) : entryOrTrackId;
     if (!entry) return;
     setActive({ entry, kind });
@@ -153,6 +156,7 @@ export default function JudgeGameMusicController() {
   };
 
   const startExternal = (entry: PoolEntry, kind: MusicStartKind) => {
+    setMusicKnownEmpty(false);
     music.stop();
     setPicker(null);
     setActive({ entry, kind });

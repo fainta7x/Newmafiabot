@@ -143,7 +143,7 @@ export const EveningGameCreateSheet: React.FC<EveningGameCreateSheetProps> = ({ 
   const eveningCanStart = ['published', 'active'].includes(String(evening.status || '')) && !evening.settled_at;
   const missingPresent = Math.max(0, 10 - eligible.length);
   // Registered or answered «going» but attendance not marked yet: the usual reason for a short list.
-  const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;
+  const awaitingArrival = roster.filter((participant) => !eligibleIds.has(participant.id) && (!linkedJudgePlayerId || String(participant.player_id || '') !== linkedJudgePlayerId) && getEveningAttendanceFact(participant) === 'pending' && !['declined', 'cancelled'].includes(String(participant.registration_status || '')) && participant.response_status !== 'declined').length;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

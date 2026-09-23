@@ -70,14 +70,14 @@ for (const width of [360, 390]) {
       await payments.getByRole('textbox', { name: 'Найти игрока в оплатах' }).fill('Вид');
       await expect(payments.getByTestId('evening-payment-row-ep-vid')).toBeVisible();
       await payments.getByRole('button', { name: 'Очистить поиск' }).click();
-      await payments.getByTestId('evening-payment-row-ep-bogdan').getByRole('button', { name: 'Не оплатил', exact: true }).click();
+      await payments.getByTestId('evening-payment-row-ep-bogdan').getByRole('button', { name: 'Принять оплату', exact: true }).click();
       await expect(payments.getByRole('button', { name: '1 Не оплатили', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(payments.getByTestId('evening-payment-row-ep-bogdan')).toHaveCount(0);
       await expectNoHorizontalOverflow(page, 'payments');
       const heights = await payments.locator('button:visible').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
       expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
       await attachViewport(page, testInfo, `crm-payments-filtered-${width}.png`);
-      await payments.getByTestId('evening-payment-row-ep-matroskina').getByRole('button', { name: 'Не оплатил', exact: true }).click();
+      await payments.getByTestId('evening-payment-row-ep-matroskina').getByRole('button', { name: 'Принять оплату', exact: true }).click();
       await expect(payments.getByText('Все оплаты отмечены.')).toBeVisible();
     });
   });

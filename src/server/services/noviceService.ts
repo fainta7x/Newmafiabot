@@ -147,7 +147,12 @@ export async function createNoviceApplication(
         timestamp,
       ],
     );
-    result = { id: applicationId, created: true, reservation };
+    result = {
+      id: applicationId,
+      created: true,
+      // Re-read after the insert so the applicant sees their own held place.
+      reservation: input.eveningId ? await getEveningReservationInfo(tx, input.eveningId, input.playerId) : undefined,
+    };
   });
 
   const player = await db.get<any>('SELECT nickname FROM players WHERE id = ? LIMIT 1', [input.playerId]);

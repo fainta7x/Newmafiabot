@@ -14,13 +14,12 @@ type PrivateSettings = {
   birth_day: number | null;
   birth_month: number | null;
   birth_year: number | null;
-  birthday_visibility: 'private' | 'day_month' | 'full';
   preferred_format: string | null;
 };
 
 export default function PlayerProfileSettings({ player, onPlayerChange }: { player: Player; onPlayerChange: (player: Player) => void }) {
   const [identity, setIdentity] = useState<PlayerIdentityDraft>({ nickname: player.nickname || '', fullName: player.full_name || '', phone: player.phone || '' });
-  const [privateSettings, setPrivateSettings] = useState<PrivateSettings>({ birth_day: null, birth_month: null, birth_year: null, birthday_visibility: 'private', preferred_format: null });
+  const [privateSettings, setPrivateSettings] = useState<PrivateSettings>({ birth_day: null, birth_month: null, birth_year: null, preferred_format: null });
   const [saving, setSaving] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarDeleteOpen, setAvatarDeleteOpen] = useState(false);
@@ -44,7 +43,6 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
           birth_day: row.birth_day ?? null,
           birth_month: row.birth_month ?? null,
           birth_year: row.birth_year ?? null,
-          birthday_visibility: ['private', 'day_month', 'full'].includes(row.birthday_visibility) ? row.birthday_visibility : 'private',
           preferred_format: row.preferred_format ?? null,
         });
       } catch {}
@@ -67,7 +65,6 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
           birth_day: privateSettings.birth_day,
           birth_month: privateSettings.birth_month,
           birth_year: privateSettings.birth_year,
-          birthday_visibility: privateSettings.birthday_visibility,
           preferred_format: privateSettings.preferred_format,
         }),
       });
@@ -153,6 +150,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
         <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Основной профиль</div>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">Один профиль используется в кабинете, CRM и играх.</p>
         <div className="mt-3"><PlayerIdentityFields value={identity} onChange={setIdentity} /></div>
+        {!identity.phone.trim() ? <button type="button" onClick={() => void setSensitiveChoice('phone', 'declined')} className="mt-2 min-h-11 w-full rounded-xl border border-border px-3 text-sm text-muted-foreground">Не хочу указывать телефон</button> : null}
         <div className="mt-3 rounded-[var(--ds-radius-md)] border border-border bg-[var(--ds-background)] px-3.5 py-3">
           <div className="text-sm font-semibold text-muted-foreground">Telegram</div>
           <div className="mt-1 text-sm text-foreground">{player.telegram_username ? `@${player.telegram_username.replace(/^@/, '')}` : 'Используется системная Telegram-привязка, если она есть'}</div>
@@ -161,7 +159,7 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
 
         <div className="mt-4 border-t border-border pt-4">
           <div className="text-sm font-semibold text-foreground">Дата рождения</div>
-          <p className="mt-1 text-sm leading-5 text-muted-foreground">Год необязателен. По умолчанию дата видна только организаторам.</p>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">Год необязателен. Кто видит дату — настраивается ниже, в «Приватности профиля».</p>
           <input
             type="date"
             value={birthdayValue}
@@ -173,18 +171,12 @@ export default function PlayerProfileSettings({ player, onPlayerChange }: { play
             className="mobile-field mt-3"
             aria-label="Дата рождения"
           />
-          <select value={privateSettings.birthday_visibility} onChange={(event) => setPrivateSettings((value) => ({ ...value, birthday_visibility: event.target.value as PrivateSettings['birthday_visibility'] }))} className="mobile-field mt-2" aria-label="Видимость дня рождения">
-            <option value="private">Только организаторам</option>
-            <option value="day_month">Игрокам — только день и месяц</option>
-            <option value="full">Разрешить показывать полную дату</option>
-          </select>
-          <button type="button" onClick={() => void setSensitiveChoice('birthday', 'declined')} className="mt-2 min-h-11 w-full rounded-xl border border-border px-3 text-sm text-muted-foreground">Не хочу указывать дату рождения</button>
+          {!birthdayValue ? <button type="button" onClick={() => void setSensitiveChoice('birthday', 'declined')} className="mt-2 min-h-11 w-full rounded-xl border border-border px-3 text-sm text-muted-foreground">Не хочу указывать дату рождения</button> : null}
         </div>
 
         <div className="mt-4 border-t border-border pt-4">
           <label className="text-sm font-semibold text-foreground" htmlFor="preferred-format">Предпочтительный формат</label>
           <input id="preferred-format" value={privateSettings.preferred_format || ''} onChange={(event) => setPrivateSettings((value) => ({ ...value, preferred_format: event.target.value || null }))} placeholder="Например, рейтинговые вечера" className="mobile-field mt-2" />
-          <button type="button" onClick={() => void setSensitiveChoice('phone', 'declined')} className="mt-2 min-h-11 w-full rounded-xl border border-border px-3 text-sm text-muted-foreground">Не хочу указывать телефон</button>
         </div>
 
         {error ? <FieldMessage className="mt-3" tone="error" data-testid="profile-form-message">{error}</FieldMessage> : null}

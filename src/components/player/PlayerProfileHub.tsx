@@ -15,7 +15,7 @@ export default function PlayerProfileHub({ data, onPlayerChange }: { data: Playe
     <PlayerNotificationSettings nickname={player.nickname} />
     <PlayerProfilePrivacySettings />
     <details className="rounded-2xl border border-white/10 bg-white/[.03] p-4">
-      <summary className="cursor-pointer font-semibold">Музыка</summary>
+      <summary className="cursor-pointer font-semibold">Моя музыка для вечера</summary>
       <div className="mt-4"><PlayerMusicSlots /></div>
     </details>
   </div>;

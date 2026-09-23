@@ -20,7 +20,7 @@ const QUICK_FILTERS: Array<{ id: QuickFilter; label: string }> = [
 interface PlayersActivityCRMProps { evenings: GameEvening[]; onOpenEvening: (id: string) => void; selectedPlayerId?: string | null; onClosePlayerCard?: () => void; onCrmChanged?: () => void; }
 
 const uniquePlayers = (groups: Player[][]): Player[] => { const byId = new Map<string, Player>(); for (const group of groups) for (const player of group) byId.set(player.id, player); return [...byId.values()]; };
-const playerSegmentLabel = (player: Player) => { const segment = getPlayerActivitySegment(player); if (segment === 'loyal') return 'Лояльный'; if (segment === 'active') return getRussianEngagementStageLabel(player.engagement_stage); if (segment === 'inactive') return 'Неактивный'; return 'Ещё не играл'; };
+const playerSegmentLabel = (player: Player) => { const segment = getPlayerActivitySegment(player); if (segment === 'loyal') return 'Лояльный'; if (segment === 'active') return getRussianEngagementStageLabel(player.engagement_stage); if (segment === 'inactive') return 'Неактивный'; return getRussianEngagementStageLabel(player.engagement_stage); };
 
 export const PlayersActivityCRM: React.FC<PlayersActivityCRMProps> = ({ evenings, onOpenEvening, selectedPlayerId, onClosePlayerCard, onCrmChanged }) => {
   const [players, setPlayers] = useState<Player[]>([]);

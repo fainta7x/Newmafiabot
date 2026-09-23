@@ -94,10 +94,11 @@ export function getRussianContactStatusLabel(status?: string | null): string {
 
 export function getRussianEngagementStageLabel(stage?: string | null): string {
   switch (stage) {
+    // Attendance-based stages. «Новичок» is reserved for the NOVICE game level.
     case 'lead':
-      return 'Лид';
+      return 'Не был на вечерах';
     case 'newcomer':
-      return 'Новичок';
+      return 'Первые визиты';
     case 'returning':
       return 'Вернувшийся';
     case 'regular':
@@ -105,6 +106,6 @@ export function getRussianEngagementStageLabel(stage?: string | null): string {
     case 'inactive':
       return 'Неактивный';
     default:
-      return stage || 'Лид';
+      return stage || 'Не был на вечерах';
   }
 }

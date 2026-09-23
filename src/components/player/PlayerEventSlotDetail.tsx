@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { openCanonicalPlayerProfile } from './playerProfileNavigation.ts';
 import PlayerTournamentEveningDetail from './PlayerTournamentEveningDetail.tsx';
@@ -37,6 +37,13 @@ const eventDate = (value: string) => new Date(value).toLocaleString('ru-RU', {
 
 const slotTime = (value: string) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 
+const gamesWord = (count: number) => {
+  const mod10 = count % 10, mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'игра';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'игры';
+  return 'игр';
+};
+
 export default function PlayerEventSlotDetail({
   event,
   onBack,
@@ -51,6 +58,8 @@ export default function PlayerEventSlotDetail({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<{ message: string; needsFirstApplication: boolean } | null>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
 
   const load = async () => {
     if (event.event_type === 'tournament') return;
@@ -60,6 +69,7 @@ export default function PlayerEventSlotDetail({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.error || 'Не удалось загрузить игры');
       setPlan(body as Plan);
+      if (body?.first_application_required) setSaveError({ message: '', needsFirstApplication: true });
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
     } catch (loadError: any) {
       setError(loadError?.message || 'Не удалось загрузить игры');
@@ -70,7 +80,13 @@ export default function PlayerEventSlotDetail({
     setPlan(null);
     setDraft([]);
     setSaved(false);
+    setSaveError(null);
     void load();
+    // The list above keeps its scroll position; open the evening from its title.
+    for (let node: HTMLElement | null = rootRef.current; node; node = node.parentElement) {
+      if (node.scrollTop) node.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
   }, [event.id]);
 
   const total = useMemo(() => {
@@ -91,6 +107,7 @@ export default function PlayerEventSlotDetail({
   const save = async () => {
     setBusy(true);
     setError('');
+    setSaveError(null);
     setSaved(false);
     try {
       const response = await fetch(`/api/player/evenings/${encodeURIComponent(event.id)}/slots`, {
@@ -100,7 +117,10 @@ export default function PlayerEventSlotDetail({
         body: JSON.stringify({ slot_ids: draft }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить');
+      if (!response.ok) {
+        setSaveError({ message: body?.error || 'Не удалось сохранить', needsFirstApplication: body?.code === 'first_application_required' });
+        return;
+      }
       setPlan(body as Plan);
       setDraft(Array.isArray(body?.selection?.slot_ids) ? body.selection.slot_ids : []);
       setSaved(true);
@@ -121,7 +141,7 @@ export default function PlayerEventSlotDetail({
   const clearSelectionLabel = plan?.selection.slot_ids.length ? 'Отменить запись' : 'Очистить выбор';
 
   return (
-    <main className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
+    <main ref={rootRef} className="min-h-screen bg-[#090a0d] px-3 pb-28 pt-3 text-white">
       <div className="mx-auto max-w-[430px]">
         <button type="button" onClick={onBack} className="min-h-10 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-white/50">← События</button>
 
@@ -179,13 +199,19 @@ export default function PlayerEventSlotDetail({
 
             <section className="mt-3 rounded-[24px] border border-white/10 bg-[#15171d] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
               <div className="flex items-end justify-between gap-3">
-                <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{draft.length} игр</div></div>
+                <div><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">Твой план</div><div className="mt-1 text-sm font-semibold">{draft.length} {gamesWord(draft.length)}</div></div>
                 <div className="text-right"><div className="text-[9px] uppercase tracking-[0.14em] text-white/25">К оплате</div><div className="mt-1 text-lg font-black">{total} ₽</div></div>
               </div>
               {maxEveningPrice > 0 && draft.length > 4 && (
                 <div className="mt-2 text-right text-[10px] text-emerald-200/60">Лимит клубного вечера применён: не больше {maxEveningPrice} ₽</div>
               )}
               {saved && <div className="mt-2 rounded-xl bg-emerald-300/[0.08] px-3 py-2 text-center text-[10px] font-semibold text-emerald-200/70">План сохранён</div>}
+              {saveError ? (
+                <div className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] px-3 py-2.5 text-xs leading-5 text-rose-100" role="alert">
+                  {saveError.needsFirstApplication ? 'Записаться на игры можно после первой заявки: выбери путь «новичок» или «уже умею играть» в разделе «События». Организатор подтвердит уровень.' : saveError.message}
+                  {saveError.needsFirstApplication ? <button type="button" onClick={onBack} className="mt-2 min-h-10 w-full rounded-lg bg-white/10 text-xs font-semibold text-white">К первой заявке</button> : null}
+                </div>
+              ) : null}
               <button disabled={busy || !changed} type="button" onClick={() => void save()} className="mt-2 min-h-12 w-full rounded-xl bg-white text-sm font-semibold text-black disabled:bg-white/[0.07] disabled:text-white/30">
                 {busy ? 'Сохраняю…' : changed ? 'Сохранить мой план' : 'Изменений нет'}
               </button>

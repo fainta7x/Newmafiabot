@@ -37,7 +37,8 @@ router.get('/evenings/:eveningId/slots', async (req, res) => {
     if (!playerLevelAllowsEveningFormat(player.game_level, plan.event.format)) {
       return res.status(403).json({ error: 'Этот формат вечера пока недоступен для вашего уровня' });
     }
-    return res.json(plan);
+    // Tell the client up front that saving will be refused until the first application is confirmed.
+    return res.json({ ...plan, first_application_required: String(player.club_stage) === 'NEW' });
   } catch (error: any) {
     return sendError(res, error, 'Не удалось загрузить игровые слоты');
   }

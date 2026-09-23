@@ -55,7 +55,7 @@ for (const width of [360, 390]) {
       const manualRow = roster.getByTestId('evening-active-row-ep-manual');
       await expect(manualRow).toBeVisible();
       await expect(manualRow).toContainText('В составе');
-      await expect(manualRow).toContainText('RSVP: Нет ответа');
+      await expect(manualRow).toContainText('Ответ: Нет ответа');
       await expect(manualRow).toContainText('Явка: не отмечена');
       const manualBody = await page.evaluate(() => JSON.parse(document.body.dataset.bulkParticipantBody || '{}'));
       expect(manualBody.response_status).toBe('unanswered');

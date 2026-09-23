@@ -198,10 +198,10 @@ export function BestMoveProtocolOverlay({ source, slot, nickname, pendingSeats, 
             );
           })}
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/[0.10] bg-black/30 px-4 text-xs font-semibold text-white/72">← Назад</button>
-          <button type="button" onClick={onReset} className="min-h-11 rounded-2xl border border-white/[0.07] bg-black/20 px-4 text-xs font-semibold text-white/46">Сбросить</button>
-          <button type="button" onClick={onConfirm} className="min-h-11 rounded-2xl bg-white px-4 text-xs font-semibold text-[#090a0d]">Подтвердить протокол</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={onBack} className="min-h-11 rounded-2xl border border-white/[0.10] bg-black/30 px-3 text-xs font-semibold text-white/72">← Назад</button>
+          <button type="button" onClick={onReset} className="min-h-11 rounded-2xl border border-white/[0.07] bg-black/20 px-3 text-xs font-semibold text-white/46">Сбросить</button>
+          <button type="button" onClick={onConfirm} className="col-span-2 min-h-12 rounded-2xl bg-white px-4 text-sm font-semibold text-[#090a0d]">Подтвердить протокол</button>
         </div>
       </div>
     </div>

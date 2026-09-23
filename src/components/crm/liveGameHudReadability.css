@@ -1,0 +1,58 @@
+/*
+ * Judge HUD readability at phone width (loaded last by CenterPanel).
+ * - The phase pill gets the header width; letter-spacing no longer truncates
+ *   «Нулевой круг» / «Голосование · кандидат #7».
+ * - The quick player-actions select becomes an icon-sized control: the same
+ *   actions open by tapping a player, so it must not eat the phase label.
+ * - Voting numbers and captions are readable at arm's length.
+ */
+.evening-live-engine-shell .live-judge-hud__header { gap: 6px; }
+.evening-live-engine-shell .live-judge-hud__phase {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  line-height: 20px !important;
+  letter-spacing: 0.03em !important;
+  font-size: 10px !important;
+}
+.evening-live-engine-shell .live-judge-hud__header-actions { flex: 0 0 auto; }
+
+.evening-live-engine-shell .live-judge-hud__player-actions {
+  width: 30px !important;
+  min-width: 30px;
+  height: 28px;
+  min-height: 28px !important;
+  padding: 0 !important;
+  color: transparent !important;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--ds-inset, rgba(255, 255, 255, 0.04));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 15px 15px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.78)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+.evening-live-engine-shell .live-judge-hud__player-actions option { color: #fff; background: #111218; }
+
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll .live-judge-stat__label {
+  font-size: 7.5px !important;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll .live-judge-stat__value {
+  font-size: 13px !important;
+}
+html body .evening-live-engine-shell .live-judge-hud__stack--voting-scroll .live-judge-vote-undo__value {
+  font-size: 10px !important;
+  gap: 2px;
+  white-space: nowrap;
+}
+html body .evening-live-engine-shell .live-judge-hud__hint {
+  font-size: 9px !important;
+  line-height: 1.25;
+}

@@ -1,4 +1,3 @@
-import { countGames } from '../../lib/russianPlural';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDollarSign, RefreshCw, Search, UserPlus, Users, XCircle } from 'lucide-react';
 import { getEveningResponse } from '../../lib/eveningResponse.ts';
@@ -187,7 +186,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     ? `Нельзя закрыть: не отмечена явка у ${state.pending_expected.length} ожидаемых игроков.`
     : state.games.needs_override && !allowMissingStats
       ? state.games.unfinished.length
-        ? `Нельзя закрыть: ${countGames(state.games.unfinished.length)} не завершены. Подтверди закрытие без полной статистики.`
+        ? `Нельзя закрыть: не завершено игр — ${state.games.unfinished.length}. Подтверди закрытие без полной статистики.`
         : 'Нельзя закрыть: игровые данные неполные. Подтверди закрытие без полной статистики.'
       : null;
 
@@ -198,7 +197,7 @@ export const EveningCloseoutPanel: React.FC<{ eveningId: string }> = ({ eveningI
     </div>
 
     <div className="mt-3 grid gap-1.5" aria-label="Чек-лист закрытия">
-      <div className={`flex min-h-12 items-center gap-3 rounded-[13px] px-3 ${attendanceReady ? 'bg-success-soft' : 'bg-warning-soft'}`}><span className={`grid h-7 w-7 place-items-center rounded-full ${attendanceReady ? 'text-success' : 'text-warning'}`}>{attendanceReady ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><strong className="block text-[14px] text-text-primary">Явка</strong><span className="text-[12px] text-text-secondary">{attendanceReady ? `сверена · пришли ${state.attended.length}, не пришли ${state.no_show.length}` : `осталось сверить ${state.pending_expected.length}`}</span></span></div>
+      <div className={`flex min-h-12 items-center gap-3 rounded-[13px] px-3 ${attendanceReady ? 'bg-success-soft' : 'bg-warning-soft'}`}><span className={`shrink-0 ${attendanceReady ? 'text-success' : 'text-warning'}`}>{attendanceReady ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><strong className="block text-[14px] text-text-primary">Явка</strong><span className="text-[12px] text-text-secondary">{attendanceReady ? `сверена · пришли ${state.attended.length}, не пришли ${state.no_show.length}` : `осталось сверить ${state.pending_expected.length}`}</span></span></div>
       <div className="flex min-h-12 items-center gap-3 rounded-[13px] bg-surface-2 px-3"><CircleDollarSign className={`h-4 w-4 shrink-0 ${state.outstanding.length ? 'text-warning' : 'text-success'}`} /><span className="min-w-0 flex-1"><strong className="block text-[14px] text-text-primary">Оплаты</strong><span className="text-[12px] text-text-secondary">{state.outstanding.length ? `не оплачено: ${state.outstanding.length} · долг сохранится` : 'всё оплачено'}</span></span></div>
       <div className={`flex min-h-12 items-center gap-3 rounded-[13px] px-3 ${gamesReady ? 'bg-success-soft' : 'bg-warning-soft'}`}><GameChecklistIcon ready={gamesReady} /><span className="min-w-0 flex-1"><strong className="block text-[14px] text-text-primary">Игры</strong><span className="text-[12px] text-text-secondary">{state.games.completed}/{state.games.total} завершено{state.games.needs_override ? ' · нужна явная проверка' : ''}</span></span></div>
       <div className={`flex min-h-12 items-center gap-3 rounded-[13px] px-3 ${blockerReason ? 'bg-danger-soft' : 'bg-success-soft'}`}><span className="min-w-0 flex-1"><strong className={`block text-[14px] ${blockerReason ? 'text-danger' : 'text-success'}`}>{blockerReason ? 'Есть блокер' : 'Блокеров нет'}</strong><span className="text-[12px] leading-4 text-text-secondary">{blockerReason || 'Вечер можно закрыть.'}</span></span></div>

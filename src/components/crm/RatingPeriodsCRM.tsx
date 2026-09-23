@@ -272,8 +272,8 @@ export const RatingPeriodsCRM: React.FC = () => {
                 <option value="RATING">Основной рейтинг</option>
                 <option value="NOVICE">Рейтинг новичков</option>
               </select>
-              <input type="date" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="min-h-11 rounded-[12px] border border-border-soft bg-app-bg px-3 text-[13px] text-text-primary" />
-              <input type="date" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="min-h-11 rounded-[12px] border border-border-soft bg-app-bg px-3 text-[13px] text-text-primary" />
+              <label className="grid gap-1 text-[11px] font-semibold text-text-muted">Начало<input type="date" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="min-h-11 rounded-[12px] border border-border-soft bg-app-bg px-3 text-[13px] font-normal text-text-primary" /></label>
+              <label className="grid gap-1 text-[11px] font-semibold text-text-muted">Конец<input type="date" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="min-h-11 rounded-[12px] border border-border-soft bg-app-bg px-3 text-[13px] font-normal text-text-primary" /></label>
             </div>
             <button type="submit" disabled={creating || !title.trim() || !startsAt || !endsAt} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-accent px-4 text-[13px] font-bold text-white disabled:opacity-50">
               <Plus className="h-4 w-4" /> {creating ? 'Создаём…' : 'Создать период'}

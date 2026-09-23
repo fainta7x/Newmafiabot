@@ -581,7 +581,7 @@ export const PlayersCRM: React.FC<PlayersCRMProps> = ({
             <section className="grid grid-cols-4 gap-1.5 rounded-[17px] border border-border-soft bg-surface-1 p-2.5 text-center">
               {[
                 ['Визит', playerDetails.last_visit ? fmtDate(playerDetails.last_visit) : 'Не был'],
-                ['Игры', playerDetails.gameStats?.totalGames || 0],
+                ['Игры', playerDetails.gameStats?.completedGames || 0],
                 ['Победы', playerDetails.gameStats?.wins || 0],
                 ['Задачи', playerDetails.tasks?.filter((task) => !['done', 'cancelled'].includes(task.status)).length || 0],
               ].map(([label, value]) => <div key={String(label)} className="min-w-0 rounded-[11px] bg-black/20 px-1 py-2"><span className="block text-[8px] font-medium text-text-muted">{label}</span><strong className="mt-1 block break-words text-[11px] font-semibold text-text-primary">{value}</strong></div>)}

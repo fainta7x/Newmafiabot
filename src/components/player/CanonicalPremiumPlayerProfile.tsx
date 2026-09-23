@@ -33,7 +33,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
-  const [avatarBroken,setAvatarBroken]=useState(false);
+  const [brokenAvatarUrl,setBrokenAvatarUrl]=useState<string|null>(null);
   const [settings,setSettings]=useState(false);
   const [period,setPeriod]=useState<'all'|'season'|'custom'>('all');
   const [activePeriod,setActivePeriod]=useState<Period|null>(null);
@@ -144,7 +144,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
 
   return <div ref={scrollRef} className="h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
-      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&!avatarBroken?<img src={p.avatar_url} alt="" onError={()=>setAvatarBroken(true)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
+      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&p.avatar_url!==brokenAvatarUrl?<img src={p.avatar_url} alt="" onError={()=>setBrokenAvatarUrl(p.avatar_url)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
     </header>
     {!settings&&<nav data-profile-sticky-tabs className="profile-sticky-tabs sticky z-10 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#090a0d]/96 px-3 py-2" aria-label="Разделы профиля">{TABS.map(([k,l])=><button key={k} onClick={()=>switchTab(k)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${tab===k?'bg-white text-black':'bg-white/8 text-white/70'}`}>{l}</button>)}</nav>}
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)]">

@@ -217,6 +217,7 @@ The phone/local scoped session remains authoritative for in-progress recovery. T
 - `/api/players` -> player/Elo/token routes;
 - `/api/tasks` -> task routes;
 - `/api/analytics` -> analytics routes;
+- `/api/ui-events` -> `uiUsageRoutes.ts` (anonymous screen/button usage from signed-in players and organizers; `uiUsageService.ts` owns the `ui_usage_events` table and its 180-day retention, `src/lib/uiUsageNames.ts` strips entity ids on both client and server);
 - `/api/crm` -> CRM/table-scouting routes;
 - `/api/rating` / `/api/rating-periods` -> rating flows.
 

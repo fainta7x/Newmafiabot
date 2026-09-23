@@ -350,6 +350,9 @@ export interface OrganizerTask {
   updated_at: string;
 }
 
+export type UiUsageRow = { surface: 'player' | 'crm' | 'public'; name: string; events: number; sessions: number };
+export type UiUsageSummary = { days: number; sessions: { player: number; crm: number; public: number }; screens: UiUsageRow[]; actions: UiUsageRow[] };
+
 export interface AnalyticsData {
   period: string;
   totalPlayers: number;
@@ -905,6 +908,7 @@ export const api = {
     request<any>('/api/games', { method: 'POST', body: JSON.stringify(data) }),
 
   // Analytics
+  getUiUsageSummary: (days: number) => request<UiUsageSummary>(`/api/ui-events/summary?days=${days}`),
   getAnalytics: (params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();
     return request<AnalyticsData>(`/api/analytics${query ? `?${query}` : ''}`);

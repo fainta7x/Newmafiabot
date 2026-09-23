@@ -107,11 +107,19 @@ describe('PlayerEventsCalendar', () => {
 
   it('keeps a manually opened event selected after calendar refresh', async () => {
     let resolveRefresh: ((response: Response) => void) | null = null;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(calendarResponse())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => {
+    let calendarRequests = 0;
+    // Route by URL: a calendar without novice_state also triggers the
+    // /api/player/novice fallback, which must not consume the refresh response.
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      if (!String(input).startsWith('/api/player/calendar')) {
+        return Promise.resolve({ ok: false, json: async () => ({}) } as Response);
+      }
+      calendarRequests += 1;
+      if (calendarRequests === 1) return Promise.resolve(calendarResponse());
+      return new Promise<Response>((resolve) => {
         resolveRefresh = resolve;
-      }));
+      });
+    });
 
     render(<PlayerEventsCalendar />);
     const buttons = await screen.findAllByRole('button', { name: /Пятничная игра/ });
@@ -119,7 +127,7 @@ describe('PlayerEventsCalendar', () => {
     expect(await screen.findByText('DETAIL:Пятничная игра')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'REFRESH_EVENT' }));
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(calendarRequests).toBe(2));
 
     await act(async () => {
       resolveRefresh?.(calendarResponse());

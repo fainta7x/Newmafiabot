@@ -65,7 +65,7 @@ describe('Mounted evening lists', () => {
     expect(screen.getByText('Оплативший')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
     expect(screen.queryByText('Оплативший')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Не оплатил' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Принять оплату' }));
     await screen.findByText('Не сохранено');
     expect(screen.getByText('Пришедший')).toBeTruthy();
     expect(screen.getByRole('button', { name: '1 Не оплатили' }).getAttribute('aria-pressed')).toBe('true');

@@ -6,6 +6,7 @@ import { ensureJudgeAuthoritySchema } from '../db/ensureJudgeAuthoritySchema.ts'
 import { ensureEloSeedSchema } from '../db/ensureEloSeedSchema.ts';
 import { ensureVkIntegrationSchema } from '../db/ensureVkIntegrationSchema.ts';
 import { ensureVkJoinSchema } from '../db/ensureVkJoinSchema.ts';
+import { ensureEveningSlotsSchema } from '../db/ensureEveningSlotsSchema.ts';
 import { getVkJoinState } from '../server/services/vkJoinIdentityService.ts';
 import { registerVkPlayer, saveVkJoinResponse } from '../server/services/vkJoinRegistrationService.ts';
 import { setParticipantResponse } from '../server/services/eveningParticipantState.ts';
@@ -28,6 +29,7 @@ describe('VK, Telegram and WebApp unified identity', () => {
     await ensureEloSeedSchema(db);
     await ensureVkIntegrationSchema(db);
     await ensureVkJoinSchema(db);
+    await ensureEveningSlotsSchema(db);
 
     const now = new Date().toISOString();
     await db.run(`

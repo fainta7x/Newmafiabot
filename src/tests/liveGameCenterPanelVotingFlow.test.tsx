@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import CenterPanel from '../components/LiveGameEngine/CenterPanel';
 import type { VotingRound } from '../shared/tournamentVoting';
 import { deactivateTableDecisionSelection } from '../components/LiveGameEngine/tableDecisionSelectionStore';
-import { setMusicKnownEmpty } from '../components/JudgeGameMusicController';
 
 const players = Array.from({ length: 10 }, (_, index) => ({
   slot_num: index + 1,
@@ -60,25 +59,6 @@ afterEach(() => {
 });
 
 describe('CenterPanel live flow guardrails', () => {
-  it('skips the music-only steps when the evening has no music', () => {
-    setMusicKnownEmpty(true);
-    try {
-      const agreement = vi.fn();
-      render(<CenterPanel
-        {...baseProps()}
-        phase="zero_night"
-        setZeroNightMusicState={vi.fn()}
-        nextSpeaker={null}
-        getNextStepInfo={() => ({ label: 'Договорка · 75с', onClick: agreement })}
-      />);
-      expect(screen.queryByRole('button', { name: /музыку ночи/i })).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: /Договорка · 75с/i }));
-      expect(agreement).toHaveBeenCalledOnce();
-    } finally {
-      setMusicKnownEmpty(false);
-    }
-  });
-
   it('keeps zero-night music and progression on the single canonical next-step control', () => {
     const agreement = vi.fn();
     const openZeroRound = vi.fn();

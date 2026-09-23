@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign,
-  Gamepad2, Link2, ListTodo, MessageCircle, RefreshCw, UserCheck,
+  Gamepad2, Link2, ListTodo, MessageCircle, RefreshCw, UserCheck, Sprout
 } from 'lucide-react';
 import { api, type CrmOverview } from '../../lib/api.ts';
 import type { EveningSection } from './EveningWorkspace.tsx';
@@ -18,6 +18,10 @@ type OpsPlayer = {
   amount_paid: number;
   play_count: number;
 };
+
+type LevelDecision =
+  | { kind: 'registration'; player_id: string; nickname: string; created_at: string }
+  | { kind: 'application'; application_id: string; player_id: string; nickname: string; entry_route: 'NOVICE' | 'EXPERIENCED'; evening_title: string | null; created_at: string };
 
 type PendingOnboardingLink = {
   id: string;
@@ -182,10 +186,35 @@ export default function OrganizerCommandCenter({
   const unfinishedGames = snapshot?.mode === 'active' ? Math.max(0, snapshot.stats.games - snapshot.stats.completed_games) : 0;
   const taskCount = snapshot?.stats.open_tasks || snapshot?.attention.tasks.length || 0;
   const pendingOnboardingLinks = (((overview as any)?.actionLists?.pendingOnboardingLinks || []) as PendingOnboardingLink[]);
+  const levelDecisions = (((overview as any)?.actionLists?.levelDecisions || []) as LevelDecision[]);
 
   const refreshAll = async () => {
     setPaymentsFresh(false);
     await Promise.all([load({ silent: true, invalidatePayments: true }), onRefresh?.()]);
+  };
+
+  const decideLevel = async (item: LevelDecision, decision: 'EXPERIENCED' | 'NOVICE' | 'CONFIRMED' | 'CANCELLED') => {
+    if (busy) return;
+    setBusy(`level:${item.player_id}`);
+    setError(null);
+    try {
+      const response = item.kind === 'registration'
+        ? await fetch(`/api/novice/players/${encodeURIComponent(item.player_id)}/admit`, {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entry_route: decision }),
+        })
+        : await fetch(`/api/novice/applications/${encodeURIComponent(item.application_id)}`, {
+          method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: decision }),
+        });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.error || 'Не удалось сохранить решение');
+      await refreshAll();
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось сохранить решение');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const resolveOnboardingLink = async (item: PendingOnboardingLink, decision: 'approve' | 'reject') => {
@@ -259,6 +288,34 @@ export default function OrganizerCommandCenter({
     </div>
 
     {error ? <div className="rounded-[14px] border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] text-danger">{error}</div> : null}
+
+    {levelDecisions.length ? <section data-testid="level-decisions" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><Sprout className="h-4 w-4" /> Новые игроки ждут решения · {levelDecisions.length}</div>
+      <p className="mt-1 text-[12px] leading-4 text-text-secondary">Пока уровень не подтверждён, игрок не может сам записываться на вечера.</p>
+      <div className="mt-2 space-y-2">
+        {levelDecisions.slice(0, 8).map((item) => {
+          const rowBusy = busy === `level:${item.player_id}`;
+          const detail = item.kind === 'registration'
+            ? `Зарегистрировался · ${formatPaymentDate(item.created_at)}`
+            : `Заявка: ${item.entry_route === 'NOVICE' ? 'новичок в мафии' : 'уже умеет играть'}${item.evening_title ? ` · ${item.evening_title}` : ''}`;
+          return <div key={item.kind === 'application' ? item.application_id : item.player_id} className="rounded-[12px] border border-border-soft bg-surface-1 p-2.5">
+            <button type="button" onClick={() => onOpenPlayer(item.player_id)} className="flex min-h-11 w-full min-w-0 items-center gap-2 text-left">
+              <span className="min-w-0 flex-1"><strong className="block truncate text-[13px] text-text-primary">{item.nickname}</strong><span className="block truncate text-[12px] text-text-muted">{detail}</span></span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
+            </button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {item.kind === 'registration' ? <>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'EXPERIENCED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'Опытный — в клуб'}</button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'NOVICE')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Новичок</button>
+              </> : <>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CONFIRMED')} className="min-h-11 rounded-[10px] bg-success-soft px-2 text-[13px] font-bold text-success disabled:opacity-40">{rowBusy ? 'Сохраняем…' : 'Подтвердить'}</button>
+                <button type="button" disabled={Boolean(busy)} onClick={() => void decideLevel(item, 'CANCELLED')} className="min-h-11 rounded-[10px] border border-border-soft bg-surface-2 px-2 text-[13px] font-bold text-text-secondary disabled:opacity-40">Отклонить</button>
+              </>}
+            </div>
+          </div>;
+        })}
+      </div>
+    </section> : null}
 
     {pendingOnboardingLinks.length ? <section data-testid="pending-onboarding-links" className="rounded-[18px] border border-warning/25 bg-warning-soft/30 p-3">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-warning"><Link2 className="h-4 w-4" /> Запросы на привязку профиля · {pendingOnboardingLinks.length}</div>

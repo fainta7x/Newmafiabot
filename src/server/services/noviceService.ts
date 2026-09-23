@@ -267,3 +267,38 @@ export async function admitPlayerWithoutApplication(db: DatabaseWrapper, playerI
   if (!application.created) throw applicationConflict();
   return updateNoviceApplicationStatus(db, application.id, 'CONFIRMED');
 }
+
+export type LevelDecisionItem =
+  | { kind: 'registration'; player_id: string; nickname: string; created_at: string }
+  | { kind: 'application'; application_id: string; player_id: string; nickname: string; entry_route: NoviceEntryRoute; evening_title: string | null; created_at: string };
+
+/** Everything waiting for an organizer's level decision, for the CRM «Сегодня» screen. */
+export async function listLevelDecisionQueue(db: DatabaseWrapper): Promise<LevelDecisionItem[]> {
+  const registrations = await listPlayersAwaitingFirstDecision(db);
+  const applications = await db.all<any>(
+    `SELECT na.id, na.player_id, na.entry_route, na.created_at, p.nickname, e.title AS evening_title
+       FROM novice_applications na
+       JOIN players p ON p.id = na.player_id
+       LEFT JOIN game_evenings e ON e.id = na.evening_id
+      WHERE na.status = 'NEW'
+      ORDER BY datetime(na.created_at) DESC
+      LIMIT 50`,
+  );
+  return [
+    ...applications.map((row: any) => ({
+      kind: 'application' as const,
+      application_id: String(row.id),
+      player_id: String(row.player_id),
+      nickname: String(row.nickname || 'Игрок'),
+      entry_route: normalizeRoute(row.entry_route),
+      evening_title: row.evening_title ? String(row.evening_title) : null,
+      created_at: String(row.created_at),
+    })),
+    ...registrations.map((row: any) => ({
+      kind: 'registration' as const,
+      player_id: String(row.id),
+      nickname: String(row.nickname || 'Игрок'),
+      created_at: String(row.created_at),
+    })),
+  ];
+}

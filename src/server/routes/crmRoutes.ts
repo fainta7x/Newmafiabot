@@ -4,6 +4,9 @@ import { requireOrganizerAuth, AuthenticatedRequest } from '../auth.ts';
 import { countEveningResponses, getEveningResponse } from '../../lib/eveningResponse.ts';
 import { loadAnnouncementOverview } from '../services/eveningAnnouncementTrackingService.ts';
 import { crmReadFreshnessMiddleware } from '../middleware/crmReadFreshness.ts';
+import { ensureNoviceSystemSchema } from '../../db/ensureNoviceSystemSchema.ts';
+import { ensureVkIntegrationSchema } from '../../db/ensureVkIntegrationSchema.ts';
+import { listLevelDecisionQueue } from '../services/noviceService.ts';
 import {
   listPendingPlayerOnboardingLinks,
   resolvePendingPlayerOnboardingLink,
@@ -89,6 +92,15 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const lapsedPlayers = await db.all<any>(`SELECT p.*,MAX(ge.starts_at) AS last_visit,COUNT(CASE WHEN ep.attendance_status='attended' THEN 1 END) AS attendance_count FROM players p JOIN evening_participants ep ON ep.player_id=p.id AND ep.attendance_status='attended' JOIN game_evenings ge ON ge.id=ep.evening_id WHERE COALESCE(p.contact_status,'normal')='normal' GROUP BY p.id HAVING MAX(ge.starts_at) < ? AND NOT EXISTS (SELECT 1 FROM organizer_tasks ot WHERE ot.player_id=p.id AND ot.status NOT IN ('done','cancelled')) ORDER BY last_visit ASC LIMIT 10`, [thirtyDaysAgoIso]);
     const pendingOnboardingLinks = await listPendingPlayerOnboardingLinks(db);
+    let levelDecisions: Awaited<ReturnType<typeof listLevelDecisionQueue>> = [];
+    try {
+      await ensureNoviceSystemSchema(db);
+      await ensureVkIntegrationSchema(db);
+      levelDecisions = await listLevelDecisionQueue(db);
+    } catch (error) {
+      // The overview must still render if the novice funnel storage is unavailable.
+      console.error('[CRM OVERVIEW] level decision queue failed:', error instanceof Error ? error.message : String(error));
+    }
 
     // Pricing reconciliation belongs to game/payment mutation paths. Keeping this
     // overview route read-only avoids replaying every historical debt calculation
@@ -120,8 +132,8 @@ router.get('/overview', crmReadFreshnessMiddleware, requireOrganizerAuth, async 
         gamesCount,
         completedGamesCount,
       } : null,
-      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants, pendingOnboardingLinks },
-      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length },
+      actionLists: { unansweredInvites: [], unconfirmedRegistered: [], waitlistParticipants: [], newcomersAfterFirst, clubAccessReview, lapsedPlayers, overdueTasks, todayTasks, noDeadlineTasks, unpaidParticipants, pendingOnboardingLinks, levelDecisions },
+      summary: { overdueTasksCount: overdueTasks.length, todayTasksCount: todayTasks.length, noDeadlineTasksCount: noDeadlineTasks.length, newcomersWithoutFollowupCount: newcomersAfterFirst.length, clubAccessReviewCount: clubAccessReview.length, lapsedPlayersCount: lapsedPlayers.length, unpaidParticipantsCount: unpaidParticipants.length, totalUnpaidAmount, pendingOnboardingLinksCount: pendingOnboardingLinks.length, levelDecisionsCount: levelDecisions.length },
     });
   } catch (err: any) {
     console.error('[CRM] Overview database error:', err);

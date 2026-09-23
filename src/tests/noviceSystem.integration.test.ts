@@ -6,6 +6,7 @@ import { generateOrganizerToken, generatePlayerSessionToken } from '../server/au
 import { registerNewPlayer } from '../server/services/playerRegistrationService.ts';
 import { ensureSlotsForEvening, replacePlayerSlotSelection } from '../server/services/eveningSlotPlanningService.ts';
 import { ensureInviteAudienceSchema } from '../db/ensureInviteAudienceSchema.ts';
+import { PRIMARY_ORGANIZER_PLAYER_ID } from '../db/ensureOrganizerPlayerAccessSchema.ts';
 
 const opened: DatabaseWrapper[] = [];
 const makeDb = () => { const db = createDatabaseConnection(':memory:'); opened.push(db); return db; };
@@ -90,6 +91,35 @@ describe('NOVICE-001 funnel', () => {
     const admit = await request(app).post(`/api/novice/players/${racing.id}/admit`).set('Cookie', organizerCookie()).send({ entry_route: 'EXPERIENCED' });
     expect(admit.status).toBe(409);
     expect(await db.get<any>('SELECT club_stage FROM players WHERE id = ?', [racing.id])).toMatchObject({ club_stage: 'NEW' });
+  });
+
+  it('alerts CRM organizers without env configuration and lists level decisions on the Today screen', async () => {
+    vi.stubEnv('ORGANIZER_NOTIFICATION_IDS', '');
+    vi.stubEnv('ORGANIZER_CHAT_ID', '');
+    const db = makeDb();
+    const app = await createApp(db);
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO players (id, telegram_user_id, nickname, source, created_at, updated_at, club_stage)
+       VALUES (?, '5550009', 'Владелец', 'test', ?, ?, 'CLUB_PLAYER')`,
+      [PRIMARY_ORGANIZER_PLAYER_ID, now, now],
+    );
+    // No explicit organizer-access setup: the recipient fallback must initialize it.
+
+    const { player } = await registerNewPlayer(db, { telegramUserId: '791', nickname: 'Без заявки', source: 'telegram_bot_registration' });
+    expect(await db.get<any>('SELECT chat_id FROM telegram_message_outbox WHERE message_key = ?', [`new-player-registered:${player.id}:5550009`]))
+      .toMatchObject({ chat_id: '5550009' });
+
+    const applicant = (await registerNewPlayer(db, { telegramUserId: '792', nickname: 'С заявкой' })).player;
+    await request(app).post('/api/player/novice/applications').set('Cookie', playerCookie(applicant.id)).send({ entry_route: 'NOVICE' });
+
+    const overview = await request(app).get('/api/crm/overview').set('Cookie', organizerCookie());
+    expect(overview.status).toBe(200);
+    expect(overview.body.summary.levelDecisionsCount).toBe(2);
+    expect(overview.body.actionLists.levelDecisions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'registration', player_id: player.id, nickname: 'Без заявки' }),
+      expect.objectContaining({ kind: 'application', player_id: applicant.id, entry_route: 'NOVICE' }),
+    ]));
   });
 
   it('temporarily reserves an evening place for a pending novice application', async () => {

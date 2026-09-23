@@ -697,7 +697,7 @@ const officialSvgFont = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, s
 const formatOfficialDate = (value: string | Date | null | undefined): string => {
   const date = value instanceof Date ? value : value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' });
 };
 
 function officialSvgTextLines(lines: string[], x: number, y: number, lineHeight: number, attrs: string): string {
@@ -1335,7 +1335,7 @@ function generateRankingPublicationSvg(
   const height = rowsStart + rowsHeight + NOIR_EXPORT_LAYOUT.footerHeight + 18;
   const date = tournament.date ? new Date(tournament.date) : null;
   const dateLabel = date && !Number.isNaN(date.getTime())
-    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })
     : null;
   const venue = getUsefulVenue(tournament.venue);
   const meta = [options.metaLead, dateLabel, venue].filter((value): value is string => Boolean(value)).join('   ·   ');

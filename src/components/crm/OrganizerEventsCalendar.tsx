@@ -133,7 +133,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
         <button type="button" aria-label="Предыдущий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronLeft className="h-4 w-4" /></button>
         <div className="text-center">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">Календарь клуба</div>
-          <h2 className="mt-1 text-base font-semibold capitalize text-white">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</h2>
+          <h2 className="mt-1 text-base font-semibold capitalize text-white">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })}</h2>
         </div>
         <button type="button" aria-label="Следующий месяц" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/20 text-white/45 active:bg-white/[0.07] active:text-white"><ChevronRight className="h-4 w-4" /></button>
       </div>
@@ -206,7 +206,7 @@ export const OrganizerEventsCalendar: React.FC<Props> = ({ evenings, onOpenEveni
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-black/20 text-white/55"><CalendarDays className="h-4.5 w-4.5" /></span>
           <span className="min-w-0 flex-1">
             <strong className="block text-[13px] font-semibold text-white">Календарь клуба</strong>
-            <span className="mt-0.5 block text-[11px] capitalize text-white/35">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</span>
+            <span className="mt-0.5 block text-[11px] capitalize text-white/35">{month.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })}</span>
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/45">{mobileExpanded ? 'Свернуть' : 'Месяц'}{mobileExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
         </button>

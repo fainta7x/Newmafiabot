@@ -72,6 +72,7 @@ export function getCanInviteStatus(player: {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        timeZone: 'Europe/Moscow',
       });
       return { canInvite: false, reason: `Временно не приглашать до ${formattedDate}` };
     }

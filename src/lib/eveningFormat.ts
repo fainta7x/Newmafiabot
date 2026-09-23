@@ -26,9 +26,9 @@ export const EVENING_FORMAT_LABELS: Record<EveningFormat, string> = {
  * RATING and TOURNAMENT are the explicitly competitive formats.
  */
 export const EVENING_FORMAT_DESCRIPTIONS: Record<EveningFormat, string> = {
-  NOVICE: 'Обучающий формат. Elo не меняется.',
+  NOVICE: 'Школа мафии: первые два посещения бесплатно, дальше 200 ₽ за игру. Elo не меняется.',
   CASUAL: 'Обычный клубный вечер. Elo считается, но без акцента на жёсткий рейтинг.',
-  RATING: 'Спортивный рейтинговый вечер. Elo считается.',
+  RATING: 'Рейтинговые игры с баллами сезона. Записаться могут только турнирные игроки. Elo считается.',
   TOURNAMENT: 'Турнирный формат с максимальным спортивным акцентом. Elo считается.',
 };
 

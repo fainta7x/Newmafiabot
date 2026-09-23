@@ -132,7 +132,7 @@ export function generateSeatingSvg(tournament: Tournament, matrixRows: SeatingMa
 
   const date = tournament.date ? new Date(tournament.date) : null;
   const dateLabel = date && !Number.isNaN(date.getTime())
-    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })
     : null;
   const meta = [
     '10 игроков × 10 игр',

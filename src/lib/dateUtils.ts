@@ -27,6 +27,7 @@ export function formatEveningDateTime(isoDate: string, timeZone: string = 'Europ
       month: 'short',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Europe/Moscow',
     });
   }
 }

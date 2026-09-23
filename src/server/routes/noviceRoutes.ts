@@ -14,6 +14,15 @@ import {
 } from '../services/noviceService.ts';
 import { CLUB_STAGES, NOVICE_APPLICATION_STATUSES, NOVICE_ENTRY_ROUTES } from '../../shared/novice.ts';
 
+const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000; // Europe/Moscow has no DST since 2014.
+
+/** A Moscow wall-clock time on the evening's Moscow date shifted by `dayShift(weekday)` days. */
+export const moscowWallTime = (base: Date, dayShift: (moscowWeekday: number) => number, hour: number) => {
+  const moscow = new Date(base.getTime() + MOSCOW_OFFSET_MS);
+  const day = moscow.getUTCDate() + dayShift(moscow.getUTCDay());
+  return new Date(Date.UTC(moscow.getUTCFullYear(), moscow.getUTCMonth(), day, hour, 0, 0, 0) - MOSCOW_OFFSET_MS);
+};
+
 const playerRouter = Router();
 const organizerRouter = Router();
 
@@ -101,22 +110,26 @@ organizerRouter.get('/applications', async (req, res) => {
   );
   const summary = await req.db.all<any>('SELECT status, COUNT(*) AS count FROM novice_applications GROUP BY status');
   const nextEvening = await req.db.get<any>(
+    // Everyone who holds a place: players who answered «иду» plus newcomers whose
+    // application for this evening is still waiting or confirmed.
     `SELECT e.id, e.title, e.starts_at, e.status,
-            COUNT(CASE WHEN ep.response_status IN ('going','late') THEN 1 END) AS registered_count
+            (SELECT COUNT(*) FROM (
+               SELECT ep.player_id FROM evening_participants ep
+                WHERE ep.evening_id = e.id AND ep.response_status IN ('going','late') AND ep.player_id IS NOT NULL
+               UNION
+               SELECT na.player_id FROM novice_applications na
+                WHERE na.evening_id = e.id AND na.status IN ('NEW','CONFIRMED') AND na.player_id IS NOT NULL
+            )) AS registered_count
        FROM game_evenings e
-       LEFT JOIN evening_participants ep ON ep.evening_id=e.id
       WHERE UPPER(COALESCE(e.format,''))='NOVICE' AND e.status IN ('draft','published')
         AND datetime(e.starts_at) >= datetime('now')
-      GROUP BY e.id ORDER BY datetime(e.starts_at) ASC LIMIT 1`,
+      ORDER BY datetime(e.starts_at) ASC LIMIT 1`,
   );
   const startsAt = nextEvening?.starts_at ? new Date(nextEvening.starts_at) : null;
-  const thursdayCheckAt = startsAt ? new Date(startsAt.getTime()) : null;
-  if (thursdayCheckAt) {
-    thursdayCheckAt.setDate(thursdayCheckAt.getDate() - ((thursdayCheckAt.getDay() + 3) % 7));
-    thursdayCheckAt.setHours(20, 0, 0, 0);
-  }
-  const fridayDecisionAt = startsAt ? new Date(startsAt.getTime()) : null;
-  if (fridayDecisionAt) fridayDecisionAt.setHours(15, 0, 0, 0);
+  // The club works in Moscow time: group check on the preceding Thursday at 20:00,
+  // decision on the evening's day by 15:00 — whatever the server's time zone is.
+  const thursdayCheckAt = startsAt ? moscowWallTime(startsAt, (weekday) => -((weekday + 3) % 7), 20) : null;
+  const fridayDecisionAt = startsAt ? moscowWallTime(startsAt, () => 0, 15) : null;
   await ensureVkIntegrationSchema(req.db);
   const awaitingPlayers = await listPlayersAwaitingFirstDecision(req.db);
   return res.json({

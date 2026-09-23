@@ -156,7 +156,7 @@ export default function PlayerEventSlotDetail({
                 <div>
                   <div className="text-sm font-semibold">{plan.event.assembled ? 'Стол собран' : 'Стол собирается'}</div>
                   <div className="mt-1 text-[10px] text-white/30">
-                    {price} ₽ за игру{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
+                    {price > 0 ? `${price} ₽ за игру` : 'Для тебя бесплатно'}{maxEveningPrice > 0 ? ` · максимум ${maxEveningPrice} ₽ за вечер` : ''} · нужно 4 собранные игры
                   </div>
                 </div>
                 <div className="rounded-xl bg-black/20 px-3 py-2 text-center"><div className="text-base font-black">{plan.event.assembled_slots}/4</div><div className="text-[8px] text-white/25">игр</div></div>

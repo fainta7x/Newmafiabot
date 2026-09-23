@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { ActivePlayerState, NightSubPhase, Phase } from "./types.js";
 import { VotingRound, determineVotingResult } from "../../shared/tournamentVoting.js";
-import { requestJudgeGameMusicStop, requestJudgeNightMusicStart } from "../JudgeGameMusicController.tsx";
+import { requestJudgeGameMusicStop, requestJudgeNightMusicStart, useJudgeMusicKnownEmpty } from "../JudgeGameMusicController.tsx";
 import type { ZeroNightMusicState } from "./engineStateModel.js";
 import "../crm/liveGameEveningBugfixes.css";
 import {
@@ -172,6 +172,7 @@ export default function CenterPanel(props: CenterPanelProps) {
     onOpenPlayerActions,
   } = props;
 
+  const musicKnownEmpty = useJudgeMusicKnownEmpty();
   const [musicStartedRound, setMusicStartedRound] = React.useState<number | null>(null);
   const [musicStoppedRound, setMusicStoppedRound] = React.useState<number | null>(null);
   const [bestMoveTimeLeft, setBestMoveTimeLeft] = React.useState<number | null>(null);
@@ -676,7 +677,7 @@ export default function CenterPanel(props: CenterPanelProps) {
 
   const baseNextStep = getNextStepInfo();
   const nextStep = (() => {
-    if (phase === 'zero_night' && zeroNightMusicState === 'pending') {
+    if (!musicKnownEmpty && phase === 'zero_night' && zeroNightMusicState === 'pending') {
       return {
         label: '♫ Включить музыку ночи',
         onClick: () => {
@@ -686,7 +687,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
     }
 
-    if (phase === 'zero_night' && zeroNightSubPhase === 'seating' && zeroNightMusicState === 'playing') {
+    if (!musicKnownEmpty && phase === 'zero_night' && zeroNightSubPhase === 'seating' && zeroNightMusicState === 'playing') {
       return {
         label: '♫ Выключить музыку',
         onClick: () => {
@@ -696,7 +697,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
     }
 
-    if (isRegularNightIntro && musicStartedRound !== roundNumber) {
+    if (!musicKnownEmpty && isRegularNightIntro && musicStartedRound !== roundNumber) {
       return {
         label: '♫ Включить музыку ночи',
         onClick: () => {
@@ -707,7 +708,7 @@ export default function CenterPanel(props: CenterPanelProps) {
       };
     }
 
-    if (phase === 'night' && nightSubPhase === 'sheriff' && musicStartedRound === roundNumber && musicStoppedRound !== roundNumber) {
+    if (!musicKnownEmpty && phase === 'night' && nightSubPhase === 'sheriff' && musicStartedRound === roundNumber && musicStoppedRound !== roundNumber) {
       return {
         label: '♫ Выключить музыку',
         onClick: () => {

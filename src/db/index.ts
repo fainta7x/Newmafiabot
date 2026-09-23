@@ -144,6 +144,14 @@ export async function getIsolatedTestDb(): Promise<DatabaseWrapper> {
     isolatedTestDbInstance = createDatabaseConnection(testPath, { isolatedTest: true });
     await ensureIsolatedTestRuntimeSchema(isolatedTestDbInstance);
     await seedDemoData(isolatedTestDbInstance, { isolatedTest: true });
+    // Seeded games are inserted directly, so derive Elo the same way production
+    // does after a save; otherwise the sandbox shows 1000 next to real Elo deltas.
+    try {
+      const { rebuildCanonicalEloRatings } = await import('../server/services/eloRatingService.ts');
+      await rebuildCanonicalEloRatings(isolatedTestDbInstance);
+    } catch (error) {
+      console.warn('[TEST ENV] Elo rebuild skipped:', error instanceof Error ? error.message : error);
+    }
     console.log(`[TEST ENV] Isolated SQLite ready: ${isolatedTestDbInstance.dbPath}`);
   }
   return isolatedTestDbInstance;

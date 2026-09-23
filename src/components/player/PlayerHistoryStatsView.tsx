@@ -207,6 +207,8 @@ export default function PlayerCabinetV2({
   embedded?: boolean;
 }) {
   const { tournaments, games } = data;
+  // Seats for tournament games that have not started yet are not history.
+  const playedGames = games.all.filter((game: any) => game.status !== 'planned');
   const [player, setPlayer] = useState(data.player);
   const [tab, setTab] = useState<PlayerTab>(initialTab);
   const [tokensOpen, setTokensOpen] = useState(false);
@@ -432,7 +434,7 @@ export default function PlayerCabinetV2({
               {gameScope === 'mine' ? (
                 <Section title="Моя история">
                   {eloGamesError && <p className="mb-3 rounded-2xl bg-black/20 px-3 py-3 text-xs text-white/40">{eloGamesError}</p>}
-                  {games.all.length ? <div className="space-y-2">{games.all.map((game: any) => {
+                  {playedGames.length ? <div className="space-y-2">{playedGames.map((game: any) => {
                     const points = [game.judge_bonus ? `судья ${game.judge_bonus > 0 ? '+' : ''}${game.judge_bonus}` : null, game.protocol_bonus ? `бонус ${game.protocol_bonus > 0 ? '+' : ''}${game.protocol_bonus}` : null, game.ci_points ? `CI ${game.ci_points > 0 ? '+' : ''}${game.ci_points}` : null, game.penalty_points ? `штраф ${game.penalty_points}` : null, game.disciplinary_penalty_points ? `дисц. ${game.disciplinary_penalty_points}` : null].filter(Boolean);
                     const eloChange = eloGames?.[game.id];
                     return <button key={game.id} type="button" onClick={() => void openGameDetail(game.id)} className="w-full rounded-2xl bg-black/20 p-3 text-left transition active:bg-white/[0.06]">

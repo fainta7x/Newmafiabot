@@ -12,3 +12,10 @@ It verifies:
 - stored Callback API runtime state is ready.
 
 The same check is available in Organizer CRM → Ещё → Состояние системы → «Проверить VK».
+
+## Public wall post refresh
+
+- New evening posts are published with the community key (`VK_GROUP_ACCESS_TOKEN`).
+- Refreshing an existing post (`wall.edit`) tries the API-compatible organizer token first (`VK_ACCESS_TOKEN` or the CRM «API VK» connection), then the community key. VK ID login tokens are never used for API calls: VK rejects them (error 1051).
+- If every credential fails, the CRM VK card shows the exact VK answer per credential. `VK API 27` for the community key means an API-compatible organizer token must be connected.
+- The background refresh edits a post only when the announcement text changed (`vk_evening_publications.last_message_hash`).

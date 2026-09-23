@@ -30,9 +30,16 @@ const DEFAULT_PUBLIC_URL = 'https://vk.ru/2lanoiremafia';
 const DEFAULT_CHANNEL_URL = 'https://vk.ru/im/channels/-233806277';
 
 let runtimeVkUserToken = '';
+let runtimeVkUserTokenApiCompatible = true;
 
-export const setVkRuntimeUserToken = (value: unknown) => {
+/**
+ * VK ID login tokens (id.vk.com) are rejected by classic API methods such as
+ * wall.edit (VK API 1051), so only API-compatible organizer tokens may be used
+ * for API calls. The OAuth service marks VK ID-only credentials accordingly.
+ */
+export const setVkRuntimeUserToken = (value: unknown, options: { apiCompatible?: boolean } = {}) => {
   runtimeVkUserToken = String(value || '').trim();
+  runtimeVkUserTokenApiCompatible = options.apiCompatible !== false;
 };
 
 const normalizeGroupId = (value: unknown): string | null => {
@@ -51,7 +58,8 @@ const normalizeUrl = (value: unknown): string | null => {
   return normalized || null;
 };
 
-const getVkToken = () => runtimeVkUserToken || String(process.env.VK_ACCESS_TOKEN || '').trim();
+const getVkToken = () => (runtimeVkUserTokenApiCompatible ? runtimeVkUserToken : '')
+  || String(process.env.VK_ACCESS_TOKEN || '').trim();
 const getVkGroupToken = () => String(process.env.VK_GROUP_ACCESS_TOKEN || '').trim();
 const getVkLegacyUserToken = () => getVkToken();
 const getVkPublisherToken = () => getVkGroupToken() || String(process.env.VK_ACCESS_TOKEN || '').trim();
@@ -73,6 +81,22 @@ const getChannelPeerId = () => {
 
 export const hasVkPublisherToken = () => Boolean(getVkPublisherToken());
 export const canEditVkWallPosts = () => Boolean(getVkLegacyUserToken());
+
+export type VkWallEditCredential = { source: 'user' | 'community'; token: string };
+
+/**
+ * Credentials that may edit a community wall post, in preference order. VK
+ * documents wall.edit for user tokens; the community key is still tried last
+ * so installations where VK accepts it keep working.
+ */
+export const getVkWallEditCredentials = (): VkWallEditCredential[] => {
+  const credentials: VkWallEditCredential[] = [];
+  const userToken = getVkLegacyUserToken();
+  const communityToken = getVkGroupToken();
+  if (userToken) credentials.push({ source: 'user', token: userToken });
+  if (communityToken && communityToken !== userToken) credentials.push({ source: 'community', token: communityToken });
+  return credentials;
+};
 
 export const getVkDestinations = (): VkDestination[] => {
   const publicGroupId = getPublicGroupId();
@@ -142,11 +166,9 @@ export function getVkIntegrationStatus() {
     group_token_configured: Boolean(groupToken),
     publisher_token_configured: Boolean(publisherToken),
     publisher_token_source: groupToken ? 'community' : publisherToken ? 'legacy_user' : null,
-    // Direct evening publishing edits public posts through the same publisher
-    // credential path used for wall.post. A community publisher token is therefore
-    // sufficient for the current wall.edit flow even though the retired legacy
-    // editVkWallPost adapter still reports user-token-only capability.
-    public_post_edit_supported: Boolean(getVkLegacyUserToken() && !groupToken && publicDestination?.groupId),
+    // wall.edit needs an API-compatible user token; the community key can
+    // publish new posts but VK answers wall.edit with error 27 for it.
+    public_post_edit_supported: Boolean(getVkLegacyUserToken() && publicDestination?.groupId),
     group_id: publicDestination?.groupId || null,
     public_url: publicDestination?.configuredUrl || null,
     channel_peer_id: supportedChannel?.groupId || null,
@@ -160,7 +182,7 @@ export function getVkIntegrationStatus() {
   };
 }
 
-const callVkApi = async <T>(token: string, method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
+export const callVkApi = async <T>(token: string, method: string, params: Record<string, string | number | boolean | null | undefined>): Promise<T> => {
   if (!token) throw new Error('VK access token is not configured');
 
   const body = new URLSearchParams();

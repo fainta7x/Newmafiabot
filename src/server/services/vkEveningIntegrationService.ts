@@ -553,7 +553,9 @@ export async function getVkEveningIntegrationState(db: DatabaseWrapper, eveningI
     const recoverablePublisherError = obsoleteVkIdPublisherError || communityEditError;
     const effectivelyPublished = Boolean(publication?.post_id)
       && (publication?.status === 'published' || recoverablePublisherError);
-    const visibleError = !destination.supported || recoverablePublisherError ? null : (publication?.last_error || null);
+    // A failed refresh of an existing post must stay visible: the post exists,
+    // but its text is stale until the edit credential is fixed.
+    const visibleError = !destination.supported || obsoleteVkIdPublisherError ? null : (publication?.last_error || null);
     return {
       key: destination.key,
       name: destination.name,

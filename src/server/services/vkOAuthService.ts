@@ -131,7 +131,7 @@ const saveCredential = async (db: DatabaseWrapper, payload: VkTokenPayload, devi
       updated_at=excluded.updated_at
   `, [OAUTH_CREDENTIAL_KEY, accessToken, refreshToken, deviceId, userId, scope, expiresAt, updatedAt]);
 
-  setVkRuntimeUserToken(accessToken);
+  setVkRuntimeUserToken(accessToken, { apiCompatible: deviceId === LEGACY_DEVICE_ID });
   return { user_id: userId, scope, expires_at: expiresAt, api_compatible: deviceId === LEGACY_DEVICE_ID };
 };
 
@@ -269,9 +269,9 @@ export async function hydrateVkOAuthAccessToken(db: DatabaseWrapper): Promise<bo
   const credential = await loadCredential(db);
   if (!credential?.access_token) { setVkRuntimeUserToken(''); return false; }
   const expiresAt = credential.expires_at ? new Date(credential.expires_at).getTime() : Number.POSITIVE_INFINITY;
-  if (expiresAt > Date.now() + REFRESH_EARLY_MS) { setVkRuntimeUserToken(credential.access_token); return true; }
+  if (expiresAt > Date.now() + REFRESH_EARLY_MS) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: credential.device_id === LEGACY_DEVICE_ID }); return true; }
   try { if (await refreshCredential(db, credential)) return true; } catch (error) { console.error('[VK OAUTH] token refresh failed:', error); }
-  if (expiresAt > Date.now()) { setVkRuntimeUserToken(credential.access_token); return true; }
+  if (expiresAt > Date.now()) { setVkRuntimeUserToken(credential.access_token, { apiCompatible: credential.device_id === LEGACY_DEVICE_ID }); return true; }
   setVkRuntimeUserToken('');
   return false;
 }

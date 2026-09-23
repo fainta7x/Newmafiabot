@@ -50,7 +50,7 @@ describe('VK publishing adapter', () => {
 
   it('uses the community token for public publishing instead of the VK ID login token', async () => {
     process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
-    setVkRuntimeUserToken('vk2.authentication-only');
+    setVkRuntimeUserToken('vk2.authentication-only', { apiCompatible: false });
     expect(getVkIntegrationStatus()).toMatchObject({
       configured: true,
       publisher_token_source: 'community',
@@ -196,6 +196,40 @@ describe('VK publishing adapter', () => {
     expect(body.get('access_token')).toBe('user-token');
     expect(body.get('owner_id')).toBe('-212761164');
     expect(body.get('post_id')).toBe('77');
+  });
+
+  it('edits a published post only when its announcement text changes', async () => {
+    process.env.VK_ACCESS_TOKEN = 'user-token';
+    process.env.VK_GROUP_ACCESS_TOKEN = 'community-token';
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => new Response(JSON.stringify({
+      response: String(url).endsWith('wall.post') ? { post_id: 91 } : 1,
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const db = createDatabaseConnection(':memory:');
+    await ensureVkIntegrationSchema(db);
+    const now = new Date().toISOString();
+    await db.run(`
+      INSERT INTO game_evenings (
+        id, title, starts_at, format, status, default_price, created_at, updated_at
+      ) VALUES ('evening-stable', 'Игровой вечер', ?, 'CASUAL', 'published', 100, ?, ?)
+    `, [now, now, now]);
+
+    await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(['https://api.vk.com/method/wall.post']);
+
+    await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await db.run(`UPDATE game_evenings SET title='Игровой вечер · новый зал' WHERE id='evening-stable'`);
+    await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toBe('https://api.vk.com/method/wall.edit');
+
+    // Same text but the stored post belongs to another community: do not trust the cache.
+    await db.run(`UPDATE vk_evening_publications SET group_id='999' WHERE evening_id='evening-stable'`);
+    await syncDirectVkEveningPublications(db, 'evening-stable', 'https://example.test');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('creates the missing VK publication and refreshes it inside the upcoming window', async () => {

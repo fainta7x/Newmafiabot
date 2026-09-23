@@ -17,7 +17,6 @@ import {
   Palette,
   Send,
   Settings2,
-  Trophy,
   Sprout,
 } from 'lucide-react';
 import { BettingAdminCRM } from './BettingAdminCRM.tsx';
@@ -27,7 +26,6 @@ import { DeveloperTestModeCRM } from './DeveloperTestModeCRM.tsx';
 import { TelegramCRM } from './TelegramCRM.tsx';
 import { SystemStatusCard } from './SystemStatusCard.tsx';
 import { MusicLibraryCRM } from './MusicLibraryCRM.tsx';
-import { TournamentEveningCRM } from './TournamentEveningCRM.tsx';
 import type { GameEvening } from '../../lib/api.ts';
 import type { OrganizerMoreScreen } from './organizerRouting.ts';
 import NoviceDevelopmentCRM from './NoviceDevelopmentCRM.tsx';
@@ -89,7 +87,7 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
       {subscreen === 'system' ? <SystemStatusCard /> : null}
       {subscreen === 'developer' ? <DeveloperTestModeCRM /> : null}
       {subscreen === 'music' ? <MusicLibraryCRM evenings={evenings || []} onOpenLibrary={onOpenPlayerMusic} /> : null}
-      {subscreen === 'tournaments' ? <TournamentEveningCRM /> : null}
+      {subscreen === 'tournaments' ? <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">Турнирные вечера теперь в «События → Турниры»: запись, резерв, взносы и публикация — в карточке турнира.</p> : null}
       {subscreen === 'development' ? <NoviceDevelopmentCRM /> : null}
     </div>;
   }
@@ -97,7 +95,6 @@ export const MoreCRM: React.FC<MoreCRMProps> = ({ onOpenTasks, onOpenAnalytics, 
   const dailyItems: MenuItem[] = [
     { id: 'tasks', label: 'Задачи', detail: 'Что нужно сделать и кому написать', icon: ClipboardList, onClick: onOpenTasks },
     { id: 'development', label: 'Развитие', detail: 'Первые заявки, новичковый этап и перевод в клуб', icon: Sprout, onClick: () => setSubscreen('development') },
-    { id: 'tournaments', label: 'Турнирные вечера', detail: 'Запись 10 игроков, резерв, взносы и публикация', icon: Trophy, onClick: () => setSubscreen('tournaments') },
     { id: 'music', label: 'Музыкальная база', detail: 'База ведущего и плейлист вечера', icon: Music2, onClick: () => setSubscreen('music') },
     ...(onOpenGameEngine ? [{ id: 'game', label: 'Игровой движок', detail: 'Проведение клубных игр', icon: Gamepad2, onClick: onOpenGameEngine }] : []),
   ];

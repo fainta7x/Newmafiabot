@@ -226,6 +226,7 @@ Read `docs/BUSINESS_RULES.md` before changing game behavior.
 `TOURNAMENT-EVENING-001` is an additive front door into the existing tournament domain, not a second tournament engine.
 
 - Organizer setup/share: `src/components/crm/tournaments/CreateTournamentEveningModal.tsx`, `TournamentEveningSettingsPanel.tsx`.
+- Single organizer entry: CRM «События → Турниры» (`TournamentsList.tsx` → `TournamentDetailView.tsx` with `TournamentEveningSettingsPanel` + `TournamentParticipantsPanel`). The former «Ещё → Турнирные вечера» screen was a duplicate and is removed.
 - Organizer roster/payment queue: `src/components/crm/tournaments/TournamentParticipantsPanel.tsx`.
 - Player detail: `src/components/player/PlayerTournamentEveningDetail.tsx`; calendar integration: `PlayerEventsCalendar.tsx` + `src/server/routes/playerEventCalendarRoutes.ts`.
 - API: `src/server/routes/tournamentEveningRoutes.ts`.

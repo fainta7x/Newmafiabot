@@ -13,9 +13,9 @@ It verifies:
 
 The same check is available in Organizer CRM → Ещё → Состояние системы → «Проверить VK».
 
-## Public wall post refresh
+## Public wall post (static by design)
 
-- New evening posts are published with the community key (`VK_GROUP_ACCESS_TOKEN`).
-- Refreshing an existing post (`wall.edit`) tries the API-compatible organizer token first (`VK_ACCESS_TOKEN` or the CRM «API VK» connection), then the community key. VK ID login tokens are never used for API calls: VK rejects them (error 1051).
-- If every credential fails, the CRM VK card shows the exact VK answer per credential. `VK API 27` for the community key means an API-compatible organizer token must be connected.
-- The background refresh edits a post only when the announcement text changed (`vk_evening_publications.last_message_hash`).
+- Evening posts are published with the community key (`VK_GROUP_ACCESS_TOKEN`).
+- VK rejects `wall.edit`, `wall.delete`, `wall.pin` and comment edits for community keys (error 27, verified against production on 2026-09-23). The post is therefore static: date, venue, price and a link to the public evening page `/join/<id>`, which shows live per-game counts and nicknames without login plus VK ID sign-up and a cabinet login button.
+- A post is edited only when an API-compatible organizer token exists (`VK_ACCESS_TOKEN` or the classic «API VK» connection) and the text changed (`vk_evening_publications.last_message_hash`). Without that token the edit is skipped silently, with no CRM error. VK ID login tokens are never used for API calls (error 1051).
+- VK community channels are not reachable through the public API: the channel shows as a `DELETED` group, it is absent from community conversations, and `messages.send` answers error 901. Keep `VK_CHANNEL_API_PEER_ID` unset; the CRM «В канал» button copies the announcement for manual posting.

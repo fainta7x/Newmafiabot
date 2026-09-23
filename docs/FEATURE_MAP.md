@@ -148,6 +148,7 @@ When music behaves incorrectly, trace `library/pool selection -> controller stat
 - Auth/session/overview/evening/player refresh: `src/components/crm/useOrganizerCrmSession.ts`.
 - UI: `CRMOverview.tsx`, `EveningsList.tsx`, `EveningWorkspace.tsx`, `PlayersCRM.tsx`, `TasksCRM.tsx`, `AnalyticsCRM.tsx`, `MoreCRM.tsx`.
 - API: `crmRoutes.ts`, `tasksRoutes.ts`, `analyticsRoutes.ts`, `adminDataRoutes.ts`.
+- Anonymous app-usage tracking (screens opened, buttons pressed; no player ids or text): client `src/lib/uiTelemetry.ts` (installed in `main.tsx`; actions come only from `data-track`/`data-testid`), API `uiUsageRoutes.ts` (`POST /api/ui-events`, `GET /api/ui-events/summary`), storage `uiUsageService.ts` (`ui_usage_events`, 180-day retention), CRM view `AppUsagePanel.tsx` in Аналитика.
 
 Broad CRM UX redesign is currently deferred. Old PR #174 is historical context, not authoritative backlog; compare any proposed piece with current `main` first.
 

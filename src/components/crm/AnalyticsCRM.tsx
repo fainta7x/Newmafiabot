@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, Calendar, CheckCircle2, CircleDollarSign, Send, TrendingUp, Users } from 'lucide-react';
 import { api, type AnalyticsData } from '../../lib/api.ts';
+import { AppUsagePanel } from './AppUsagePanel.tsx';
 
 type AnalyticsViewData = AnalyticsData & {
   playerJourney?: {
@@ -142,6 +143,8 @@ export const AnalyticsCRM: React.FC<AnalyticsCRMProps> = () => {
           {Object.entries(data.sourceBreakdown || {}).map(([src, count]) => <div key={src} className="rounded-[11px] bg-surface-2 p-3"><span className="block truncate text-[9px] font-bold uppercase text-text-muted">{src}</span><strong className="mt-1 block text-[16px]">{count} чел.</strong></div>)}
         </div>
       </section>
+
+      <AppUsagePanel period={period} />
     </div>
   );
 };

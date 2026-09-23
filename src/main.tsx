@@ -8,6 +8,7 @@ import AppErrorBoundary from "./components/ui/AppErrorBoundary.tsx";
 import TestEnvironmentGate from "./components/TestEnvironmentGate.tsx";
 import { initializeCrmPrimaryTitleOwnership } from "./lib/crmPrimaryTitleOwnership.ts";
 import { initializeTelegramWebAppViewport } from "./lib/telegramWebAppViewport.ts";
+import { installUiTelemetry } from "./lib/uiTelemetry.ts";
 import "./index.css";
 import "./styles/design-system.css";
 import "./styles/telegram-viewport.css";
@@ -25,6 +26,7 @@ import "./components/public/liveBroadcastCompact.css";
 
 initializeTelegramWebAppViewport();
 initializeCrmPrimaryTitleOwnership();
+installUiTelemetry();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

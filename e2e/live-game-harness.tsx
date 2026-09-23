@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import JudgeGameMusicController from '../src/components/JudgeGameMusicController.tsx';
 import LiveGameEngine from '../src/components/LiveGameEngine.tsx';
 import { EveningDeathProtocolBridge } from '../src/components/crm/EveningDeathProtocolOverlay.tsx';
-import { EveningLiveDisciplineGlyphBridge } from '../src/components/crm/EveningLiveDisciplineGlyphBridge.tsx';
 import JudgeTestGameModal from '../src/components/player/JudgeTestGameModal.tsx';
 import AppErrorBoundary from '../src/components/ui/AppErrorBoundary.tsx';
 import { createInitialGameDiscipline } from '../src/lib/gameDiscipline.ts';
@@ -146,7 +145,6 @@ function Harness() {
       )}
       <JudgeGameMusicController />
       <EveningDeathProtocolBridge />
-      <EveningLiveDisciplineGlyphBridge />
     </AppErrorBoundary>
   );
 }

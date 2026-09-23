@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { countGames } from '../../lib/russianPlural';
 
+const POLL_MS = 20_000;
+
 type CloseoutSummary = { games: { total: number; completed: number; unfinished: unknown[] } };
 
 /**
@@ -15,11 +17,25 @@ export const EveningNextStepBanner: React.FC<{ eveningId: string; status: string
     setSummary(null);
     if (status !== 'active') return;
     let cancelled = false;
-    fetch(`/api/evenings/${encodeURIComponent(eveningId)}/closeout`, { credentials: 'same-origin' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => { if (!cancelled && body?.games) setSummary(body as CloseoutSummary); })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
+    const load = () => {
+      fetch(`/api/evenings/${encodeURIComponent(eveningId)}/closeout`, { credentials: 'same-origin' })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body) => { if (!cancelled && body?.games) setSummary(body as CloseoutSummary); })
+        .catch(() => undefined);
+    };
+    load();
+    // Games finish in the Live Game screen, outside this component: re-check
+    // periodically and whenever the organizer comes back to the tab.
+    const timer = window.setInterval(load, POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
   }, [eveningId, status, refreshKey]);
 
   if (status !== 'active' || !summary || summary.games.total === 0 || summary.games.unfinished.length > 0) return null;

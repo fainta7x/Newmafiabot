@@ -4,6 +4,7 @@ import PremiumProfileConnections from './PremiumProfileConnections.tsx';
 import PremiumProfileShowcase from './PremiumProfileShowcase.tsx';
 import SmartFriendInviteSuggestions from './SmartFriendInviteSuggestions.tsx';
 import { PlayerProfileCompletionCard } from './PlayerProfileCompleteness.tsx';
+import { ROLE_LABELS, type TournamentRole } from '../../lib/tournamentRoleValidation.ts';
 
 type Tab = 'overview' | 'games' | 'roles' | 'elo' | 'awards' | 'history' | 'connections';
 type Period = { starts_at?: string; ends_at?: string; title?: string };
@@ -17,6 +18,7 @@ const json = async (url:string, signal?:AbortSignal) => {
   if(!r.ok) throw new Error(b.error||'Ошибка загрузки');
   return b;
 };
+const roleLabel = (role:any) => ROLE_LABELS[String(role||'') as TournamentRole] || null;
 const fmt = (v:any) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleDateString('ru-RU') : '—';
 const deltaText = (value: unknown) => {
   const delta=Number(value);
@@ -31,6 +33,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [avatarBroken,setAvatarBroken]=useState(false);
   const [settings,setSettings]=useState(false);
   const [period,setPeriod]=useState<'all'|'season'|'custom'>('all');
   const [activePeriod,setActivePeriod]=useState<Period|null>(null);
@@ -141,7 +144,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
 
   return <div ref={scrollRef} className="h-full min-h-0 overflow-y-auto bg-[#090a0d] text-white" data-testid="canonical-premium-profile">
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#090a0d]/95 px-4 py-3 backdrop-blur" style={{paddingTop:'max(12px,var(--tg-content-safe-area-top))',paddingLeft:'max(16px,var(--tg-content-safe-area-left))',paddingRight:'max(16px,var(--tg-content-safe-area-right))'}}>
-      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}<img src={p.avatar_url||`/api/player/players/${playerId}/avatar`} alt="" className="h-12 w-12 rounded-full object-cover"/><div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
+      <div className="flex items-center gap-3">{onClose&&<button onClick={onClose} className="rounded-xl border border-white/10 px-3 py-2" aria-label="Назад">←</button>}{p.avatar_url&&!avatarBroken?<img src={p.avatar_url} alt="" onError={()=>setAvatarBroken(true)} className="h-12 w-12 shrink-0 rounded-full object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white/70" aria-hidden="true">{String(p.nickname||'?').slice(0,1).toUpperCase()}</div>}<div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{p.nickname||'Профиль игрока'}</h1>{p.full_name&&<div className="truncate text-xs text-white/55">{p.full_name}</div>}{birthdayText&&<div className="text-[11px] text-white/40">День рождения: {birthdayText}</div>}</div>{isSelf&&<button onClick={()=>setSettings(v=>!v)} className="rounded-xl bg-white/10 px-3 py-2 text-xs">{settings?'Готово':'Редактировать'}</button>}</div>
     </header>
     {!settings&&<nav data-profile-sticky-tabs className="profile-sticky-tabs sticky z-10 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#090a0d]/96 px-3 py-2" aria-label="Разделы профиля">{TABS.map(([k,l])=><button key={k} onClick={()=>switchTab(k)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${tab===k?'bg-white text-black':'bg-white/8 text-white/70'}`}>{l}</button>)}</nav>}
     <main className="mx-auto max-w-3xl space-y-4 p-4 pb-[calc(var(--app-content-bottom)+24px)]">
@@ -149,7 +152,7 @@ export default function CanonicalPremiumPlayerProfile({playerId,mode='public',se
       {!settings&&tab==='overview'&&<>
         {isSelf&&<PlayerProfileCompletionCard/>}
         <section className="grid grid-cols-3 gap-2">{[['Игры',stats.games??stats.completed_games??'—'],['Победы',stats.wins??'—'],['Elo',p.elo??stats.elo??'—']].map(([l,v])=><div key={String(l)} className="rounded-2xl border border-white/10 bg-white/[.04] p-3"><div className="text-lg font-semibold">{v}</div><div className="text-[11px] text-white/50">{l}</div></div>)}</section>
-        {(summary?.recent_games||[]).length>0&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">Последние игры</h2><div className="mt-3 space-y-2">{summary.recent_games.slice(0,4).map((g:any)=><div key={g.id||g.game_id} className="flex justify-between text-sm"><span>{g.role||g.team||'Игра'}</span><span className="text-white/50">{fmt(g.played_at||g.date)}</span></div>)}</div></section>}
+        {(summary?.recent_games||[]).length>0&&<section className="rounded-2xl border border-white/10 p-4"><h2 className="font-semibold">Последние игры</h2><div className="mt-3 space-y-2">{summary.recent_games.slice(0,4).map((g:any)=><div key={g.id||g.game_id} className="flex justify-between gap-3 text-sm"><span className="min-w-0">{[g.title||'Игра',roleLabel(g.role),g.won===true?'победа':g.won===false?'поражение':null].filter(Boolean).join(' · ')}</span><span className="shrink-0 text-white/50">{fmt(g.played_at||g.date)}</span></div>)}</div></section>}
         <button onClick={()=>switchTab('connections')} className="w-full rounded-2xl border border-white/10 bg-white/[.04] p-4 text-left"><div className="font-semibold">Связи и приглашения</div><div className="mt-1 text-xs text-white/55">С кем чаще играешь, кто ещё не записался и кого можно позвать.</div></button>
       </>}
       {!settings&&tab==='games'&&<>

@@ -69,7 +69,7 @@ export default function PlayerQuickAccessBar({
             ) : (
               <span className="text-sm font-semibold text-white/75">{player.nickname.slice(0, 1).toUpperCase()}</span>
             )}
-            <span className="pointer-events-none absolute bottom-0 inset-x-0 bg-black/55 py-0.5 text-center text-[9px] font-semibold leading-none text-white/80" aria-hidden="true">Профиль</span>
+            <span className="pointer-events-none absolute bottom-0 inset-x-0 bg-black/55 py-0.5 text-center text-[8px] font-semibold leading-none tracking-[-0.02em] text-white/80" aria-hidden="true">Профиль</span>
           </button>
         </div>
       </div>
